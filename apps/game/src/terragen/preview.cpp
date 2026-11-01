@@ -35,7 +35,7 @@ Preview preview(const World &world, std::optional<fix> date, int32_t resolution)
 		fix v = ratio(2 * y + 1, 2 * resolution); // cell centres
 		for (int32_t x = 0; x < resolution; x++) {
 			// the picture is equirectangular; what it shows is the place there
-			const Dir at = World::place(ratio(x, resolution), v);
+			const Place at = World::place(ratio(x, resolution), v);
 			Column c = world.column(at, world.sunlight(at, date));
 			size_t i = (size_t)y * resolution + x;
 			const int32_t cell = world.cell(at);

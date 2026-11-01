@@ -108,7 +108,6 @@ Json::Value Baked::write(const Content &content, const Palette &palette,
 	Json::Value blocks(Json::objectValue);
 	blocks["stone"] = name(b.stone);
 	blocks["water"] = name(b.water);
-	blocks["ice"] = name(b.ice);
 	blocks["lava"] = name(b.lava);
 	blocks["placer"] = name(b.placer);
 	blocks["soil"] = name(b.soil);
@@ -232,7 +231,6 @@ Baked Baked::read(const Json::Value &json)
 	terra::Blocks &b = out.content.blocks;
 	b.stone = ids.of(text(blocks, "stone"));
 	b.water = ids.of(text(blocks, "water"));
-	b.ice = ids.of(text(blocks, "ice"));
 	b.lava = ids.of(text(blocks, "lava"));
 	b.placer = ids.of(text(blocks, "placer"));
 	b.soil = ids.of(text(blocks, "soil"));

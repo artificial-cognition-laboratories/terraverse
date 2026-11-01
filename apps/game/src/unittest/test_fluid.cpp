@@ -218,14 +218,14 @@ void TestFluid::testSaveAndDeterminism()
 
 void TestFluid::testTerraWeather()
 {
-	terragen::World world(terragen::WorldCode::decode("TF6.dGVycmE"));
+	terragen::World world(terragen::WorldCode::decode("TF7.dGVycmE"));
 	std::string path = fs::TempPath() + DIR_DELIM "tf_weather_test.bin";
 	fs::DeleteSingleFileOrEmptyDirectory(path);
 	double day = 86400, now = weather::clock(3, 0.5);
 	auto w = weather::Weather::open({ world, table(), path }, now);
 	UASSERT(w->now() <= now && w->now() > now - 3 * 3600);
 	// on the equator at longitude 0, near the ground and 3 km up
-	const terragen::Dir at = terragen::World::place(terragen::HALF, terragen::HALF);
+	const terragen::Place at = terragen::World::place(terragen::HALF, terragen::HALF);
 	fluid::Sample s = w->sample(at, 1, now), up = w->sample(at, 120, now);
 	// the weather swings about terragen's climate, which anchors it
 	double climate = world.temperature(at, 0, terragen::ratio(3, 8)) / 65536.0 + 273.15;
@@ -239,7 +239,7 @@ void TestFluid::testTerraWeather()
 	again->advance(now + 2.5 * day);
 	UASSERT(w->layer().save() == again->layer().save());
 	// another world's file is refused
-	terragen::World other(terragen::WorldCode::decode("TF6.YWJj"));
+	terragen::World other(terragen::WorldCode::decode("TF7.YWJj"));
 	EXCEPTION_CHECK(FluidError, weather::Weather::open({ other, table(), path }, now));
 	fs::DeleteSingleFileOrEmptyDirectory(path);
 

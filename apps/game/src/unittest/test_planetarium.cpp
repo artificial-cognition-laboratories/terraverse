@@ -188,7 +188,7 @@ void TestPlanetarium::testCentreIsAhead()
 // And its cost per vertex, for the tile budget.
 void TestPlanetarium::testOverlaySharpUpClose()
 {
-	const auto world = std::make_shared<const terragen::World>(terragen::WorldCode::decode("TF6.dGVycmE"));
+	const auto world = std::make_shared<const terragen::World>(terragen::WorldCode::decode("TF7.dGVycmE"));
 	planetarium::Painter painter({ world, planetarium::Overlay::Elevation, nullptr, std::nullopt, std::nullopt, 0 });
 	const video::SColor land(255, 200, 200, 200);
 	// a few places, the best of them: one may lie on an even slope or a
@@ -223,14 +223,14 @@ void TestPlanetarium::testOverlaySharpUpClose()
 // water overlays; the climate ones paint over it.
 void TestPlanetarium::testOverlayKeepsWater()
 {
-	const auto world = std::make_shared<const terragen::World>(terragen::WorldCode::decode("TF6.dGVycmE"));
+	const auto world = std::make_shared<const terragen::World>(terragen::WorldCode::decode("TF7.dGVycmE"));
 	const video::SColor river(0, 40, 120, 215);
 	// a place on land
 	for (int i = 0; i < 4096; i++) {
 		const double lon = 2 * M_PI * i / 4096, lat = 0.4 * std::sin(i * 0.11);
 		const far::Tiling::Vec at{ std::cos(lat) * std::cos(lon), std::sin(lat), std::cos(lat) * std::sin(lon) };
 		const terragen::fix u = (terragen::fix)((lon / (2 * M_PI) + 0.5) * terragen::ONE), v = (terragen::fix)((0.5 - lat / M_PI) * terragen::ONE);
-		const terragen::Dir place = terragen::World::place(u, v);
+		const terragen::Place place = terragen::World::place(u, v);
 		if (world->column(place, world->sunlight(place, std::nullopt)).elevation <= terragen::ONE / 20)
 			continue;
 		planetarium::Painter biomes({ world, planetarium::Overlay::Biomes, nullptr, std::nullopt, std::nullopt, 0 });

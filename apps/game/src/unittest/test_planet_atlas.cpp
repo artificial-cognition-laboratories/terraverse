@@ -241,15 +241,15 @@ void TestPlanetAtlas::testPlaceIsTheCell()
 			const Atlas::Cell c(Atlas::HOME, a.body(planet::Atlas::HOME).locate(randomPoint(a.body(planet::Atlas::HOME), rng)));
 			if (c.region == Kind::Core)
 				continue;
-			const std::optional<terragen::Dir> at = a.place(a.node(c));
+			const std::optional<terragen::Place> at = a.place(a.node(c));
 			UASSERT(at.has_value());
 			const terragen::Atlas::Vec m = a.body(planet::Atlas::HOME).centre({ c.region, c.index, c.i, c.j, 0 });
 			const double R = std::sqrt(m.x * m.x + m.y * m.y + m.z * m.z);
-			// to the world model's fixed point: a couple of its units either way
-			const double unit = 2.0 / terragen::ONE;
-			UASSERT(std::abs(at->x / (double)terragen::ONE - m.x / R) < unit);
-			UASSERT(std::abs(at->y / (double)terragen::ONE - m.y / R) < unit);
-			UASSERT(std::abs(at->z / (double)terragen::ONE - m.z / R) < unit);
+			// to a hundredth of a block (it's made to 1/1024 of one)
+			const double one = (double)terragen::PLACE_ONE, close = 0.01 / R;
+			UASSERT(std::abs(at->x / one - m.x / R) < close);
+			UASSERT(std::abs(at->y / one - m.y / R) < close);
+			UASSERT(std::abs(at->z / one - m.z / R) < close);
 		}
 	}
 }

@@ -120,7 +120,7 @@ static Calendar today(Server *server, const World &w)
 // A position's place on its body: the direction of the column it stands in
 // (in the core too, and above the sky, the column under it). None for seam
 // between tiles: no place.
-static std::optional<Dir> placeOf(Server *server, const v3f &pos)
+static std::optional<Place> placeOf(Server *server, const v3f &pos)
 {
 	const planet::Atlas &atlas = atlasOf(server);
 	// above the sky too: the column under it (Atlas::charted)
@@ -134,9 +134,9 @@ static std::optional<Dir> placeOf(Server *server, const v3f &pos)
 }
 
 // The same where there must be one (a player, a sky): seam is an error.
-static Dir placeAt(Server *server, const v3f &pos)
+static Place placeAt(Server *server, const v3f &pos)
 {
-	if (const std::optional<Dir> d = placeOf(server, pos))
+	if (const std::optional<Place> d = placeOf(server, pos))
 		return *d;
 	throw LuaError("core.terra: the position is seam: on no column of the planet");
 }
@@ -151,14 +151,14 @@ int ModApiTerra::l_enabled(lua_State *L)
 }
 
 // core.terra.world() → { code, size, tilt, year_days, star, boundary }:
-// boundary, the height above the sea where space begins (terragen::Map::BOUNDARY)
+// boundary, the height above the sea where space begins (terragen::SPACE_BOUNDARY)
 int ModApiTerra::l_world(lua_State *L)
 {
 	NO_MAP_LOCK_REQUIRED;
 	const WorldCode &c = world(getServer(L)).code();
 	lua_createtable(L, 0, 8);
 	setstringfield(L, -1, "code", c.text);
-	setNumber(L, "boundary", terragen::Map::BOUNDARY);
+	setNumber(L, "boundary", terragen::SPACE_BOUNDARY);
 	setintfield(L, -1, "size", c.size);
 	setNumber(L, "tilt", toDouble(c.tilt));
 	setintfield(L, -1, "year_days", c.year);
@@ -188,7 +188,7 @@ int ModApiTerra::l_sun(lua_State *L)
 	NO_MAP_LOCK_REQUIRED;
 	const v3f pos = check_v3f(L, 1);
 	const World &w = worldAt(getServer(L), pos);
-	fix latitude = latitudeOf(placeAt(getServer(L), pos));
+	fix latitude = latitudeOf(placeAt(getServer(L), pos).dir());
 	Calendar c = today(getServer(L), w);
 	fix decl = declination(w.code().tilt, c.date);
 	lua_createtable(L, 0, 5);
@@ -208,7 +208,7 @@ int ModApiTerra::l_climate(lua_State *L)
 	NO_MAP_LOCK_REQUIRED;
 	const v3f pos = check_v3f(L, 1);
 	const World &w = worldAt(getServer(L), pos);
-	const Dir at = placeAt(getServer(L), pos);
+	const Place at = placeAt(getServer(L), pos);
 	Calendar c = today(getServer(L), w);
 	Column column = w.column(at, w.sunlight(at, c.date));
 	lua_createtable(L, 0, 6);
@@ -230,7 +230,7 @@ int ModApiTerra::l_geology(lua_State *L)
 	NO_MAP_LOCK_REQUIRED;
 	const v3f pos = check_v3f(L, 1);
 	const World &w = worldAt(getServer(L), pos);
-	const Dir at = placeAt(getServer(L), pos);
+	const Place at = placeAt(getServer(L), pos);
 	const int32_t y = (int32_t)std::floor(pos.Y + 0.5f);
 	Ground g = w.ground(at, w.sunlight(at, std::nullopt));
 	Strata s = w.strata(at, g);
@@ -248,7 +248,7 @@ int ModApiTerra::l_geology(lua_State *L)
 	setintfield(L, -1, "depth", depth);
 	setintfield(L, -1, "plate", grid.tectonics.plate[cell]);
 	setstringfield(L, -1, "boundary", BOUNDARIES[(int)grid.tectonics.boundary[cell]]);
-	setintfield(L, -1, "boundary_distance", roundInt(grid.tectonics.distance[cell] * w.cellBlocks()));
+	setintfield(L, -1, "boundary_distance", (int)((grid.tectonics.distance[cell] * w.cellBlocks() + HALF) >> FRAC));
 	// the nearest volcano whose slopes reach here
 	int32_t best = INT32_MAX;
 	bool active = false;
@@ -296,7 +296,7 @@ int ModApiTerra::l_cover(lua_State *L)
 			// core are no column: nothing grows), on its body's world (an area
 			// may take in slots of several)
 			const World &w = world(getServer(L), atlas.bodyAt({ mx, 0, mz }).value_or(planet::Atlas::HOME));
-			const std::optional<Dir> at = atlas.place({ mx, 0, mz });
+			const std::optional<Place> at = atlas.place({ mx, 0, mz });
 			Cover c{ 0, 0, 0, false, false, 0 };
 			fix heat = 0, wet = 0, season = 0, elevation = 0;
 			if (at) {
@@ -427,7 +427,7 @@ int ModApiTerra::l_species(lua_State *L)
 
 	const std::vector<terra::Species> &species = server->terra().resolve(ndef);
 
-	const std::optional<Dir> at = placeOf(server, v3f(p.X, p.Y, p.Z));
+	const std::optional<Place> at = placeOf(server, v3f(p.X, p.Y, p.Z));
 	if (!at)
 		return 0; // seam: no place, nothing grows
 	Ground g = w.ground(*at, w.sunlight(*at, std::nullopt));
@@ -510,7 +510,7 @@ int ModApiTerra::l_weather(lua_State *L)
 	const v3f pos = check_v3f(L, 1);
 	const int body = bodyAt(server, pos);
 	const World &w = world(server, body);
-	const Dir at = placeAt(getServer(L), pos);
+	const Place at = placeAt(getServer(L), pos);
 	const int32_t y = (int32_t)std::floor(pos.Y + 0.5f);
 	fluid::Sample s{};
 	if (body == planet::Atlas::HOME) {
@@ -608,13 +608,13 @@ int ModApiTerra::l_land(lua_State *L)
 }
 
 // core.terra.place(pos) → { x, y, z }: the place on its body a position's
-// column is, as the world model takes it: a direction from the centre in
-// its fixed point (integers, 65536 a unit), so a check can ask terragen
+// column is, as the world model takes it: a direction from the centre as
+// integers, 2^30 a unit (terragen::Place), so a check can ask terragen
 // about exactly the same place.
 int ModApiTerra::l_place(lua_State *L)
 {
 	NO_MAP_LOCK_REQUIRED;
-	const Dir d = placeAt(getServer(L), check_v3f(L, 1));
+	const Place d = placeAt(getServer(L), check_v3f(L, 1));
 	lua_createtable(L, 0, 3);
 	setintfield(L, -1, "x", d.x);
 	setintfield(L, -1, "y", d.y);

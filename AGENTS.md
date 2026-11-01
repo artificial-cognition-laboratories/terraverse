@@ -79,12 +79,12 @@ bun check:matter        # a clay fire pit lit on a live server: the world's matt
 bun check:far           # the far view against the world: generated chunks vs core.terra.surface, column by column
 bun palette             # export the game's baked palette (apps/game/game/palette.json) after changing blocks, textures or species
 bun check:palette       # fails if the committed palette is out of date with the game's content
-.output/bin/luanti --planetarium TF6.dGVycmE   # the planet viewer alone, on a world code (in game: F7)
+.output/bin/luanti --planetarium TF7.dGVycmE   # the planet viewer alone, on a world code (in game: F7)
 arc gate release        # what a release needs, locally: build, tests, UI, a headless world (repo.config.ts)
 arc deploy release      # package.json "version" → tag v<version> → CI builds and attaches the Linux package (.github/workflows/release.yml)
 bun package:linux <version>  # the portable Linux folder + .tar.zst from the current build (scripts/release)
 # tuning by eye: render a code's grid (relief, lakes, rivers) to a PNG and look at it
-g++ -std=c++17 -O2 -Iapps/game/src apps/game/src/terragen/*.cpp scripts/terragen-check/render.cpp -o /tmp/render && /tmp/render TF6.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents]
+g++ -std=c++17 -O2 -Iapps/game/src apps/game/src/terragen/*.cpp scripts/terragen-check/render.cpp -o /tmp/render && /tmp/render TF7.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents]
 ```
 
 **How agents verify:** build the engine, typecheck and build the UI, boot the
@@ -253,8 +253,7 @@ Lab (below).
 
 Biomes: `biomes.lua` registers one Lua biome per terragen class
 (`terragen/world.cpp` `BIOME_NAMES`) — terragen decides where, Lua says what
-it's made of; the `terra` generator refuses to start if one is missing, or if
-the `mapgen_ice` alias (the polar wall) is absent.
+it's made of; the `terra` generator refuses to start if one is missing.
 
 **The Lab** (`tf_lab`, sprints 4–5): a page of scenarios, one mechanic each,
 **each in its own tiny world**. The Lab page (`ui/src/lab`) lists every
@@ -587,9 +586,10 @@ prospecting is a skill.
 
 ### World
 
-- **Finite**, sizes 2k–16k blocks a side. **Wraps east–west; north and south
-  end in polar edges** (impassable ice). This gives real latitude: poles,
-  equator, seasons that make sense.
+- **A planet**, 2k–16k blocks round the equator (radius size / 2π), laid
+  on the atlas (`planet::Atlas`). No edges: the poles are places like any
+  other (sprint 86), and latitude is real: poles, equator, seasons that
+  make sense.
 - Generated from a **world code**: `TF2.<seed>.<settings>` — the seed plus only
   the land settings that differ from defaults, versioned. (TF1 was sprint 1's
   generator; it is refused, not reinterpreted.) The code carries the
@@ -639,6 +639,16 @@ Luanti's for online play, singleplayer needs no account. Built so far: sign-in
 hosted for friends (STUN, UPnP, hole punching on the server's socket), Join
 gets a single-use ticket from ArcLabs, and the host's server admits by ticket
 (protocol 58). No relay yet: pairs that can't be punched through are told so.
+
+**Built (sprint 86, `planning/sprint-86-sphere.md`):** the world on
+the sphere. terragen is a function of a place on the planet (a fixed-point
+direction, `terragen::Dir`), never of block (x, z): its grid is an
+icosphere (`terragen/sphere.*`, 64 002 cells, built in integers), noise is
+3D at the place, plates turn about their own poles, and block noise is read
+at the block's point in the planet (`World::solid`). The atlas hands each
+cell its direction (`planet::Atlas::place`); a terra world is always a
+planet. No polar wall, no seam at ±180°. `core.terra.place(pos)`. TF6,
+protocol 89.
 
 **Built (sprint 85, `planning/sprint-85-ground-detail.md`):** ground
 detail and its costs. Cut and smoothed ground is meshed coarser far off

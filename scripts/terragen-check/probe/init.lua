@@ -1,5 +1,5 @@
 -- Emerges the surface node at each place listed in the world's points.txt
--- (a direction per line, the world model's fixed point), logs each column's
+-- (a direction per line, 2^30 a unit: terragen::Place), logs each column's
 -- (looking past small plants and cactus, which stand on the ground) water
 -- surface and solid surface and what core.terra says there (with the clock
 -- it read), then stops the server. Lines are keyed by the place's number.

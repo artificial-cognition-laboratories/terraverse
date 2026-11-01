@@ -41,7 +41,7 @@ void write(NetworkPacket &pkt, const Horizon &h)
 	for (const terra::BiomeBlocks &bb : b.biomes)
 		pkt << bb.top << bb.filler << bb.riverbed << bb.water_top
 			<< bb.depth_top << bb.depth_filler << bb.depth_riverbed << bb.depth_water_top;
-	pkt << b.stone << b.water << b.ice << b.lava << b.placer << b.soil;
+	pkt << b.stone << b.water << b.lava << b.placer << b.soil;
 	pkt << (u8)terragen::Rock::Count;
 	for (content_t c : b.rock)
 		pkt << c;
@@ -75,7 +75,7 @@ Horizon read(NetworkPacket &pkt)
 	for (terra::BiomeBlocks &bb : b.biomes)
 		pkt >> bb.top >> bb.filler >> bb.riverbed >> bb.water_top
 			>> bb.depth_top >> bb.depth_filler >> bb.depth_riverbed >> bb.depth_water_top;
-	pkt >> b.stone >> b.water >> b.ice >> b.lava >> b.placer >> b.soil;
+	pkt >> b.stone >> b.water >> b.lava >> b.placer >> b.soil;
 	expect(pkt, (u8)terragen::Rock::Count, "rocks");
 	for (content_t &c : b.rock)
 		pkt >> c;

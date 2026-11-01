@@ -60,7 +60,6 @@ terra::Blocks terraBlocks(const BiomeManager *bmgr, const NodeDefManager *ndef)
 	};
 	blocks.stone = stone;
 	blocks.water = water;
-	blocks.ice = need("mapgen_ice");
 	blocks.lava = need("mapgen_lava_source");
 	blocks.placer = need("mapgen_placer");
 	blocks.soil = need("mapgen_soil");
@@ -132,7 +131,7 @@ MapgenTerra::BodyLand &MapgenTerra::landAt(s16 x, s16 z) const
 
 bool MapgenTerra::groundAt(s16 x, s16 z, terragen::Ground &ground) const
 {
-	const std::optional<terragen::Dir> at = m_atlas.place({ x, 0, z });
+	const std::optional<terragen::Place> at = m_atlas.place({ x, 0, z });
 	if (!at)
 		return false; // seam at the surface: no ground
 	const World &world = landAt(x, z).world;
@@ -145,7 +144,7 @@ int MapgenTerra::spawnLevelAt(int body, double latitude, double longitude) const
 	if (m_atlasDebug)
 		return -1; // as getSpawnLevelAtPoint: the debug sphere's ground's top
 	const World &world = bodyLand(body).world; // only its world: what's const
-	const terragen::Dir at = terragen::dirAt((fix)std::llround(latitude * ONE), (fix)std::llround(longitude * ONE));
+	const terragen::Place at = terragen::dirAt((fix)std::llround(latitude * ONE), (fix)std::llround(longitude * ONE));
 	const Ground g = world.ground(at, world.sunlight(at, std::nullopt));
 	if (g.kind != Water::None)
 		return MAX_MAP_GENERATION_LIMIT;

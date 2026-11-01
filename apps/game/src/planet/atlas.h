@@ -420,15 +420,15 @@ public:
 	// its column (its cell at the surface layer) from the centre, as the
 	// world model takes it. What the generator builds the column from. None
 	// in seam and the core.
-	std::optional<terragen::Dir> place(Node node) const;
+	std::optional<terragen::Place> place(Node node) const;
 	// The point place() is the direction of: its column's cell centre at the
 	// surface layer, blocks from the planet's centre.
 	std::optional<terragen::Atlas::Vec> surface(Node node) const;
 	// The same for a cell of a segment or a cap (throws for the core's).
-	terragen::Dir place(const Cell &cell) const;
-	// A point's direction from the centre, in the world model's fixed point
-	// (to 1/1024 of a block first, so it's the same wherever it's asked).
-	static terragen::Dir direction(const terragen::Atlas::Vec &point);
+	terragen::Place place(const Cell &cell) const;
+	// A point's place from the centre, as the world model takes it (to 1/1024
+	// of a block first, so it's the same wherever it's asked).
+	static terragen::Place direction(const terragen::Atlas::Vec &point);
 
 private:
 	struct Layout;

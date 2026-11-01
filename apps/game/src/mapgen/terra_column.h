@@ -30,7 +30,7 @@ struct BiomeBlocks
 struct Blocks
 {
 	BiomeBlocks biomes[(int)terragen::Biome::Count];
-	content_t stone, water, ice, lava, placer;
+	content_t stone, water, lava, placer;
 	content_t soil; // soil as a composition: its param2 is the column's soil point
 	content_t rock[(int)terragen::Rock::Count];
 	content_t ore[(int)terragen::Ore::Count]; // [None] is CONTENT_IGNORE
@@ -39,7 +39,7 @@ struct Blocks
 struct Column
 {
 	bool space;     // no place (seam between tiles): nothing at all
-	terragen::Dir at; // its place on the planet (not space)
+	terragen::Place at; // its place on the planet (not space)
 	terragen::Biome biome;
 	terragen::Ground ground; // terragen's column (not space): for what grows here
 	s32 height;     // the top solid block, absolute y
@@ -76,7 +76,7 @@ public:
 	Column at(s16 x, s16 z) const;
 	// The column at a place: an atlas's nodes are built from their place
 	// (planet::Atlas::place), node by node.
-	Column atPlace(const terragen::Dir &place) const;
+	Column atPlace(const terragen::Place &place) const;
 
 	// The block the generator leaves at height y of column `c`: rock, ore
 	// and caves below the soil, the soil painted over it, water (frozen at

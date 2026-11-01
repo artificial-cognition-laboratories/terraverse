@@ -23,7 +23,7 @@ Column Columns::at(s16 x, s16 z) const
 		throw std::logic_error("terra::Columns: storage column (" + std::to_string(x) + ", " + std::to_string(z) +
 				") is body " + std::to_string(*b) + "'s, these are body " + std::to_string(m_body) + "'s");
 	// the surface shell's column (its storage y is its layer)
-	const std::optional<Dir> place = m_atlas.place({ x, 0, z });
+	const std::optional<Place> place = m_atlas.place({ x, 0, z });
 	return place ? atPlace(*place) : nothing(); // seam: the generator fills nodes by their own place
 }
 
@@ -39,7 +39,7 @@ Column Columns::nothing() const
 	return c;
 }
 
-Column Columns::atPlace(const Dir &at) const
+Column Columns::atPlace(const Place &at) const
 {
 	Column c{};
 	c.at = at;

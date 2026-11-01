@@ -25,15 +25,15 @@ const Column *AtlasLand::Reader::column(planet::Atlas::Node n)
 	if (body && *body != m_land.m_columns.body())
 		throw std::logic_error("terra::AtlasLand: a node of body " + std::to_string(*body) +
 				" asked of body " + std::to_string(m_land.m_columns.body()) + "'s land");
-	const std::optional<terragen::Dir> place = m_land.m_atlas.place(n);
+	const std::optional<terragen::Place> place = m_land.m_atlas.place(n);
 	if (!place)
 		return nullptr;
 	return &columnAt(*place);
 }
 
-const Column &AtlasLand::Reader::columnAt(const terragen::Dir &place)
+const Column &AtlasLand::Reader::columnAt(const terragen::Place &place)
 {
-	if (!m_column || place.x != m_place.x || place.y != m_place.y || place.z != m_place.z) {
+	if (!m_column || !(place == m_place)) {
 		m_column = m_land.m_columns.atPlace(place);
 		m_place = place;
 	}

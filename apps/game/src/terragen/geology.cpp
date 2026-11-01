@@ -223,7 +223,7 @@ std::vector<Volcano> volcanoes(const WorldCode &c, const Grid &g)
 	const Tectonics &t = g.tectonics;
 	std::vector<Volcano> out;
 	// a cell across, in blocks: the old grid's sizes are kept in cells
-	const int32_t cell = std::max(1, roundInt(World::cellBlocksOf(c)));
+	const int32_t cell = (int32_t)std::max<int64_t>(1, (World::cellBlocksOf(c) + HALF) >> FRAC);
 	const fix spacing = sphere.spacing();
 	uint32_t seed = c.seed_hash + VOLCANO;
 	auto place = [&](const Dir &at, VolcanoKind kind, int age, uint32_t h) {
@@ -313,11 +313,11 @@ std::vector<Province> provinces(const WorldCode &c, const Grid &g)
 			out[i] = Province::Shield;
 	}
 	// lava fields around every volcano
-	const fix radius = World::radiusOf(c);
+	const int64_t radius = World::radiusOf(c);
 	for (const Volcano &v : g.volcanoes) {
 		const int64_t reach = (int64_t)v.radius * 3 / 2 * ONE;
 		for (int32_t cell : sphere.around(sphere.cell(v.at), [&](int32_t k) {
-				return (int64_t)mul(chord(sphere.centre(k), v.at), radius) <= reach; }))
+				return World::blocksOf(chord(sphere.centre(k), v.at), radius) <= reach; }))
 			out[cell] = Province::Volcanic;
 	}
 	return out;
@@ -341,7 +341,7 @@ int32_t bed(int32_t depth, int32_t phase)
 
 } // namespace
 
-Strata World::strata(const Dir &at, const Ground &ground) const
+Strata World::strata(const Place &at, const Ground &ground) const
 {
 	const Grid &g = *m_grid;
 	const Tectonics &t = g.tectonics;
@@ -385,8 +385,8 @@ Strata World::strata(const Dir &at, const Ground &ground) const
 		const Volcano &vo = g.volcanoes[g.volcano_list[k]];
 		if (!vo.active)
 			continue;
-		int32_t d = floorInt(mul(chord(at, vo.at), m_radius));
-		s.crater = std::min(s.crater, std::abs(d - vo.crater));
+		const int64_t d = blocksFine(chord(at, Place(vo.at))) >> FRAC;
+		s.crater = (int32_t)std::min<int64_t>(s.crater, std::abs(d - vo.crater));
 	}
 	return s;
 }

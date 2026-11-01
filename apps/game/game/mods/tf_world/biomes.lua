@@ -46,7 +46,6 @@ core.register_node("tf_world:tundra", {
 })
 
 -- The polar wall at the north and south edges of the world.
-core.register_alias("mapgen_ice", "tf_world:ice")
 
 -- Beds under rivers and lakes: sand unless the biome says otherwise.
 local function biome(name, def)

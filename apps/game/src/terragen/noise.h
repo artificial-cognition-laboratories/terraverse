@@ -16,6 +16,10 @@ namespace terragen {
 */
 fix noise(const Dir &d, uint32_t seed, int32_t frequency);
 fix fbm(const Dir &d, uint32_t seed, int32_t frequency, int octaves, fix persistence);
+// The same at a place to the block: for what varies column to column, which
+// a Dir can't tell apart on a large planet.
+fix noise(const Place &p, uint32_t seed, int32_t frequency);
+fix fbm(const Place &p, uint32_t seed, int32_t frequency, int octaves, fix persistence);
 
 /*
 	Value noise in 3D block coordinates, for what varies with depth (rock

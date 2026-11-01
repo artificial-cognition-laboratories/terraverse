@@ -55,7 +55,7 @@ void TestFar::runTests(IGameDef *gamedef)
 static Horizon horizon()
 {
 	Horizon h;
-	h.code = "TF6.dGVycmE";
+	h.code = "TF7.dGVycmE";
 	h.water_level = 1;
 	terra::Blocks &b = h.content.blocks;
 	content_t next = 100;
@@ -63,7 +63,6 @@ static Horizon horizon()
 		bb = { next++, next++, next++, 11, 1, 3, 1, 0 };
 	b.stone = 10;
 	b.water = 11;
-	b.ice = 12;
 	b.lava = 13;
 	b.placer = 14;
 	b.soil = 15;

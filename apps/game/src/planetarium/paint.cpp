@@ -109,7 +109,7 @@ const Painter::Sample &Painter::sample(fix u, fix v)
 	const fix lu = ratio(2 * i + 1, 2 * LATTICE), lv = ratio(2 * j + 1, 2 * LATTICE);
 	const std::optional<fix> date = m_opts.date ? std::optional<fix>((fix)(*m_opts.date * ONE)) : std::nullopt;
 	const Grid &g = w.grid();
-	const Dir at = World::place(lu, lv);
+	const Place at = World::place(lu, lv);
 	Sample s{ w.column(at, w.sunlight(at, date)), w.between(g.fertility, at), w.between(g.sea_heat, at), w.cell(at) };
 	return m_samples.emplace(key, s).first->second;
 }

@@ -50,6 +50,9 @@ namespace {
 // Erosion: how hard running water bites, and how many rounds it gets.
 const fix ERODIBILITY = ratio(6, 100);
 const int EROSION_ROUNDS = 12;
+// How much a stream carries, as a multiple of its power to cut (F · drop):
+// past that, it lays its load down.
+const fix CARRY = toFix(2);
 // Water deeper than a block (at 160 blocks per unit) counts as a lake…
 const fix LAKE_DEPTH = ratio(1, 160);
 // …if its basin is big and deep enough; smaller hollows fill with sediment,
@@ -228,7 +231,10 @@ void keepRealLakes(Grid &g)
 				g.lake[c] = 1;
 				g.lake_level[c] = outlet;
 			} else {
-				g.eroded[c] = g.filled[c]; // sediment fills the hollow
+				// sediment fills the hollow (not carried in by the rivers' balance: counted apart)
+				g.sediment[c] += g.filled[c] - g.eroded[c];
+				g.hollows += (int64_t)(g.filled[c] - g.eroded[c]) * gridSphere().area(c);
+				g.eroded[c] = g.filled[c];
 			}
 		}
 	}
@@ -346,7 +352,7 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 				int64_t sum = 0;
 				for (int32_t s4 = 0; s4 < 4; s4++) {
 					fix u = ratio(4 * cx + 1 + 2 * (s4 & 1), 4 * CLIMATE), v = ratio(4 * cz + 1 + 2 * (s4 >> 1), 4 * CLIMATE);
-					sum += read(g->base, World::place(u, v));
+					sum += read(g->base, World::place(u, v).dir());
 				}
 				coarse[cz * CLIMATE + cx] = (fix)(sum / 4);
 			}
@@ -375,12 +381,19 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 	// Erosion, implicit stream power (Braun & Willett 2013), n = 1: from each
 	// outlet upstream, h ← (h + F·h_down) / (1 + F), F = K·√area. Lakes don't
 	// erode their beds; the sea stays put.
+	// Then what it wore away is carried down the same receivers (after Yuan et
+	// al. 2019): a stream carries as much as its power allows, CARRY · F · drop,
+	// and lays the rest down where it slows (floodplains, fans); lakes take what
+	// reaches them, and the sea builds a shelf at the coast. Nothing is made or
+	// lost but what goes out to the deep sea (Grid::sediment, testSediment).
 	std::vector<fix> h = g->base;
+	g->sediment.assign(n, 0);
 	for (int round = 0; round < EROSION_ROUNDS; round++) {
 		std::vector<fix> surface = fill(h);
 		std::vector<int32_t> down = receivers(surface);
 		std::vector<int32_t> order = upstreamOrder(down);
 		std::vector<int64_t> area = accumulate(down, order, rain);
+		std::vector<fix> before = h, power(n, 0);
 		for (int32_t c : order) {
 			int32_t r = down[c];
 			if (r < 0 || surface[c] > h[c])
@@ -390,6 +403,37 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 			fix floor = std::max<fix>(surface[r], 0);
 			fix next = div(h[c] + mul(F, floor), ONE + F);
 			h[c] = std::max(next, floor + 1);
+			power[c] = mul(CARRY, mul(F, h[c] - floor));
+		}
+		// downstream, heads first: each cell's load is its donors' plus what it
+		// lost, in height × area (fixed); none is raised to its lowest donor
+		std::vector<int64_t> load(n, 0);
+		std::vector<fix> lowest_donor(n, INT32_MAX);
+		for (size_t k = order.size(); k-- > 0;) {
+			int32_t c = order[k];
+			const int64_t a = sphere.area(c);
+			load[c] += (int64_t)(before[c] - h[c]) * a;
+			fix keep; // the most this cell may be raised
+			if (h[c] < 0 && down[c] < 0)
+				keep = -1 - h[c];                // the sea: a shelf up to just under its level
+			else if (surface[c] > h[c])
+				keep = (surface[c] - h[c]) / 2;  // a lake: silts up, but stays a lake
+			else
+				keep = load[c] / a > power[c] ? (fix)(load[c] / a - power[c]) : 0; // past what it can carry
+			keep = std::min(keep, lowest_donor[c] - 1 - h[c]);
+			if (keep > 0) {
+				const fix laid = (fix)std::min<int64_t>(keep, load[c] / a);
+				h[c] += laid;
+				g->sediment[c] += laid;
+				load[c] -= (int64_t)laid * a;
+			}
+			int32_t r = down[c];
+			if (r >= 0) {
+				load[r] += load[c];
+				lowest_donor[r] = std::min(lowest_donor[r], h[c]);
+			} else {
+				g->to_deep += load[c];
+			}
 		}
 	}
 	g->eroded = h;
@@ -421,14 +465,14 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 	// reach, then provinces (lava fields need the volcanoes)
 	g->volcanoes = volcanoes(code, *g);
 	{
-		const fix radius = World::radiusOf(code), cell = World::cellBlocksOf(code);
+		const int64_t radius = World::radiusOf(code), cell = World::cellBlocksOf(code);
 		std::vector<std::vector<uint16_t>> reach(n);
 		for (size_t k = 0; k < g->volcanoes.size(); k++) {
 			const Volcano &v = g->volcanoes[k];
 			// the cells within its slopes and two cells more, out from its vent's
-			const int64_t within = (int64_t)v.radius * ONE + 2 * (int64_t)cell;
+			const int64_t within = (int64_t)v.radius * ONE + 2 * cell;
 			for (int32_t c : sphere.around(sphere.cell(v.at), [&](int32_t c) {
-					return (int64_t)mul(chord(sphere.centre(c), v.at), radius) <= within; }))
+					return World::blocksOf(chord(sphere.centre(c), v.at), radius) <= within; }))
 				reach[c].push_back((uint16_t)k);
 		}
 		g->volcano_start.assign(n + 1, 0);

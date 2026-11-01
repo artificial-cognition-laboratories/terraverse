@@ -5,7 +5,9 @@
 
 #include "terragen/sphere.h"
 #include <algorithm>
+#include <cmath>
 #include <set>
+#include <tuple>
 
 using namespace terragen;
 
@@ -21,6 +23,7 @@ public:
 	void testNearestCell();
 	void testSpotContinuous();
 	void testSameEveryTime();
+	void testPlacesToTheBlock();
 };
 
 static TestSphere g_test_instance;
@@ -32,6 +35,7 @@ void TestSphere::runTests(IGameDef *gamedef)
 	TEST(testNearestCell);
 	TEST(testSpotContinuous);
 	TEST(testSameEveryTime);
+	TEST(testPlacesToTheBlock);
 }
 
 static const Sphere &sphere()
@@ -173,4 +177,24 @@ void TestSphere::testSameEveryTime()
 			mix(*n);
 	}
 	UASSERTEQ(uint64_t, h, 0xd305a57276ea7c0cull);
+}
+
+// A place tells a column from its neighbour at every size, up to Earth's:
+// 2 000 blocks along the equator are 2 000 places (a Dir alone gives 26 at
+// Earth's size). Made as the atlas makes them, from the point.
+void TestSphere::testPlacesToTheBlock()
+{
+	for (double R : { 2607.0, 50000.0, 250000.0, 6371000.0 }) {
+		std::set<std::tuple<int32_t, int32_t, int32_t>> seen;
+		for (int k = 0; k < 2000; k++) {
+			const double t = 0.3 + k / R;
+			const Place p = placeOf(std::llround(std::cos(t) * R * 1024), 0, std::llround(std::sin(t) * R * 1024));
+			seen.insert({ p.x, p.y, p.z });
+		}
+		UASSERTEQ(size_t, seen.size(), (size_t)2000);
+	}
+	// and a Dir is a place exactly, and back
+	const Dir d = dirAt(ratio(3, 10), ratio(7, 10));
+	const Dir back = Place(d).dir();
+	UASSERT(back.x == d.x && back.y == d.y && back.z == d.z);
 }

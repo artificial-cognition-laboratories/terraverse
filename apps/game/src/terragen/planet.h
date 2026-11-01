@@ -16,6 +16,8 @@
 namespace terragen {
 
 constexpr double EARTH_RADIUS = 6.371e6; // m
+// Height above the sea where space begins, m: above it there's no weather.
+constexpr double SPACE_BOUNDARY = 30000;
 
 struct Planet
 {

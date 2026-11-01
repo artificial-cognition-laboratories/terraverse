@@ -38,8 +38,11 @@ void TestScale::testEverySize()
 	using Clock = std::chrono::steady_clock;
 	const auto ms = [](Clock::time_point a) { return std::chrono::duration<double, std::milli>(Clock::now() - a).count(); };
 	for (double radius : { 2607.0, 10000.0, 50000.0, 250000.0, 1000000.0, 6371000.0 }) {
-		terragen::WorldCode code = terragen::WorldCode::decode("TF6.dGVycmE");
+		terragen::WorldCode code = terragen::WorldCode::decode("TF7.dGVycmE");
 		code.size = (int32_t)std::lround(2 * M_PI * radius);
+		// its own text: the grid is cached by a code's text, and a grid is built
+		// for its size (volcanoes' reach, in blocks)
+		code.text += "@" + std::to_string(code.size);
 
 		Clock::time_point t = Clock::now();
 		const terragen::World world(code);
@@ -47,8 +50,13 @@ void TestScale::testEverySize()
 
 		// a walk east along 40° north, a block of longitude at a time (cos 40°
 		// of a block along the ground), in 64 stretches round the world
-		const terragen::fix v = terragen::ratio(5, 18);
-		const auto at = [&](int32_t x) { return terragen::World::place(terragen::ratio(((x % code.size) + code.size) % code.size, code.size), v); };
+		// places made as the atlas makes them: from the point, to the block
+		const double lat = 40 * M_PI / 180;
+		const auto at = [&](int32_t x) {
+			const double lon = 2 * M_PI * x / code.size, r = 1 << 30;
+			return terragen::placeOf(std::llround(r * std::cos(lat) * std::cos(lon)), std::llround(r * std::sin(lat)),
+					std::llround(r * std::cos(lat) * std::sin(lon)));
+		};
 		const terragen::fix sun = world.sunlight(at(0), std::nullopt);
 		int32_t low = INT32_MAX, high = INT32_MIN;
 		double steps = 0, steep = 0;
@@ -80,6 +88,10 @@ void TestScale::testEverySize()
 		std::printf("SCALE radius=%.0f round=%d built=%.0fms column=%.2fus heights=%d..%d step=%.3f steepest=%.0f atlas=%s\n",
 				radius, code.size, built, perColumn, low, high, steps / asked, steep, laid.c_str());
 		UASSERT(high > low);
+		// the ground is ground at every size: a block of longitude at 40° is
+		// under a block along it, so no step is a cliff (a radius past
+		// 32 767 blocks round overflowed a fix: steps of 32 000 blocks)
+		UASSERT(steep < 40);
 	}
 
 	// the largest planet whose every tile is resident at once

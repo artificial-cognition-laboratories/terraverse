@@ -10,10 +10,10 @@ extern const u16 LATEST_PROTOCOL_VERSION;
 
 // Server's supported network protocol range. Terra Firma: only our own
 // protocol; stock Luanti peers are refused cleanly.
-constexpr u16 SERVER_PROTOCOL_VERSION_MIN = 87;
+constexpr u16 SERVER_PROTOCOL_VERSION_MIN = 89;
 
 // Client's supported network protocol range
-constexpr u16 CLIENT_PROTOCOL_VERSION_MIN = 87;
+constexpr u16 CLIENT_PROTOCOL_VERSION_MIN = 89;
 
 extern const u16 FORMSPEC_API_VERSION;
 

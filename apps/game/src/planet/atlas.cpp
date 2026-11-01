@@ -377,10 +377,10 @@ Atlas::Node Atlas::node(const Cell &c) const
 	return n;
 }
 
-std::optional<terragen::Dir> Atlas::place(Node node) const
+std::optional<terragen::Place> Atlas::place(Node node) const
 {
 	const std::optional<terragen::Atlas::Vec> p = surface(node);
-	return p ? std::optional<terragen::Dir>(direction(*p)) : std::nullopt;
+	return p ? std::optional<terragen::Place>(direction(*p)) : std::nullopt;
 }
 
 std::optional<terragen::Atlas::Vec> Atlas::surface(Node node) const
@@ -392,16 +392,16 @@ std::optional<terragen::Atlas::Vec> Atlas::surface(Node node) const
 	return shapeOf(c).centre({ c.region, c.index, c.i, c.j, 0 });
 }
 
-terragen::Dir Atlas::place(const Cell &cell) const
+terragen::Place Atlas::place(const Cell &cell) const
 {
 	if (cell.region == Kind::Core)
 		throw std::invalid_argument("planet::Atlas: the core has no place on the ground");
 	return direction(shapeOf(cell).centre({ cell.region, cell.index, cell.i, cell.j, 0 }));
 }
 
-terragen::Dir Atlas::direction(const terragen::Atlas::Vec &p)
+terragen::Place Atlas::direction(const terragen::Atlas::Vec &p)
 {
-	return terragen::normalise(std::llround(p.x * 1024), std::llround(p.y * 1024), std::llround(p.z * 1024));
+	return terragen::placeOf(std::llround(p.x * 1024), std::llround(p.y * 1024), std::llround(p.z * 1024));
 }
 
 int Atlas::tileIndex(Node node) const

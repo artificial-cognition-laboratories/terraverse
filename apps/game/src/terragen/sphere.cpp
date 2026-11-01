@@ -270,4 +270,32 @@ Dir normalise(int64_t x, int64_t y, int64_t z)
 	return { (fix)(x * ONE / length), (fix)(y * ONE / length), (fix)(z * ONE / length) };
 }
 
+Dir Place::dir() const
+{
+	constexpr int SHIFT = PLACE_FRAC - FRAC;
+	const auto round = [](int32_t c) { return (fix)((c + (1 << (SHIFT - 1))) >> SHIFT); };
+	return { round(x), round(y), round(z) };
+}
+
+Place placeOf(int64_t x, int64_t y, int64_t z)
+{
+	// down to where the squares' sum fits 64 bits unsigned
+	while (std::max({ std::abs(x), std::abs(y), std::abs(z) }) >= ((int64_t)1 << 31)) {
+		x /= 2;
+		y /= 2;
+		z /= 2;
+	}
+	const int64_t length = (int64_t)isqrt((uint64_t)(x * x) + (uint64_t)(y * y) + (uint64_t)(z * z));
+	if (length == 0)
+		throw std::invalid_argument("sphere: no place in a zero vector");
+	return { (int32_t)((x << PLACE_FRAC) / length), (int32_t)((y << PLACE_FRAC) / length),
+		(int32_t)((z << PLACE_FRAC) / length) };
+}
+
+int64_t chord(const Place &a, const Place &b)
+{
+	const int64_t x = (int64_t)a.x - b.x, y = (int64_t)a.y - b.y, z = (int64_t)a.z - b.z;
+	return (int64_t)isqrt((uint64_t)(x * x) + (uint64_t)(y * y) + (uint64_t)(z * z));
+}
+
 } // namespace terragen

@@ -27,9 +27,9 @@ struct Star
 extern const Star STARS[5];
 
 /*
-	A decoded world code: TF6.<seed>.<params>, as ui/src/worldgen/config.ts
+	A decoded world code: TF7.<seed>.<params>, as ui/src/worldgen/config.ts
 	writes it. (TF1: sprint 1, without water or exact land; TF2: sprint 2, before
-	plates and geology; TF3: sprint 9, before the climate; TF4: sprint 13, before the ocean currents; TF5: sprint 14, on the flat map before the sphere.)
+	plates and geology; TF3: sprint 9, before the climate; TF4: sprint 13, before the ocean currents; TF5: sprint 14, on the flat map before the sphere; TF6: sprint 86, places to 1/65 536 of the radius.)
 	Parameters are kept as the fixed values their quantized bytes stand for,
 	so the same code always gives exactly the same numbers.
 */

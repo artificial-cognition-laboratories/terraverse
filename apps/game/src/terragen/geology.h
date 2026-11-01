@@ -92,7 +92,7 @@ std::vector<Volcano> volcanoes(const WorldCode &code, const Grid &g);
 */
 struct Strata
 {
-	Dir at;             // the column's place
+	Place at;           // the column's place
 	Province province;
 	int32_t sediment;   // blocks of sedimentary cover over the basement
 	int32_t fold;       // how far beds wander up and down (blocks)

@@ -32,6 +32,7 @@ public:
 	void testDecodeRejects();
 	void testTrig();
 	void testNoiseOnTheSphere();
+	void testNoPoleOrSeam();
 	void testSun();
 	void testSunPath();
 	void testCalendar();
@@ -44,6 +45,7 @@ public:
 	void testWaterFlowsDownhill();
 	void testRiversOnLand();
 	void testLakesAreFlat();
+	void testSediment();
 	void testPlates();
 	void testVolcanoes();
 	void testStrata();
@@ -60,7 +62,7 @@ static TestTerragen g_test_instance;
 
 // A sample's place, picked as the flat map counted blocks: x east from
 // longitude 0, z north from the equator, `size` round and size / 2 pole to pole.
-static Dir flat(const World &w, int32_t x, int32_t z)
+static Place flat(const World &w, int32_t x, int32_t z)
 {
 	const int32_t size = w.code().size, half = size / 2;
 	return World::place(ratio((((x + half) % size) + size) % size, size), ratio(half - z, size));
@@ -73,6 +75,7 @@ void TestTerragen::runTests(IGameDef *gamedef)
 	TEST(testDecodeRejects);
 	TEST(testTrig);
 	TEST(testNoiseOnTheSphere);
+	TEST(testNoPoleOrSeam);
 	TEST(testSun);
 	TEST(testSunPath);
 	TEST(testCalendar);
@@ -83,6 +86,7 @@ void TestTerragen::runTests(IGameDef *gamedef)
 	TEST(testLandShareExact);
 	TEST(testWaterDrainsToSea);
 	TEST(testWaterFlowsDownhill);
+	TEST(testSediment);
 	TEST(testRiversOnLand);
 	TEST(testLakesAreFlat);
 	TEST(testPlates);
@@ -99,9 +103,9 @@ void TestTerragen::runTests(IGameDef *gamedef)
 
 // Codes for the water tests: default, a supercontinent, an archipelago (as the page encodes them).
 static const char *const WATER_CODES[] = {
-	"TF6.dGVycmE",
-	"TF6.dGVycmE.AgIAplmZgICAgICAglU",
-	"TF6.dGVycmE.AgL_QNlNgKaAgICAglU",
+	"TF7.dGVycmE",
+	"TF7.dGVycmE.AgIAplmZgICAgICAglU",
+	"TF7.dGVycmE.AgL_QNlNgKaAgICAglU",
 };
 
 static bool near(fix a, fix b, fix tolerance)
@@ -112,7 +116,7 @@ static bool near(fix a, fix b, fix tolerance)
 // Codes produced by the page's encodeWorldCode (ui/src/worldgen/config.ts).
 void TestTerragen::testDecodeDefaults()
 {
-	WorldCode w = WorldCode::decode("TF6.YWJj");
+	WorldCode w = WorldCode::decode("TF7.YWJj");
 	UASSERTEQ(std::string, w.seed, "abc");
 	UASSERTEQ(int, w.size, 16384); // as ui/src/worldgen/config.ts DEFAULTS
 	UASSERTEQ(std::string, w.star->id, "yellow");
@@ -127,7 +131,7 @@ void TestTerragen::testDecodeParams()
 {
 	// size 1 (62832 round: radius 10k), red dwarf, continents 6, tilt 40,
 	// everything else default
-	WorldCode w = WorldCode::decode("TF6.YWJj.AQC2ZoCAgICAgICA41U");
+	WorldCode w = WorldCode::decode("TF7.YWJj.AQC2ZoCAgICAgICA41U");
 	UASSERTEQ(int, w.size, 62832);
 	UASSERTEQ(std::string, w.star->id, "red");
 	UASSERTEQ(int, w.continents, 6);
@@ -140,9 +144,9 @@ void TestTerragen::testDecodeRejects()
 	EXCEPTION_CHECK(CodeError, WorldCode::decode("XX.YWJj"));
 	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF1.YWJj")); // an older generator: refused, not reinterpreted
 	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF2.YWJj")); // before plates and geology: refused too
-	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF6."));
-	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF6.YWJj.AAA"));
-	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF6.YW*j"));
+	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF7."));
+	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF7.YWJj.AAA"));
+	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF7.YW*j"));
 }
 
 void TestTerragen::testTrig()
@@ -331,6 +335,39 @@ void TestTerragen::testBodies()
 	EXCEPTION_CHECK(std::invalid_argument, bodies(sun, bad));
 }
 
+// The ground walked block by block over the north pole, and east across
+// the date line (longitude ±180°), steps no more than the same walk on a
+// meridian through mid-latitudes: no wall, no seam, nothing of a different
+// kind there. (On the flat map both were edges.)
+void TestTerragen::testNoPoleOrSeam()
+{
+	World w(WorldCode::decode("TF7.dGVycmE"));
+	const double R = w.radius() / (double)ONE;
+	// the steepest step of a walk of 20° along a great circle in plane (a, b), from angle `from`
+	const auto walk = [&](double from, std::array<double, 3> a, std::array<double, 3> b) {
+		int32_t was = INT32_MIN, steepest = 0;
+		for (int32_t k = 0; k <= (int32_t)(R * M_PI / 9); k++) {
+			const double t = from + k / R;
+			const Dir d = normalise(std::llround((a[0] * std::cos(t) + b[0] * std::sin(t)) * (1 << 20)),
+					std::llround((a[1] * std::cos(t) + b[1] * std::sin(t)) * (1 << 20)),
+					std::llround((a[2] * std::cos(t) + b[2] * std::sin(t)) * (1 << 20)));
+			const int32_t h = w.ground(d, w.sunlight(d, std::nullopt)).terrain;
+			if (was != INT32_MIN)
+				steepest = std::max(steepest, std::abs(h - was));
+			was = h;
+		}
+		return steepest;
+	};
+	const double ten = M_PI / 18;
+	const int32_t pole = walk(M_PI / 2 - ten, { 1, 0, 0 }, { 0, 1, 0 });      // up longitude 0, over, down 180°
+	const int32_t seam = walk(M_PI - ten, { 1, 0, 0 }, { 0, 0, 1 });          // the equator across ±180°
+	const int32_t middle = walk(M_PI / 6 - ten, { 0, 0, 1 }, { 0, 1, 0 });    // longitude 90°, 20°–40° north
+	std::printf("TestTerragen: steepest step over the pole %d, across the date line %d, mid-latitudes %d\n",
+			pole, seam, middle);
+	UASSERT(pole <= std::max(2 * middle, 8));
+	UASSERT(seam <= std::max(2 * middle, 8));
+}
+
 // A flat picture's (u, v) is a place and back (the preview's map), to a
 // few units; v 0 is the north pole whatever u.
 void TestTerragen::testCoordinates()
@@ -338,13 +375,13 @@ void TestTerragen::testCoordinates()
 	for (int32_t i = 0; i < 16; i++)
 		for (int32_t j = 1; j < 16; j++) {
 			const fix u = ratio(i, 16), v = ratio(j, 16);
-			const Dir d = World::place(u, v);
+			const Dir d = World::place(u, v).dir();
 			const fix du = World::u(d) - u;
 			UASSERT(std::min(std::abs(du), ONE - std::abs(du)) < 16); // wraps
 			UASSERT(std::abs(World::v(d) - v) < 16);
 		}
-	UASSERT(World::place(0, 0).y > ONE - 4 && World::place(HALF, 0).y > ONE - 4); // north
-	UASSERT(World::place(HALF, ONE).y < -ONE + 4);                                 // south
+	UASSERT(World::place(0, 0).dir().y > ONE - 4 && World::place(HALF, 0).dir().y > ONE - 4); // north
+	UASSERT(World::place(HALF, ONE).dir().y < -ONE + 4);                                 // south
 }
 
 void TestTerragen::testLandShareExact()
@@ -393,6 +430,26 @@ void TestTerragen::testWaterFlowsDownhill()
 			if (r >= 0)
 				UASSERT(g.filled[r] < g.filled[i]);
 		}
+	}
+}
+
+// What rivers wear away is laid down or carried out to the deep sea:
+// nothing is made or lost, and some of it builds land.
+void TestTerragen::testSediment()
+{
+	const Sphere &sphere = gridSphere();
+	for (const char *text : WATER_CODES) {
+		World w(WorldCode::decode(text));
+		const Grid &g = w.grid();
+		int64_t lost = 0, laid = 0;
+		for (int32_t i = 0; i < g.size(); i++) {
+			UASSERT(g.sediment[i] >= 0);
+			lost += (int64_t)(g.base[i] - g.eroded[i]) * sphere.area(i);
+			if (g.eroded[i] >= 0)
+				laid += g.sediment[i];
+		}
+		UASSERTEQ(int64_t, lost + g.hollows, g.to_deep);
+		UASSERT(laid > 0);
 	}
 }
 
@@ -463,7 +520,7 @@ void TestTerragen::testVolcanoes()
 		if (!v.active)
 			continue;
 		// beside it: past its slopes, to the north
-		const Dir north = dirAt(latitudeOf(v.at) + terragen::div(toFix(v.radius + 20), w.radius()), longitudeOf(v.at));
+		const Dir north = dirAt(latitudeOf(v.at) + w.angle(v.radius + 20), longitudeOf(v.at));
 		Ground at = w.ground(v.at, w.sunlight(v.at, std::nullopt));
 		Ground beside = w.ground(north, w.sunlight(north, std::nullopt));
 		lava |= at.kind == Water::Lava;
@@ -481,7 +538,7 @@ void TestTerragen::testStrata()
 	int seen[(int)Province::Count] = {};
 	for (int32_t k = 0; k < 4000; k++) {
 		int32_t x = (k * 7919) % size - size / 2, z = (k * 104729) % (size * 8 / 10) - size * 4 / 10;
-		const Dir at = flat(w, x, z);
+		const Place at = flat(w, x, z);
 		Ground g = w.ground(at, w.sunlight(at, std::nullopt));
 		Strata s = w.strata(at, g);
 		seen[(int)s.province]++;
@@ -511,7 +568,7 @@ void TestTerragen::testOresAndCaves()
 	int carved[(int)Rock::Count] = {}, blocks[(int)Rock::Count] = {};
 	for (int32_t k = 0; k < 3000; k++) {
 		int32_t x = (k * 7919) % size - size / 2, z = (k * 104729) % (size * 8 / 10) - size * 4 / 10;
-		const Dir at = flat(w, x, z);
+		const Place at = flat(w, x, z);
 		Ground g = w.ground(at, w.sunlight(at, std::nullopt));
 		Strata s = w.strata(at, g);
 		for (int32_t depth = 0; depth < 140; depth++) {
@@ -543,7 +600,7 @@ void TestTerragen::testCover()
 	int n_ww = 0, n_cold = 0, n_dry = 0, trees = 0, columns = 0;
 	for (int32_t k = 0; k < 6000; k++) {
 		int32_t x = (k * 7919) % size - size / 2, z = (k * 104729) % (size * 8 / 10) - size * 4 / 10;
-		const Dir at = flat(w, x, z);
+		const Place at = flat(w, x, z);
 		Ground g = w.ground(at, w.sunlight(at, std::nullopt));
 		Cover c = w.cover(at, g);
 		UASSERT(c.density >= 0 && c.density <= ONE);
@@ -569,7 +626,7 @@ void TestTerragen::testCover()
 // the climate allows turns up somewhere, and fertility follows the rock.
 void TestTerragen::testClimate()
 {
-	World w(WorldCode::decode("TF6.dGVycmE"));
+	World w(WorldCode::decode("TF7.dGVycmE"));
 	const Grid &g = w.grid();
 	auto band = [&](double lo, double hi) {
 		int64_t sum = 0, n = 0;
@@ -586,7 +643,7 @@ void TestTerragen::testClimate()
 	UASSERT(band(0, 10) > 3 * band(25, 38)); // the ITCZ, and the dry belts under the sinking air
 	UASSERT(band(50, 65) > 2 * band(25, 38)); // the storm tracks
 	// the same code, the same climate
-	World again(WorldCode::decode("TF6.dGVycmE"));
+	World again(WorldCode::decode("TF7.dGVycmE"));
 	UASSERT(again.grid().rain_season[0] == g.rain_season[0] && again.grid().rain_season[1] == g.rain_season[1]);
 
 	int counts[(int)Biome::Count] = {};
@@ -611,7 +668,7 @@ void TestTerragen::testClimate()
 // and a rain shadow; a continent in the tropics gets its rain in summer.
 void TestTerragen::testClimateFromLand()
 {
-	WorldCode code = WorldCode::decode("TF6.dGVycmE");
+	WorldCode code = WorldCode::decode("TF7.dGVycmE");
 	std::vector<fix> e((size_t)CLIMATE * CLIMATE, -ratio(3, 10));
 	auto row = [](double lat) { return (int32_t)((90 - lat) / 180 * CLIMATE); };
 	// a north–south range at 38–58° N, with lowland either side
@@ -647,7 +704,7 @@ void TestTerragen::testClimateFromLand()
 // the second's west coast), which leaves that coast drier.
 void TestTerragen::testOceanCurrents()
 {
-	WorldCode code = WorldCode::decode("TF6.dGVycmE");
+	WorldCode code = WorldCode::decode("TF7.dGVycmE");
 	std::vector<fix> e((size_t)CLIMATE * CLIMATE, -ratio(3, 10));
 	auto row = [](double lat) { return (int32_t)((90 - lat) / 180 * CLIMATE); };
 	for (int32_t y = row(55); y <= row(5); y++)
@@ -682,13 +739,13 @@ void TestTerragen::testSoil()
 	}
 	EXCEPTION_CHECK(std::invalid_argument, soilPoint((uint8_t)SOIL_POINTS));
 
-	World w(WorldCode::decode("TF6.dGVycmE"));
+	World w(WorldCode::decode("TF7.dGVycmE"));
 	int32_t size = w.code().size;
 	double wet_clay = 0, dry_clay = 0, cold_organic = 0, warm_organic = 0, steep_sand = 0, flat_sand = 0;
 	int n_wet = 0, n_dry = 0, n_cold = 0, n_warm = 0, n_steep = 0, n_flat = 0;
 	for (int32_t k = 0; k < 4000; k++) {
 		int32_t x = (k * 7919) % size - size / 2, z = (k * 104729) % (size * 8 / 10) - size * 4 / 10;
-		const Dir at = flat(w, x, z);
+		const Place at = flat(w, x, z);
 		Ground g = w.ground(at, w.sunlight(at, std::nullopt));
 		if (g.kind != Water::None)
 			continue;
@@ -743,9 +800,9 @@ static void describe(const char *code)
 // for an existing code needs a new code version, not a silent update.
 void TestTerragen::testDeterminismGolden()
 {
-	describe("TF6.YWJj");
-	describe("TF6.dGVycmE");
-	World w(WorldCode::decode("TF6.YWJj.AQC2ZoCAgICAgICA41U"));
+	describe("TF7.YWJj");
+	describe("TF7.dGVycmE");
+	World w(WorldCode::decode("TF7.YWJj.AQC2ZoCAgICAgICA41U"));
 	Preview p = preview(w, std::nullopt, 48);
 	uint32_t h = 2166136261u;
 	auto mix = [&](uint32_t v) { h = (h ^ v) * 16777619u; };
@@ -760,7 +817,7 @@ void TestTerragen::testDeterminismGolden()
 	// and what's underground: province, rock and ore down a few columns
 	for (int32_t k = 0; k < 24; k++) {
 		int32_t x = (k * 2311) % w.code().size - w.code().size / 2, z = (k * 977) % (w.code().size / 2) - w.code().size / 4;
-		const Dir at = flat(w, x, z);
+		const Place at = flat(w, x, z);
 		Ground g = w.ground(at, w.sunlight(at, std::nullopt));
 		Strata s = w.strata(at, g);
 		mix((uint32_t)s.province);
@@ -785,5 +842,7 @@ void TestTerragen::testDeterminismGolden()
 	infostream << std::endl;
 	// TF6: the world on the sphere (sprint 86; TF5, on the flat map, was
 	// 2496371879). The code's size 1 is 62832 round since sprint 39.
-	UASSERTEQ(uint32_t, h, 1756897806u);
+	// (re-pinned: this code is 62 832 round, past where the radius overflowed a fix)
+	// TF7, not yet released, re-pinned for sprint 88's sediment (was 1343096095)
+	UASSERTEQ(uint32_t, h, 3935738997u);
 }

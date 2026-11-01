@@ -1,7 +1,7 @@
 // Standalone terragen (no engine): which places to probe, and what each
 // probed column should be. Built and run by scripts/terragen-check.sh.
 //   predict <code> <points-out>       → the places to probe, a direction per
-//                                       line (fixed point: x y z)
+//                                       line (x y z, 2^30 a unit)
 //   predict --columns <code> <probed> → PREDICT lines for each MAP line: the
 //                                       place of the node the probe found
 //   predict --terra <code> <probed>   → what core.terra should have said, for
@@ -36,9 +36,9 @@ static double degrees(fix radians)
 }
 
 // The place each MAP line's probe id found: "MAP id x y z".
-static std::map<int, Dir> places(const char *probed)
+static std::map<int, Place> places(const char *probed)
 {
-	std::map<int, Dir> out;
+	std::map<int, Place> out;
 	FILE *in = std::fopen(probed, "r");
 	if (!in)
 		throw std::runtime_error(std::string("predict: can't read ") + probed);
@@ -46,7 +46,7 @@ static std::map<int, Dir> places(const char *probed)
 	while (std::fgets(line, sizeof line, in)) {
 		const char *at = std::strstr(line, "MAP ");
 		int id;
-		Dir d;
+		Place d;
 		if (at && std::sscanf(at, "MAP %d %d %d %d", &id, &d.x, &d.y, &d.z) == 4)
 			out[id] = d;
 	}
@@ -58,7 +58,7 @@ static std::map<int, Dir> places(const char *probed)
 static int terra(const char *code, const char *probed)
 {
 	World w(WorldCode::decode(code));
-	const std::map<int, Dir> at = places(probed);
+	const std::map<int, Place> at = places(probed);
 	FILE *in = std::fopen(probed, "r");
 	char line[512];
 	while (std::fgets(line, sizeof line, in)) {
@@ -68,10 +68,10 @@ static int terra(const char *code, const char *probed)
 		double tod;
 		if (!found || std::sscanf(found, "TERRA %d %u %lf", &id, &day_count, &tod) != 3)
 			continue;
-		const Dir &d = at.at(id);
+		const Place &d = at.at(id);
 		fix hour = (fix)((float)tod * ONE);
 		Calendar c = calendar(w.code().year, day_count, hour);
-		fix latitude = latitudeOf(d);
+		fix latitude = latitudeOf(d.dir());
 		fix decl = declination(w.code().tilt, c.date);
 		Column column = w.column(d, w.sunlight(d, c.date));
 		Ground gr = w.ground(d, w.sunlight(d, std::nullopt));
@@ -110,7 +110,7 @@ static int soil(Biome b, bool bed)
 // What the generator makes at a place: its surface, water and biome, and the
 // block 20 below the surface, whose rock, ore and cave are the world
 // model's at that height.
-static void predictColumn(const World &w, int id, const Dir &at)
+static void predictColumn(const World &w, int id, const Place &at)
 {
 	const char *kinds[] = { "dry", "sea", "lake", "river", "lava" };
 	Ground gr = w.ground(at, w.sunlight(at, std::nullopt));
@@ -162,12 +162,14 @@ int main(int argc, char **argv)
 		if (!v.active || volcanoes == 2)
 			continue;
 		points.push_back(v.at);
-		points.push_back(dirAt(latitudeOf(v.at) + terragen::div(toFix(v.radius / 2), w.radius()), longitudeOf(v.at)));
+		points.push_back(dirAt(latitudeOf(v.at) + w.angle(v.radius / 2), longitudeOf(v.at)));
 		volcanoes++;
 	}
 
 	FILE *out = std::fopen(argv[2], "w");
-	for (const Dir &d : points)
-		std::fprintf(out, "%d %d %d\n", d.x, d.y, d.z);
+	for (const Dir &d : points) {
+		const Place p(d);
+		std::fprintf(out, "%d %d %d\n", p.x, p.y, p.z);
+	}
 	std::fclose(out);
 }

@@ -50,7 +50,7 @@ public:
 	void advance(double now);
 
 	// The weather at height y over a place at `now` (which advance() has reached).
-	fluid::Sample sample(const terragen::Dir &at, int32_t y, double now) const;
+	fluid::Sample sample(const terragen::Place &at, int32_t y, double now) const;
 
 	const fluid::Layer &layer() const { return *m_layer; }
 	double now() const { return m_start + m_layer->time(); }

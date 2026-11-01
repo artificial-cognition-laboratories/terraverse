@@ -17,22 +17,26 @@ const char *const BIOME_NAMES[(int)Biome::Count] = {
 };
 
 World::World(const WorldCode &code) :
-	m_code(code), m_map(code.size, home().radius), m_grid(gridFor(code)), m_radius(radiusOf(code)),
-	m_cell_blocks(cellBlocksOf(code))
+	m_code(code), m_grid(gridFor(code)), m_radius(radiusOf(code)),
+	m_cell_blocks(cellBlocksOf(code)),
+	// rivers' width: by the planet's size against the default's (16 384 round), never narrower
+	m_river_scale(std::max<int64_t>(ONE, ((int64_t)code.size << FRAC) / 16384)),
+	// meanders: about a wave a cell, counted round the equator as noise is
+	m_meander((int32_t)std::max<int64_t>(8, ((int64_t)TWO_PI << FRAC) / gridSphere().spacing() >> FRAC))
 {
 }
 
-fix World::radiusOf(const WorldCode &code)
+int64_t World::radiusOf(const WorldCode &code)
 {
-	return div(toFix(code.size), TWO_PI);
+	return ((int64_t)code.size << (2 * FRAC)) / TWO_PI;
 }
 
-fix World::cellBlocksOf(const WorldCode &code)
+int64_t World::cellBlocksOf(const WorldCode &code)
 {
-	return mul(gridSphere().spacing(), radiusOf(code));
+	return blocksOf(gridSphere().spacing(), radiusOf(code));
 }
 
-Dir World::place(fix u, fix v)
+Place World::place(fix u, fix v)
 {
 	return dirAt(mul(HALF - v, PI), mul(u - HALF, TWO_PI));
 }
@@ -48,21 +52,22 @@ fix World::v(const Dir &d)
 	return HALF - div(latitudeOf(d), PI);
 }
 
-int32_t World::blocksBetween(const Dir &a, const Dir &b) const
+int32_t World::blocksBetween(const Place &a, const Place &b) const
 {
-	return floorInt(mul(chord(a, b), m_radius));
+	return (int32_t)(blocksFine(chord(a, b)) >> FRAC);
 }
 
-std::array<int32_t, 3> World::solid(const Dir &d, int32_t y) const
+std::array<int32_t, 3> World::solid(const Place &d, int32_t y) const
 {
-	const int64_t r = (int64_t)m_radius + toFix(y); // blocks from the centre, fixed
-	auto at = [&](fix c) { return (int32_t)(((int64_t)c * r + ((int64_t)1 << 31)) >> 32); };
+	const int64_t r = m_radius + toFix(y); // blocks from the centre, fixed
+	// rounded: (c · r) / 2^(30 + 16), half up
+	auto at = [&](int32_t c) { return (int32_t)((mulShift(c, r, PLACE_FRAC + FRAC - 1) + 1) >> 1); };
 	return { at(d.x), at(d.y), at(d.z) };
 }
 
-fix World::sunlight(const Dir &d, std::optional<fix> date) const
+fix World::sunlight(const Place &d, std::optional<fix> date) const
 {
-	return terragen::sunlight(m_code, v(d), date);
+	return terragen::sunlight(m_code, v(d.dir()), date);
 }
 
 /*
@@ -120,7 +125,7 @@ int32_t World::cell(const Dir &d) const
 	return gridSphere().cell(d);
 }
 
-void World::volcanic(const Dir &at, int32_t &raise, int32_t &lava, int32_t &floor) const
+void World::volcanic(const Place &at, int32_t &raise, int32_t &lava, int32_t &floor) const
 {
 	const Grid &g = *m_grid;
 	raise = 0;
@@ -129,9 +134,10 @@ void World::volcanic(const Dir &at, int32_t &raise, int32_t &lava, int32_t &floo
 	int32_t i = cell(at);
 	for (uint32_t k = g.volcano_start[i]; k < g.volcano_start[i + 1]; k++) {
 		const Volcano &vo = g.volcanoes[g.volcano_list[k]];
-		fix d = mul(chord(at, vo.at), m_radius); // blocks, fixed
-		if (d >= toFix(vo.radius))
+		const int64_t far = blocksFine(chord(at, Place(vo.at))); // blocks, fixed
+		if (far >= toFix(vo.radius))
 			continue;
+		const fix d = (fix)far; // within its slopes: fits
 		// the cone: (1 − d/r)^1.5, steeper near the top
 		fix t = ONE - d / vo.radius;
 		int32_t cone = floorInt(mul(toFix(vo.height), mul(t, sqrt(t))));
@@ -160,8 +166,10 @@ fix World::between(const std::vector<fix> &f, const Dir &d) const
 	return (fix)(sum >> FRAC);
 }
 
-Column World::column(const Dir &d, fix sun) const
+Column World::column(const Place &p, fix sun) const
 {
+	// the climate and the grid's fields: at cell scale
+	const Dir d = p.dir();
 	const WorldCode &c = m_code;
 	const fix u = this->u(d), v = this->v(d);
 	fix belt, relief;
@@ -206,7 +214,7 @@ static fix dailySwing(const Column &c)
 	return c.elevation < 0 ? swing / 2 : swing;
 }
 
-fix World::temperature(const Dir &d, fix date, fix hour) const
+fix World::temperature(const Place &d, fix date, fix hour) const
 {
 	Column c = column(d, sunlight(d, date));
 	// warmest at 15:00, coldest at 03:00
@@ -214,12 +222,20 @@ fix World::temperature(const Dir &d, fix date, fix hour) const
 	return celsius(c.heat) + daily;
 }
 
-int32_t World::surface(fix e, const Dir &d) const
+int32_t World::surface(fix e, const Place &d) const
 {
+	// The coast follows the land between cell centres, which alone would
+	// draw it in the cells' straight edges: it wanders by noise about a cell
+	// long (a few blocks of height, so flat coasts wander far, cliffs not).
 	fix scale = e >= 0 ? toFix(LAND_SCALE) : toFix(SEA_SCALE);
+	fix shore = fbm(d, m_code.seed_hash + SHORE, m_meander, 5, HALF);
+	fix base = mul(e, scale) + shore * 3;
+	// The fine detail fades to nothing at the waterline (never more than half
+	// the height over or under it), so it never flips land and sea column by
+	// column: the coastline is the base's, a smooth line.
 	fix detail = fbm(d, m_code.seed_hash + DETAIL, m_code.size / 64, 3, HALF);
-	fix amplitude = e >= 0 ? toFix(5) : toFix(2);
-	return floorInt(mul(e, scale) + mul(detail, amplitude));
+	fix amplitude = std::min<fix>(base >= 0 ? toFix(5) : toFix(2), std::abs(base) / 2);
+	return floorInt(base + mul(detail, amplitude));
 }
 
 // A water surface in blocks: lakes and rivers sit at the grid's filled level.
@@ -233,7 +249,7 @@ static int32_t waterBlocks(fix filled)
 static const int32_t BANK = 6;   // blocks beside the channel kept above the water
 static const fix MAX_WIDTH = toFix(24);
 
-Ground World::ground(const Dir &at, fix sun) const
+Ground World::ground(const Place &at, fix sun) const
 {
 	const Grid &g = *m_grid;
 	const Sphere &sphere = gridSphere();
@@ -261,17 +277,29 @@ Ground World::ground(const Dir &at, fix sun) const
 
 	// Lakes: the grid's lake mask, between cell centres. Inside the outline the
 	// floor drops under the lake's level; on the rim the ground holds it in.
-	const Sphere::Spot spot = sphere.spot(at);
+	// The mask is read a little way off (up to a cell, by noise about a
+	// cell long, the place warped), and its half-way line wanders by finer
+	// noise: alone, the outline would be the cells' triangles.
+	Place warped = at;
+	{
+		std::array<int64_t, 3> w;
+		for (int k = 0; k < 3; k++)
+			w[k] = ((int64_t)fbm(at, m_code.seed_hash + SHORE + 2 + (uint32_t)k, m_meander, 3, HALF) * sphere.spacing()) >> 1;
+		warped = placeOf((int64_t)at.x + w[0], (int64_t)at.y + w[1], (int64_t)at.z + w[2]);
+	}
+	const Sphere::Spot spot = sphere.spot(warped.dir());
 	fix mask = 0;
 	for (int k = 0; k < 3; k++)
 		mask += g.lake[spot.cells[k]] ? spot.weights[k] : 0;
+	if (mask > 0)
+		mask += fbm(at, m_code.seed_hash + SHORE + 1, m_meander * 4, 3, HALF) / 4;
 	if (mask > 0) {
 		int32_t level = 0;
 		for (int32_t i : spot.cells)
 			if (g.lake[i])
 				level = std::max(level, waterBlocks(g.lake_level[i]));
 		if (mask >= HALF) {
-			int32_t depth = 1 + roundInt(mul(mask - HALF, toFix(6)));
+			int32_t depth = 1 + roundInt(mul(std::min(mask, ONE) - HALF, toFix(6)));
 			out.terrain = std::min(out.terrain, level - depth);
 			out.water = level;
 			out.kind = Water::Lake;
@@ -282,32 +310,53 @@ Ground World::ground(const Dir &at, fix sun) const
 
 	// Rivers: the nearest river segment within reach of this column, from
 	// the cells within three spacings of it. Positions are blocks from this
-	// column, straight through the planet (this near, the same as along it).
-	const int64_t reach = 3 * (int64_t)m_cell_blocks + toFix(4);
+	// column, straight through the planet (this near, the same as along it),
+	// to 1/256 of a block: three spacings on a large planet are tens of
+	// thousands of blocks, whose squares wouldn't fit 64 bits at 1/65 536.
+	constexpr int NEAR = 8; // fractional bits of a position here
+	const int64_t reach = 3 * m_cell_blocks + toFix(4);
+	// Rivers wander: the column is measured from a little way off, by smooth
+	// noise (a third of a cell at most, waves about a cell long), so the
+	// straight runs between cell centres meander and their banks still meet.
+	std::array<int64_t, 3> wander;
+	for (int k = 0; k < 3; k++)
+		wander[k] = (mulShift(fbm(at, m_code.seed_hash + MEANDER + (uint32_t)k, m_meander, 2, HALF), m_cell_blocks / 3, FRAC))
+				>> (FRAC - NEAR);
 	const auto offset = [&](const Dir &d) {
-		return std::array<int64_t, 3>{ mul(d.x - at.x, m_radius), mul(d.y - at.y, m_radius), mul(d.z - at.z, m_radius) };
+		const Place c(d);
+		const auto along = [&](int64_t u) { return blocksFine(u) >> (FRAC - NEAR); };
+		return std::array<int64_t, 3>{ along((int64_t)c.x - at.x) - wander[0], along((int64_t)c.y - at.y) - wander[1],
+			along((int64_t)c.z - at.z) - wander[2] };
 	};
-	fix best_gap = toFix(1 << 14);
+	int64_t best_gap = INT64_MAX; // blocks, fixed (64 bits: a far segment's gap doesn't fit 32)
 	int32_t best_level = 0;
-	fix best_half = 0, best_dist = 0;
+	int64_t best_half = 0;
+	int64_t best_dist = 0;
+	// (in a lake or the sea, the river is the water there: no channel, no banks)
+	const bool open = out.kind != Water::Lake && out.kind != Water::Sea;
 	for (int32_t i : sphere.around(cell(at), [&](int32_t k) {
-			return (int64_t)mul(chord(sphere.centre(k), at), m_radius) <= reach; })) {
+			return open && blocksFine(chord(Place(sphere.centre(k)), at)) <= reach; })) {
 		int32_t r = g.receiver[i];
-		if (!g.river(i) || r < 0)
+		if (!open || !g.river(i) || r < 0)
 			continue;
 		const std::array<int64_t, 3> a = offset(sphere.centre(i)), b = offset(sphere.centre(r));
 		const int64_t sx = b[0] - a[0], sy = b[1] - a[1], sz = b[2] - a[2];
-		const int64_t len2 = (sx * sx + sy * sy + sz * sz) >> FRAC; // fixed
+		const int64_t len2 = (sx * sx + sy * sy + sz * sz) >> NEAR;
 		if (len2 == 0)
 			continue;
 		// closest point on the segment to the origin (this column)
-		const int64_t along = -((a[0] * sx + a[1] * sy + a[2] * sz) >> FRAC);
+		const int64_t along = -((a[0] * sx + a[1] * sy + a[2] * sz) >> NEAR);
 		fix t = (fix)std::clamp<int64_t>((along << FRAC) / len2, 0, ONE);
 		const int64_t px = a[0] + ((sx * t) >> FRAC), py = a[1] + ((sy * t) >> FRAC), pz = a[2] + ((sz * t) >> FRAC);
-		fix dist = (fix)isqrt((uint64_t)(px * px + py * py + pz * pz));
-		// wider as more water passes: 3 blocks at the threshold, √ of the flow beyond it
-		fix width = std::min(toFix(3) + 2 * sqrtWide64((g.drained[i] << FRAC) / g.river_threshold), MAX_WIDTH);
-		fix half = width / 2;
+		const int64_t dist = (int64_t)isqrt((uint64_t)(px * px + py * py + pz * pz)) << (FRAC - NEAR);
+		// wider as more water passes: 3 blocks at the threshold, √ of the flow
+		// beyond it, on the default planet; a larger planet's rivers drain
+		// more (its cells are larger), and width goes as √ of the flow, so
+		// with the planet's size
+		// (in 64 bits; never wider than a cell, the land it drains between)
+		const int64_t width = std::min({ mulShift(toFix(3) + 2 * sqrtWide64((g.drained[i] << FRAC) / g.river_threshold),
+				m_river_scale, FRAC), mulShift(MAX_WIDTH, m_river_scale, FRAC), m_cell_blocks });
+		const int64_t half = width / 2;
 		if (dist - half < best_gap) {
 			best_gap = dist - half;
 			best_half = half;
@@ -320,7 +369,7 @@ Ground World::ground(const Dir &at, fix sun) const
 	if (best_gap < toFix(BANK)) {
 		if (best_dist < best_half) {
 			// the channel: a bed under the water, deepest mid-stream
-			int32_t depth = 1 + std::min(3, roundInt(mul(best_half - best_dist, HALF)));
+			int32_t depth = 1 + (int32_t)std::min<int64_t>(3, (((best_half - best_dist) >> 1) + HALF) >> FRAC);
 			out.terrain = std::min(out.terrain, best_level - depth);
 			if (out.kind == Water::None || best_level > out.water) {
 				out.water = best_level;

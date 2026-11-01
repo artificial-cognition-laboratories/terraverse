@@ -192,6 +192,16 @@ coast), bodies, window checks pass; headless boot; UI typecheck.
 `atlas-seam-check` fails 6 water pours (walkers pass): poured water is the
 matter's since sprint 80; not checked against an older build.
 
-**Left for pass 4:** the unused ice block (`mapgen_ice`, in the horizon
-packet and baked palette: a protocol bump to drop it); `terragen::Map`
-(the flat map's flight geometry); AGENTS.md's "polar edges" design text.
+**Pass 4 (closeoff): done.**
+
+- The ice block is gone from `terra::Blocks`, `TOCLIENT_HORIZON` and the
+  baked palette (version 2; re-exported, which also brought water's tint
+  up to date, stale since sprints 80–82); `mapgen_ice` isn't needed.
+  Protocol 89, and the minimums with it (they had been left at 87).
+- `terragen::Map` is gone (nothing used it but its boundary, now
+  `terragen::SPACE_BOUNDARY`).
+- `testNoPoleOrSeam`: the ground walked block by block over the north pole
+  and across ±180° steps no more than a walk through mid-latitudes. On
+  TF6.dGVycmE all three walks are gentle (steepest 1 block): it guards
+  against a wall or a seam, not the relief there.
+- AGENTS.md: the world is a planet with no edges; the sprint's entry.

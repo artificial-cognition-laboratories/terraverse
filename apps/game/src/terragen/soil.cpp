@@ -77,7 +77,7 @@ Soil soilPoint(uint8_t index)
 	return { ratio(sand, 10), ratio(10 - sand - clay, 10), ratio(clay, 10), ORGANIC_LEVELS[level] };
 }
 
-Soil World::soil(const Dir &at, const Ground &ground, const Strata &strata) const
+Soil World::soil(const Place &at, const Ground &ground, const Strata &strata) const
 {
 	const Column &c = ground.column;
 	Texture t = PARENT[(int)strata.province];
@@ -116,7 +116,7 @@ Soil World::soil(const Dir &at, const Ground &ground, const Strata &strata) cons
 	return { sand, silt, clay, clamp(organic, 0, ratio(60, 100)) };
 }
 
-uint8_t World::blend(const Dir &d, int32_t y) const
+uint8_t World::blend(const Place &d, int32_t y) const
 {
 	// smooth patches a few dozen blocks across, through depth too
 	const std::array<int32_t, 3> p = solid(d, y);

@@ -40,7 +40,7 @@ static const char *const VERBS[] = {
 };
 
 // The world the menu's universe is when none has been visited yet.
-static const char *const DEFAULT_CODE = "TF6.dGVycmE";
+static const char *const DEFAULT_CODE = "TF7.dGVycmE";
 
 static Json::Value worldJson(const Worlds &worlds, const WorldSpec &world)
 {

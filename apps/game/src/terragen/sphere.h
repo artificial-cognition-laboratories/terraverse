@@ -11,11 +11,37 @@
 
 namespace terragen {
 
-// A direction from a planet's centre, a unit vector in fixed point.
+// A direction from a planet's centre, a unit vector in fixed point: fine
+// enough for the grid, coarse for a column (1/65 536 of the radius).
 struct Dir
 {
 	fix x, y, z;
 };
+
+/*
+	A place on the planet to the block (sprint 87): its direction from the
+	centre as a unit vector to 30 fractional bits, so a column is told from
+	its neighbour on a planet Earth's size. What works at cell scale takes
+	its coarse dir(); distances in blocks, block noise and fine detail read
+	it whole. A Dir is a place exactly (its components widened).
+*/
+constexpr int PLACE_FRAC = 30;
+constexpr int64_t PLACE_ONE = (int64_t)1 << PLACE_FRAC;
+struct Place
+{
+	int32_t x = 0, y = 0, z = 0;
+	Place() = default;
+	Place(int32_t x, int32_t y, int32_t z) : x(x), y(y), z(z) {}
+	Place(const Dir &d) :
+		x(d.x * (1 << (PLACE_FRAC - FRAC))), y(d.y * (1 << (PLACE_FRAC - FRAC))), z(d.z * (1 << (PLACE_FRAC - FRAC))) {}
+	// rounded to the grid's precision
+	Dir dir() const;
+	bool operator==(const Place &o) const { return x == o.x && y == o.y && z == o.z; }
+};
+// A vector made a place, any length but zero.
+Place placeOf(int64_t x, int64_t y, int64_t z);
+// Straight-line distance between two places on the unit sphere, at PLACE_ONE.
+int64_t chord(const Place &a, const Place &b);
 
 /*
 	The world model's grid on the sphere (planning/sprint-86-sphere.md): a

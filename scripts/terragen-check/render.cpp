@@ -2,7 +2,7 @@
 // shaded relief, lakes, rivers by flow — and prints how long the grid took and
 // what share is land. For tuning generation by eye:
 //   g++ -std=c++17 -O2 -I src src/terragen/*.cpp scripts/terragen-check/render.cpp -o render
-//   ./render TF6.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents]
+//   ./render TF7.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents]
 #include "terragen/world.h"
 #include "terragen/sphere.h"
 #include <algorithm>
@@ -96,7 +96,7 @@ int main(int argc, char **argv)
 		for (int x = 0; x < W; x++) {
 			int cx = x / scale, cz = y / scale;
 			const fix pu = ratio(2 * cx + 1, 2 * MAP), pv = ratio(2 * cz + 1, 2 * MAP);
-			const Dir at = World::place(pu, pv);
+			const Place at = World::place(pu, pv);
 			int i = world.cell(at);
 			double e = g->eroded[i] / 65536.0;
 			int ie = world.cell(World::place(pu < ratio(1, MAP) ? pu + ONE - ratio(1, MAP) : pu - ratio(1, MAP), std::max<fix>(pv - ratio(1, MAP), ratio(1, 2 * MAP))));

@@ -179,11 +179,14 @@
 	PROTOCOL VERSION 88 (Terra Firma)
 		Ground (sprints 84-85): TOCLIENT_SHAPE's shape is kept as sent, a
 		whole one too (frozen ground); its flag is the node uncut
-		Only 88 is accepted on either side.
+	PROTOCOL VERSION 89 (Terra Firma)
+		The world on the sphere (sprint 86): TOCLIENT_HORIZON's blocks carry
+		no ice (the polar wall is gone); its code is TF6
+		Only 89 is accepted on either side.
 */
 
 // Note: Also update core.protocol_versions in builtin when bumping
-const u16 LATEST_PROTOCOL_VERSION = 88;
+const u16 LATEST_PROTOCOL_VERSION = 89;
 
 // See also formspec [Version History] in doc/lua_api.md
 const u16 FORMSPEC_API_VERSION = 12;

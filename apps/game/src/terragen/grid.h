@@ -30,6 +30,11 @@ struct Grid
 	fix sea_offset;                // subtracted from raw elevation: the Land share is exact
 	std::vector<fix> base;         // elevation after the sea offset, before erosion
 	std::vector<fix> eroded;       // after erosion
+	// what rivers laid down on each cell (elevation, so 1/160 is a block on
+	// land): floodplains, fans, filled lakes, the shelf off a river's mouth
+	std::vector<fix> sediment;
+	int64_t to_deep = 0;           // what rivers carried past the shelf (elevation × fixed area)
+	int64_t hollows = 0;           // what fills hollows too small to be lakes (the same units; not carried)
 	std::vector<fix> filled;       // the water surface: = eroded on dry land, above it on lakes
 	std::vector<int32_t> receiver; // the cell this one drains into; −1 = the sea (or a polar wall)
 	std::vector<int64_t> drained;  // rain-weighted area draining through, in fixed cell units
@@ -72,6 +77,6 @@ fix landmass(const WorldCode &code, const Dir &d);
 fix elevation(const WorldCode &code, const Dir &d, fix sea_offset, fix belt, fix relief);
 
 // Distinct noise streams, so the fields are independent.
-enum Stream : uint32_t { CONTINENT = 0, COAST = 3, RIDGE = 7, HEAT = 13, DETAIL = 41, SOIL_NOISE = 53, BLEND = 59 };
+enum Stream : uint32_t { CONTINENT = 0, COAST = 3, RIDGE = 7, HEAT = 13, DETAIL = 41, SOIL_NOISE = 53, BLEND = 59, MEANDER = 71, SHORE = 79 };
 
 } // namespace terragen

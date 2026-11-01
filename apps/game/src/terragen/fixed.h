@@ -45,6 +45,10 @@ inline fix fraction(fix v) { return v & (ONE - 1); }
 // Rounded to the nearest integer, halves up (as JavaScript's Math.round).
 inline int32_t roundInt(fix v) { return (v + HALF) >> FRAC; }
 
+// ⌊a·b / 2^shift⌋, exactly, for products past 64 bits (0 < shift < 64; the
+// result must fit 64 bits).
+int64_t mulShift(int64_t a, int64_t b, int shift);
+
 fix sqrt(fix v);                     // v ≥ 0
 uint64_t isqrt(uint64_t n);          // ⌊√n⌋ of a plain integer
 fix sqrtWide64(int64_t v);           // √v for a fixed value held in 64 bits, v ≥ 0

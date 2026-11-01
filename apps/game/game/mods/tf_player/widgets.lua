@@ -92,8 +92,14 @@ local function map_at(player)
 		player:set_ui("body", { id = body, name = named[body].name, home = body == home })
 		if state.ready then send_map(player, state) end
 	end
-	local pos = core.terra.world_column(player:get_pos())
 	local size = body and named[body].size or world.size
+	-- where they are as the map counts it: longitude east across `size`,
+	-- latitude north across size / 2 (core.terra.place: the column's direction)
+	local d = core.terra.place(player:get_pos())
+	local pos = {
+		x = math.atan2(d.z, d.x) / (2 * math.pi) * size,
+		z = math.atan2(d.y, math.sqrt(d.x * d.x + d.z * d.z)) / math.pi * size,
+	}
 	local cx = math.floor((pos.x + size / 2) * EXPLORE_GRID / size) % EXPLORE_GRID
 	local cz = math.max(0, math.min(EXPLORE_GRID - 1,
 		math.floor((size / 2 - pos.z) * EXPLORE_GRID / size)))

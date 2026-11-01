@@ -192,4 +192,23 @@ fix exp(fix v)
 	return exp2(mul(v, 94548)); // log₂ e
 }
 
+int64_t mulShift(int64_t a, int64_t b, int shift)
+{
+	// |a|·|b| as 128 bits in two halves, from 32-bit limbs
+	const bool negative = (a < 0) != (b < 0);
+	const uint64_t ua = a < 0 ? 0 - (uint64_t)a : (uint64_t)a, ub = b < 0 ? 0 - (uint64_t)b : (uint64_t)b;
+	const uint64_t a0 = ua & 0xffffffffu, a1 = ua >> 32, b0 = ub & 0xffffffffu, b1 = ub >> 32;
+	const uint64_t low = a0 * b0, mid1 = a1 * b0, mid2 = a0 * b1, high = a1 * b1;
+	const uint64_t mid = (low >> 32) + (mid1 & 0xffffffffu) + (mid2 & 0xffffffffu);
+	const uint64_t lo = (low & 0xffffffffu) | (mid << 32);
+	const uint64_t hi = high + (mid1 >> 32) + (mid2 >> 32) + (mid >> 32);
+	uint64_t q = (lo >> shift) | (hi << (64 - shift));
+	if (negative) {
+		// floor of a negative: one further down if anything was shifted out
+		const bool rest = (lo & ((1ull << shift) - 1)) != 0;
+		return -(int64_t)q - (rest ? 1 : 0);
+	}
+	return (int64_t)q;
+}
+
 } // namespace terragen

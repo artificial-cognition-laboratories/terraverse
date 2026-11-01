@@ -65,7 +65,7 @@ static fluid::LayerOpts earth(const World &world, const matter::Matter &m)
 			height /= SPAN * SPAN;
 			bool water = sea * 2 > SPAN * SPAN;
 			// the cell's centre
-			const Dir at = World::place(ratio(2 * col + 1, 2 * CELLS), ratio(2 * row + 1, 2 * CELLS));
+			const Place at = World::place(ratio(2 * col + 1, 2 * CELLS), ratio(2 * row + 1, 2 * CELLS));
 			wet = toDouble(world.column(at, world.sunlight(at, std::nullopt)).wet);
 			// terragen's seasons there, at the hour the daily swing crosses zero:
 			// the annual mean and half the swing from northern winter to summer
@@ -148,7 +148,7 @@ void Weather::advance(double target)
 		save();
 }
 
-fluid::Sample Weather::sample(const Dir &at, int32_t y, double now) const
+fluid::Sample Weather::sample(const Place &at, int32_t y, double now) const
 {
 	double u = toDouble(World::u(at)), v = std::clamp(toDouble(World::v(at)), 0.0, 1.0 - 1e-9);
 	double hour = std::fmod(now / DAY, 1.0), date = dateOf(now, m_layer_opts.planet.year);
@@ -166,7 +166,7 @@ fluid::Sample Weather::sample(const Dir &at, int32_t y, double now) const
 	// the rain: the layer's weather, scaled so its long-run mean here is
 	// terragen's climate for this season (the biomes' rain), not its own
 	Column c = m_world.column(at, m_world.sunlight(at, std::nullopt));
-	double summer = std::sin(2 * M_PI * date) * (at.y > 0 ? 1 : -1); // 1 at the local midsummer
+	double summer = std::sin(2 * M_PI * date) * (at.dir().y > 0 ? 1 : -1); // 1 at the local midsummer
 	double climate_rain = toDouble(c.rain) * (1 + toDouble(c.season) * summer) * MEDIAN_RAIN;
 	double own = std::max(m_layer->climatology(u, v), 0.01);
 	s.precipitation *= std::clamp(climate_rain / own, 0.1, 10.0);

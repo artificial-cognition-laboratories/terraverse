@@ -169,7 +169,6 @@
 				"water_top" : "tf_world:water_source"
 			}
 		},
-		"ice" : "tf_world:ice",
 		"lava" : "tf_world:lava_source",
 		"ore" : 
 		{
@@ -15767,9 +15766,9 @@
 			"tints" : 
 			[
 				[
-					1.0,
-					1.0,
-					1.0
+					0.22745098173618317,
+					0.49803921580314636,
+					0.76862746477127075
 				]
 			]
 		},
@@ -16354,5 +16353,5 @@
 			"trunk" : "tf_world:spruce_log"
 		}
 	],
-	"version" : 1
+	"version" : 2
 }

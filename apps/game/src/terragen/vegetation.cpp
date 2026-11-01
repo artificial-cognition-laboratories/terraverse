@@ -30,7 +30,7 @@ const int32_t SPOT_CELL = 5; // blocks: at most one tree per 5×5
 
 } // namespace
 
-Cover World::cover(const Dir &at, const Ground &ground) const
+Cover World::cover(const Place &at, const Ground &ground) const
 {
 	const Grid &g = *m_grid;
 	const Sphere &sphere = gridSphere();
@@ -49,7 +49,7 @@ Cover World::cover(const Dir &at, const Ground &ground) const
 		int64_t squares = 0;
 		const fix *gap = sphere.distancesBegin(i);
 		for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++, gap++) {
-			const fix s = div((g.eroded[*p] - g.eroded[i]) * LAND_SCALE, mul(*gap, m_radius)); // rise over run, blocks
+			const fix s = div((g.eroded[*p] - g.eroded[i]) * LAND_SCALE, (fix)blocks(*gap)); // rise over run, blocks (a cell apart: fits)
 			squares += (int64_t)s * s;
 		}
 		out.slope = sqrtWide64(((squares * 2) / sphere.neighbourCount(i)) >> FRAC);
