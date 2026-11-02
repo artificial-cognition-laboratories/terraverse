@@ -26,7 +26,7 @@ terra::Blocks terraBlocks(const BiomeManager *bmgr, const NodeDefManager *ndef);
 
 struct MapgenTerraParams : public MapgenParams
 {
-	// The world code (TF7.…): everything terragen needs. Written into the
+	// The world code (TF9.…): everything terragen needs. Written into the
 	// world's map_meta.txt when the world is created.
 	std::string code;
 

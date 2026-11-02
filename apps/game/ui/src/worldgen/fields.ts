@@ -18,13 +18,17 @@ export type Fields = {
     plate: Uint8Array       // which plate
     boundary: Uint8Array    // 0, or the kind of plate edge running through: 1 converging, 2 spreading, 3 sliding
     volcanoes: Volcano[]
+    history: LandMoment[]
 }
+
+/** Something the plates did, in million years before today (terragen/history.cpp). */
+export type LandMoment = { ago: number; text: string }
 
 /** A volcano's vent, as a share of the world across (u, east) and down (v, south). */
 export type Volcano = { u: number; v: number; active: boolean }
 
 /** The engine's geological provinces, in index order (src/terragen/geology.cpp: PROVINCE_NAMES). */
-export const PROVINCES = ["shield", "orogen", "arc", "rift", "basin", "volcanic", "ocean floor"] as const
+export const PROVINCES = ["shield", "orogen", "arc", "rift", "basin", "volcanic", "ocean floor", "highland", "mare"] as const
 
 /** A river segment: from a grid cell's centre to the one it drains into, as shares of the map across (u) and down (v); strength 1..255 (√flow over threshold ×16). */
 export type River = { u0: number; v0: number; u1: number; v1: number; strength: number }
@@ -46,6 +50,7 @@ export type PreviewWire = {
     plate: string     // uint8
     boundary: string  // uint8
     volcanoes: string // 5 bytes each: u (uint16 LE), v (uint16 LE), active
+    history: LandMoment[] // what happened to the plates, oldest first
 }
 
 function bytesOf(b64: string) {
@@ -92,6 +97,7 @@ export function decodePreview(wire: PreviewWire): Fields {
         plate: plate,
         boundary: boundary,
         volcanoes: volcanoes,
+        history: wire.history,
     }
 }
 
@@ -112,6 +118,8 @@ export const BIOME_COLORS: Record<string, readonly [number, number, number]> = {
     snow: [236, 240, 244],
     monsoon: [96, 140, 40],
     mediterranean: [160, 150, 96],
+    regolith: [168, 166, 160],
+    mare: [84, 84, 88],
 }
 
 /** What the map and globe colour by. */
@@ -154,7 +162,7 @@ const WET_RAMP: Rgb[] = [[170, 120, 60], [220, 210, 150], [110, 180, 120], [40, 
 const LAND_RAMP: Rgb[] = [[70, 120, 60], [160, 150, 90], [130, 110, 95], [245, 245, 245]]
 const SEA_RAMP: Rgb[] = [[10, 30, 70], [50, 110, 170]]
 // one colour per province (PROVINCES order), and per kind of plate edge
-const PROVINCE_COLORS: Rgb[] = [[150, 140, 128], [176, 84, 70], [214, 142, 62], [92, 172, 160], [126, 172, 92], [74, 52, 52], [44, 74, 132]]
+const PROVINCE_COLORS: Rgb[] = [[150, 140, 128], [176, 84, 70], [214, 142, 62], [92, 172, 160], [126, 172, 92], [74, 52, 52], [44, 74, 132], [196, 192, 184], [70, 72, 80]]
 const BOUNDARY_COLORS: Rgb[] = [[0, 0, 0], [236, 52, 44], [52, 214, 236], [236, 214, 52]]
 
 function currentColor(current: number, sea: boolean): Rgb {

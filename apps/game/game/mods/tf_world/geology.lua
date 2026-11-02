@@ -20,12 +20,16 @@ local ROCKS = {
 	{ "obsidian", "Obsidian", 1, "obsidian" },
 	{ "shale", "Shale", 3, "shale" },
 	{ "limestone", "Limestone", 3, "limestone" },
+	-- a cratered lid's (sprint 95): the highlands' crust and its shattered top
+	{ "anorthosite", "Anorthosite", 2, "anorthosite" },
+	{ "breccia", "Breccia", 3, "breccia" },
 }
 -- Each rock blends toward a geological neighbour (granite toward gneiss…):
 -- its param2 is how far, 0..15, coloured by its palette and made of both
 -- (scripts/assets/palettes.py draws the palettes from the same pairs).
 local PARTNERS = { granite = "gneiss", gneiss = "slate", slate = "shale", basalt = "andesite", andesite = "tuff",
-	tuff = "andesite", obsidian = "basalt", shale = "limestone", limestone = "sandstone" }
+	tuff = "andesite", obsidian = "basalt", shale = "limestone", limestone = "sandstone",
+	anorthosite = "breccia", breccia = "anorthosite" }
 local BLENDS = 16
 
 local function blends(rock, partner)
@@ -68,6 +72,8 @@ local ORES = {
 	{ "coal", "Coal", "coal_ore", "coal", 3 },
 	{ "salt", "Rock salt", "salt", "salt", 3 },
 	{ "sulfur", "Sulfur", "sulfur_ore", "sulfur", 3 },
+	{ "ilmenite", "Ilmenite (iron and titanium)", "ilmenite_ore", "ilmenite", 2 },
+	{ "kreep", "KREEP (thorium and rare earths)", "kreep_ore", "apatite", 2 },
 }
 for _, o in ipairs(ORES) do
 	local id, label, texture, matter, hardness = o[1], o[2], o[3], o[4], o[5]
@@ -79,6 +85,9 @@ for _, o in ipairs(ORES) do
 	})
 	core.register_alias("mapgen_ore_" .. id, "tf_world:ore_" .. id)
 end
+
+-- Water ice in the cold traps: frozen into the dust of polar crater floors
+core.register_alias("mapgen_ore_ice", "tf_world:ice")
 
 -- River gravel out of the mountains, with gold and tin washed into it.
 core.register_node("tf_world:placer_gravel", {

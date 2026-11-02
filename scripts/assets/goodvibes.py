@@ -115,12 +115,20 @@ def derived():
         "shale": tint(stone, (118, 104, 94)),
         "limestone": tint(stone, (214, 204, 174)),
         "salt": tint(diorite, (238, 228, 224)),
+        # a cratered moon's: the highlands' pale crust and its shattered top,
+        # and the dust over both (light) and over the maria (dark)
+        "anorthosite": tint(diorite, (222, 222, 218)),
+        "breccia": tint(gravel, (150, 148, 144)),
+        "regolith": tint(stone, (172, 170, 166)),
+        "mare_regolith": tint(stone, (92, 92, 96)),
         # ores: the pack's iron ore specks, recoloured, in its stone
         "copper_ore": recolour_ore(iron, stone, stone, (196, 112, 64)),
         "tin_ore": recolour_ore(iron, stone, stone, (214, 214, 204)),
         "lead_ore": recolour_ore(iron, stone, stone, (92, 98, 124)),
         "magnetite_ore": recolour_ore(iron, stone, tint(andesite, (64, 64, 70)), (34, 34, 40)),
         "sulfur_ore": recolour_ore(gold, stone, stone, (238, 220, 48)),
+        "ilmenite_ore": recolour_ore(iron, stone, tint(andesite, (64, 64, 70)), (24, 22, 30)),
+        "kreep_ore": recolour_ore(gold, stone, tint(diorite, (222, 222, 218)), (190, 140, 96)),
         # river gravel with the gold ore's flecks in it
         "placer_gravel": recolour_ore(gold, stone, gravel, (232, 196, 60)),
     }
@@ -133,11 +141,17 @@ DERIVED = {
     "shale": "stone, retinted grey-brown",
     "limestone": "stone, retinted cream",
     "salt": "diorite, retinted off-white",
+    "anorthosite": "diorite, retinted pale grey",
+    "breccia": "gravel, retinted grey",
+    "regolith": "stone, retinted light grey",
+    "mare_regolith": "stone, retinted dark grey",
     "copper_ore": "iron ore's specks recoloured copper, on stone",
     "tin_ore": "iron ore's specks recoloured pale grey, on stone",
     "lead_ore": "iron ore's specks recoloured blue-grey, on stone",
     "magnetite_ore": "iron ore's specks recoloured black, on retinted andesite",
     "sulfur_ore": "gold ore's specks recoloured yellow, on stone",
+    "ilmenite_ore": "iron ore's specks recoloured black, on retinted andesite",
+    "kreep_ore": "gold ore's specks recoloured tan, on retinted diorite",
     "placer_gravel": "gold ore's specks set into gravel",
 }
 

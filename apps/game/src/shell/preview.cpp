@@ -50,6 +50,20 @@ Json::Value previewJson(const Json::Value &intent, const std::optional<terragen:
 	out["plate"] = bytes(p.plate.data(), p.plate.size());
 	out["boundary"] = bytes(p.boundary.data(), p.boundary.size());
 	out["volcanoes"] = bytes(p.volcanoes.data(), p.volcanoes.size());
+	// what happened to the plates, oldest first
+	static const char *const HAPPENED[] = {
+		"two continents collide and fold up a range",
+		"a continent splits and an ocean opens",
+		"ocean floor sinks under a plate: a chain of volcanoes rises",
+	};
+	Json::Value history(Json::arrayValue);
+	for (const terragen::Preview::Moment &m : p.history) {
+		Json::Value e;
+		e["ago"] = m.ago;
+		e["text"] = HAPPENED[(int)m.kind];
+		history.append(e);
+	}
+	out["history"] = history;
 	Json::Value names(Json::arrayValue);
 	for (const char *name : terragen::BIOME_NAMES)
 		names.append(name);

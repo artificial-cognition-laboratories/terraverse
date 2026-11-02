@@ -8,6 +8,7 @@
 #include "filesys.h"
 #include "planet/atlas.h"
 #include "shell/preview.h"
+#include "terragen/grid.h"
 #include "terragen/system.h"
 #include "terragen/worlds.h"
 #include "terragen/world.h"
@@ -32,6 +33,7 @@ public:
 	void testBlocksKeptByBody();
 	void testAPreviewOfABody();
 	void testABodysLandIsItsKind();
+	void testSurroundings();
 };
 
 static TestBodies g_test_instance;
@@ -43,13 +45,14 @@ void TestBodies::runTests(IGameDef *gamedef)
 	TEST(testBlocksKeptByBody);
 	TEST(testAPreviewOfABody);
 	TEST(testABodysLandIsItsKind);
+	TEST(testSurroundings);
 }
 
 namespace {
 
 using planet::Atlas;
 
-const terragen::WorldCode HOME_CODE = terragen::WorldCode::decode("TF7.dGVycmE");
+const terragen::WorldCode HOME_CODE = terragen::WorldCode::decode("TF9.dGVycmE");
 
 std::vector<terragen::BodyWorld> worldsAt(double radius)
 {
@@ -206,14 +209,120 @@ void TestBodies::testABodysLandIsItsKind()
 	int water, grows;
 	std::set<int> biomes;
 	survey(w[0].code, water, grows, biomes);
-	UASSERT(w[0].code.surface == terragen::Surface::Living);
+	UASSERT(w[0].code.processes.life && w[0].code.processes.water && w[0].code.processes.regime == terragen::Regime::Plates);
 	UASSERT(water > 0 && grows > 0 && biomes.size() > 1);
-	UASSERT(w[3].id == "moon" && w[3].code.surface == terragen::Surface::Rock);
+	UASSERT(w[3].id == "moon" && w[3].code.processes.bare == terragen::Surface::Regolith && !w[3].code.processes.water && w[3].code.processes.regime == terragen::Regime::Lid);
 	biomes.clear();
 	survey(w[3].code, water, grows, biomes);
 	UASSERT(water == 0 && grows == 0);
-	UASSERT(biomes == std::set<int>{ (int)terragen::Biome::Rock });
+	// regolith: light on the highlands, dark on the maria (sprint 95)
+	for (int b : biomes)
+		UASSERT(b == (int)terragen::Biome::Regolith || b == (int)terragen::Biome::Mare);
+	{
+		// a stagnant lid and no water: one plate, nothing worn, laid or pooled
+		const auto moon = terragen::gridFor(w[3].code);
+		for (int32_t i = 0; i < moon->size(); i++) {
+			UASSERT(moon->tectonics.plate[i] == moon->tectonics.plate[0]);
+			UASSERT(moon->worn[i] == 0 && moon->sediment[i] == 0 && !moon->lake[i] && !moon->stream(i));
+		}
+		UASSERT(moon->history.empty());
+		// impacts (sprint 94): kept on a dry, still body, wide ones in the grid
+		UASSERT(moon->craters.size() > 100 && moon->crater_from > 0);
+		const terragen::Crater &c = moon->craters.back();
+		const terragen::Place mid = c.at;
+		UASSERT(terragen::Craters::shape(c, mid) < 0); // a pit in the middle
+		UASSERT(c.rim > 0);
+		// Earth keeps few (water and plates)
+		const auto home = terragen::gridFor(w[0].code);
+		UASSERT(home->craters.size() < moon->craters.size() / 20);
+
+		// maria (sprint 95): the share the card floods, level, on the thin
+		// side, with few craters after them
+		const terragen::Processes &p = w[3].code.processes;
+		UASSERT(p.flooding > 0 && p.young > 0 && p.young < terragen::ratio(1, 5));
+		const terragen::Sphere &sphere = terragen::gridSphere();
+		int64_t all = 0, flooded = 0;
+		double thin[2] = {}, cells[2] = {};
+		for (int32_t i = 0; i < moon->size(); i++) {
+			const bool mare = moon->mare[i] > 0;
+			all += sphere.area(i);
+			flooded += mare ? sphere.area(i) : 0;
+			thin[mare] += moon->thin[i];
+			cells[mare]++;
+			if (mare) // its pool's level, the young craters on it
+				UASSERT(moon->base[i] == moon->mare_level[i] + moon->crater_young[i]);
+		}
+		const double share = (double)flooded / all, asked = p.flooding / 65536.0;
+		UASSERT(share > asked - 0.01 && share < asked + 0.01);
+		UASSERT(thin[1] / cells[1] > thin[0] / cells[0] + 0.15 * 65536);
+		// craters made since: on the maria, a fraction of the highlands' density
+		int on[2] = {};
+		for (const terragen::Crater &c : moon->craters) {
+			const int32_t i = sphere.cell(c.at.dir());
+			if (moon->mare[i] > 0 ? c.young : true)
+				on[moon->mare[i] > 0]++;
+		}
+		UASSERT(on[1] / cells[1] < on[0] / cells[0] / 4);
+
+		// their rock: basalt as deep as the lava over the shattered crust;
+		// the highlands' breccia over anorthosite
+		const terragen::World moonWorld(w[3].code);
+		int seen[2] = {};
+		for (int k = 0; k < 400; k++) {
+			const terragen::Place at = terragen::World::place(terragen::ratio(k % 20, 20), terragen::ratio(k / 20 * 2 + 1, 42));
+			const terragen::Ground g = moonWorld.ground(at, moonWorld.sunlight(at, std::nullopt));
+			const terragen::Strata s = moonWorld.strata(at, g);
+			const terragen::Rock deep = moonWorld.rock(s, s.mare + s.breccia + 5, g.terrain - 400);
+			UASSERT(deep == terragen::Rock::Anorthosite);
+			// (lava laps onto the highlands' edge: a column's depth of it is
+			// between its cells')
+			UASSERT(moonWorld.rock(s, 0, g.terrain) == (s.mare > 0 ? terragen::Rock::Basalt : terragen::Rock::Breccia));
+			UASSERT(s.province == terragen::Province::Mare || s.province == terragen::Province::Highland);
+			seen[s.province == terragen::Province::Mare]++;
+		}
+		UASSERT(seen[0] > 0 && seen[1] > 0);
+	}
+	// a body never warm enough for volcanism floods none
+	for (const terragen::BodyWorld &b : w)
+		if (b.id == "aster") {
+			UASSERT(b.code.processes.flooding == 0);
+			const auto g = terragen::gridFor(b.code);
+			for (terragen::fix m : g->mare)
+				UASSERT(m == 0);
+		}
 	for (const terragen::BodyWorld &b : w)
 		if (b.id == "nacre")
-			UASSERT(b.code.surface == terragen::Surface::Ice);
+			UASSERT(b.code.processes.bare == terragen::Surface::Ice && !b.code.processes.life);
+}
+
+// Each body's gravity and air come from its card (sprint 96): the home's air
+// has oxygen and pulls about a g; the Moon pulls less and has none, so its
+// flight has no drag; a thin air is thinner than the home's.
+void TestBodies::testSurroundings()
+{
+	const std::vector<terragen::BodyWorld> earth = worldsAt(6371000);
+	const terragen::BodyWorld *home = &earth[0], *moon = nullptr, *thin = nullptr;
+	for (const terragen::BodyWorld &b : earth) {
+		const terragen::Surroundings &s = b.surroundings;
+		std::printf("AIR %s g=%.2f P=%.0f T=%.0f rho=%.4f\n", b.id.c_str(), s.gravity, s.pressure, s.temperature, terragen::planetOf(b).density);
+		if (b.id == "moon")
+			moon = &b;
+		else if (s.pressure > 0 && s.pressure < home->surroundings.pressure / 4)
+			thin = &b;
+		double shares = 0;
+		for (const auto &[id, share] : s.gases)
+			shares += share;
+		UASSERT(s.gases.empty() || std::abs(shares - 1) < 1e-9);
+	}
+	UASSERT(moon && thin);
+	UASSERT(std::abs(home->surroundings.gravity - 9.81) < 1);
+	bool oxygen = false;
+	for (const auto &[id, share] : home->surroundings.gases)
+		oxygen |= id == "oxygen" && share > 0.1;
+	UASSERT(oxygen);
+	UASSERT(moon->surroundings.gravity < home->surroundings.gravity / 4);
+	UASSERT(moon->surroundings.pressure == 0 && moon->surroundings.gases.empty());
+	UASSERT(terragen::planetOf(*moon).density == 0);
+	UASSERT(terragen::planetOf(*moon).gravity == moon->surroundings.gravity);
+	UASSERT(terragen::planetOf(*thin).density < terragen::planetOf(*home).density / 4);
 }

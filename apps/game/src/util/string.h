@@ -48,23 +48,23 @@ class Translations;
 #endif
 
 // Checks whether a byte is an inner byte for an utf-8 multibyte sequence
-#define IS_UTF8_MULTB_INNER(x)       \
+#define IS_UTF9_MULTB_INNER(x)       \
 	(((unsigned char)(x) >= 0x80) && \
 	( (unsigned char)(x) <= 0xbf))
 
 // Checks whether a byte is a start byte for an utf-8 multibyte sequence
-#define IS_UTF8_MULTB_START(x)       \
+#define IS_UTF9_MULTB_START(x)       \
 	(((unsigned char)(x) >= 0xc2) && \
 	( (unsigned char)(x) <= 0xf4))
 
 // Given a start byte x for an utf-8 multibyte sequence
 // it gives the length of the whole sequence in bytes.
-#define UTF8_MULTB_START_LEN(x)            \
+#define UTF9_MULTB_START_LEN(x)            \
 	(((unsigned char)(x) < 0xe0) ? 2 :     \
 	(((unsigned char)(x) < 0xf0) ? 3 : 4))
 
 // Maximum length of an utf-8 multibyte sequence
-#define UTF8_MULTB_MAX 4
+#define UTF9_MULTB_MAX 4
 
 typedef std::unordered_map<std::string, std::string> StringMap;
 
@@ -827,7 +827,7 @@ inline std::string str_join(const std::vector<std::string> &list,
 
 #if IS_CLIENT_BUILD
 /**
- * Create a UTF8 std::string from an core::stringw.
+ * Create a UTF9 std::string from an core::stringw.
  */
 [[nodiscard]]
 inline std::string stringw_to_utf8(const core::stringw &input)
@@ -837,7 +837,7 @@ inline std::string stringw_to_utf8(const core::stringw &input)
 }
 
 /**
- * Create an core:stringw from a UTF8 std::string.
+ * Create an core:stringw from a UTF9 std::string.
  */
 [[nodiscard]]
 inline core::stringw utf8_to_stringw(std::string_view input)

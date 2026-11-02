@@ -5,16 +5,19 @@
 
 #include "planet/atlas.h"
 #include <cmath>
+#include <stdexcept>
 
 namespace orbit {
 
 // What `at` asks of the air and the pull alone (thrust and drag are the caller's).
 static const Craft BARE{ 1, 0 };
 
-Field::Field(const planet::Atlas &atlas) : m_atlas(&atlas)
+Field::Field(const planet::Atlas &atlas, const std::vector<terragen::Planet> &bodies) : m_atlas(&atlas)
 {
-	for (int b = 0; b < atlas.bodies(); b++)
-		m_flights.push_back(std::make_unique<Flight>(terragen::sphere(atlas.body(b).params().radius)));
+	if ((int)bodies.size() != atlas.bodies())
+		throw std::invalid_argument("orbit::Field: a planet for each of the atlas's bodies");
+	for (const terragen::Planet &p : bodies)
+		m_flights.push_back(std::make_unique<Flight>(p));
 }
 
 Field::Field(const terragen::Planet &flat)

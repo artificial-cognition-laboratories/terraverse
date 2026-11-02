@@ -2,8 +2,9 @@
 // shaded relief, lakes, rivers by flow — and prints how long the grid took and
 // what share is land. For tuning generation by eye:
 //   g++ -std=c++17 -O2 -I src src/terragen/*.cpp scripts/terragen-check/render.cpp -o render
-//   ./render TF7.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents]
+//   ./render TF9.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents|sediment]
 #include "terragen/world.h"
+#include "terragen/worlds.h"
 #include "terragen/sphere.h"
 #include <algorithm>
 #include <chrono>
@@ -65,13 +66,26 @@ static void png(const char *path, int w, int h, const std::vector<unsigned char>
 int main(int argc, char **argv)
 {
 	if (argc < 3) {
-		std::fprintf(stderr, "usage: render <code> <out.png> [scale]\n");
+		std::fprintf(stderr, "usage: render <code>[@body] <out.png> [scale] [mode]\n");
 		return 2;
 	}
 	int scale = argc > 3 ? std::stoi(argv[3]) : 3;
 	std::string mode = argc > 4 ? argv[4] : "relief";
 	auto t0 = std::chrono::steady_clock::now();
-	WorldCode code = WorldCode::decode(argv[1]);
+	// <code>@<body>: another body of the world's system, as the game builds it
+	const std::string arg = argv[1];
+	const size_t at = arg.find('@');
+	WorldCode code = WorldCode::decode(arg.substr(0, at));
+	if (at != std::string::npos) {
+		bool found = false;
+		for (const BodyWorld &b : bodyWorlds(code, Atlas::standard(World::radiusOf(code) / 65536.0)))
+			if (b.id == arg.substr(at + 1)) {
+				code = b.code;
+				found = true;
+			}
+		if (!found)
+			throw std::invalid_argument("render: no body " + arg.substr(at + 1) + " to stand on");
+	}
 	std::shared_ptr<const Grid> g = gridFor(code);
 	World world(code);
 	double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
@@ -107,6 +121,9 @@ int main(int argc, char **argv)
 			else if (e < 0.45) { r = 120 + 100 * (e - 0.15); gg = 160 - 120 * (e - 0.15); b = 80; }
 			else { double s = std::min(1.0, (e - 0.45) * 2); r = 140 + 100 * s; gg = 125 + 115 * s; b = 115 + 125 * s; }
 			if (e >= 0) { r *= shade; gg *= shade; b *= shade; }
+			if (!code.processes.water) { // a dry body: grey by height, all of it shaded; the maria dark
+				r = gg = b = std::clamp(150 + 160 * e, 40.0, 230.0) * shade * (g->mare[i] > 0 ? 0.5 : 1.0);
+			}
 			if (mode == "plates") {
 				// each plate its own tint; boundaries red (converging), cyan (spreading), yellow (sliding)
 				const Tectonics &t = g->tectonics;
@@ -149,6 +166,14 @@ int main(int argc, char **argv)
 				gg = base - 40 * std::fabs(a);
 				b = base + 170 * std::max(0.0, -a) - 40 * std::max(0.0, a);
 				if (e >= 0) { r *= shade; gg *= shade; b *= shade; }
+			} else if (mode == "sediment") {
+				// what rivers laid down: grey nothing, through yellow to deep orange (ten blocks or more)
+				double a = alluvium(g->sediment[i]) / 65536.0;
+				if (e >= 0) { r = (110 + 130 * a) * shade; gg = (110 + 40 * a) * shade; b = (110 - 90 * a) * shade; }
+				else { r = 20 + 120 * a; gg = 50 + 60 * a; b = 130 - 60 * a; }
+				// placers (gold, tin) in red, by how rich
+				const double pl = g->placer[i] / 65536.0;
+				if (pl > 0) { r = 160 + 95 * pl; gg = 40; b = 40; }
 			} else if (mode == "fertility") {
 				double f = g->fertility[i] / 65536.0;
 				if (e >= 0) { r = (90 + 80 * (1 - f)) * shade; gg = (70 + 120 * f) * shade; b = 50 * shade; }

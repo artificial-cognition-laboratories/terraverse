@@ -35,7 +35,8 @@ namespace orbit {
 class Field
 {
 public:
-	explicit Field(const planet::Atlas &atlas);
+	// `bodies`: each of the atlas's bodies as flight sees it (terragen::planetOf), in its order
+	Field(const planet::Atlas &atlas, const std::vector<terragen::Planet> &bodies);
 	explicit Field(const terragen::Planet &flat);
 	~Field();
 

@@ -31,7 +31,6 @@ namespace sandbox {
 
 using matter::State;
 
-static const double GRAVITY = 9.81;
 static const double SUBSTEP = 0.1;          // s: the longest step liquids take
 static const double THINNEST = 1.0 / 16;    // of a block: a liquid spreads no thinner
 static const double FALLING = 8;            // per s: how fast what's over space falls into it
@@ -59,7 +58,7 @@ static Pos at(Pos p, int dx, int dy, int dz)
 void WorldMatter::volumes(Cell &c) const
 {
 	c.liquid = c.solid = 0;
-	const double p = m_physics.pressure();
+	const double p = sky(c).physics.pressure();
 	for (size_t s = 0; s < c.mix.amounts.size(); s++) {
 		if (c.mix.amounts[s] <= 0)
 			continue;
@@ -72,7 +71,7 @@ void WorldMatter::volumes(Cell &c) const
 	// up now and then (a block's sculpted rarely; disturb() asks again)
 	if (c.room_at < 0 || m_clock - c.room_at > ROOM_AGAIN) {
 		c.room = m_ground.room(c.pos);
-		c.open = m_physics.volume() * c.room.total() / 4096.0;
+		c.open = sky(c).physics.volume() * c.room.total() / 4096.0;
 		c.room_at = m_clock;
 	}
 }
@@ -128,7 +127,7 @@ double WorldMatter::surface(Pos p, int depth) const
 
 void WorldMatter::flow(const std::vector<int64_t> &ids, double dt)
 {
-	const double v = m_physics.volume();
+	const double v = base().volume();
 	std::vector<int64_t> live = ids;
 	for (int64_t id : live) {
 		Cell &c = m_cells.at(id);
@@ -195,7 +194,7 @@ void WorldMatter::flow(const std::vector<int64_t> &ids, double dt)
 			if (from.mix.amounts[s] > 0) {
 				const double n = from.mix.in(s, state) * share;
 				if (n > 0)
-					m_physics.move(from.mix, to.mix, s, state, n);
+					base().move(from.mix, to.mix, s, state, n);
 			}
 		const double moved = have * share;
 		have -= moved;
@@ -316,7 +315,7 @@ void WorldMatter::flow(const std::vector<int64_t> &ids, double dt)
 						c.flux[d] = 0;
 						continue;
 					}
-					c.flux[d] = std::max(0.0, c.flux[d] * std::max(0.0, 1 - DAMPING * h) + h * GRAVITY * difference * m_physics.block());
+					c.flux[d] = std::max(0.0, c.flux[d] * std::max(0.0, 1 - DAMPING * h) + h * sky(c).gravity * difference * base().block());
 					out += c.flux[d] * h;
 				}
 				if (out > c.liquid)
@@ -366,7 +365,7 @@ double WorldMatter::density(const Cell &c, State state) const
 			continue;
 		const matter::Substance &sub = m_matter.substances()[s];
 		kg += n * sub.molar_mass / 1000.0;
-		m3 += n * sub.molar_mass / 1000.0 / sub.density(state, c.mix.temperature, m_physics.pressure());
+		m3 += n * sub.molar_mass / 1000.0 / sub.density(state, c.mix.temperature, sky(c).physics.pressure());
 	}
 	return m3 > 0 ? kg / m3 : 0;
 }
@@ -383,11 +382,11 @@ void WorldMatter::evaporate(Cell &c, double dt)
 	if (std::fabs(c.mix.temperature - m_ground.ambient(c.pos)) < 1 && !m_cells.count(key(up)))
 		return;
 	auto over = m_cells.find(key(up));
-	const bool open = over != m_cells.end() && (over->second.liquid + over->second.solid) / m_physics.volume() < 0.5 &&
-			m_physics.gasMoles(over->second.mix) > 0;
+	const bool open = over != m_cells.end() && (over->second.liquid + over->second.solid) / sky(c).physics.volume() < 0.5 &&
+			sky(c).physics.gasMoles(over->second.mix) > 0;
 	if (open) {
 		air = &over->second.mix; // awake air over it (a flame, a cloud): the vapour goes straight there
-	} else if ((c.liquid + c.solid) / m_physics.volume() < FULL && m_physics.gasMoles(c.mix) > 0) {
+	} else if ((c.liquid + c.solid) / sky(c).physics.volume() < FULL && sky(c).physics.gasMoles(c.mix) > 0) {
 		air = &c.mix;
 	} else if (over != m_cells.end()) {
 		return; // covered
@@ -395,7 +394,7 @@ void WorldMatter::evaporate(Cell &c, double dt)
 		const int32_t kind = m_ground.kind(up);
 		if (kind < 0 || !m_kinds[kind].air)
 			return; // covered
-		room = &m_air;
+		room = &sky(c).air;
 	}
 	double liquid = 0;
 	for (size_t s = 0; s < c.mix.amounts.size(); s++)
@@ -403,8 +402,8 @@ void WorldMatter::evaporate(Cell &c, double dt)
 			liquid += c.mix.in(s, State::Liquid);
 	if (liquid <= 0)
 		return;
-	const double t = c.mix.temperature, p = m_physics.pressure();
-	const double gas = air ? m_physics.gasMoles(*air) : 0;
+	const double t = c.mix.temperature, p = sky(c).physics.pressure();
+	const double gas = air ? sky(c).physics.gasMoles(*air) : 0;
 	for (size_t s = 0; s < c.mix.amounts.size(); s++) {
 		const double here = c.mix.amounts[s] > 0 ? c.mix.in(s, State::Liquid) : 0;
 		if (here <= 0)
@@ -417,7 +416,7 @@ void WorldMatter::evaporate(Cell &c, double dt)
 		const double drive = here / liquid * sub.vapourPressure(t) - there * p;
 		if (drive <= 0)
 			continue;
-		const double n = std::min(here * 0.25, EVAPORATION * m_physics.area() * drive / (matter::GAS_CONSTANT * t) * dt);
+		const double n = std::min(here * 0.25, EVAPORATION * sky(c).physics.area() * drive / (matter::GAS_CONSTANT * t) * dt);
 		// it takes its heat of vaporisation from the liquid it leaves
 		c.mix.temperature = std::max(1.0, t - n * sub.vaporization * 1000 / c.mix.heatCapacity());
 		c.mix.take(s, State::Liquid, n);

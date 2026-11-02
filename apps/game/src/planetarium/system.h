@@ -38,6 +38,7 @@ public:
 		std::shared_ptr<const terragen::System> system;
 		size_t focus;       // the body at the origin, drawn by the caller
 		double blocksPerKm; // the focused body's scale
+		bool orbits = true; // their paths drawn (a viewer's aid: not in a sky seen from the ground)
 	};
 	// (The scene is the focused body's frame: its centre the origin, its y
 	// its spin axis, tilted from its orbit's by its tilt.)

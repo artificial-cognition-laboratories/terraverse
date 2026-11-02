@@ -26,22 +26,42 @@ static const double WIND = 25;            // how much faster gas leaves upward i
 static const double REDRAW_LEVEL = 1.0 / 16; // of a block: a running level's change worth redrawing
 static const double REDRAW_EVERY = 0.5;      // s: the most often a running level is redrawn
 static const double DROP = 1e-4;          // of a block: less liquid than this in the air is a drop falling, not a puddle
-static const double STIRRED = 1e-5;       // m³ flowed in a step that keeps a block awake
+static const double STIRRED = 1e-5;
+static const double VACUUM = 1.0;         // Pa: the least pressure a body's air is run at       // m³ flowed in a step that keeps a block awake
 
 WorldMatter::WorldMatter(const Opts &opts) :
-	m_matter(opts.matter), m_physics({ opts.matter, opts.pressure, BLOCK }), m_ground(opts.ground)
+	m_matter(opts.matter), m_ground(opts.ground)
 {
 	if (!m_ground.kind || !m_ground.become || !m_ground.ambient || !m_ground.level || !m_ground.room || !m_ground.face ||
 			!m_ground.fill || !m_ground.setFill)
 		throw SandboxError("the world's matter needs the ground's kind, become, ambient, level, room, face and fill");
-	m_air.assign(m_matter.substances().size(), 0);
-	double shares = 0;
-	for (const auto &[id, share] : opts.air) {
-		m_air[m_matter.index(id)] = share;
-		shares += share;
+	if (opts.airs.empty() || (opts.airs.size() > 1 && !m_ground.air))
+		throw SandboxError("the world's matter needs an air, and with several, the ground's air to say which is where");
+	for (const Air &a : opts.airs) {
+		if (a.gravity <= 0)
+			throw SandboxError("an air's body needs a pull");
+		std::vector<double> air(m_matter.substances().size(), 0);
+		double shares = 0;
+		for (const auto &[id, share] : a.gases) {
+			air[m_matter.index(id)] = share;
+			shares += share;
+		}
+		if (!a.gases.empty() && std::fabs(shares - 1) > 1e-6)
+			throw SandboxError("an air's gas shares must sum to 1");
+		// no air: a trace of a pascal, so a block's gas has somewhere to go
+		// (it leaves, and nothing comes back: a fire starves, water boils off)
+		m_skies.push_back({ Physics({ opts.matter, std::max(a.pressure, VACUUM), BLOCK }), std::move(air), a.gravity, a.gases.empty() || a.pressure <= VACUUM });
 	}
-	if (std::fabs(shares - 1) > 1e-6)
-		throw SandboxError("the room's gas shares must sum to 1");
+}
+
+size_t WorldMatter::skyAt(Pos at) const
+{
+	if (m_skies.size() == 1)
+		return 0;
+	const size_t i = m_ground.air(at);
+	if (i >= m_skies.size())
+		throw SandboxError("the ground named an air the world's matter wasn't given");
+	return i;
 }
 
 Room Room::open()
@@ -141,11 +161,11 @@ int32_t WorldMatter::kind(const Spec &spec)
 			}
 		}
 	}
-	matter::Mixture sample = made(k, 293.15);
-	Physics::Main main = m_physics.main(sample);
+	matter::Mixture sample = made(k, m_skies[0], 293.15);
+	Physics::Main main = base().main(sample);
 	k.main = main.substance;
 	k.fill = main.fill;
-	k.k = m_physics.conductivity(sample);
+	k.k = base().conductivity(sample);
 	k.capacity = sample.heatCapacity();
 	m_kinds.push_back(k);
 	m_by_node[node] = (int32_t)m_kinds.size() - 1;
@@ -170,29 +190,29 @@ double WorldMatter::density(int32_t kind) const
 	return kg;
 }
 
-matter::Mixture WorldMatter::made(const Kind &k, double temperature, double level) const
+matter::Mixture WorldMatter::made(const Kind &k, const Sky &sky, double temperature, double level) const
 {
 	matter::Mixture b(m_matter);
 	b.vessel = 1e-3;
 	std::vector<std::pair<size_t, double>> parts = k.by_volume;
 	for (auto &[s, share] : parts)
 		share *= level; // a puddle a quarter deep is a quarter of the block's water
-	m_physics.fill(b, parts, temperature, m_air, k.air ? std::nullopt : std::optional<State>(k.state));
+	sky.physics.fill(b, parts, temperature, sky.air, k.air ? std::nullopt : std::optional<State>(k.state));
 	return b;
 }
 
-double WorldMatter::wakeAt(const Kind &k, double ambient) const
+double WorldMatter::wakeAt(const Kind &k, const Sky &sky, double ambient) const
 {
 	if (k.air || k.main < 0)
 		return ambient;
 	// ice can't be at a summer's day temperature, nor water in a frost: they sit at their melting point
 	const matter::Substance &s = m_matter.substances()[k.main];
-	State there = s.state(ambient, std::max(m_physics.pressure(), 1.0));
+	State there = s.state(ambient, std::max(sky.physics.pressure(), 1.0));
 	if (there == k.state)
 		return ambient;
 	if ((k.state == State::Solid && there != State::Solid) || (k.state == State::Liquid && there == State::Solid))
-		return s.meltingPoint(std::max(m_physics.pressure(), s.triple.p));
-	return s.boilingPoint(m_physics.pressure()).value_or(ambient); // a liquid where it would boil
+		return s.meltingPoint(std::max(sky.physics.pressure(), s.triple.p));
+	return s.boilingPoint(sky.physics.pressure()).value_or(ambient); // a liquid where it would boil
 }
 
 bool WorldMatter::same(const Kind &a, const Kind &b)
@@ -212,13 +232,15 @@ WorldMatter::Cell *WorldMatter::wake(Pos at, double temperature)
 	if (kind < 0 || m_cells.size() >= MOST_AWAKE)
 		return nullptr; // nothing there, or too much awake already: it stays as it is
 	const Kind &k = m_kinds[kind];
-	double base = wakeAt(k, m_ground.ambient(at));
+	const size_t air = skyAt(at);
+	double base = wakeAt(k, m_skies[air], m_ground.ambient(at));
 	// woken by heat or chill: as far from where it was as that took it
 	double warmed = base + (temperature - m_ground.ambient(at));
 	auto held = m_held.find(key(at));
 	const bool kept = held != m_held.end() && (held->second.kind == kind || same(m_kinds[held->second.kind], k));
 	// it kept its own matter while it slept, or it's what its kind is made of
 	Cell c{ at, kind, kept ? std::move(held->second.mix) : asleep(at, k, warmed) };
+	c.sky = (uint32_t)air;
 	c.mix.temperature = warmed;
 	c.loose = kept ? held->second.loose : k.loose;
 	if (held != m_held.end())
@@ -231,17 +253,18 @@ WorldMatter::Cell *WorldMatter::wake(Pos at, double temperature)
 // and the liquid kept in its open space (sprint 81)
 matter::Mixture WorldMatter::asleep(Pos at, const Kind &k, double temperature) const
 {
-	matter::Mixture b = made(k, temperature, k.leveled ? std::clamp(m_ground.level(at), 0.0, 1.0) : 1);
+	const Sky &here = sky(at);
+	matter::Mixture b = made(k, here, temperature, k.leveled ? std::clamp(m_ground.level(at), 0.0, 1.0) : 1);
 	const Liquid l = m_ground.fill(at);
 	if (l.substance >= 0 && l.share > 0) {
 		const matter::Substance &sub = m_matter.substances()[l.substance];
-		const double m3 = l.share * m_physics.volume() * m_ground.room(at).total() / 4096.0;
-		const double moles = m3 * sub.density(State::Liquid, temperature, m_physics.pressure()) / (sub.molar_mass / 1000.0);
+		const double m3 = l.share * here.physics.volume() * m_ground.room(at).total() / 4096.0;
+		const double moles = m3 * sub.density(State::Liquid, temperature, here.physics.pressure()) / (sub.molar_mass / 1000.0);
 		const double capacity = b.heatCapacity();
 		b.add(l.substance, State::Liquid, moles);
 		(void)capacity; // it's at the same temperature: nothing to mix
 		// its gas gives up the room the liquid takes
-		m_physics.balance(b, m_air, temperature);
+		here.physics.balance(b, here.air, temperature);
 	}
 	return b;
 }
@@ -272,10 +295,10 @@ void WorldMatter::blow(Pos at, double moles)
 	if (!c || moles <= 0)
 		return;
 	double ambient = m_ground.ambient(at), per_kelvin = 0;
-	for (size_t s = 0; s < m_air.size(); s++) {
+	for (size_t s = 0; s < sky(*c).air.size(); s++) {
 		const matter::Substance &sub = m_matter.substances()[s];
-		per_kelvin += m_air[s] * moles * sub.molar_mass / 1000.0 * sub.heat_capacity;
-		c->mix.add(s, State::Gas, m_air[s] * moles);
+		per_kelvin += sky(*c).air[s] * moles * sub.molar_mass / 1000.0 * sub.heat_capacity;
+		c->mix.add(s, State::Gas, sky(*c).air[s] * moles);
 	}
 	double capacity = c->mix.heatCapacity() - per_kelvin;
 	c->mix.temperature = (capacity * c->mix.temperature + per_kelvin * ambient) / (capacity + per_kelvin);
@@ -296,7 +319,7 @@ void WorldMatter::add(Pos at, size_t substance, double moles, double temperature
 	const matter::Substance &sub = m_matter.substances()[substance];
 	const double per_kelvin = moles * sub.molar_mass / 1000.0 * sub.heat_capacity;
 	const double capacity = c->mix.heatCapacity();
-	c->mix.add(substance, sub.state(temperature, m_physics.pressure()), moles);
+	c->mix.add(substance, sub.state(temperature, sky(*c).physics.pressure()), moles);
 	c->mix.temperature = (capacity * c->mix.temperature + per_kelvin * temperature) / (capacity + per_kelvin);
 	c->quiet = 0;
 }
@@ -345,11 +368,11 @@ void WorldMatter::exchange(Cell &c, double k, double dt)
 		const Kind &nk = m_kinds[kind];
 		double ambient = m_ground.ambient(n);
 		if (nk.air) {
-			m_physics.lose(c.mix, 1, ambient, dt);
+			sky(c).physics.lose(c.mix, 1, ambient, dt);
 			// open to the air (above or beside), a cloud of vapour (not a fire: that draws its own air) is carried
 			// off faster than still air would (sprint 80: boiled spirit doesn't hang over its pool)
-			const bool cloud = d.y >= 0 && std::fabs(c.activity) < 1 && unlike(c.mix) > SMOKE;
-			m_physics.breathe(c.mix, m_air, ambient, d.y > 0, cloud ? dt * WIND : dt);
+			const bool cloud = d.y >= 0 && std::fabs(c.activity) < 1 && unlike(c.mix, sky(c)) > SMOKE;
+			sky(c).physics.breathe(c.mix, sky(c).air, ambient, d.y > 0, cloud ? dt * WIND : dt);
 			continue;
 		}
 		if (d.y < 0 && nk.state == State::Liquid && !nk.flowing && !c.dense) {
@@ -357,10 +380,10 @@ void WorldMatter::exchange(Cell &c, double k, double dt)
 			continue;
 		}
 		double keff = k + nk.k > 0 ? 2 * k * nk.k / (k + nk.k) : 0;
-		double q = keff * m_physics.area() / m_physics.block() * (c.mix.temperature - ambient) * dt; // J into the neighbour
+		double q = keff * sky(c).physics.area() / sky(c).physics.block() * (c.mix.temperature - ambient) * dt; // J into the neighbour
 		c.mix.temperature = std::max(1.0, c.mix.temperature - q / c.capacity);
 		if (!c.dense)
-			q += m_physics.radiateInto(c.mix, ambient, dt); // a flame shining on it
+			q += sky(c).physics.radiateInto(c.mix, ambient, dt); // a flame shining on it
 		double &pending = m_pending[key(n)];
 		pending += q;
 		if (std::fabs(pending) / nk.capacity > WAKE) {
@@ -379,7 +402,7 @@ void WorldMatter::reshape(Cell &c, bool exactly)
 {
 	if (m_kinds[c.kind].vessel)
 		return; // a crucible of molten tin is still the crucible
-	Physics::Main m = m_physics.main(c.mix);
+	Physics::Main m = sky(c).physics.main(c.mix);
 	const bool runs = m.substance >= 0 && m.fill > DROP && (m.state == State::Liquid || c.loose);
 	auto plain = [&](const Kind &k) {
 		return m.fill < GONE ? k.air : (!k.air && k.main == m.substance && k.state == m.state);
@@ -453,7 +476,7 @@ void WorldMatter::showFill(Cell &c, bool exactly)
 	int32_t main = -1;
 	double share = 0, most = 0, m3 = 0;
 	uint32_t colour = 0;
-	const double open = m_physics.volume() * m_ground.room(c.pos).total() / 4096.0;
+	const double open = sky(c).physics.volume() * m_ground.room(c.pos).total() / 4096.0;
 	// a block of liquid is itself (the sea's): nothing is kept beside it
 	if (!(!k.air && k.state == State::Liquid) && open > 0) {
 		matter::Mixture liquid(m_matter);
@@ -462,7 +485,7 @@ void WorldMatter::showFill(Cell &c, bool exactly)
 			if (n <= 0)
 				continue;
 			const matter::Substance &sub = m_matter.substances()[s];
-			const double v = n * sub.molar_mass / 1000.0 / sub.density(State::Liquid, c.mix.temperature, m_physics.pressure());
+			const double v = n * sub.molar_mass / 1000.0 / sub.density(State::Liquid, c.mix.temperature, sky(c).physics.pressure());
 			m3 += v;
 			liquid.add(s, State::Liquid, n);
 			if (v > most) {
@@ -503,26 +526,26 @@ int32_t WorldMatter::fullForm(int32_t substance, State state) const
 	return -1;
 }
 
-double WorldMatter::unlike(const matter::Mixture &b) const
+double WorldMatter::unlike(const matter::Mixture &b, const Sky &sky) const
 {
-	double gas = m_physics.gasMoles(b), most = 0;
+	double gas = sky.physics.gasMoles(b), most = 0;
 	if (gas <= 0)
 		return 0;
-	for (size_t s = 0; s < m_air.size(); s++)
-		most = std::max(most, b.in(s, State::Gas) / gas - m_air[s]);
+	for (size_t s = 0; s < sky.air.size(); s++)
+		most = std::max(most, b.in(s, State::Gas) / gas - sky.air[s]);
 	return most;
 }
 
 bool WorldMatter::settled(const Cell &c) const
 {
 	const Kind &k = m_kinds[c.kind];
-	Physics::Main m = m_physics.main(c.mix);
+	Physics::Main m = sky(c).physics.main(c.mix);
 	if (k.vessel)
 		return c.moved <= STIRRED; // it sleeps holding what it holds (sprint 80: kept)
 	if (k.air) { // air settles once its gas is the room's again
-		double gas = m_physics.gasMoles(c.mix);
-		for (size_t s = 0; s < m_air.size(); s++)
-			if (gas > 0 && std::fabs(c.mix.in(s, State::Gas) / gas - m_air[s]) > 0.02)
+		double gas = sky(c).physics.gasMoles(c.mix);
+		for (size_t s = 0; s < sky(c).air.size(); s++)
+			if (gas > 0 && std::fabs(c.mix.in(s, State::Gas) / gas - sky(c).air[s]) > 0.02)
 				return false;
 		// (sprint 81: open space holding a still liquid sleeps with it kept as its fill)
 		return m.fill < GONE || (c.moved <= STIRRED && c.liquid > 0 && c.liquid >= c.solid);
@@ -583,10 +606,10 @@ void WorldMatter::step(double seconds)
 		std::sort(ids.begin(), ids.end()); // a fixed order: deterministic
 		for (int64_t id : ids) {
 			Cell &c = m_cells.at(id);
-			c.k = m_physics.conductivity(c.mix);
+			c.k = sky(c).physics.conductivity(c.mix);
 			c.capacity = c.mix.heatCapacity();
-			c.dense = m_physics.condensed(c.mix) > BLOCK * BLOCK * BLOCK / 2;
-			dt = std::min(dt, std::max(1e-3, 0.25 * m_physics.stable(c.mix, c.k)));
+			c.dense = sky(c).physics.condensed(c.mix) > BLOCK * BLOCK * BLOCK / 2;
+			dt = std::min(dt, std::max(1e-3, 0.25 * sky(c).physics.stable(c.mix, c.k)));
 		}
 		std::vector<double> rates;
 		for (int64_t id : ids) {
@@ -594,7 +617,7 @@ void WorldMatter::step(double seconds)
 			// time it was passed over is made up (to the longest step: past that, it's lost)
 			const double run = std::min(dt + c.owed, LONGEST_STEP);
 			c.owed = 0;
-			c.activity = m_physics.react(c.mix, run, &rates);
+			c.activity = sky(c).physics.react(c.mix, run, &rates);
 			std::vector<bool> &seen = m_seen[id];
 			seen.resize(reactions, false);
 			for (size_t j = 0; j < reactions; j++)
@@ -610,11 +633,11 @@ void WorldMatter::step(double seconds)
 				auto it = m_cells.find(key({ c.pos.x + d.x, c.pos.y + d.y, c.pos.z + d.z }));
 				if (it == m_cells.end())
 					continue;
-				m_physics.conduct(c.mix, it->second.mix, c.k, it->second.k, c.capacity, it->second.capacity, dt);
+				sky(c).physics.conduct(c.mix, it->second.mix, c.k, it->second.k, c.capacity, it->second.capacity, dt);
 				if (c.dense && it->second.dense)
 					continue; // no light or gas between two solids
-				m_physics.radiate(c.mix, it->second.mix, dt);
-				m_physics.mix(c.mix, it->second.mix, d.y > 0, dt);
+				sky(c).physics.radiate(c.mix, it->second.mix, dt);
+				sky(c).physics.mix(c.mix, it->second.mix, d.y > 0, dt);
 			}
 		}
 		for (int64_t id : ids) {
@@ -633,22 +656,23 @@ void WorldMatter::step(double seconds)
 			for (const Pos &d : { Pos{ 0, 1, 0 }, Pos{ 1, 0, 0 }, Pos{ -1, 0, 0 }, Pos{ 0, 0, 1 }, Pos{ 0, 0, -1 }, Pos{ 0, -1, 0 } }) {
 				Pos n{ c.pos.x + d.x, c.pos.y + d.y, c.pos.z + d.z };
 				auto it = m_cells.find(key(n));
-				if (it != m_cells.end() && m_physics.room(it->second.mix) > 0) {
-					m_physics.balance(c.mix, it->second.mix);
+				if (it != m_cells.end() && sky(c).physics.room(it->second.mix) > 0) {
+					sky(c).physics.balance(c.mix, it->second.mix);
 					break;
 				}
 				int32_t kind = it == m_cells.end() ? m_ground.kind(n) : -1;
 				if (kind >= 0 && m_kinds[kind].air) {
 					// gas pushed out that isn't the room's air (smoke, a fire's fuel gas) wakes the
 					// air it flows into, so it can burn there as a flame instead of vanishing
-					if (m_physics.gasMoles(c.mix) > m_physics.room(c.mix) * 1.0001 && unlike(c.mix) > SMOKE) {
+					// (into a vacuum it spreads to nothing: no flame)
+					if (!sky(c).vacuum && sky(c).physics.gasMoles(c.mix) > sky(c).physics.room(c.mix) * 1.0001 && unlike(c.mix, sky(c)) > SMOKE) {
 						Cell *air = wake(n, m_ground.ambient(n));
 						if (air) {
-							m_physics.balance(c.mix, air->mix);
+							sky(c).physics.balance(c.mix, air->mix);
 							break;
 						}
 					}
-					m_physics.balance(c.mix, m_air, m_ground.ambient(n));
+					sky(c).physics.balance(c.mix, sky(c).air, m_ground.ambient(n));
 					break;
 				}
 			}
@@ -736,12 +760,12 @@ std::vector<WorldMatter::Awake> WorldMatter::awake(Pos lo, Pos hi) const
 		const Pos &p = c.pos;
 		if (p.x < lo.x || p.y < lo.y || p.z < lo.z || p.x > hi.x || p.y > hi.y || p.z > hi.z)
 			continue;
-		Physics::Main m = m_physics.main(c.mix);
+		Physics::Main m = sky(c).physics.main(c.mix);
 		Awake a{ p, c.mix.temperature, c.activity, m.substance, m.state, m.fill, -1, 0 };
-		double gas = m_physics.gasMoles(c.mix), unlike = 0;
+		double gas = sky(c).physics.gasMoles(c.mix), unlike = 0;
 		if (gas > 0)
-			for (size_t s = 0; s < m_air.size(); s++) {
-				double excess = c.mix.in(s, State::Gas) / gas - m_air[s];
+			for (size_t s = 0; s < sky(c).air.size(); s++) {
+				double excess = c.mix.in(s, State::Gas) / gas - sky(c).air[s];
 				if (c.mix.amounts[s] > 0 && excess > unlike) {
 					unlike = excess;
 					a.vapour = (int32_t)s;
@@ -763,7 +787,7 @@ std::optional<WorldMatter::Awake> WorldMatter::inspect(Pos at) const
 	if (kind < 0)
 		return std::nullopt;
 	const Kind &k = m_kinds[kind];
-	return Awake{ at, wakeAt(k, m_ground.ambient(at)), 0, k.air ? -1 : k.main, k.state, k.air ? 0 : k.fill, -1, 0 };
+	return Awake{ at, wakeAt(k, sky(at), m_ground.ambient(at)), 0, k.air ? -1 : k.main, k.state, k.air ? 0 : k.fill, -1, 0 };
 }
 
 std::optional<matter::Mixture> WorldMatter::mixture(Pos at) const
@@ -776,7 +800,7 @@ std::optional<matter::Mixture> WorldMatter::mixture(Pos at) const
 	if (auto held = m_held.find(key(at)); held != m_held.end() && held->second.kind == kind)
 		return held->second.mix;
 	const Kind &k = m_kinds[kind];
-	return made(k, wakeAt(k, m_ground.ambient(at)), k.leveled ? m_ground.level(at) : 1);
+	return made(k, sky(at), wakeAt(k, sky(at), m_ground.ambient(at)), k.leveled ? m_ground.level(at) : 1);
 }
 
 std::vector<std::pair<Pos, size_t>> WorldMatter::happened()
@@ -905,7 +929,7 @@ void WorldMatter::load(const std::string &in)
 			throw SandboxError("world matter: a block of " + name + ", which has no matter registered now");
 		kind = found->second;
 		loose = !first && !second && take<uint8_t>(in, at) != 0;
-		matter::Mixture mix = made(m_kinds[kind], 293.15);
+		matter::Mixture mix = made(m_kinds[kind], m_skies[0], 293.15);
 		double t = take<double>(in, at);
 		// what it's made of, as saved: none of anything else
 		for (size_t s = 0; s < mix.amounts.size(); s++)
@@ -917,7 +941,7 @@ void WorldMatter::load(const std::string &in)
 			if (first || second) {
 				const double n = take<double>(in, at);
 				if (n > 0)
-					mix.add(s, m_matter.substances()[s].state(t, std::max(m_physics.pressure(), 1.0)), n);
+					mix.add(s, m_matter.substances()[s].state(t, std::max(base().pressure(), 1.0)), n);
 				continue;
 			}
 			for (State st : { State::Solid, State::Liquid, State::Gas }) {
@@ -936,6 +960,7 @@ void WorldMatter::load(const std::string &in)
 		bool loose;
 		matter::Mixture mix = block(kind, loose);
 		Cell c{ p, kind, std::move(mix) };
+		c.sky = (uint32_t)skyAt(p);
 		c.loose = loose;
 		if (!first && !second) {
 			for (double &f : c.flux)

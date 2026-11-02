@@ -23,6 +23,8 @@ Since sprint 9 the textures are fetched by `scripts/assets/goodvibes.py` from th
 - basalt, gneiss, slate, shale, limestone, salt: the pack's andesite, granite, stone and diorite, retinted;
 - copper, tin, lead, magnetite and sulfur ores: the pack's iron or gold ore specks recoloured, on its stone (magnetite on retinted andesite);
 - gold-bearing gravel: the gold ore's specks set into the pack's gravel.
+- anorthosite, breccia, regolith and mare regolith (sprint 95): the pack's diorite, gravel and stone, retinted;
+- ilmenite and KREEP ores: the iron or gold ore's specks recoloured, on retinted andesite or diorite.
 
 Several leaf and plant textures are greyscale in the pack (meant to be tinted per biome); the game multiplies them by a green at runtime.
 

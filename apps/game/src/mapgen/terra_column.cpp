@@ -67,11 +67,13 @@ Column Columns::atPlace(const Place &at) const
 	bool bed = (g.kind == Water::River || g.kind == Water::Lake) && c.water > c.height;
 	bool use_bed = bed && b.riverbed != CONTENT_IGNORE;
 	c.top = use_bed ? b.riverbed : b.top;
-	// rivers out of the mountains carry gold and tin in their gravel, here and
-	// there (by the column's block at the surface)
+	// gold and tin lie in the gravel where rivers laid them (terragen's
+	// placers), here and there by how rich it is (by the column's block at the
+	// surface): in a river's bed or a lake's, or on the floodplain beside it
 	const std::array<int32_t, 3> p = m_world.solid(at, 0);
-	if (bed && g.kind == Water::River && c.strata->placer &&
-			(uint32_t)((p[0] * 73856093) ^ (p[1] * 19349663) ^ (p[2] * 83492791)) % 7 == 0)
+	const uint32_t roll = (uint32_t)((p[0] * 73856093) ^ (p[1] * 19349663) ^ (p[2] * 83492791)) % 1024;
+	const bool alluvial = bed || terragen::alluvium(m_world.between(m_world.grid().sediment, at)) >= terragen::HALF;
+	if (alluvial && roll < (uint32_t)(c.strata->placer >> 7) / (bed ? 1 : 4))
 		c.top = m_blocks.placer;
 	c.top_end = c.height - (use_bed ? b.depth_riverbed : b.depth_top);
 	c.filler_end = c.top_end - b.depth_filler;

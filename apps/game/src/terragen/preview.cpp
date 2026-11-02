@@ -30,6 +30,15 @@ Preview preview(const World &world, std::optional<fix> date, int32_t resolution)
 	p.plate.resize(n);
 	p.boundary.resize(n);
 	const Grid &g = world.grid();
+	// the plates' story: one line per kind of thing a step saw
+	for (const History::Event &e : g.history) {
+		const int32_t ago = (HISTORY_STEPS - e.step) * STEP_MYR;
+		bool told = false;
+		for (const Preview::Moment &m : p.history)
+			told |= m.ago == ago && m.kind == e.kind;
+		if (!told)
+			p.history.push_back({ ago, e.kind });
+	}
 
 	for (int32_t y = 0; y < resolution; y++) {
 		fix v = ratio(2 * y + 1, 2 * resolution); // cell centres

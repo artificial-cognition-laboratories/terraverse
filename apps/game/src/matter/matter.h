@@ -148,7 +148,7 @@ struct RockKind
 		size_t substance;
 		double share; // of its mass
 	};
-	std::string id, name, origin; // origin: igneous, metamorphic, sedimentary, sediment
+	std::string id, name, origin; // origin: igneous, metamorphic, sedimentary, sediment, impact
 	std::vector<Part> minerals;
 };
 

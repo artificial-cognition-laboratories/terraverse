@@ -79,12 +79,12 @@ bun check:matter        # a clay fire pit lit on a live server: the world's matt
 bun check:far           # the far view against the world: generated chunks vs core.terra.surface, column by column
 bun palette             # export the game's baked palette (apps/game/game/palette.json) after changing blocks, textures or species
 bun check:palette       # fails if the committed palette is out of date with the game's content
-.output/bin/luanti --planetarium TF7.dGVycmE   # the planet viewer alone, on a world code (in game: F7)
+.output/bin/luanti --planetarium TF9.dGVycmE   # the planet viewer alone, on a world code (in game: F7)
 arc gate release        # what a release needs, locally: build, tests, UI, a headless world (repo.config.ts)
 arc deploy release      # package.json "version" → tag v<version> → CI builds and attaches the Linux package (.github/workflows/release.yml)
 bun package:linux <version>  # the portable Linux folder + .tar.zst from the current build (scripts/release)
 # tuning by eye: render a code's grid (relief, lakes, rivers) to a PNG and look at it
-g++ -std=c++17 -O2 -Iapps/game/src apps/game/src/terragen/*.cpp scripts/terragen-check/render.cpp -o /tmp/render && /tmp/render TF7.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents]
+g++ -std=c++17 -O2 -Iapps/game/src apps/game/src/terragen/*.cpp scripts/terragen-check/render.cpp -o /tmp/render && /tmp/render TF9.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents|sediment]
 ```
 
 **How agents verify:** build the engine, typecheck and build the UI, boot the
@@ -639,6 +639,94 @@ Luanti's for online play, singleplayer needs no account. Built so far: sign-in
 hosted for friends (STUN, UPnP, hole punching on the server's socket), Join
 gets a single-use ticket from ArcLabs, and the host's server admits by ticket
 (protocol 58). No relay yet: pairs that can't be punched through are told so.
+
+**Built (sprint 97, `planning/sprint-97-polish.md`):** polish. Coasts by
+their rock (`World::hardness`): cliffs on hard coasts, beaches only as the
+strand; point bars inside river bends and cut banks outside; sandy lake
+shores; liquids in the world's matter at their body's pull.
+
+**Built (sprint 96, `planning/sprint-96-moon-in-play.md`):** the Moon
+in play. Each body's gravity, air and gases come from its card
+(`terragen::Surroundings`, `planetOf`): `orbit::Field` takes a planet per
+atlas body, and the world's matter runs one air per body
+(`WorldMatter::Opts::airs`, `Ground::air`), so fire starves in vacuum.
+Mare shores follow the land; wrinkle ridges, rilles, domes and crater rays
+on the maria. The game sky draws no orbits.
+
+**Built (sprint 95, `planning/sprint-95-maria.md`):** maria and
+lunar materials. A lid that was volcanic floods its basins on the thin
+side of its crust (`terragen/maria.*`, `Processes::flooding` and
+`young` from when the card's volcanoes fell silent): level pools that
+spill, burying the older craters, with few young ones on them. Highland
+(breccia over anorthosite) and Mare (basalt) provinces; ilmenite, KREEP
+and polar ice; regolith biomes on airless ground.
+
+**Built (sprint 94, `planning/sprint-94-impacts.md`):** impacts.
+Craters on every body (`terragen/craters.*`), hashed per size class from
+R/4 down to 8 blocks, kept by what the body doesn't wear away
+(`Processes::craters`: water, plates, volcanism; air stops small ones);
+bowls, complex craters with peaks, ringed basins, ejecta, by gravity.
+Wide ones are stamped into the grid; a column finds the rest.
+
+**Built (sprint 93, `planning/sprint-93-scale.md`):** scale. Heights
+in metres: √(R / R⊕) blocks a metre (`blocksPerMetre`, `heightScale`;
+an Earth-sized world is a block a metre, smaller ones exaggerated), so
+the land grows with the planet. Detail is a spectrum from a cell down to
+16 blocks (ridged in rising ranges); volcanoes in metres; bodies get the
+home's sky.
+
+**Built (sprint 92, `planning/sprint-92-body-settings.md`):** body
+settings, the first of the Moon arc (`planning/arc-moon.md`). A body's
+processes come from its card, never its name (`WorldCode::processes`:
+plates or a stagnant lid, water, life, bare ground): a lid is one plate
+that doesn't move; a dry body doesn't rain, wear, or hold lakes and rivers.
+`render <code>@<body>` draws any body.
+
+**Built (sprint 91, `planning/sprint-91-polish.md`):** polish. Arcs
+rise from volcanic cones carried with the crust (island chains), plate
+edges wander, slivers are folded into the plate round them; ice is each
+cell's own and cold interiors are colder than their latitude (sea ice
+follows coasts); hot deserts from an 18 °C year; glacial scour and tarns
+make lakes; placers come only from range cores (`VEIN_CORE`).
+
+**Built (sprint 90, `planning/sprint-90-climate.md`):** an
+energy-balance climate on the sphere. Temperature from sunlight absorbed
+against heat radiated and carried poleward (zonal bands, solved exactly),
+with ice that brightens a cold world further; each cell about its band by
+its albedo, the currents and continentality (fierce seasons inland). The
+moisture march, winds and currents run on the grid's own cells; the
+latitude–longitude climate grid and `heatAt` are gone. A column's heat is
+`Grid::heat` + `Grid::heat_gain` × the season's extra sunlight − the lapse
+rate. The star and Temperature setting are forcings. The plates' history
+is on the body's History timeline. TF9.
+
+**Built (sprint 89, `planning/sprint-89-plates.md`):** plates with a
+history. The land comes out of 32 steps of plate motion
+(`terragen/history.cpp`, `History`): crust handed cell to cell as each
+plate turns, ocean sinking under the other side (arcs, which grow into
+land), continents colliding into broad ranges, new floor where plates part
+(tearing continents into rift margins), worn by rivers between steps.
+Height comes from the crust (ocean floor deepens with age); the Land share
+is still exact. `Tectonics` is the plates today, with each cell's `formed`
+and `age`; provinces read them. River profiles in rising ranges are near
+steady state (`concavity.cpp`). TF8.
+
+**Built (sprint 88, `planning/sprint-88-erosion.md`):** land worn by
+water. Each erosion round the belts are pushed up, rivers cut (implicit
+stream power) and carry what they wore down the receivers, laying it down
+where they slow (floodplains, fans, filled lakes, a shelf at the coast;
+`Grid::sediment`, balanced exactly, `testSediment`), and hillslopes creep.
+Heavy grains from the belts' cores settle first: placers below the
+mountains (`Grid::placer`, `Strata::placer`). Sediment makes silty soil and
+fertile ground. Streams (four times the rivers' share, one to five blocks
+wide on any planet) and rivers meander by their own width; lakes and rivers
+share one warp, so outlines aren't the cells' triangles; coasts wander and
+the fine detail fades at the waterline. River profiles weren't yet those of
+uplift-built land (`scripts/terragen-check/concavity.cpp`): sprint 89.
+
+**Built (sprint 87, `planning/sprint-87-precision.md`):** places to the
+block. A column is asked by a `terragen::Place` (30 fractional bits) on
+every planet up to Earth's; the radius and cell spacing are 64-bit. TF7.
 
 **Built (sprint 86, `planning/sprint-86-sphere.md`):** the world on
 the sphere. terragen is a function of a place on the planet (a fixed-point

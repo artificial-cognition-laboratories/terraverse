@@ -79,12 +79,21 @@ public:
 		// keeping: a substance (−1: none), a share, a colour (0xRRGGBB)
 		std::function<Liquid(Pos)> fill;
 		std::function<void(Pos, int32_t, double, uint32_t)> setFill;
+		// which of the airs (Opts::airs) a position is in: each body its own
+		// (sprint 96: fire fails on the Moon); unset with only one
+		std::function<size_t(Pos)> air;
+	};
+	// The air of a world's body: its pressure at the ground and its gases.
+	struct Air
+	{
+		double pressure;                                   // Pa (0: none)
+		double gravity;                                    // m/s²: what pulls liquids down and along
+		std::vector<std::pair<std::string, double>> gases; // by mole share (none: no air)
 	};
 	struct Opts
 	{
 		const matter::Matter &matter;
-		double pressure;                         // Pa
-		std::vector<std::pair<std::string, double>> air; // the room's gas by mole share
+		std::vector<Air> airs; // the first is the one a kind is made in (its properties)
 		Ground ground;
 	};
 	explicit WorldMatter(const Opts &opts);
@@ -181,6 +190,7 @@ private:
 		Pos pos;
 		int32_t kind;
 		matter::Mixture mix;
+		uint32_t sky = 0;    // which air it's in (sprint 96)
 		double quiet = 0;    // s settled
 		double activity = 0; // W
 		// this step's (sprint 79: worked out once, not per neighbour): W/(m·K),
@@ -217,11 +227,19 @@ private:
 	static int64_t key(Pos p);
 	static bool same(const Kind &a, const Kind &b); // the same matter in the same state
 	Cell *wake(Pos at, double temperature);
-	matter::Mixture made(const Kind &k, double temperature, double level = 1) const;
+	// The air a block lies in, as the physics runs it: its pressure, and its gas by substance.
+	struct Sky
+	{
+		Physics physics;
+		std::vector<double> air;
+		double gravity;
+		bool vacuum; // no air: gas a block sheds expands away (it wakes nothing)
+	};
+	matter::Mixture made(const Kind &k, const Sky &sky, double temperature, double level = 1) const;
 	matter::Mixture asleep(Pos at, const Kind &k, double temperature) const;
 	void showFill(Cell &c, bool exactly); // its liquid kept as the ground's fill (sprint 81)
 	void sleep(std::unordered_map<int64_t, Cell>::iterator it);
-	double wakeAt(const Kind &k, double ambient) const; // where an asleep block of a kind really is
+	double wakeAt(const Kind &k, const Sky &sky, double ambient) const; // where an asleep block of a kind really is
 	void exchange(Cell &c, double k, double dt);
 	void reshape(Cell &c, bool exactly = false);
 	int32_t fullForm(int32_t substance, matter::State state) const;
@@ -233,12 +251,16 @@ private:
 	double taken(const Cell &c) const; // m³ of its open space taken (sprint 81)
 	double density(const Cell &c, matter::State state) const; // kg/m³ of what's in it in that state
 	bool settled(const Cell &c) const;
-	double unlike(const matter::Mixture &b) const; // how far its gas is from the room's air (the largest excess share)
+	size_t skyAt(Pos at) const;
+	// the first air's: for what doesn't hang on the air (volumes, conduction, light)
+	const Physics &base() const { return m_skies[0].physics; }
+	const Sky &sky(Pos at) const { return m_skies[skyAt(at)]; }
+	const Sky &sky(const Cell &c) const { return m_skies[c.sky]; }
+	double unlike(const matter::Mixture &b, const Sky &sky) const; // how far its gas is from the room's air (the largest excess share)
 
 	const matter::Matter &m_matter;
-	Physics m_physics;
 	Ground m_ground;
-	std::vector<double> m_air;
+	std::vector<Sky> m_skies;
 	std::vector<Kind> m_kinds;
 	std::unordered_map<std::string, int32_t> m_by_node;
 	std::unordered_map<int64_t, Cell> m_cells;

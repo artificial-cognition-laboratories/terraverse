@@ -47,6 +47,7 @@ public:
 	void testLakesAreFlat();
 	void testSediment();
 	void testPlates();
+	void testHistory();
 	void testVolcanoes();
 	void testStrata();
 	void testOresAndCaves();
@@ -54,6 +55,7 @@ public:
 	void testClimate();
 	void testClimateFromLand();
 	void testOceanCurrents();
+	void testEnergyBalance();
 	void testSoil();
 	void testDeterminismGolden();
 };
@@ -90,6 +92,7 @@ void TestTerragen::runTests(IGameDef *gamedef)
 	TEST(testRiversOnLand);
 	TEST(testLakesAreFlat);
 	TEST(testPlates);
+	TEST(testHistory);
 	TEST(testVolcanoes);
 	TEST(testStrata);
 	TEST(testOresAndCaves);
@@ -97,15 +100,16 @@ void TestTerragen::runTests(IGameDef *gamedef)
 	TEST(testClimate);
 	TEST(testClimateFromLand);
 	TEST(testOceanCurrents);
+	TEST(testEnergyBalance);
 	TEST(testSoil);
 	TEST(testDeterminismGolden);
 }
 
 // Codes for the water tests: default, a supercontinent, an archipelago (as the page encodes them).
 static const char *const WATER_CODES[] = {
-	"TF7.dGVycmE",
-	"TF7.dGVycmE.AgIAplmZgICAgICAglU",
-	"TF7.dGVycmE.AgL_QNlNgKaAgICAglU",
+	"TF9.dGVycmE",
+	"TF9.dGVycmE.AgIAplmZgICAgICAglU",
+	"TF9.dGVycmE.AgL_QNlNgKaAgICAglU",
 };
 
 static bool near(fix a, fix b, fix tolerance)
@@ -116,7 +120,7 @@ static bool near(fix a, fix b, fix tolerance)
 // Codes produced by the page's encodeWorldCode (ui/src/worldgen/config.ts).
 void TestTerragen::testDecodeDefaults()
 {
-	WorldCode w = WorldCode::decode("TF7.YWJj");
+	WorldCode w = WorldCode::decode("TF9.YWJj");
 	UASSERTEQ(std::string, w.seed, "abc");
 	UASSERTEQ(int, w.size, 16384); // as ui/src/worldgen/config.ts DEFAULTS
 	UASSERTEQ(std::string, w.star->id, "yellow");
@@ -131,7 +135,7 @@ void TestTerragen::testDecodeParams()
 {
 	// size 1 (62832 round: radius 10k), red dwarf, continents 6, tilt 40,
 	// everything else default
-	WorldCode w = WorldCode::decode("TF7.YWJj.AQC2ZoCAgICAgICA41U");
+	WorldCode w = WorldCode::decode("TF9.YWJj.AQC2ZoCAgICAgICA41U");
 	UASSERTEQ(int, w.size, 62832);
 	UASSERTEQ(std::string, w.star->id, "red");
 	UASSERTEQ(int, w.continents, 6);
@@ -144,9 +148,9 @@ void TestTerragen::testDecodeRejects()
 	EXCEPTION_CHECK(CodeError, WorldCode::decode("XX.YWJj"));
 	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF1.YWJj")); // an older generator: refused, not reinterpreted
 	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF2.YWJj")); // before plates and geology: refused too
-	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF7."));
-	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF7.YWJj.AAA"));
-	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF7.YW*j"));
+	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF9."));
+	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF9.YWJj.AAA"));
+	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF9.YW*j"));
 }
 
 void TestTerragen::testTrig()
@@ -341,7 +345,7 @@ void TestTerragen::testBodies()
 // kind there. (On the flat map both were edges.)
 void TestTerragen::testNoPoleOrSeam()
 {
-	World w(WorldCode::decode("TF7.dGVycmE"));
+	World w(WorldCode::decode("TF9.dGVycmE"));
 	const double R = w.radius() / (double)ONE;
 	// the steepest step of a walk of 20° along a great circle in plane (a, b), from angle `from`
 	const auto walk = [&](double from, std::array<double, 3> a, std::array<double, 3> b) {
@@ -433,11 +437,13 @@ void TestTerragen::testWaterFlowsDownhill()
 	}
 }
 
-// What rivers wear away is laid down or carried out to the deep sea:
-// nothing is made or lost, and some of it builds land.
+// What the plates push up and rivers wear away is laid down or carried out
+// to the deep sea (creep only moves it): nothing is made or lost, and some
+// of it builds land. Gold and tin settle out below the mountains.
 void TestTerragen::testSediment()
 {
 	const Sphere &sphere = gridSphere();
+	int32_t any_rich = 0;
 	for (const char *text : WATER_CODES) {
 		World w(WorldCode::decode(text));
 		const Grid &g = w.grid();
@@ -448,9 +454,21 @@ void TestTerragen::testSediment()
 			if (g.eroded[i] >= 0)
 				laid += g.sediment[i];
 		}
-		UASSERTEQ(int64_t, lost + g.hollows, g.to_deep);
+		UASSERTEQ(int64_t, lost + g.uplifted + g.hollows, g.to_deep);
 		UASSERT(laid > 0);
+		// placers: only in what was laid, below the mountain belts' cores, and rare
+		int32_t rich = 0, land = 0;
+		for (int32_t i = 0; i < g.size(); i++) {
+			UASSERT(g.placer[i] >= 0 && g.placer[i] <= ONE);
+			if (g.placer[i] > 0)
+				UASSERT(g.sediment[i] > 0 && g.tectonics.belt[i] <= VEIN_CORE);
+			land += g.eroded[i] >= 0;
+			rich += g.placer[i] >= ratio(1, 4);
+		}
+		UASSERT(rich * 10 < land);
+		any_rich += rich;
 	}
+	UASSERT(any_rich > 0); // (a world without high mountains has none)
 }
 
 // A lake has one surface: touching lake cells share a level, so real
@@ -499,6 +517,41 @@ void TestTerragen::testPlates()
 		UASSERT(kinds[(int)Boundary::Convergent] > 0 && kinds[(int)Boundary::Divergent] > 0 && kinds[(int)Boundary::Transform] > 0);
 		if (nn > 50)
 			UASSERT(near / nn > far / nf); // ranges along the collisions
+	}
+}
+
+// The plates' history: continental crust is kept (what collisions fold
+// away and arcs build is counted; the rest moves cell to cell, which the
+// nearest-cell handover only keeps roughly), ocean floor forms where plates
+// part, and things happen: collisions, openings, arcs.
+void TestTerragen::testHistory()
+{
+	const Sphere &sphere = gridSphere();
+	for (const char *text : WATER_CODES) {
+		const History h = history(WorldCode::decode(text));
+		UASSERT(h.cells.size() == (size_t)sphere.size());
+		int64_t continental = 0, young = 0;
+		for (size_t i = 0; i < h.cells.size(); i++) {
+			const History::Cell &c = h.cells[i];
+			UASSERT(c.plate < h.plates.size());
+			UASSERT(c.continental == (c.formed != Formed::Ocean));
+			if (c.continental)
+				continental += sphere.area((int32_t)i);
+			else if (c.age < HISTORY_STEPS)
+				young++;
+		}
+		UASSERT(continental == h.continental_end);
+		// within a fifth of what the rules alone would leave
+		const int64_t expected = h.continental_start + h.made - h.lost;
+		UASSERT(std::abs(h.continental_end - expected) * 5 < expected);
+		UASSERT(young > 0);
+		bool kinds[3] = {};
+		for (const History::Event &e : h.events) {
+			UASSERT(e.step >= 0 && e.step < HISTORY_STEPS);
+			kinds[(int)e.kind] = true;
+		}
+		UASSERT(kinds[(int)History::Kind::Collision] || kinds[(int)History::Kind::Arc]);
+		UASSERT(kinds[(int)History::Kind::Opening]);
 	}
 }
 
@@ -555,8 +608,9 @@ void TestTerragen::testStrata()
 		default: break;
 		}
 	}
+	// every kind of ground somewhere, but a lid's (on a plate world: none)
 	for (int p = 0; p < (int)Province::Count; p++)
-		UASSERT(seen[p] > 0); // every kind of ground somewhere
+		UASSERT((seen[p] > 0) == (p != (int)Province::Highland && p != (int)Province::Mare));
 }
 
 // Ores where their processes put them, and caves most of all in limestone.
@@ -626,7 +680,7 @@ void TestTerragen::testCover()
 // the climate allows turns up somewhere, and fertility follows the rock.
 void TestTerragen::testClimate()
 {
-	World w(WorldCode::decode("TF7.dGVycmE"));
+	World w(WorldCode::decode("TF9.dGVycmE"));
 	const Grid &g = w.grid();
 	auto band = [&](double lo, double hi) {
 		int64_t sum = 0, n = 0;
@@ -643,7 +697,7 @@ void TestTerragen::testClimate()
 	UASSERT(band(0, 10) > 3 * band(25, 38)); // the ITCZ, and the dry belts under the sinking air
 	UASSERT(band(50, 65) > 2 * band(25, 38)); // the storm tracks
 	// the same code, the same climate
-	World again(WorldCode::decode("TF7.dGVycmE"));
+	World again(WorldCode::decode("TF9.dGVycmE"));
 	UASSERT(again.grid().rain_season[0] == g.rain_season[0] && again.grid().rain_season[1] == g.rain_season[1]);
 
 	int counts[(int)Biome::Count] = {};
@@ -664,36 +718,57 @@ void TestTerragen::testClimate()
 		UASSERT(fertile[volcanic] / cells[volcanic] > fertile[shield] / cells[shield]);
 }
 
+// Land drawn on the grid's cells by latitude (degrees) and column x (0..128
+// eastward round the world), and a field's mean over a patch the same way.
+template <typename Height>
+static std::vector<fix> drawn(Height height)
+{
+	const Sphere &s = gridSphere();
+	std::vector<fix> e(s.size());
+	for (int32_t i = 0; i < s.size(); i++) {
+		const Dir &d = s.centre(i);
+		e[i] = height(latitudeOf(d) * 180.0 / PI, World::u(d) * 128.0 / ONE);
+	}
+	return e;
+}
+template <typename Where>
+static double meanOver(const std::vector<fix> &f, Where where)
+{
+	const Sphere &s = gridSphere();
+	double sum = 0;
+	int n = 0;
+	for (int32_t i = 0; i < s.size(); i++) {
+		const Dir &d = s.centre(i);
+		if (where(latitudeOf(d) * 180.0 / PI, World::u(d) * 128.0 / ONE)) {
+			sum += f[i] / 65536.0;
+			n++;
+		}
+	}
+	return n ? sum / n : 0;
+}
+
 // The climate over land we draw: a range in the westerlies has a wet side
 // and a rain shadow; a continent in the tropics gets its rain in summer.
 void TestTerragen::testClimateFromLand()
 {
-	WorldCode code = WorldCode::decode("TF7.dGVycmE");
-	std::vector<fix> e((size_t)CLIMATE * CLIMATE, -ratio(3, 10));
-	auto row = [](double lat) { return (int32_t)((90 - lat) / 180 * CLIMATE); };
-	// a north–south range at 38–58° N, with lowland either side
-	for (int32_t y = row(58); y <= row(38); y++)
-		for (int32_t x = 50; x <= 74; x++)
-			e[y * CLIMATE + x] = x >= 60 && x <= 63 ? ratio(6, 10) : ratio(5, 100);
-	// a continent across 8–30° N
-	for (int32_t y = row(30); y <= row(8); y++)
-		for (int32_t x = 10; x <= 40; x++)
-			e[y * CLIMATE + x] = ratio(8, 100);
+	WorldCode code = WorldCode::decode("TF9.dGVycmE");
+	const std::vector<fix> e = drawn([](double lat, double x) {
+		if (lat >= 38 && lat <= 58 && x >= 50 && x <= 74) // a north–south range, lowland either side
+			return x >= 60 && x <= 63 ? ratio(6, 10) : ratio(5, 100);
+		if (lat >= 8 && lat <= 30 && x >= 10 && x <= 40) // a continent in the tropics
+			return ratio(8, 100);
+		return -ratio(3, 10);
+	});
 	Climate c = climate(code, e);
-	double windward = 0, leeward = 0, summer = 0, winter = 0;
-	for (int32_t y = row(55); y <= row(42); y++) {
-		for (int32_t x = 55; x <= 59; x++)
-			windward += c.rain[0][y * CLIMATE + x] + c.rain[1][y * CLIMATE + x];
-		for (int32_t x = 64; x <= 68; x++)
-			leeward += c.rain[0][y * CLIMATE + x] + c.rain[1][y * CLIMATE + x];
-	}
-	for (int32_t y = row(24); y <= row(12); y++)
-		for (int32_t x = 12; x <= 38; x++) {
-			summer += c.rain[0][y * CLIMATE + x];
-			winter += c.rain[1][y * CLIMATE + x];
-		}
-	infostream << "climate: windward " << windward / ONE << " leeward " << leeward / ONE
-			<< "; tropical land summer " << summer / ONE << " winter " << winter / ONE << std::endl;
+	std::vector<fix> year(e.size());
+	for (size_t i = 0; i < e.size(); i++)
+		year[i] = c.rain[0][i] + c.rain[1][i];
+	const double windward = meanOver(year, [](double lat, double x) { return lat >= 42 && lat <= 55 && x >= 55 && x <= 59; });
+	const double leeward = meanOver(year, [](double lat, double x) { return lat >= 42 && lat <= 55 && x >= 64 && x <= 68; });
+	const auto tropical = [](double lat, double x) { return lat >= 12 && lat <= 24 && x >= 12 && x <= 38; };
+	const double summer = meanOver(c.rain[0], tropical), winter = meanOver(c.rain[1], tropical);
+	infostream << "climate: windward " << windward << " leeward " << leeward
+			<< "; tropical land summer " << summer << " winter " << winter << std::endl;
 	UASSERT(windward > 1.5 * leeward);
 	UASSERT(summer > 2 * winter);
 	EXCEPTION_CHECK(std::invalid_argument, climate(code, std::vector<fix>(10, 0)));
@@ -704,27 +779,58 @@ void TestTerragen::testClimateFromLand()
 // the second's west coast), which leaves that coast drier.
 void TestTerragen::testOceanCurrents()
 {
-	WorldCode code = WorldCode::decode("TF7.dGVycmE");
-	std::vector<fix> e((size_t)CLIMATE * CLIMATE, -ratio(3, 10));
-	auto row = [](double lat) { return (int32_t)((90 - lat) / 180 * CLIMATE); };
-	for (int32_t y = row(55); y <= row(5); y++)
-		for (int32_t x = 0; x < CLIMATE; x++)
-			if ((x >= 20 && x <= 40) || (x >= 70 && x <= 90))
-				e[y * CLIMATE + x] = ratio(6, 100);
+	WorldCode code = WorldCode::decode("TF9.dGVycmE");
+	const std::vector<fix> e = drawn([](double lat, double x) {
+		return lat >= 5 && lat <= 55 && ((x >= 20 && x <= 40) || (x >= 70 && x <= 90)) ? ratio(6, 100) : -ratio(3, 10);
+	});
 	Climate c = climate(code, e);
-	double warm = 0, cold = 0, east_coast = 0, west_coast = 0;
-	for (int32_t y = row(35); y <= row(20); y++) {
-		warm += c.sea[y * CLIMATE + 42];
-		cold += c.sea[y * CLIMATE + 68];
-		for (int32_t x : { 38, 39, 40 })
-			east_coast += c.rain[0][y * CLIMATE + x] + c.rain[1][y * CLIMATE + x];
-		for (int32_t x : { 70, 71, 72 })
-			west_coast += c.rain[0][y * CLIMATE + x] + c.rain[1][y * CLIMATE + x];
-	}
-	infostream << "currents: off the east coast " << warm / ONE << ", off the west coast " << cold / ONE
-			<< "; rain on the east coast " << east_coast / ONE << ", west coast " << west_coast / ONE << std::endl;
+	std::vector<fix> year(e.size());
+	for (size_t i = 0; i < e.size(); i++)
+		year[i] = c.rain[0][i] + c.rain[1][i];
+	const auto band = [](double lat) { return lat >= 20 && lat <= 35; };
+	const double warm = meanOver(c.sea, [&](double lat, double x) { return band(lat) && x >= 41 && x <= 43; });
+	const double cold = meanOver(c.sea, [&](double lat, double x) { return band(lat) && x >= 67 && x <= 69; });
+	const double east_coast = meanOver(year, [&](double lat, double x) { return band(lat) && x >= 38 && x <= 40; });
+	const double west_coast = meanOver(year, [&](double lat, double x) { return band(lat) && x >= 70 && x <= 72; });
+	infostream << "currents: off the east coast " << warm << ", off the west coast " << cold
+			<< "; rain on the east coast " << east_coast << ", west coast " << west_coast << std::endl;
 	UASSERT(warm > 0 && cold < 0);
 	UASSERT(east_coast > west_coast);
+}
+
+// The energy balance: an Earth-like world is about Earth's temperature; a
+// colder one has more ice than its forcing alone would give (ice brightens
+// the world and cools it further); a continent's interior has fiercer
+// seasons than its coast.
+void TestTerragen::testEnergyBalance()
+{
+	const std::vector<fix> e = drawn([](double lat, double x) {
+		return lat >= 30 && lat <= 65 && x >= 20 && x <= 70 ? ratio(5, 100) : -ratio(3, 10);
+	});
+	const Sphere &s = gridSphere();
+	auto mean = [&](const Climate &c) {
+		int64_t sum = 0, area = 0;
+		for (int32_t i = 0; i < s.size(); i++) {
+			sum += (int64_t)celsiusOf(c.heat[i]) * s.area(i) >> FRAC;
+			area += s.area(i);
+		}
+		return (double)sum / area;
+	};
+	const Climate earth = climate(WorldCode::decode("TF9.dGVycmE"), e);
+	// the Temperature setting at −0.5 and −1
+	const Climate cool = climate(WorldCode::decode("TF9.dGVycmE.AAJtZoCAgECAgICAglU"), e);
+	const Climate cold = climate(WorldCode::decode("TF9.dGVycmE.AAJtZoCAgACAgICAglU"), e);
+	const double t_earth = mean(earth), t_cool = mean(cool), t_cold = mean(cold);
+	infostream << "energy balance: " << t_earth << " °C, ice " << earth.ice / 655.36 << "%; cooler " << t_cool << " °C, ice "
+			<< cool.ice / 655.36 << "%; colder " << t_cold << " °C, ice " << cold.ice / 655.36 << "%" << std::endl;
+	UASSERT(t_earth > 10 && t_earth < 25); // (mostly sea: darker, so warmer than Earth)
+	UASSERT(cool.ice > earth.ice && cold.ice > cool.ice);
+	// the second half of the cooling cools more than the first: the ice
+	UASSERT(t_cool - t_cold > t_earth - t_cool);
+	const double coast = meanOver(earth.gain, [](double lat, double x) { return lat >= 45 && lat <= 50 && x >= 20 && x <= 22; });
+	const double interior = meanOver(earth.gain, [](double lat, double x) { return lat >= 45 && lat <= 50 && x >= 44 && x <= 46; });
+	infostream << "seasons at 47° N: coast " << coast << ", interior " << interior << std::endl;
+	UASSERT(interior > 1.2 * coast);
 }
 
 // Soil as a composition: every point round-trips through its index, and the
@@ -739,7 +845,7 @@ void TestTerragen::testSoil()
 	}
 	EXCEPTION_CHECK(std::invalid_argument, soilPoint((uint8_t)SOIL_POINTS));
 
-	World w(WorldCode::decode("TF7.dGVycmE"));
+	World w(WorldCode::decode("TF9.dGVycmE"));
 	int32_t size = w.code().size;
 	double wet_clay = 0, dry_clay = 0, cold_organic = 0, warm_organic = 0, steep_sand = 0, flat_sand = 0;
 	int n_wet = 0, n_dry = 0, n_cold = 0, n_warm = 0, n_steep = 0, n_flat = 0;
@@ -772,14 +878,17 @@ void TestTerragen::testRiversOnLand()
 	for (const char *text : WATER_CODES) {
 		World w(WorldCode::decode(text));
 		const Grid &g = w.grid();
-		int rivers = 0;
+		int rivers = 0, streams = 0;
 		for (int32_t i = 0; i < g.size(); i++) {
-			if (!g.river(i))
+			if (!g.stream(i))
 				continue;
-			rivers++;
+			streams++;
 			UASSERT(g.base[i] >= 0);
+			rivers += g.river(i);
 		}
 		UASSERT(rivers > 0);
+		// streams drain the land between the rivers: several times as many cells
+		UASSERT(streams >= 3 * rivers);
 	}
 }
 
@@ -800,9 +909,9 @@ static void describe(const char *code)
 // for an existing code needs a new code version, not a silent update.
 void TestTerragen::testDeterminismGolden()
 {
-	describe("TF7.YWJj");
-	describe("TF7.dGVycmE");
-	World w(WorldCode::decode("TF7.YWJj.AQC2ZoCAgICAgICA41U"));
+	describe("TF9.YWJj");
+	describe("TF9.dGVycmE");
+	World w(WorldCode::decode("TF9.YWJj.AQC2ZoCAgICAgICA41U"));
 	Preview p = preview(w, std::nullopt, 48);
 	uint32_t h = 2166136261u;
 	auto mix = [&](uint32_t v) { h = (h ^ v) * 16777619u; };
@@ -843,6 +952,7 @@ void TestTerragen::testDeterminismGolden()
 	// TF6: the world on the sphere (sprint 86; TF5, on the flat map, was
 	// 2496371879). The code's size 1 is 62832 round since sprint 39.
 	// (re-pinned: this code is 62 832 round, past where the radius overflowed a fix)
-	// TF7, not yet released, re-pinned for sprint 88's sediment (was 1343096095)
-	UASSERTEQ(uint32_t, h, 3935738997u);
+	// TF9, not yet released, re-pinned for sprint 88 (was 1343096095)
+	// re-pinned for sprint 97: no beaches on hard coasts (was 3559267434)
+	UASSERTEQ(uint32_t, h, 1626736796u);
 }

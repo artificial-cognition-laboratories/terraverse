@@ -146,7 +146,8 @@ void SystemLayer::draw(video::IVideoDriver *driver, const Camera &camera, double
 
 	driver->setTransform(video::ETS_VIEW, camera.view);
 	stars(driver, camera);
-	orbits(driver, camera, day);
+	if (m_opts.orbits)
+		orbits(driver, camera, day);
 
 	const double focal = camera.height / (2 * std::tan(camera.fov / 2));
 	// the way the camera looks: depth is along it, not the distance (a body

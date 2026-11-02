@@ -6,6 +6,7 @@ import History from "../../system/History.vue"
 import { body as bodyOf, LIMITS, STAR } from "../../system/model.ts"
 import { useSystemPreview } from "../../system/preview.ts"
 import type { WorldDraftHandle } from "./draft.ts"
+import { useLooks } from "./looks.ts"
 import WorldTab from "./WorldTab.vue"
 
 type BodyPage = "overview" | "orbit" | "makeup" | "spin" | "land" | "climate" | "underground" | "history"
@@ -13,6 +14,9 @@ const props = defineProps<{ draft: WorldDraftHandle; page: BodyPage }>()
 const preview = useSystemPreview()
 const chosen = computed(() => props.draft.system.selected === STAR ? null : bodyOf(props.draft.system, props.draft.system.selected))
 const card = computed(() => chosen.value ? preview.card(chosen.value.id) : null)
+const looks = useLooks()
+// the playable world's plates, from its terrain preview
+const land = computed(() => chosen.value?.playable ? looks.terrain.fields.value?.history ?? [] : [])
 const moon = computed(() => chosen.value?.parent != null)
 const percent = (v: number) => `${Math.round(v * 100)}%`
 const mass = (v: number) => {
@@ -66,7 +70,7 @@ const day = (h: number) => h < 48 ? `${Math.round(h)} hours` : `${(h / 24).toFix
                 </Section>
             </template>
             <template v-else-if="page === 'history'">
-                <History v-if="card" :card="card" :age="draft.system.age" />
+                <History v-if="card" :card="card" :age="draft.system.age" :land="land" />
                 <p v-else class="copy">{{ preview.problem.value ?? 'Working out this body…' }}</p>
             </template>
             <template v-else-if="chosen.playable">

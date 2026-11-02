@@ -216,7 +216,7 @@ struct Plot
 	std::unique_ptr<WorldMatter> matter;
 	std::map<std::string, int32_t> kinds;
 
-	Plot()
+	explicit Plot(std::vector<WorldMatter::Air> airs = { { 101325, 9.81, AIR } })
 	{
 		WorldMatter::Ground g{
 			[this](Pos p) {
@@ -254,7 +254,7 @@ struct Plot
 					fills[{ p.x, p.y, p.z }] = sandbox::Liquid{ substance, std::round(share * 255) / 255 };
 			},
 		};
-		matter = std::make_unique<WorldMatter>(WorldMatter::Opts{ table(), 101325, AIR, g });
+		matter = std::make_unique<WorldMatter>(WorldMatter::Opts{ table(), airs, g });
 		using matter::State;
 		for (auto [node, id, share, state, form] : std::vector<std::tuple<const char *, const char *, double, State, bool>>{
 				{ "air", "air", 1, State::Gas, true }, { "log", "wood", 0.4, State::Solid, true },
@@ -351,6 +351,14 @@ void TestSandbox::testWorldFire()
 	double smothered = peak(buried, 900);
 	infostream << "world: buried, it peaked at " << smothered << " K" << std::endl;
 	UASSERT(smothered < hottest - 100);
+	// on a body with no air (sprint 96: the Moon), lit in the open, it only chars
+	Plot airless({ { 0, 1.62, {} } });
+	airless.hole("granite");
+	airless.nodes[{ 0, 0, 0 }] = "log";
+	airless.matter->heat({ 0, 0, 0 }, 900);
+	double starved = peak(airless, 900);
+	infostream << "world: with no air, it peaked at " << starved << " K" << std::endl;
+	UASSERT(starved < hottest - 100);
 }
 
 // Clay insulates: a hot core walled in clay keeps its heat longer than one

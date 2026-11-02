@@ -76,8 +76,11 @@ const sizeLabel = (i: number) => {
 const sizeNote = computed(() => {
     const r = radius(sizeIndex.value)
     const around = (2 * Math.PI * r) / 4 / 3600 // hours to walk round, at 4 blocks a second
+    // heights in metres at √(r / Earth's) blocks a metre (terragen/world.h
+    // blocksPerMetre): the highest ranges stand about 9 km
+    const peaks = 9000 * Math.sqrt(Math.min(1, r / EARTH_RADIUS))
     return `${around < 48 ? `${Math.round(around)} hours` : `${Math.round(around / 24)} days`} to walk round` +
-        (r > 3000 ? " · the land doesn't grow with the planet yet: bigger worlds are flatter" : "")
+        ` · peaks up to ~${peaks >= 1000 ? `${(peaks / 1000).toFixed(1)}k` : Math.round(peaks / 10) * 10} blocks`
 })
 </script>
 

@@ -57,6 +57,17 @@ local function biome(name, def)
 	core.register_biome(def)
 end
 
+-- Regolith: rock ground to dust by impacts where no air stops them (sprint
+-- 95). Fine and sharp, it holds a footprint and a little wall.
+for _, r in ipairs({ { "regolith", "Regolith" }, { "mare_regolith", "Mare regolith" } }) do
+	core.register_node("tf_world:" .. r[1], {
+		description = r[2],
+		tiles = { "tf_goodvibes_" .. r[1] .. ".png" },
+		groups = { loose = 1, crumbly = 3, pile_repose = 1, pile_yield = 8, pile_bearing = 20, pile_give = 4 },
+		_matter = { matter = r[1], share = 0.55, form = true },
+	})
+end
+
 -- the sea floor
 biome("deep", { node_top = "tf_world:gravel", depth_top = 1, node_filler = "tf_world:gravel", depth_filler = 2, heat_point = 50, humidity_point = 50 })
 biome("ocean", { node_top = "tf_world:sand", depth_top = 1, node_filler = "tf_world:sand", depth_filler = 3, heat_point = 50, humidity_point = 50 })
@@ -77,5 +88,10 @@ biome("taiga", { node_top = "tf_world:grass", depth_top = 1, node_filler = "tf_w
 biome("tundra", { node_top = "tf_world:tundra", depth_top = 1, node_filler = "tf_world:soil", depth_filler = 2, heat_point = 10, humidity_point = 30 })
 biome("rock", { node_top = "tf_world:stone", depth_top = 1, node_filler = "tf_world:stone", depth_filler = 0,
 	node_riverbed = "tf_world:gravel", heat_point = 40, humidity_point = 30 })
+-- airless ground: the highlands' light dust, the maria's dark
+biome("regolith", { node_top = "tf_world:regolith", depth_top = 2, node_filler = "tf_world:regolith", depth_filler = 0,
+	node_riverbed = "tf_world:regolith", heat_point = 30, humidity_point = 0 })
+biome("mare", { node_top = "tf_world:mare_regolith", depth_top = 2, node_filler = "tf_world:mare_regolith", depth_filler = 0,
+	node_riverbed = "tf_world:mare_regolith", heat_point = 30, humidity_point = 0 })
 biome("snow", { node_top = "tf_world:snow", depth_top = 1, node_filler = "tf_world:stone", depth_filler = 0,
 	node_riverbed = "tf_world:gravel", heat_point = 0, humidity_point = 40 })

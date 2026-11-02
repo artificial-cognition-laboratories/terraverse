@@ -26,16 +26,17 @@ enum class Boundary : uint8_t { None, Convergent, Divergent, Transform };
 // Which side of a convergent boundary a cell is on.
 enum class Side : uint8_t { None, Overriding, Subducting, Collision };
 
-enum class Province : uint8_t { Shield, Orogen, Arc, Rift, Basin, Volcanic, OceanFloor, Count };
+// (Highland and Mare: a stagnant lid's, planning/sprint-95-maria.md)
+enum class Province : uint8_t { Shield, Orogen, Arc, Rift, Basin, Volcanic, OceanFloor, Highland, Mare, Count };
 extern const char *const PROVINCE_NAMES[(int)Province::Count];
 
 enum class Rock : uint8_t {
-	Granite, Gneiss, Slate, Basalt, Andesite, Tuff, Obsidian, Sandstone, Shale, Limestone,
+	Granite, Gneiss, Slate, Basalt, Andesite, Tuff, Obsidian, Sandstone, Shale, Limestone, Anorthosite, Breccia,
 	Count
 };
 extern const char *const ROCK_NAMES[(int)Rock::Count];
 
-enum class Ore : uint8_t { None, Copper, Tin, Lead, Gold, Iron, Magnetite, Coal, Salt, Sulfur, Count };
+enum class Ore : uint8_t { None, Copper, Tin, Lead, Gold, Iron, Magnetite, Coal, Salt, Sulfur, Ilmenite, Kreep, Ice, Count };
 extern const char *const ORE_NAMES[(int)Ore::Count];
 
 struct Plate
@@ -61,12 +62,52 @@ struct Volcano
 	VolcanoKind kind;
 };
 
+// How a cell's crust came to be (the plates' history, history.cpp).
+enum class Formed : uint8_t { Craton, Orogen, Arc, Rift, Ocean };
+
 /*
-	The plates, worked out before the land's height (mountains follow them).
-	Per cell: its plate, the kind of the nearest boundary and how far it is,
-	which side of a convergent boundary it's on, how strongly mountains rise
-	there (`belt`, 0..1), and what the boundary adds to the height (`relief`:
-	rift valleys and trenches down, mid-ocean ridges up).
+	The plates' history (planning/sprint-89-plates.md): crust carried about
+	the sphere by its plates for HISTORY_STEPS steps of geological time, worn
+	by rivers as it goes. Where plates meet, ocean sinks under the other
+	side and arcs rise; continents collide into ranges; where they part,
+	new ocean floor forms. Per cell, what stands there today.
+*/
+constexpr int32_t HISTORY_STEPS = 32;
+constexpr int32_t STEP_MYR = 15;   // million years a step stands for
+struct History
+{
+	struct Cell
+	{
+		fix height = 0;      // the surface, before the sea is placed (higher stands out of it)
+		fix build = 0;       // on ocean floor: what arcs have piled on it
+		fix rate = 0;        // how fast it's being pushed up lately (per step, fading)
+		Dir home;            // where this crust formed: what it carries (an arc's volcanoes) is drawn from there
+		int16_t age = 0;     // steps since it formed or was last built
+		uint8_t plate = 0;
+		bool continental = false;
+		Formed formed = Formed::Ocean;
+	};
+	enum class Kind : uint8_t { Collision, Opening, Arc };
+	struct Event
+	{
+		int32_t step;
+		Kind kind;
+		Dir at;
+	};
+	std::vector<Plate> plates;
+	std::vector<Cell> cells;
+	std::vector<Event> events; // the first of each kind between each pair of plates
+	int64_t continental_start = 0, continental_end = 0; // continental crust's area (fixed cells)
+	int64_t made = 0, lost = 0; // …built by arcs, folded away by collisions
+};
+History history(const WorldCode &code);
+
+/*
+	The plates as they stand today (from the history). Per cell: its plate,
+	the kind of the nearest boundary and how far it is, which side of a
+	convergent boundary it's on, how strongly the land is being pushed up
+	there (`belt`, 0..1: what erosion works against), and what the boundary
+	adds to the height (`relief`: rift valleys and trenches down).
 */
 struct Tectonics
 {
@@ -77,10 +118,11 @@ struct Tectonics
 	std::vector<Side> side;
 	std::vector<fix> belt;
 	std::vector<fix> relief;
+	std::vector<Formed> formed;    // from the history
+	std::vector<int16_t> age;      // steps since the crust formed or was last built
 };
 
-// `mass` is the landmass field per cell, `sea_offset` where the sea is.
-Tectonics tectonics(const WorldCode &code, const std::vector<fix> &mass, fix sea_offset);
+Tectonics tectonics(const WorldCode &code, const History &h);
 
 // After the land and water exist: each cell's province, and the volcanoes.
 std::vector<Province> provinces(const WorldCode &code, const Grid &g);
@@ -100,9 +142,15 @@ struct Strata
 	int32_t phase;      // where the bed cycle starts
 	bool pluton;        // a granite body under it
 	bool humid, arid;
-	bool placer;        // its river gravels carry gold and tin
+	fix placer;         // how rich its river gravels are in gold and tin (0..1; Grid::placer)
 	int32_t crater;     // blocks to the nearest active crater (large if none)
 	bool lava_province; // deep caverns fill with lava, not water
+	// a lid's (planning/sprint-95-maria.md)
+	int32_t breccia;    // blocks of impact-shattered rock over the crust
+	int32_t mare;       // blocks of mare basalt
+	fix titanium;       // its lava's (0..1): ilmenite
+	fix thin;           // the crust's thinness (0..1): KREEP under the thin side
+	bool cold_trap;     // a crater floor near a pole the sun never reaches: ice
 };
 
 } // namespace terragen

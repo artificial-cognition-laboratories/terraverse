@@ -39,6 +39,8 @@ const Texture PARENT[(int)Province::Count] = {
 	{ ratio(25, 100), ratio(45, 100), ratio(30, 100) }, // basin: shale, limestone, old sea beds
 	{ ratio(30, 100), ratio(30, 100), ratio(40, 100) }, // volcanic: basalt weathers to clay
 	{ ratio(30, 100), ratio(40, 100), ratio(30, 100) }, // ocean floor (islands, shores)
+	{ ratio(50, 100), ratio(40, 100), ratio(10, 100) }, // highland: anorthosite and breccia
+	{ ratio(30, 100), ratio(35, 100), ratio(35, 100) }, // mare: basalt
 };
 
 const fix ORGANIC_LEVELS[SOIL_ORGANIC] = { 0, ratio(8, 100), ratio(40, 100) }; // mineral, ordinary topsoil, peat
@@ -97,6 +99,10 @@ Soil World::soil(const Place &at, const Ground &ground, const Strata &strata) co
 		silt += ratio(30, 100);
 		clay += ratio(10, 100);
 	}
+	// and wherever they laid sediment down (floodplains, fans, filled lakes)
+	fix laid = alluvium(between(m_grid->sediment, at));
+	silt += mul(laid, ratio(30, 100));
+	clay += mul(laid, ratio(10, 100));
 	// steep ground keeps only the coarse part
 	fix steep = clamp(cover.slope - ratio(4, 10), 0, ONE);
 	sand += mul(steep, ratio(40, 100));

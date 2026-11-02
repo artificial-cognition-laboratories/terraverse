@@ -57,7 +57,8 @@ palette(soil, "tf_world_soil_palette.png")
 
 # --- rocks: each toward its partner (geological neighbours)
 PARTNERS = {"granite": "gneiss", "gneiss": "slate", "slate": "shale", "basalt": "andesite", "andesite": "tuff",
-            "tuff": "andesite", "obsidian": "basalt", "shale": "limestone", "limestone": "sandstone"}
+            "tuff": "andesite", "obsidian": "basalt", "shale": "limestone", "limestone": "sandstone",
+            "anorthosite": "breccia", "breccia": "anorthosite"}
 for rock, partner in PARTNERS.items():
     own, other = average(os.path.join(tex, f"tf_goodvibes_{rock}.png")), average(os.path.join(tex, f"tf_goodvibes_{partner}.png"))
     ratio = [other[i] / own[i] for i in range(3)]

@@ -95,10 +95,10 @@ WorldCode WorldCode::decode(const std::string &code)
 	if (first == std::string::npos)
 		throw CodeError("This isn't a world code.");
 	std::string version = code.substr(0, first);
-	if (version == "TF1" || version == "TF2" || version == "TF3" || version == "TF4" || version == "TF5" || version == "TF6")
+	if (version == "TF1" || version == "TF2" || version == "TF3" || version == "TF4" || version == "TF5" || version == "TF6" || version == "TF7" || version == "TF8")
 		throw CodeError("This world code is from an older build of Terra Firma (" + version + "); its worlds can't be generated any more.");
-	if (version != "TF7")
-		throw CodeError("This isn't a world code this game reads (TF7).");
+	if (version != "TF9")
+		throw CodeError("This isn't a world code this game reads (TF9).");
 	size_t second = code.find('.', first + 1);
 	std::string seed_part = code.substr(first + 1, second == std::string::npos ? std::string::npos : second - first - 1);
 	if (seed_part.empty())

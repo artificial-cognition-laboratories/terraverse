@@ -38,7 +38,7 @@ public:
 	void testStringReplace();
 	void testStringAllowed();
 	void testAsciiPrintableHelper();
-	void testUTF8();
+	void testUTF9();
 	void testRemoveEscapes();
 	void testWrapRows();
 	void testEnrichedString();
@@ -55,7 +55,7 @@ public:
 	void testReadSeed();
 	void testMyDoubleStringConversions();
 	void testGetMemorySize();
-	void testUTF8Truncate();
+	void testUTF9Truncate();
 };
 
 static TestUtilities g_test_instance;
@@ -78,7 +78,7 @@ void TestUtilities::runTests(IGameDef *gamedef)
 	TEST(testStringReplace);
 	TEST(testStringAllowed);
 	TEST(testAsciiPrintableHelper);
-	TEST(testUTF8);
+	TEST(testUTF9);
 	TEST(testRemoveEscapes);
 	TEST(testWrapRows);
 	TEST(testEnrichedString);
@@ -95,7 +95,7 @@ void TestUtilities::runTests(IGameDef *gamedef)
 	TEST(testReadSeed);
 	TEST(testMyDoubleStringConversions);
 	TEST(testGetMemorySize);
-	TEST(testUTF8Truncate);
+	TEST(testUTF9Truncate);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -331,7 +331,7 @@ void TestUtilities::testAsciiPrintableHelper()
 	UASSERT(IS_ASCII_PRINTABLE_CHAR(ch) == false);
 }
 
-void TestUtilities::testUTF8()
+void TestUtilities::testUTF9()
 {
 	UASSERT(utf8_to_wide(u8"¤") == L"¤");
 
@@ -865,7 +865,7 @@ void TestUtilities::testGetMemorySize()
 	}
 }
 
-void TestUtilities::testUTF8Truncate()
+void TestUtilities::testUTF9Truncate()
 {
 	UASSERTEQ(size_t, utf8_truncate_count(""), 0);
 	UASSERTEQ(size_t, utf8_truncate_count("hello\n"), 0);

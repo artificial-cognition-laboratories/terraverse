@@ -14,6 +14,7 @@
 #include "planet/atlas.h"
 #include "settings.h"
 #include "terragen/planet.h"
+#include "terragen/worlds.h"
 #include "workshop/motion.h"
 #include <cmath>
 #include <functional>
@@ -65,15 +66,27 @@ physics::Here Body::here(const v3d &foot, v3f velocity) const
 	return h;
 }
 
-void Body::ensureWorld()
+bool Body::ensureWorld()
 {
 	const planet::Atlas *atlas = m_client->getAtlas();
 	if (m_world && atlas == m_atlas)
-		return;
+		return true;
+	// each body's pull and air come from the world code's system, which the
+	// horizon carries (sent just after the atlas)
+	const std::optional<far::Horizon> &horizon = m_client->getHorizon();
+	if (atlas && !horizon)
+		return false;
 	// a new planet (or the first): a new field, a new world
 	m_atlas = atlas;
 	m_world.reset();
-	m_field = atlas ? std::make_unique<orbit::Field>(*atlas) : std::make_unique<orbit::Field>(terragen::home());
+	if (atlas) {
+		std::vector<terragen::Planet> planets;
+		for (const terragen::BodyWorld &b : terragen::bodyWorlds(terragen::WorldCode::decode(horizon->code), atlas->body(0).params()))
+			planets.push_back(terragen::planetOf(b));
+		m_field = std::make_unique<orbit::Field>(*atlas, planets);
+	} else {
+		m_field = std::make_unique<orbit::Field>(terragen::home());
+	}
 	m_pull = workshop::fieldOf(*m_field);
 	m_mirrors.clear();
 	m_me.reset();
@@ -87,6 +100,7 @@ void Body::ensureWorld()
 		m_carrying.reset(); // its mirror's gone with the world; Game lets it go
 	m_grabbing.reset();
 	m_driving.reset();
+	return true;
 }
 
 void Body::nudge(v3f by)
@@ -214,7 +228,8 @@ void Body::mirror(LocalPlayer &p)
 
 void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisions)
 {
-	ensureWorld();
+	if (!ensureWorld())
+		return; // held a frame till the world's bodies are known
 	m_scale = p.physics_override.gravity;
 	if (m_driving) {
 		ride(p, dtime);

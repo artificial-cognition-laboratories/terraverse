@@ -649,7 +649,14 @@ void Server::init()
 		this, m_metrics_backend.get());
 	m_env->init();
 	// what pulls on things: the planet's, or the home card's straight down (sprint 59)
-	m_field = m_atlas ? std::make_unique<orbit::Field>(*m_atlas) : std::make_unique<orbit::Field>(terragen::home());
+	if (m_atlas) {
+		std::vector<terragen::Planet> planets;
+		for (const terragen::BodyWorld &b : m_body_worlds)
+			planets.push_back(terragen::planetOf(b));
+		m_field = std::make_unique<orbit::Field>(*m_atlas, planets);
+	} else {
+		m_field = std::make_unique<orbit::Field>(terragen::home());
+	}
 	m_workshop = std::make_unique<workshop::Workshop>(workshop::Workshop::Opts{ *m_env, this, m_path_world, *m_materials, *m_field,
 		[this](const std::string &player) { return checkPriv(player, "creative"); } });
 	m_piles = std::make_unique<pile::Piles>(m_env->getMap(), *m_nodedef, nullptr, false,

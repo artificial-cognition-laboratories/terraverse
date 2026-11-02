@@ -79,6 +79,7 @@ export function mockPreview(config: WorldConfig, date: number | null, resolution
         plate: b64(new Uint8Array(n)),
         boundary: b64(new Uint8Array(n)),
         volcanoes: "",
+        history: [],
     }
 }
 

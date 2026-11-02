@@ -86,3 +86,51 @@ dithered coasts, lakes in the cells' polygons).
 
 Still to do: uplift through time, hillslope diffusion, pits routed
 (Cordonnier), sediment feeding soil and placers, streams below the grid.
+
+**Pass 2: the model, and rivers that meet their water.**
+- Uplift: each round the belts push land up (`UPLIFT` × belt), so ranges
+  stand where uplift and erosion balance.
+- Hillslope creep (`CREEP`, κ ∇²h between land cells, explicit), conserving:
+  remainders under a unit of height are carried round to round.
+- `testSediment` now balances worn + uplifted + hollows = to the deep, exactly.
+- Sediment feeds the ground: `alluvium(sediment)` (full at ten blocks) adds
+  silt and clay to the soil (`World::soil`) and richness to fertility.
+- Lakes and rivers read one shared warp (a third of a cell in waves two
+  cells long, plus a sixteenth in waves half a cell long; steeper warps fold
+  and a wide river broke into pools), so rivers run into their lakes; runs
+  between two lake cells are under the lake.
+- Meanders by the river's own width: each run swings to one side and back
+  in loops about eleven widths long, a whole number to the run (zero at both
+  ends, so runs join), never steeper than they fold.
+- `render … sediment`.
+- Pits: the priority flood plus `keepRealLakes` already routes water through
+  every basin to its spill point; Cordonnier et al.'s method is the same
+  outcome, faster. Not needed at 64 002 cells (the grid takes ~0.4 s).
+
+**Pass 3: placers, streams, the reference.**
+- Placers by process (`grid.cpp`): the rivers carry heavy grains worn out
+  of the belts' cores (belt over 0.3) beside their load; they settle
+  `HEAVY` (2) times as readily, so they gather where the rivers first slow
+  below the mountains. `Grid::placer` (0..1) is how rich what was laid is,
+  outside the source rock. `Strata::placer` is now that richness (was a
+  flag for mountain provinces, i.e. at the source); placer gravel lies in
+  river and lake beds and, more thinly, on floodplains, by richness. Rare:
+  rich gravel on 2–6% of the land. `render … sediment` shows it in red.
+- Streams (`Grid::stream_threshold`): four times the rivers' share of the
+  land carries a stream, along the same drainage, one to five blocks wide
+  on any planet; a river widens from a stream's width to its own over its
+  first few times the threshold (the channel never jumps). Tested: several
+  times as many stream cells as river cells, all on land.
+- **The reference.** fastscapelib wouldn't install here (no wheel for this
+  Python; uv broken), so we checked against what its model predicts: at
+  steady state, channel slope ∝ area^−0.5. Ours is −0.10 to −0.16
+  (`scripts/terragen-check/concavity.cpp`); more rounds don't change it
+  (24, 48, 96: the same, and every lake silts up). The reason: our land is
+  the noise worn for a while, not land built by uplift — uplift is only on
+  the belts' narrow crests, where streams start. Real profiles need broad
+  uplift through time: **sprint C (plates with history)**, with this as
+  its check.
+
+Not done: streams finer than the grid's own drainage (every cell's stream
+is still a run between centres; a hillside inside one cell has none).
+

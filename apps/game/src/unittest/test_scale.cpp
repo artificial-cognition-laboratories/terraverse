@@ -8,6 +8,7 @@
 #include "terragen/world.h"
 #include <chrono>
 #include <cmath>
+#include <vector>
 #include <cstdio>
 
 /*
@@ -37,8 +38,9 @@ void TestScale::testEverySize()
 {
 	using Clock = std::chrono::steady_clock;
 	const auto ms = [](Clock::time_point a) { return std::chrono::duration<double, std::milli>(Clock::now() - a).count(); };
+	std::vector<int32_t> spans;
 	for (double radius : { 2607.0, 10000.0, 50000.0, 250000.0, 1000000.0, 6371000.0 }) {
-		terragen::WorldCode code = terragen::WorldCode::decode("TF7.dGVycmE");
+		terragen::WorldCode code = terragen::WorldCode::decode("TF9.dGVycmE");
 		code.size = (int32_t)std::lround(2 * M_PI * radius);
 		// its own text: the grid is cached by a code's text, and a grid is built
 		// for its size (volcanoes' reach, in blocks)
@@ -92,7 +94,13 @@ void TestScale::testEverySize()
 		// under a block along it, so no step is a cliff (a radius past
 		// 32 767 blocks round overflowed a fix: steps of 32 000 blocks)
 		UASSERT(steep < 40);
+		spans.push_back(high - low);
 	}
+	// heights in metres (sprint 93): the land grows with the planet, as
+	// blocks per metre does (√ of the radius), not the same everywhere
+	for (size_t k = 1; k < spans.size(); k++)
+		UASSERT(spans[k] > spans[k - 1]);
+	UASSERT(spans.back() > spans.front() * 10);
 
 	// the largest planet whose every tile is resident at once
 	double fits = 1000, refused = 100000;

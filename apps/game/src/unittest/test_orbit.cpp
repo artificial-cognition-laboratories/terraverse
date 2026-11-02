@@ -179,7 +179,7 @@ static double radiusAt(const planet::Atlas &atlas, const v3d &p)
 void TestOrbit::testFieldPullsToTheCentre()
 {
 	const planet::Atlas atlas = planet::Atlas::resident(SMALL);
-	const Field field(atlas);
+	const Field field(atlas, { terragen::sphere(SMALL.radius) });
 	const double mu = terragen::sphere(SMALL.radius).mu();
 	for (Vec dir : { Vec{ 1, 0, 0 }, Vec{ 0.6, 0.48, 0.64 }, Vec{ 0, 1, 0 }, Vec{ 0.3, -0.9, 0.316 } }) {
 		const double len = dir.length();
@@ -224,7 +224,7 @@ void TestOrbit::testFieldFlat()
 void TestOrbit::testOrbitAcrossGrids()
 {
 	const planet::Atlas atlas = planet::Atlas::resident(SMALL);
-	const Field field(atlas);
+	const Field field(atlas, { terragen::sphere(SMALL.radius) });
 	const terragen::Planet planet = terragen::sphere(SMALL.radius);
 	Vec dir{ 0.05, 1, 0.02 };
 	dir = dir * (1 / dir.length());

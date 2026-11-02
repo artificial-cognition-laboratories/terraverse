@@ -1695,6 +1695,14 @@
     ]
    },
    "saturation_source": "CoolProp 8.0.0 (n-Octane)"
+  },
+  "ilmenite": {
+   "formation": -1232.0,
+   "source": "Robie & Hemingway 1995, FeTiO3"
+  },
+  "apatite": {
+   "formation": -6872.0,
+   "source": "Robie & Hemingway 1995, fluorapatite"
   }
  }
 }

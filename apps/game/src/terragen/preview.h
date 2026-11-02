@@ -40,6 +40,9 @@ struct Preview
 	std::vector<uint8_t> plate;
 	std::vector<uint8_t> boundary;
 	std::vector<uint8_t> volcanoes;
+	// what happened to the plates: million years before today, and the kind
+	struct Moment { int32_t ago; History::Kind kind; };
+	std::vector<Moment> history;
 };
 
 // `date` (0..1) shows that day's climate; none shows the yearly mean.

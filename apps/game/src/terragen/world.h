@@ -20,7 +20,7 @@ namespace terragen {
 // sends, with the names alongside.
 enum class Biome : uint8_t {
 	Deep, Ocean, SeaIce, Beach, Desert, Savanna, Grassland, Forest, Jungle,
-	Taiga, Tundra, Rock, Snow, Monsoon, Mediterranean,
+	Taiga, Tundra, Rock, Snow, Monsoon, Mediterranean, Regolith, Mare,
 	Count
 };
 
@@ -77,6 +77,7 @@ struct Ground
 	int32_t water;   // the water surface, if `kind` isn't None
 	Water kind;
 	Column column;
+	int32_t mare = 0; // blocks of lava under the top (a flooded lid's maria), 0 off them
 };
 
 /*
@@ -164,8 +165,6 @@ public:
 	Cover cover(const Place &d, const Ground &ground) const;
 
 private:
-	// the plates' mountain belt and relief at a place, between cell centres
-	void tectonic(const Dir &d, fix &belt, fix &relief) const;
 	// how much every nearby volcano raises a place, and a crater's lava surface
 	// (absolute blocks) if any
 	// `floor` is the crater's floor (absolute) inside a crater, built level from the vent
@@ -176,10 +175,45 @@ private:
 	int64_t m_radius, m_cell_blocks;
 	int64_t m_river_scale; // fixed: how much wider rivers are than on the default planet
 	int32_t m_meander;     // rivers' meanders: waves round the equator
+	fix m_height;          // blocks per unit of elevation (heightScale)
+	fix m_metre;           // blocks per metre (blocksPerMetre)
+	std::vector<Crater> m_rayed; // the young craters still bright with rays (sprint 96)
+	fix m_detail;          // the detail's amplitude at a cell's wavelength, blocks, where ruggedness is 1
+	int m_detail_octaves;  // from a cell's wavelength down to 16 blocks
+	Craters m_craters;     // impacts: the grid holds the wide ones, a column finds the rest
+	// the ground at a place before volcanoes and water (blocks): the land
+	// and its detail, the old craters, the maria's lava over them, the young
+	// craters on top
+	// the top solid block; `mare` gets how deep lava lies under it
+	int32_t terrain(const Place &at, fix elevation, int32_t &mare) const;
+	// What the lava did after it set (sprint 96): wrinkle ridges, rilles and
+	// domes on a mare, in blocks over its level
+	int32_t mareRelief(const Place &at) const;
+	// Under a young crater's rays (bright ejecta thrown across the dark lava).
+	bool rayed(const Place &at) const;
+	// How hard the coast's rock is, 0 (soft or buried in sediment: beaches)
+	// to 1 (a shield, a range's core: cliffs), between the cells (sprint 97)
+	fix hardness(const Dir &d) const;
+	// one age of craters at a place, exactly (blocks, fixed): the grid's wide
+	// ones and the column's own
+	fix craters(const Place &at, Age age) const;
+	// a water surface at the grid's filled level, in blocks
+	int32_t waterBlocks(fix filled) const { return std::max<int32_t>(0, floorInt(mul(filled, m_height))); }
 };
 
-// Blocks per unit of elevation, above and below the sea.
-constexpr int32_t LAND_SCALE = 160;
-constexpr int32_t SEA_SCALE = 64;
+/*
+	Heights in metres (planning/sprint-93-scale.md). A unit of the grid's
+	elevation is 5 km (the lapse rate's: 0.9 of heat, ~33 °C, is Earth's
+	6.5 °C/km over 5 km). A body is blocks per metre √(R / R⊕) (R in blocks,
+	R⊕ Earth's radius in metres; at most 1): an Earth-sized world is a block
+	a metre, and a smaller one's mountains are steeper than real by 1/that
+	(proportional heights would leave small worlds flat, real ones make
+	needles).
+*/
+constexpr int32_t METRES_PER_UNIT = 5000;
+constexpr int64_t EARTH_RADIUS_M = 6371000;
+fix blocksPerMetre(const WorldCode &code);
+// Blocks per unit of elevation, land and sea alike.
+inline fix heightScale(const WorldCode &code) { return mul(blocksPerMetre(code), toFix(METRES_PER_UNIT)); }
 
 } // namespace terragen

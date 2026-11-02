@@ -127,6 +127,53 @@
    },
    "origin": "sediment",
    "note": "Broken rock, rounded by rivers."
+  },
+  {
+   "id": "anorthosite",
+   "name": "Anorthosite",
+   "minerals": {
+    "plagioclase": 0.9,
+    "pyroxene": 0.1
+   },
+   "origin": "igneous",
+   "note": "Light feldspar that floated to the top of a young moon's molten surface and froze: the bright highlands."
+  },
+  {
+   "id": "breccia",
+   "name": "Breccia",
+   "minerals": {
+    "plagioclase": 0.6,
+    "pyroxene": 0.25,
+    "olivine": 0.1,
+    "silica": 0.05
+   },
+   "origin": "impact",
+   "note": "Rock shattered by impacts and welded back together from the pieces. A cratered crust's top few kilometres."
+  },
+  {
+   "id": "regolith",
+   "name": "Regolith",
+   "minerals": {
+    "plagioclase": 0.6,
+    "pyroxene": 0.25,
+    "olivine": 0.05,
+    "silica": 0.1
+   },
+   "origin": "impact",
+   "note": "Rock ground to sharp dust by billions of years of small impacts, where no air stops them."
+  },
+  {
+   "id": "mare_regolith",
+   "name": "Mare regolith",
+   "minerals": {
+    "pyroxene": 0.4,
+    "plagioclase": 0.3,
+    "olivine": 0.1,
+    "ilmenite": 0.1,
+    "silica": 0.1
+   },
+   "origin": "impact",
+   "note": "The dark dust of the lava plains: ground basalt, with ilmenite in it."
   }
  ]
 }

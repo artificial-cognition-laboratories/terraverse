@@ -11,6 +11,8 @@
 #include "porting.h"
 #include "sandbox/sandbox.h"
 #include "sandbox/world.h"
+#include "planet/atlas.h"
+#include "terragen/worlds.h"
 #include "server.h"
 #include "shape/shape.h"
 #include "fill/fill.h"
@@ -171,8 +173,20 @@ static ServerMatter &made(lua_State *L)
 			sm->server->getEnv().getMap().setFill(v3s16(p.x, p.y, p.z), f);
 		},
 	};
-	m->world = std::make_unique<WorldMatter>(WorldMatter::Opts{ m->table, 101325,
-		{ { "nitrogen", 0.79 }, { "oxygen", 0.21 } }, ground });
+	// each body's own air, from its card (sprint 96): a fire on the Moon starves
+	std::vector<WorldMatter::Air> airs;
+	const planet::Atlas *atlas = sm->server->atlas();
+	if (atlas) {
+		for (const terragen::BodyWorld &b : sm->server->bodyWorlds())
+			airs.push_back({ b.surroundings.pressure, b.surroundings.gravity, b.surroundings.gases });
+		ground.air = [atlas](Pos p) {
+			const std::optional<int> body = atlas->bodyAt({ p.x, p.y, p.z });
+			return (size_t)body.value_or(0); // (off the atlas: the home's, as the seams are)
+		};
+	} else {
+		airs.push_back({ 101325, 9.81, { { "nitrogen", 0.79 }, { "oxygen", 0.21 } } });
+	}
+	m->world = std::make_unique<WorldMatter>(WorldMatter::Opts{ m->table, airs, ground });
 	s_matter = std::move(m);
 	return *s_matter;
 }

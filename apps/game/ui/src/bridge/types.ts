@@ -203,7 +203,7 @@ export type MatterReaction = {
 /** A rock: a named mixture of minerals by mass (matter/rocks.json). */
 export type MatterRock = {
     id: string; name: string; note: string
-    origin: "igneous" | "metamorphic" | "sedimentary" | "sediment"
+    origin: "igneous" | "metamorphic" | "sedimentary" | "sediment" | "impact"
     minerals: Record<string, number>
 }
 

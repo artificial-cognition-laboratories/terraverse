@@ -521,7 +521,7 @@ int ModApiTerra::l_weather(lua_State *L)
 		// body's is still and dry at its climate's temperature until its
 		// own atmosphere (sprint 41)
 		s.temperature = toDouble(w.temperature(at, today(server, w).date, hourNow(server))) + 273.15;
-		s.pressure = 101325;
+		s.pressure = server->bodyWorlds().at(body).surroundings.pressure; // its card's (none on the Moon)
 	}
 	lua_createtable(L, 0, 10);
 	lua_pushboolean(L, body == planet::Atlas::HOME);

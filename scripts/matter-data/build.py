@@ -60,6 +60,8 @@ LITERATURE = {
     "metakaolin": (-3211.0, "approx., kaolinite less its water"),
     "malachite": (-1051.0, "Robie & Hemingway 1995"),
     "chalcopyrite": (-190.0, "Robie & Hemingway 1995"),
+    "ilmenite": (-1232.0, "Robie & Hemingway 1995, FeTiO3"),
+    "apatite": (-6872.0, "Robie & Hemingway 1995, fluorapatite"),
     "glass": (-1561.0, "NIST, Na2SiO3 (cr)"),
     "ethanol": (-277.6, "NIST WebBook, ethanol (l)"),
     "octane": (-250.1, "NIST WebBook, n-octane (l)"),

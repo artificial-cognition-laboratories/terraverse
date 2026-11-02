@@ -188,7 +188,7 @@ void TestPlanetarium::testCentreIsAhead()
 // And its cost per vertex, for the tile budget.
 void TestPlanetarium::testOverlaySharpUpClose()
 {
-	const auto world = std::make_shared<const terragen::World>(terragen::WorldCode::decode("TF7.dGVycmE"));
+	const auto world = std::make_shared<const terragen::World>(terragen::WorldCode::decode("TF9.dGVycmE"));
 	planetarium::Painter painter({ world, planetarium::Overlay::Elevation, nullptr, std::nullopt, std::nullopt, 0 });
 	const video::SColor land(255, 200, 200, 200);
 	// a few places, the best of them: one may lie on an even slope or a
@@ -223,7 +223,7 @@ void TestPlanetarium::testOverlaySharpUpClose()
 // water overlays; the climate ones paint over it.
 void TestPlanetarium::testOverlayKeepsWater()
 {
-	const auto world = std::make_shared<const terragen::World>(terragen::WorldCode::decode("TF7.dGVycmE"));
+	const auto world = std::make_shared<const terragen::World>(terragen::WorldCode::decode("TF9.dGVycmE"));
 	const video::SColor river(0, 40, 120, 215);
 	// a place on land
 	for (int i = 0; i < 4096; i++) {

@@ -124,7 +124,8 @@ private:
 		v3f facing{ 0, 0, 1 };   // the seat's front (its frame)
 	};
 
-	void ensureWorld();
+	// false until the world's bodies are known (its atlas came, its code not yet)
+	bool ensureWorld();
 	void mirror(LocalPlayer &p);
 	// The pull where it is now, as mods scale it (physics_override.gravity).
 	physics::Here here(const v3d &foot, v3f velocity) const;

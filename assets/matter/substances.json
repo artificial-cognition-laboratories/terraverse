@@ -2043,6 +2043,95 @@
    "tint": 10
   },
   {
+   "id": "ilmenite",
+   "name": "Ilmenite",
+   "formula": "FeTiO₃",
+   "composition": {
+    "Fe": 1,
+    "Ti": 1,
+    "O": 3
+   },
+   "triple": [
+    1640,
+    1
+   ],
+   "critical": [
+    4500,
+    100000000.0
+   ],
+   "boil": 3000,
+   "fusion": 90,
+   "vaporization": 400,
+   "melt_slope": 0.05,
+   "density": {
+    "solid": 4720,
+    "liquid": 4100
+   },
+   "conductivity": {
+    "solid": 2.4,
+    "liquid": 1.2,
+    "gas": 0.03
+   },
+   "heat_capacity": 630,
+   "structure": {
+    "type": "crystal",
+    "lattice": "rocksalt",
+    "atoms": [
+     "Fe",
+     "O"
+    ]
+   },
+   "note": "Black iron-titanium oxide, plentiful in the Moon's dark maria: iron, titanium, and oxygen to breathe from one rock.",
+   "approximate": true,
+   "kind": "compound",
+   "colour": "#24232a"
+  },
+  {
+   "id": "apatite",
+   "name": "Apatite",
+   "formula": "Ca₅(PO₄)₃F",
+   "composition": {
+    "Ca": 5,
+    "P": 3,
+    "O": 12,
+    "F": 1
+   },
+   "triple": [
+    1890,
+    1
+   ],
+   "critical": [
+    4500,
+    100000000.0
+   ],
+   "boil": 3000,
+   "fusion": 150,
+   "vaporization": 400,
+   "melt_slope": 0.05,
+   "density": {
+    "solid": 3190,
+    "liquid": 2900
+   },
+   "conductivity": {
+    "solid": 1.4,
+    "liquid": 1.0,
+    "gas": 0.03
+   },
+   "heat_capacity": 760,
+   "structure": {
+    "type": "crystal",
+    "lattice": "rocksalt",
+    "atoms": [
+     "Ca",
+     "P"
+    ]
+   },
+   "note": "Phosphate crystals. On the Moon it carries KREEP's thorium and rare earths, the last of the magma ocean to freeze.",
+   "approximate": true,
+   "kind": "compound",
+   "colour": "#b49a7a"
+  },
+  {
    "id": "chalcopyrite",
    "name": "Chalcopyrite",
    "formula": "CuFeS₂",

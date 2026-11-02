@@ -38,7 +38,7 @@ Cover World::cover(const Place &at, const Ground &ground) const
 	// the column's own roll: by its block at the surface, so neighbours differ
 	const std::array<int32_t, 3> p = solid(at, 0);
 	Cover out{ 0, 0, 0, false, false, mix((uint32_t)p[0], mix((uint32_t)p[1], (uint32_t)p[2], ROLL), m_code.seed_hash + ROLL) };
-	if (ground.kind != Water::None || c.elevation < 0 || m_code.surface != Surface::Living)
+	if (ground.kind != Water::None || c.elevation < 0 || !m_code.processes.life)
 		return out; // (nothing grows on a barren body)
 	out.fertility = between(g.fertility, at);
 
@@ -49,7 +49,7 @@ Cover World::cover(const Place &at, const Ground &ground) const
 		int64_t squares = 0;
 		const fix *gap = sphere.distancesBegin(i);
 		for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++, gap++) {
-			const fix s = div((g.eroded[*p] - g.eroded[i]) * LAND_SCALE, (fix)blocks(*gap)); // rise over run, blocks (a cell apart: fits)
+			const fix s = div(mul(g.eroded[*p] - g.eroded[i], m_height), (fix)blocks(*gap)); // rise over run, blocks (a cell apart: fits)
 			squares += (int64_t)s * s;
 		}
 		out.slope = sqrtWide64(((squares * 2) / sphere.neighbourCount(i)) >> FRAC);

@@ -5,10 +5,13 @@ set(terragen_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/body.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/calendar.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/climate.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/craters.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/code.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/fixed.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/geology.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/grid.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/history.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/maria.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/noise.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/planet.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/preview.cpp
