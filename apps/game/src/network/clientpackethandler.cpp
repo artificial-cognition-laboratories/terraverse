@@ -1456,7 +1456,7 @@ void Client::handleCommand_HudSetSky(NetworkPacket* pkt)
 		if (!pkt->hasRemainingBytes())
 			break;
 		// Terra Firma
-		*pkt >> skybox.solar.on >> skybox.solar.latitude >> skybox.solar.declination;
+		*pkt >> skybox.solar.on >> skybox.solar.latitude >> skybox.solar.declination >> skybox.solar.turns >> skybox.solar.at;
 	} while (0);
 
 	ClientEvent *event = new ClientEvent();

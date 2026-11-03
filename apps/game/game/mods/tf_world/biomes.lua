@@ -68,6 +68,17 @@ for _, r in ipairs({ { "regolith", "Regolith" }, { "mare_regolith", "Mare regoli
 	})
 end
 
+-- Rusted dust (sprint 99), where seas once rusted the iron, and the sulfur
+-- that eruptions snow over their plains. Tinted from sand until they've art.
+for _, r in ipairs({ { "rust_dust", "Rust dust", "#a4532c", "hematite" }, { "sulfur_crust", "Sulfur crust", "#d8c23c", "sulfur" } }) do
+	core.register_node("tf_world:" .. r[1], {
+		description = r[2],
+		tiles = { "tf_goodvibes_sand.png^[colorize:" .. r[3] .. ":170" },
+		groups = { loose = 1, crumbly = 3, pile_repose = 1, pile_yield = 8, pile_bearing = 20, pile_give = 4 },
+		_matter = { matter = r[4], share = 0.55 },
+	})
+end
+
 -- the sea floor
 biome("deep", { node_top = "tf_world:gravel", depth_top = 1, node_filler = "tf_world:gravel", depth_filler = 2, heat_point = 50, humidity_point = 50 })
 biome("ocean", { node_top = "tf_world:sand", depth_top = 1, node_filler = "tf_world:sand", depth_filler = 3, heat_point = 50, humidity_point = 50 })
@@ -93,5 +104,9 @@ biome("regolith", { node_top = "tf_world:regolith", depth_top = 2, node_filler =
 	node_riverbed = "tf_world:regolith", heat_point = 30, humidity_point = 0 })
 biome("mare", { node_top = "tf_world:mare_regolith", depth_top = 2, node_filler = "tf_world:mare_regolith", depth_filler = 0,
 	node_riverbed = "tf_world:mare_regolith", heat_point = 30, humidity_point = 0 })
+for _, r in ipairs({ { "dust", "rust_dust" }, { "sulfur", "sulfur_crust" } }) do
+	biome(r[1], { node_top = "tf_world:" .. r[2], depth_top = 2, node_filler = "tf_world:" .. r[2], depth_filler = 0,
+		node_riverbed = "tf_world:" .. r[2], heat_point = 30, humidity_point = 0 })
+end
 biome("snow", { node_top = "tf_world:snow", depth_top = 1, node_filler = "tf_world:stone", depth_filler = 0,
 	node_riverbed = "tf_world:gravel", heat_point = 0, humidity_point = 40 })

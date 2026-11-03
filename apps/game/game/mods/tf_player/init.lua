@@ -4,7 +4,7 @@
 -- How the player moves. Luanti gives singleplayer every privilege except
 -- fly, fast and noclip: games grant those, and ours grants them in creative
 -- worlds (double-tap jump to fly, as Minecraft). Sprinting is ours in every
--- mode, as Minecraft's: hold Ctrl (aux1), or double-tap forward; it lasts
+-- mode, as Minecraft's: hold Shift (aux1), or double-tap forward; it lasts
 -- until you stop moving forward. A run, not Luanti's fast mode.
 
 -- Building in creative: the engine asks for this privilege (the workshop's

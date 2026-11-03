@@ -136,6 +136,23 @@ static FileLogOutput file_log_output;
 
 static OptionList allowed_options;
 
+#if USE_SHELL
+#include "terragen/grid.h"
+#include <filesystem>
+// Terra Firma: built planet grids kept between runs, for this build of the
+// engine alone (its size and time name it: any rebuild starts afresh)
+static void keepTerrainGrids()
+{
+	char path[1024];
+	if (!porting::getCurrentExecPath(path, sizeof(path)))
+		throw BaseException("can't find this program, to name its kept grids");
+	const std::filesystem::path exe(path);
+	terragen::keepGridsIn(porting::path_cache + DIR_DELIM + "grids",
+			std::to_string(std::filesystem::file_size(exe)) + "_" +
+			std::to_string(std::filesystem::last_write_time(exe).time_since_epoch().count()));
+}
+#endif
+
 int main(int argc, char *argv[])
 {
 #if CHECK_CLIENT_BUILD() && USE_SHELL
@@ -198,6 +215,9 @@ int main(int argc, char *argv[])
 
 	porting::signal_handler_init();
 	porting::initializePaths();
+#if USE_SHELL
+	keepTerrainGrids();
+#endif
 
 	if (!create_userdata_path()) {
 		errorstream << "Cannot create user data directory" << std::endl;
@@ -280,7 +300,7 @@ int main(int argc, char *argv[])
 		const std::string code = cmd_args.get("planetarium");
 		const std::optional<double> bench = cmd_args.exists("planetarium-bench")
 				? std::optional<double>(cmd_args.getFloat("planetarium-bench")) : std::nullopt;
-		planetarium::runStandalone(code.empty() ? "TF9.dGVycmE" : code, bench);
+		planetarium::runStandalone(code.empty() ? "TF16.dGVycmE" : code, bench);
 		return 0;
 	}
 #endif

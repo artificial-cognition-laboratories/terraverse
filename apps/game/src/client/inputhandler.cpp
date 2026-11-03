@@ -43,6 +43,7 @@ void MyEventReceiver::reloadKeybindings()
 	keybindings[KeyType::JUMP] = getKeySetting("keymap_jump");
 	keybindings[KeyType::AUX1] = getKeySetting("keymap_aux1");
 	keybindings[KeyType::SNEAK] = getKeySetting("keymap_sneak");
+	keybindings[KeyType::PRONE] = getKeySetting("keymap_prone");
 	keybindings[KeyType::DIG] = getKeySetting("keymap_dig");
 	keybindings[KeyType::PLACE] = getKeySetting("keymap_place");
 

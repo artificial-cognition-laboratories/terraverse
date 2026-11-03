@@ -40,11 +40,11 @@ void TestScale::testEverySize()
 	const auto ms = [](Clock::time_point a) { return std::chrono::duration<double, std::milli>(Clock::now() - a).count(); };
 	std::vector<int32_t> spans;
 	for (double radius : { 2607.0, 10000.0, 50000.0, 250000.0, 1000000.0, 6371000.0 }) {
-		terragen::WorldCode code = terragen::WorldCode::decode("TF9.dGVycmE");
+		terragen::WorldCode code = terragen::WorldCode::decode("TF16.dGVycmE");
 		code.size = (int32_t)std::lround(2 * M_PI * radius);
 		// its own text: the grid is cached by a code's text, and a grid is built
 		// for its size (volcanoes' reach, in blocks)
-		code.text += "@" + std::to_string(code.size);
+		code.grid_key += "@" + std::to_string(code.size);
 
 		Clock::time_point t = Clock::now();
 		const terragen::World world(code);

@@ -170,6 +170,7 @@ end
 -- what covers the ground where no tree stands
 local FLOWERS = { "tf_world:dandelion", "tf_world:poppy", "tf_world:orange_tulip", "tf_world:white_tulip" }
 local function ground_plant(c, i, ground)
+	if not c.alive[i] then return nil end -- (a dead world's sand is only sand)
 	local d, h, w, r = c.density[i], c.heat[i], c.wet[i], c.roll[i] -- r: 0 .. 2^32 − 1
 	local pick = math.floor(r / 256) % 1000 / 1000
 	if SAND[ground] then
@@ -214,64 +215,33 @@ if not core.terra.enabled() then
 	return -- other worlds (the Lab) have no terragen to ask
 end
 
-local trees, by_name = {}, {}
-for _, s in ipairs(SPECIES) do
-	by_name[s.name] = s
-	local def = table.copy(SHAPES[s.name])
-	def.trunk, def.leaves = s.trunk, s.leaves
-	trees[s.name] = def
-end
-
-core.register_on_generated(function(minp, maxp)
-	local heightmap = core.get_mapgen_object("heightmap")
-	if not heightmap then return end
-	-- only chunks where the ground surface falls inside them
-	local any = false
-	for _, y in ipairs(heightmap) do
-		if y >= minp.y and y < maxp.y then any = true break end
-	end
-	if not any then return end
-
-	local vm, emin, emax = core.get_mapgen_object("voxelmanip")
-	local area = VoxelArea(emin, emax)
-	local data = vm:get_data()
-	local c_air = core.CONTENT_AIR
-	local cover = core.terra.cover({ x = minp.x, y = 0, z = minp.z }, { x = maxp.x, y = 0, z = maxp.z })
-	local width = maxp.x - minp.x + 1
-	local planted, place_trees = {}, {}
-
-	local i = 1
-	for z = minp.z, maxp.z do
-		for x = minp.x, maxp.x do
-			local y = heightmap[i]
-			if y >= minp.y and y < maxp.y then
-				local below, above = area:index(x, y, z), area:index(x, y + 1, z)
-				if data[above] == c_air then
-					local ground = core.get_name_from_content_id(data[below])
-					local name = cover.tree[i] and core.terra.species({ x = x, y = y, z = z }, ground)
-					local s = name and by_name[name]
-					if s then
-						place_trees[#place_trees + 1] = { pos = { x = x, y = y + 1, z = z }, def = trees[s.name] }
-					else
-						local p = ground_plant(cover, i, ground)
-						if p == "cactus" then
-							for k = 1, 1 + cover.roll[i] % 3 do
-								local at = area:index(x, y + k, z)
-								if data[at] == c_air then data[at] = core.get_content_id("tf_world:cactus") end
-							end
-						elseif p then
-							data[above] = core.get_content_id(p)
-						end
-					end
-				end
-			end
-			i = i + 1
+core.register_on_generated(function()
+	local c = core.get_mapgen_object("terra_cover")
+	local vm
+	-- keeping the light the generator gave the open node
+	local function put(p, name)
+		local was = vm:get_node_at(p)
+		if was.name == "air" then
+			vm:set_node_at(p, { name = name, param1 = was.param1 })
+			return true
 		end
 	end
-	vm:set_data(data)
-	for _, t in ipairs(place_trees) do
-		core.spawn_tree_on_vmanip(vm, t.pos, t.def)
+	local any = false
+	for i = 1, #c.y do
+		local plant = ground_plant(c, i, core.get_name_from_content_id(c.ground[i]))
+		if plant then
+			vm = vm or core.get_mapgen_object("voxelmanip")
+			any = true
+			if plant == "cactus" then
+				for k = 1, 1 + c.roll[i] % 3 do
+					put({ x = c.x[i], y = c.y[i] + k, z = c.z[i] }, "tf_world:cactus")
+				end
+			else
+				put({ x = c.x[i], y = c.y[i] + 1, z = c.z[i] }, plant)
+			end
+		end
 	end
-	vm:calc_lighting()
-	vm:write_to_map()
+	if any then
+		vm:write_to_map(false)
+	end
 end)

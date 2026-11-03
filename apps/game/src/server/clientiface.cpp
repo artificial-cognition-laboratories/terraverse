@@ -100,9 +100,6 @@ void RemoteClient::GetNextBlocks (
 		m_nearest_unsent_d = 0;
 	}
 
-	if (m_nothing_to_send_pause_timer >= 0)
-		return;
-
 	RemotePlayer *player = env->getPlayer(peer_id);
 	// This can happen sometimes; clients and players are not in perfect sync.
 	if (!player)
@@ -140,6 +137,12 @@ void RemoteClient::GetNextBlocks (
 
 	if (sao->getCameraInverted())
 		camera_dir = -camera_dir;
+
+	// Terra Firma: nothing left to send, for now: unless they've moved or
+	// turned, or a teleport waits out the pause on an empty view
+	if (m_nothing_to_send_pause_timer >= 0 && center == m_last_center &&
+			camera_dir.dotProduct(m_last_camera_dir) >= std::cos(sao->getFov() * 0.1f))
+		return;
 
 	u16 max_simul_sends_usually = m_max_simul_sends;
 

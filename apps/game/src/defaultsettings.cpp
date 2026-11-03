@@ -151,11 +151,12 @@ void set_default_settings()
 	settings->setDefault("keymap_left", "SYSTEM_SCANCODE_4|GAMEPAD_AXIS_MINUS_0"); // KEY_KEY_A|Left Joystick
 	settings->setDefault("keymap_right", "SYSTEM_SCANCODE_7|GAMEPAD_AXIS_PLUS_0"); // KEY_KEY_D|Left Joystick
 	settings->setDefault("keymap_jump", "SYSTEM_SCANCODE_44|GAMEPAD_BUTTON_0"); // KEY_SPACE|Gamepad South
-	settings->setDefault("keymap_sneak", "SYSTEM_SCANCODE_225|GAMEPAD_BUTTON_1"); // KEY_LSHIFT|Gamepad East
+	settings->setDefault("keymap_sneak", "SYSTEM_SCANCODE_224|GAMEPAD_BUTTON_1"); // KEY_LCONTROL|Gamepad East (Terra Firma: crouch)
 	settings->setDefault("keymap_dig", "MOUSE_BUTTON_1|GAMEPAD_AXIS_PLUS_5"); // LMB|Gamepad RT
 	settings->setDefault("keymap_place", "MOUSE_BUTTON_3|GAMEPAD_AXIS_PLUS_4"); // RMB|Gamepad LT
 	settings->setDefault("keymap_drop", "SYSTEM_SCANCODE_42|GAMEPAD_BUTTON_12"); // KEY_BACK|D-Pad Down (Terra Firma: Q turns what's carried)
-	settings->setDefault("keymap_zoom", "SYSTEM_SCANCODE_29|GAMEPAD_BUTTON_11"); // KEY_KEY_Z|D-Pad Up
+	settings->setDefault("keymap_prone", "SYSTEM_SCANCODE_29"); // KEY_KEY_Z (Terra Firma: lie down)
+	settings->setDefault("keymap_zoom", "SYSTEM_SCANCODE_19|GAMEPAD_BUTTON_11"); // KEY_KEY_P|D-Pad Up
 	settings->setDefault("keymap_inventory", "SYSTEM_SCANCODE_12|GAMEPAD_BUTTON_3"); // KEY_KEY_I|Gamepad North (Terra Firma: E turns what's carried)
 	settings->setDefault("keymap_turn_left", "SYSTEM_SCANCODE_20"); // KEY_KEY_Q (Terra Firma: what's carried turned, sprint 64)
 	settings->setDefault("keymap_turn_right", "SYSTEM_SCANCODE_8"); // KEY_KEY_E
@@ -169,13 +170,13 @@ void set_default_settings()
 	settings->setDefault("keymap_focus", "SYSTEM_SCANCODE_9"); // KEY_KEY_F (Terra Firma: the focus view)
 	settings->setDefault("keymap_mirror", "SYSTEM_SCANCODE_28"); // KEY_KEY_Y (Terra Firma: mirrored strokes)
 	settings->setDefault("keymap_undo", "SYSTEM_SCANCODE_24"); // KEY_KEY_U (Terra Firma: undo a stroke)
-	settings->setDefault("keymap_cursor", "SYSTEM_SCANCODE_6"); // KEY_KEY_C (Terra Firma: the cursor freed)
+	settings->setDefault("keymap_cursor", "SYSTEM_SCANCODE_17"); // KEY_KEY_N (Terra Firma: the cursor freed)
 	settings->setDefault("keymap_copy", "SYSTEM_SCANCODE_6"); // KEY_KEY_C (Terra Firma: with Ctrl, a part copied, sprint 74)
 	settings->setDefault("keymap_paste", "SYSTEM_SCANCODE_25"); // KEY_KEY_V (with Ctrl, pasted)
 	settings->setDefault("keymap_save_part", "SYSTEM_SCANCODE_22"); // KEY_KEY_S (with Ctrl, kept in the library)
 	settings->setDefault("keymap_alt", "SYSTEM_SCANCODE_226"); // KEY_LMENU (Terra Firma: the build layer, sprint 68)
 	settings->setDefault("keymap_pause", "GAMEPAD_BUTTON_6"); // Gamepad Start
-	settings->setDefault("keymap_aux1", "SYSTEM_SCANCODE_224|GAMEPAD_BUTTON_2"); // KEY_LCONTROL|Gamepad West (Terra Firma: sprint, as Minecraft; E is the inventory)
+	settings->setDefault("keymap_aux1", "SYSTEM_SCANCODE_225|GAMEPAD_BUTTON_2"); // KEY_LSHIFT|Gamepad West (Terra Firma: run and thrust; also the modifier Shift-clicks read)
 	settings->setDefault("keymap_chat", "SYSTEM_SCANCODE_23"); // KEY_KEY_T
 	settings->setDefault("keymap_cmd", "SYSTEM_SCANCODE_56"); // /
 	settings->setDefault("keymap_cmd_local", "SYSTEM_SCANCODE_55"); // .
@@ -206,7 +207,7 @@ void set_default_settings()
 #endif
 	settings->setDefault("keymap_toggle_debug", "SYSTEM_SCANCODE_60"); // KEY_F3 (Terra Firma, as Minecraft)
 	settings->setDefault("keymap_toggle_profiler", "SYSTEM_SCANCODE_63"); // KEY_F6
-	settings->setDefault("keymap_camera_mode", "SYSTEM_SCANCODE_62"); // KEY_F5 (Terra Firma, as Minecraft)
+	settings->setDefault("keymap_camera_mode", "SYSTEM_SCANCODE_6"); // KEY_KEY_C (Terra Firma; with Ctrl while building, copy)
 	settings->setDefault("keymap_camera_yaw_left", "GAMEPAD_AXIS_MINUS_2"); // Right Joystick
 	settings->setDefault("keymap_camera_yaw_right", "GAMEPAD_AXIS_PLUS_2"); // Right Joystick
 	settings->setDefault("keymap_camera_pitch_up", "GAMEPAD_AXIS_MINUS_3"); // Right Joystick
@@ -386,7 +387,7 @@ void set_default_settings()
 	settings->setDefault("enable_translucent_foliage", "false");
 
 	// Effects Shadows
-	settings->setDefault("enable_dynamic_shadows", "false");
+	settings->setDefault("enable_dynamic_shadows", "true");
 	settings->setDefault("shadow_strength_gamma", "1.0");
 	settings->setDefault("shadow_poisson_filter", "true");
 	settings->setDefault("shadow_update_frames", "16");

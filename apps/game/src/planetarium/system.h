@@ -5,6 +5,8 @@
 
 #include "irrlichttypes_bloated.h"
 #include "irr_ptr.h"
+#include "planetarium/lit.h"
+#include "planetarium/rim.h"
 #include "terragen/system.h"
 #include <CMeshBuffer.h>
 #include <functional>
@@ -12,6 +14,7 @@
 #include <optional>
 #include <vector>
 
+class IShaderSource;
 namespace video { class IVideoDriver; class ITexture; }
 
 /*
@@ -58,6 +61,12 @@ public:
 	// `surface` may draw another body's land in its place (its index, where
 	// it is from the camera and how wide it is drawn, pixels, in the depth
 	// range given), saying whether it did: if not, it's a sphere in its colour.
+	// What bodies are lit and edged with. Before the first draw; a window's needed.
+	void shaders(IShaderSource *ssrc);
+	// The material for a body's land: `centre` where it's put (BS), `turn` how far the frame
+	// it's drawn in has turned from the scene's (the tiled body's spin; else 0). Its star
+	// and second star, and what of its neighbours could eclipse it, in that frame.
+	const video::SMaterial &lit(size_t body, double day, const v3f &centre, double turn, bool on);
 	using Surface = std::function<bool(size_t body, const terragen::System::Vec &at, double pixels, float near, float far)>;
 	void draw(video::IVideoDriver *driver, const Camera &camera, double day,
 			const std::function<void(float near, float far)> &focused, const Surface &surface = nullptr);
@@ -72,9 +81,16 @@ public:
 	// `day` days on at a time of day (0..1, noon at ½ on longitude 0, as
 	// the game's sun has it).
 	double spin(double day, double timeOfDay) const;
+	// Any body's, at its own time of day (its System::clock's).
+	double spinOf(size_t body, double day, double timeOfDay) const;
+	// The way to the second star from the focused body, unit, in the scene.
+	terragen::System::Vec toSecond(double day) const;
+	// The way to the star from a body, unit, in the scene.
+	terragen::System::Vec toStar(size_t body, double day) const;
 	double radius(size_t body) const { return m_opts.system->radius(body) * m_opts.blocksPerKm; }
 	double starRadius() const { return m_opts.system->starRadius() * m_opts.blocksPerKm; }
 	const terragen::System &system() const { return *m_opts.system; }
+	size_t focus() const { return m_opts.focus; }
 	// A body drawn cut open (none: none): its shells from its card (core,
 	// mantle, crust, ocean, …) as spheres, a window cut in them toward the
 	// camera. The focused body too: then it's drawn here, not by its owner.
@@ -90,7 +106,9 @@ private:
 		double distance;          // from the camera, blocks
 		int index;                // the system's body; −1 the star
 	};
-	void sphere(video::IVideoDriver *driver, const Body &b, video::SColor colour, const terragen::System::Vec &sun, bool lit);
+	void sphere(video::IVideoDriver *driver, const Body &b, video::SColor colour, double day);
+	void star(video::IVideoDriver *driver, const Body &b, video::SColor colour);
+	void rim(video::IVideoDriver *driver, const Camera &camera, const Body &b, double day, float near, float far);
 	void glow(video::IVideoDriver *driver, const Camera &camera, const Body &star);
 	void shells(video::IVideoDriver *driver, const Body &b, const terragen::System::Vec &sun);
 	void orbits(video::IVideoDriver *driver, const Camera &camera, double day);
@@ -100,6 +118,8 @@ private:
 	terragen::System::Vec scene(const terragen::System::Vec &km) const;
 
 	const Opts m_opts;
+	std::unique_ptr<Lit> m_lit;
+	std::unique_ptr<Rim> m_rim;
 	double m_tilt; // radians: the focused body's
 	double m_extent = 0;
 	std::optional<size_t> m_cutaway;

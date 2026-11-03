@@ -16,7 +16,7 @@ const draft = WorldDraft({ home: CANNED_HOME })
 const bridge = useBridge()
 const system = SystemPreview({ bridge })
 provide(SYSTEM_PREVIEW, system)
-watch(() => [draft.system, draft.config.star], () => system.request(draft.system, draft.config.star), { deep: true, immediate: true })
+watch(() => [draft.system, draft.config.star], () => system.request(draft.system, draft.config), { deep: true, immediate: true })
 const looks = Looks({ bridge, draft, cards: system })
 provide(LOOKS, looks)
 </script>

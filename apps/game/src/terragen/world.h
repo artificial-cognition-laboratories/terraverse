@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "channels.h"
 #include "code.h"
 #include "fixed.h"
 #include "geology.h"
@@ -20,7 +21,7 @@ namespace terragen {
 // sends, with the names alongside.
 enum class Biome : uint8_t {
 	Deep, Ocean, SeaIce, Beach, Desert, Savanna, Grassland, Forest, Jungle,
-	Taiga, Tundra, Rock, Snow, Monsoon, Mediterranean, Regolith, Mare,
+	Taiga, Tundra, Rock, Snow, Monsoon, Mediterranean, Regolith, Mare, Dust, Sulfur,
 	Count
 };
 
@@ -101,6 +102,18 @@ public:
 	// The finished column at a place, water included. `sunlight` for its
 	// latitude (see sunlight()).
 	Ground ground(const Place &d, fix sunlight) const;
+	// While one stands, this thread's columns are for cells this many blocks
+	// wide (far tiles): valleys and craters narrower than a cell are left out.
+	// They'd only alias, and finding them costs 20× a column near its
+	// neighbour. One block wide (a generated block, a level-0 tile) leaves out nothing.
+	class Coarse
+	{
+	public:
+		Coarse(const World &world, int64_t cell_blocks);
+		~Coarse();
+		Coarse(const Coarse &) = delete;
+		Coarse &operator=(const Coarse &) = delete;
+	};
 
 	// The air temperature in °C at a place on `date`, at `hour` of the day
 	// (0..1): the season's climate there plus a daily swing that peaks
@@ -164,6 +177,10 @@ public:
 	// What can grow here (vegetation.cpp).
 	Cover cover(const Place &d, const Ground &ground) const;
 
+public:
+	// where a place lies on its fold ridge (0 valley .. 1 crest; 0 outside a belt)
+	fix ridgesAt(const Place &at) const { return folds(at).crest; }
+
 private:
 	// how much every nearby volcano raises a place, and a crater's lava surface
 	// (absolute blocks) if any
@@ -180,6 +197,7 @@ private:
 	std::vector<Crater> m_rayed; // the young craters still bright with rays (sprint 96)
 	fix m_detail;          // the detail's amplitude at a cell's wavelength, blocks, where ruggedness is 1
 	int m_detail_octaves;  // from a cell's wavelength down to 16 blocks
+	std::optional<Channels> m_channels; // the drainage below the grid, where water ever ran
 	Craters m_craters;     // impacts: the grid holds the wide ones, a column finds the rest
 	// the ground at a place before volcanoes and water (blocks): the land
 	// and its detail, the old craters, the maria's lava over them, the young
@@ -189,6 +207,12 @@ private:
 	// What the lava did after it set (sprint 96): wrinkle ridges, rilles and
 	// domes on a mare, in blocks over its level
 	int32_t mareRelief(const Place &at) const;
+	// what tides do to an ice crust: cracks and chaos (blocks)
+	int32_t flexed(const Place &at) const;
+	// what a canyon from a lid's rise cuts here (blocks, none or negative)
+	int32_t canyoned(const Place &at) const;
+	// a lifeless body's biome: its bare ground, lava, caps
+	Biome bareBiome(const Dir &d, bool flooded) const;
 	// Under a young crater's rays (bright ejecta thrown across the dark lava).
 	bool rayed(const Place &at) const;
 	// How hard the coast's rock is, 0 (soft or buried in sediment: beaches)
@@ -197,6 +221,25 @@ private:
 	// one age of craters at a place, exactly (blocks, fixed): the grid's wide
 	// ones and the column's own
 	fix craters(const Place &at, Age age) const;
+	// the channels read at a place: its warp is the rivers', so a river lies
+	// in its valley (the last place's is kept: ground asks twice)
+	struct ChannelsAt
+	{
+		const Channels *from = nullptr;
+		int64_t least = 0;
+		Place at{};
+		Channels::Read read;
+		std::array<fix, 3> warp{}; // the rivers' warp there, in cells
+	};
+	const ChannelsAt &channelsAt(const Place &at) const;
+	// fold ridges at a place (planning/sprint-101-ranges.md)
+	struct Folds
+	{
+		fix crest = 0;  // across a ridge: 0 in the weak beds' valley, 1 on the hard bed's crest
+		fix height = 0; // of a ridge here, blocks; none outside a fold belt
+	};
+	Folds folds(const Place &at) const;
+	int32_t m_fold_waves = 0; // ridges a cell; none where a cell can't hold them
 	// a water surface at the grid's filled level, in blocks
 	int32_t waterBlocks(fix filled) const { return std::max<int32_t>(0, floorInt(mul(filled, m_height))); }
 };

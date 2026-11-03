@@ -60,6 +60,7 @@ for _, r in ipairs(ROCKS) do
 	core.register_alias("mapgen_rock_" .. id, "tf_world:" .. id)
 end
 core.register_alias("mapgen_rock_sandstone", "tf_world:sandstone")
+core.register_alias("mapgen_rock_ice", "tf_world:ice") -- an ice crust (sprint 98)
 
 -- Ores: what they are, and the rock-like block they sit in.
 local ORES = {

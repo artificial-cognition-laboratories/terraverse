@@ -2247,6 +2247,8 @@ int ObjectRef::l_set_sky(lua_State *L)
 			sky_params.solar.latitude = rangelim((float)luaL_checknumber(L, -2), -90.0f, 90.0f);
 			sky_params.solar.declination = rangelim((float)luaL_checknumber(L, -1), -90.0f, 90.0f);
 			lua_pop(L, 2);
+			sky_params.solar.turns = getfloatfield_default(L, -1, "turns", 1.0f);
+			sky_params.solar.at = getfloatfield_default(L, -1, "at", 0.0f);
 		} else if (lua_isboolean(L, -1) && !lua_toboolean(L, -1)) {
 			sky_params.solar.on = false;
 		} else if (!lua_isnil(L, -1)) {
@@ -2456,6 +2458,8 @@ int ObjectRef::l_get_sky(lua_State *L)
 		lua_createtable(L, 0, 2);
 		setfloatfield(L, -1, "latitude", skybox_params.solar.latitude);
 		setfloatfield(L, -1, "declination", skybox_params.solar.declination);
+		setfloatfield(L, -1, "turns", skybox_params.solar.turns);
+		setfloatfield(L, -1, "at", skybox_params.solar.at);
 		lua_setfield(L, -2, "solar");
 	} else {
 		lua_pushboolean(L, false);

@@ -291,6 +291,7 @@ struct World::Impl
 		std::optional<RVec3> to;      // placed: where it's to be after this call's steps (pushing on the way)
 		RVec3 from;                   // placed: where it was when they began
 		RVec3 was;                    // its foot before the last step: drawn between
+		float radius = 0;
 		bool unknown_is_air = false;  // unloaded ground: flown through, not waited for
 		std::map<Id, Vec3> pushed;    // what it's pressed on held assemblies since taken (N·s)
 	};
@@ -308,15 +309,20 @@ struct World::Impl
 		return it->second;
 	}
 
+	static RefConst<Shape> charShape(float radius, float height)
+	{
+		// its origin at its feet
+		RotatedTranslatedShapeSettings shape(Vec3(0, height / 2, 0), JPH::Quat::sIdentity(),
+				new CapsuleShape(height / 2 - radius, radius));
+		return made(shape);
+	}
+
 	CharId makeChar(const CharacterSpec &spec, const v3d &foot)
 	{
 		if (!(spec.radius > 0) || !(spec.height > 2 * spec.radius) || !(spec.mass > 0) || !(spec.strength >= 0))
 			throw PhysicsError("physics: a character's height is more than its width, its mass more than 0");
 		Ref<CharacterVirtualSettings> s = new CharacterVirtualSettings();
-		// its origin at its feet
-		RotatedTranslatedShapeSettings shape(Vec3(0, spec.height / 2, 0), JPH::Quat::sIdentity(),
-				new CapsuleShape(spec.height / 2 - spec.radius, spec.radius));
-		s->mShape = made(shape);
+		s->mShape = charShape(spec.radius, spec.height);
 		s->mMaxSlopeAngle = spec.max_slope * core::DEGTORAD;
 		s->mMass = spec.mass;
 		s->mMaxStrength = spec.strength;
@@ -330,6 +336,7 @@ struct World::Impl
 		Char c;
 		c.c = new CharacterVirtual(s, rvec(foot), JPH::Quat::sIdentity(), id, &system);
 		c.was = rvec(foot);
+		c.radius = spec.radius;
 		chars.emplace(id, std::move(c));
 		return id;
 	}
@@ -1386,6 +1393,16 @@ void World::removeCharacter(CharId id)
 {
 	m->chr(id);
 	m->chars.erase(id);
+}
+
+bool World::resize(CharId id, float height)
+{
+	Impl::Char &c = m->chr(id);
+	if (!(height > 2 * c.radius))
+		throw PhysicsError("physics: a character's height is more than its width");
+	DefaultBroadPhaseLayerFilter broad(m->layer_vs_broad, Layer::CHARACTER);
+	DefaultObjectLayerFilter objects(m->pairs, Layer::CHARACTER);
+	return c.c->SetShape(Impl::charShape(c.radius, height), 0.02f, broad, objects, BodyFilter(), ShapeFilter(), m->temp);
 }
 
 void World::want(CharId id, v3f velocity) { m->chr(id).want = velocity; }

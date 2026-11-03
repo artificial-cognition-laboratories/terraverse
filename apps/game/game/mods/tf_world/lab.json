@@ -4,23 +4,66 @@
 			"id": "water.spill",
 			"title": "Water finds its level",
 			"description": "A full basin with a gap in its front wall. Water runs out through the gap and spreads across the floor, thinning as it goes. Widen the gap to let more out.",
-			"size": { "x": 7, "y": 3, "z": 7 },
+			"size": {
+				"x": 7,
+				"y": 3,
+				"z": 7
+			},
 			"controls": [
-				{ "id": "gap", "kind": "slider", "label": "Gap", "min": 1, "max": 5, "step": 1, "default": 3, "unit": "blocks" }
+				{
+					"id": "gap",
+					"kind": "slider",
+					"label": "Gap",
+					"min": 1,
+					"max": 5,
+					"step": 1,
+					"default": 3,
+					"unit": "blocks"
+				}
 			]
 		},
 		{
 			"id": "falling.blocks",
 			"title": "Loose blocks fall",
 			"description": "A column hung in the air drops and piles on the floor. Sand and gravel fall; the stone beside them stays where it is.",
-			"size": { "x": 5, "y": 7, "z": 5 },
+			"size": {
+				"x": 5,
+				"y": 7,
+				"z": 5
+			},
 			"controls": [
-				{ "id": "material", "kind": "choice", "label": "Material", "default": "tf_world:sand", "options": [
-					{ "value": "tf_world:sand", "label": "Sand" },
-					{ "value": "tf_world:gravel", "label": "Gravel" }
-				] },
-				{ "id": "drop", "kind": "button", "label": "Drop again" }
+				{
+					"id": "material",
+					"kind": "choice",
+					"label": "Material",
+					"default": "tf_world:sand",
+					"options": [
+						{
+							"value": "tf_world:sand",
+							"label": "Sand"
+						},
+						{
+							"value": "tf_world:gravel",
+							"label": "Gravel"
+						}
+					]
+				},
+				{
+					"id": "drop",
+					"kind": "button",
+					"label": "Drop again"
+				}
 			]
+		},
+		{
+			"id": "moves.walls",
+			"title": "Walls to get over",
+			"description": "Walls one, two and three blocks tall, thin and thick. Run at the one-block walls and press Space to vault. Jump at the taller ones and press Space again in the air to mantle or hang; then A and D shimmy, Space pulls up, Ctrl lets go.",
+			"size": {
+				"x": 19,
+				"y": 5,
+				"z": 15
+			}
 		}
 	]
 }

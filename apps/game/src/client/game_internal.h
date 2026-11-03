@@ -200,6 +200,11 @@ protected:
 	void step(f32 dtime);
 	void processClientEvents(CameraOrientation *cam);
 	void updateCameraMode(); // call after changing it
+	bool bodyIsLoose(LocalPlayer &player) const; // Terra Firma
+	bool sneakNow(LocalPlayer &player);
+	bool m_crouch = false, m_prone = false;
+	bool m_crouch_key = false, m_prone_key = false, m_run_key = false, m_jump_key = false;
+	u64 m_crouch_since = 0; // ms: when the key went down; 0 while it's up
 	void updateCameraOffset();
 	void updateCamera(f32 dtime);
 	void updateSound(f32 dtime);

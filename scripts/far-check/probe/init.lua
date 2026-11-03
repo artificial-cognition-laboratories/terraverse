@@ -8,19 +8,20 @@
 -- each a degree north-east of the middle, so it runs north-east within one
 -- tile (a grid's middle is where its tiles meet)
 local SIZE = 96
+local BODY = (os.getenv("FAR_BODY") ~= "" and os.getenv("FAR_BODY")) or nil -- nil: the home; else another body's id, its own land
 local AREAS = {}
 local atlas = core.planet.atlas() or error("far check: the world isn't a planet")
 for _, lon in ipairs({ 7.5, 82.5, 157.5, 232.5, 307.5 }) do
-	local n = core.planet.atlas_node(math.rad(1), math.rad(lon + 1), 0)
+	local n = core.planet.atlas_node(math.rad(1), math.rad(lon + 1), 0, BODY)
 	AREAS[#AREAS + 1] = { n.x, n.z }
 end
-local pole = core.planet.atlas_node(math.rad(89.5), math.rad(45), 0)
+local pole = core.planet.atlas_node(math.rad(89.5), math.rad(45), 0, BODY)
 AREAS[#AREAS + 1] = { pole.x, pole.z }
 assert(#AREAS == 6, "far check: only " .. #AREAS .. " regions to probe")
 
 local function kind(name)
 	local def = core.registered_nodes[name]
-	if name == "air" or not def then return "air" end
+	if name == "air" or name == "tf_planet:seam" or not def then return "air" end -- (seam: above the tile's top)
 	local g = def.groups or {}
 	if (g.tree or 0) > 0 or (g.leaves or 0) > 0 then return "tree" end
 	if def.drawtype == "plantlike" or def.drawtype == "nodebox" then return "plant" end -- planted after: tufts, cacti
@@ -53,9 +54,19 @@ end
 
 local pending = #AREAS
 core.after(0, function()
+	-- facing its star: a new player starts where it's livable, under a sun that stays
+	if core.terra.world().facing_star[""] then
+		local at = tf_planet.spawn_position()
+		local sun, climate = core.terra.sun(at), core.terra.climate(at)
+		print(("FAR held turns %g elevation %.1f daylight %g temperature %.1f"):format(sun.turns, sun.elevation, sun.daylight, climate.temperature))
+		assert(sun.turns == 0 and sun.elevation > -30 and sun.elevation < 45, "the sun where a new player starts")
+		assert(climate.temperature > -15 and climate.temperature < 45, "the climate where a new player starts")
+	end
 	for _, a in ipairs(AREAS) do
-		local minp = { x = a[1], y = -80, z = a[2] }
-		local maxp = { x = a[1] + SIZE - 1, y = 255, z = a[2] + SIZE - 1 }
+		-- (another body's land isn't near the home's sea level: round its own ground there)
+		local middle = BODY and core.terra.surface({ x = a[1], y = 0, z = a[2] }).ground
+		local minp = { x = a[1], y = BODY and middle - 200 or -200, z = a[2] }
+		local maxp = { x = a[1] + SIZE - 1, y = BODY and middle + 200 or 255, z = a[2] + SIZE - 1 }
 		core.emerge_area(minp, maxp, function(_, _, remaining)
 			if remaining > 0 then return end
 			local vm = core.get_voxel_manip(minp, maxp)

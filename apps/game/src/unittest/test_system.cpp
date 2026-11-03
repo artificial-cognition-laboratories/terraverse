@@ -75,7 +75,8 @@ void TestSystem::testOrbitsCloseAfterAPeriod()
 	for (size_t i = 0; i < s.spec().bodies.size(); i++) {
 		if (s.spec().bodies[i].causes.parent >= 0)
 			continue;
-		const System::Vec a = s.position(i, 10), b = s.position(i, 10 + s.period(i));
+		// (its balance point with its moons: it swings round that as they go)
+		const System::Vec a = s.balance(i, 10), b = s.balance(i, 10 + s.period(i));
 		const double off = length(minus(a, b)) / length(a);
 		UTEST(off < 1e-6, "%s is %.2g of its distance off after a year", s.spec().bodies[i].id.c_str(), off);
 	}
@@ -121,12 +122,15 @@ void TestSystem::testThePagesSystemIsTheEngines()
 	UASSERT(page["bodies"].size() == home.bodies.size());
 	Json::Value request;
 	request["star"] = page["star"];
+	request["starMass"] = page["starMass"];
+	request["metallicity"] = page["metallicity"];
 	request["age"] = page["age"];
 	request["activity"] = page["activity"];
+	request["companion"] = page["companion"];
 	request["bodies"] = Json::Value(Json::arrayValue);
 	for (const Json::Value &b : page["bodies"]) {
 		Json::Value c;
-		for (const char *field : { "id", "parent", "orbit", "eccentricity", "formed", "volatiles", "day", "life" })
+		for (const char *field : { "id", "parent", "orbit", "eccentricity", "formed", "volatiles", "day", "life", "spin" })
 			c[field] = b[field];
 		c["mass"] = std::pow(10.0, b["mass"].asDouble());
 		request["bodies"].append(c);

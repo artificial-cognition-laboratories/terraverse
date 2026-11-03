@@ -31,7 +31,7 @@ enum class Province : uint8_t { Shield, Orogen, Arc, Rift, Basin, Volcanic, Ocea
 extern const char *const PROVINCE_NAMES[(int)Province::Count];
 
 enum class Rock : uint8_t {
-	Granite, Gneiss, Slate, Basalt, Andesite, Tuff, Obsidian, Sandstone, Shale, Limestone, Anorthosite, Breccia,
+	Granite, Gneiss, Slate, Basalt, Andesite, Tuff, Obsidian, Sandstone, Shale, Limestone, Anorthosite, Breccia, Ice,
 	Count
 };
 extern const char *const ROCK_NAMES[(int)Rock::Count];
@@ -49,7 +49,7 @@ struct Plate
 	bool oceanic;
 };
 
-enum class VolcanoKind : uint8_t { Arc, Rift, Hotspot };
+enum class VolcanoKind : uint8_t { Arc, Rift, Hotspot, Giant, Patera };
 
 struct Volcano
 {
@@ -57,6 +57,7 @@ struct Volcano
 	int32_t radius;        // blocks: where its slopes meet the land
 	int32_t height;        // blocks above the land around it
 	int32_t crater;        // crater radius, blocks
+	int32_t depth;         // how far the crater sinks below the rim, blocks
 	int32_t base;          // the land's height at its vent (blocks): its lava lake is level from here
 	bool active;           // lava in the crater
 	VolcanoKind kind;
@@ -81,6 +82,10 @@ struct History
 		fix height = 0;      // the surface, before the sea is placed (higher stands out of it)
 		fix build = 0;       // on ocean floor: what arcs have piled on it
 		fix rate = 0;        // how fast it's being pushed up lately (per step, fading)
+		// all the squeezing it has been through (planning/sprint-101-ranges.md),
+		// on the side that rode over (thickened behind the front: plateaus) and
+		// the side driven under (scraped off ahead of it: folds and thrusts)
+		fix over = 0, under = 0;
 		Dir home;            // where this crust formed: what it carries (an arc's volcanoes) is drawn from there
 		int16_t age = 0;     // steps since it formed or was last built
 		uint8_t plate = 0;
@@ -120,6 +125,11 @@ struct Tectonics
 	std::vector<fix> relief;
 	std::vector<Formed> formed;    // from the history
 	std::vector<int16_t> age;      // steps since the crust formed or was last built
+	// What built each range (planning/sprint-101-ranges.md), 0..1 unless said
+	std::vector<fix> fold;         // how much of it is folds and thrusts
+	std::vector<fix> plateau;      // how much is crust thickened into a high plain
+	std::vector<fix> oldness;      // how long since it last rose
+	std::vector<fix> front;        // cells in from the belt's outer edge: fold ridges are its contours
 };
 
 Tectonics tectonics(const WorldCode &code, const History &h);
@@ -141,6 +151,7 @@ struct Strata
 	int32_t tilt;       // this column's offset into the folded beds
 	int32_t phase;      // where the bed cycle starts
 	bool pluton;        // a granite body under it
+	bool crumpled;      // beds folded on themselves (an orogen's, not fold ridges': those are laid out by the ridge)
 	bool humid, arid;
 	fix placer;         // how rich its river gravels are in gold and tin (0..1; Grid::placer)
 	int32_t crater;     // blocks to the nearest active crater (large if none)

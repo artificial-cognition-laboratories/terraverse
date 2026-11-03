@@ -19,6 +19,7 @@ end
 
 local PERIOD = 0.5  -- seconds between checks
 local CHANGE = 0.02 -- degrees of latitude or declination worth sending
+local CLOCK = 0.0001 -- turns of a body's clock worth sending
 local THIN = 0.01   -- a change in how thin the air is worth sending
 
 -- The stock sky's colours, which the air's thinning takes to black.
@@ -51,7 +52,8 @@ local function update(player)
 	local thin = core.orbit.density(math.max(at.altitude, 0)) / core.orbit.density(0)
 	local last = sent[name]
 	if last and math.abs(last.latitude - sun.latitude) < CHANGE
-			and math.abs(last.declination - sun.declination) < CHANGE and math.abs(last.thin - thin) < THIN then
+			and math.abs(last.declination - sun.declination) < CHANGE and math.abs(last.thin - thin) < THIN
+			and last.turns == sun.turns and math.abs(last.at - sun.at) < CLOCK then
 		return
 	end
 	if PLANET then
@@ -59,7 +61,7 @@ local function update(player)
 			type = "plain",
 			base_color = "#000000",
 			clouds = false,
-			solar = { latitude = sun.latitude, declination = sun.declination },
+			solar = { latitude = sun.latitude, declination = sun.declination, turns = sun.turns, at = sun.at },
 		})
 		player:set_sun({ visible = false, sunrise_visible = false })
 		player:set_moon({ visible = false })
@@ -72,12 +74,12 @@ local function update(player)
 		player:set_sky({
 			type = "regular",
 			clouds = at.altitude < CLOUDS,
-			solar = { latitude = sun.latitude, declination = sun.declination },
+			solar = { latitude = sun.latitude, declination = sun.declination, turns = sun.turns, at = sun.at },
 			sky_color = colours,
 		})
 		player:set_stars({ day_opacity = 1 - blue })
 	end
-	sent[name] = { latitude = sun.latitude, declination = sun.declination, thin = thin }
+	sent[name] = { latitude = sun.latitude, declination = sun.declination, thin = thin, turns = sun.turns, at = sun.at }
 end
 
 core.register_on_joinplayer(update)

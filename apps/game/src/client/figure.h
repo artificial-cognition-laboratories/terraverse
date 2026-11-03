@@ -4,21 +4,21 @@
 #pragma once
 
 #include "irr_v3d.h"
+#include "physics/pose.h"
 #include <ISceneNode.h>
 #include <SColor.h>
 #include <functional>
+#include <optional>
+#include <vector>
 
 namespace scene { class IMeshSceneNode; class ISceneManager; }
 namespace video { class ITexture; }
 
 /*
-	A player's figure (sprint 58, visual "body"): a jointed body of boxes in
-	a person's proportions (Minecraft-ish: head, torso, two arms, two legs),
-	each limb turning at its joint. Posed every frame from how the player
-	moves: legs and arms swing with the distance walked (so feet keep pace
-	with the ground), wider at a run; the body leans into a run; the arms
-	go out and the legs bend in the air; the head looks where the player
-	looks. No animation clips: movement is the animation.
+	A player's figure (sprint 58, visual "body"; jointed in sprint 115): a body
+	of blocks in a person's proportions. Hips and chest with a waist between,
+	head, upper arms and forearms with block hands, thighs and shins. It only
+	shows physics::Poser's joints: movement is the animation.
 */
 class Figure
 {
@@ -34,11 +34,20 @@ public:
 	// What the entity's drawn as: hiding it hides the figure.
 	scene::ISceneNode *root() const { return m_root; }
 
+	// The ground's height against the feet at a place in the figure's frame (nodes).
+	using Ground = std::function<float(v3f)>;
+	// (The head looks along the view exactly, whatever the body under it is doing.)
 	// Posed after `dtime` moving at `velocity` (nodes/s, the figure's own
-	// frame: +z ahead), looking `pitch` (radians, + down), in the air or not.
-	void pose(float dtime, v3f velocity, float pitch, bool airborne);
+	// frame: +z ahead), looking `pitch` (radians, + down), in the air or not,
+	// held as `stance`, the view having gone `turned` (radians) right; `face`: on a wall, its hips that far from the view;
+	// `tilt`: leaned over sideways (radians, + to its left).
+	void pose(float dtime, v3f velocity, float pitch, bool airborne, physics::Stance stance, float turned, std::optional<float> face, float tilt, const Ground &ground);
 	// Lit as its place is (the entity's light).
 	void light(video::SColor colour);
+	// Seen from inside its own head: no head, the rest as it is, so you see your hands and feet.
+	void hideHead(bool hide);
+	// Where the head is, in the scene.
+	v3f headAt() const;
 
 private:
 	struct Limb
@@ -52,9 +61,9 @@ private:
 	video::ITexture *m_white;
 	std::function<void(scene::ISceneNode *)> m_material;
 	scene::ISceneNode *m_root;
-	Limb m_torso, m_head, m_arms[2], m_legs[2];
-	float m_phase = 0;  // radians through a stride
-	float m_swing = 0;  // how far the limbs swing now (radians)
-	float m_lean = 0;   // into a run (radians)
-	float m_air = 0;    // 0 on the ground .. 1 in the air
+	scene::ISceneNode *m_lower; // hips and legs, which turn from the view
+	Limb m_hips, m_chest, m_head;
+	Limb m_thighs[2], m_shins[2], m_upper_arms[2], m_forearms[2], m_hands[2];
+	std::vector<scene::IMeshSceneNode *> m_boxes;
+	physics::Poser m_poser;
 };

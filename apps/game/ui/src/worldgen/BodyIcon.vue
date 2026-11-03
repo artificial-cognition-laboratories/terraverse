@@ -36,7 +36,8 @@ function drawPlanet() {
     ctx.putImageData(out, 0, 0)
 }
 
-watch(() => props.image, drawPlanet)
+// after the render: a moon's sketch turning into a picture has only just got its canvas
+watch(() => [props.image, props.kind], drawPlanet, { flush: "post" })
 onMounted(drawPlanet)
 </script>
 

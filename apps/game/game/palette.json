@@ -36,6 +36,17 @@
 				"top" : "tf_world:sand",
 				"water_top" : "tf_world:water_source"
 			},
+			"dust" : 
+			{
+				"depth_filler" : 0,
+				"depth_riverbed" : 2,
+				"depth_top" : 2,
+				"depth_water_top" : 0,
+				"filler" : "tf_world:rust_dust",
+				"riverbed" : "tf_world:rust_dust",
+				"top" : "tf_world:rust_dust",
+				"water_top" : "tf_world:water_source"
+			},
 			"forest" : 
 			{
 				"depth_filler" : 3,
@@ -168,6 +179,17 @@
 				"top" : "tf_world:snow",
 				"water_top" : "tf_world:water_source"
 			},
+			"sulfur" : 
+			{
+				"depth_filler" : 0,
+				"depth_riverbed" : 2,
+				"depth_top" : 2,
+				"depth_water_top" : 0,
+				"filler" : "tf_world:sulfur_crust",
+				"riverbed" : "tf_world:sulfur_crust",
+				"top" : "tf_world:sulfur_crust",
+				"water_top" : "tf_world:water_source"
+			},
 			"taiga" : 
 			{
 				"depth_filler" : 3,
@@ -216,6 +238,7 @@
 			"breccia" : "tf_world:breccia",
 			"gneiss" : "tf_world:gneiss",
 			"granite" : "tf_world:granite",
+			"ice" : "tf_world:ice",
 			"limestone" : "tf_world:limestone",
 			"obsidian" : "tf_world:obsidian",
 			"sandstone" : "tf_world:sandstone",
@@ -12889,6 +12912,66 @@
 				]
 			]
 		},
+		"tf_world:rust_dust" : 
+		{
+			"clarity" : 0.0,
+			"face" : 
+			[
+				[
+					0.7607843279838562,
+					0.50196081399917603,
+					0.23137255012989044
+				],
+				[
+					0.7607843279838562,
+					0.50196081399917603,
+					0.23137255012989044
+				],
+				[
+					0.7607843279838562,
+					0.50196081399917603,
+					0.23137255012989044
+				],
+				[
+					0.7607843279838562,
+					0.50196081399917603,
+					0.23137255012989044
+				],
+				[
+					0.7607843279838562,
+					0.50196081399917603,
+					0.23137255012989044
+				],
+				[
+					0.7607843279838562,
+					0.50196081399917603,
+					0.23137255012989044
+				]
+			],
+			"over_black" : 
+			[
+				0.7607843279838562,
+				0.51372551918029785,
+				0.25490197539329529
+			],
+			"tinted" : 
+			[
+				true,
+				true,
+				true,
+				true,
+				true,
+				true
+			],
+			"tints" : 
+			[
+				[
+					1.0,
+					1.0,
+					1.0
+				]
+			]
+		},
 		"tf_world:sand" : 
 		{
 			"clarity" : 0.0,
@@ -17175,6 +17258,66 @@
 				0.61176472902297974,
 				0.60784316062927246,
 				0.5215686559677124
+			],
+			"tinted" : 
+			[
+				true,
+				true,
+				true,
+				true,
+				true,
+				true
+			],
+			"tints" : 
+			[
+				[
+					1.0,
+					1.0,
+					1.0
+				]
+			]
+		},
+		"tf_world:sulfur_crust" : 
+		{
+			"clarity" : 0.0,
+			"face" : 
+			[
+				[
+					0.89803922176361084,
+					0.7921568751335144,
+					0.27450981736183167
+				],
+				[
+					0.89803922176361084,
+					0.7921568751335144,
+					0.27450981736183167
+				],
+				[
+					0.89803922176361084,
+					0.7921568751335144,
+					0.27450981736183167
+				],
+				[
+					0.89803922176361084,
+					0.7921568751335144,
+					0.27450981736183167
+				],
+				[
+					0.89803922176361084,
+					0.7921568751335144,
+					0.27450981736183167
+				],
+				[
+					0.89803922176361084,
+					0.7921568751335144,
+					0.27450981736183167
+				]
+			],
+			"over_black" : 
+			[
+				0.89803922176361084,
+				0.80392158031463623,
+				0.29803922772407532
 			],
 			"tinted" : 
 			[

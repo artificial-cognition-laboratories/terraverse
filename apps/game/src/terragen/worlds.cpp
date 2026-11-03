@@ -8,16 +8,24 @@
 
 namespace terragen {
 
-namespace {
+// Earth's surface on its card (SystemSpec::home): what the climate's bands are
+// calibrated at, so that world's push is none
+static const fix EARTH_KELVIN = 19037226; // 290.49 K
 
 // A body's processes from its card: water where it has seas, life where
-// they're temperate, plates where the body model says its crust moves
-Processes processesOf(const BodyCard &card)
+// they're temperate and it arises, plates where the body model says its crust moves
+Processes processesOf(const BodyCard &card, bool life)
 {
 	Processes p;
+	p.day = card.day;
+	p.facing_star = card.spin == Spin::Star;
+	// (a bar of air under so sharp a contrast carries three times a spinning world's; rock alone, hardly at all)
+	if (p.facing_star)
+		p.carrying = clamp(3 * sqrt(std::max<fix>(card.pressure, 0)), ratio(2, 100), toFix(8));
+	p.warming = clamp(card.temperature - EARTH_KELVIN, -toFix(288), toFix(3000));
 	p.regime = card.plates ? Regime::Plates : Regime::Lid;
 	p.water = card.ocean;
-	p.life = card.ocean && card.kind == Kind::Temperate;
+	p.life = life && card.ocean && card.kind == Kind::Temperate;
 	// craters: water wears them, plates recycle the crust, volcanism buries
 	// them; air burns up the small impactors (100 m a bar)
 	p.craters = ONE;
@@ -41,20 +49,63 @@ Processes processesOf(const BodyCard &card)
 			p.flooding = std::min<fix>(HALF, sqrt(lasted) / 4);
 			p.young = div(ONE, ONE + 16 * lasted);
 		}
+		// a mantle thick enough for plumes (not a body nearly all core), that
+		// stayed warm for ages: they don't drift off a lid, so they build one
+		// rise and giant shields
+		// (the lava then rises through the rise, not over a hemisphere and more)
+		if (lasted >= ONE && card.rock > ratio(65, 100)) {
+			p.plumes = lasted;
+			p.flooding = std::min<fix>(p.flooding, ratio(30, 100));
+		}
+	}
+	// seas that froze or boiled away: their valleys remain, and their rust
+	if (!card.ocean) {
+		fix formed = -1;
+		for (const Moment &m : card.history) {
+			if (m.event == Event::OceansForm)
+				formed = m.age;
+			else if (formed >= 0 && (m.event == Event::OceansFreeze || m.event == Event::OceansBoil))
+				p.ancient_water = m.age - formed;
+		}
 	}
 	switch (card.kind) {
-	case Kind::Temperate: p.bare = Surface::Soil; break;
+	case Kind::Temperate: p.bare = p.life ? Surface::Soil : Surface::Rock; break; // (soil is life's work)
 	case Kind::ColdDesert:
 	case Kind::Hothouse:
 	case Kind::Hydrocarbon: p.bare = Surface::Sand; break; // (methane seas wait for the general atmosphere)
-	case Kind::Volcanic: p.bare = Surface::Rock; break;
+	case Kind::Volcanic: // eruptions bury everything faster than impacts mark it
+		p.bare = Surface::Sulfur;
+		p.eruptions = card.heat;
+		p.flooding = 0;
+		p.young = 0;
+		p.plumes = 0;
+		p.craters = div(p.craters, ONE + 16 * card.heat);
+		break;
 	case Kind::Airless: p.bare = Surface::Regolith; break;
 	case Kind::IceShell: p.bare = Surface::Ice; break;
 	case Kind::Giant:
 	case Kind::Count: throw std::invalid_argument("terragen::bodyWorlds: no surface for a body of this kind");
 	}
+	if (p.ancient_water > 0)
+		p.bare = Surface::Rust;
+	// mostly ice and frozen through at the surface: the crust is ice, whatever
+	// its air. Water, not lava, wells up in it, and what the tides flex keeps
+	// renewing its surface, so few craters last
+	if (card.ice > ratio(30, 100) && !card.ocean) {
+		p.bare = Surface::Ice;
+		p.stiff = ratio(40, 100);
+		p.flexing = card.tidal;
+		p.eruptions = 0;
+		p.plumes = 0;
+		p.ancient_water = 0;
+		p.flooding = 0;
+		p.young = 0;
+		p.craters = div(p.craters, ONE + 16 * std::min<fix>(card.tidal, toFix(16)));
+	}
 	return p;
 }
+
+namespace {
 
 double toDouble(fix v) { return (double)v / ONE; }
 
@@ -107,15 +158,18 @@ std::vector<BodyWorld> bodyWorlds(const WorldCode &home, const Atlas::Params &ho
 			continue;
 		const std::string &id = system.spec().bodies[b].id;
 		WorldCode code = home;
-		code.processes = processesOf(system.cards()[b]);
-		code.text = home.text + "@" + id; // what the world model's grid is kept by
+		code.processes = processesOf(system.cards()[b], system.spec().bodies[b].causes.life);
+		code.tilt = (fix)std::lround(system.spec().bodies[b].tilt * ONE);
+		code.setLand(system.spec().bodies[b].land.value_or(defaultLand()));
+		code.text = home.text + "@" + id;
 		code.seed = home.seed + "@" + id;
-		code.seed_hash = home.seed_hash * 16777619u ^ (uint32_t)std::hash<std::string>{}(id);
+		code.seed_hash = home.seed_hash * 16777619u ^ hashOf(id);
 		code.size = (int32_t)std::lround(2 * M_PI * radius);
 		// its sky as the home's: a radius up, no higher than the home's (heights
 		// are in metres since sprint 93, so 256 layers cut a moon's highlands off)
 		Atlas::Params atlas = Atlas::standard(radius);
 		atlas.height = (int)std::min(radius, (double)std::max(homeAtlas.height, atlas.height));
+		code.keepGrid();
 		out.push_back({ b, id, code, atlas, surroundingsOf(system.cards()[b]) });
 	}
 	return out;

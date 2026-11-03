@@ -3,7 +3,7 @@ import { Notice, Section, Segmented, Slider, Toggle } from "../../kit"
 import type { WorldDraftHandle } from "./draft"
 
 /** How the world plays: each survival system and how hard it bites. */
-defineProps<{ draft: WorldDraftHandle; page?: "survival" | "danger" | "time" | "knowledge" }>()
+defineProps<{ draft: WorldDraftHandle }>()
 
 const opts = <T extends string>(...values: T[]) => values.map((v) => ({ value: v, label: v }))
 </script>
@@ -18,7 +18,7 @@ const opts = <T extends string>(...values: T[]) => values.map((v) => ({ value: v
     </Notice>
 
     <div class="rules" :class="{ off: draft.mode === 'creative' }">
-        <Section v-if="!page || page === 'survival'" title="The body">
+        <Section title="The body">
             <div class="row"><span>Hunger</span><Segmented v-model="draft.rules.hunger" :options="opts('off', 'slow', 'normal', 'fast')" /></div>
             <div class="row"><span>Healing</span><Segmented v-model="draft.rules.regen" :options="opts('off', 'slow', 'normal', 'fast')" /></div>
             <div class="row"><span>Illness</span><Segmented v-model="draft.rules.illness" :options="opts('off', 'rare', 'realistic')" /></div>
@@ -27,17 +27,19 @@ const opts = <T extends string>(...values: T[]) => values.map((v) => ({ value: v
             <Toggle v-model="draft.rules.stamina" label="Stamina — sprinting and swimming tire you" />
         </Section>
 
-        <Section v-if="!page || page === 'danger'" title="Danger">
+        <Section title="Danger">
             <div class="row"><span>Difficulty</span><Segmented v-model="draft.rules.difficulty" :options="opts('peaceful', 'easy', 'normal', 'hard')" /></div>
             <Toggle v-model="draft.rules.keepInventory" label="Keep inventory on death" />
         </Section>
 
-        <Section v-if="!page || page === 'time'" title="Time & weather">
+        <Section title="Time & weather">
             <Slider v-model="draft.rules.dayLength" label="Day length" :min="10" :max="120" :step="5" :format="(v) => `${v} min`" />
+            <Slider v-model="draft.config.year" label="Days in a year" :min="8" :max="128" :step="4"
+                :format="(v) => `${v} days · ${Math.round(v / 4)} per season`" />
             <div class="row"><span>Weather</span><Segmented v-model="draft.rules.weather" :options="opts('off', 'mild', 'wild')" /></div>
             <Toggle v-model="draft.rules.seasons" label="Seasons — winters get cold, crops have a time" />
         </Section>
-        <Section v-if="!page || page === 'knowledge'" title="Knowledge">
+        <Section title="Knowledge">
             <Toggle v-model="draft.rules.wiki" label="Wiki (G) — see what everything is made of, and how it behaves" />
         </Section>
     </div>

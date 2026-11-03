@@ -7,6 +7,7 @@
 #include "piece/frame.h" // Terra Firma
 #include "piece/machine.h" // Terra Firma
 #include "client/figure.h" // Terra Firma
+#include "client/body.h" // Terra Firma
 #include "planet/atlas.h" // Terra Firma
 #include <IBillboardSceneNode.h>
 #include <ICameraSceneNode.h>
@@ -1416,11 +1417,23 @@ void GenericCAO::step(float dtime, ClientEnvironment *env)
 			v3f moving;
 			float pitch = 0;
 			bool airborne;
+			physics::Stance stance = m_figure_stance;
+			float yaw;
+			std::optional<float> face;
+			float tilt = 0;
 			if (m_is_local_player) {
 				LocalPlayer *me = env->getLocalPlayer();
 				moving = me->getSpeed() / BS;
 				pitch = me->getPitch() * core::DEGTORAD;
 				airborne = !me->touching_ground;
+				stance = m_client->getBody().stance();
+				yaw = me->getYaw();
+				face = m_client->getBody().wallFace(yaw * core::DEGTORAD);
+				tilt = m_client->getBody().wallLean(yaw * core::DEGTORAD);
+				// (from where the head really is: lying down, it's far from the view's pivot)
+				const Camera *camera = m_client->getCamera();
+				m_figure->hideHead(camera->getCameraMode() == CAMERA_MODE_FIRST ||
+						m_figure->headAt().getDistanceFrom(camera->getCameraNode()->getAbsolutePosition()) < 0.9f * BS);
 			} else {
 				// others: from where they're drawn, smoothed (positions come in steps)
 				const v3f now = pos_translator.val_current;
@@ -1428,12 +1441,22 @@ void GenericCAO::step(float dtime, ClientEnvironment *env)
 				m_figure_was = now;
 				moving = m_figure_moving;
 				airborne = std::fabs(moving.Y) > 1.5f;
+				yaw = rot_translator.val_current.Y;
 			}
 			core::matrix4 back;
 			getPosRotMatrix().getInverse(back);
 			back.setTranslation(v3f(0));
 			back.transformVect(moving);
-			m_figure->pose(dtime, moving, pitch, airborne);
+			// Luanti's yaw turns the view left, the figure's frame +x is its right
+			const float turned = -wrapDegrees_180(yaw - m_figure_yaw) * core::DEGTORAD;
+			m_figure_yaw = yaw;
+			core::matrix4 turn = getPosRotMatrix();
+			turn.setTranslation(v3f(0));
+			m_figure->pose(dtime, moving, pitch, airborne, stance, turned, face, tilt, [&](v3f foot) {
+				v3f at = foot * BS;
+				at = turn.rotateAndScaleVect(at);
+				return groundUnder(m_position + at) - m_position.Y / BS;
+			});
 		}
 
 		float moved = lastpos.getDistanceFrom(pos_translator.val_current);
@@ -2100,6 +2123,10 @@ void GenericCAO::processMessage(const std::string &data)
 			it->second.fps = new_fps;
 			m_animated_meshnode->getAnimation().tracks[track_nr].fps = new_fps;
 		}
+	} else if (cmd == AO_CMD_SET_STANCE) { // Terra Firma
+		const u8 stance = readU8(is);
+		if (stance <= (u8)physics::Stance::WALL_RUN)
+			m_figure_stance = (physics::Stance)stance;
 	} else if (cmd == AO_CMD_SET_PARTS) { // Terra Firma
 		const u16 count = readU16(is);
 		m_group_from.clear();
@@ -2340,6 +2367,11 @@ void GenericCAO::updateMeshCulling()
 
 	const bool hidden = m_client->getCamera()->getCameraMode() == CAMERA_MODE_FIRST;
 
+	if (m_figure) { // Terra Firma: its boxes are its own; your body stays, your head goes
+		m_figure->hideHead(hidden);
+		return;
+	}
+
 	scene::ISceneNode *node = getSceneNode();
 
 	if (!node)
@@ -2368,6 +2400,33 @@ void GenericCAO::updateMeshCulling()
 			mat.FrontfaceCulling = false;
 		});
 	}
+}
+
+// Terra Firma: the top of what's solid under a place (nodes), to the sixteenth on cut
+// or smoothed ground. A foot looks from a little over its knee to a little past its reach.
+float GenericCAO::groundUnder(v3f at) const
+{
+	constexpr int UP = 1, DOWN = 2;
+	const v3s16 from = floatToInt(at, BS);
+	Map &map = m_env->getMap();
+	const NodeDefManager *ndef = m_client->ndef();
+	for (s16 y = from.Y + UP; y >= from.Y - DOWN; y--) {
+		const v3s16 p(from.X, y, from.Z);
+		// from the node's corner: its middle is at p
+		const v3f inside = at / BS - v3f(p.X, 0, p.Z) + v3f(0.5f, 0, 0.5f);
+		const s16 cx = rangelim((s16)(inside.X * shape::STEPS), 0, shape::STEPS - 1);
+		const s16 cz = rangelim((s16)(inside.Z * shape::STEPS), 0, shape::STEPS - 1);
+		if (const std::optional<shape::Shape> s = map.solidShape(p)) {
+			for (s16 cy = shape::STEPS - 1; cy >= 0; cy--)
+				if (s->has(v3s16(cx, cy, cz)))
+					return y - 0.5f + (cy + 1) / (float)shape::STEPS;
+			continue;
+		}
+		const MapNode n = map.getNode(p);
+		if (n.getContent() != CONTENT_IGNORE && ndef->get(n).walkable)
+			return y + 0.5f;
+	}
+	return at.Y / BS; // nothing in reach: the foot stays level with the body
 }
 
 // Prototype

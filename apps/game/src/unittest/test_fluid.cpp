@@ -218,7 +218,7 @@ void TestFluid::testSaveAndDeterminism()
 
 void TestFluid::testTerraWeather()
 {
-	terragen::World world(terragen::WorldCode::decode("TF9.dGVycmE"));
+	terragen::World world(terragen::WorldCode::decode("TF16.dGVycmE"));
 	std::string path = fs::TempPath() + DIR_DELIM "tf_weather_test.bin";
 	fs::DeleteSingleFileOrEmptyDirectory(path);
 	double day = 86400, now = weather::clock(3, 0.5);
@@ -239,7 +239,7 @@ void TestFluid::testTerraWeather()
 	again->advance(now + 2.5 * day);
 	UASSERT(w->layer().save() == again->layer().save());
 	// another world's file is refused
-	terragen::World other(terragen::WorldCode::decode("TF9.YWJj"));
+	terragen::World other(terragen::WorldCode::decode("TF16.YWJj"));
 	EXCEPTION_CHECK(FluidError, weather::Weather::open({ other, table(), path }, now));
 	fs::DeleteSingleFileOrEmptyDirectory(path);
 

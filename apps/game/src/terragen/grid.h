@@ -7,9 +7,11 @@
 #include "craters.h"
 #include "fixed.h"
 #include "geology.h"
+#include "lid.h"
 #include "sphere.h"
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace terragen {
@@ -70,6 +72,9 @@ struct Grid
 	std::vector<History::Event> history; // what happened to the plates (history.cpp), oldest first
 	std::vector<Province> province;
 	std::vector<Volcano> volcanoes;
+	// a lid's rise and the canyons split from it (lid.h); no rise: at (0, 0, 0)
+	Dir rise{ 0, 0, 0 };
+	std::vector<Canyon> canyons;
 	std::vector<uint32_t> volcano_start;
 	std::vector<uint16_t> volcano_list;
 	// impacts (craters.h): craters wider than two cells, stamped into `base`
@@ -93,6 +98,14 @@ struct Grid
 
 // The grid for a world code, built on first use and shared after (thread-safe).
 std::shared_ptr<const Grid> gridFor(const WorldCode &code);
+// Keep built grids in `dir` as well, so a world opened before needn't be
+// worked out again. `build` names the generator: only its own files are read
+// (a code means the same world, but a changed build may not reach it the same
+// way), the others are removed. Not called: nothing is kept (tools, tests of terragen alone).
+void keepGridsIn(const std::string &dir, const std::string &build);
+
+// Every cell, lowest first (level with level: lower index first).
+std::vector<int32_t> lowestFirst(const std::vector<fix> &height);
 
 // The landmass field: where land is, before the sea is placed.
 fix landmass(const WorldCode &code, const Dir &d);

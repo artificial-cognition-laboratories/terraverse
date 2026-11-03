@@ -187,7 +187,10 @@ void EmergeManager::initMapgens(MapgenParams *params)
 	 * itself isn't very useful).
 	 * see <https://github.com/luanti-org/luanti/issues/9357>
 	 */
-	bool multithread = params->mgtype == MAPGEN_SINGLENODE;
+	// Terra Firma: terra too. Its land is a pure function of the place and it
+	// lights and fills only its own block; nothing it plants crosses into a
+	// neighbour since the trees went.
+	bool multithread = params->mgtype == MAPGEN_SINGLENODE || params->mgtype == MAPGEN_TERRA;
 	initThreads(multithread);
 
 	v3s16 csize = params->chunksize * MAP_BLOCKSIZE;

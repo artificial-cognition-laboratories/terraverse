@@ -1,73 +1,70 @@
 <script setup lang="ts">
 import { computed } from "vue"
-import { Button, Section, Slider } from "../../kit"
-import { encodeWorldCode } from "../../worldgen/config"
-import { Copier } from "./copy"
-import type { WorldDraftHandle } from "./draft"
+import { Section, Slider } from "../../kit"
+import { body as bodyOf, STAR } from "../../system/model"
+import { useSystemPreview } from "../../system/preview"
+import { surfaceDefaults, type SurfaceSettings, type WorldDraftHandle } from "./draft"
 
-/** The playable world's surface (the inspector's Surface part): every land setting, and the code that carries them. */
-const props = defineProps<{ draft: WorldDraftHandle; page?: "land" | "climate" | "underground" }>()
+/** A body's surface. The start body's is the world code's own; the others' are on their bodies, once someone sets them. */
+const props = defineProps<{ draft: WorldDraftHandle }>()
+const preview = useSystemPreview()
+const chosen = computed(() => props.draft.system.selected === STAR ? null : bodyOf(props.draft.system, props.draft.system.selected))
+const card = computed(() => chosen.value ? preview.card(chosen.value.id) : null)
+// another body's reads the usual until a slider moves: only looking at one isn't an edit
+const settings = computed<SurfaceSettings | null>(() => {
+    const body = chosen.value
+    if (!body) return null
+    if (body.playable) return props.draft.config
+    return new Proxy<SurfaceSettings>(surfaceDefaults(), {
+        get: (usual, key: keyof SurfaceSettings) => (body.land ?? usual)[key],
+        set: (usual, key: keyof SurfaceSettings, value: number) => {
+            body.land ??= { ...usual }
+            body.land[key] = value
+            return true
+        },
+    })
+})
+// what a body has decides what it offers: no coast without a sea
+const wet = computed(() => card.value?.ocean ?? false)
+const moving = computed(() => card.value?.plates ?? false)
 
 const percent = (v: number) => `${Math.round(v * 100)}%`
 const signed = (v: number) => (Math.round(v * 100) === 0 ? "0" : `${v > 0 ? "+" : ""}${Math.round(v * 100)}`)
-
-const code = computed(() => encodeWorldCode(props.draft.config))
-const copier = Copier()
 </script>
 
 <template>
-    <Section v-if="!page || page === 'land'" title="Landmass">
-        <Slider v-model="draft.config.continents" label="Continents" :min="1" :max="8" :step="1" />
-        <Slider v-model="draft.config.land" label="Land" :min="0.1" :max="0.9" :step="0.01" :format="percent" />
-        <Slider v-model="draft.config.coast" label="Coastline" :min="0" :max="1" :step="0.01"
-            :format="(v) => (v < 0.33 ? 'smooth' : v < 0.66 ? 'varied' : 'jagged')" />
-    </Section>
-
-    <Section v-if="!page || page === 'land'" title="Relief">
-        <Slider v-model="draft.config.mountains" label="Mountains" :min="0" :max="1" :step="0.01" :format="percent" />
-        <Slider v-model="draft.config.roughness" label="Roughness" :min="0" :max="1" :step="0.01" :format="percent" />
-    </Section>
-
-    <Section v-if="!page || page === 'climate'" title="Climate">
-        <Slider v-model="draft.config.temperature" label="Temperature" :min="-1" :max="1" :step="0.01" :format="signed" />
-        <Slider v-model="draft.config.humidity" label="Humidity" :min="-1" :max="1" :step="0.01" :format="signed" />
-    </Section>
-
-    <Section v-if="!page || page === 'climate'" title="Earth seasons" hint="choose the star under System · scrub the date under the viewer">
-        <Slider v-model="draft.config.tilt" label="Axial tilt" :min="0" :max="45" :step="1"
-            :format="(v) => `${v}° · ${v < 8 ? 'no real seasons' : v < 18 ? 'mild seasons' : v < 30 ? 'earthlike' : 'harsh seasons'}`" />
-        <Slider v-model="draft.config.year" label="Year length" :min="8" :max="128" :step="4"
-            :format="(v) => `${v} days · ${Math.round(v / 4)} per season`" />
-    </Section>
-
-    <Section v-if="!page || page === 'land'" title="Water" hint="rain runs off, carves valleys, pools in lakes">
-        <Slider v-model="draft.config.rivers" label="Rivers" :min="0" :max="1" :step="0.01"
-            :format="(v) => (v < 0.33 ? 'few, large' : v < 0.66 ? 'some' : 'many, branching')" />
-    </Section>
-
-    <Section v-if="!page || page === 'underground'" title="Underground" hint="saved in the code; not in the preview yet">
-        <Slider v-model="draft.config.caves" label="Caves" :min="0" :max="1" :step="0.01" :format="percent" />
-        <Slider v-model="draft.config.ores" label="Ore richness" :min="0" :max="1" :step="0.01" :format="percent" />
-    </Section>
-
-    <Section v-if="!page || page === 'underground'" title="This world's code" hint="seed + land settings · paste into Seed">
-        <div class="code-row">
-            <code class="code">{{ code }}</code>
-            <Button size="sm" @click="copier.copy(code)">{{ copier.state.value === 'copied' ? 'Copied' : 'Copy' }}</Button>
-        </div>
-    </Section>
+    <div class="surface">
+        <p v-if="!chosen" class="copy">The star has no surface. Choose a planet or moon above the view.</p>
+        <p v-else-if="card?.giant" class="copy">{{ chosen.name }} is a giant, all cloud with nothing to stand on. You can visit, but there's no surface to shape.</p>
+        <template v-else-if="settings">
+            <strong class="name">{{ chosen.name }}</strong>
+            <Section title="Land">
+                <Slider v-if="moving" v-model="settings.continents" label="Continents" :min="1" :max="8" :step="1" />
+                <Slider v-if="wet" v-model="settings.land" label="Land" :min="0.1" :max="0.9" :step="0.01" :format="percent" />
+                <Slider v-if="wet" v-model="settings.coast" label="Coastline" :min="0" :max="1" :step="0.01"
+                    :format="(v) => (v < 0.33 ? 'smooth' : v < 0.66 ? 'varied' : 'jagged')" />
+                <Slider v-model="settings.mountains" label="Mountains" :min="0" :max="1" :step="0.01" :format="percent" />
+                <Slider v-model="settings.roughness" label="Roughness" :min="0" :max="1" :step="0.01" :format="percent" />
+            </Section>
+            <Section v-if="wet" title="Water">
+                <Slider v-model="settings.rivers" label="Rivers" :min="0" :max="1" :step="0.01"
+                    :format="(v) => (v < 0.33 ? 'few, large' : v < 0.66 ? 'some' : 'many, branching')" />
+                <Slider v-model="settings.humidity" label="Humidity" :min="-1" :max="1" :step="0.01" :format="signed" />
+            </Section>
+            <p v-else class="copy">No seas here, so there's no coast, rivers or rain to set.</p>
+            <Section title="Climate">
+                <Slider v-model="settings.temperature" label="Temperature" :min="-1" :max="1" :step="0.01" :format="signed" />
+            </Section>
+            <Section title="Underground">
+                <Slider v-model="settings.caves" label="Caves" :min="0" :max="1" :step="0.01" :format="percent" />
+                <Slider v-model="settings.ores" label="Ore richness" :min="0" :max="1" :step="0.01" :format="percent" />
+            </Section>
+        </template>
+    </div>
 </template>
 
 <style scoped>
-.code {
-    padding: 8px 10px;
-    border: var(--b) dashed var(--accent-lo);
-    background: rgb(0 148 210 / 0.08);
-    font-size: 12px;
-    color: var(--accent-hi);
-    word-break: break-all;
-    user-select: text;
-}
-.code-row { display: flex; gap: 8px; align-items: stretch; }
-.code-row .code { flex: 1; min-width: 0; }
+.surface { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.name { font: 12px var(--font-display); text-transform: uppercase; }
+.copy { margin: 0; color: var(--ink-dim); font-size: 12px; line-height: 1.55; }
 </style>

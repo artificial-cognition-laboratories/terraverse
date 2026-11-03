@@ -52,17 +52,27 @@ tf_planet = {}
 -- The spawn level is a layer (the ground's height), found at the place
 -- itself; only the one chosen gets a node (its tile put in the map's window).
 -- `body`: its id (the home's when none is named).
-function tf_planet.spawn_position(body)
+-- A world that faces its star starts on the ring between day and night, on
+-- either side (longitude 0 is under the star), if the ring has land at all.
+local function search(body, west, east)
 	for band = 0, 60, 5 do
 		for _, lat in ipairs(band == 0 and { 0.5 } or { band + 0.5, -band - 0.5 }) do
-			for lon = 0.5, 359.5, 2 do
+			for lon = west, east, 2 do
 				local layer = core.planet.spawn_level(math.rad(lat), math.rad(lon), body)
 				local node = layer and core.planet.atlas_node(math.rad(lat), math.rad(lon), layer, body)
 				if node then return node end
 			end
 		end
 	end
-	error("tf_planet: no land within 60° of the equator to spawn on" .. (body and (" on " .. body) or ""))
+end
+
+function tf_planet.spawn_position(body)
+	local found
+	if core.terra.world().facing_star[body or ""] then
+		found = search(body, 72.5, 90.5) or search(body, 270.5, 288.5)
+	end
+	return found or search(body, 0.5, 359.5)
+		or error("tf_planet: no land within 60° of the equator to spawn on" .. (body and (" on " .. body) or ""))
 end
 local function spawn(player)
 	player:set_pos(tf_planet.spawn_position())

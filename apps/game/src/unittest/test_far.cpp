@@ -55,7 +55,7 @@ void TestFar::runTests(IGameDef *gamedef)
 static Horizon horizon()
 {
 	Horizon h;
-	h.code = "TF9.dGVycmE";
+	h.code = "TF16.dGVycmE";
 	h.water_level = 1;
 	terra::Blocks &b = h.content.blocks;
 	content_t next = 100;
@@ -144,6 +144,16 @@ void TestFar::testTileIsTheAtlasLand()
 	Horizon h = horizon();
 	const planet::Atlas atlas = planet::Atlas::resident(ATLAS);
 	Generator gen(h, atlas, planet::Atlas::HOME);
+	{
+		// (what a coarse tile costs, for the log: the horizon is hundreds of them)
+		const Tiling tiling(atlas.body(planet::Atlas::HOME));
+		const TileKey root = tiling.roots()[0];
+		const u64 from = porting::getTimeMs();
+		const int builds = 8;
+		for (int k = 0; k < builds; k++)
+			gen.build(TileKey{ 3, k, 2, root.face });
+		infostream << "far: a level 3 tile takes " << (porting::getTimeMs() - from) / builds << " ms to build" << std::endl;
+	}
 	terra::AtlasLand::Reader land(gen.land());
 	const Tiling t(atlas.body(planet::Atlas::HOME));
 	int cells = 0, gaps = 0;

@@ -11,18 +11,18 @@ import { bindingScancode } from "../settings/bindings"
 
 // The gallery's stand-in for the engine's home system (src/terragen/system.cpp: SystemSpec::home): no engine here.
 export const CANNED_HOME: SystemWire = {
-    star: "yellow", age: 4.5, activity: 0.5,
+    star: "G", starMass: 1, metallicity: 0, age: 4.5, activity: 0.5, companion: { kind: "none", class: "K", mass: 0.75, separation: 0.2 },
     bodies: [
-        { id: "cinder", name: "Cinder", parent: null, color: "#a76c55", phase: 0.18, orbit: 0.42, eccentricity: 0.2, mass: -1.22, formed: 0.1, volatiles: 0.05, day: 1400, tilt: 1, playable: false, life: false, inclination: 0 },
-        { id: "earth", name: "Earth", parent: null, color: "#50a4c5", phase: 0.62, orbit: 1, eccentricity: 0.017, mass: 0, formed: 0.35, volatiles: 0.6, day: 24, tilt: 23, playable: true, life: true, inclination: 0 },
-        { id: "moon", name: "Moon", parent: "earth", color: "#a8a8a1", phase: 0.1, orbit: 60, eccentricity: 0.055, mass: -1.91, formed: 0.35, volatiles: 0.05, day: 655, tilt: 7, playable: false, life: false, inclination: 5 },
-        { id: "vesper", name: "Vesper", parent: null, color: "#b47d5e", phase: 0.88, orbit: 1.6, eccentricity: 0.09, mass: -0.9, formed: 0.45, volatiles: 0.5, day: 25, tilt: 25, playable: false, life: false, inclination: 0 },
-        { id: "aster", name: "Aster", parent: "vesper", color: "#9a9188", phase: 0.4, orbit: 6, eccentricity: 0.02, mass: -2.4, formed: 0.5, volatiles: 0.05, day: 30, tilt: 0, playable: false, life: false, inclination: 0 },
-        { id: "jovian", name: "Jovian", parent: null, color: "#d7ad83", phase: 0.35, orbit: 5.2, eccentricity: 0.05, mass: 2.5, formed: 0.8, volatiles: 0.6, day: 10, tilt: 3, playable: false, life: false, inclination: 0 },
-        { id: "pyre", name: "Pyre", parent: "jovian", color: "#ce9464", phase: 0.2, orbit: 5.9, eccentricity: 0.0041, mass: -1.82, formed: 0.55, volatiles: 0.05, day: 42, tilt: 0, playable: false, life: false, inclination: 0 },
-        { id: "nacre", name: "Nacre", parent: "jovian", color: "#c9d6da", phase: 0.55, orbit: 9.4, eccentricity: 0.009, mass: -2.1, formed: 0.8, volatiles: 0.6, day: 85, tilt: 0, playable: false, life: false, inclination: 0 },
-        { id: "hale", name: "Hale", parent: "jovian", color: "#a9b9b4", phase: 0.75, orbit: 15, eccentricity: 0.0013, mass: -1.6, formed: 0.8, volatiles: 0.5, day: 172, tilt: 0, playable: false, life: false, inclination: 0 },
-        { id: "morrow", name: "Morrow", parent: "jovian", color: "#868a91", phase: 0.05, orbit: 26, eccentricity: 0.007, mass: -1.73, formed: 0.85, volatiles: 0.4, day: 400, tilt: 0, playable: false, life: false, inclination: 0 },
+        { id: "cinder", name: "Cinder", parent: null, color: "#a76c55", phase: 0.18, orbit: 0.42, eccentricity: 0.2, mass: -1.22, formed: 0.1, volatiles: 0.05, day: 1400, tilt: 1, playable: false, life: false, spin: "free", inclination: 0, land: null },
+        { id: "earth", name: "Earth", parent: null, color: "#50a4c5", phase: 0.62, orbit: 1, eccentricity: 0.017, mass: 0, formed: 0.35, volatiles: 0.6, day: 24, tilt: 23, playable: true, life: true, spin: "free", inclination: 0, land: null },
+        { id: "moon", name: "Moon", parent: "earth", color: "#a8a8a1", phase: 0.1, orbit: 60, eccentricity: 0.055, mass: -1.91, formed: 0.35, volatiles: 0.05, day: 655, tilt: 7, playable: false, life: false, spin: "free", inclination: 5, land: null },
+        { id: "vesper", name: "Vesper", parent: null, color: "#b47d5e", phase: 0.88, orbit: 1.6, eccentricity: 0.09, mass: -0.9, formed: 0.45, volatiles: 0.5, day: 25, tilt: 25, playable: false, life: false, spin: "free", inclination: 0, land: null },
+        { id: "aster", name: "Aster", parent: "vesper", color: "#9a9188", phase: 0.4, orbit: 6, eccentricity: 0.02, mass: -2.4, formed: 0.5, volatiles: 0.05, day: 30, tilt: 0, playable: false, life: false, spin: "free", inclination: 0, land: null },
+        { id: "jovian", name: "Jovian", parent: null, color: "#d7ad83", phase: 0.35, orbit: 5.2, eccentricity: 0.05, mass: 2.5, formed: 0.8, volatiles: 0.6, day: 10, tilt: 3, playable: false, life: false, spin: "free", inclination: 0, land: null },
+        { id: "pyre", name: "Pyre", parent: "jovian", color: "#ce9464", phase: 0.2, orbit: 5.9, eccentricity: 0.0041, mass: -1.82, formed: 0.55, volatiles: 0.05, day: 42, tilt: 0, playable: false, life: false, spin: "free", inclination: 0, land: null },
+        { id: "nacre", name: "Nacre", parent: "jovian", color: "#c9d6da", phase: 0.55, orbit: 9.4, eccentricity: 0.009, mass: -2.1, formed: 0.8, volatiles: 0.6, day: 85, tilt: 0, playable: false, life: false, spin: "free", inclination: 0, land: null },
+        { id: "hale", name: "Hale", parent: "jovian", color: "#a9b9b4", phase: 0.75, orbit: 15, eccentricity: 0.0013, mass: -1.6, formed: 0.8, volatiles: 0.5, day: 172, tilt: 0, playable: false, life: false, spin: "free", inclination: 0, land: null },
+        { id: "morrow", name: "Morrow", parent: "jovian", color: "#868a91", phase: 0.05, orbit: 26, eccentricity: 0.007, mass: -1.73, formed: 0.85, volatiles: 0.4, day: 400, tilt: 0, playable: false, life: false, spin: "free", inclination: 0, land: null },
     ],
 }
 
@@ -129,14 +129,15 @@ export function MockBridge() {
         keymap_place: "MOUSE_BUTTON_3|GAMEPAD_AXIS_PLUS_4",
         keymap_inventory: "SYSTEM_SCANCODE_12|GAMEPAD_BUTTON_3",
         keymap_drop: "SYSTEM_SCANCODE_42|GAMEPAD_BUTTON_12",
-        keymap_zoom: "SYSTEM_SCANCODE_29|GAMEPAD_BUTTON_11",
+        keymap_prone: "SYSTEM_SCANCODE_29",
+        keymap_zoom: "SYSTEM_SCANCODE_19|GAMEPAD_BUTTON_11",
         keymap_chat: "SYSTEM_SCANCODE_23",
         keymap_lab: "SYSTEM_SCANCODE_15",
         keymap_planetarium: "SYSTEM_SCANCODE_64",
         keymap_wiki: "SYSTEM_SCANCODE_10",
         keymap_minimap: "SYSTEM_SCANCODE_25|GAMEPAD_BUTTON_4",
         keymap_toggle_hud: "SYSTEM_SCANCODE_58",
-        keymap_camera_mode: "SYSTEM_SCANCODE_62",
+        keymap_camera_mode: "SYSTEM_SCANCODE_6",
         keymap_fullscreen: "SYSTEM_SCANCODE_68",
         keymap_screenshot: "SYSTEM_SCANCODE_69|GAMEPAD_BUTTON_14",
         keymap_mute: "SYSTEM_SCANCODE_16",
@@ -241,7 +242,7 @@ export function MockBridge() {
             escape: temperate ? 11.2 : 2.4, sunlight: 1, temperature: temperate ? 288 : 210, equilibrium: 254,
             pressure: kind === "giant" ? null : temperate ? 1 : 0, gases: temperate ? { N2: 0.78, O2: 0.21 } : kind === "giant" ? { H2: 0.86, He: 0.14 } : {},
             field: temperate ? 1 : 0, heat: kind === "volcanic" ? 40 : 1, tidal: kind === "volcanic" ? 40 : 0,
-            ocean: temperate, plates: temperate, volcanism: kind === "volcanic", locked: kind !== "temperate" && kind !== "giant",
+            ocean: temperate, plates: temperate, volcanism: kind === "volcanic", locked: false, spin: "free", day: 24,
             layers: kind === "giant"
                 ? [{ name: "core", outer: 0.12, molten: false }, { name: "metallic hydrogen", outer: 0.7, molten: true }, { name: "envelope", outer: 1, molten: true }]
                 : [{ name: "core", outer: 0.5, molten: temperate }, { name: "mantle", outer: 0.97, molten: false }, { name: "crust", outer: 1, molten: false }],

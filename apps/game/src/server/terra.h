@@ -6,6 +6,7 @@
 #include "far/terrain.h"
 #include "mapgen/terra_species.h"
 #include "matter/matter.h"
+#include "terragen/system.h"
 #include "terragen/world.h"
 #include "weather/weather.h"
 #include <memory>
@@ -29,6 +30,7 @@ struct ServerTerra
 	std::unique_ptr<matter::Matter> matter;
 	std::unique_ptr<weather::Weather> weather; // after world and matter: it refers to both
 	std::vector<std::unique_ptr<far::Generator>> surfaces; // by body
+	std::unique_ptr<terragen::System> system; // the world's, for its bodies' clocks
 
 	// The species against the node definitions. The first call closes registration.
 	const std::vector<terra::Species> &resolve(const NodeDefManager *ndef)

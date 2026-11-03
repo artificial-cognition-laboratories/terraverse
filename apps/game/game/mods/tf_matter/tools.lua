@@ -112,7 +112,7 @@ local function torch(user, dtime)
 			if not core.matter.capacity(at) then return end
 			local fuel = TORCH.rate * dt
 			core.matter.add(at, "propane", fuel)
-			for gas, per in pairs(user:get_player_control().sneak and TORCH.oxy or TORCH.air) do
+			for gas, per in pairs(user:get_player_control().aux1 and TORCH.oxy or TORCH.air) do
 				core.matter.add(at, gas, fuel * per)
 			end
 			-- lit once; then its own heat keeps it lit (a pilot every tick

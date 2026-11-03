@@ -34,13 +34,13 @@
 namespace shell {
 
 static const char *const VERBS[] = {
-	"worlds.list", "worlds.create", "worlds.delete", "worlds.pin", "play", "lab.list", "lab.enter", "quit", "worldgen.preview", "system.preview", "system.home", "weather.preview",
+	"worlds.list", "worlds.create", "worlds.delete", "worlds.pin", "play", "lab.list", "lab.enter", "quit", "worldgen.preview", "system.preview", "system.home", "system.world", "weather.preview",
 	"social.join", "community.list", "community.mod.set", "community.texture.set",
 	"servers.list", "servers.join", "servers.favorite.set",
 };
 
 // The world the menu's universe is when none has been visited yet.
-static const char *const DEFAULT_CODE = "TF9.dGVycmE";
+static const char *const DEFAULT_CODE = "TF16.dGVycmE";
 
 static Json::Value worldJson(const Worlds &worlds, const WorldSpec &world)
 {
@@ -228,6 +228,9 @@ Menu::Menu(const Opts &opts) :
 		return systemPreview(intent);
 	});
 	// the system a new world's draft starts from
+	m_shell.on("system.world", [](const Json::Value &intent) {
+		return worldSystem(intent);
+	});
 	m_shell.on("system.home", [](const Json::Value &) {
 		return systemJson(terragen::SystemSpec::home());
 	});
@@ -318,15 +321,22 @@ planetarium::Planetarium::Opts Menu::body(const Json::Value &body)
 	if (!m_baked)
 		m_baked = far::Baked::load(g_settings->get("game_id"));
 	// every body of its system, as the server lays them out (server.cpp), so
-	// the others show their land too; laid out once a code (tens of ms)
-	auto laid = m_atlases.find(code);
+	// the others show their land too; laid out once a shape (40 ms a body): most edits move bodies, not resize them
+	std::vector<terragen::Atlas::Params> bodies;
+	std::string shape;
+	try {
+		for (const terragen::BodyWorld &b : terragen::bodyWorlds(world, terragen::Atlas::standard(world.size / (2 * M_PI)))) {
+			bodies.push_back(b.atlas);
+			shape += terragen::Atlas(b.atlas).code() + ";";
+		}
+	} catch (const std::exception &e) {
+		throw Refused(std::string("that system can't exist: ") + e.what());
+	}
+	auto laid = m_atlases.find(shape);
 	if (laid == m_atlases.end()) {
 		if (m_atlases.size() >= 8)
 			m_atlases.clear(); // a setting dragged through many: only the latest few kept
-		std::vector<terragen::Atlas::Params> bodies;
-		for (const terragen::BodyWorld &b : terragen::bodyWorlds(world, terragen::Atlas::standard(world.size / (2 * M_PI))))
-			bodies.push_back(b.atlas);
-		laid = m_atlases.emplace(code, planet::Atlas(bodies)).first;
+		laid = m_atlases.emplace(shape, planet::Atlas(bodies)).first;
 	}
 	const planet::Atlas &atlas = laid->second;
 	return { atlas, far::Horizon{ code, MapgenParams().water_level, m_baked->content }, m_baked->palette,

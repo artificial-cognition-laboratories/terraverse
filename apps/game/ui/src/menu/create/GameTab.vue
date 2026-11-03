@@ -4,12 +4,12 @@ import PixelIcon from "../../game/PixelIcon.vue"
 import { Button, Field, IconChoice, Section, Segmented, Slider } from "../../kit/index.ts"
 import { DEFAULTS, EARTH_RADIUS, SIZES, WORLD_PRESETS, type WorldConfig } from "../../worldgen/config.ts"
 import { worldName } from "../../worldgen/names.ts"
-import { matching, type WorldDraftHandle } from "./draft.ts"
+import { matching, STYLE_CHOICES, type WorldDraftHandle } from "./draft.ts"
+import { body as bodyOf } from "../../system/model.ts"
 import { RULE_PRESETS, type Mode } from "./rules.ts"
 import SeedField from "./SeedField.vue"
 
 const props = defineProps<{ draft: WorldDraftHandle }>()
-const emit = defineEmits<{ fineTuneLand: []; fineTuneRules: [] }>()
 
 const DICE = ["KKKKKKK", "K.....K", "K.K...K", "K..K..K", "K...K.K", "K.....K", "KKKKKKK"] as const
 const MODES = [
@@ -52,6 +52,10 @@ const land = computed({
 })
 const landNote = computed(() => WORLD_PRESETS.find((p) => p.id === land.value)?.note ?? "A custom land shape")
 
+const SYSTEM_OPTIONS = STYLE_CHOICES.map((style) => ({ value: style.id, label: style.label }))
+const systemNote = computed(() => STYLE_CHOICES.find((style) => style.id === props.draft.config.style)?.note ?? "Our own system, as it comes.")
+const startOn = computed(() => props.draft.system.bodies.find((b) => b.playable)!.name)
+
 // the planet's size, a notch a size of the code's table
 const sizeIndex = computed({
     get: () => {
@@ -87,8 +91,8 @@ const sizeNote = computed(() => {
 <template>
     <div class="start-page">
         <div class="start-intro">
-            <span>START / QUICK START</span>
             <h2>Make it yours</h2>
+            <p>Everything here has good defaults: name it and play.</p>
         </div>
 
         <Section title="Your world">
@@ -111,18 +115,23 @@ const sizeNote = computed(() => {
                 <Segmented v-model="style" :options="RULE_PRESETS.map((preset) => ({ value: preset.id, label: preset.label }))" />
                 <p class="choice-note">{{ styleNote }}</p>
             </div>
-            <button class="detail-link" type="button" @click="emit('fineTuneRules')">Fine tune rules »</button>
         </Section>
 
         <Section title="Planet shape">
             <IconChoice v-model="land" label="Land preset" :options="LAND_OPTIONS" :columns="5" layout="stacked" />
             <p class="choice-note">{{ landNote }}</p>
-            <button class="detail-link" type="button" @click="emit('fineTuneLand')">Fine tune land & water »</button>
         </Section>
 
         <Section title="Planet size">
             <Slider v-model="sizeIndex" label="Size" :min="0" :max="SIZES.length - 1" :step="1" :format="sizeLabel" />
             <p class="choice-note">{{ sizeNote }}</p>
+        </Section>
+
+        <Section title="Solar system">
+            <Segmented v-model="draft.config.style" :options="SYSTEM_OPTIONS" />
+            <p class="choice-note">{{ systemNote }}</p>
+            <p v-if="draft.config.bodies" class="choice-note">You've changed this system, so it stays as it is when the seed or style changes. Orbit can put it back.</p>
+            <p class="choice-note">You start on {{ startOn }}.</p>
         </Section>
     </div>
 </template>
@@ -131,12 +140,10 @@ const sizeNote = computed(() => {
 .start-page { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .start-page :deep(.section .body) { gap: 10px; }
 .start-intro { display: grid; gap: 5px; padding-bottom: 10px; border-bottom: 1px solid var(--stone-4); }
-.start-intro span { color: var(--accent-hi); font: 9px var(--font-display); }
+.start-intro p { margin: 0; color: var(--ink-dim); font-size: 11px; }
 .start-intro h2 { margin: 0; font: 18px var(--font-display); text-transform: uppercase; }
 .taken { color: var(--danger); font-size: 11px; }
 .choice-note { margin: -5px 0 0; min-height: 16px; color: var(--ink-dim); font-size: 11px; }
 .style-block { display: grid; gap: 10px; }
 .sub-label { color: var(--ink-dim); font-size: 11px; }
-.detail-link { align-self: flex-start; padding: 0; border: 0; background: none; color: var(--accent-hi); font: 10px var(--font-display); text-transform: uppercase; }
-.detail-link:hover, .detail-link:focus-visible { color: var(--ink); text-decoration: underline; }
 </style>

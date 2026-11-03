@@ -456,6 +456,7 @@ add_subdirectory(mapgen)
 add_subdirectory(terragen)
 add_subdirectory(planet)
 add_subdirectory(far)
+add_subdirectory(air)
 add_subdirectory(ground)
 add_subdirectory(shape)
 add_subdirectory(fill)
@@ -573,6 +574,7 @@ set(common_SRCS
 	${terragen_SRCS}
 	${planet_SRCS}
 	${far_SRCS}
+	${air_SRCS}
 	${ground_SRCS}
 	${shape_SRCS}
 	${fill_SRCS}

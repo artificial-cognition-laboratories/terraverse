@@ -6,6 +6,7 @@
 
 namespace piece { class Machine; }
 class Figure;
+#include "physics/walk.h" // Terra Firma: stances
 
 #include "irrlichttypes.h"
 
@@ -123,6 +124,9 @@ private:
 	std::unique_ptr<Figure> m_figure; // Terra Firma: visual "body" (sprint 58)
 	v3f m_figure_was;    // where it was last frame (BS): how fast it moves
 	v3f m_figure_moving; // nodes/s, smoothed
+	float groundUnder(v3f at) const;
+	physics::Stance m_figure_stance = physics::Stance::STAND; // others'; yours is your body's
+	float m_figure_yaw = 0;  // degrees: the view's, last frame
 	// Terra Firma (sprint 57): its rigid groups but the first, each drawn on
 	// its own (a wheel turns), and where each is in the first's (BS; x y z w)
 	std::vector<scene::IMeshSceneNode *> m_group_nodes;

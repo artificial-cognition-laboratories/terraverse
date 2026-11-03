@@ -2146,7 +2146,7 @@ void Server::SendSetSky(session_t peer_id, const SkyboxParams &params)
 
 		pkt << params.auto_dim_skybox;
 		// Terra Firma
-		pkt << params.solar.on << params.solar.latitude << params.solar.declination;
+		pkt << params.solar.on << params.solar.latitude << params.solar.declination << params.solar.turns << params.solar.at;
 	}
 
 	Send(&pkt);

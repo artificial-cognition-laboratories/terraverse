@@ -5,6 +5,7 @@
 
 #include "irr_v3d.h"
 #include "orbit/field.h"
+#include "physics/reach.h"
 #include "physics/walk.h"
 #include "physics/world.h"
 #include <map>
@@ -54,6 +55,17 @@ public:
 	// it starts thrusting here.
 	bool moves(LocalPlayer &p);
 	bool thrusting() const { return m_thrusting; }
+	// How it holds itself now: what was asked, unless a ceiling won't let it up.
+	physics::Stance stance() const { return m_stance; }
+	// A slide or roll has finished since last asked: a tapped crouch is used up by it.
+	// New presses, not holds: Space takes hold of what's in reach, Ctrl lets go.
+	void pressJump() { m_jump_press = JUMP_MEMORY; }
+	void pressCrouch() { m_crouch_press = true; }
+	// On a wall: how far its hips are turned from a view at this yaw (radians, Luanti's).
+	std::optional<float> wallFace(float yaw) const;
+	// Running on a wall: how far to lean out from it (radians, + left of a view at this yaw).
+	float wallLean(float yaw) const;
+	bool takeMoveEnded() { const bool e = m_move_ended; m_move_ended = false; return e; }
 	// The brake held (thrusting: push against the motion).
 	void brake(bool held) { m_brake = held; }
 	// The orbit the player's on (none till it's walked, or outside every grid).
@@ -116,6 +128,7 @@ public:
 	std::vector<physics::World::Contact> drivenWheels() const;
 
 private:
+	bool aboveAllGround(const v3f &at) const;
 	struct Mirror
 	{
 		physics::World::Id id;
@@ -139,6 +152,52 @@ private:
 	float m_scale = 1; // mods' gravity override
 	std::unique_ptr<physics::World> m_world;
 	bool m_thrusting = false, m_brake = false;
+	physics::Stance m_stance = physics::Stance::STAND;
+	float m_standing_height = 0; // its capsule at full height (nodes)
+	physics::Stance m_asked = physics::Stance::STAND; // what the controls ask, this frame
+	float m_roll_left = 0;    // s
+	bool m_stumble = false;   // landed hard, unrolled: costs its speed next step
+	bool m_move_ended = false;
+	static constexpr float JUMP_MEMORY = 0.2f; // s a press is remembered: slightly early still counts
+	float m_jump_press = 0;
+	bool m_crouch_press = false;
+	bool m_jump_used = false; // Space went to a climb: it isn't a jump as well until let go
+	float m_base = 0;         // y it left the ground at
+	float m_radius = 0.3f;
+	struct Climbing
+	{
+		physics::Climb kind;
+		physics::Ledge ledge;
+		physics::ClimbPath path;
+		float t = 0;
+		v3f exit{ 0 };
+		float side = 0; // a side vault: turned this far from square (radians)
+	};
+	struct WallRun
+	{
+		v3f normal;
+		v3f along;      // nodes/s
+		float up;       // nodes/s
+		float left;     // s
+	};
+	std::optional<WallRun> m_wall_run;
+	std::optional<v3f> m_kick;    // the velocity a kick off a wall leaves it with, next
+	std::optional<v3f> m_kicked;  // the wall last kicked off: not the same one twice before the ground
+	v3f wallStep(const physics::World::CharacterState &was, const physics::Here &h, float jump);
+	void airWall(const physics::World::CharacterState &was, v3f velocity, float jump);
+	std::optional<Climbing> m_climb;
+	std::optional<physics::Ledge> m_hanging;
+	bool solidAt(v3s16 p) const;
+	// Takes hold if it's asked and something's in reach.
+	void startClimb(const physics::World::CharacterState &was, v3f velocity, float yaw);
+	// A step on a wall: where it goes, and the velocity it's left with.
+	v3f climbStep(LocalPlayer &p, const v3d &foot);
+	void onItsFeet();
+	float m_late_roll = 0;    // s: landed hard, a crouch now still rolls
+	// Up or down to what the controls ask and how it's moving, if it fits.
+	void holdStance(const physics::World::CharacterState &now);
+	// Crouched: what's left of `next` keeping it from walking off the edge it stands on.
+	v3f keepOnEdge(const v3d &foot, v3f next) const;
 	float m_held = 0; // s the thrust's been held: it grows
 	std::optional<physics::World::CharId> m_me;
 	double m_behind = 0;   // s not yet stepped

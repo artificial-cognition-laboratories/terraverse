@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "world.h"
+#include "lid.h"
 #include "climate.h"
 #include "planet.h"
 #include "plates.h"
@@ -12,11 +13,11 @@
 
 namespace terragen {
 
-enum MareStream : uint32_t { WRINKLE = 239, RILLE = 241, DOME = 251, RAY = 257 };
+enum MareStream : uint32_t { WRINKLE = 239, RILLE = 241, DOME = 251, RAY = 257, LINEA = 263, CHAOS = 293, CAP = 307, FLOW = 311, CANYON = 313, PATERA = 317, FOLDS = 367 };
 
 const char *const BIOME_NAMES[(int)Biome::Count] = {
 	"deep", "ocean", "seaice", "beach", "desert", "savanna", "grassland",
-	"forest", "jungle", "taiga", "tundra", "rock", "snow", "monsoon", "mediterranean", "regolith", "mare",
+	"forest", "jungle", "taiga", "tundra", "rock", "snow", "monsoon", "mediterranean", "regolith", "mare", "dust", "sulfur",
 };
 
 // Real land's roughness: amplitude ∝ wavelength^0.8, so each octave (half
@@ -57,6 +58,13 @@ static fix detailNoise(Place d, uint32_t seed, int32_t frequency, int octaves, f
 	return div(sum, norm);
 }
 
+// Fold ridges: this many a cell, on worlds whose cells can hold them (blocks),
+// and this high (metres), young and worn down. Thrust-faulted ridges are
+// steep toward the belt's edge (Davis, Suppe & Dahlen 1983; papers only)
+static const int32_t FOLD_WAVES = 4, FOLD_CELL_LEAST = 256;
+static const int32_t FOLD_M = 900, FOLD_OLD_M = 350;
+static const fix FOLD_STEEP = ratio(30, 100);
+
 World::World(const WorldCode &code) :
 	m_code(code), m_grid(gridFor(code)), m_radius(radiusOf(code)),
 	m_cell_blocks(cellBlocksOf(code)),
@@ -74,10 +82,15 @@ World::World(const WorldCode &code) :
 	const fix s = blocksPerMetre(code);
 	const int64_t cell_m = (m_cell_blocks << FRAC) / s; // fixed, 64 bits
 	const fix top = pow((fix)std::max<int64_t>(1, cell_m / 4000), DETAIL_SLOPE);
-	m_detail = mul(mul(toFix(DETAIL_M), top), s);
+	m_detail = mul(mul(mul(toFix(DETAIL_M), top), s), code.processes.stiff);
 	m_detail_octaves = 1;
 	for (int64_t w = m_cell_blocks >> FRAC; w > 32; w /= 2)
 		m_detail_octaves++;
+	if (m_cell_blocks >> FRAC >= FOLD_CELL_LEAST)
+		m_fold_waves = FOLD_WAVES;
+	m_channels.emplace(code, *m_grid, m_radius, m_cell_blocks);
+	if (!m_channels->active())
+		m_channels.reset();
 	// rays fade within a billion years or so (space weathering darkens them):
 	// of the craters made after the lava, the wide ones a third of the time
 	for (size_t k = 0; k < m_grid->craters.size(); k++) {
@@ -168,9 +181,9 @@ const Niche NICHES[] = {
 };
 
 // A lifeless body's one biome, by its bare ground (Surface; Soil never bare)
-static const Biome BARE[] = { Biome::Rock, Biome::Rock, Biome::Desert, Biome::Snow, Biome::Regolith };
+static const Biome BARE[] = { Biome::Rock, Biome::Rock, Biome::Desert, Biome::Snow, Biome::Regolith, Biome::Dust, Biome::Sulfur };
 // …and on the maria's lava (dark regolith where it's ground to dust)
-static const Biome FLOODED[] = { Biome::Rock, Biome::Rock, Biome::Desert, Biome::Snow, Biome::Mare };
+static const Biome FLOODED[] = { Biome::Rock, Biome::Rock, Biome::Desert, Biome::Snow, Biome::Mare, Biome::Dust, Biome::Sulfur };
 
 static Biome classify(fix e, fix heat, fix wet, fix season)
 {
@@ -228,7 +241,10 @@ void World::volcanic(const Place &at, int32_t &raise, int32_t &lava, int32_t &fl
 	int32_t i = cell(at);
 	for (uint32_t k = g.volcano_start[i]; k < g.volcano_start[i + 1]; k++) {
 		const Volcano &vo = g.volcanoes[g.volcano_list[k]];
-		const int64_t far = blocksFine(chord(at, Place(vo.at))); // blocks, fixed
+		int64_t far = blocksFine(chord(at, Place(vo.at))); // blocks, fixed
+		// (a patera's rim is a broken outline, never a circle)
+		if (vo.kind == VolcanoKind::Patera && far < 2 * (int64_t)toFix(vo.radius))
+			far = mulShift(far, ONE + fbm(at, m_code.seed_hash + PATERA + g.volcano_list[k], m_meander / 2, 3, HALF) / 4, FRAC);
 		if (far >= toFix(vo.radius))
 			continue;
 		const fix d = (fix)far; // within its slopes: fits
@@ -240,7 +256,7 @@ void World::volcanic(const Place &at, int32_t &raise, int32_t &lava, int32_t &fl
 			fix r = div(d, toFix(vo.crater));
 			fix rim_t = ONE - div(toFix(vo.crater), toFix(vo.radius));
 			int32_t rim = floorInt(mul(toFix(vo.height), mul(rim_t, sqrt(rim_t))));
-			int32_t depth = vo.crater * 3 / 4;
+			int32_t depth = vo.depth;
 			// built from the vent's ground, so the rim is level and a lava lake sits flat in it
 			floor = std::max(floor, vo.base + rim - floorInt(mul(toFix(depth), ONE - mul(r, r))));
 			if (vo.active)
@@ -258,6 +274,19 @@ fix World::between(const std::vector<fix> &f, const Dir &d) const
 	for (int k = 0; k < 3; k++)
 		sum += (int64_t)f[spot.cells[k]] * spot.weights[k];
 	return (fix)(sum >> FRAC);
+}
+
+Biome World::bareBiome(const Dir &d, bool flooded) const
+{
+	const Processes &p = m_code.processes;
+	// what's left of the seas' water, frozen at the poles (Mars's caps reach
+	// some 70°–80°), its edge wandering
+	if (p.ancient_water > 0 && fabsx(latitudeOf(d)) + fbm(d, m_code.seed_hash + CAP, 12, 3, HALF) / 8 > ratio(1309, 1000)) // 75°
+		return Biome::Snow;
+	// fresh dark lava showing through the sulfur that snows on it
+	if (p.eruptions > 0 && fbm(d, m_code.seed_hash + FLOW, 24, 4, HALF) > ratio(15, 100))
+		return Biome::Rock;
+	return (flooded ? FLOODED : BARE)[(int)p.bare];
 }
 
 Column World::column(const Place &p, fix sun) const
@@ -291,7 +320,7 @@ Column World::column(const Place &p, fix sun) const
 		biome = classify(ratio(3, 100), heat, wet, season);
 	// a lifeless body: one bare biome over all of it, low ground and poles too
 	if (!c.processes.life)
-		biome = (between(m_grid->mare, d) > 0 ? FLOODED : BARE)[(int)c.processes.bare];
+		biome = bareBiome(d, between(m_grid->mare, d) > 0);
 	return { e, heat, wet, rain, season, biome };
 }
 
@@ -308,8 +337,67 @@ fix World::temperature(const Place &d, fix date, fix hour) const
 {
 	Column c = column(d, sunlight(d, date));
 	// warmest at 15:00, coldest at 03:00
-	fix daily = mul(dailySwing(c), cos(mul(TWO_PI, hour - ratio(5, 8))));
+	// (none where the sun never moves)
+	fix daily = m_code.processes.facing_star ? 0 : mul(dailySwing(c), cos(mul(TWO_PI, hour - ratio(5, 8))));
 	return celsiusOf(c.heat) + daily;
+}
+
+// the finest lattice this thread's columns read (World::Coarse), place units
+static thread_local int64_t t_least = 0;
+
+World::Coarse::Coarse(const World &world, int64_t cell_blocks)
+{
+	t_least = cell_blocks > 1 ? (int64_t)(((__int128)cell_blocks * PLACE_ONE << FRAC) / world.m_radius) : 0;
+}
+
+World::Coarse::~Coarse() { t_least = 0; }
+
+const World::ChannelsAt &World::channelsAt(const Place &at) const
+{
+	thread_local ChannelsAt last;
+	const Channels *from = &*m_channels;
+	if (last.from == from && last.least == t_least && last.at.x == at.x && last.at.y == at.y && last.at.z == at.z)
+		return last;
+	std::array<int64_t, 3> w = m_channels->wander(at, t_least);
+	for (int k = 0; k < 3; k++) {
+		// (the rivers' warp, ground()'s)
+		const fix f = fbm(at, m_code.seed_hash + MEANDER + (uint32_t)k, m_meander / 2, 2, HALF) / 3
+				+ fbm(at, m_code.seed_hash + MEANDER + 3 + (uint32_t)k, m_meander * 2, 2, HALF) / 16;
+		w[k] += (int64_t)f * gridSphere().spacing() >> (2 * FRAC - PLACE_FRAC);
+		last.warp[k] = f;
+	}
+	const fix belt = between(m_grid->tectonics.belt, at);
+	const fix range = clamp(div(belt - ratio(18, 100), ratio(62, 100)), 0, ONE);
+	last.read = m_channels->read(placeOf((int64_t)at.x + w[0], (int64_t)at.y + w[1], (int64_t)at.z + w[2]), range, t_least);
+	last.from = from;
+	last.least = t_least;
+	last.at = at;
+	return last;
+}
+
+World::Folds World::folds(const Place &at) const
+{
+	Folds out;
+	if (m_fold_waves == 0)
+		return out;
+	const Tectonics &t = m_grid->tectonics;
+	const fix weight = between(t.fold, at);
+	if (weight <= 0)
+		return out;
+	const uint32_t seed = m_code.seed_hash + FOLDS;
+	// contours of the way in from the belt's edge, wandering by half a ridge;
+	// (the cell's fraction is what's kept: a cell's height fits a fix)
+	const fix front = between(t.front, at) + fbm(at, seed, m_meander, 2, HALF) / 8;
+	const fix u = (fix)((front * m_fold_waves) & (ONE - 1));
+	const fix up = u < FOLD_STEEP ? div(u, FOLD_STEEP) : div(ONE - u, ONE - FOLD_STEEP);
+	out.crest = smooth(up);
+	// each ridge plunges and dies out along its length, and the next takes over
+	const fix live = clamp(ratio(55, 100) + noise(at, seed + 1, m_meander / 2) * 2, 0, ONE);
+	const fix metres = toFix(FOLD_M) + mul(toFix(FOLD_OLD_M - FOLD_M), between(t.oldness, at));
+	// (no steeper than the ridges are wide can carry)
+	const fix most = (fix)std::min<int64_t>((m_cell_blocks / m_fold_waves) / 3, toFix(4000));
+	out.height = mul(mul(std::min(mul(metres, m_metre), most), weight), live);
+	return out;
 }
 
 int32_t World::surface(fix e, const Place &d) const
@@ -327,15 +415,47 @@ int32_t World::surface(fix e, const Place &d) const
 	// plains rolling (a tenth of a range's), rising ranges ridged
 	const fix belt = between(m_grid->tectonics.belt, d);
 	const fix range = clamp(div(belt - ratio(18, 100), ratio(62, 100)), 0, ONE);
-	fix detail = detailNoise(d, m_code.seed_hash + DETAIL, m_meander, m_detail_octaves, range);
+	fix detail;
+	if (m_channels && base >= 0) {
+		// the valleys and what's between them; below the finest, noise
+		const int levels = m_channels->levels();
+		const fix fine = detailNoise(d, m_code.seed_hash + DETAIL, m_meander << (levels + 1), std::max(1, m_detail_octaves - levels - 1), range);
+		detail = channelsAt(d).read.relief + fine / 8;
+	} else {
+		detail = detailNoise(d, m_code.seed_hash + DETAIL, m_meander, m_detail_octaves, range);
+	}
 	fix rugged = mul(ratio(1, 10) + mul(range, ratio(9, 10)), HALF + m_code.roughness);
-	if (base < 0)
+	// (a dry body has no waterline: all of it as gentle as the low ground)
+	if (base < 0 || !m_code.processes.water)
 		rugged = rugged * 2 / 5;
 	// lava set level: the maria are smooth plains (deeper than 125 m, a tenth)
 	const fix lava = clamp(div(between(m_grid->mare, d), ratio(1, 40)), 0, ONE);
 	rugged = mul(rugged, ONE - mul(lava, ratio(9, 10)));
-	fix amplitude = std::min<fix>(mul(m_detail, rugged), std::abs(base) / 2);
-	return floorInt(base + mul(detail, amplitude));
+	// a high plain's a plain; between fold ridges the hills are small
+	const Tectonics &t = m_grid->tectonics;
+	const fix plain = between(t.plateau, d);
+	const Folds ridges = base > 0 ? folds(d) : Folds{};
+	rugged = mul(rugged, ONE - mul(plain, ratio(85, 100)));
+	if (ridges.height > 0)
+		rugged = mul(rugged, ONE - between(t.fold, d) / 2);
+	fix amplitude = mul(m_detail, rugged);
+	if (m_code.processes.water)
+		amplitude = std::min<fix>(amplitude, std::abs(base) / 2);
+	fix ridge = 0;
+	if (ridges.height > 0) {
+		// centred on the land; a large river keeps its way through (a water gap),
+		// and a stream cuts a notch where it crosses
+		ridge = mul(ridges.height, ridges.crest - HALF);
+		if (m_channels) {
+			const Channels::Read &read = channelsAt(d).read;
+			ridge = mul(ridge, smooth(clamp(read.trunk * 4, 0, ONE)));
+			if (read.stream_from > 0)
+				ridge = mul(ridge, clamp((fix)std::min<int64_t>(read.stream_gap / 12, ONE), 0, ONE));
+		}
+		// (never flipping land to sea)
+		ridge = std::max<fix>(ridge, -base / 2);
+	}
+	return floorInt(base + mul(detail, amplitude) + ridge);
 }
 
 
@@ -348,7 +468,7 @@ fix World::craters(const Place &at, Age age) const
 {
 	const Grid &g = *m_grid;
 	const int32_t i = cell(at);
-	fix sum = m_craters.height(at, g.crater_from, age);
+	fix sum = m_craters.height(at, g.crater_from, age, t_least);
 	for (uint32_t k = g.crater_start[i]; k < g.crater_start[i + 1]; k++) {
 		const Crater &c = g.craters[g.crater_list[k]];
 		if (c.young == (age == Age::Young))
@@ -364,7 +484,7 @@ fix World::craters(const Place &at, Age age) const
 // a few tens of metres deep); domes, low shields over late vents.
 static const int32_t CLIFF_M = 80, CLIFF_MIN = 6;
 static const int32_t BEACH_TOP = 3; // blocks over the sea a beach reaches // a sea cliff's height: metres, and blocks at the least
-static const int32_t WRINKLE_M = 300, RILLE_M = 250, DOME_M = 200;
+static const int32_t WRINKLE_M = 300, RILLE_M = 250, DOME_M = 200, RIDGE_M = 200, CHAOS_M = 150;
 
 int32_t World::mareRelief(const Place &at) const
 {
@@ -411,6 +531,66 @@ bool World::rayed(const Place &at) const
 	return false;
 }
 
+int32_t World::flexed(const Place &at) const
+{
+	const fix flexing = m_code.processes.flexing;
+	if (flexing <= 0)
+		return 0;
+	const uint32_t seed = m_code.seed_hash;
+	const fix amount = std::min<fix>(flexing, ONE);
+	// Cracks: long double ridges along noises' zero lines, in several sets
+	// that cross, each only where a slower noise lets it: harder flexing, more
+	fix ridges = 0;
+	static const int WAVES[] = { 16, 12, 8, 6 };
+	const fix allowed = ratio(60, 100) - mul(amount, ratio(80, 100));
+	for (int k = 0; k < 4; k++) {
+		// (dying out over a stretch, not stopped dead at the gate's edge)
+		const fix open = clamp(div(noise(at, seed + LINEA + k * 2 + 1, m_meander / 32) - allowed, ratio(10, 100)), 0, ONE);
+		if (open <= 0)
+			continue;
+		const fix x = div(std::abs(fbm(at, seed + LINEA + k * 2, m_meander / WAVES[k], 3, HALF)), ratio(2, 100));
+		if (x < ONE) // two crests with a trough down the crack
+			ridges = std::max(ridges, mul(open, mul(toFix(4), mul(x, ONE - x))));
+	}
+	fix out = mul(toFix(RIDGE_M), ridges);
+	// Chaos: under the hardest flexing, warm ice rose and broke the shell into
+	// rafts tilted in a lower, jumbled matrix
+	const fix strong = clamp((amount - HALF) * 2, 0, ONE);
+	if (strong > 0) {
+		const fix patch = mul(strong, clamp(div(fbm(at, seed + CHAOS, m_meander / 16, 3, HALF) - ratio(25, 100), ratio(5, 100)), 0, ONE));
+		if (patch > 0) {
+			const fix raft = fbm(at, seed + CHAOS + 1, m_meander * 2, 3, HALF);
+			const fix jumble = raft > 0 ? mul(toFix(CHAOS_M), std::min<fix>(ONE, raft * 4)) : mul(toFix(CHAOS_M), raft) - toFix(CHAOS_M) / 2;
+			out = mul(out, ONE - patch) + mul(jumble, patch);
+		}
+	}
+	return floorInt(mul(out, m_metre));
+}
+
+static fix dotOf(const Dir &a, const Dir &b) { return mul(a.x, b.x) + mul(a.y, b.y) + mul(a.z, b.z); }
+
+int32_t World::canyoned(const Place &at) const
+{
+	const Dir d = at.dir();
+	fix deepest = 0;
+	for (size_t k = 0; k < m_grid->canyons.size(); k++) {
+		const Canyon &c = m_grid->canyons[k];
+		const fix along = atan2(dotOf(d, c.way), dotOf(d, m_grid->rise));
+		if (along <= c.from || along >= c.to)
+			continue;
+		const uint32_t seed = m_code.seed_hash + CANYON + (uint32_t)k;
+		// wandering, and wide and narrow by turns; each end pinches out
+		const fix off = std::abs(dotOf(d, c.pole) + fbm(d, seed, m_meander / 8, 3, HALF) / 40);
+		const fix ends = std::min<fix>(ONE, div(std::min(along - c.from, c.to - along), ratio(15, 100)));
+		const fix wide = mul(mul(c.half, ends), ratio(70, 100) + fbm(d, seed + 1, m_meander / 4, 3, HALF) / 2);
+		if (wide <= 0 || off >= wide)
+			continue;
+		// steep walls round a flat floor
+		deepest = std::max(deepest, mul(mul(c.depth, ends), smooth(std::min<fix>(ONE, div(wide - off, wide) * 3))));
+	}
+	return -floorInt(mul(deepest, m_height));
+}
+
 int32_t World::terrain(const Place &at, fix elevation, int32_t &mare) const
 {
 	const Grid &g = *m_grid;
@@ -444,7 +624,7 @@ int32_t World::terrain(const Place &at, fix elevation, int32_t &mare) const
 			t += relief;
 		}
 	}
-	return t + floorInt(craters(at, Age::Young));
+	return t + floorInt(craters(at, Age::Young)) + flexed(at) + canyoned(at);
 }
 
 Ground World::ground(const Place &at, fix sun) const
@@ -457,7 +637,7 @@ Ground World::ground(const Place &at, fix sun) const
 	out.mare = mare;
 	// a lifeless body's dust is dark where lava lies (the column's own guess is the cells')
 	if (!m_code.processes.life)
-		out.column.biome = (mare > 0 && !rayed(at) ? FLOODED : BARE)[(int)m_code.processes.bare];
+		out.column.biome = bareBiome(at.dir(), mare > 0 && !rayed(at));
 	// volcanoes stand on the land (or rise from the sea floor to islands)
 	int32_t raise, lava, floor;
 	volcanic(at, raise, lava, floor);
@@ -504,7 +684,7 @@ Ground World::ground(const Place &at, fix sun) const
 		std::array<int64_t, 3> w;
 		for (int k = 0; k < 3; k++) {
 			// a third of a cell in waves two cells long, a sixteenth in waves half a cell long
-			const fix f = fbm(at, m_code.seed_hash + MEANDER + (uint32_t)k, m_meander / 2, 2, HALF) / 3
+			const fix f = m_channels ? channelsAt(at).warp[k] : fbm(at, m_code.seed_hash + MEANDER + (uint32_t)k, m_meander / 2, 2, HALF) / 3
 					+ fbm(at, m_code.seed_hash + MEANDER + 3 + (uint32_t)k, m_meander * 2, 2, HALF) / 16;
 			w[k] = (int64_t)f * sphere.spacing();
 			wander[k] = mulShift(f, m_cell_blocks, FRAC) >> (FRAC - NEAR);
@@ -646,6 +826,18 @@ Ground World::ground(const Place &at, fix sun) const
 		} else if (out.terrain < best_level + 1 + (best_bend < 0 ? 2 : 0)) {
 			// the bank holds the river in; outside a bend it's cut steep
 			out.terrain = best_level + 1 + (best_bend < 0 ? 2 : 0);
+		}
+	}
+	// The streams below the grid's, one to three blocks wide, lie in the valleys
+	// the same channels made: a block into the ground where they are, so no
+	// level of their own can disagree with the land (none through a cone: it
+	// stands on what they drained)
+	if (m_channels && raise <= 0 && floor == INT32_MIN && out.kind == Water::None && out.terrain > 1 && best_gap > toFix(BANK)) {
+		const Channels::Read &stream = channelsAt(at).read;
+		if (stream.stream_from > 0 && stream.stream_gap < toFix(Channels::STREAM_LEVELS + 1 - stream.stream_from) / 2) {
+			out.water = out.terrain;
+			out.terrain--;
+			out.kind = Water::River;
 		}
 	}
 	// a bank or a lake's rim raised over the sea's level: dry ground, not sea

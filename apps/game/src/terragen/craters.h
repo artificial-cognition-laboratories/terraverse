@@ -47,7 +47,7 @@ public:
 	// Every crater of class k (for the grid, which stamps the wide ones).
 	std::vector<Crater> all(int k) const;
 	// How far class k ≥ `from` of an age raise or sink a place, in blocks (fixed).
-	fix height(const Place &at, int from, Age age) const;
+	fix height(const Place &at, int from, Age age, int64_t least = 0) const; // classes down to a lattice of `least`
 	// One crater's shape at a place (blocks, fixed): 0 past its ejecta.
 	static fix shape(const Crater &c, const Place &at);
 
@@ -67,6 +67,7 @@ private:
 	int64_t m_simple;   // the transition diameter, place units
 	bool m_water;
 	uint32_t m_young; // a crater is young if its age hash's 16 bits are under this
+	fix m_stiff; // what the crust keeps of a crater's relief (Processes::stiff)
 	std::vector<Class> m_classes;
 };
 

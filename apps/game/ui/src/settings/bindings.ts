@@ -4,8 +4,8 @@ export const BINDING_GROUPS = [
     { title: "Movement", bindings: [
         ["keymap_forward", "Move forward"], ["keymap_backward", "Move backward"],
         ["keymap_left", "Move left"], ["keymap_right", "Move right"],
-        ["keymap_jump", "Jump"], ["keymap_sneak", "Sneak"],
-        ["keymap_aux1", "Sprint / thrust"], ["keymap_freemove", "Toggle flight"],
+        ["keymap_jump", "Jump"], ["keymap_sneak", "Crouch (tap or hold) / fly down"], ["keymap_prone", "Lie down"],
+        ["keymap_aux1", "Run / thrust"], ["keymap_freemove", "Toggle flight"],
         ["keymap_brake", "Brake (thrusting)"],
     ] },
     { title: "Actions", bindings: [

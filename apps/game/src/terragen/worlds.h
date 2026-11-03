@@ -4,6 +4,7 @@
 #pragma once
 
 #include "atlas.h"
+#include "body.h"
 #include "code.h"
 #include "planet.h"
 #include <string>
@@ -46,6 +47,9 @@ Planet planetOf(const BodyWorld &body);
 
 // The smallest radius a body is stood on at (blocks): the smallest world size's.
 constexpr double SMALLEST_BODY = 2607;
+
+// A body's processes from its card, and whether life arises where it can.
+Processes processesOf(const BodyCard &card, bool life);
 
 // `homeAtlas`: the world's own (its planet_atlas). Throws for a system with
 // no playable body, or a home without a surface.

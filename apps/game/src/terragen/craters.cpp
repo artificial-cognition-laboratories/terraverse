@@ -41,14 +41,17 @@ int32_t floorDiv(int64_t v, int64_t d)
 
 Craters::Craters(const WorldCode &code, int64_t radius, fix blocksPerMetre) :
 	m_seed(code.seed_hash + IMPACT), m_radius(radius), m_scale(blocksPerMetre), m_water(code.processes.water),
-	m_young((uint32_t)std::min<int64_t>(65536, ((int64_t)code.processes.young * 65536) >> FRAC))
+	m_young((uint32_t)std::min<int64_t>(65536, ((int64_t)code.processes.young * 65536) >> FRAC)),
+	m_stiff(code.processes.stiff)
 {
 	const Processes &p = code.processes;
 	if (p.gravity <= 0)
 		throw std::invalid_argument("terragen::Craters: a body without gravity");
 	// blocks (fixed) → place units
 	const auto place = [&](int64_t blocks) { return (int64_t)(((__int128)blocks << PLACE_FRAC) / radius); };
-	m_simple = place(div(toFix(TRANSITION_M), p.gravity) * (int64_t)blocksPerMetre >> FRAC);
+	// (64 bits: under a tenth of a g the transition is past what a fix holds,
+	// 3 km / g > 32 km, and overflowing it made every crater a deep hole)
+	m_simple = place((((int64_t)TRANSITION_M << (2 * FRAC)) / p.gravity) * blocksPerMetre >> FRAC);
 	if (p.craters <= 0)
 		return;
 	// the smallest: a few blocks, what the air lets through, and on a wet
@@ -106,8 +109,8 @@ bool Craters::candidate(int k, int32_t i, int32_t j, int32_t l, Crater &out) con
 		depth = mul(mul(transition, ratio(20, 100)), pow(q, ratio(3, 10)));
 		rim = mul(mul(transition, ratio(36, 1000)), pow(q, ratio(4, 10)));
 	}
-	out.depth = floorInt(mul(depth, wear));
-	out.rim = floorInt(mul(rim, wear));
+	out.depth = floorInt(mul(mul(depth, wear), m_stiff));
+	out.rim = floorInt(mul(mul(rim, wear), m_stiff));
 	// a central peak in complex craters short of basins (they ring instead)
 	out.peak = out.complex && q < toFix(10) ? out.depth * 2 / 5 : 0;
 	return true;
@@ -153,12 +156,14 @@ fix Craters::shape(const Crater &c, const Place &at)
 	return out;
 }
 
-fix Craters::height(const Place &at, int from, Age age) const
+fix Craters::height(const Place &at, int from, Age age, int64_t least) const
 {
 	fix sum = 0;
 	Crater c;
 	for (int k = std::max(0, from); k < (int)m_classes.size(); k++) {
 		const int64_t L = m_classes[k].lattice;
+		if (L < least)
+			continue;
 		// a crater reaches a diameter (at most 2D = L) from its middle, which
 		// lies up to half a cell off the surface
 		const int64_t reach = L + L / 2;

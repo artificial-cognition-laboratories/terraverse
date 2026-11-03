@@ -27,6 +27,7 @@ apps/game/src/terragen/ OURS — the world model: a pure, fixed-point function o
 scripts/assets/   texture import: Good Vibes at a pinned revision, plus derived rocks and ores
 apps/game/src/matter/ OURS — elements and substances, and the state they're in at any temperature and pressure
 assets/matter/    OURS — the building blocks as data: elements.json (all 118), substances.json (the modelled ones)
+apps/game/src/air/  OURS — a body's atmosphere as light meets it: optics from its card, sky tables (pure)
 apps/game/src/far/  OURS — the far view: terrain beyond the loaded blocks to the horizon
 apps/game/src/physics/ OURS — rigid bodies on Jolt: assemblies, hinges, ground, tiers, gravity and air as a field (pure; the workshop compiles machines into it)
 apps/game/src/orbit/ OURS — flight under a planet's gravity and air; the field in the atlas's grids (orbit::Field)
@@ -639,6 +640,114 @@ Luanti's for online play, singleplayer needs no account. Built so far: sign-in
 hosted for friends (STUN, UPnP, hole punching on the server's socket), Join
 gets a single-use ticket from ArcLabs, and the host's server admits by ticket
 (protocol 58). No relay yet: pairs that can't be punched through are told so.
+
+**Built (sprint 119, `planning/arc-movement.md`):** wall runs and wall jumps (`findWall`, `runsAlong`,
+`wallKick`), side vaults; vaults hold the speed they came in at. Protocol 94.
+
+**Built (sprint 118, `planning/arc-movement.md`):** reach (`physics/reach`): Space vaults a
+low wall on the move; in the air it mantles or hangs by height; A/D shimmy, Space pulls up, Ctrl lets go. Protocol 93.
+
+**Built (sprint 117, `planning/arc-movement.md`):** slides, landing rolls, and momentum: kept
+in the air, built by a clean line, lost in sharp turns and hard landings (`physics/walk`). Protocol 92.
+
+**Built (sprint 116, `planning/arc-movement.md`):** stances. Hips face the way the body
+goes; crouch and prone with smaller capsules (`physics::Stance`, `World::resize`), protocol 91.
+Keys: Shift runs and thrusts, Ctrl crouches, Z lies down, C the camera, N the cursor, F gets up.
+
+**Built (sprint 115, `planning/arc-movement.md`):** the body, first of the movement
+arc. The figure is 13 blocks with knees, elbows, a waist and block hands, posed by a pure
+rule (`physics/pose`): feet by inverse kinematics, the rest on springs between key poses.
+F5 gains over the shoulder (`CAMERA_MODE_SHOULDER`); first person keeps the body, not the head.
+
+**Built (sprints 113–114, `planning/arc-atmosphere.md`):** the rim and eclipses
+(`planetarium/rim`, family shadows in `planet_lit_shader`); daylight's colour from the air
+(`air::sunTint`, `solar::tint`), and dynamic shadows from the brighter star (`Sky::light`).
+
+**Built (sprints 111–112, `planning/arc-atmosphere.md`):** the air in the game's sky
+(`planetarium/air`: a picture per star, made on a worker, looked up per pixel) and
+bodies lit by their star (`planetarium/lit`).
+
+**Built (sprint 110, `planning/arc-atmosphere.md`):** air optics (`src/air`): a card's
+gases, particles and star as scattering and absorption, in tables after Hillaire 2020.
+Nothing draws it yet; `scripts/air-check/sky.cpp` renders a sheet of skies to a PNG.
+
+**Built (sprint 109, `planning/arc-systems.md`):** binary stars (`Companion`, in the
+code's params; style Binary's from the seed). The card's light is both stars', the sky
+draws both, and the light level follows the brighter one's height (`solar::second`).
+Unstable orbits are refused. Shadows and sunset colours aren't built. TF16.
+
+**Built (sprint 108, `planning/arc-systems.md`):** double planets. A moon whose
+balance point with its planet is outside the planet is its partner (`partnerOf`);
+planets swing round their balance points (`System::balance`), a planet can hold to
+its partner, and pairs too close are refused. A body big in the sky is drawn from its
+own tiles with a night side (`Sky::drawBaked`). TF15.
+
+**Built (sprint 107, `planning/arc-systems.md`):** spin. Free by default; a lock
+or resonance is chosen per body (`Spin`, in the code's body flags) and sets its day.
+A world facing its star has its climate's bands round the line to the star
+(`Cells(axis)`, `Processes::facing_star`), longitude 0 under it. `System::clock` is a
+body's time against the engine's, sent with the sky (`SkySolar::turns`, `at`;
+protocol 90). A body's winds follow its day. TF14.
+
+**Built (sprint 106, `planning/arc-systems.md`):** land on every body. A body's
+own settings travel with it in the code (`SystemBody::land`, `WorldCode::setLand`);
+the code's own settings are the start body's only. A grid is kept by what decides
+its land (`WorldCode::keepGrid`), so an edit elsewhere rebuilds nothing. `check:far`
+also runs on the Moon. Body seeds use `hashOf`, not `std::hash`. TF13.
+
+**Built (sprint 105, `planning/arc-systems.md`):** the home follows its card.
+`WorldCode::decode` fills the start body's `Processes` from its card
+(`processesOf`), so every reader of a code plays the same world; a giant is
+refused. Climate is pushed by `Processes::warming` (the card's kelvin against
+Earth's) with the Temperature setting a nudge; `Star::warmth` is gone. The start
+is any solid body (the `playable` flag); its `year()` is its planet's. Other
+bodies take their own tilt and warming. TF12.
+
+**Built (sprint 104, `planning/arc-systems.md`):** the system in the code.
+The seed and a style lay out a system (`SystemSpec::generate`, fixed point; style
+Home is the one fixed system, what a settings-free code means); an edited system
+travels as the code's fourth part (`SystemSpec::read`, at most `MOST_BODIES`).
+The home's grid is kept by `WorldCode::grid_key`, so moving a moon doesn't
+rebuild it. TF11.
+
+**Built (sprint 103, `planning/arc-systems.md`):** stars by spectral class,
+O to M (`terragen::STARS`), with mass, metallicity, age and wind in the code.
+A proper mass–luminosity fit (`luminosity`), lifetimes (`lifetime`; a system
+can't outlive its star), metal from the
+star. The home's climate still reads the class's `warmth` until sprint 105. TF10.
+
+**Built (sprint 102, `planning/sprint-102-block-speed.md`):** blocks arrive.
+The land's reader keeps its columns and lighting asks them in order; far tiles
+leave out detail narrower than their cells (`World::Coarse`); grids are kept on
+disk per engine build (`terragen/grid_file.cpp`); `terra` has 4 emerge threads.
+Grid stages run on fixed parts (`terragen/parallel.*`, so the same on any core
+count) and are reused by what they read. Lua gets a chunk's shore and cover from
+native (`get_mapgen_object`: `shore`, `terra_cover`). Trees are gone until
+they're rewritten as species with traits.
+
+**Built (sprint 101, `planning/sprint-101-ranges.md`):** ranges by what
+built them. Crust keeps the squeezing it went through (`History::Cell::over`,
+`under`); `Tectonics` turns it into fold belts, plateaus and oldness. Fold
+ridges are contours of `front`, with trellis drainage and water gaps
+(`World::folds`, `Channels::build`).
+
+**Built (sprint 100, `planning/sprint-100-channels.md`):** river-built
+detail. Below the grid's drainage tree, levels of hashed points each join the
+nearest channel a level up (`terragen/channels.*`): real branching (Horton's
+ratio tested), valleys and divides in place of noise wherever water ever ran,
+and streams in them where it's wet enough. Airless bodies keep their noise.
+
+**Built (sprint 99, `planning/sprint-99-lids.md`):** rock lids by their
+interiors (`terragen/lid.*`, from the card). Long plumes under a thick mantle:
+a low thin side, one rise, giant shields, canyons. Seas long gone
+(`ancient_water`): worn valleys, rust, polar caps. Eruptions: buried plains,
+lone thrust blocks, paterae with lava lakes, sulfur, no craters to speak of.
+
+**Built (sprint 98, `planning/sprint-98-ice.md`):** small and icy bodies.
+A crater overflow under 0.09 g made spikes tens of km high (fixed); dry bodies
+have no waterline; an ice crust (`Processes::stiff`, `flexing`, from the card)
+is ice underfoot, with sagging relief, few craters, double ridges and chaos
+terrain as hard as tides flex it (`World::flexed`).
 
 **Built (sprint 97, `planning/sprint-97-polish.md`):** polish. Coasts by
 their rock (`World::hardness`): cliffs on hard coasts, beaches only as the

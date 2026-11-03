@@ -3,6 +3,8 @@
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "lua_api/l_mapgen.h"
+#include "mapgen/mapgen_terra.h"
+#include "itemgroup.h"
 #include "lua_api/l_internal.h"
 #include "lua_api/l_vmanip.h"
 #include "common/c_converter.h"
@@ -45,6 +47,8 @@ struct EnumString ModApiMapgen::es_MapgenObject[] =
 	{MGOBJ_HEATMAP,   "heatmap"},
 	{MGOBJ_HUMIDMAP,  "humiditymap"},
 	{MGOBJ_GENNOTIFY, "gennotify"},
+	{MGOBJ_SHORE, "shore"},
+	{MGOBJ_TERRA_COVER, "terra_cover"},
 	{0, NULL},
 };
 
@@ -588,6 +592,97 @@ int ModApiMapgen::l_get_biome_data(lua_State *L)
 }
 
 
+// Terra Firma: the list of positions, in this chunk, of loose ground (group
+// `loose`) under water, or open above with water beside it at its level.
+static void pushShore(lua_State *L, Mapgen &mg)
+{
+	const NodeDefManager *ndef = mg.ndef;
+	const content_t water = ndef->getId("mapgen_water_source");
+	MMVManip &vm = *mg.vm;
+	const VoxelArea &area = vm.m_area;
+	const s16 margin = MAP_BLOCKSIZE;
+	const v3s16 lo = area.MinEdge + v3s16(margin, margin, margin), hi = area.MaxEdge - v3s16(margin, margin, margin);
+	thread_local const NodeDefManager *known_of = nullptr;
+	thread_local std::vector<s8> known;
+	if (known_of != ndef) {
+		known_of = ndef;
+		known.assign(65536, -1);
+	}
+	const auto loose = [&](content_t c) {
+		s8 &k = known[c];
+		if (k < 0)
+			k = itemgroup_get(ndef->get(c).groups, "loose") > 0;
+		return k > 0;
+	};
+	static const v2s16 SIDES[8] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } };
+	lua_newtable(L);
+	int n = 0;
+	for (s16 z = lo.Z; z <= hi.Z; z++)
+	for (s16 y = lo.Y; y <= hi.Y; y++)
+	for (s16 x = lo.X; x <= hi.X; x++) {
+		if (!loose(vm.m_data[area.index(x, y, z)].getContent()))
+			continue;
+		const content_t above = vm.m_data[area.index(x, y + 1, z)].getContent();
+		bool wet = above == water;
+		if (!wet && !loose(above))
+			for (const v2s16 &d : SIDES)
+				if (area.contains(v3s16(x + d.X, y, z + d.Y)) && vm.m_data[area.index(x + d.X, y, z + d.Y)].getContent() == water) {
+					wet = true;
+					break;
+				}
+		if (wet) {
+			push_v3s16(L, v3s16(x, y, z));
+			lua_rawseti(L, -2, ++n);
+		}
+	}
+}
+
+// Terra Firma: each open surface of this chunk, as lists by field: x, y, z,
+// ground (content id), and what terragen says grows there.
+static void pushTerraCover(lua_State *L, MapgenTerra &mg)
+{
+	struct Spot
+	{
+		v3s16 at;
+		content_t ground;
+		MapgenTerra::SurfaceCover cover;
+	};
+	std::vector<Spot> spots;
+	MMVManip &vm = *mg.vm;
+	const VoxelArea &area = vm.m_area;
+	const s16 margin = MAP_BLOCKSIZE;
+	const v3s16 lo = area.MinEdge + v3s16(margin, margin, margin), hi = area.MaxEdge - v3s16(margin, margin, margin);
+	size_t i = 0;
+	for (s16 z = lo.Z; z <= hi.Z; z++)
+	for (s16 x = lo.X; x <= hi.X; x++, i++) {
+		const s16 y = mg.heightmap[i];
+		if (y < lo.Y || y >= hi.Y ||
+				vm.m_data[area.index(x, y + 1, z)].getContent() != CONTENT_AIR)
+			continue;
+		spots.push_back({ v3s16(x, y, z), vm.m_data[area.index(x, y, z)].getContent(), mg.surfaceCover(i) });
+	}
+	lua_createtable(L, 0, 11);
+	const auto list = [&](const char *name, auto &&push) {
+		lua_createtable(L, (int)spots.size(), 0);
+		for (size_t k = 0; k < spots.size(); k++) {
+			push(spots[k]);
+			lua_rawseti(L, -2, (int)k + 1);
+		}
+		lua_setfield(L, -2, name);
+	};
+	list("x", [&](const Spot &s) { lua_pushinteger(L, s.at.X); });
+	list("y", [&](const Spot &s) { lua_pushinteger(L, s.at.Y); });
+	list("z", [&](const Spot &s) { lua_pushinteger(L, s.at.Z); });
+	list("ground", [&](const Spot &s) { lua_pushinteger(L, s.ground); });
+	list("density", [&](const Spot &s) { lua_pushnumber(L, s.cover.density); });
+	list("heat", [&](const Spot &s) { lua_pushnumber(L, s.cover.heat); });
+	list("wet", [&](const Spot &s) { lua_pushnumber(L, s.cover.wet); });
+	list("elevation", [&](const Spot &s) { lua_pushnumber(L, s.cover.elevation); });
+	list("bank", [&](const Spot &s) { lua_pushboolean(L, s.cover.bank); });
+	list("roll", [&](const Spot &s) { lua_pushinteger(L, s.cover.roll); });
+	list("alive", [&](const Spot &s) { lua_pushboolean(L, s.cover.alive); });
+}
+
 // get_mapgen_object(objectname)
 // returns the requested object used during map generation
 int ModApiMapgen::l_get_mapgen_object(lua_State *L)
@@ -622,6 +717,18 @@ int ModApiMapgen::l_get_mapgen_object(lua_State *L)
 		push_v3s16(L, vm->m_area.MaxEdge);
 
 		return 3;
+	}
+	// Terra Firma: found here so that a mod needn't copy the whole
+	// VoxelManip into Lua, under the server's lock, for each map block
+	case MGOBJ_SHORE:
+		pushShore(L, *mg);
+		return 1;
+	case MGOBJ_TERRA_COVER: {
+		MapgenTerra *terra = dynamic_cast<MapgenTerra *>(mg);
+		if (!terra)
+			throw LuaError("The terra_cover mapgen object is the terra generator's");
+		pushTerraCover(L, *terra);
+		return 1;
 	}
 	case MGOBJ_HEIGHTMAP: {
 		if (!mg->heightmap)

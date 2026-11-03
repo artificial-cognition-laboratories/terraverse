@@ -15,8 +15,11 @@ namespace terragen {
 
 struct Grid;
 
+// How thin each cell's crust is (Grid::thin), before anything lies on it.
+void thinCrust(const WorldCode &code, Grid &g);
+
 // Floods `g.base` (the old craters in it) to Processes::flooding of the
-// surface, filling Grid::mare, mare_level, titanium and thin.
+// surface, filling Grid::mare, mare_level and titanium.
 void flood(const WorldCode &code, Grid &g);
 
 } // namespace terragen

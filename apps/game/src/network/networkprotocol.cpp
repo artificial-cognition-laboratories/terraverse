@@ -182,11 +182,13 @@
 	PROTOCOL VERSION 89 (Terra Firma)
 		The world on the sphere (sprint 86): TOCLIENT_HORIZON's blocks carry
 		no ice (the polar wall is gone); its code is TF6
-		Only 89 is accepted on either side.
+	PROTOCOL VERSION 90 (Terra Firma)
+		A body's clock (sprint 107): TOCLIENT_SET_SKY's solar carries turns and at
+		Only 90 is accepted on either side.
 */
 
 // Note: Also update core.protocol_versions in builtin when bumping
-const u16 LATEST_PROTOCOL_VERSION = 89;
+const u16 LATEST_PROTOCOL_VERSION = 94;
 
 // See also formspec [Version History] in doc/lua_api.md
 const u16 FORMSPEC_API_VERSION = 12;

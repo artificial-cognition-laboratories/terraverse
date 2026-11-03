@@ -124,7 +124,7 @@ void Planetarium::show(View::Opts body)
 void Planetarium::apply(View &p) const
 {
 	p.seams(m_seams);
-	p.day(m_clock.date * p.system().period(p.system().playable()));
+	p.day(m_clock.date * p.system().year());
 }
 
 void Planetarium::tick(double seconds)
@@ -184,7 +184,7 @@ void Planetarium::dayIn(double worldDays, int32_t worldYear)
 {
 	for (View *p : { m_current.get(), m_next.get() })
 		if (p)
-			p->day(p->system().dayFor(worldDays, worldYear), worldDays - std::floor(worldDays));
+			p->day(p->system().dayFor(worldDays, worldYear), p->system().clock(p->tiled(), worldDays, worldYear).hour(worldDays - std::floor(worldDays)));
 }
 
 void Planetarium::path(std::optional<planetarium::Planetarium::Path> path)

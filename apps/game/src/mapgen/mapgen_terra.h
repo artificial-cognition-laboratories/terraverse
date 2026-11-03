@@ -26,7 +26,7 @@ terra::Blocks terraBlocks(const BiomeManager *bmgr, const NodeDefManager *ndef);
 
 struct MapgenTerraParams : public MapgenParams
 {
-	// The world code (TF9.…): everything terragen needs. Written into the
+	// The world code (TF10.…): everything terragen needs. Written into the
 	// world's map_meta.txt when the world is created.
 	std::string code;
 
@@ -55,6 +55,18 @@ public:
 	// the map: a spawn is looked for before its tile is in the window.
 	// MAX_MAP_GENERATION_LIMIT where no one spawns. Safe from another thread.
 	int spawnLevelAt(int body, double latitude, double longitude) const;
+
+private:
+public:
+	// What grows on column `index` of the current chunk (z outer, x inner)
+	struct SurfaceCover
+	{
+		double density, heat, wet, elevation;
+		bool bank;
+		u32 roll;
+		bool alive; // on a body where life arose: nothing at all grows on the rest
+	};
+	SurfaceCover surfaceCover(size_t index) const;
 
 private:
 	// Fills stone, water and air from terragen; records each column. Returns

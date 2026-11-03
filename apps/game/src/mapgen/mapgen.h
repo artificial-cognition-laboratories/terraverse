@@ -49,7 +49,9 @@ enum MapgenObject {
 	MGOBJ_BIOMEMAP,
 	MGOBJ_HEATMAP,
 	MGOBJ_HUMIDMAP,
-	MGOBJ_GENNOTIFY
+	MGOBJ_GENNOTIFY,
+	MGOBJ_SHORE,     // Terra Firma: loose ground meeting water
+	MGOBJ_TERRA_COVER // Terra Firma: what can grow on each surface of the chunk
 };
 
 enum GenNotifyType {

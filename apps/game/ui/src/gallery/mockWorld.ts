@@ -25,7 +25,6 @@ export function mockPreview(config: WorldConfig, date: number | null, resolution
     const persistence = 0.35 + config.roughness * 0.25
     // no date: the engine shows the yearly mean; the mock approximates with an equinox
     const decl = declination(config.tilt, date ?? 0)
-    const warmth = star(config.star).warmth
     const n = resolution * resolution
     const elevation = new Int16Array(n), heats = new Int8Array(n), wets = new Int8Array(n), biomes = new Uint8Array(n)
     const seasons = new Int8Array(n), fertility = new Uint8Array(n)
@@ -46,7 +45,7 @@ export function mockPreview(config: WorldConfig, date: number | null, resolution
             const inland = Math.max(0, Math.min(1, base / 0.25))
             const e = base < 0 ? base : base * 0.6 + ridge * ridge * config.mountains * inland
 
-            const heat = (sun - 0.55) * 2.2 + warmth + config.temperature * 0.6
+            const heat = (sun - 0.55) * 2.2 + config.temperature * 0.6
                 + torusFbm(u, v, seed + 13, 3, 3, 0.5) * 0.2 - Math.max(0, e) * 0.9
             const wet = torusFbm(u, v, seed + 29, 3, 3, 0.5) + config.humidity * 0.6
 

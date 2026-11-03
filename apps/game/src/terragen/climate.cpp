@@ -9,6 +9,9 @@
 #include <algorithm>
 #include <cmath>
 
+#include "parallel.h"
+#include <atomic>
+
 namespace terragen {
 
 // ---- circulation (shared with src/fluid) -----------------------------------
@@ -102,7 +105,7 @@ const fix RADIATE_A = toFix(188);      // heat radiated at 0 °C …
 const fix RADIATE_B = ratio(209, 100); // … and per °C more (water vapour and CO₂ included)
 const fix CARRY = ratio(40, 100);      // heat carried poleward per °C of gradient (in sin latitude)
 const fix SEA_ALBEDO = ratio(7, 100), LAND_ALBEDO = ratio(16, 100), ICE_ALBEDO = ratio(42, 100);
-const fix PUSH = ratio(40, 100);        // the star's and the setting's forcing, against their old offset
+const fix PUSH = ratio(40, 100);        // the setting's forcing, against its old offset
 const fix ICE_FROM = -toFix(5), ICE_FULL = -toFix(15); // ice spreads over this span of the yearly mean
 // Clouds brighten the planet, more toward the poles: 0.24 + 0.05 · P₂(sin latitude).
 fix cloud(fix x)
@@ -119,12 +122,15 @@ struct Cells
 {
 	const Sphere &sphere = gridSphere();
 	int32_t n = sphere.size();
-	std::vector<fix> lat, v;
+	std::vector<fix> lat, v, x; // x: sin latitude from the axis
 	std::vector<Dir> east, north;
 	std::vector<int32_t> band;
 	std::vector<std::vector<int32_t>> in_band;
-	Cells()
+	// `axis` is what the zones are round: the spin's, or a star-held world's
+	// line to its star, where day and night are the zones
+	explicit Cells(const Dir &axis)
 	{
+		x.resize(n);
 		lat.resize(n);
 		v.resize(n);
 		east.resize(n);
@@ -133,11 +139,15 @@ struct Cells
 		in_band.resize(BANDS);
 		for (int32_t i = 0; i < n; i++) {
 			const Dir &d = sphere.centre(i);
-			lat[i] = latitudeOf(d);
+			x[i] = axis.y == ONE ? d.y : (fix)(plates::dot(d, axis) >> FRAC);
+			lat[i] = axis.y == ONE ? latitudeOf(d) : HALF_PI - acos(clamp(x[i], -ONE, ONE));
 			v[i] = World::v(d);
-			east[i] = d.x == 0 && d.z == 0 ? Dir{ 0, 0, ONE } : normalise(-(int64_t)d.z, 0, d.x);
+			// d × axis: the way the zones run
+			const int64_t ex = ((int64_t)d.y * axis.z - (int64_t)d.z * axis.y) >> FRAC, ey = ((int64_t)d.z * axis.x - (int64_t)d.x * axis.z) >> FRAC,
+					ez = ((int64_t)d.x * axis.y - (int64_t)d.y * axis.x) >> FRAC;
+			east[i] = ex == 0 && ey == 0 && ez == 0 ? Dir{ 0, 0, ONE } : normalise(ex, ey, ez);
 			north[i] = plates::cross(east[i], d);
-			band[i] = bandOf(d.y);
+			band[i] = bandOf(x[i]);
 			in_band[band[i]].push_back(i);
 		}
 	}
@@ -171,10 +181,10 @@ struct Cells
 	}
 };
 
-const Cells &cells()
+const Cells &cells(bool facing_star)
 {
-	static const Cells c;
-	return c;
+	static const Cells spinning(Dir{ 0, ONE, 0 }), held(Dir{ ONE, 0, 0 });
+	return facing_star ? held : spinning;
 }
 
 /*
@@ -216,13 +226,13 @@ std::vector<fix> blur(const std::vector<fix> &f, fix sigma)
 	}
 	std::vector<fix> out(f.size());
 	const Sphere &fine = gridSphere();
-	for (int32_t i = 0; i < fine.size(); i++) {
+	parallelFor(fine.size(), [&](int32_t i) {
 		const Sphere::Spot spot = coarse.spot(fine.centre(i));
 		int64_t s = 0;
 		for (int k = 0; k < 3; k++)
 			s += (int64_t)c[spot.cells[k]] * spot.weights[k];
 		out[i] = (fix)(s >> FRAC);
-	}
+	});
 	return out;
 }
 
@@ -264,16 +274,17 @@ const fix CURRENT_HEAT = ratio(28, 100);  // heat a full-strength current carrie
 
 std::vector<fix> currents(const std::vector<fix> &elevation)
 {
-	const Cells &g = cells();
+	const Cells &g = cells(false);
 	const int32_t rows = RASTER / 2;
 	std::vector<uint8_t> land((size_t)RASTER * rows);
-	for (int32_t y = 0; y < rows; y++)
+	parallelFor(rows, [&](int32_t y) {
 		for (int32_t x = 0; x < RASTER; x++)
 			land[(size_t)y * RASTER + x] = elevation[g.sphere.cell(World::place(ratio(2 * x + 1, 2 * RASTER), ratio(2 * y + 1, 2 * rows)).dir())] >= 0;
+	});
 	std::vector<fix> sea(g.n, 0);
-	for (int32_t i = 0; i < g.n; i++) {
+	parallelFor(g.n, [&](int32_t i) {
 		if (elevation[i] >= 0)
-			continue;
+			return;
 		const Dir &d = g.sphere.centre(i);
 		const int32_t x = std::clamp(floorInt(World::u(d) * RASTER), 0, RASTER - 1), y = std::clamp(floorInt(g.v[i] * rows), 0, rows - 1);
 		const uint8_t *row = &land[(size_t)y * RASTER];
@@ -293,7 +304,7 @@ std::vector<fix> currents(const std::vector<fix> &elevation)
 		// and on the equator, cold water welling up off the eastern side
 		const fix upwelling = mul(tropical, mul(eastern, ratio(4, 10)));
 		sea[i] = mul(poleward - upwelling, CURRENT_HEAT);
-	}
+	});
 	// currents spread and mix, then carry onto the coasts, thinning inland
 	const std::vector<fix> mixed = blur(sea, degrees(4));
 	for (int32_t i = 0; i < g.n; i++)
@@ -315,14 +326,14 @@ std::vector<fix> currents(const std::vector<fix> &elevation)
 	`sun` is each band's sunlight (relative to the equator at equinox),
 	`surface` its albedo without ice, `ice` the share of it that can freeze.
 */
-std::vector<fix> balance(const std::vector<fix> &sun, const std::vector<fix> &surface, fix forcing,
+std::vector<fix> balance(const std::vector<fix> &sun, const std::vector<fix> &surface, fix forcing, fix carrying,
 		const std::vector<fix> *ice_from = nullptr)
 {
 	using wide = int64_t; // fixed, FRAC bits, 64 wide
 	const wide dx = ratio(2, BANDS);
 	std::vector<wide> up(BANDS), dn(BANDS);
 	for (int32_t b = 0; b < BANDS; b++) {
-		auto flux = [&](fix edge) { return (wide)mul(CARRY, ONE - mul(edge, edge)) * ONE / dx * ONE / dx; };
+		auto flux = [&](fix edge) { return (wide)mul(mul(CARRY, carrying), ONE - mul(edge, edge)) * ONE / dx * ONE / dx; };
 		up[b] = b + 1 < BANDS ? flux(Cells::middle(b) + (fix)dx / 2) : 0;
 		dn[b] = b > 0 ? flux(Cells::middle(b) - (fix)dx / 2) : 0;
 	}
@@ -373,11 +384,16 @@ fix sunlight(const WorldCode &code, fix v, std::optional<fix> date)
 
 Climate climate(const WorldCode &code, const std::vector<fix> &elevation)
 {
-	const Cells &g = cells();
+	const bool held = code.processes.facing_star;
+	const Cells &g = cells(held);
 	if ((int32_t)elevation.size() != g.n)
 		throw std::invalid_argument("climate: the elevation must be per grid cell");
 	Climate out;
-	out.sea = currents(elevation);
+	// (gyres are the spin's work: a world turning once a year has none to speak of)
+	out.sea = held ? std::vector<fix>(g.n, 0) : currents(elevation);
+	// straight overhead at the middle of the day side, none on the night: the
+	// same units as a spinning world's day-long mean (S₀/π)
+	const auto faced = [](fix x) { return mul(PI, maxx(x, 0)); };
 
 	// --- temperature: the bands' balance, then each cell about its band ---
 	// the land's share of each band, and how continental each cell is (how
@@ -394,23 +410,23 @@ Climate climate(const WorldCode &code, const std::vector<fix> &elevation)
 		const fix f = g.in_band[b].empty() ? 0 : (fix)(share / (int64_t)g.in_band[b].size());
 		surface[b] = lerp(SEA_ALBEDO, LAND_ALBEDO, f);
 		const fix lat = HALF_PI - acos(Cells::middle(b)), v = HALF - div(lat, PI);
-		sun_year[b] = sunlight(code, v, std::nullopt);
-		sun_season[0][b] = sunlight(code, v, ratio(1, 4));
-		sun_season[1][b] = sunlight(code, v, ratio(3, 4));
+		sun_year[b] = held ? faced(Cells::middle(b)) : sunlight(code, v, std::nullopt);
+		sun_season[0][b] = held ? sun_year[b] : sunlight(code, v, ratio(1, 4));
+		sun_season[1][b] = held ? sun_year[b] : sunlight(code, v, ratio(3, 4));
 	}
-	// the star and the Temperature setting push as forcings: what would warm
-	// the world by PUSH × their old heat (in degrees) without ice, which
-	// takes them further (a world near its star's habitable zone, nudged)
-	const fix forcing = mul(mul(RADIATE_B, (code.star->warmth + mul(code.temperature, ratio(6, 10))) * 37), PUSH);
-	const std::vector<fix> year = balance(sun_year, surface, forcing);
-	const std::vector<fix> season[2] = { balance(sun_season[0], surface, forcing, &year), balance(sun_season[1], surface, forcing, &year) };
+	// the body's card sets how warm it is (star, orbit and air), and the
+	// Temperature setting nudges that: forcings, which ice takes further
+	const fix forcing = mul(RADIATE_B, code.processes.warming) + mul(mul(RADIATE_B, mul(code.temperature, ratio(6, 10)) * 37), PUSH);
+	const fix carrying = code.processes.carrying;
+	const std::vector<fix> year = balance(sun_year, surface, forcing, carrying);
+	const std::vector<fix> season[2] = { balance(sun_season[0], surface, forcing, carrying, &year), balance(sun_season[1], surface, forcing, carrying, &year) };
 
 	out.heat.resize(g.n);
 	out.gain.resize(g.n);
 	std::vector<fix> swing[2] = { std::vector<fix>(g.n), std::vector<fix>(g.n) };
-	int64_t frozen = 0;
-	for (int32_t i = 0; i < g.n; i++) {
-		const fix x = g.sphere.centre(i).y;
+	std::atomic<int64_t> frozen{ 0 };
+	parallelFor(g.n, [&](int32_t i) {
+		const fix x = g.x[i];
 		const fix band_year = inBands(year, x);
 		// its own surface against the band's: land brighter than sea, ice
 		// brightest. Ice is the cell's own: where it's cold for itself (high
@@ -420,7 +436,7 @@ Climate climate(const WorldCode &code, const std::vector<fix> &elevation)
 		// (an ice sheet on land lasts only where it's colder still: summers melt it back)
 		const fix own = elevation[i] >= 0 ? lerp(LAND_ALBEDO, ICE_ALBEDO, iced(own_cold + toFix(6))) : lerp(SEA_ALBEDO, ICE_ALBEDO, iced(own_cold));
 		const fix mean = lerp(inBands(surface, x), ICE_ALBEDO, iced(band_year));
-		const fix sun = sunlight(code, g.v[i], std::nullopt);
+		const fix sun = held ? faced(x) : sunlight(code, g.v[i], std::nullopt);
 		// (a local difference is mostly undone by the air mixing it away:
 		// land and sea at one latitude differ by a few degrees a year, not
 		// ten; ice, a sheet over a whole region, keeps more of its chill)
@@ -441,13 +457,15 @@ Climate climate(const WorldCode &code, const std::vector<fix> &elevation)
 			swing[s][i] = mul(inBands(season[s], x) - band_year, damp) / 37;
 		// per unit of sunlight above the year's, from the cell's own summer
 		const int s = g.lat[i] >= 0 ? 0 : 1;
-		const fix more = sunlight(code, g.v[i], s == 0 ? ratio(1, 4) : ratio(3, 4)) - sun;
+		const fix more = held ? 0 : sunlight(code, g.v[i], s == 0 ? ratio(1, 4) : ratio(3, 4)) - sun;
 		out.gain[i] = more > ratio(2, 100) ? div(swing[s][i], more) : 0;
-	}
-	out.ice = (fix)(frozen / g.n);
+	});
+	out.ice = (fix)(frozen.load() / g.n);
 
 	// --- rain: each season's winds carry the sea's vapour over the land ---
-	const Circulation circ = circulation(home());
+	Planet turning = home();
+	turning.day = turning.day * ((double)code.processes.day / toFix(24));
+	const Circulation circ = circulation(turning);
 	for (int s = 0; s < 2; s++) {
 		const fix date = s == 0 ? ratio(1, 4) : ratio(3, 4);
 		// the rising branch follows the sun about halfway (thermal lows carry it further over land)
@@ -484,8 +502,9 @@ Climate climate(const WorldCode &code, const std::vector<fix> &elevation)
 		// where each cell's air was a pass ago, and how fast it rises
 		std::vector<Sphere::Spot> from(g.n);
 		std::vector<fix> lift(g.n), surface_holds(g.n), holds(g.n);
-		for (int32_t i = 0; i < g.n; i++) {
-			const Flow f = flow(circ, g.lat[i], itcz);
+		parallelFor(g.n, [&](int32_t i) {
+			// a held world's air rises under the star, runs to it low down, and sinks on the night side
+			const Flow f = held ? Flow{ 0, mul(ratio(28, 100), sqrt(maxx(ONE - mul(g.x[i], g.x[i]), 0))), g.x[i] } : flow(circ, g.lat[i], itcz);
 			// the mean wind, bent toward warmer air (sea breezes at the scale of continents)
 			const fix u = f.u + mul(warm_east[i], MONSOON), v = f.v + mul(warm_north[i], MONSOON);
 			const Dir &c = g.sphere.centre(i), &e = g.east[i], &n = g.north[i];
@@ -502,14 +521,14 @@ Climate climate(const WorldCode &code, const std::vector<fix> &elevation)
 			// it; a quarter of the local heat keeps mountains cooling what crosses
 			surface_holds[i] = capacity((3 * air[i] + heat[i]) / 4);
 			holds[i] = mul(surface_holds[i], exp2(-mul(lift[i], ratio(12, 10))));
-		}
+		});
 
 		// the moisture march: vapour carried along the wind, made up toward
 		// saturation over water (and from wet land), rained out where the air,
 		// lifted, holds less than it carries
 		std::vector<fix> q(g.n, 0), rain(g.n, 0), total(g.n, 0), next(g.n);
 		for (int pass = 0; pass < SWEEPS; pass++) {
-			for (int32_t i = 0; i < g.n; i++) {
+			parallelFor(g.n, [&](int32_t i) {
 				const Sphere::Spot &sp = from[i];
 				const fix was = (fix)(((int64_t)q[sp.cells[0]] * sp.weights[0] + (int64_t)q[sp.cells[1]] * sp.weights[1]
 						+ (int64_t)q[sp.cells[2]] * sp.weights[2]) >> FRAC);
@@ -522,14 +541,14 @@ Climate climate(const WorldCode &code, const std::vector<fix> &elevation)
 				const fix fall = mul(maxx(carried - holds[i], 0), RAINOUT) + mul(carried, DRIZZLE);
 				next[i] = carried - fall;
 				rain[i] = fall;
-			}
+			});
 			// a little mixing with the cells round: the eddies the mean wind leaves out
-			for (int32_t i = 0; i < g.n; i++) {
+			parallelFor(g.n, [&](int32_t i) {
 				int64_t round = 0;
 				for (const int32_t *p = g.sphere.neighboursBegin(i); p != g.sphere.neighboursEnd(i); p++)
 					round += next[*p];
 				q[i] = mul(next[i], ratio(8, 10)) + mul((fix)(round / g.sphere.neighbourCount(i)), ratio(2, 10));
-			}
+			});
 			if (pass >= SWEEPS - AVERAGED)
 				for (int32_t i = 0; i < g.n; i++)
 					total[i] += rain[i] / AVERAGED;

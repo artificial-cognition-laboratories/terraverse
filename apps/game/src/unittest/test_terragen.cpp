@@ -3,6 +3,9 @@
 
 #include "test.h"
 
+#include <map>
+#include <tuple>
+#include "terragen/channels.h"
 #include "terragen/body.h"
 #include "terragen/calendar.h"
 #include "terragen/code.h"
@@ -11,7 +14,10 @@
 #include "terragen/noise.h"
 #include "terragen/preview.h"
 #include "terragen/sun.h"
+#include "terragen/system.h"
 #include "terragen/world.h"
+#include "terragen/worlds.h"
+#include "terragen/system.h"
 #include "terragen/grid.h"
 #include "terragen/sphere.h"
 #include "terragen/climate.h"
@@ -26,6 +32,9 @@ public:
 	const char *getName() { return "TestTerragen"; }
 
 	void runTests(IGameDef *gamedef);
+	void testChannels();
+	void testRanges();
+	void testCoarse();
 
 	void testDecodeDefaults();
 	void testDecodeParams();
@@ -55,6 +64,12 @@ public:
 	void testClimate();
 	void testClimateFromLand();
 	void testOceanCurrents();
+	void testStars();
+	void testHomeFollowsCard();
+	void testSpin();
+	void testDouble();
+	void testBinary();
+	void testEveryBodysLand();
 	void testEnergyBalance();
 	void testSoil();
 	void testDeterminismGolden();
@@ -72,6 +87,9 @@ static Place flat(const World &w, int32_t x, int32_t z)
 
 void TestTerragen::runTests(IGameDef *gamedef)
 {
+	TEST(testChannels);
+	TEST(testRanges);
+	TEST(testCoarse);
 	TEST(testDecodeDefaults);
 	TEST(testDecodeParams);
 	TEST(testDecodeRejects);
@@ -100,6 +118,12 @@ void TestTerragen::runTests(IGameDef *gamedef)
 	TEST(testClimate);
 	TEST(testClimateFromLand);
 	TEST(testOceanCurrents);
+	TEST(testStars);
+	TEST(testHomeFollowsCard);
+	TEST(testSpin);
+	TEST(testDouble);
+	TEST(testBinary);
+	TEST(testEveryBodysLand);
 	TEST(testEnergyBalance);
 	TEST(testSoil);
 	TEST(testDeterminismGolden);
@@ -107,9 +131,9 @@ void TestTerragen::runTests(IGameDef *gamedef)
 
 // Codes for the water tests: default, a supercontinent, an archipelago (as the page encodes them).
 static const char *const WATER_CODES[] = {
-	"TF9.dGVycmE",
-	"TF9.dGVycmE.AgIAplmZgICAgICAglU",
-	"TF9.dGVycmE.AgL_QNlNgKaAgICAglU",
+	"TF16.dGVycmE",
+	"TF16.dGVycmE.AgKAqoCAAACmWZmAgICAgICCVQ",
+	"TF16.dGVycmE.AgKAqoCAAP9A2U2ApoCAgICCVQ",
 };
 
 static bool near(fix a, fix b, fix tolerance)
@@ -120,10 +144,10 @@ static bool near(fix a, fix b, fix tolerance)
 // Codes produced by the page's encodeWorldCode (ui/src/worldgen/config.ts).
 void TestTerragen::testDecodeDefaults()
 {
-	WorldCode w = WorldCode::decode("TF9.YWJj");
+	WorldCode w = WorldCode::decode("TF16.YWJj");
 	UASSERTEQ(std::string, w.seed, "abc");
 	UASSERTEQ(int, w.size, 16384); // as ui/src/worldgen/config.ts DEFAULTS
-	UASSERTEQ(std::string, w.star->id, "yellow");
+	UASSERTEQ(std::string, w.star->id, "G");
 	UASSERTEQ(int, w.continents, 4);
 	UASSERTEQ(int, roundInt(w.tilt), 23);
 	UASSERTEQ(int, w.year, 48);
@@ -135,9 +159,9 @@ void TestTerragen::testDecodeParams()
 {
 	// size 1 (62832 round: radius 10k), red dwarf, continents 6, tilt 40,
 	// everything else default
-	WorldCode w = WorldCode::decode("TF9.YWJj.AQC2ZoCAgICAgICA41U");
+	WorldCode w = WorldCode::decode("TF16.YWJj.AQCAqoCAALZmgICAgICAgIDjVQ");
 	UASSERTEQ(int, w.size, 62832);
-	UASSERTEQ(std::string, w.star->id, "red");
+	UASSERTEQ(std::string, w.star->id, "M");
 	UASSERTEQ(int, w.continents, 6);
 	UASSERTEQ(int, roundInt(w.tilt), 40);
 	UASSERTEQ(int, w.year, 48);
@@ -149,8 +173,8 @@ void TestTerragen::testDecodeRejects()
 	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF1.YWJj")); // an older generator: refused, not reinterpreted
 	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF2.YWJj")); // before plates and geology: refused too
 	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF9."));
-	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF9.YWJj.AAA"));
-	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF9.YW*j"));
+	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF16.YWJj.AACAqoCAAA"));
+	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF16.YW*j"));
 }
 
 void TestTerragen::testTrig()
@@ -274,10 +298,456 @@ static fix real(double v)
 	return (fix)(v * ONE);
 }
 
+// As the page's encodeWorldCode writes them: an Earth at 2 AU, a moon called Mún.
+static const char *const PAGE_BODIES = "TF16.YWJj.AAKAqoCAAG1mgICAgICAgICCVQ.AgVlYXJ0aAVFYXJ0aFCkxf8DaAkAACIrA1mZgAMuAW0ETcO6bqq7zAAAkTeAwdFWDU0aGvsO";
+
+// Stars by class: the Sun's exact, heavy ones short-lived and fierce, poor ones poor in metal.
+// A system as the page writes it (config.ts bodyBytes), on a code of default settings
+static std::string codeWith(const SystemSpec &s)
+{
+	std::vector<uint8_t> b{ (uint8_t)s.bodies.size() };
+	const auto text = [&](const std::string &t) { b.push_back((uint8_t)t.size()); b.insert(b.end(), t.begin(), t.end()); };
+	const auto logged = [&](fix v) {
+		const int16_t w = (int16_t)std::lround(std::log10(v / 65536.0) * 8000);
+		b.push_back((uint8_t)(w & 255));
+		b.push_back((uint8_t)((uint16_t)w >> 8));
+	};
+	for (const SystemBody &o : s.bodies) {
+		text(o.id);
+		text(o.name);
+		b.insert(b.end(), { 128, 128, 128 });
+		b.push_back(o.causes.parent < 0 ? 255 : (uint8_t)o.causes.parent);
+		b.push_back((o.causes.life ? 1 : 0) | (o.playable ? 2 : 0) | (o.land ? 4 : 0) | (uint8_t)o.causes.spin << 3);
+		logged(o.causes.orbit);
+		logged(o.causes.mass);
+		logged(o.causes.day);
+		for (const fix v : { o.causes.eccentricity, o.causes.formed, o.causes.volatiles })
+			b.push_back((uint8_t)std::lround(v * 255.0 / ONE));
+		b.push_back((uint8_t)std::lround(o.phase * 255));
+		b.push_back((uint8_t)(int8_t)o.inclination);
+		b.push_back((uint8_t)std::lround(o.tilt * 2));
+		if (o.land)
+			b.insert(b.end(), o.land->begin(), o.land->end());
+	}
+	static const char ABC[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+	std::string out;
+	uint32_t acc = 0;
+	int bits = 0;
+	for (const uint8_t v : b) {
+		acc = acc << 8 | v;
+		for (bits += 8; bits >= 6; bits -= 6)
+			out.push_back(ABC[(acc >> (bits - 6)) & 63]);
+	}
+	if (bits > 0)
+		out.push_back(ABC[(acc << (6 - bits)) & 63]);
+	return "TF16.dGVycmE.AAKAqoCAAG1mgICAgICAgICCVQ." + out;
+}
+
+// the mean of a world's year at a place, °C
+static fix yearly(const World &w, const Place &at)
+{
+	fix sum = 0;
+	for (int k = 0; k < 4; k++)
+		sum += w.temperature(at, ratio(k, 4), ratio(3, 8)) / 4;
+	return sum;
+}
+
+// Free by default however close; a lock sets the day; a world facing its star
+// has a hot side, a frozen side and a ring between to live on.
+void TestTerragen::testBinary()
+{
+	const auto with = [](Pairing kind, fix separation, int orbit_percent) {
+		SystemSpec s = SystemSpec::home();
+		s.star.companion = { kind, 1, ratio(75, 100), separation };
+		s.bodies[1].causes.orbit = ratio(orbit_percent, 100);
+		// (only Earth is the test's)
+		s.bodies.resize(2);
+		s.bodies.erase(s.bodies.begin());
+		s.bodies[0].playable = true;
+		return s;
+	};
+	const System one{ SystemSpec::home() };
+	UASSERT(!one.hasCompanion());
+
+	// a close pair: their light adds, their masses both pull, they circle a point between
+	const System close{ with(Pairing::Close, ratio(20, 100), 100) };
+	const fix alone = luminosity(ONE), both = alone + luminosity(ratio(75, 100));
+	UASSERT(near(close.cards()[0].sunlight, both, 64));
+	UASSERT(close.cards()[0].temperature > one.cards()[1].temperature);
+	UASSERT(std::abs(close.period(0) - 365.25 / std::sqrt(1.75)) < 1);
+	const System::Vec a = close.starAt(false, 3), b = close.starAt(true, 3);
+	UASSERT(std::abs(a.x * 1 + b.x * 0.75) < 1 && std::abs(a.z * 1 + b.z * 0.75) < 1);
+	UASSERT(std::abs(std::hypot(a.x - b.x, a.z - b.z) - 0.2 * 149597870.7) < 5000); // (the separation is fixed point)
+
+	// a wide one: the first holds the planet, the other is a faint extra
+	const System wide{ with(Pairing::Wide, toFix(300), 100) };
+	UASSERT(near(wide.cards()[0].sunlight, alone, 16));
+	UASSERT(std::abs(wide.period(0) - one.period(1)) < 1e-6);
+	UASSERT(wide.starAt(false, 3).x == 0);
+	UASSERT(wide.secondShare(0, 0) < 1e-3);
+
+	// orbits that wouldn't last, stars that would touch
+	EXCEPTION_CHECK(std::invalid_argument, System{ with(Pairing::Close, ratio(50, 100), 100) });
+	EXCEPTION_CHECK(std::invalid_argument, System{ with(Pairing::Wide, toFix(30), 2000) });
+	SystemSpec touching = with(Pairing::Close, ratio(2, 100), 100);
+	touching.star.type = 6;
+	touching.star.mass = toFix(30);
+	touching.star.age = ratio(3, 1000);
+	touching.star.companion.type = 6;
+	touching.star.companion.mass = toFix(30);
+	EXCEPTION_CHECK(std::invalid_argument, System{ touching });
+
+	// the seed's: a real companion, the same each time, whatever it lays out holding together
+	int close_ones = 0, wide_ones = 0;
+	for (const char *seed : { "dGVycmE", "YWJj", "c2VlZDE", "c2VlZDI", "c2VlZDM", "c2VlZDQ", "c2VlZDU", "c2VlZDY", "c2VlZDc" })
+		for (int star = 0; star < STAR_COUNT; star++) {
+			WorldCode c = WorldCode::decode(std::string("TF16.") + seed);
+			c.style = SystemStyle::Binary;
+			c.star = &STARS[star];
+			c.star_mass = STARS[star].mass;
+			c.age = std::min(c.age, lifetime(c.star_mass));
+			const System s{ SystemSpec::forWorld(c) };
+			UASSERT(s.hasCompanion());
+			(s.spec().star.companion.kind == Pairing::Close ? close_ones : wide_ones)++;
+			UASSERT(SystemSpec::companionOf(c).mass == s.spec().star.companion.mass);
+		}
+	UASSERT(close_ones > 0 && wide_ones > 0);
+}
+
+void TestTerragen::testDouble()
+{
+	// our Moon's balance point is inside Earth: no double
+	const System usual{ SystemSpec::home() };
+	UASSERT(!usual.partner(1) && !usual.partner(4));
+
+	// a second Earth ten radii off
+	const auto doubled = [](Spin both) {
+		SystemSpec s = SystemSpec::home();
+		SystemBody other = s.bodies[1];
+		other.id = "other";
+		other.playable = false;
+		other.causes.parent = 1;
+		other.causes.orbit = toFix(10);
+		other.causes.eccentricity = 0;
+		other.causes.spin = both;
+		other.phase = 0.3;
+		s.bodies[1].causes.spin = both;
+		s.bodies[1].causes.eccentricity = 0;
+		s.bodies.push_back(other);
+		return s;
+	};
+	const System free{ doubled(Spin::Free) };
+	const size_t other = free.spec().bodies.size() - 1;
+	UASSERT(free.partner(1) == other && free.partner(other) == (size_t)1);
+	// they're opposite each other round a point between them, which keeps the star's orbit
+	const System::Vec a = free.position(1, 40), b = free.position(other, 40), mid = free.balance(1, 40);
+	const double moon = free.spec().bodies[4].causes.mass / 65536.0; // (the Moon swings Earth a little too)
+	const double apart = std::hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+	UASSERT(std::abs(apart - 10 * free.radius(1)) < free.radius(1) / 100);
+	const System::Vec r = free.fromHost(other, 40), m = free.fromHost(4, 40);
+	UASSERT(std::abs((a.x + r.x / 2 + m.x * moon / (1 + moon)) - mid.x) < 1);
+	UASSERT(std::abs((b.x - r.x / 2 + m.x * moon / (1 + moon)) - mid.x) < 1);
+	// both masses pull: √2 quicker than the same orbit round one alone
+	const double a_km = 10 * free.radius(1);
+	UASSERT(std::abs(free.period(other) - 2 * M_PI * std::sqrt(a_km * a_km * a_km / (398600.4418 * 2)) / 86400) < 0.01);
+	// each flexes the other
+	UASSERT(free.cards()[1].tidal > 0 && free.cards()[1].tidal == free.cards()[other].tidal);
+
+	// held to each other: each stays fixed in the other's sky, through the compressed calendar and between days
+	const System held{ doubled(Spin::Partner) };
+	const double month = held.period(other) * 24;
+	UASSERT(std::abs(held.cards()[1].day / 65536.0 - month) < month / 100);
+	UASSERT(std::abs(held.cards()[other].day / 65536.0 - month) < month / 100);
+	UASSERT(held.spec().bodies[1].tilt == 0);
+	const auto seen = [&](const System &s, size_t from, size_t to, double worldDays) {
+		const double day = s.dayFor(worldDays, 48), time = worldDays - std::floor(worldDays);
+		const System::Vec p = s.position(from, day), q = s.position(to, day);
+		const double turned = std::atan2(-p.z, -p.x) + 2 * M_PI * (s.clock(from, worldDays, 48).hour(time) - 0.5);
+		return std::atan2(q.z - p.z, q.x - p.x) - turned;
+	};
+	for (double d : { 3.7, 10.1, 31.5 }) {
+		UASSERT(std::abs(std::remainder(seen(held, other, 1, d) - seen(held, other, 1, 3.2), 2 * M_PI)) < 0.02);
+		UASSERT(std::abs(std::remainder(seen(held, 1, other, d) - seen(held, 1, other, 3.2), 2 * M_PI)) < 0.02);
+	}
+	// spinning free, it crosses the sky
+	UASSERT(std::abs(std::remainder(seen(free, 1, other, 3.45) - seen(free, 1, other, 3.2), 2 * M_PI)) > 0.5);
+	// the lock reaches the code, and starts on either half
+	const WorldCode code = WorldCode::decode(codeWith(doubled(Spin::Partner)));
+	UASSERT(code.processes.day > toFix(24) && code.tilt == 0);
+
+	// what can't hold
+	SystemSpec close = doubled(Spin::Free);
+	close.bodies.back().causes.orbit = ratio(19, 10);
+	EXCEPTION_CHECK(std::invalid_argument, System{ close });
+	// (a body many times lighter but puffed up with ice, torn apart outside where it would touch)
+	SystemSpec torn = SystemSpec::home();
+	torn.bodies[4].causes.orbit = ratio(150, 100);
+	torn.bodies[4].causes.mass = ratio(1, 100);
+	torn.bodies[4].causes.formed = ratio(90, 100);
+	EXCEPTION_CHECK(std::invalid_argument, System{ torn });
+
+	// everything the seed lays out holds together, doubles too
+	for (const char *seed : { "dGVycmE", "YWJj", "c2VlZDE", "c2VlZDI", "c2VlZDM", "c2VlZDQ", "c2VlZDU" }) {
+		WorldCode c = WorldCode::decode(std::string("TF16.") + seed);
+		for (int style = (int)SystemStyle::SunLike; style < (int)SystemStyle::Count; style++) {
+			c.style = (SystemStyle)style;
+			const System s{ SystemSpec::generate(c) };
+			if (c.style == SystemStyle::Double)
+				UASSERT(s.partner(s.playable()).has_value());
+		}
+	}
+}
+
+void TestTerragen::testSpin()
+{
+	const System usual{ SystemSpec::home() };
+	for (const BodyCard &c : usual.cards())
+		UASSERT(!c.locked);
+	UASSERT(usual.clock(1, 12.25, 48).turns == 1 && usual.clock(1, 12.25, 48).at == 0); // Earth's clock is the engine's
+
+	// the Moon held to Earth: its day is its month, the same face to Earth for good
+	SystemSpec held = SystemSpec::home();
+	held.bodies[4].causes.spin = Spin::Partner;
+	held.bodies[4].tilt = 7;
+	const System moon{ held };
+	UASSERT(moon.cards()[4].locked && moon.spec().bodies[4].tilt == 0);
+	const double month = moon.period(4) * 24;
+	UASSERT(std::abs(moon.cards()[4].day / 65536.0 - month) < month / 100);
+	UASSERT(std::abs(std::remainder(moon.turning(4, 3.7) - 2 * M_PI * (moon.spec().bodies[4].phase + 3.7 / moon.period(4)), 2 * M_PI)) < 1e-9);
+
+	// three turns in two orbits: Mercury's, whose day is two of its years
+	SystemSpec mercury = SystemSpec::home();
+	mercury.bodies[0].causes.spin = Spin::Res3_2;
+	const System m{ mercury };
+	UASSERT(std::abs(m.cards()[0].day / 65536.0 - m.period(0) * 24 / 1.5) < m.period(0) * 24 / 100);
+	// (the playable body's year is Earth's: Cinder's orbits as the world's calendar compresses them)
+	const double perWorldDay = m.period(1) / 48;
+	UASSERT(std::abs(m.clock(0, 0, 48).turns - 0.5 / m.period(0) * perWorldDay) < 1e-9);
+	UASSERT(std::abs(std::fmod(m.clock(0, 5, 48).hour(0.5) - m.clock(0, 4, 48).hour(0.5), 1.0) - std::fmod(m.clock(0, 0, 48).turns, 1.0)) < 1e-6);
+
+	// what can't hold
+	SystemSpec bad = SystemSpec::home();
+	bad.bodies[4].causes.spin = Spin::Star;
+	EXCEPTION_CHECK(std::invalid_argument, System{ bad });
+	bad = SystemSpec::home();
+	bad.bodies[1].causes.spin = Spin::Partner;
+	EXCEPTION_CHECK(std::invalid_argument, System{ bad });
+
+	// Earth facing the Sun
+	SystemSpec facing = SystemSpec::home();
+	facing.bodies[1].causes.spin = Spin::Star;
+	const WorldCode code = WorldCode::decode(codeWith(facing));
+	UASSERT(code.processes.facing_star && code.tilt == 0);
+	UASSERT(code.processes.day > toFix(8000));
+	const World w(code);
+	const auto at = [&](int degrees) { // on the equator, from under the star
+		const double a = degrees * M_PI / 180;
+		return Place(normalise((int64_t)(std::cos(a) * ONE), 0, (int64_t)(std::sin(a) * ONE)));
+	};
+	const fix hot = yearly(w, at(0)), ring = yearly(w, at(90)), night = yearly(w, at(180));
+	UASSERT(hot > toFix(45));
+	UASSERT(night < -toFix(25));
+	UASSERT(ring > -toFix(15) && ring < toFix(30));
+	UASSERT(yearly(w, at(80)) > 0 && yearly(w, at(80)) < toFix(30)); // (where a new player starts)
+	// no seasons, no day's swing: the sun never moves
+	UASSERT(w.temperature(at(90), ratio(1, 4), ratio(1, 8)) == w.temperature(at(90), ratio(3, 4), ratio(5, 8)));
+	// the zones are round the star, not the pole: both poles lie on the ring
+	UASSERT(std::abs((double)(yearly(w, Place(Dir{ 0, ONE, 0 })) - ring)) < 8 * ONE);
+}
+
+void TestTerragen::testHomeFollowsCard()
+{
+	// the default world is Earth's, with nothing pushing its climate
+	const WorldCode earth = WorldCode::decode("TF16.dGVycmE");
+	UASSERT(earth.processes.warming == 0);
+	UASSERT(earth.processes.water && earth.processes.life && earth.processes.regime == Regime::Plates);
+
+	const Place tropic = dirAt(ratio(20, 100), toFix(1));
+	const fix warm = yearly(World(earth), tropic);
+	UASSERT(warm > toFix(10) && warm < toFix(40));
+
+	// moved out to 5 AU: its card freezes, so does its land
+	SystemSpec far = SystemSpec::home();
+	far.bodies[1].causes.orbit = toFix(5);
+	const WorldCode frozen = WorldCode::decode(codeWith(far));
+	UASSERT(!frozen.processes.water && !frozen.processes.life);
+	UASSERT(frozen.processes.warming < -toFix(30)); // (carbon dioxide builds up as the seas freeze: the card keeps it at 251 K)
+	const World cold(frozen);
+	UASSERT(yearly(cold, tropic) < 0);
+	UASSERT(cold.ground(tropic, cold.sunlight(tropic, std::nullopt)).kind == Water::None);
+
+	// the body's tilt is the world's, and moving a moon keeps the land
+	SystemSpec tipped = SystemSpec::home();
+	tipped.bodies[1].tilt = 40;
+	UASSERT(roundInt(WorldCode::decode(codeWith(tipped)).tilt) == 40);
+	SystemSpec moved = SystemSpec::home(), moved2 = moved;
+	moved.bodies[4].phase = 0.2;
+	moved2.bodies[4].phase = 0.7;
+	UASSERTEQ(std::string, WorldCode::decode(codeWith(moved)).grid_key, WorldCode::decode(codeWith(moved2)).grid_key);
+
+	// starting on the Moon: a dry, airless lid; Earth still there to visit; its year is Earth's
+	SystemSpec moon = SystemSpec::home();
+	moon.bodies[1].playable = false;
+	moon.bodies[4].playable = true;
+	const WorldCode there = WorldCode::decode(codeWith(moon));
+	UASSERT(!there.processes.water && !there.processes.life);
+	UASSERT(there.processes.regime == Regime::Lid && there.processes.bare == Surface::Regolith);
+	const std::vector<BodyWorld> worlds = bodyWorlds(there, Atlas::standard(there.size / (2 * M_PI)));
+	UASSERTEQ(std::string, worlds[0].id, "moon");
+	UASSERT(std::any_of(worlds.begin(), worlds.end(), [](const BodyWorld &b) { return b.id == "earth"; }));
+	UASSERT(worlds[0].surroundings.pressure == 0);
+	const System sys(SystemSpec::forWorld(there));
+	UASSERT(std::abs(sys.year() - 365.25) < 1);
+
+	// a giant can't be stood on: refused, not built
+	SystemSpec giant = SystemSpec::home();
+	giant.bodies[1].playable = false;
+	giant.bodies[3].playable = true;
+	EXCEPTION_CHECK(CodeError, WorldCode::decode(codeWith(giant)));
+
+	// a sun-like seed round each ordinary star is somewhere to live
+	for (int kind : { 1, 2, 3 }) {
+		int living = 0;
+		for (int seed = 0; seed < 50; seed++) {
+			WorldCode c = WorldCode::decode("TF16.dGVycmE");
+			c.seed_hash = seed * 2654435761u;
+			c.style = SystemStyle::SunLike;
+			c.star = &STARS[kind];
+			c.star_mass = STARS[kind].mass;
+			c.age = std::min(c.age, lifetime(c.star_mass));
+			const System s{ SystemSpec::forWorld(c) };
+			const BodyCard &home = s.cards()[s.playable()];
+			if (home.ocean && home.kind == Kind::Temperate)
+				living++;
+		}
+		infostream << "sun-like homes round " << STARS[kind].id << ": " << living << "/50 live" << std::endl;
+		UASSERT(living >= 45);
+	}
+}
+
+void TestTerragen::testEveryBodysLand()
+{
+	const auto moonOf = [](const SystemSpec &s) {
+		const WorldCode home = WorldCode::decode(codeWith(s));
+		for (const BodyWorld &b : bodyWorlds(home, Atlas::standard(250000)))
+			if (b.id == "moon")
+				return b.code;
+		throw std::logic_error("no moon to stand on");
+	};
+	const WorldCode usual = moonOf(SystemSpec::home());
+	UASSERT(usual.mountains == WorldCode::decode("TF16.dGVycmE").mountains);
+
+	// a slider reaches the moon's own land, and nothing else's
+	LandBytes high = defaultLand();
+	high[3] = 255; // mountains
+	high[4] = 255; // roughness
+	high[6] = 0;   // humidity
+	SystemSpec set = SystemSpec::home();
+	set.bodies[4].land = high;
+	const WorldCode rough = moonOf(set);
+	UASSERT(rough.mountains == ONE);
+	UASSERT(rough.grid_key != usual.grid_key);
+	UASSERTEQ(std::string, WorldCode::decode(codeWith(set)).grid_key, WorldCode::decode(codeWith(SystemSpec::home())).grid_key);
+	const World flat(usual), tall(rough);
+	int differ = 0;
+	for (int i = 0; i < 64; i++) {
+		const Place at = dirAt(ratio(i - 32, 40), ratio(i * 5, 8));
+		if (flat.ground(at, flat.sunlight(at, std::nullopt)).terrain != tall.ground(at, tall.sunlight(at, std::nullopt)).terrain)
+			differ++;
+	}
+	UASSERT(differ > 32);
+
+	// the code's land settings are the start body's: they don't reach the moon
+	WorldCode home = WorldCode::decode(codeWith(SystemSpec::home()));
+	home.mountains = 0;
+	UASSERT(bodyWorlds(home, Atlas::standard(250000))[1].code.mountains != 0);
+
+	// another body's edit moves no moon's land; its grid is kept by what decides it
+	SystemSpec nudged = SystemSpec::home();
+	nudged.bodies[0].phase = 0.9;
+	nudged.bodies[3].inclination = 3;
+	UASSERTEQ(std::string, moonOf(nudged).grid_key, usual.grid_key);
+}
+
+void TestTerragen::testStars()
+{
+	UASSERT(luminosity(ONE) == ONE);
+	UASSERT(luminosity(toFix(30)) > toFix(10000));
+	UASSERT(luminosity(ratio(30, 100)) < ratio(2, 100));
+	UASSERT(lifetime(ONE) == toFix(10) || near(lifetime(ONE), toFix(10), 64));
+	UASSERT(lifetime(toFix(30)) < ratio(1, 100));
+
+	const std::vector<BodyCauses> earth = { { -1, real(1), real(0.017), real(1), real(0.35), real(0.6), real(24), true } };
+	const BodyCard ours = bodies({ 2, ONE, 0, real(4.5), real(0.5) }, earth)[0];
+	UASSERTEQ(std::string, KIND_NAMES[(int)ours.kind], KIND_NAMES[(int)Kind::Temperate]);
+
+	// an O star's world: a few million years old and baking, however close, at any distance in range
+	const BodyCard baked = bodies({ 6, toFix(30), 0, ratio(3, 1000), real(0.5) }, earth)[0];
+	UASSERT(baked.temperature > toFix(1000));
+	UASSERT(!baked.ocean);
+	const BodyCauses close = { -1, real(0.05), 0, real(1), real(0.35), real(0.6), real(24), false };
+	const BodyCard burnt = bodies({ 6, toFix(60), 0, ratio(3, 1000), real(0.5) }, { close })[0];
+	UASSERT(burnt.temperature > toFix(1000));
+
+	const BodyCard poor = bodies({ 2, ONE, -ONE, real(4.5), real(0.5) }, earth)[0];
+	UASSERT(poor.metal < ours.metal);
+
+	// as the page encodes them (ui/src/worldgen/config.ts): the star's whole description
+	const WorldCode oh = WorldCode::decode("TF16.YWJj.AQa1VQVAAG1mgICAgICAgICCVQ");
+	UASSERTEQ(std::string, oh.star->id, "O");
+	UASSERT(near(oh.star_mass, toFix(40), ONE / 8));
+	UASSERT(oh.metallicity == -HALF);
+	UASSERT(oh.age >= ratio(2, 1000) && oh.age <= lifetime(oh.star_mass)); // however it rounds
+	UASSERT(oh.activity == ONE / 4);
+	System{ SystemSpec::forWorld(oh) };
+
+	// a system from the seed: its own, the same every time, in the model's range
+	WorldCode a = WorldCode::decode("TF16.YWJj.AAKAqoCAAW1mgICAgICAgICCVQ");
+	WorldCode b = a;
+	b.seed_hash ^= 77;
+	const SystemSpec one = SystemSpec::generate(a), again = SystemSpec::generate(a), other = SystemSpec::generate(b);
+	UASSERT(one.bodies.size() == again.bodies.size());
+	for (size_t i = 0; i < one.bodies.size(); i++) {
+		UASSERTEQ(std::string, one.bodies[i].name, again.bodies[i].name);
+		UASSERT(one.bodies[i].causes.orbit == again.bodies[i].causes.orbit);
+	}
+	bool differs = one.bodies.size() != other.bodies.size();
+	for (size_t i = 0; !differs && i < one.bodies.size(); i++)
+		differs = one.bodies[i].causes.orbit != other.bodies[i].causes.orbit;
+	UASSERT(differs);
+	// any star, any style, any seed: it can exist, and the home has ground under it
+	for (uint32_t seed = 0; seed < 200; seed++)
+		for (int style = (int)SystemStyle::SunLike; style < (int)SystemStyle::Count; style++)
+			for (int kind = 0; kind < STAR_COUNT; kind++) {
+				WorldCode c = a;
+				c.seed_hash = seed * 2654435761u;
+				c.style = (SystemStyle)style;
+				c.star = &STARS[kind];
+				c.star_mass = STARS[kind].mass;
+				c.age = std::min(c.age, lifetime(c.star_mass));
+				const System made{ SystemSpec::forWorld(c) };
+				UASSERT(!made.cards()[made.playable()].giant);
+			}
+
+	// the page's bodies (bodyBytes): one planet, one moon
+	const SystemSpec read = SystemSpec::forWorld(WorldCode::decode(PAGE_BODIES));
+	UASSERT(read.bodies.size() == 2);
+	UASSERTEQ(std::string, read.bodies[1].name, "Mún");
+	UASSERT(read.bodies[1].causes.parent == 0);
+	UASSERT(near(read.bodies[0].causes.orbit, toFix(2), 64));
+	UASSERT(near(read.bodies[1].causes.mass, ratio(1, 100), 8));
+	UASSERT(read.bodies[0].playable);
+	System{ read };
+	EXCEPTION_CHECK(CodeError, SystemSpec::read({ 1, 9 }));
+
+	// a star can't have outlived itself
+	EXCEPTION_CHECK(std::invalid_argument, bodies({ 6, toFix(30), 0, toFix(4), real(0.5) }, earth));
+}
+
 // Our solar system from causes alone: every body must come out as itself.
 void TestTerragen::testBodies()
 {
-	StarCauses sun{ 2, real(4.5), real(0.5) };
+	StarCauses sun{ 2, ONE, 0, real(4.5), real(0.5) };
 	std::vector<BodyCauses> c = {
 		{ -1, real(1), real(0.017), real(1), real(0.35), real(0.6), real(24), true },          // Earth
 		{ -1, real(0.72), real(0.007), real(0.82), real(0.3), real(0.6), real(5832), false },   // Venus
@@ -303,7 +773,7 @@ void TestTerragen::testBodies()
 	UASSERT(earth.field > HALF && earth.ocean && earth.plates);
 	UASSERT(b[1].pressure > toFix(5));                      // Venus: thick CO₂
 	UASSERT(b[1].gases[(int)Gas::CO2] > real(0.9));
-	UASSERT(b[4].locked && b[6].tidal > toFix(10));        // the Moon faces us; Io is tidally heated
+	UASSERT(b[6].tidal > toFix(10));        // the Moon faces us; Io is tidally heated
 
 	// insides: Earth's molten core is about half its radius; Europa hides an
 	// ocean under its ice; Jupiter is mostly envelope
@@ -345,7 +815,7 @@ void TestTerragen::testBodies()
 // kind there. (On the flat map both were edges.)
 void TestTerragen::testNoPoleOrSeam()
 {
-	World w(WorldCode::decode("TF9.dGVycmE"));
+	World w(WorldCode::decode("TF16.dGVycmE"));
 	const double R = w.radius() / (double)ONE;
 	// the steepest step of a walk of 20° along a great circle in plane (a, b), from angle `from`
 	const auto walk = [&](double from, std::array<double, 3> a, std::array<double, 3> b) {
@@ -680,7 +1150,7 @@ void TestTerragen::testCover()
 // the climate allows turns up somewhere, and fertility follows the rock.
 void TestTerragen::testClimate()
 {
-	World w(WorldCode::decode("TF9.dGVycmE"));
+	World w(WorldCode::decode("TF16.dGVycmE"));
 	const Grid &g = w.grid();
 	auto band = [&](double lo, double hi) {
 		int64_t sum = 0, n = 0;
@@ -697,7 +1167,7 @@ void TestTerragen::testClimate()
 	UASSERT(band(0, 10) > 3 * band(25, 38)); // the ITCZ, and the dry belts under the sinking air
 	UASSERT(band(50, 65) > 2 * band(25, 38)); // the storm tracks
 	// the same code, the same climate
-	World again(WorldCode::decode("TF9.dGVycmE"));
+	World again(WorldCode::decode("TF16.dGVycmE"));
 	UASSERT(again.grid().rain_season[0] == g.rain_season[0] && again.grid().rain_season[1] == g.rain_season[1]);
 
 	int counts[(int)Biome::Count] = {};
@@ -751,7 +1221,7 @@ static double meanOver(const std::vector<fix> &f, Where where)
 // and a rain shadow; a continent in the tropics gets its rain in summer.
 void TestTerragen::testClimateFromLand()
 {
-	WorldCode code = WorldCode::decode("TF9.dGVycmE");
+	WorldCode code = WorldCode::decode("TF16.dGVycmE");
 	const std::vector<fix> e = drawn([](double lat, double x) {
 		if (lat >= 38 && lat <= 58 && x >= 50 && x <= 74) // a north–south range, lowland either side
 			return x >= 60 && x <= 63 ? ratio(6, 10) : ratio(5, 100);
@@ -779,7 +1249,7 @@ void TestTerragen::testClimateFromLand()
 // the second's west coast), which leaves that coast drier.
 void TestTerragen::testOceanCurrents()
 {
-	WorldCode code = WorldCode::decode("TF9.dGVycmE");
+	WorldCode code = WorldCode::decode("TF16.dGVycmE");
 	const std::vector<fix> e = drawn([](double lat, double x) {
 		return lat >= 5 && lat <= 55 && ((x >= 20 && x <= 40) || (x >= 70 && x <= 90)) ? ratio(6, 100) : -ratio(3, 10);
 	});
@@ -816,10 +1286,10 @@ void TestTerragen::testEnergyBalance()
 		}
 		return (double)sum / area;
 	};
-	const Climate earth = climate(WorldCode::decode("TF9.dGVycmE"), e);
+	const Climate earth = climate(WorldCode::decode("TF16.dGVycmE"), e);
 	// the Temperature setting at −0.5 and −1
-	const Climate cool = climate(WorldCode::decode("TF9.dGVycmE.AAJtZoCAgECAgICAglU"), e);
-	const Climate cold = climate(WorldCode::decode("TF9.dGVycmE.AAJtZoCAgACAgICAglU"), e);
+	const Climate cool = climate(WorldCode::decode("TF16.dGVycmE.AAKAqoCAAG1mgICAQICAgICCVQ"), e);
+	const Climate cold = climate(WorldCode::decode("TF16.dGVycmE.AAKAqoCAAG1mgICAAICAgICCVQ"), e);
 	const double t_earth = mean(earth), t_cool = mean(cool), t_cold = mean(cold);
 	infostream << "energy balance: " << t_earth << " °C, ice " << earth.ice / 655.36 << "%; cooler " << t_cool << " °C, ice "
 			<< cool.ice / 655.36 << "%; colder " << t_cold << " °C, ice " << cold.ice / 655.36 << "%" << std::endl;
@@ -845,7 +1315,7 @@ void TestTerragen::testSoil()
 	}
 	EXCEPTION_CHECK(std::invalid_argument, soilPoint((uint8_t)SOIL_POINTS));
 
-	World w(WorldCode::decode("TF9.dGVycmE"));
+	World w(WorldCode::decode("TF16.dGVycmE"));
 	int32_t size = w.code().size;
 	double wet_clay = 0, dry_clay = 0, cold_organic = 0, warm_organic = 0, steep_sand = 0, flat_sand = 0;
 	int n_wet = 0, n_dry = 0, n_cold = 0, n_warm = 0, n_steep = 0, n_flat = 0;
@@ -909,9 +1379,9 @@ static void describe(const char *code)
 // for an existing code needs a new code version, not a silent update.
 void TestTerragen::testDeterminismGolden()
 {
-	describe("TF9.YWJj");
-	describe("TF9.dGVycmE");
-	World w(WorldCode::decode("TF9.YWJj.AQC2ZoCAgICAgICA41U"));
+	describe("TF16.YWJj");
+	describe("TF16.dGVycmE");
+	World w(WorldCode::decode("TF16.YWJj.AQCAqoCAALZmgICAgICAgIDjVQ"));
 	Preview p = preview(w, std::nullopt, 48);
 	uint32_t h = 2166136261u;
 	auto mix = [&](uint32_t v) { h = (h ^ v) * 16777619u; };
@@ -954,5 +1424,177 @@ void TestTerragen::testDeterminismGolden()
 	// (re-pinned: this code is 62 832 round, past where the radius overflowed a fix)
 	// TF9, not yet released, re-pinned for sprint 88 (was 1343096095)
 	// re-pinned for sprint 97: no beaches on hard coasts (was 3559267434)
-	UASSERTEQ(uint32_t, h, 1626736796u);
+	// re-pinned for sprint 100: relief from the drainage below the grid (was 1626736796)
+	// re-pinned for sprint 101: ranges by what built them (was 1400668538)
+	UASSERTEQ(uint32_t, h, 1902362085u);
+}
+
+// Sprint 100: the drainage below the grid. Every channel runs down the land to
+// what it joins, and the network branches as real ones do (Horton: each Strahler order
+// has 3–5 times the streams of the next).
+// Ranges by what built them (planning/sprint-101-ranges.md)
+// A far tile's columns leave out what's narrower than its cells: nothing for a
+// block-wide one, and what's left stands about where the whole land does.
+void TestTerragen::testCoarse()
+{
+	const WorldCode code = WorldCode::decode("TF16.a3U3eWd1Y2c.BQKAqoCAAG1mgICAgICAgICCVQ") /* 250k radius */;
+	const World world(code);
+	int64_t moved = 0;
+	int worst = 0, seas = 0, n = 0;
+	for (int k = 0; k < 400; k++) {
+		const Place at = placeOf(k * 7919 % 2001 - 1000, k * 6271 % 2003 - 1001, k * 4057 % 1999 - 999 + 1);
+		const fix sun = world.sunlight(at, std::nullopt);
+		const Ground whole = world.ground(at, sun);
+		{
+			const World::Coarse same(world, 1);
+			UASSERTEQ(int, world.ground(at, sun).terrain, whole.terrain);
+		}
+		const World::Coarse coarse(world, 4096);
+		const Ground far = world.ground(at, sun);
+		const int d = std::abs(far.terrain - whole.terrain);
+		moved += d;
+		worst = std::max(worst, d);
+		seas += (far.kind == Water::Sea) != (whole.kind == Water::Sea);
+		n++;
+	}
+	infostream << "coarse columns: moved " << moved / n << " blocks on average, at most " << worst << ", " << seas << " of " << n << " change sea" << std::endl;
+	UASSERT(moved / n < 150);
+	UASSERT(seas == 0);
+}
+
+void TestTerragen::testRanges()
+{
+	terragen::WorldCode code = terragen::WorldCode::decode("TF16.dGVycmE");
+	code.size = 628320;
+	code.grid_key += "@wide"; // (what the grid's kept by)
+	terragen::World world(code);
+	const std::shared_ptr<const terragen::Grid> grid = terragen::gridFor(code);
+	const terragen::Tectonics &t = grid->tectonics;
+	const terragen::Sphere &sphere = terragen::gridSphere();
+	using terragen::ratio;
+
+	// all parts present, and a plateau stands high and level: far less rough
+	// across its neighbours than a range still rising without one
+	int folded = 0, plains = 0;
+	int64_t plain_rough = 0, range_rough = 0;
+	int ranges = 0;
+	for (int32_t i = 0; i < sphere.size(); i++) {
+		folded += grid->eroded[i] > 0 && t.fold[i] > ratio(1, 2);
+		const bool plain = grid->eroded[i] > 0 && t.plateau[i] > ratio(95, 100); // (its interior: the margins are cut by rivers)
+		const bool range = grid->eroded[i] > 0 && t.plateau[i] == 0 && t.fold[i] == 0 && t.belt[i] > ratio(8, 10);
+		if (!plain && !range)
+			continue;
+		int64_t rough = 0;
+		for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++)
+			rough += std::abs(grid->eroded[*p] - grid->eroded[i]);
+		if (plain) {
+			plains++;
+			plain_rough += rough;
+			UASSERT(grid->eroded[i] > ratio(6, 10));
+		} else {
+			ranges++;
+			range_rough += rough;
+		}
+	}
+	UASSERT(folded > 500);
+	UASSERT(plains > 50);
+	UASSERT(ranges > 50);
+	UASSERT(plain_rough / plains * 2 < range_rough / ranges);
+
+	// fold ridges run along the belt: crossing its contours crosses many, and
+	// a young belt's stand taller than an old one's
+	int across = 0, along = 0, tested = 0;
+	for (int32_t i = 0; i < sphere.size() && tested < 40; i++) {
+		if (grid->eroded[i] <= 0 || t.fold[i] < ratio(9, 10))
+			continue;
+		// the neighbours most up and most level along the contours
+		int32_t up = i, level = i;
+		for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++) {
+			if (t.front[*p] > t.front[up])
+				up = *p;
+			if (level == i || std::abs(t.front[*p] - t.front[i]) < std::abs(t.front[level] - t.front[i]))
+				level = *p;
+		}
+		if (up == i || t.fold[up] < ratio(1, 2))
+			continue;
+		const terragen::Place a(sphere.centre(i));
+		const auto changes = [&](const terragen::Place &b) {
+			int count = 0;
+			terragen::fix was = terragen::ONE / 2;
+			for (int k = 0; k <= 64; k++) {
+				const terragen::Place p = terragen::placeOf((int64_t)a.x + ((int64_t)b.x - a.x) * k / 64,
+						(int64_t)a.y + ((int64_t)b.y - a.y) * k / 64, (int64_t)a.z + ((int64_t)b.z - a.z) * k / 64);
+				const terragen::fix crest = world.ridgesAt(p);
+				if ((crest > terragen::ONE / 2) != (was > terragen::ONE / 2))
+					count++;
+				was = crest;
+			}
+			return count;
+		};
+		across += changes(terragen::Place(sphere.centre(up)));
+		along += changes(terragen::Place(sphere.centre(level)));
+		tested++;
+	}
+	UASSERT(tested >= 20);
+	UASSERT(across > along * 2);
+}
+
+void TestTerragen::testChannels()
+{
+	terragen::WorldCode code = terragen::WorldCode::decode("TF16.dGVycmE");
+	code.size = 628320;
+	code.grid_key += "@wide"; // (what the grid's kept by)
+	terragen::World world(code);
+	const std::shared_ptr<const terragen::Grid> grid = terragen::gridFor(code);
+	terragen::Channels channels(code, *grid, terragen::World::radiusOf(code), terragen::World::cellBlocksOf(code));
+	UASSERT(channels.levels() >= 4);
+	int32_t centre = -1;
+	for (int32_t i = 0; i < grid->size() && centre < 0; i++)
+		if (grid->eroded[i] > terragen::ratio(10, 100))
+			centre = i;
+	UASSERT(centre >= 0);
+	const terragen::Place at(terragen::gridSphere().centre(centre));
+	struct Key { int level; int32_t i, j, l; bool operator<(const Key &o) const { return std::tie(level, i, j, l) < std::tie(o.level, o.i, o.j, o.l); } };
+	std::map<Key, int> order;
+	std::map<Key, std::vector<int>> children;
+	const int K = std::min(channels.levels(), 4);
+	const int64_t patch = channels.spacing(1) * 3;
+	std::array<int, 16> count{};
+	for (int k = K; k >= 1; k--) {
+		const int64_t L = channels.spacing(k);
+		const auto range = [&](int32_t c, int32_t &a, int32_t &b) { a = channels.latticeOf(k, c - (int32_t)patch); b = channels.latticeOf(k, c + (int32_t)patch); };
+		int32_t i0, i1, j0, j1, l0, l1;
+		range(at.x, i0, i1);
+		range(at.y, j0, j1);
+		range(at.z, l0, l1);
+		(void)L;
+		for (int32_t i = i0; i <= i1; i++)
+			for (int32_t j = j0; j <= j1; j++)
+				for (int32_t l = l0; l <= l1; l++) {
+					const terragen::Channels::Node n = channels.node(k, i, j, l);
+					if (!n.exists)
+						continue;
+					// (never up the land to what it joins)
+					UASSERT(world.between(grid->eroded, n.join) <= world.between(grid->eroded, n.at));
+					const std::vector<int> &from = children[{ k, i, j, l }];
+					int top = 1, tops = 0;
+					for (int o : from)
+						top = std::max(top, o);
+					for (int o : from)
+						tops += o == top;
+					const int mine = tops >= 2 ? top + 1 : top;
+					count[mine]++;
+					if (k > 1)
+						children[{ k - 1, n.parent[0], n.parent[1], n.parent[2] }].push_back(mine);
+				}
+	}
+	std::printf("HORTON");
+	for (int o = 1; o < 8; o++)
+		std::printf(" %d", count[o]);
+	std::printf("\n");
+	// the ratio across the orders, as Horton's is measured: order 1's count over
+	// order 3's, per order
+	UASSERT(count[3] > 0);
+	const double bifurcation = std::sqrt((double)count[1] / count[3]);
+	UASSERT(bifurcation > 3 && bifurcation < 5);
 }

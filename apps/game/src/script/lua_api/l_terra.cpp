@@ -12,6 +12,7 @@
 #include "terragen/calendar.h"
 #include "terragen/geology.h"
 #include "terragen/sun.h"
+#include "terragen/system.h"
 #include "terragen/world.h"
 #include "mapgen/terra_species.h"
 #include "mapgen/mapgen_terra.h"
@@ -20,6 +21,7 @@
 #include "weather/weather.h"
 #include "filesys.h"
 #include "porting.h"
+#include <cmath>
 #include <memory>
 
 using namespace terragen;
@@ -150,8 +152,9 @@ int ModApiTerra::l_enabled(lua_State *L)
 	return 1;
 }
 
-// core.terra.world() → { code, size, tilt, year_days, star, boundary }:
-// boundary, the height above the sea where space begins (terragen::SPACE_BOUNDARY)
+// core.terra.world() → { code, size, tilt, year_days, star, boundary, facing_star }:
+// boundary, the height above the sea where space begins (terragen::SPACE_BOUNDARY);
+// facing_star, the bodies (by id, the home as "") that keep one face to their star
 int ModApiTerra::l_world(lua_State *L)
 {
 	NO_MAP_LOCK_REQUIRED;
@@ -163,6 +166,13 @@ int ModApiTerra::l_world(lua_State *L)
 	setNumber(L, "tilt", toDouble(c.tilt));
 	setintfield(L, -1, "year_days", c.year);
 	setstringfield(L, -1, "star", c.star->id);
+	lua_newtable(L);
+	for (const terragen::BodyWorld &b : getServer(L)->bodyWorlds())
+		if (b.code.processes.facing_star) {
+			lua_pushboolean(L, true);
+			lua_setfield(L, -2, (b.code.text == c.text ? "" : b.id.c_str()));
+		}
+	lua_setfield(L, -2, "facing_star");
 	return 1;
 }
 
@@ -181,8 +191,32 @@ int ModApiTerra::l_calendar(lua_State *L)
 	return 1;
 }
 
+// A column's clock: the engine's as this body reads it, in its own days. Time
+// is one across a spinning body; on one that faces its star it's where you are.
+static terragen::System::Clock clockAt(Server *server, const v3f &pos)
+{
+	const terragen::BodyWorld &body = server->bodyWorlds().at(bodyAt(server, pos));
+	std::unique_ptr<terragen::System> &system = server->terra().system;
+	if (!system)
+		system = std::make_unique<terragen::System>(terragen::SystemSpec::forWorld(world(server).code()));
+	const double now = server->getEnv().getDayCount() + (double)server->getEnv().getTimeOfDayF();
+	terragen::System::Clock c = system->clock(body.system, now, world(server).code().year);
+	if (body.code.processes.facing_star) {
+		const Dir d = placeAt(server, pos).dir();
+		c.at += std::atan2((double)d.z, (double)d.x) / (2 * M_PI);
+	}
+	return c;
+}
+
+static fix localHour(Server *server, const v3f &pos)
+{
+	const double h = clockAt(server, pos).hour(server->getEnv().getTimeOfDayF());
+	return (fix)((h - std::floor(h)) * ONE);
+}
+
 // core.terra.sun(pos) → { latitude, declination, elevation (degrees),
-// daylight (share of the day the sun is up), season }
+// daylight (share of the day the sun is up), season, turns, at (this
+// body's clock: the time of day is at + turns × the engine's) }
 int ModApiTerra::l_sun(lua_State *L)
 {
 	NO_MAP_LOCK_REQUIRED;
@@ -191,11 +225,16 @@ int ModApiTerra::l_sun(lua_State *L)
 	fix latitude = latitudeOf(placeAt(getServer(L), pos).dir());
 	Calendar c = today(getServer(L), w);
 	fix decl = declination(w.code().tilt, c.date);
-	lua_createtable(L, 0, 5);
+	const fix hour = localHour(getServer(L), pos);
+	const fix up = elevation(latitude, decl, hour);
+	const terragen::System::Clock body_clock = clockAt(getServer(L), pos);
+	lua_createtable(L, 0, 7);
 	setNumber(L, "latitude", toDegrees(latitude));
 	setNumber(L, "declination", toDegrees(decl));
-	setNumber(L, "elevation", toDegrees(elevation(latitude, decl, hourNow(getServer(L)))));
-	setNumber(L, "daylight", toDouble(dayShare(latitude, decl)));
+	setNumber(L, "elevation", toDegrees(up));
+	setNumber(L, "daylight", w.code().processes.facing_star ? (up > 0 ? 1 : 0) : toDouble(dayShare(latitude, decl)));
+	setNumber(L, "turns", body_clock.turns);
+	setNumber(L, "at", body_clock.at);
 	setstringfield(L, -1, "season", SEASON_NAMES[(int)season(c.date, latitude)]);
 	return 1;
 }
@@ -212,7 +251,7 @@ int ModApiTerra::l_climate(lua_State *L)
 	Calendar c = today(getServer(L), w);
 	Column column = w.column(at, w.sunlight(at, c.date));
 	lua_createtable(L, 0, 6);
-	setNumber(L, "temperature", toDouble(w.temperature(at, c.date, hourNow(getServer(L)))));
+	setNumber(L, "temperature", toDouble(w.temperature(at, c.date, localHour(getServer(L), pos))));
 	setstringfield(L, -1, "biome", BIOME_NAMES[(int)column.biome]);
 	setNumber(L, "heat", toDouble(column.heat));
 	setNumber(L, "wet", toDouble(column.wet));
@@ -513,7 +552,9 @@ int ModApiTerra::l_weather(lua_State *L)
 	const Place at = placeAt(getServer(L), pos);
 	const int32_t y = (int32_t)std::floor(pos.Y + 0.5f);
 	fluid::Sample s{};
-	if (body == planet::Atlas::HOME) {
+	// (only a home with seas has the moving air src/fluid models: water's, Earth's)
+	const bool moving = body == planet::Atlas::HOME && w.code().processes.water && !w.code().processes.facing_star; // (src/fluid's bands are round a spin)
+	if (moving) {
 		weather::Weather &wx = weatherNow(server);
 		s = wx.sample(at, y, wx.now());
 	} else {
@@ -524,7 +565,7 @@ int ModApiTerra::l_weather(lua_State *L)
 		s.pressure = server->bodyWorlds().at(body).surroundings.pressure; // its card's (none on the Moon)
 	}
 	lua_createtable(L, 0, 10);
-	lua_pushboolean(L, body == planet::Atlas::HOME);
+	lua_pushboolean(L, moving);
 	lua_setfield(L, -2, "atmosphere");
 	setNumber(L, "temperature", s.temperature - 273.15);
 	setNumber(L, "humidity", s.humidity);

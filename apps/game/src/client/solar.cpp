@@ -7,9 +7,18 @@
 
 namespace solar {
 
+static Tint s_tint;
+void tint(const Tint &t) { s_tint = t; }
+const Tint &tint() { return s_tint; }
+
 static float radians(float degrees)
 {
 	return degrees * (float)M_PI / 180.0f;
+}
+
+float localTime(const SkySolar &s, float time_of_day)
+{
+	return s.at + s.turns * time_of_day;
 }
 
 float elevation(const SkySolar &s, float time_of_day)
@@ -20,10 +29,20 @@ float elevation(const SkySolar &s, float time_of_day)
 	return std::asin(std::fmax(-1.0f, std::fmin(1.0f, up))) * 180.0f / (float)M_PI;
 }
 
+static std::optional<Second> g_second;
+
+void second(std::optional<Second> s)
+{
+	g_second = s;
+}
+
 float apparentTime(const SkySolar &s, float time_of_day)
 {
-	float t = time_of_day - std::floor(time_of_day);
+	float t = localTime(s, time_of_day);
+	t -= std::floor(t);
 	float e = elevation(s, t);
+	if (g_second)
+		e = std::fmax(std::fmin(e, g_second->first_cap), std::fmin(g_second->elevation, g_second->cap));
 	// the stock sun stands at (wicked − 0.25) · 360° in the morning
 	float wicked = t < 0.5f ? 0.25f + e / 360.0f : 0.75f - e / 360.0f;
 	return getTimeOfDayFromWicked(wicked);

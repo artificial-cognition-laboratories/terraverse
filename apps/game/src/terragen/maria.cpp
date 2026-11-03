@@ -28,13 +28,10 @@ fix weight(const Crater &c, fix thin)
 
 } // namespace
 
-void flood(const WorldCode &code, Grid &g)
+void thinCrust(const WorldCode &code, Grid &g)
 {
 	const Sphere &sphere = gridSphere();
 	const int32_t n = sphere.size();
-	g.mare.assign(n, 0);
-	g.mare_level = g.base;
-	g.titanium.assign(n, 0);
 	g.thin.assign(n, 0);
 
 	// the crust thinner on one side (a body's halves cooled unevenly), with
@@ -46,6 +43,15 @@ void flood(const WorldCode &code, Grid &g)
 		const fix side = mul(c.x, axis.x) + mul(c.y, axis.y) + mul(c.z, axis.z);
 		g.thin[i] = clamp(HALF + mul(side, ratio(45, 100)) + noise(c, s, 3) / 4, 0, ONE);
 	}
+}
+
+void flood(const WorldCode &code, Grid &g)
+{
+	const Sphere &sphere = gridSphere();
+	const int32_t n = sphere.size();
+	g.mare.assign(n, 0);
+	g.mare_level = g.base;
+	g.titanium.assign(n, 0);
 	if (code.processes.flooding <= 0)
 		return;
 
@@ -86,10 +92,15 @@ void flood(const WorldCode &code, Grid &g)
 	// next, level to the highest taken, until it covers its share; a full
 	// basin spills into the ground round it
 	std::vector<uint32_t> seen(n, 0);
+	int64_t poured = 0, flooded = 0;
 	using Edge = std::pair<fix, int32_t>;
 	for (uint32_t p = 0; p < sources.size(); p++) {
 		const Source &src = sources[p];
-		const int64_t quota = (int64_t)((__int128)share * src.weight / total);
+		// what's owed so far, not its own part alone: cells come whole, and a
+		// pool's highest is only level with its lava, so over thousands of
+		// small pools the rounding would add up
+		poured += src.weight;
+		const int64_t quota = (int64_t)((__int128)share * poured / total) - flooded;
 		if (quota <= 0)
 			continue;
 		std::priority_queue<Edge, std::vector<Edge>, std::greater<Edge>> edge;
@@ -114,6 +125,8 @@ void flood(const WorldCode &code, Grid &g)
 		// each pool's lava its own: some rich in titanium (ilmenite), most not
 		const fix ti = mul(unit(mix(src.k, p, code.seed_hash + TITANIUM)), unit(mix(src.k, p + 7, code.seed_hash + TITANIUM)));
 		for (int32_t i : pool) {
+			if (g.mare[i] == 0 && level > g.base[i])
+				flooded += sphere.area(i);
 			g.mare[i] += level - g.base[i];
 			g.base[i] = level;
 			g.mare_level[i] = level;

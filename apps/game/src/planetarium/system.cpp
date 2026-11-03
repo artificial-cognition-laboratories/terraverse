@@ -58,6 +58,16 @@ video::SColor orbitColour(size_t body)
 	return COLOURS[body % (sizeof(COLOURS) / sizeof(COLOURS[0]))];
 }
 
+// A star's colour by its class (terragen::STARS), coolest to hottest.
+video::SColor starColour(int type)
+{
+	static const video::SColor COLOURS[terragen::STAR_COUNT] = {
+		{ 255, 255, 190, 130 }, { 255, 255, 220, 170 }, { 255, 255, 246, 220 }, { 255, 255, 250, 240 },
+		{ 255, 235, 240, 255 }, { 255, 205, 220, 255 }, { 255, 180, 200, 255 },
+	};
+	return COLOURS[type];
+}
+
 video::SColor scaled(video::SColor c, double k)
 {
 	return { 255, (u32)(c.getRed() * k), (u32)(c.getGreen() * k), (u32)(c.getBlue() * k) };
@@ -124,6 +134,28 @@ double SystemLayer::spin(double day, double timeOfDay) const
 	return std::atan2(star.z, star.x) + 2 * M_PI * (timeOfDay - 0.5);
 }
 
+V SystemLayer::toSecond(double day) const
+{
+	const V home = m_opts.system->position(m_opts.focus, day), at = m_opts.system->starAt(true, day);
+	const V d = scene({ at.x - home.x, at.y - home.y, at.z - home.z });
+	const double l = length(d);
+	return { d.x / l, d.y / l, d.z / l };
+}
+
+V SystemLayer::toStar(size_t body, double day) const
+{
+	const V star = starCentre(day), at = centre(body, day);
+	const V d{ star.x - at.x, star.y - at.y, star.z - at.z };
+	const double l = length(d);
+	return { d.x / l, d.y / l, d.z / l };
+}
+
+double SystemLayer::spinOf(size_t body, double day, double timeOfDay) const
+{
+	const V star = toStar(body, day);
+	return std::atan2(star.z, star.x) + 2 * M_PI * (timeOfDay - 0.5);
+}
+
 void SystemLayer::draw(video::IVideoDriver *driver, const Camera &camera, double day,
 		const std::function<void(float near, float far)> &focused, const Surface &surface)
 {
@@ -136,8 +168,12 @@ void SystemLayer::draw(video::IVideoDriver *driver, const Camera &camera, double
 		return V{ p.x - camera.at.x, p.y - camera.at.y, p.z - camera.at.z };
 	};
 	std::vector<Body> bodies;
-	const V star = from({ 0, 0, 0 });
+	const V star = from(s.starAt(false, day));
 	bodies.push_back({ star, s.starRadius() * k, length(star), -1 });
+	if (s.hasCompanion()) {
+		const V second = from(s.starAt(true, day));
+		bodies.push_back({ second, s.secondRadius() * k, length(second), -2 });
+	}
 	for (size_t i = 0; i < s.spec().bodies.size(); i++) {
 		const V at = from(s.position(i, day));
 		bodies.push_back({ at, s.radius(i) * k, length(at), (int)i });
@@ -176,32 +212,31 @@ void SystemLayer::draw(video::IVideoDriver *driver, const Camera &camera, double
 			focused(near, far);
 			// the focused body draws in its own (spun) view: the rest are in the scene's
 			driver->setTransform(video::ETS_VIEW, camera.view);
+			rim(driver, camera, b, day, near, far);
 			continue;
 		}
 		if (b.index >= 0 && surface && surface((size_t)b.index, b.at, b.radius * focal / std::max(depth, b.radius), near, far)) {
 			driver->setTransform(video::ETS_VIEW, camera.view);
+			rim(driver, camera, b, day, near, far);
 			continue;
 		}
 		Body drawn = b;
 		drawn.radius = shown;
 		if (b.index < 0) {
-			sphere(driver, drawn, video::SColor(255, 255, 246, 220), {}, false);
+			const terragen::StarCauses &causes = s.spec().star;
+			this->star(driver, drawn, starColour(b.index == -1 ? causes.type : causes.companion.type));
 			glow(driver, camera, drawn);
 		} else {
-			const V p = scene(s.position((size_t)b.index, day));
-			const double d = length(p);
-			sphere(driver, drawn, colourOf(s.cards()[(size_t)b.index].kind), { -p.x / d, -p.y / d, -p.z / d }, true);
+			sphere(driver, drawn, colourOf(s.cards()[(size_t)b.index].kind), day);
+			rim(driver, camera, b, day, near, far);
 		}
 	}
 }
 
-void SystemLayer::sphere(video::IVideoDriver *driver, const Body &b, video::SColor colour, const V &sun, bool lit)
+void SystemLayer::star(video::IVideoDriver *driver, const Body &b, video::SColor colour)
 {
-	for (video::S3DVertex &v : m_sphere->Vertices->Data) {
-		// the side to the star lit, a little light round the night side
-		const double l = lit ? std::max(0.0, v.Normal.X * sun.x + v.Normal.Y * sun.y + v.Normal.Z * sun.z) * 0.92 + 0.08 : 1;
-		v.Color = video::SColor(255, (u32)(colour.getRed() * l), (u32)(colour.getGreen() * l), (u32)(colour.getBlue() * l));
-	}
+	for (video::S3DVertex &v : m_sphere->Vertices->Data)
+		v.Color = colour;
 	m_sphere->setDirty(scene::EBT_VERTEX);
 	video::SMaterial mat;
 	mat.MaterialType = video::EMT_SOLID;
@@ -213,6 +248,85 @@ void SystemLayer::sphere(video::IVideoDriver *driver, const Body &b, video::SCol
 	world.setTranslation(v3f((f32)b.at.x, (f32)b.at.y, (f32)b.at.z) * BS);
 	driver->setTransform(video::ETS_WORLD, world);
 	driver->drawMeshBuffer(m_sphere.get());
+}
+
+void SystemLayer::sphere(video::IVideoDriver *driver, const Body &b, video::SColor colour, double day)
+{
+	for (video::S3DVertex &v : m_sphere->Vertices->Data)
+		v.Color = colour;
+	m_sphere->setDirty(scene::EBT_VERTEX);
+	const v3f at = v3f((f32)b.at.x, (f32)b.at.y, (f32)b.at.z) * BS;
+	video::SMaterial mat = lit((size_t)b.index, day, at, 0, true);
+	mat.BackfaceCulling = true;
+	driver->setMaterial(mat);
+	core::matrix4 world;
+	world.setScale((f32)(b.radius * BS));
+	world.setTranslation(at);
+	driver->setTransform(video::ETS_WORLD, world);
+	driver->drawMeshBuffer(m_sphere.get());
+}
+
+void SystemLayer::shaders(IShaderSource *ssrc)
+{
+	m_lit = std::make_unique<Lit>(ssrc);
+	m_rim = std::make_unique<Rim>(ssrc, *m_opts.system);
+}
+
+const video::SMaterial &SystemLayer::lit(size_t body, double day, const v3f &centre_at, double turn, bool on)
+{
+	if (!m_lit)
+		throw BaseException("planetarium: bodies drawn before SystemLayer::shaders");
+	const terragen::System &s = *m_opts.system;
+	const auto inFrame = [&](const V &d) { return OrbitCamera::turn({ d.x, d.y, d.z }, -turn); };
+	const auto v3 = [](const OrbitCamera::Vec &d) { return v3f((f32)d.x, (f32)d.y, (f32)d.z); };
+	Lit::Light light{};
+	light.centre = centre_at;
+	light.on = on;
+	const V way = toStar(body, day);
+	light.sun = v3(inFrame(way));
+	if (s.hasCompanion()) {
+		const V at = centre(body, day), second = scene(s.starAt(true, day)), home = scene(s.position(m_opts.focus, day));
+		const V d{ second.x - home.x - at.x, second.y - home.y - at.y, second.z - home.z - at.z };
+		const double l = length(d), share = s.secondShare(body, day);
+		light.second = v3(inFrame({ d.x / l, d.y / l, d.z / l }));
+		light.share = (float)(share / (1 + share));
+	}
+	const V here = centre(body, day), sun = starCentre(day);
+	light.penumbra = (f32)(starRadius() / length({ sun.x - here.x, sun.y - here.y, sun.z - here.z }));
+	// Its family: a planet's moons, a moon's planet and fellow moons. Others are too far
+	// to darken it by more than nothing. Those that look biggest from here, if there are many.
+	const auto &bodies = s.spec().bodies;
+	const int32_t top = bodies[body].causes.parent >= 0 ? bodies[body].causes.parent : (int32_t)body;
+	std::vector<std::pair<double, size_t>> family;
+	for (size_t j = 0; j < bodies.size(); j++) {
+		const int32_t up = bodies[j].causes.parent >= 0 ? bodies[j].causes.parent : (int32_t)j;
+		if (j == body || up != top)
+			continue;
+		const V o = centre(j, day);
+		family.emplace_back(-radius(j) / length({ o.x - here.x, o.y - here.y, o.z - here.z }), j);
+	}
+	std::sort(family.begin(), family.end());
+	for (size_t i = 0; i < family.size() && i < Lit::OCCLUDERS; i++) {
+		const V o = centre(family[i].second, day);
+		const OrbitCamera::Vec rel = inFrame({ (o.x - here.x) * BS, (o.y - here.y) * BS, (o.z - here.z) * BS });
+		light.occluders[i][0] = centre_at.X + (f32)rel.x;
+		light.occluders[i][1] = centre_at.Y + (f32)rel.y;
+		light.occluders[i][2] = centre_at.Z + (f32)rel.z;
+		light.occluders[i][3] = (f32)(radius(family[i].second) * BS);
+	}
+	return m_lit->material(light);
+}
+
+void SystemLayer::rim(video::IVideoDriver *driver, const Camera &camera, const Body &b, double day, float near, float far)
+{
+	const double focal = camera.height / (2 * std::tan(camera.fov / 2));
+	if (b.radius * focal / std::max(b.distance, b.radius) < 2)
+		return; // a dot has no edge to see
+	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(camera.aspect, near, far, camera.shift, camera.fov));
+	driver->setTransform(video::ETS_VIEW, camera.view);
+	const V way = toStar((size_t)b.index, day);
+	m_rim->draw(driver, (size_t)b.index, v3f((f32)b.at.x, (f32)b.at.y, (f32)b.at.z) * BS, (f32)(b.radius * BS),
+			v3f((f32)way.x, (f32)way.y, (f32)way.z), m_sphere.get());
 }
 
 // What a body's shell looks like cut open, by its name (body.h: Layer).
@@ -328,22 +442,43 @@ void SystemLayer::orbits(video::IVideoDriver *driver, const Camera &camera, doub
 	std::vector<video::SColor> colours(ORBIT);
 	for (size_t i = 0; i < s.spec().bodies.size(); i++) {
 		const int32_t parent = s.spec().bodies[i].causes.parent;
-		const double period = s.period(i);
-		for (int n = 0; n < ORBIT; n++) {
-			// where it is round what it orbits, that held where it is today
-			V p = s.position(i, day + period * n / ORBIT);
-			if (parent >= 0) {
-				const V then = s.position((size_t)parent, day + period * n / ORBIT), now = s.position((size_t)parent, day);
-				p = { p.x - then.x + now.x, p.y - then.y + now.y, p.z - then.z + now.z };
+		const std::optional<size_t> partner = s.partner(i);
+		const auto line = [&](double period, double brightness, const std::function<V(double)> &at) {
+			for (int n = 0; n < ORBIT; n++) {
+				const V q = scene(at(day + period * n / ORBIT));
+				const V p{ q.x - scene(home).x, q.y - scene(home).y, q.z - scene(home).z };
+				points[n] = v3f((f32)(p.x - camera.at.x), (f32)(p.y - camera.at.y), (f32)(p.z - camera.at.z)) * BS;
+				// n runs forward from the body: just behind it (n near ORBIT) brightest
+				const double fresh = FADED + (1 - FADED) * n / (ORBIT - 1);
+				colours[n] = scaled(orbitColour(i), fresh * (m_highlight == i ? 1.0 : 0.6) * brightness);
 			}
-			const V q = scene({ p.x - home.x, p.y - home.y, p.z - home.z });
-			points[n] = v3f((f32)(q.x - camera.at.x), (f32)(q.y - camera.at.y), (f32)(q.z - camera.at.z)) * BS;
-			// n runs forward from the body: just behind it (n near ORBIT) brightest
-			const double fresh = FADED + (1 - FADED) * n / (ORBIT - 1);
-			const double own = (m_highlight == i ? 1.0 : 0.6) * (parent >= 0 ? 0.7 : 1.0);
-			colours[n] = scaled(orbitColour(i), fresh * own);
+			ribbons.add(points, colours, true);
+		};
+		// from a point that holds where it is today, what it orbits round that
+		const V middle = s.balance(i, day);
+		if (parent < 0) {
+			// its way round the star is its balance point's, not the swing of its moons
+			line(s.period(i), 1, [&](double t) { return s.balance(i, t); });
+			if (partner) { // and its own small circle, opposite its partner's
+				const double pull = 1 - s.hostShare(*partner);
+				line(s.period(*partner), 0.7, [&](double t) {
+					const V r = s.fromHost(*partner, t);
+					return V{ middle.x - r.x * pull, middle.y - r.y * pull, middle.z - r.z * pull };
+				});
+			}
+		} else if (partner) {
+			const double share = s.hostShare(i);
+			line(s.period(i), 0.7, [&](double t) {
+				const V r = s.fromHost(i, t);
+				return V{ middle.x + r.x * share, middle.y + r.y * share, middle.z + r.z * share };
+			});
+		} else {
+			const V host = s.position((size_t)parent, day);
+			line(s.period(i), 0.7, [&](double t) {
+				const V r = s.fromHost(i, t);
+				return V{ host.x + r.x, host.y + r.y, host.z + r.z };
+			});
 		}
-		ribbons.add(points, colours, true);
 	}
 	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(camera.aspect, (f32)(0.5 * BS),
 			(f32)((m_extent * 3 + length(camera.at)) * BS), camera.shift, camera.fov));

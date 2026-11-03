@@ -61,6 +61,7 @@ static Json::Value cardsJson(const std::vector<BodyCard> &cards, const std::vect
 		j["plates"] = c.plates;
 		j["volcanism"] = c.volcanism;
 		j["locked"] = c.locked;
+		j["day"] = real(c.day);
 		Json::Value layers(Json::arrayValue);
 		for (const Layer &l : c.layers) {
 			Json::Value e;
@@ -85,15 +86,39 @@ static Json::Value cardsJson(const std::vector<BodyCard> &cards, const std::vect
 
 Json::Value systemPreview(const Json::Value &intent)
 {
-	StarCauses star{ -1, number(intent, "age", "the system"), number(intent, "activity", "the system") };
-	for (int i = 0; i < 5; i++)
+	StarCauses star{ -1, number(intent, "starMass", "the system"), number(intent, "metallicity", "the system"),
+			number(intent, "age", "the system"), number(intent, "activity", "the system") };
+	for (int i = 0; i < STAR_COUNT; i++)
 		if (intent["star"].isString() && intent["star"].asString() == STARS[i].id)
 			star.type = i;
 	if (star.type < 0)
-		throw Refused("the system's star must be one of the star types");
+		throw Refused("the system's star must be a star class");
+	const Json::Value &second = intent["companion"];
+	if (!second.isObject() || !second["kind"].isString())
+		throw Refused("the system needs a 'companion'");
+	const std::string pairing = second["kind"].asString();
+	if (pairing != "none") {
+		if (pairing != "close" && pairing != "wide")
+			throw Refused("a companion is none, close or wide");
+		star.companion.kind = pairing == "close" ? Pairing::Close : Pairing::Wide;
+		star.companion.mass = number(second, "mass", "the companion");
+		star.companion.separation = number(second, "separation", "the companion");
+		star.companion.type = -1;
+		for (int i = 0; i < STAR_COUNT; i++)
+			if (second["class"].isString() && second["class"].asString() == STARS[i].id)
+				star.companion.type = i;
+		if (star.companion.type < 0)
+			throw Refused("the companion's star must be a star class");
+	}
 	if (!intent["bodies"].isArray())
 		throw Refused("the system needs a 'bodies' list");
 
+	const auto spinOf = [](const Json::Value &b, const std::string &where) {
+		for (int i = 0; i < (int)Spin::Count; i++)
+			if (b["spin"].isString() && b["spin"].asString() == SPIN_NAMES[i])
+				return (Spin)i;
+		throw Refused(where + " needs a 'spin' this game has");
+	};
 	std::vector<BodyCauses> causes;
 	std::vector<std::string> ids;
 	std::unordered_map<std::string, int32_t> index;
@@ -112,7 +137,7 @@ Json::Value systemPreview(const Json::Value &intent)
 			throw Refused(where + " needs 'life' true or false");
 		causes.push_back({ parent, number(b, "orbit", where), number(b, "eccentricity", where),
 				number(b, "mass", where), number(b, "formed", where), number(b, "volatiles", where),
-				number(b, "day", where), b["life"].asBool() });
+				number(b, "day", where), b["life"].asBool(), spinOf(b, where) });
 		index[id] = (int32_t)ids.size();
 		ids.push_back(id);
 	}
@@ -131,8 +156,17 @@ Json::Value systemJson(const SystemSpec &spec)
 {
 	Json::Value out;
 	out["star"] = STARS[spec.star.type].id;
+	out["starMass"] = real(spec.star.mass);
+	out["metallicity"] = real(spec.star.metallicity);
 	out["age"] = real(spec.star.age);
 	out["activity"] = real(spec.star.activity);
+	const Companion &second = spec.star.companion;
+	Json::Value companion;
+	companion["kind"] = second.kind == Pairing::None ? "none" : second.kind == Pairing::Close ? "close" : "wide";
+	companion["class"] = STARS[second.type].id;
+	companion["mass"] = second.kind == Pairing::None ? real(STARS[second.type].mass) : real(second.mass);
+	companion["separation"] = real(second.separation);
+	out["companion"] = companion;
 	Json::Value bodies(Json::arrayValue);
 	for (const SystemBody &b : spec.bodies) {
 		const BodyCauses &c = b.causes;
@@ -152,6 +186,18 @@ Json::Value systemJson(const SystemSpec &spec)
 		j["day"] = real(c.day);
 		j["tilt"] = b.tilt;
 		j["life"] = c.life;
+		j["spin"] = SPIN_NAMES[(int)c.spin];
+		j["land"] = Json::Value();
+		if (b.land) {
+			terragen::WorldCode w;
+			w.setLand(*b.land);
+			Json::Value l;
+			l["continents"] = w.continents;
+			for (const auto &[name, v] : { std::pair{ "land", w.land }, { "coast", w.coast }, { "mountains", w.mountains }, { "roughness", w.roughness },
+					{ "temperature", w.temperature }, { "humidity", w.humidity }, { "rivers", w.rivers }, { "caves", w.caves }, { "ores", w.ores } })
+				l[name] = real(v);
+			j["land"] = l;
+		}
 		bodies.append(j);
 	}
 	out["bodies"] = bodies;
@@ -169,7 +215,13 @@ Json::Value worldSystem(const Json::Value &intent)
 			throw Refused(std::string("system.world: ") + e.what());
 		}
 	}();
-	const System system(spec);
+	const System system = [&] {
+		try {
+			return System(spec);
+		} catch (const std::invalid_argument &e) {
+			throw Refused(std::string("system.world: ") + e.what());
+		}
+	}();
 	Json::Value out = systemJson(spec);
 	std::vector<std::string> ids;
 	for (const SystemBody &b : spec.bodies)

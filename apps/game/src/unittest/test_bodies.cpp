@@ -3,6 +3,8 @@
 
 #include "test.h"
 
+#include <chrono>
+
 #include "database/database-planet.h"
 #include "database/database-sqlite3.h"
 #include "filesys.h"
@@ -27,6 +29,8 @@ public:
 	const char *getName() { return "TestBodies"; }
 
 	void runTests(IGameDef *gamedef);
+	void testAFullSystem();
+	void testLidsByTheirCards();
 
 	void testWhichBodies();
 	void testTilesOfTwoBodies();
@@ -40,19 +44,21 @@ static TestBodies g_test_instance;
 
 void TestBodies::runTests(IGameDef *gamedef)
 {
+	TEST(testAFullSystem);
 	TEST(testWhichBodies);
 	TEST(testTilesOfTwoBodies);
 	TEST(testBlocksKeptByBody);
 	TEST(testAPreviewOfABody);
 	TEST(testABodysLandIsItsKind);
 	TEST(testSurroundings);
+	TEST(testLidsByTheirCards);
 }
 
 namespace {
 
 using planet::Atlas;
 
-const terragen::WorldCode HOME_CODE = terragen::WorldCode::decode("TF9.dGVycmE");
+const terragen::WorldCode HOME_CODE = terragen::WorldCode::decode("TF16.dGVycmE");
 
 std::vector<terragen::BodyWorld> worldsAt(double radius)
 {
@@ -282,6 +288,8 @@ void TestBodies::testABodysLandIsItsKind()
 		}
 		UASSERT(seen[0] > 0 && seen[1] > 0);
 	}
+	terragen::WorldCode hundred = terragen::WorldCode::decode("TF16.dGVycmE");
+	hundred.size = 628320;
 	// a body never warm enough for volcanism floods none
 	for (const terragen::BodyWorld &b : w)
 		if (b.id == "aster") {
@@ -293,6 +301,20 @@ void TestBodies::testABodysLandIsItsKind()
 	for (const terragen::BodyWorld &b : w)
 		if (b.id == "nacre")
 			UASSERT(b.code.processes.bare == terragen::Surface::Ice && !b.code.processes.life);
+	// every body's land stays land-sized, the low-gravity ones too (a crater's
+	// size overflowed under a tenth of a g: holes and spikes tens of km high);
+	// an ice crust is ice, cracked as hard as its tides flex it
+	for (const terragen::BodyWorld &b : terragen::bodyWorlds(hundred, terragen::Atlas::standard(terragen::World::radiusOf(hundred) / 65536.0))) {
+		const terragen::World world(b.code);
+		const bool icy = b.code.processes.stiff < terragen::ONE;
+		for (int i = 0; i < 400; i++) {
+			const terragen::Place at = terragen::World::place((terragen::fix)(i * 163 % 65536), (terragen::fix)(i * 7919 % 65536));
+			const terragen::Ground g = world.ground(at, 0);
+			UASSERT(std::abs(g.terrain) < 4000);
+			if (icy)
+				UASSERT(world.rock(world.strata(at, g), 0, g.terrain) == terragen::Rock::Ice);
+		}
+	}
 }
 
 // Each body's gravity and air come from its card (sprint 96): the home's air
@@ -325,4 +347,69 @@ void TestBodies::testSurroundings()
 	UASSERT(terragen::planetOf(*moon).density == 0);
 	UASSERT(terragen::planetOf(*moon).gravity == moon->surroundings.gravity);
 	UASSERT(terragen::planetOf(*thin).density < terragen::planetOf(*home).density / 4);
+}
+
+// Sprint 99: what a lid's interior does comes from its card. Long plumes and old
+// seas (Vesper): a low side, a rise with shields, canyons, valleys, rust.
+// Eruptions (Pyre): paterae on plains, and no flooding. Neither on the rest.
+// The most bodies a system can have: laid out as the server lays them, and how long it takes.
+void TestBodies::testAFullSystem()
+{
+	std::vector<uint8_t> b{ (uint8_t)terragen::MOST_BODIES };
+	const auto text = [&](const std::string &t) { b.push_back((uint8_t)t.size()); b.insert(b.end(), t.begin(), t.end()); };
+	for (size_t i = 0; i < terragen::MOST_BODIES; i++) {
+		text("b" + std::to_string(i));
+		text("b" + std::to_string(i));
+		b.insert(b.end(), { 100, 100, 100, 255, (uint8_t)(i == 0 ? 3 : 0) });
+		const int orbit = 800 * (int)i, mass = i == 0 ? 0 : -2400; // 1 AU out; Moon-sized
+		b.insert(b.end(), { (uint8_t)(orbit & 255), (uint8_t)(orbit >> 8), (uint8_t)(mass & 255), (uint8_t)((mass >> 8) & 255), 0x09, 0x2c });
+		b.insert(b.end(), { 0, 90, 30, 0, 0, 0 });
+	}
+	terragen::WorldCode code = HOME_CODE;
+	code.bodies = b;
+	const auto start = std::chrono::steady_clock::now();
+	const auto worlds = terragen::bodyWorlds(code, terragen::Atlas::standard(100000));
+	const auto worldsMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+	infostream << "bodyWorlds: " << worldsMs << " ms" << std::endl;
+	std::vector<terragen::Atlas::Params> params;
+	for (const terragen::BodyWorld &w : worlds)
+		params.push_back(w.atlas);
+	const planet::Atlas atlas(params);
+	const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+	infostream << "a full system: " << worlds.size() << " worlds laid out in " << ms << " ms" << std::endl;
+	UASSERT(worlds.size() == terragen::MOST_BODIES);
+	UASSERT(ms < 2000); // a world opening, or a system changed in the menu: laid out by what shapes it, not every edit
+}
+
+void TestBodies::testLidsByTheirCards()
+{
+	for (const terragen::BodyWorld &b : worldsAt(100000)) {
+		const terragen::Processes &p = b.code.processes;
+		if (b.id == "vesper") {
+			UASSERT(p.plumes > 0 && p.ancient_water > 0 && p.bare == terragen::Surface::Rust);
+			const std::shared_ptr<const terragen::Grid> g = terragen::gridFor(b.code);
+			UASSERT(g->canyons.size() == 3);
+			int shields = 0;
+			for (const terragen::Volcano &v : g->volcanoes)
+				shields += v.kind == terragen::VolcanoKind::Giant && !v.active;
+			UASSERT(shields == 5);
+			int worn = 0;
+			for (size_t i = 0; i < g->eroded.size(); i++)
+				worn += g->eroded[i] < g->base[i];
+			UASSERT(worn > (int)g->eroded.size() / 20);
+		} else if (b.id == "pyre") {
+			UASSERT(p.eruptions > 0 && p.flooding == 0 && p.bare == terragen::Surface::Sulfur);
+			const std::shared_ptr<const terragen::Grid> g = terragen::gridFor(b.code);
+			int lakes = 0;
+			for (const terragen::Volcano &v : g->volcanoes) {
+				UASSERT(v.kind == terragen::VolcanoKind::Patera);
+				lakes += v.active;
+			}
+			UASSERT(lakes > 50);
+			terragen::World w(b.code);
+			UASSERT(w.strata(terragen::World::place(terragen::ratio(1, 3), terragen::ratio(1, 3)), w.ground(terragen::World::place(terragen::ratio(1, 3), terragen::ratio(1, 3)), terragen::ONE / 2)).province == terragen::Province::Volcanic);
+		} else if (b.id != b.code.seed && b.id != "earth") {
+			UASSERT(p.plumes == 0 && p.ancient_water == 0 && p.eruptions == 0);
+		}
+	}
 }

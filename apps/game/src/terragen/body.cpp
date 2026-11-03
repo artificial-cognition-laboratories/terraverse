@@ -62,6 +62,17 @@ public:
 
 	explicit Story(std::vector<Moment> &out) : m_out(out) {}
 
+	// The end of the history: a change still waiting out HOLD did happen
+	void finish(Thread &th)
+	{
+		if (!th.waiting)
+			return;
+		const std::optional<Event> said = th.next ? th.on : th.off;
+		if (said && th.known)
+			m_out.push_back({ th.since, *said });
+		th.waiting = false;
+	}
+
 	void mark(Thread &th, fix t, bool value)
 	{
 		if (th.known && th.state == value) {
@@ -94,7 +105,35 @@ private:
 	std::vector<Moment> &m_out;
 };
 
-static void check(const BodyCauses &c, size_t i, const std::vector<BodyCauses> &all)
+fix starsPull(const StarCauses &star)
+{
+	return star.companion.kind == Pairing::Close ? star.mass + star.companion.mass : star.mass;
+}
+
+// A star's radius in AU (R☉ m^0.8), as System::starRadius has it
+static fix starRadiusAU(fix mass)
+{
+	return mul(ratio(465, 100000), power(mass, F(80)));
+}
+
+static void checkCompanion(const StarCauses &star)
+{
+	const Companion &c = star.companion;
+	if (c.kind == Pairing::None)
+		return;
+	if (c.kind >= Pairing::Count || c.type < 0 || c.type >= STAR_COUNT)
+		throw std::invalid_argument("no such companion star");
+	if (c.mass < STARS[c.type].least || c.mass > STARS[c.type].most)
+		throw std::invalid_argument("a companion's mass must be in its class's range");
+	if (star.age > lifetime(c.mass))
+		throw std::invalid_argument("a system can't be older than its companion lives");
+	if (c.kind == Pairing::Close ? c.separation < F(2) || c.separation > ONE : c.separation < toFix(30) || c.separation > toFix(2000))
+		throw std::invalid_argument("a close pair is 0.02..1 AU apart, a wide one 30..2000 AU");
+	if (c.separation <= starRadiusAU(star.mass) + starRadiusAU(c.mass))
+		throw std::invalid_argument("the two stars would touch: move them apart, or make them smaller");
+}
+
+static void check(const StarCauses &star, const BodyCauses &c, size_t i, const std::vector<BodyCauses> &all)
 {
 	auto fail = [&](const std::string &why) {
 		throw std::invalid_argument("body " + std::to_string(i) + ": " + why);
@@ -113,22 +152,118 @@ static void check(const BodyCauses &c, size_t i, const std::vector<BodyCauses> &
 		fail("formed and volatiles are 0..1");
 	if (c.day < ONE)
 		fail("a day is at least an hour");
+	if (c.spin >= Spin::Count)
+		fail("no such spin");
+	if (c.parent >= 0 && c.spin == Spin::Star)
+		fail("a moon can't keep one face to its star");
+	if (c.parent < 0 && c.spin == Spin::Partner && partnerOf(all, i) < 0)
+		fail("a planet has no partner to keep one face to");
+	// Holman & Wiegert's limits, near enough: inside these the second star flings a planet out
+	if (c.parent < 0 && star.companion.kind == Pairing::Close && c.orbit < 3 * star.companion.separation)
+		fail("too close to the two stars for a stable orbit: at least three times their separation");
+	if (c.parent < 0 && star.companion.kind == Pairing::Wide && c.orbit > star.companion.separation / 3)
+		fail("too far out for a stable orbit: the other star pulls it away past a third of their separation");
+}
+
+int32_t partnerOf(const std::vector<BodyCauses> &all, size_t body)
+{
+	const auto outside = [](const BodyCauses &moon, const BodyCauses &host) {
+		// (wide: the product is past what a fix holds)
+		return ((int64_t)moon.orbit * moon.mass) / ((int64_t)moon.mass + host.mass) > ONE;
+	};
+	const BodyCauses &self = all.at(body);
+	if (self.parent >= 0)
+		return outside(self, all.at((size_t)self.parent)) ? self.parent : -1;
+	for (size_t i = 0; i < all.size(); i++)
+		if (all[i].parent == (int32_t)body && outside(all[i], self))
+			return (int32_t)i;
+	return -1;
+}
+
+static fix cappedHours(fix lg)
+{
+	return lg >= toFix(15) ? toFix(32000) : std::min(exp2(lg), toFix(32000));
+}
+
+// Hours round the star, from Kepler (years = √(a³ / M)), in logs so far orbits fit.
+static fix yearHours(const StarCauses &star, const BodyCauses &c)
+{
+	return cappedHours(log2(toFix(8766)) + (3 * log2(c.orbit) - log2(starsPull(star))) / 2);
+}
+
+// Hours a moon and its planet take round each other, both masses pulling: 1.406 h
+// at an Earth's radius of an Earth's mass.
+static fix pairHours(const BodyCauses &moon, const BodyCauses &host, fix host_radius)
+{
+	return cappedHours(log2(ratio(1406, 1000)) + (3 * (log2(moon.orbit) + log2(host_radius)) - log2(moon.mass + host.mass)) / 2);
+}
+
+// What flexes a body: the other's mass, its own size, the orbit in the planet's radii.
+static fix tides(fix other_mass, fix radius, const BodyCauses &moon)
+{
+	const fix l = 2 * log2(other_mass) + 5 * log2(radius) + log2(moon.eccentricity + ratio(1, 1000))
+			- 6 * log2(moon.orbit) + ratio(197, 10);
+	return minx(exp2(l), toFix(1000)); // beyond this a moon is molten anyway
+}
+
+// Whether the pair can hold together: not touching, nor inside the distance where
+// one's tides pull the other apart (the rigid Roche limit, 1.26 R (ρ / ρ')^⅓ = 1.26 R' (M / M')^⅓).
+static void checkPair(const BodyCauses &moon, fix moon_radius, const BodyCauses &host, fix host_radius, size_t i)
+{
+	const auto fail = [&](const std::string &why) {
+		throw std::invalid_argument("body " + std::to_string(i) + ": " + why);
+	};
+	const fix apart = moon.orbit; // in the planet's radii
+	const fix size = div(moon_radius, host_radius);
+	if (apart <= ONE + size)
+		fail("it's touching its planet: move it further out, or make it smaller");
+	const fix ratio_cube = exp2((log2(host.mass) - log2(moon.mass)) / 3);
+	if (apart < mul(ratio(126, 100), mul(ratio_cube, size)))
+		fail("its planet's tides would pull it apart: move it further out");
+	if (apart < mul(ratio(126, 100), exp2((log2(moon.mass) - log2(host.mass)) / 3)))
+		fail("its tides would pull its planet apart: move it further out, or make it lighter");
+}
+
+const char *const SPIN_NAMES[(int)Spin::Count] = { "free", "partner", "star", "3:2", "2:1", "5:2" };
+
+// The turns it makes an orbit, under a resonance; none otherwise.
+fix resonance(Spin spin)
+{
+	switch (spin) {
+	case Spin::Res3_2: return ratio(3, 2);
+	case Spin::Res2_1: return toFix(2);
+	case Spin::Res5_2: return ratio(5, 2);
+	default: return 0;
+	}
 }
 
 std::vector<BodyCard> bodies(const StarCauses &star, const std::vector<BodyCauses> &causes)
 {
-	if (star.type < 0 || star.type >= 5)
+	if (star.type < 0 || star.type >= STAR_COUNT)
 		throw std::invalid_argument("no star type " + std::to_string(star.type));
-	if (star.age < F(10) || star.age > toFix(13))
-		throw std::invalid_argument("a system's age is 0.1..13 billion years");
+	if (star.mass < STARS[star.type].least || star.mass > STARS[star.type].most)
+		throw std::invalid_argument("a star's mass must be in its class's range");
+	if (star.metallicity < -ONE || star.metallicity > HALF)
+		throw std::invalid_argument("a star's metallicity is −1..0.5");
+	if (star.age < ratio(2, 1000) || star.age > toFix(13))
+		throw std::invalid_argument("a system's age is 0.002..13 billion years");
+	if (star.age > lifetime(star.mass))
+		throw std::invalid_argument("a system can't be older than its star lives");
 
-	const fix luminosity = power(STARS[star.type].mass, toFix(4));
+	checkCompanion(star);
+	// a close pair shines as one; a wide companion's light is the same at every planet, what its distance leaves
+	const Companion &other = star.companion;
+	const fix lit = luminosity(star.mass) + (other.kind == Pairing::Close ? luminosity(other.mass) : 0);
+	const fix lg_far = other.kind == Pairing::Wide ? log2(luminosity(other.mass)) - 2 * log2(other.separation) : -toFix(32);
+	const fix far_light = lg_far < -toFix(16) ? 0 : exp2(lg_far);
+	// metal to build from: as the star's, gently, for what a disc keeps of it
+	const fix metals = exp2(mul(mul(star.metallicity, ratio(33219, 10000)), ratio(25, 100)));
 	std::vector<BodyCard> cards;
 	cards.reserve(causes.size());
 
 	for (size_t i = 0; i < causes.size(); i++) {
 		const BodyCauses &c = causes[i];
-		check(c, i, causes);
+		check(star, c, i, causes);
 		const BodyCauses *parent = c.parent >= 0 ? &causes[c.parent] : nullptr;
 		const BodyCard *parent_card = c.parent >= 0 ? &cards[c.parent] : nullptr;
 		BodyCard b{};
@@ -142,7 +277,7 @@ std::vector<BodyCard> bodies(const StarCauses &star, const std::vector<BodyCause
 			b.radius = F(350) + mul(toFix(8), ONE - exp(-c.mass / 90));
 		} else {
 			b.ice = clamp(mul(c.formed - HALF, F(160)), 0, F(70));
-			b.metal = mul(ONE - b.ice, F(40) - mul(F(20), c.formed));
+			b.metal = mul(ONE - b.ice, minx(mul(F(40) - mul(F(20), c.formed), metals), F(60)));
 			b.rock = ONE - b.ice - b.metal;
 			b.radius = mul(power(c.mass, F(27)), ONE + mul(F(45), b.ice) - mul(F(35), b.metal - F(32)));
 		}
@@ -151,15 +286,27 @@ std::vector<BodyCard> bodies(const StarCauses &star, const std::vector<BodyCause
 
 		// where it is: starlight, and tides from a parent
 		fix distance = parent ? parent->orbit : c.orbit; // AU from the star
-		b.sunlight = div(luminosity, mul(distance, distance));
+		// wide: a bright star close in is more than a fix holds, and all the same by then
+		b.sunlight = (fix)std::min<int64_t>(((int64_t)lit << FRAC) / mul(distance, distance) + far_light, toFix(32000));
 		b.equilibrium = mul(mul(toFix(278), power(b.sunlight, F(25))), ratio(915, 1000));
 		if (parent) {
-			fix l = 2 * log2(parent->mass) + 5 * log2(b.radius) + log2(c.eccentricity + ratio(1, 1000))
-					- 6 * log2(c.orbit) + ratio(197, 10);
-			b.tidal = minx(exp2(l), toFix(1000)); // beyond this a moon is molten anyway
+			checkPair(c, b.radius, *parent, parent_card->radius, i);
+			b.tidal = tides(parent->mass, b.radius, c);
 		}
-		b.locked = parent ? c.orbit <= toFix(80) : distance < mul(F(12), sqrt(STARS[star.type].mass));
-		const fix spin = sqrt(minx(ONE, div(toFix(24), c.day)));
+		// the other half of a double flexes its planet as the planet flexes it
+		const int32_t partner = c.parent < 0 ? partnerOf(causes, i) : -1;
+		if (partner >= 0 && !b.giant)
+			b.tidal = tides(causes[(size_t)partner].mass, b.radius, causes[(size_t)partner]);
+		b.spin = c.spin;
+		b.locked = c.spin == Spin::Partner || c.spin == Spin::Star;
+		// a planet holds to its partner's month, a moon to its planet's, the rest to their year
+		const fix round_hours = parent ? pairHours(c, *parent, parent_card->radius)
+				: c.spin == Spin::Partner ? pairHours(causes[(size_t)partner], c, b.radius)
+				: yearHours(star, c);
+		b.day = c.spin == Spin::Free ? c.day
+				: b.locked ? round_hours
+				: std::max<fix>(div(round_hours, resonance(c.spin)), ONE);
+		const fix spin = sqrt(minx(ONE, div(toFix(24), b.day)));
 		const fix parent_field = parent_card && parent_card->giant ? parent_card->field : 0;
 
 		// the air and water it formed with
@@ -198,11 +345,12 @@ std::vector<BodyCard> bodies(const StarCauses &star, const std::vector<BodyCause
 		Story::Thread air_th{ std::nullopt, Event::AirLost, std::nullopt };
 		bool life_told = false, oxygen_told = false, runaway_told = false;
 
-		const fix dt = ratio(5, 100);
+		fix dt = ratio(5, 100);
 		fix t = 0, pressure = 0, temperature = b.equilibrium, heat = 0;
 		bool ocean = false, plates = false;
 		while (t < star.age) {
-			t = minx(star.age, t + dt);
+			dt = minx(dt, star.age - t); // a young system's whole life can be less than a step
+			t += dt;
 			heat = interior(t) + b.tidal;
 
 			// volcanoes add air; a warm interior is needed
@@ -282,6 +430,7 @@ std::vector<BodyCard> bodies(const StarCauses &star, const std::vector<BodyCause
 			}
 			climate(co2 + n2 + o2 + ch4, co2, pressure, temperature);
 		}
+		story.finish(volcano_th);
 		std::stable_sort(b.history.begin(), b.history.end(),
 				[](const Moment &a, const Moment &z) { return a.age < z.age; });
 

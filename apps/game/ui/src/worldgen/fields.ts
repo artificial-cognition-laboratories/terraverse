@@ -119,6 +119,8 @@ export const BIOME_COLORS: Record<string, readonly [number, number, number]> = {
     monsoon: [96, 140, 40],
     mediterranean: [160, 150, 96],
     regolith: [168, 166, 160],
+    dust: [164, 83, 44],
+    sulfur: [216, 194, 60],
     mare: [84, 84, 88],
 }
 

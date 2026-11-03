@@ -83,7 +83,7 @@ View::View(scene::ISceneManager *smgr, IShaderSource *ssrc, ITextureSource *tsrc
 	m_water_level(horizon.water_level),
 	m_radius(atlas.body(body).params().radius),
 	m_palette(std::make_unique<Palette>(Palette::live(ndef, tsrc, blocksIn(horizon.content)))),
-	m_tiles(std::make_unique<Tiles>(atlas, body, horizon, *m_palette, std::min(3u, Tiles::threadsFor(0.25f)))), // the game's threads come first
+	m_tiles(std::make_unique<Tiles>(atlas, body, horizon, *m_palette, Tiles::threadsFor(0.5f))), // half the machine: the horizon is what a world is first seen by
 	m_state(std::make_shared<DrawState>())
 {
 	m_uniforms = make_irr<Uniforms>(m_state);

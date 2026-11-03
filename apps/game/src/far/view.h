@@ -60,6 +60,7 @@ public:
 	// (scene units): the fog follows it.
 	bool showing() const { return m_showing; }
 	float reach() const { return m_reach; }
+	const Palette &palette() const { return *m_palette; }
 
 	void OnRegisterSceneNode() override;
 	void render() override;

@@ -51,13 +51,19 @@ fix insolation(fix latitude, fix decl)
 
 fix annualInsolation(fix latitude, fix tilt_degrees)
 {
+	// asked over and over of one place (a column, a climate's cell)
+	thread_local fix last_latitude = 0, last_tilt = -1, last = 0;
+	if (latitude == last_latitude && tilt_degrees == last_tilt)
+		return last;
 	const int SAMPLES = 16;
 	fix sum = 0;
 	for (int i = 0; i < SAMPLES; i++) {
 		fix date = ratio(2 * i + 1, 2 * SAMPLES);
 		sum += insolation(latitude, declination(tilt_degrees, date));
 	}
-	return sum / SAMPLES;
+	last_latitude = latitude;
+	last_tilt = tilt_degrees;
+	return last = sum / SAMPLES;
 }
 
 } // namespace terragen

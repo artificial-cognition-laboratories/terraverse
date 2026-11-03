@@ -47,3 +47,23 @@ tf_lab.behaviour("falling.blocks", {
 		end,
 	},
 })
+
+tf_lab.behaviour("moves.walls", {
+	build = function(area)
+		area:fill({ x = 0, y = 0, z = 0 }, { x = 18, y = 0, z = 14 }, "tf_world:stone")
+		-- a row of three heights, thin in front and thick behind
+		for i, high in ipairs({ 1, 2, 3 }) do
+			local x = (i - 1) * 6 + 1
+			area:fill({ x = x, y = 1, z = 4 }, { x = x + 4, y = high, z = 4 }, "tf_world:stone")
+			area:fill({ x = x, y = 1, z = 9 }, { x = x + 4, y = high, z = 12 }, "tf_world:stone")
+		end
+	end,
+	expect = {
+		after = 0,
+		check = function(area)
+			local top = area:get({ x = 13, y = 3, z = 4 })
+			local over = area:get({ x = 13, y = 4, z = 4 })
+			return top == "tf_world:stone" and over == "air", "the tall wall's top is " .. top .. ", above it " .. over
+		end,
+	},
+})

@@ -16,7 +16,7 @@ const char *const PROVINCE_NAMES[(int)Province::Count] = {
 	"shield", "orogen", "arc", "rift", "basin", "volcanic", "ocean floor", "highland", "mare",
 };
 const char *const ROCK_NAMES[(int)Rock::Count] = {
-	"granite", "gneiss", "slate", "basalt", "andesite", "tuff", "obsidian", "sandstone", "shale", "limestone", "anorthosite", "breccia",
+	"granite", "gneiss", "slate", "basalt", "andesite", "tuff", "obsidian", "sandstone", "shale", "limestone", "anorthosite", "breccia", "ice",
 };
 const char *const ORE_NAMES[(int)Ore::Count] = {
 	"none", "copper", "tin", "lead", "gold", "iron", "magnetite", "coal", "salt", "sulfur", "ilmenite", "kreep", "ice",
@@ -33,7 +33,89 @@ enum GeoStream : uint32_t {
 	TUBE = 167, CAVERN = 173, SULFUR = 179, PHASE = 181, INLAND_BASIN = 191, ILMENITE = 193, KREEP = 197,
 };
 
+const int GIANT_SHIELDS = 5, PATERAE = 200;
+
 } // namespace
+
+// Each range's parts, from what its crust went through. Crust is handed over
+// cell by cell, so what it carries is smoothed before it's read
+static void styles(const History &h, Tectonics &t)
+{
+	const Sphere &sphere = gridSphere();
+	const int32_t n = sphere.size();
+	const auto smoothed = [&](std::vector<fix> f, int passes) {
+		for (int pass = 0; pass < passes; pass++) {
+			const std::vector<fix> was = f;
+			for (int32_t i = 0; i < n; i++) {
+				int64_t sum = was[i];
+				int32_t count = 1;
+				for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++, count++)
+					sum += was[*p];
+				f[i] = (fix)(sum / count);
+			}
+		}
+		return f;
+	};
+	std::vector<fix> over(n), under(n);
+	for (int32_t i = 0; i < n; i++) {
+		over[i] = h.cells[i].over;
+		under[i] = h.cells[i].under;
+	}
+	over = smoothed(std::move(over), 3);
+	under = smoothed(std::move(under), 3);
+
+	// how far in from the belt's edge, by true distances along the cells
+	const fix EDGE = ratio(3, 100);
+	t.front.assign(n, 0);
+	std::vector<fix> far(n, INT32_MAX);
+	using Open = std::pair<fix, int32_t>;
+	std::priority_queue<Open, std::vector<Open>, std::greater<Open>> open;
+	for (int32_t i = 0; i < n; i++) {
+		if (over[i] + under[i] <= EDGE) {
+			far[i] = 0;
+			open.push({ 0, i });
+		}
+	}
+	while (!open.empty()) {
+		const auto [at, i] = open.top();
+		open.pop();
+		if (at > far[i])
+			continue;
+		for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++) {
+			const Dir &a = sphere.centre(i), &b = sphere.centre(*p);
+			const Dir gap{ a.x - b.x, a.y - b.y, a.z - b.z };
+			const fix step = div(sqrtWide64(plates::dot(gap, gap) >> FRAC), sphere.spacing());
+			if (at + step < far[*p]) {
+				far[*p] = at + step;
+				open.push({ far[*p], *p });
+			}
+		}
+	}
+	// (a planet that is all belt has no edge to be far from)
+	for (int32_t i = 0; i < n; i++)
+		t.front[i] = far[i] == INT32_MAX ? 0 : far[i];
+	t.front = smoothed(std::move(t.front), 3);
+
+	t.fold.assign(n, 0);
+	t.plateau.assign(n, 0);
+	t.oldness.assign(n, 0);
+	for (int32_t i = 0; i < n; i++) {
+		if (!h.cells[i].continental)
+			continue;
+		const fix all = over[i] + under[i];
+		if (all <= EDGE)
+			continue;
+		const fix core = clamp(div(all - ratio(60, 100), ratio(60, 100)), 0, ONE);
+		// mostly ahead of the front, less behind it; none in the crystalline core
+		const fix ahead = div(under[i], all);
+		t.fold[i] = mul(mul(clamp(div(all - EDGE, ratio(12, 100)), 0, ONE), ratio(25, 100) + mul(ahead, ratio(75, 100))), ONE - core);
+		t.plateau[i] = clamp(div(over[i] - ratio(20, 100), ratio(25, 100)), 0, ONE);
+		t.oldness[i] = clamp(ratio(h.cells[i].age, 16), 0, ONE);
+	}
+	t.plateau = smoothed(std::move(t.plateau), 4);
+	for (int32_t i = 0; i < n; i++)
+		t.fold[i] = mul(t.fold[i], ONE - t.plateau[i]);
+}
 
 Tectonics tectonics(const WorldCode &c, const History &h)
 {
@@ -153,6 +235,7 @@ Tectonics tectonics(const WorldCode &c, const History &h)
 		else if (t.boundary[i] == Boundary::Divergent && !sea)
 			t.relief[i] = -mul(ratio(5, 100), falloff(d, 3));
 	}
+	styles(h, t);
 	return t;
 }
 
@@ -161,6 +244,8 @@ std::vector<Volcano> volcanoes(const WorldCode &c, const Grid &g)
 	const Sphere &sphere = gridSphere();
 	const Tectonics &t = g.tectonics;
 	std::vector<Volcano> out;
+	if (c.processes.stiff < ONE)
+		return out; // an ice crust has no lava to build cones
 	// a cell across, in blocks: the old grid's sizes are kept in cells
 	const int32_t cell = (int32_t)std::max<int64_t>(1, (World::cellBlocksOf(c) + HALF) >> FRAC);
 	const fix spacing = sphere.spacing();
@@ -194,6 +279,7 @@ std::vector<Volcano> volcanoes(const WorldCode &c, const Grid &g)
 			wide = 12;
 			v.active = age == 0;
 			break;
+		default: throw std::logic_error("terragen::volcanoes: a lid's kind on plates");
 		}
 		v.height = std::max(4, floorInt(scale * metres));
 		v.radius = std::min(v.height * wide * (8 + (int32_t)(a % 5)) / 10, cell * 3);
@@ -201,10 +287,44 @@ std::vector<Volcano> volcanoes(const WorldCode &c, const Grid &g)
 		// (a cone's slopes are worked in fixed blocks: World::volcanic)
 		v.radius = std::min(v.radius, 16000);
 		v.crater = std::max(5, v.radius / 7);
+		v.depth = v.crater * 3 / 4;
 		fix e = g.eroded[sphere.cell(v.at)];
 		v.base = floorInt(mul(e, heightScale(c)));
 		out.push_back(v);
 	};
+
+	// a lid's: wide vents that aren't limited by a cell's cones
+	auto lidVent = [&](const Dir &at, VolcanoKind kind, int32_t height, int32_t radius, int32_t crater, int32_t depth, bool active) {
+		const fix e = g.eroded[sphere.cell(at)];
+		out.push_back({ at, radius, height, crater, depth, floorInt(mul(e, heightScale(c))), active, kind });
+	};
+	// Shields: a plume stays under a lid, so one vent grows until the rock can't
+	// bear more (tallest under the least pull: Olympus Mons, 22 km at 0.38 g);
+	// slopes of 1 in 14. Silent now, their calderas shallow.
+	if (c.processes.plumes > 0) {
+		const int32_t tallest = floorInt(div(toFix(8), c.processes.gravity)) * 1000;
+		for (int k = 0; k < GIANT_SHIELDS; k++) {
+			const uint32_t a = mix(k, 21, seed), b = mix(k, 23, seed), d = mix(k, 25, seed);
+			const Dir way = scattered(a, b, d);
+			const fix off = k == 0 ? ratio(30, 100) : ratio(18, 100); // the tallest stands off the rise
+			const Dir at = normalise((int64_t)g.rise.x + mul(way.x, off), (int64_t)g.rise.y + mul(way.y, off), (int64_t)g.rise.z + mul(way.z, off));
+			const int32_t h = std::max(8, floorInt(scale * (tallest * (100 - k * 18) / 100)));
+			const int32_t radius = std::min(h * 14, 16000);
+			lidVent(at, VolcanoKind::Giant, h, radius, radius / 7, h / 8, false);
+		}
+	}
+	// Paterae: where eruptions bury the land, wide flat calderas (a hundred km
+	// and more) barely raised, half of them lava lakes now
+	if (c.processes.eruptions > 0)
+		for (int k = 0; k < PATERAE; k++) {
+			const uint32_t a = mix(k, 31, seed), b = mix(k, 33, seed), d = mix(k, 35, seed);
+			const int32_t height = std::max(6, floorInt(scale * (300 + (int32_t)(a % 500))));
+			const int32_t radius = std::min(std::max(16, floorInt(scale * (25000 + (int32_t)(b % 60000)))), 16000);
+			const Dir at = scattered(a, b, d);
+			if (g.eroded[sphere.cell(at)] > ratio(30, 100))
+				continue; // on the plains: the thrust blocks stand where lava doesn't reach
+			lidVent(at, VolcanoKind::Patera, height, radius, radius * 6 / 10, height, d % 2 == 0);
+		}
 
 	for (int32_t i = 0; i < sphere.size(); i++) {
 		uint32_t h = mix(i, 1, seed);
@@ -243,7 +363,12 @@ std::vector<Province> provinces(const WorldCode &c, const Grid &g)
 	size_t n = (size_t)sphere.size();
 	std::vector<Province> out(n);
 	for (size_t i = 0; i < n; i++) {
-		// a lid: the old crust, and the lava that flooded it
+		// a lid: the old crust, and the lava that flooded it (all of it, where
+		// eruptions keep burying it)
+		if (c.processes.eruptions > 0) {
+			out[i] = Province::Volcanic;
+			continue;
+		}
 		if (c.processes.regime == Regime::Lid) {
 			out[i] = g.mare[i] > 0 ? Province::Mare : Province::Highland;
 			continue;
@@ -293,6 +418,10 @@ uint32_t blockHash(int32_t x, int32_t y, int32_t z, uint32_t seed)
 	return mix((uint32_t)x, mix((uint32_t)y, (uint32_t)z, seed), seed);
 }
 
+// How far down the beds a fold valley's top lies from its crest's: from
+// sandstone (the first beds) to shale
+const int32_t CREST_TO_VALLEY = 14;
+
 // position in the repeating sequence of sedimentary beds (36 blocks: sand, mud, lime)
 int32_t bed(int32_t depth, int32_t phase)
 {
@@ -329,11 +458,23 @@ Strata World::strata(const Place &at, const Ground &ground) const
 	case Province::Mare: s.sediment = 0; s.fold = 0; break; // nothing laid down by water
 	default: s.sediment = std::max(0, floorInt(mul(toFix(5), lumpy))); s.fold = 6; break;
 	}
+	if (m_code.processes.eruptions > 0)
+		s.sediment = 0; // lava on lava
 	// beds rise and fall across the land: the folds, broad and gentle away from mountains
 	s.tilt = floorInt(mul(toFix(s.fold), noise(at, m_code.seed_hash + FOLD, std::max(8, size / 400))));
 	s.phase = (int32_t)((m_code.seed_hash >> 4) % 36) + floorInt(mul(toFix(10), noise(at, m_code.seed_hash + PHASE, 6)));
 	s.pluton = (s.province == Province::Orogen || s.province == Province::Arc || s.province == Province::Shield) &&
 			noise(at, m_code.seed_hash + PLUTON, std::max(8, size / 700)) > ratio(35, 100);
+	// Fold ridges are their rock: thick folded sediment, hard sandstone cropping
+	// out on the crests and weak shale along the valleys (each column's top bed
+	// is set by where it lies on the ridge)
+	s.crumpled = s.province == Province::Orogen;
+	if (const Folds f = folds(at); f.height > 0 && m_code.processes.eruptions <= 0) {
+		s.sediment = std::max(s.sediment, 60);
+		s.tilt = 0;
+		s.crumpled = false;
+		s.phase = 36 + floorInt(mul(toFix(CREST_TO_VALLEY), ONE - f.crest));
+	}
 	s.humid = ground.column.wet > ratio(15, 100);
 	s.arid = ground.column.wet < -ratio(20, 100);
 	s.placer = between(g.placer, at);
@@ -370,10 +511,12 @@ Strata World::strata(const Place &at, const Ground &ground) const
 
 Rock World::rock(const Strata &s, int32_t depth, int32_t y) const
 {
+	if (m_code.processes.stiff < ONE)
+		return Rock::Ice; // an ice crust, as deep as anyone digs
 	if (s.crater < 8 && depth < 6)
 		return Rock::Obsidian; // glass where lava met the air at an active rim
 	int32_t d = depth + s.tilt;
-	if (s.province == Province::Orogen) { // crumpled: beds folded on themselves
+	if (s.crumpled) { // beds folded on themselves
 		const std::array<int32_t, 3> p = solid(s.at, y);
 		d += floorInt(mul(toFix(6), value3(p[0], p[1], p[2], m_code.seed_hash + FOLD, 24)));
 	}

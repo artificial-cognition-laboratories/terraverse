@@ -19,6 +19,7 @@
 #include <memory>
 
 struct SEvent;
+class IWritableShaderSource;
 namespace video { class IVideoDriver; }
 
 /*
@@ -51,6 +52,7 @@ public:
 	};
 
 	explicit Planetarium(Opts opts);
+	~Planetarium();
 
 	// The mouse: drag to orbit, the wheel to go up and down; a click (a press
 	// let go where it was) is kept for takeClick; a double click on a body
@@ -142,6 +144,7 @@ public:
 	// the body it is round, or a flight is taking it to
 	size_t heading() const { return m_flight ? m_flight->to : m_target; }
 	const terragen::System &system() const { return m_system.system(); }
+	size_t tiled() const { return m_tiled; }
 	void markers(std::vector<MarkerLayer::Marker> markers) { m_markers.set(std::move(markers)); }
 	// A path round an atlas body (its index; points in its frame, blocks
 	// from its centre: the player's orbit), drawn while that's the tiled
@@ -167,6 +170,8 @@ public:
 	const OrbitCamera &camera() const { return m_camera; }
 
 private:
+	// made at the first frame: there's a window by then
+	std::unique_ptr<IWritableShaderSource> m_shaders;
 	const far::Palette m_palette; // before the tiles that read it
 	const terragen::Atlas m_atlas;
 	const double m_sea;

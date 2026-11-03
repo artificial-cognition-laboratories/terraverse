@@ -1,3 +1,4 @@
+import type { CompanionWire } from "../system/stars"
 import type { OverlayId, PreviewWire } from "../worldgen/fields"
 import type { WeatherWire } from "../worldgen/weather"
 import type { StarId } from "../worldgen/config"
@@ -116,9 +117,16 @@ export type SystemBodyWire = {
     day: number           // rotation period, hours
     tilt: number          // degrees (the playable world's is in the world code)
     life: boolean         // whether life arises where it can
+    spin: SpinWire        // a lock sets the day; `day` is only a free body's
+    /** Its own land settings; null: the usual. The start body's are the world code's own. */
+    land: BodyLandWire | null
 }
-/** A system: its star (StarId), age (billions of years), wind (0..1), bodies (a planet before its moons). */
-export type SystemWire = { star: string; age: number; activity: number; bodies: SystemBodyWire[] }
+/** How a body turns. Must match src/terragen/body.h Spin, in order. */
+export const SPIN_WIRES = ["free", "partner", "star", "3:2", "2:1", "5:2"] as const
+export type SpinWire = (typeof SPIN_WIRES)[number]
+export type BodyLandWire = { continents: number; land: number; coast: number; mountains: number; roughness: number; temperature: number; humidity: number; rivers: number; caves: number; ores: number }
+/** A system: its star (StarId), the star's mass (Suns) and metallicity ([Fe/H]), age (billions of years), wind (0..1), bodies (a planet before its moons). */
+export type SystemWire = { star: string; starMass: number; metallicity: number; age: number; activity: number; companion: CompanionWire; bodies: SystemBodyWire[] }
 
 /** One body's causes, as `system.preview` takes them (src/shell/system.cpp → terragen/body.h). */
 export type BodyCausesWire = {
@@ -131,6 +139,7 @@ export type BodyCausesWire = {
     volatiles: number     // 0..1: the water and gases it formed with
     day: number           // hours
     life: boolean
+    spin: SpinWire
 }
 
 export type BodyKind = "temperate" | "cold desert" | "hothouse" | "volcanic" | "ice shell" | "hydrocarbon" | "airless" | "giant"
@@ -149,7 +158,7 @@ export type BodyCard = {
     pressure: number | null           // bar; null: a giant, no surface
     gases: Partial<Record<"CO2" | "N2" | "O2" | "CH4" | "H2" | "He", number>>
     field: number; heat: number; tidal: number
-    ocean: boolean; plates: boolean; volcanism: boolean; locked: boolean
+    ocean: boolean; plates: boolean; volcanism: boolean; locked: boolean; spin: SpinWire; day: number /* hours a turn takes, as it spins */
     /** Its shells, centre outward: outer edge as a share of the radius. */
     layers: { name: "core" | "mantle" | "crust" | "ocean" | "ice" | "metallic hydrogen" | "envelope"; outer: number; molten: boolean }[]
     history: { age: number; text: string }[]  // billions of years after formation
@@ -502,7 +511,7 @@ export type Intents = {
     /** What a substance is at a temperature (K) and pressure (Pa), and where it would boil and melt at that pressure */
     "matter.state": { request: { id: string; t: number; p: number }; response: { state: MatterState; boils_at: number | null; melts_at: number | null } }
     /** terragen's body model: every body's card and history from the system's causes (src/shell/system.cpp) */
-    "system.preview": { request: { star: string; age: number; activity: number; bodies: BodyCausesWire[] }; response: BodyCard[] }
+    "system.preview": { request: { star: string; starMass: number; metallicity: number; age: number; activity: number; companion: CompanionWire; bodies: BodyCausesWire[] }; response: BodyCard[] }
     /** The system a new world's draft starts from (the menu's). */
     "system.home": { request: {}; response: SystemWire }
     /** A world's own system and every body's card (the game's: its map). */

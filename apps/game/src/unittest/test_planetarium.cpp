@@ -6,6 +6,7 @@
 #include "constants.h"
 #include "planetarium/camera.h"
 #include "planetarium/paint.h"
+#include "terragen/worlds.h"
 #include "terragen/code.h"
 #include <chrono>
 #include <set>
@@ -33,6 +34,7 @@ public:
 	void testDragOverThePole();
 	void testCentreIsAhead();
 	void testOverlaySharpUpClose();
+	void testOverlaysOnEveryBody();
 	void testOverlayKeepsWater();
 };
 
@@ -48,6 +50,7 @@ void TestPlanetarium::runTests(IGameDef *gamedef)
 	TEST(testDragOverThePole);
 	TEST(testCentreIsAhead);
 	TEST(testOverlaySharpUpClose);
+	TEST(testOverlaysOnEveryBody);
 	TEST(testOverlayKeepsWater);
 }
 
@@ -188,7 +191,7 @@ void TestPlanetarium::testCentreIsAhead()
 // And its cost per vertex, for the tile budget.
 void TestPlanetarium::testOverlaySharpUpClose()
 {
-	const auto world = std::make_shared<const terragen::World>(terragen::WorldCode::decode("TF9.dGVycmE"));
+	const auto world = std::make_shared<const terragen::World>(terragen::WorldCode::decode("TF16.dGVycmE"));
 	planetarium::Painter painter({ world, planetarium::Overlay::Elevation, nullptr, std::nullopt, std::nullopt, 0 });
 	const video::SColor land(255, 200, 200, 200);
 	// a few places, the best of them: one may lie on an even slope or a
@@ -221,9 +224,28 @@ void TestPlanetarium::testOverlaySharpUpClose()
 
 // A liquid's top on land (a lake, a river) stays the land's water under the
 // water overlays; the climate ones paint over it.
+// Every overlay paints every kind of body: a sea-less lid, ice, a dead world.
+void TestPlanetarium::testOverlaysOnEveryBody()
+{
+	const terragen::WorldCode home = terragen::WorldCode::decode("TF16.dGVycmE");
+	const auto worlds = terragen::bodyWorlds(home, terragen::Atlas::standard(250000));
+	UASSERT(worlds.size() > 4);
+	using O = planetarium::Overlay;
+	for (const terragen::BodyWorld &b : worlds) {
+		const auto world = std::make_shared<const terragen::World>(b.code);
+		for (const O o : { O::Biomes, O::Elevation, O::Temperature, O::Moisture, O::Seasons, O::Fertility, O::Currents, O::Plates, O::Geology }) {
+			planetarium::Painter painter({ world, o, nullptr, std::nullopt, std::nullopt, 0 });
+			for (int i = 0; i < 32; i++) {
+				const double lon = 2 * M_PI * i / 32, la = 1.4 * std::sin(i * 0.7);
+				painter.colour(video::SColor(255, 200, 200, 200), { std::cos(la) * std::cos(lon), std::sin(la), std::cos(la) * std::sin(lon) });
+			}
+		}
+	}
+}
+
 void TestPlanetarium::testOverlayKeepsWater()
 {
-	const auto world = std::make_shared<const terragen::World>(terragen::WorldCode::decode("TF9.dGVycmE"));
+	const auto world = std::make_shared<const terragen::World>(terragen::WorldCode::decode("TF16.dGVycmE"));
 	const video::SColor river(0, 40, 120, 215);
 	// a place on land
 	for (int i = 0; i < 4096; i++) {

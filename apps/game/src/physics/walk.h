@@ -24,6 +24,29 @@
 */
 namespace physics {
 
+// How a body holds itself (arc-movement, sprint 116). Each is a row of STANCES.
+enum class Stance : unsigned char { STAND, CROUCH, PRONE, SLIDE, ROLL, VAULT, MANTLE, HANG, WALL_RUN };
+struct StanceInfo
+{
+	float height;      // nodes: its capsule (0: as tall as the body is)
+	float speed;       // × walking
+	bool jumps;
+	float eye_drop;    // nodes: the view below standing
+	float eye_forward; // nodes: and ahead of the feet
+};
+constexpr StanceInfo STANCES[] = {
+	{ 0, 1, true, 0, 0 },
+	{ 1.2f, 0.5f, true, 0.6f, 0.08f },
+	{ 0.7f, 0.25f, false, 1.2f, 0.28f },
+	{ 0.9f, 1, true, 0.75f, 0.1f },
+	{ 0.9f, 1, false, 0.8f, 0.1f },
+	{ 0.9f, 1, false, 0.3f, 0 },
+	{ 0.9f, 1, false, 0.3f, 0 },
+	{ 1.2f, 1, false, 0, 0 },
+	{ 1.2f, 1, false, 0, 0 },
+};
+inline const StanceInfo &stanceInfo(Stance s) { return STANCES[(int)s]; }
+
 struct Gait
 {
 	float walk = 4;          // nodes/s
@@ -32,6 +55,10 @@ struct Gait
 	float push_on = 5;       // nodes/s² from walking up to running
 	float brake = 28;        // nodes/s² slowing (letting go, or turning back)
 	float air = 3;           // nodes/s² steering in the air
+	float air_reach = 1.5f;  // nodes/s: only slower than this can it steer at all. A jump's a throw:
+	                         // what it left the ground with it keeps; a standing hop can still reach a ledge
+	float flow = 1;          // × a run at most, reached slowly by holding a clean line
+	float flow_on = 0.5f;    // nodes/s² from a run up to that
 	float jump = 1.25f;      // nodes high
 	v3f gravity{ 0, -9.81f, 0 }; // nodes/s²
 };
@@ -48,9 +75,27 @@ struct Footing
 	v3f velocity;
 	bool on_ground = false;
 	v3f ground_velocity{ 0 };
+	v3f ground_normal{ 0, 1, 0 };
 };
 
 // Its velocity after `dt` more of walking.
 v3f walk(const Gait &gait, const Intent &intent, const Footing &now, float dt);
+// Sliding: friction and the slope act on what it came in with, it hardly steers.
+v3f slide(const Gait &gait, const Intent &intent, const Footing &now, float dt);
+// Rolling: it keeps going, at least at a walk, the way it was going (or asked, from a standstill).
+v3f roll(const Gait &gait, const Intent &intent, const Footing &now, float dt);
+
+constexpr float SLIDE_FROM = 4.4f, SLIDE_TO = 2.5f; // nodes/s across: fast enough to start one, and where it ends
+constexpr float SLIDE_KICK = 6;                     // nodes/s it drops into one at, at least
+constexpr float ROLL_LATE = 0.2f;                   // s after a hard landing a crouch still makes it a roll
+constexpr float ROLL_TIME = 0.55f;               // s
+constexpr float HARD_LANDING = 7;                // nodes/s down: a roll takes it, or it costs speed and hurts
+constexpr float STUMBLE = 0.4f;                  // what's kept across, landing that hard with no roll
+
+// What a body's holding moves to. `asked` is what the player wants, only ever
+// STAND, CROUCH or PRONE; slides and rolls come of how it's moving as they ask.
+Stance nextStance(Stance now, Stance asked, float pace, bool on_ground, float roll_left);
+// Landing at this speed down, asking this: whether it rolls out of it.
+inline bool rollsOut(float fall, Stance asked) { return fall >= HARD_LANDING && asked != Stance::STAND; }
 
 } // namespace physics

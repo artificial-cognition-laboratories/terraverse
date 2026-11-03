@@ -3,6 +3,7 @@
 
 #include "terragen/worlds.h"
 #include "planetarium/planetarium.h"
+#include "client/shader.h"
 #include "planetarium/ribbon.h"
 #include "constants.h"
 #include "log.h"
@@ -100,8 +101,7 @@ void Planetarium::day(double days, std::optional<double> timeOfDay)
 	if (timeOfDay) {
 		m_spin = m_system.spin(days, *timeOfDay);
 	} else {
-		const double hours = s.spec().bodies[m_tiled].causes.day / 65536.0;
-		m_spin = 2 * M_PI * std::fmod(days * 24 / hours, 1.0);
+		m_spin = s.turning(m_tiled, days);
 	}
 }
 
@@ -176,8 +176,7 @@ std::shared_ptr<const far::Tiles::Tint> Planetarium::tintFor(int body)
 
 double Planetarium::spinOf(size_t index) const
 {
-	const double hours = m_system.system().spec().bodies[index].causes.day / 65536.0;
-	return 2 * M_PI * std::fmod(m_day * 24 / hours, 1.0);
+	return m_system.system().turning(index, m_day);
 }
 
 // A baked body is drawn from its tiles once it's this many pixels across (a sphere till then).
@@ -201,12 +200,7 @@ bool Planetarium::drawBaked(video::IVideoDriver *driver, const core::matrix4 &lo
 		return false; // its sphere till its coarse land is there
 	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, m_shift));
 	driver->setTransform(video::ETS_VIEW, look);
-	video::SMaterial land;
-	land.MaterialType = video::EMT_SOLID;
-	land.FogEnable = false;
-	land.BackfaceCulling = false;
-	land.ColorMask = video::ECP_RGB;
-	driver->setMaterial(land);
+	driver->setMaterial(m_system.lit(index, m_day, v3f((f32)at.x, (f32)at.y, (f32)at.z) * BS, 0, !m_layer));
 	// where it is, turned on its axis, at the scene's scale; a tile from its middle
 	core::matrix4 place, turn, scale;
 	place.setTranslation(v3f((f32)at.x, (f32)at.y, (f32)at.z) * BS);
@@ -560,6 +554,10 @@ void Planetarium::drawPath(video::IVideoDriver *driver, const OrbitCamera::Vec &
 
 void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 {
+	if (!m_shaders) {
+		m_shaders.reset(createShaderSource());
+		m_system.shaders(m_shaders.get());
+	}
 	const auto frameFrom = std::chrono::steady_clock::now();
 	struct Timed // the frame's time, kept as the worst in the log's window, however it ends
 	{
@@ -591,14 +589,8 @@ void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 			driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, m_shift));
 		}
 		driver->setTransform(video::ETS_VIEW, spun);
-		video::SMaterial land;
-		land.MaterialType = video::EMT_SOLID;
-		land.FogEnable = false;
-		land.BackfaceCulling = false;
-		// colour only: the mesh's vertex alpha marks its layers (far/mesh.cpp:
-		// 0 a liquid's top), and a window can show alpha
-		land.ColorMask = video::ECP_RGB;
-		driver->setMaterial(land);
+		// (an overlay is there to be read, on the night side too)
+		driver->setMaterial(m_system.lit(m_tiled, m_day, v3f((float)-ground.x, (float)-ground.y, (float)-ground.z) * BS, m_spin, !m_layer));
 		for (const far::Tiles::Drawn &tile : m_tiles.drawn()) {
 			core::matrix4 world;
 			world.setTranslation(v3f((float)(tile.middle.x - ground.x), (float)(tile.middle.y - ground.y),
@@ -616,5 +608,7 @@ void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 	});
 	driver->setViewPort(core::recti(0, 0, window.Width, window.Height)); // the page draws over the whole window
 }
+
+Planetarium::~Planetarium() = default;
 
 } // namespace planetarium

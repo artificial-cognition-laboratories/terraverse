@@ -29,6 +29,8 @@ struct SkySolar
 	bool on { false };
 	float latitude { 0.0f };    // north positive
 	float declination { 0.0f }; // the latitude under the noon sun
+	float turns { 1.0f };       // its body's days to the engine's, and where the clock stands at
+	float at { 0.0f };          // the engine's 0: the local time is at + turns × the engine's
 };
 
 struct SkyboxParams

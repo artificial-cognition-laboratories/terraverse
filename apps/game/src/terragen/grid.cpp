@@ -4,6 +4,7 @@
 #include "grid.h"
 #include "craters.h"
 #include "maria.h"
+#include "lid.h"
 #include "climate.h"
 #include "drainage.h"
 #include "noise.h"
@@ -13,6 +14,8 @@
 #include <mutex>
 #include <queue>
 
+#include "parallel.h"
+
 namespace terragen {
 
 static int octavesFor(const WorldCode &c) { return 3 + roundInt(c.roughness * 3); }
@@ -21,6 +24,19 @@ const Sphere &gridSphere()
 {
 	static const Sphere sphere(GRID_FREQUENCY);
 	return sphere;
+}
+
+std::vector<int32_t> lowestFirst(const std::vector<fix> &height)
+{
+	// each a height over its index in one number: sorted without looking anything up
+	std::vector<uint64_t> keys(height.size());
+	for (size_t i = 0; i < height.size(); i++)
+		keys[i] = (uint64_t)((int64_t)height[i] - INT32_MIN) << 32 | (uint32_t)i;
+	std::sort(keys.begin(), keys.end());
+	std::vector<int32_t> by(height.size());
+	for (size_t i = 0; i < height.size(); i++)
+		by[i] = (int32_t)(uint32_t)keys[i];
+	return by;
 }
 
 fix landmass(const WorldCode &c, const Dir &d)
@@ -98,10 +114,15 @@ std::vector<fix> fill(const std::vector<fix> &h)
 			lowest = i;
 		if (h[i] < 0) {
 			seen[i] = 1;
-			open.push({ h[i], i });
+			// (the open sea has nothing to flood: only the coast's cells can)
+			bool coast = false;
+			for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i) && !coast; p++)
+				coast = h[*p] >= 0;
+			if (coast)
+				open.push({ h[i], i });
 		}
 	}
-	if (open.empty() && lowest >= 0) {
+	if (lowest >= 0 && h[lowest] >= 0) { // no sea at all: from the lowest cell
 		seen[lowest] = 1;
 		open.push({ h[lowest], lowest });
 	}
@@ -129,9 +150,9 @@ std::vector<int32_t> receivers(const std::vector<fix> &surface)
 {
 	const Sphere &sphere = gridSphere();
 	std::vector<int32_t> out(surface.size(), -1);
-	for (int32_t i = 0; i < (int32_t)surface.size(); i++) {
+	parallelFor((int32_t)surface.size(), [&](int32_t i) {
 		if (surface[i] < 0)
-			continue;
+			return;
 		int64_t best = 0;
 		const fix *gap = sphere.distancesBegin(i);
 		for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++, gap++) {
@@ -141,7 +162,7 @@ std::vector<int32_t> receivers(const std::vector<fix> &surface)
 				out[i] = *p;
 			}
 		}
-	}
+	});
 	return out;
 }
 
@@ -292,6 +313,53 @@ std::vector<fix> fertility(const WorldCode &code, const Grid &g)
 	return out;
 }
 
+// A plateau's height: some 4.5 km (a unit is 5 km)
+const fix PLATEAU = ratio(90, 100);
+
+// The last few results of a stage and what they were made from. Tweaking a
+// setting on the create screen builds world after world that differ only
+// downstream of it: the plates needn't move again for a change of rivers.
+template <typename Key, typename Value>
+class Kept
+{
+public:
+	template <typename Make>
+	std::shared_ptr<const Value> get(const Key &key, Make &&make)
+	{
+		{
+			std::lock_guard<std::mutex> hold(m_lock);
+			for (const auto &e : m_recent)
+				if (e.first == key)
+					return e.second;
+		}
+		auto made = std::make_shared<const Value>(make());
+		std::lock_guard<std::mutex> hold(m_lock);
+		m_recent.insert(m_recent.begin(), { key, made });
+		if (m_recent.size() > 3)
+			m_recent.pop_back();
+		return made;
+	}
+
+private:
+	std::mutex m_lock;
+	std::vector<std::pair<Key, std::shared_ptr<const Value>>> m_recent;
+};
+
+// (exactly what history() reads of a code, and landmass() for it)
+std::shared_ptr<const History> historyKept(const WorldCode &c)
+{
+	static Kept<std::vector<int64_t>, History> kept;
+	return kept.get({ c.seed_hash, c.continents, c.land, c.coast, c.roughness, c.mountains,
+			(int64_t)c.processes.regime, c.processes.water }, [&] { return history(c); });
+}
+
+// (exactly what climate() reads: the land, and the sky's settings)
+std::shared_ptr<const Climate> climateKept(const WorldCode &c, const std::vector<fix> &land)
+{
+	static Kept<std::pair<std::vector<int64_t>, std::vector<fix>>, Climate> kept;
+	return kept.get({ { c.processes.warming, c.temperature, c.humidity, c.tilt }, land }, [&] { return climate(c, land); });
+}
+
 std::shared_ptr<Grid> build(const WorldCode &code)
 {
 	const Sphere &sphere = gridSphere();
@@ -302,33 +370,32 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 	// The plates' history makes the land (history.cpp); the coasts are
 	// broken up by finer noise (the Coast setting), the sea placed by
 	// quantile so exactly the Land share of the planet's area is above it
-	const History past = history(code);
+	const std::shared_ptr<const History> kept_past = historyKept(code);
+	const History &past = *kept_past;
 	g->tectonics = tectonics(code, past);
 	g->history = past.events;
 	std::vector<fix> raw(n);
-	for (size_t i = 0; i < n; i++)
-		raw[i] = past.cells[i].height + mul(fbm(sphere.centre((int32_t)i), code.seed_hash + COAST, code.continents * 7, 3, HALF),
+	parallelFor((int32_t)n, [&](int32_t i) {
+		raw[i] = past.cells[i].height + mul(fbm(sphere.centre(i), code.seed_hash + COAST, code.continents * 7, 3, HALF),
 				mul(code.coast, ratio(12, 100)));
+	});
 	// the ocean floor slopes down from the continents over a few cells (the
 	// continental slope), not a cliff from shelf to abyss in one; and floor
 	// handed over a step at a time leaves no lines where its ages meet
 	for (int pass = 0; pass < 6; pass++) {
 		const std::vector<fix> was = raw;
-		for (size_t i = 0; i < n; i++) {
+		parallelFor((int32_t)n, [&](int32_t i) {
 			if (past.cells[i].continental)
-				continue;
+				return;
 			int64_t sum = was[i];
 			int32_t count = 1;
-			for (const int32_t *p = sphere.neighboursBegin((int32_t)i); p != sphere.neighboursEnd((int32_t)i); p++, count++)
+			for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++, count++)
 				sum += was[*p];
 			raw[i] = std::min<fix>(was[i] + ratio(10, 100), (fix)(sum / count));
-		}
+		});
 	}
 	{
-		std::vector<int32_t> by(n);
-		for (size_t i = 0; i < n; i++)
-			by[i] = (int32_t)i;
-		std::sort(by.begin(), by.end(), [&](int32_t a, int32_t b) { return raw[a] != raw[b] ? raw[a] < raw[b] : a < b; });
+		const std::vector<int32_t> by = lowestFirst(raw);
 		const int64_t sea = (int64_t)n * (ONE - code.land); // of the planet's n·ONE (each cell's area()), fixed
 		int64_t under = 0;
 		size_t k = 0;
@@ -337,13 +404,58 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 		g->sea_offset = raw[by[k]];
 	}
 	g->base.resize(n);
-	for (size_t i = 0; i < n; i++) {
+	parallelFor((int32_t)n, [&](int32_t i) {
 		const fix land = raw[i] - g->sea_offset, relief = g->tectonics.relief[i];
 		// trenches and abyssal hills shape the sea floor, never above the sea;
 		// rifts sink the land, never below it
-		g->base[i] = land < 0 ? std::min<fix>(land + relief + fbm(sphere.centre((int32_t)i), code.seed_hash + DETAIL, 24, 3, HALF) / 25, -ratio(1, 160))
+		// (on a dry body there's no waterline to hold to: the land just goes on down)
+		if (!code.processes.water) {
+			g->base[i] = mul(land + relief, code.processes.stiff);
+			return;
+		}
+		g->base[i] = land < 0 ? std::min<fix>(land + relief + fbm(sphere.centre(i), code.seed_hash + DETAIL, 24, 3, HALF) / 25, -ratio(1, 160))
 				: std::max<fix>(land + relief, ratio(1, 160));
+	});
+
+	// An ice crust flows: over the ages its broad relief sags, the harder its
+	// tides warm it the more, and no scarp stands (the old continents' edges)
+	if (code.processes.stiff < ONE) {
+		const fix sag = div(ONE, ONE + code.processes.flexing);
+		for (size_t i = 0; i < n; i++)
+			g->base[i] = mul(g->base[i], sag);
+		for (int pass = 0; pass < 16; pass++) {
+			const std::vector<fix> was = g->base;
+			for (size_t i = 0; i < n; i++) {
+				int64_t sum = was[i];
+				int32_t count = 1;
+				for (const int32_t *p = sphere.neighboursBegin((int32_t)i); p != sphere.neighboursEnd((int32_t)i); p++, count++)
+					sum += was[*p];
+				g->base[i] = (fix)(sum / count);
+			}
+		}
 	}
+
+	// Crust thickened behind a collision stands as a high plain (Tibet): level,
+	// and dry in its range's shadow, so it wears slowly (the erosion below)
+	{
+		std::vector<fix> level = g->base;
+		for (int pass = 0; pass < 32; pass++) {
+			const std::vector<fix> was = level;
+			parallelFor((int32_t)n, [&](int32_t i) {
+				int64_t sum = was[i];
+				int32_t count = 1;
+				for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++, count++)
+					sum += was[*p];
+				level[i] = (fix)(sum / count);
+			});
+		}
+		for (size_t i = 0; i < n; i++)
+			if (g->tectonics.plateau[i] > 0 && g->base[i] >= 0)
+				g->base[i] += mul(std::max(level[i], PLATEAU) - g->base[i], g->tectonics.plateau[i]);
+	}
+
+	thinCrust(code, *g);
+	shapeLid(code, *g);
 
 	// Impacts: the craters wider than two cells, into the land (the rest are
 	// the column's, too small for the grid to hold); the old first, then the
@@ -377,6 +489,7 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 			g->base[i] += g->crater_stamp[i];
 		}
 		flood(code, *g);
+		raiseRise(code, *g);
 		for (size_t i = 0; i < n; i++)
 			g->base[i] += g->crater_young[i];
 	}
@@ -384,12 +497,13 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 	// The climate over the land as made (climate.h): where rain falls, which
 	// wears the land and feeds the rivers (a little everywhere, so every slope runs)
 	{
-		Climate cl = climate(code, g->base);
-		g->rain_season[0] = std::move(cl.rain[0]);
-		g->rain_season[1] = std::move(cl.rain[1]);
-		g->sea_heat = std::move(cl.sea);
-		g->heat = std::move(cl.heat);
-		g->heat_gain = std::move(cl.gain);
+		const std::shared_ptr<const Climate> kept_climate = climateKept(code, g->base);
+		const Climate &cl = *kept_climate;
+		g->rain_season[0] = cl.rain[0];
+		g->rain_season[1] = cl.rain[1];
+		g->sea_heat = cl.sea;
+		g->heat = cl.heat;
+		g->heat_gain = cl.gain;
 		g->ice = cl.ice;
 		if (!code.processes.water) // nothing to rain
 			for (std::vector<fix> &season : g->rain_season)
@@ -425,11 +539,23 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 	g->sediment.assign(n, 0);
 	std::vector<int64_t> heavy_laid(n, 0); // heavy grains laid, as sediment × area
 	std::vector<int64_t> crumbs(n, 0); // creep's remainders below a unit of height (× area), kept for the next round
-	// (no water, no erosion: the land stays as the history left it)
-	for (int round = 0; round < (code.processes.water ? EROSION_ROUNDS : 0); round++) {
-		for (size_t i = 0; i < n; i++)
+	// (no water, no erosion: the land stays as the history left it. Seas long
+	// gone wore it as long as they lasted, against their own level, with no
+	// belts rising to renew it: the old valleys)
+	const int rounds = code.processes.water ? EROSION_ROUNDS : std::min<int>(EROSION_ROUNDS, floorInt(EROSION_ROUNDS * code.processes.ancient_water) * 2 / 9);
+	fix old_sea = 0;
+	if (!code.processes.water && rounds > 0) {
+		std::vector<fix> low = h;
+		std::nth_element(low.begin(), low.begin() + (ptrdiff_t)(n * 3 / 10), low.end());
+		old_sea = low[n * 3 / 10];
+		for (fix &v : h)
+			v -= old_sea;
+	}
+	for (int round = 0; round < rounds; round++) {
+		for (size_t i = 0; i < n && code.processes.water; i++)
 			if (h[i] >= 0) {
-				const fix up = mul(UPLIFT, g->tectonics.belt[i]);
+				// (a plateau stands as high as thick crust floats: it has stopped rising)
+				const fix up = mul(mul(UPLIFT, g->tectonics.belt[i]), ONE - g->tectonics.plateau[i]);
 				h[i] += up;
 				g->uplifted += (int64_t)up * sphere.area((int32_t)i);
 			}
@@ -442,7 +568,7 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 			int32_t r = down[c];
 			if (r < 0 || surface[c] > h[c])
 				continue;
-			fix F = mul(ERODIBILITY, sqrtWide64(area[c]));
+			fix F = mul(mul(ERODIBILITY, sqrtWide64(area[c])), ONE - g->tectonics.plateau[c] * 19 / 20);
 			// the receiver's surface (its bed, or its lake); land never wears below the sea
 			fix floor = std::max<fix>(surface[r], 0);
 			fix next = div(h[c] + mul(F, floor), ONE + F);
@@ -513,6 +639,8 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 	}
 	for (size_t i = 0; i < n; i++)
 		g->to_deep += crumbs[i]; // (under a unit of height a cell: counted as gone, so the balance is exact)
+	for (fix &v : h)
+		v += old_sea;
 	g->eroded = h;
 	g->worn.resize(n);
 	for (size_t i = 0; i < n; i++)
@@ -563,7 +691,7 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 		for (size_t k = 0; k < g->volcanoes.size(); k++) {
 			const Volcano &v = g->volcanoes[k];
 			// the cells within its slopes and two cells more, out from its vent's
-			const int64_t within = (int64_t)v.radius * ONE + 2 * cell;
+			const int64_t within = (int64_t)v.radius * (v.kind == VolcanoKind::Patera ? ONE * 3 / 2 : ONE) + 2 * cell; // (a patera's outline wanders out)
 			for (int32_t c : sphere.around(sphere.cell(v.at), [&](int32_t c) {
 					return World::blocksOf(chord(sphere.centre(c), v.at), radius) <= within; }))
 				reach[c].push_back((uint16_t)k);
@@ -581,6 +709,10 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 
 } // namespace
 
+// (grid_file.cpp) none: not kept yet
+std::shared_ptr<const Grid> loadGrid(const std::string &code);
+void saveGrid(const std::string &code, const Grid &grid);
+
 std::shared_ptr<const Grid> gridFor(const WorldCode &code)
 {
 	// A few recent worlds: the map generator's threads share one, and the
@@ -590,15 +722,19 @@ std::shared_ptr<const Grid> gridFor(const WorldCode &code)
 	{
 		std::lock_guard<std::mutex> guard(lock);
 		for (auto &entry : recent)
-			if (entry.first == code.text)
+			if (entry.first == code.grid_key)
 				return entry.second;
 	}
-	std::shared_ptr<const Grid> built = build(code);
+	std::shared_ptr<const Grid> built = loadGrid(code.grid_key);
+	if (!built) {
+		built = build(code);
+		saveGrid(code.grid_key, *built);
+	}
 	std::lock_guard<std::mutex> guard(lock);
 	for (auto &entry : recent)
-		if (entry.first == code.text)
+		if (entry.first == code.grid_key)
 			return entry.second; // another thread finished first: use theirs
-	recent.insert(recent.begin(), { code.text, built });
+	recent.insert(recent.begin(), { code.grid_key, built });
 	if (recent.size() > 4)
 		recent.pop_back();
 	return built;

@@ -186,6 +186,9 @@ private:
 	std::string getPropertyPacket();
 	void unlinkPlayerSessionAndSave();
 	std::string generateUpdatePhysicsOverrideCommand() const;
+	u8 stanceNow() const; // Terra Firma
+	std::string generateStanceCommand() const;
+	u8 m_stance_sent = 0;
 
 	RemotePlayer *m_player = nullptr;
 	// Extra variable because during shutdown m_player is unavailable, but we still need to know.

@@ -11,7 +11,7 @@ import { ACTION_ICONS, INK } from "./toolIcons.ts"
 /**
  * The object's tools, low on the right while building (sprints 53–55): mirror, level, reset, round (sprint 75), hollow, undo; pick up
  * and a new object; the parts library (sprint 74: every world's; a part taken from it is carried till you click,
- * as Ctrl+V's paste is). A part's own menu is right-clicked on it, in the world. Clickable where the mouse is free (C,
+ * as Ctrl+V's paste is). A part's own menu is right-clicked on it, in the world. Clickable where the mouse is free (N,
  * or paused). Ctrl+S asks for a name here.
  */
 // free: the mouse is (an object held, or paused)

@@ -5,7 +5,8 @@
 -- (core.matter.set_fill), full to the block's top, asleep like the sea.
 
 local WATER = core.get_content_id("tf_world:water_source")
--- the sides and the corners: a shore's corner block meets the sea only diagonally (sprint 82)
+-- the sides and the corners: a shore's corner block meets the sea only
+-- diagonally (sprint 82; the generator's own finding, "shore", looks at them too)
 local SIDES = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } }
 
 local loose = {}
@@ -15,31 +16,8 @@ core.register_on_mods_loaded(function()
 	end
 end)
 
-core.register_on_generated(function(minp, maxp)
-	local vm, emin, emax = core.get_mapgen_object("voxelmanip")
-	local area = VoxelArea(emin, emax)
-	local data = vm:get_data()
-	local filled = {}
-	for z = minp.z, maxp.z do
-		for y = minp.y, maxp.y do
-			for x = minp.x, maxp.x do
-				local i = area:index(x, y, z)
-				-- loose ground, open above (smoothed), under water or with water beside it at its level
-				local above = data[area:index(x, math.min(y + 1, emax.y), z)]
-				if loose[data[i]] and above == WATER then
-					filled[#filled + 1] = { x = x, y = y, z = z }
-				elseif loose[data[i]] and not loose[above] then
-					for _, d in ipairs(SIDES) do
-						local nx, nz = x + d[1], z + d[2]
-						if area:contains(nx, y, nz) and data[area:index(nx, y, nz)] == WATER then
-							filled[#filled + 1] = { x = x, y = y, z = z }
-							break
-						end
-					end
-				end
-			end
-		end
-	end
+core.register_on_generated(function()
+	local filled = core.get_mapgen_object("shore")
 	-- after the generator writes its blocks: a fill is kept beside them
 	if #filled > 0 then
 		core.after(0, function()

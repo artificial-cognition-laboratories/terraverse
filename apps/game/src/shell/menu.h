@@ -65,7 +65,7 @@ private:
 	Planetarium &m_planetarium;
 	planetarium::Planetarium::Opts body(const Json::Value &body);
 	std::optional<far::Baked> m_baked; // the game's palette, read once it's first needed
-	std::map<std::string, planet::Atlas> m_atlases; // by world code: each laid out once, every body of its system
+	std::map<std::string, planet::Atlas> m_atlases; // by the bodies' sizes: each laid out once, every body of its system
 	std::optional<Choice> m_choice;
 	bool m_quit = false;
 	// Set on the bridge's worker once a join is ready; taken by run().

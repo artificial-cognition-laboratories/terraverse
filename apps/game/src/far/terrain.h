@@ -20,8 +20,7 @@
 	Not a picture of the land but the land itself at a lower resolution: each
 	cell is a column (or 2ᵏ×2ᵏ columns) made of the blocks the generator
 	would place there, decided by the generator's own rule
-	(terra::Columns::node) and grown with the world's own trees
-	(terra::choose, treegen). So the far view and the real chunks can't
+	(terra::Columns::node). So the far view and the real chunks can't
 	disagree, and the seam between them is only a change of resolution.
 	No client dependencies: built on worker threads, and in the unit tests.
 */
@@ -92,8 +91,7 @@ struct Tile
 
 /*
 	Builds tiles of one body of a planet. Const and thread-safe: workers
-	share one. Each cell is the column of the atlas cell it stands for, with
-	its species' typical crown wherever the forest is dense enough.
+	share one. Each cell is the column of the atlas cell it stands for.
 */
 class Generator
 {
@@ -108,20 +106,12 @@ public:
 
 	Tile build(const TileKey &key) const;
 
-	// The storage column at (x, z) without its trees (throws for seam).
+	// The storage column at (x, z) (throws for seam).
 	Cell column(s32 x, s32 z) const;
 	// The planet's cells as the generator fills them.
 	const terra::AtlasLand &land() const { return *m_land; }
 
 private:
-	struct Crown
-	{
-		s32 low, high; // above the ground, typical
-	};
-
-	void growCrowns();
-	void plant(const terra::Species &s, const terragen::Cover &cover, const terra::Column &c, Cell &out) const;
-
 	Horizon m_horizon;
 	std::unique_ptr<terragen::World> m_world;
 	planet::Atlas m_atlas;
@@ -129,7 +119,6 @@ private:
 	std::unique_ptr<Tiling> m_tiling;
 	std::unique_ptr<terra::Columns> m_columns;
 	std::unique_ptr<terra::AtlasLand> m_land;
-	std::vector<Crown> m_crowns; // per species
 };
 
 } // namespace far

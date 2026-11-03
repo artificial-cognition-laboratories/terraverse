@@ -333,7 +333,8 @@ void Sky::update(float time_of_day, float time_brightness,
 		return;
 	}
 
-	m_body_time = time_of_day - std::floor(time_of_day);
+	m_body_time = m_sky_params.solar.on ? solar::localTime(m_sky_params.solar, time_of_day) : time_of_day;
+	m_body_time -= std::floor(m_body_time);
 	m_time_of_day = m_sky_params.solar.on ?
 			solar::apparentTime(m_sky_params.solar, time_of_day) : time_of_day;
 	m_time_brightness = time_brightness;
@@ -427,7 +428,7 @@ void Sky::update(float time_of_day, float time_brightness,
 		if (m_horizon_blend() != 0) {
 			// Calculate hemisphere value from yaw, (inverted in third person front view)
 			s8 dir_factor = 1;
-			if (cam_mode > CAMERA_MODE_THIRD)
+			if (cam_mode == CAMERA_MODE_THIRD_FRONT)
 				dir_factor = -1;
 			f32 pointcolor_blend = wrapDegrees_0_360(yaw * dir_factor + 90);
 			if (pointcolor_blend > 180)

@@ -4,6 +4,7 @@
 // Copyright (C) 2013-2020 Luanti core developers & community
 
 #include "player_sao.h"
+#include "physics/walk.h" // Terra Firma: stances
 #include "planet/atlas.h" // Terra Firma
 #include "nodedef.h"
 #include "remoteplayer.h"
@@ -127,6 +128,7 @@ std::string PlayerSAO::getClientInitializationData(u16 protocol_version)
 	}
 	append_message(generateUpdateAttachmentCommand());
 	append_message(generateUpdatePhysicsOverrideCommand());
+	append_message(generateStanceCommand());
 
 	for (const auto &id : getAttachmentChildIds()) {
 		if (ServerActiveObject *obj = m_env->getActiveObject(id)) {
@@ -299,6 +301,12 @@ void PlayerSAO::step(float dtime, bool send_recommended)
 		m_messages_out.emplace(getId(), false, str);
 	}
 
+	// Terra Firma: for other players' figures
+	if (const u8 stance = stanceNow(); stance != m_stance_sent) {
+		m_stance_sent = stance;
+		m_messages_out.emplace(getId(), true, generateStanceCommand());
+	}
+
 	if (!m_physics_override_sent) {
 		m_physics_override_sent = true;
 		// create message and add to list
@@ -306,6 +314,22 @@ void PlayerSAO::step(float dtime, bool send_recommended)
 	}
 
 	sendOutdatedData();
+}
+
+u8 PlayerSAO::stanceNow() const
+{
+	const PlayerControl &c = m_player->control;
+	if (c.climb)
+		return (u8)physics::Stance::VAULT + c.climb - 1;
+	return (u8)(c.roll ? physics::Stance::ROLL : c.slide ? physics::Stance::SLIDE : c.prone ? physics::Stance::PRONE : c.sneak ? physics::Stance::CROUCH : physics::Stance::STAND);
+}
+
+std::string PlayerSAO::generateStanceCommand() const
+{
+	std::ostringstream os(std::ios::binary);
+	writeU8(os, AO_CMD_SET_STANCE);
+	writeU8(os, stanceNow());
+	return os.str();
 }
 
 std::string PlayerSAO::generateUpdatePhysicsOverrideCommand() const

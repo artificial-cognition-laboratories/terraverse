@@ -33,11 +33,16 @@ const Column *AtlasLand::Reader::column(planet::Atlas::Node n)
 
 const Column &AtlasLand::Reader::columnAt(const terragen::Place &place)
 {
-	if (!m_column || !(place == m_place)) {
-		m_column = m_land.m_columns.atPlace(place);
-		m_place = place;
+	if (m_kept.empty())
+		m_kept.resize(KEPT);
+	// a block's places differ in their low bits; the odd multipliers mix them in
+	const uint32_t hash = (uint32_t)place.x * 73856093u ^ (uint32_t)place.y * 19349663u ^ (uint32_t)place.z * 83492791u;
+	Kept &kept = m_kept[(hash ^ hash >> 16) & (KEPT - 1)];
+	if (!kept.column || !(place == kept.place)) {
+		kept.column = m_land.m_columns.atPlace(place);
+		kept.place = place;
 	}
-	return *m_column;
+	return *kept.column;
 }
 
 } // namespace terra

@@ -1,6 +1,7 @@
 import type { Component } from "vue"
 import Account from "./Account.vue"
 import Controls from "./Controls.vue"
+import Create from "./Create.vue"
 import Creative from "./Creative.vue"
 import Hud from "./Hud.vue"
 import Inventory from "./Inventory.vue"
@@ -18,6 +19,7 @@ export const PAGES = [
     { id: "creative", label: "Creative", component: Creative },
     { id: "lab", label: "Lab", component: Lab },
     { id: "world", label: "World", component: World },
+    { id: "create", label: "Create", component: Create },
     { id: "account", label: "Account", component: Account },
     { id: "screens", label: "Screens", component: Screens },
 ] as const satisfies readonly { id: string; label: string; component: Component }[]

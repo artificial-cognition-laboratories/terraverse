@@ -267,6 +267,8 @@ public:
 	using CharId = unsigned;
 	CharId addCharacter(const CharacterSpec &spec, const v3d &foot);
 	void removeCharacter(CharId id);
+	// Made this tall (nodes), its foot where it is; false, and unchanged, if it'd not fit.
+	bool resize(CharId id, float height);
 	// The velocity it walks at from the next step (nodes/s, gravity its own).
 	void want(CharId id, v3f velocity);
 	// Whether ground that isn't loaded is air to it (something flying faster

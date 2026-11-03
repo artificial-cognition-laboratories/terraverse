@@ -16,6 +16,7 @@ const struct EnumString es_CameraMode[] = {
 	{CAMERA_MODE_FIRST, "first"},
 	{CAMERA_MODE_THIRD, "third"},
 	{CAMERA_MODE_THIRD_FRONT, "third_front"},
+	{CAMERA_MODE_SHOULDER, "shoulder"},
 	{0, nullptr}
 };
 
@@ -184,7 +185,11 @@ u32 PlayerControl::getKeysPressed() const
 		( (u32)(dig   & 1) << 7) |
 		( (u32)(place & 1) << 8) |
 		( (u32)(zoom  & 1) << 9) |
-		( (u32)(pour  & 1) << 10) // Terra Firma (sprint 80)
+		( (u32)(pour  & 1) << 10) | // Terra Firma (sprint 80)
+		( (u32)(prone & 1) << 11) | // Terra Firma (sprint 116)
+		( (u32)(slide & 1) << 12) |
+		( (u32)(roll  & 1) << 13) |
+		( (u32)(climb & 7) << 14)
 	;
 
 	if (isMoving()) {
@@ -212,6 +217,10 @@ void PlayerControl::unpackKeysPressed(u32 keypress_bits)
 	place = keypress_bits & (1 << 8);
 	zoom  = keypress_bits & (1 << 9);
 	pour  = keypress_bits & (1 << 10); // Terra Firma
+	prone = keypress_bits & (1 << 11); // Terra Firma
+	slide = keypress_bits & (1 << 12);
+	roll  = keypress_bits & (1 << 13);
+	climb = (keypress_bits >> 14) & 7;
 }
 
 v2f PlayerControl::getMovement() const

@@ -16,6 +16,7 @@
 #include <set>
 #include <string>
 #include <thread>
+#include "profiler.h"
 
 namespace far {
 
@@ -123,6 +124,7 @@ public:
 
 			Result r{ key, {} };
 			try {
+				const ScopeProfiler timed(g_profiler, "Far view: tile built [ms]", SPT_AVG);
 				r.mesh = onPlanet(m_generator->build(key));
 			} catch (const std::exception &e) {
 				lock.lock();

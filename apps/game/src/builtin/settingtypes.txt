@@ -298,7 +298,7 @@ keymap_toggle_profiler (Toggle profiler) key SYSTEM_SCANCODE_63
 #    Key for toggling the display of mapblock boundaries.
 keymap_toggle_block_bounds (Toggle block bounds) key
 
-keymap_camera_mode (Toggle camera mode) key SYSTEM_SCANCODE_62
+keymap_camera_mode (Toggle camera mode) key SYSTEM_SCANCODE_6
 
 keymap_increase_viewing_range_min (Increase view range) key SYSTEM_SCANCODE_46
 

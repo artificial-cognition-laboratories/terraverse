@@ -223,7 +223,7 @@ onMounted(() => {
                         <dl>
                             <div v-if="local.mode"><dt>Mode</dt><dd>{{ local.mode }}</dd></div>
                             <div v-if="local.rules.tf_difficulty"><dt>Difficulty</dt><dd>{{ local.rules.tf_difficulty }}</dd></div>
-                            <div v-if="size"><dt>Planet</dt><dd>{{ size / 1024 }}k × {{ size / 1024 }}k blocks</dd></div>
+                            <div v-if="size"><dt>Planet</dt><dd>{{ Math.round(size / (2 * Math.PI) / 1000) }}k block radius</dd></div>
                             <div v-if="local.rules.tf_seasons"><dt>Seasons</dt><dd>{{ local.rules.tf_seasons === "true" ? "On" : "Off" }}</dd></div>
                             <div v-if="local.rules.tf_weather"><dt>Weather</dt><dd>{{ local.rules.tf_weather }}</dd></div>
                             <div v-if="installedMods"><dt>Added mods</dt><dd>{{ installedMods.length }}</dd></div>

@@ -34,7 +34,7 @@ export function SystemPreview(opts: { bridge: BridgeHandle }) {
     return {
         cards: cards,
         problem: problem,
-        request(system: SystemHandle, star: string) {
+        request(system: SystemHandle, star: Parameters<typeof causes>[1]) {
             const request = causes(system, star)
             if (busy) queued = request
             else run(request)

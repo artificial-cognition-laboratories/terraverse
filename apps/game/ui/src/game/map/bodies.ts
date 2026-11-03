@@ -1,7 +1,8 @@
 import { computed, shallowRef, watch, type Ref } from "vue"
 import type { BodyCard, BridgeHandle, SystemWire } from "../../bridge"
 import { System, body as bodyOf, type SystemHandle } from "../../system/model"
-import { STARS, type StarId } from "../../worldgen/config"
+import type { StarId } from "../../worldgen/config"
+import { STAR_CLASSES } from "../../system/stars"
 import { BodySurfaceCache } from "../../worldgen/bodySurface"
 import { paint, type Fields } from "../../worldgen/fields"
 
@@ -40,7 +41,7 @@ export function MapBodies(opts: { bridge: BridgeHandle; code: Ref<string | undef
 
 // the engine's star id, narrowed to one of the page's star types (worldgen/config.ts)
 function starOf(system: SystemWire): StarId {
-    const found = STARS.find((s) => s.id === system.star)
+    const found = STAR_CLASSES.find((s) => s.id === system.star)
     if (!found) throw new Error(`system.world: no star type "${system.star}"`)
     return found.id
 }

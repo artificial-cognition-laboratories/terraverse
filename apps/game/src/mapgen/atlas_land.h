@@ -7,6 +7,7 @@
 #include "planet/atlas.h"
 #include <array>
 #include <optional>
+#include <vector>
 
 namespace terra {
 
@@ -27,8 +28,9 @@ public:
 	const planet::Atlas &atlas() const { return m_atlas; }
 	const Columns &columns() const { return m_columns; }
 
-	// Asks in order: keeps the last column (a storage column's nodes share
-	// one, mostly). One per thread.
+	// Keeps the columns it built, a hashed slot each: a neighbourhood of map
+	// blocks stands over the same ground, and a block is 256 columns asked
+	// many times over. One per thread.
 	class Reader
 	{
 	public:
@@ -43,8 +45,13 @@ public:
 		const Column &columnAt(const terragen::Place &place);
 
 		const AtlasLand &m_land;
-		std::optional<Column> m_column; // the last one, and its place
-		terragen::Place m_place{};
+		struct Kept
+		{
+			terragen::Place place;
+			std::optional<Column> column;
+		};
+		static constexpr size_t KEPT = 1 << 13; // a power of two: 32 blocks' worth of columns
+		std::vector<Kept> m_kept;
 	};
 
 private:

@@ -193,6 +193,18 @@ void MapgenTerra::makeChunk(BlockMakeData *data)
 	this->generating = false;
 }
 
+MapgenTerra::SurfaceCover MapgenTerra::surfaceCover(size_t index) const
+{
+	const terra::Column &c = m_column.at(index);
+	if (c.space)
+		return { 0, 0, 0, 0, false, 0, false };
+	const terragen::World &world = landAt(node_min.X + (s16)(index % csize.X), node_min.Z + (s16)(index / csize.X)).world;
+	const terragen::Cover cover = world.cover(c.at, c.ground);
+	const terragen::Column &g = c.ground.column;
+	const auto real = [](fix v) { return (double)v / ONE; };
+	return { real(cover.density), real(g.heat), real(g.wet), real(g.elevation), cover.bank, cover.roll, world.code().processes.life };
+}
+
 s16 MapgenTerra::generateTerrain()
 {
 	const v3s32 &em = vm->m_area.getExtent();
@@ -201,7 +213,10 @@ s16 MapgenTerra::generateTerrain()
 
 	for (s16 z = node_min.Z; z <= node_max.Z; z++) {
 		for (s16 x = node_min.X; x <= node_max.X; x++, index++) {
-			const terra::Column &c = m_column[index] = landAt(x, z).columns.at(x, z);
+			// through the reader: the nodes below ask it for this same column
+			BodyLand &land = landAt(x, z);
+			const terra::Column *read = land.reader.column({ x, 0, z });
+			const terra::Column &c = m_column[index] = read ? *read : land.columns.at(x, z);
 			u32 vi = vm->m_area.index(x, node_min.Y - 1, z);
 			for (s16 y = node_min.Y - 1; y <= node_max.Y + 1; y++) {
 				if (vm->m_data[vi].getContent() == CONTENT_IGNORE) {
@@ -271,9 +286,11 @@ content_t MapgenTerra::atlasPaint(const planet::Atlas::Cell &cell) const
 
 void MapgenTerra::lightAtlas()
 {
+	// y innermost: the land's reader keeps one column, and a whole column
+	// built per node is most of what an open block costs
 	for (s16 z = node_min.Z; z <= node_max.Z; z++)
-	for (s16 y = node_min.Y; y <= node_max.Y; y++)
-	for (s16 x = node_min.X; x <= node_max.X; x++) {
+	for (s16 x = node_min.X; x <= node_max.X; x++)
+	for (s16 y = node_min.Y; y <= node_max.Y; y++) {
 		MapNode &n = vm->m_data[vm->m_area.index(x, y, z)];
 		const ContentFeatures &f = ndef->get(n);
 		u8 light = 0;

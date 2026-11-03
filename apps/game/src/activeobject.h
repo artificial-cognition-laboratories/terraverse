@@ -65,6 +65,8 @@ enum ActiveObjectCommand : u8 {
 	// Terra Firma, protocol 70: a machine's rigid groups, each in its first's
 	// (u16 count, then each: v3f offset BS, f32 x y z w): its hinges' turns
 	AO_CMD_SET_PARTS,
+	// Terra Firma, protocol 91: how a player holds themselves (u8 physics::Stance)
+	AO_CMD_SET_STANCE,
 	// When adding new commands, update Server::AsyncRunStep()
 	// to drop newer commands for older clients
 };

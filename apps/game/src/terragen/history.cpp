@@ -23,6 +23,9 @@
 	the land (stream power, without the sediment: the finished land's
 	erosion keeps that account), so old ranges come down while new ones rise.
 */
+#include "parallel.h"
+#include <atomic>
+
 namespace terragen {
 
 using namespace plates;
@@ -77,10 +80,7 @@ fix levelAbove(const std::vector<fix> &height, fix share)
 {
 	const Sphere &sphere = gridSphere();
 	const size_t n = height.size();
-	std::vector<int32_t> by(n);
-	for (size_t i = 0; i < n; i++)
-		by[i] = (int32_t)i;
-	std::sort(by.begin(), by.end(), [&](int32_t a, int32_t b) { return height[a] != height[b] ? height[a] < height[b] : a < b; });
+	const std::vector<int32_t> by = lowestFirst(height);
 	const int64_t below = (int64_t)n * (ONE - share);
 	int64_t under = 0;
 	size_t k = 0;
@@ -178,16 +178,15 @@ History history(const WorldCode &c)
 	// old and level; everything else old ocean floor. Each cell goes to its
 	// nearest plate centre, through a warp so the edges wander.
 	std::vector<fix> mass(n);
-	for (size_t i = 0; i < n; i++)
-		mass[i] = landmass(c, sphere.centre((int32_t)i));
+	parallelFor((int32_t)n, [&](int32_t i) { mass[i] = landmass(c, sphere.centre(i)); });
 	const fix shore = levelAbove(mass, c.land);
 	const fix shelf = levelAbove(mass, std::min<fix>(c.land + ratio(6, 100), ratio(95, 100)));
 	out.cells.resize(n);
 	// (rough enough that edges wander and step like real ones, not run in
 	// the long straight lines between centres)
 	const fix WARP = ratio(30, 100);
-	for (size_t i = 0; i < n; i++) {
-		const Dir &d = sphere.centre((int32_t)i);
+	parallelFor((int32_t)n, [&](int32_t i) {
+		const Dir &d = sphere.centre(i);
 		History::Cell &cell = out.cells[i];
 		cell.home = d;
 		const Dir w = normalise((int64_t)d.x + mul(fbm(d, c.seed_hash + PLATE_WARP, 4, 5, ratio(55, 100)), WARP),
@@ -208,12 +207,14 @@ History history(const WorldCode &c)
 			const fix land = mass[i] - shore;
 			cell.height = land < 0 ? land : div(mul(land, ratio(4, 10)), land + ratio(3, 10)) + ratio(1, 160);
 			cell.formed = Formed::Craton;
-			out.continental_start += sphere.area((int32_t)i);
 		} else {
 			cell.age = 2 * ABYSS_AGE;
 			cell.height = floorDepth(cell.age);
 		}
-	}
+	});
+	for (size_t i = 0; i < n; i++)
+		if (out.cells[i].continental)
+			out.continental_start += sphere.area((int32_t)i);
 
 	// how far each plate turns a step, as the sine and cosine of minus that
 	// (a cell asks where its crust came from)
@@ -237,51 +238,63 @@ History history(const WorldCode &c)
 		std::vector<int32_t> collisions, arcs;
 		// Move: each cell takes crust from the plates near it (any within
 		// two cells: a step moves crust at most a cell and a half)
-		for (int32_t j = 0; j < (int32_t)n; j++) {
-			uint32_t near = 1u << was[j].plate;
-			for (const int32_t *p = sphere.neighboursBegin(j); p != sphere.neighboursEnd(j); p++) {
-				near |= 1u << was[*p].plate;
-				for (const int32_t *q = sphere.neighboursBegin(*p); q != sphere.neighboursEnd(*p); q++)
-					near |= 1u << was[*q].plate;
-			}
-			int32_t from[32], plate[32], found = 0, win = -1;
-			for (int k = 0; k < count; k++) {
-				if (!(near >> k & 1))
-					continue;
-				const int32_t s = sphere.cell(turn(sphere.centre(j), out.plates[k].pole, sine[k], cosine[k]));
-				if (was[s].plate != k)
-					continue;
-				from[found] = s;
-				plate[found] = k;
-				// the winner stays on top: continent over ocean floor, the
-				// higher continent, the younger floor (the older sinks)
-				if (win < 0)
-					win = found;
-				else {
-					const History::Cell &a = was[s], &b = was[from[win]];
-					if (a.continental != b.continental ? a.continental
-							: a.continental ? a.height > b.height : a.age < b.age)
+		// (each cell reads only the last step; what it meets is told in cell order)
+		struct Met
+		{
+			int32_t at;
+			int win, other;
+			bool continent;
+		};
+		std::vector<std::vector<Met>> met(PARTS);
+		parallelParts((int32_t)n, [&](int32_t part, int32_t begin, int32_t end) {
+			for (int32_t j = begin; j < end; j++) {
+				uint32_t near = 1u << was[j].plate;
+				for (const int32_t *p = sphere.neighboursBegin(j); p != sphere.neighboursEnd(j); p++) {
+					near |= 1u << was[*p].plate;
+					for (const int32_t *q = sphere.neighboursBegin(*p); q != sphere.neighboursEnd(*p); q++)
+						near |= 1u << was[*q].plate;
+				}
+				int32_t from[32], plate[32], found = 0, win = -1;
+				for (int k = 0; k < count; k++) {
+					if (!(near >> k & 1))
+						continue;
+					const int32_t s = sphere.cell(turn(sphere.centre(j), out.plates[k].pole, sine[k], cosine[k]));
+					if (was[s].plate != k)
+						continue;
+					from[found] = s;
+					plate[found] = k;
+					// the winner stays on top: continent over ocean floor, the
+					// higher continent, the younger floor (the older sinks)
+					if (win < 0)
 						win = found;
+					else {
+						const History::Cell &a = was[s], &b = was[from[win]];
+						if (a.continental != b.continental ? a.continental
+								: a.continental ? a.height > b.height : a.age < b.age)
+							win = found;
+					}
+					found++;
 				}
-				found++;
-			}
-			gap[j] = found == 0;
-			if (found == 0)
-				continue;
-			next[j] = was[from[win]];
-			for (int32_t f = 0; f < found; f++) {
-				if (f == win)
+				gap[j] = found == 0;
+				if (found == 0)
 					continue;
-				if (was[from[f]].continental) { // (so the winner is too: continent can't sink)
-					collisions.push_back(j);
-					out.lost += sphere.area(j);
-					record(step, History::Kind::Collision, plate[win], plate[f], j);
+				next[j] = was[from[win]];
+				for (int32_t f = 0; f < found; f++)
+					if (f != win)
+						met[part].push_back({ j, plate[win], plate[f], was[from[f]].continental });
+			}
+		});
+		for (const std::vector<Met> &part : met)
+			for (const Met &m : part) {
+				if (m.continent) { // (so the winner is too: continent can't sink)
+					collisions.push_back(m.at);
+					out.lost += sphere.area(m.at);
+					record(step, History::Kind::Collision, m.win, m.other, m.at);
 				} else {
-					arcs.push_back(j);
-					record(step, History::Kind::Arc, plate[win], plate[f], j);
+					arcs.push_back(m.at);
+					record(step, History::Kind::Arc, m.win, m.other, m.at);
 				}
 			}
-		}
 		// Gaps: new floor at a ridge, on the plate of the first neighbour
 		// that has crust (a gap inside gaps waits a pass)
 		for (bool left = true; left;) {
@@ -334,13 +347,16 @@ History history(const WorldCode &c)
 		// suture), arcs a few cells into the plate above sinking floor
 		const std::vector<int32_t> to_collision = spread(collisions, cells, COLLIDE_REACH, false);
 		const std::vector<int32_t> to_arc = spread(arcs, cells, ARC_REACH, true);
+		// (a collision's cells keep the winner's crust, so this is the side on top)
+		const std::vector<int32_t> behind = spread(collisions, cells, COLLIDE_REACH, true);
 		const fix sea = levelAbove([&] {
 			std::vector<fix> h(n);
 			for (size_t i = 0; i < n; i++)
 				h[i] = cells[i].height;
 			return h;
 		}(), c.land);
-		for (size_t i = 0; i < n; i++) {
+		std::atomic<int64_t> made{ 0 };
+		parallelFor((int32_t)n, [&](int32_t i) {
 			History::Cell &cell = cells[i];
 			const fix folded = mul(COLLIDE, falloff(to_collision[i], COLLIDE_REACH));
 			// an arc is built by its volcanoes, each a cone a cell or two across
@@ -352,12 +368,18 @@ History history(const WorldCode &c)
 			const fix ridge = ONE - fabsx(fbm(sphere.centre((int32_t)i), c.seed_hash + RIDGE, c.continents * 4, 3, HALF));
 			const fix up = mul(mul(folded + arc, lift), HALF + ridge / 2);
 			cell.rate = std::min<fix>(ONE, mul(cell.rate, FADE) + div(up, COLLIDE));
+			if (cell.continental) {
+				(behind[i] <= COLLIDE_REACH ? cell.over : cell.under) += mul(folded, lift);
+				// inland of an arc on a continent the crust is squeezed too (the Subandes)
+				if (to_arc[i] > ARC_PEAK && to_arc[i] <= ARC_REACH)
+					cell.under += mul(mul(ARC, falloff(to_arc[i] - ARC_PEAK, ARC_REACH - ARC_PEAK + 1)), lift) / 2;
+			}
 			if (up < ratio(1, 200))
-				continue;
-			const Formed made = folded >= arc ? Formed::Orogen : Formed::Arc;
+				return;
+			const Formed built = folded >= arc ? Formed::Orogen : Formed::Arc;
 			if (cell.continental) {
 				cell.height = std::min(TOP, cell.height + up);
-				cell.formed = made;
+				cell.formed = built;
 				cell.age = 0;
 			} else {
 				cell.build += up;
@@ -366,10 +388,11 @@ History history(const WorldCode &c)
 					cell.height = floorDepth(cell.age) + cell.build;
 					cell.formed = Formed::Arc;
 					cell.age = 0;
-					out.made += sphere.area((int32_t)i);
+					made += sphere.area(i);
 				}
 			}
-		}
+		});
+		out.made += made;
 		// the floor sinks as it ages; rivers wear the land (where there are any)
 		std::vector<fix> h(n);
 		for (size_t i = 0; i < n; i++) {

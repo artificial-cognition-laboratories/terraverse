@@ -3,6 +3,7 @@
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "camera.h"
+#include "client/body.h" // Terra Firma
 #include "client.h"
 #include "clientmap.h"     // MapDrawControl
 #include "planet/atlas.h" // Terra Firma
@@ -369,7 +370,15 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 			eye_offset.Y += player->eye_offset_third_front.Y;
 			eye_offset.Z -= player->eye_offset_third_front.Z;
 			break;
+		case CAMERA_MODE_SHOULDER: // Terra Firma: from the head, moved below
+			break;
 		}
+
+		// Terra Firma: the view eases after the head as a stance moves it, never tied to it
+		const physics::StanceInfo &held = physics::stanceInfo(m_client->getBody().stance());
+		const f32 ease = 1 - std::exp(-9 * frametime);
+		m_stance_eye += (v3f(0, -held.eye_drop, held.eye_forward) * BS - m_stance_eye) * ease;
+		eye_offset += m_stance_eye;
 
 		// Set head node transformation
 		eye_offset.Y += cameratilt * -player->hurt_tilt_strength;
@@ -411,8 +420,66 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 	v3f abs_cam_up = m_headnode->getAbsoluteTransformation()
 			.rotateAndScaleVect(rel_cam_up);
 
-	// Reposition the camera for third person view
-	if (m_camera_mode > CAMERA_MODE_FIRST)
+	// Terra Firma: over the shoulder, drawn in by what's in the way and easing back out
+	if (m_camera_mode == CAMERA_MODE_SHOULDER) {
+		const v3f right = abs_cam_up.crossProduct(m_camera_direction).normalize();
+		// Looking down it comes in over the body, or the crosshair falls in the next node
+		// and what's placed under the feet goes beside them.
+		const f32 side = 0.6f - 0.4f * rangelim(-m_camera_direction.Y / 0.7f, 0.f, 1.f);
+		v3f away = (right * side + abs_cam_up * 0.15f - m_camera_direction * 2.2f) * BS;
+		constexpr f32 CLEAR = 0.35f * BS; // kept from a wall, so its face isn't cut by the near plane
+		const NodeDefManager *nodemgr = m_client->ndef();
+		ClientMap &map = m_client->getEnv().getClientMap();
+		const auto solid = [&](const v3f &at) {
+			return nodemgr->get(map.getNode(floatToInt(at, BS))).walkable;
+		};
+		// How far along a line it's open (BS).
+		const auto room = [&](const v3f &from, const v3f &line) {
+			const f32 length = line.getLength();
+			const v3f step = line / length;
+			for (f32 at = 0; at <= length + CLEAR; at += 0.1f * BS)
+				if (solid(from + step * at))
+					return std::max(0.f, at - CLEAR);
+			return length;
+		};
+		// Low down, it looks from higher than the head, so it sees over the body.
+		v3f pivot = m_camera_position + v3f(0, -m_stance_eye.Y * 0.6f, 0);
+		if (solid(pivot))
+			pivot = m_camera_position;
+		// Looking up, it stays above the feet instead of going into the ground: it
+		// looks the same way from there, so what's aimed at doesn't move.
+		away.Y = std::max(away.Y, player_position.Y + 0.5f * BS - pivot.Y);
+		// Something behind: rising over it keeps the distance, which is better than pulling in.
+		f32 rise = 0, share = 1;
+		f32 best = room(pivot, away);
+		for (const f32 up : { 0.5f, 1.f, 1.5f }) {
+			if (best >= away.getLength() * 0.8f)
+				break;
+			const v3f line = away + v3f(0, up * BS, 0);
+			const f32 open = room(pivot, line);
+			if (open > best) {
+				best = open;
+				rise = up * BS;
+			}
+		}
+		share = best / (away + v3f(0, rise, 0)).getLength();
+		// Only how far back and how high ease. The direction is the view's every frame:
+		// easing the position itself made the body swing about the screen on every turn.
+		const f32 ease = 1 - std::exp(-8 * frametime);
+		m_shoulder_rise += (rise - m_shoulder_rise) * ease;
+		m_shoulder_share += (share - m_shoulder_share) * ease;
+		v3f line = (away + v3f(0, m_shoulder_rise, 0)) * m_shoulder_share;
+		// Only a wall that would otherwise be looked through moves it at once.
+		const f32 length = line.getLength();
+		if (length > 0.01f) {
+			const f32 open = room(pivot, line);
+			if (open < length) {
+				line *= open / length;
+				m_shoulder_share *= open / length;
+			}
+		}
+		m_camera_position = pivot + line;
+	} else if (m_camera_mode > CAMERA_MODE_FIRST)
 	{
 		v3f my_cp = m_camera_position;
 
@@ -661,6 +728,8 @@ void Camera::drawWieldedTool(core::matrix4* translation)
 void Camera::toggleCameraMode()
 {
 	if (m_camera_mode == CAMERA_MODE_FIRST)
+		m_camera_mode = CAMERA_MODE_SHOULDER;
+	else if (m_camera_mode == CAMERA_MODE_SHOULDER)
 		m_camera_mode = CAMERA_MODE_THIRD;
 	else if (m_camera_mode == CAMERA_MODE_THIRD)
 		m_camera_mode = CAMERA_MODE_THIRD_FRONT;

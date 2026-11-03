@@ -36,6 +36,7 @@ public:
 		WIKI, // Terra Firma
 		PLANETARIUM, // Terra Firma
 		TOOLS, // Terra Firma: the tools in hand out or away
+		PRONE, // Terra Firma: lie down (sprint 116)
 		BRAKE, // Terra Firma: flight's brake (sprint 59)
 		POUR, // Terra Firma: pour what's in hand (sprint 80)
 		TOOL_NEXT, // Terra Firma

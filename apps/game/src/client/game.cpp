@@ -3,6 +3,7 @@
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "game_internal.h"
+#include "client/solar.h"
 #include "piece/frame.h"
 #include "piece/header.h"
 #include "piece/machine.h"
@@ -164,6 +165,10 @@ public:
 		u32 daynight_ratio = (float)m_client->getEnv().getDayNightRatio();
 		video::SColorf sunlight;
 		get_sunlight_color(&sunlight, daynight_ratio);
+		// Terra Firma: daylight through this world's air
+		sunlight.r *= solar::tint().r;
+		sunlight.g *= solar::tint().g;
+		sunlight.b *= solar::tint().b;
 		m_day_light.set(sunlight, services);
 
 		u32 animation_timer = m_client->getEnv().getFrameTime() % 1000000;
@@ -1553,7 +1558,7 @@ void Game::processKeyInput()
 	}
 	// Terra Firma: with Ctrl while building, a part copied, pasted, saved
 	// (sprint 74): asked as the rail asks, where what's pointed at is known
-	if (m_hand.out() && isKeyDown(KeyType::AUX1)) {
+	if (m_hand.out() && isKeyDown(KeyType::SNEAK)) {
 		for (const auto &[key, verb] : { std::pair(KeyType::COPY, Hand::Verb::Copy),
 				std::pair(KeyType::PASTE, Hand::Verb::Paste), std::pair(KeyType::SAVE_PART, Hand::Verb::Name) })
 			if (wasKeyPressed(key)) {
@@ -1561,20 +1566,20 @@ void Game::processKeyInput()
 				return;
 			}
 	}
-	// Terra Firma: C frees the cursor (the rails, the menus; the world
+	// Terra Firma: N frees the cursor (the rails, the menus; the world
 	// pointed at through it) and takes it back
 	if (wasKeyPressed(KeyType::CURSOR)) {
 		m_cursor = !m_cursor;
 		m_naming.reset();
 		closeMenu();
-		m_game_ui->showTranslatedStatusText(m_cursor ? "The cursor's free (C: look again)" : "Looking");
+		m_game_ui->showTranslatedStatusText(m_cursor ? "The cursor's free (N: look again)" : "Looking");
 		return;
 	}
 	// Terra Firma: what's carried is turned in the hands a quarter at a
 	// time (sprint 77): E about the up, Q tipped toward them; Shift the
 	// other way. Four of either is where it began. handleCarry does it
 	if (m_carry) {
-		const int way = isKeyDown(KeyType::SNEAK) ? -1 : 1;
+		const int way = isKeyDown(KeyType::AUX1) ? -1 : 1;
 		bool asked = false;
 		if (wasKeyDown(KeyType::TURN_RIGHT)) {
 			m_carry->turn_asked += way;
@@ -1588,7 +1593,7 @@ void Game::processKeyInput()
 			return;
 	}
 	if (wasKeyDown(KeyType::DROP)) {
-		dropSelectedItem(isKeyDown(KeyType::SNEAK));
+		dropSelectedItem(isKeyDown(KeyType::AUX1));
 	} else if (wasKeyDown(KeyType::AUTOFORWARD)) {
 		toggleAutoforward();
 	} else if (wasKeyDown(KeyType::BACKWARD)) {
@@ -1615,7 +1620,7 @@ void Game::processKeyInput()
 		m_hand.ask(Hand::ACTIONS[size_t(Hand::Verb::Mirror)].id, "");
 	} else if (wasKeyDown(KeyType::UNDO)) {
 		m_hand.ask(Hand::ACTIONS[size_t(Hand::Verb::Undo)].id, "");
-	} else if (wasKeyDown(KeyType::FOCUS)) {
+	} else if (!m_driving && wasKeyDown(KeyType::FOCUS)) { // (driving, F gets up)
 		m_hand.ask(Hand::ACTIONS[size_t(Hand::Verb::Focus)].id, "");
 	} else if (m_menu && input->cancelPressed()) {
 		closeMenu();
@@ -1698,14 +1703,14 @@ void Game::processKeyInput()
 		}
 #endif
 		if (!opened_map)
-			toggleMinimap(isKeyDown(KeyType::SNEAK));
+			toggleMinimap(isKeyDown(KeyType::AUX1));
 	} else if (wasKeyPressed(KeyType::TOGGLE_CHAT)) {
 		m_game_ui->toggleChat(client);
 	} else if (wasKeyPressed(KeyType::TOGGLE_FOG)) {
 		toggleFog();
 	} else if (wasKeyDown(KeyType::TOGGLE_UPDATE_CAMERA)) {
 		toggleUpdateCamera();
-	} else if (wasKeyPressed(KeyType::CAMERA_MODE)) {
+	} else if (wasKeyPressed(KeyType::CAMERA_MODE) && !(m_hand.out() && isKeyDown(KeyType::SNEAK))) {
 		camera->toggleCameraMode();
 		updateCameraMode();
 	} else if (wasKeyPressed(KeyType::TOGGLE_DEBUG)) {
@@ -2303,6 +2308,59 @@ bool Game::isTouchShootlineUsed() const
 			camera->getCameraMode() == CAMERA_MODE_FIRST;
 }
 
+// Terra Firma: whether the player's own body is on its feet, not flown, swum or climbed
+// by Luanti's movement, where the crouch key means "down"
+bool Game::bodyIsLoose(LocalPlayer &player) const
+{
+	const PlayerSettings &s = player.getPlayerSettings();
+	return (client->checkPrivilege("fly") && s.free_move) || player.in_liquid || player.is_climbing;
+}
+
+// Terra Firma: a tap of the crouch key stays crouched till the next; held, it's crouched
+// till let go. Z lies down the same way. Jumping stands up. While building, Ctrl is Ctrl.
+bool Game::sneakNow(LocalPlayer &player)
+{
+	constexpr u64 TAP = 250; // ms
+	const bool held = isKeyDown(KeyType::SNEAK), lying = isKeyDown(KeyType::PRONE), running = isKeyDown(KeyType::AUX1);
+	// its own edges, frame by frame: this runs at another point in the frame from the
+	// interaction that clears the input's, and a press could fall between them
+	const bool pressed = held && !m_crouch_key, lie = lying && !m_prone_key, run = running && !m_run_key;
+	m_crouch_key = held;
+	m_prone_key = lying;
+	m_run_key = running;
+	const bool jumping = isKeyDown(KeyType::JUMP);
+	if (jumping && !m_jump_key && !m_hand.out())
+		client->getBody().pressJump();
+	if (pressed && !m_hand.out())
+		client->getBody().pressCrouch();
+	m_jump_key = jumping;
+	if (bodyIsLoose(player)) {
+		m_crouch = m_prone = false;
+		return held;
+	}
+	if (m_hand.out())
+		return m_crouch;
+	if (pressed) {
+		m_crouch_since = porting::getTimeMs();
+		m_crouch = !m_crouch || m_prone;
+		m_prone = false;
+	}
+	if (m_crouch_since && !held) {
+		if (porting::getTimeMs() - m_crouch_since > TAP)
+			m_crouch = false;
+		m_crouch_since = 0;
+	}
+	if (lie) {
+		m_prone = !m_prone;
+		m_crouch = false;
+	}
+	if (run) // setting off at a run gets up
+		m_crouch = m_prone = false;
+	if (isKeyDown(KeyType::JUMP) || (client->getBody().takeMoveEnded() && !held))
+		m_crouch = m_prone = false;
+	return m_crouch;
+}
+
 void Game::updateCameraOrientation(CameraOrientation *cam, float dtime)
 {
 	f32 sens_scale = getSensitivityScaleFactor();
@@ -2380,7 +2438,7 @@ void Game::updatePlayerControl(const CameraOrientation &cam)
 		getAxisValue(KeyType::RIGHT),
 		isKeyDown(KeyType::JUMP) || player->getAutojump(),
 		getTogglableKeyState(KeyType::AUX1,  m_cache_toggle_aux1_key, player->control.aux1),
-		getTogglableKeyState(KeyType::SNEAK, allow_sneak_toggle,      player->control.sneak),
+		sneakNow(*player),
 		isKeyDown(KeyType::ZOOM),
 		isKeyDown(KeyType::DIG),
 		isKeyDown(KeyType::PLACE),
@@ -2389,6 +2447,7 @@ void Game::updatePlayerControl(const CameraOrientation &cam)
 	);
 	control.setMovementFromKeys();
 	control.pour = isKeyDown(KeyType::POUR); // Terra Firma: pouring (sprint 80)
+	control.prone = m_prone && !bodyIsLoose(*player);
 
 	/* For touch, simulate holding down AUX1 (fast move) if the user has
 	 * the fast_move setting toggled on. If there is an aux1 key defined for
@@ -3021,6 +3080,11 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 		// prevent player pointing anything in front-view
 		d = 0;
 		break;
+	case CAMERA_MODE_SHOULDER:
+		// Terra Firma: along the crosshair, but reach counts from level with the head
+		shootline.start = camera->getPosition() + camera_direction *
+				(camera->getHeadPosition() - camera->getPosition()).dotProduct(camera_direction);
+		break;
 	}
 	shootline.end = shootline.start + camera_direction * BS * d;
 
@@ -3199,7 +3263,7 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 	gridStep();
 	// Terra Firma: Shift-click on a socket, another of the last thing
 	// plugged in put there (sprint 64)
-	const std::optional<std::pair<u16, u64>> again = !m_carry && !m_hand.out() && isKeyDown(KeyType::SNEAK)
+	const std::optional<std::pair<u16, u64>> again = !m_carry && !m_hand.out() && isKeyDown(KeyType::AUX1)
 			&& wasKeyPressed(KeyType::DIG) ? socketAt() : std::nullopt;
 	if (again) {
 		client->sendPlugAgain(again->first, again->second);
@@ -3234,7 +3298,7 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 		const Aim aim = *aimAtPiece(m_hold->object());
 		const GenericCAO *obj = dynamic_cast<GenericCAO *>(client->getEnv().getActiveObject(aim.piece));
 		const piece::Machine *m = obj ? obj->getMachine() : nullptr;
-		if (isKeyDown(KeyType::SNEAK) || !m) {
+		if (isKeyDown(KeyType::AUX1) || !m) {
 			selectPart(aim);
 		} else if (m->parts().front().object.id() == aim.part) {
 			m_game_ui->showTranslatedStatusText("The rest hangs from this part: pull the others off it");
@@ -3563,7 +3627,7 @@ const Hand::BrushKind &Game::brushNow() const
 	// Shift with Add or Cut pulls a flat face out or in (sprint 65); once
 	// a stroke's begun, what it began as
 	const bool pull = m_draw ? m_draw->pull
-			: input->isKeyDown(KeyType::SNEAK) && (m_hand.brush() == Hand::Brush::Add || m_hand.brush() == Hand::Brush::Cut);
+			: input->isKeyDown(KeyType::AUX1) && (m_hand.brush() == Hand::Brush::Add || m_hand.brush() == Hand::Brush::Cut);
 	return pull ? Hand::BRUSHES[size_t(Hand::Brush::Pull)] : m_hand.acting();
 }
 
@@ -3923,11 +3987,11 @@ void Game::handleDrive(const PointedThing &pointed, f32 dtime)
 		if (!body.sit(pointed.object_id))
 			return;
 		m_driving = Driving{ pointed.object_id, SEND };
-		m_game_ui->showTranslatedStatusText("Driving · W/S: go and back · A/D: steer · Space: brake · Shift: get up");
+		m_game_ui->showTranslatedStatusText("Driving · W/S: go and back · A/D: steer · Space: brake · F: get up");
 	}
 	const u16 object = m_driving->object;
 	const bool gone = body.driving() != object; // its machine went
-	const bool up = gone || wasKeyPressed(KeyType::SNEAK);
+	const bool up = gone || wasKeyPressed(KeyType::FOCUS);
 	if (up) {
 		body.getUp(object);
 		if (auto *obj = dynamic_cast<GenericCAO *>(client->getEnv().getActiveObject(object)))
@@ -4508,7 +4572,7 @@ void Game::benchStep(f32 dtime)
 	// pressed on the disc or the ring, it turns as they're looked round
 	// (or pointed round) till it's let go, in steps (Shift: quarters)
 	const core::line3d<f32> ray = m_pointed_from;
-	const f32 step = (isKeyDown(KeyType::SNEAK) ? 90.f : 15.f) * core::DEGTORAD;
+	const f32 step = (isKeyDown(KeyType::AUX1) ? 90.f : 15.f) * core::DEGTORAD;
 	// the other button that stopped a stroke is spent till it's let go
 	if (m_place_spent && !isKeyDown(KeyType::PLACE))
 		m_place_spent = false;
@@ -5616,7 +5680,7 @@ bool Game::nodePlacement(const ItemDefinition &selected_def,
 
 	// formspec in meta
 	if (meta && !meta->getString("formspec").empty() && !input->isRandom()
-			&& !isKeyDown(KeyType::SNEAK)) {
+			&& !isKeyDown(KeyType::AUX1)) {
 		// on_rightclick callbacks are called anyway
 		if (nodedef_manager->get(map.getNode(nodepos)).rightclickable)
 			client->interact(INTERACT_PLACE, pointed);
@@ -5627,7 +5691,7 @@ bool Game::nodePlacement(const ItemDefinition &selected_def,
 
 	// on_rightclick callback
 	if (prediction.empty() || (nodedef->get(node).rightclickable &&
-			!isKeyDown(KeyType::SNEAK))) {
+			!isKeyDown(KeyType::AUX1))) {
 		// Report to server
 		client->interact(INTERACT_PLACE, pointed);
 		return false;
@@ -6052,6 +6116,7 @@ void Game::updateFrame(ProfilerGraph *graph, RunStats *stats, f32 dtime,
 		const v3f feet = player->getPosition() / BS;
 		const std::optional<int> on = client->getAtlas()->bodyAt(planet::Atlas::moverNode(feet.X, feet.Y, feet.Z));
 		if (far_view && on && *on != far_body) {
+			warningstream << "sky: the eye changed body, " << far_body << " to " << *on << std::endl;
 			space->remove(); // the scene manager holds them too
 			space.reset();
 			far_view->remove();
@@ -6059,15 +6124,19 @@ void Game::updateFrame(ProfilerGraph *graph, RunStats *stats, f32 dtime,
 		}
 		if (!far_view && on) {
 			// the sky first: the pass draws them in the order they're made
-			space = make_irr<planetarium::Sky>(smgr, *client->getAtlas(), *client->getHorizon(), *on);
+			space = make_irr<planetarium::Sky>(smgr, shader_src, *client->getAtlas(), *client->getHorizon(), *on);
 			far_view = make_irr<far::View>(smgr, shader_src, texture_src, client->ndef(), *client->getHorizon(),
 					*client->getAtlas(), *on);
+			space->palette(far_view->palette());
 			far_body = *on;
 		}
 	}
 	if (space)
 		space->update(*camera, client->getEnv().getClientMap(),
 				client->getEnv().getDayCount() + client->getEnv().getTimeOfDayF());
+	// Terra Firma: land fades into the air's own horizon
+	if (space)
+		sky->setFogColor(space->fog().value_or(video::SColor(0, 0, 0, 0))); // (no alpha: the sky's own)
 	// Terra Firma: liquid lying in the world (sprint 81), drawn on its own
 	if (!liquid_layer)
 		liquid_layer = make_irr<liquids::Layer>(smgr, client->ndef(), shader_src);
@@ -6302,7 +6371,11 @@ void Game::updateShadows()
 	const float offset_constant = 10000.0f;
 
 	v3f light;
-	if (lighting.shadow_direction.getLengthSQ() > 0.0f) {
+	if (const std::optional<planetarium::Sky::Light> real = space ? space->light() : std::nullopt) {
+		// Terra Firma: the stock sun's hidden on a planet; the real star casts them
+		shadow->setShadowIntensity(real->strength);
+		light = real->way;
+	} else if (lighting.shadow_direction.getLengthSQ() > 0.0f) {
 		// Custom shadow direction: bypass sun/moon visibility check
 		shadow->setShadowIntensity(lighting.shadow_intensity);
 		light = lighting.shadow_direction;
