@@ -4,7 +4,7 @@
 #pragma once
 
 #include "irr_v3d.h"
-#include "physics/pose.h"
+#include "physics/skeleton.h"
 #include <ISceneNode.h>
 #include <SColor.h>
 #include <functional>
@@ -36,12 +36,14 @@ public:
 
 	// The ground's height against the feet at a place in the figure's frame (nodes).
 	using Ground = std::function<float(v3f)>;
+	// What keeps a ball at a place in the figure's frame out of solid things: how far to move it (nodes).
+	using Clear = std::function<v3f(v3f, float)>;
 	// (The head looks along the view exactly, whatever the body under it is doing.)
 	// Posed after `dtime` moving at `velocity` (nodes/s, the figure's own
 	// frame: +z ahead), looking `pitch` (radians, + down), in the air or not,
 	// held as `stance`, the view having gone `turned` (radians) right; `face`: on a wall, its hips that far from the view;
-	// `tilt`: leaned over sideways (radians, + to its left).
-	void pose(float dtime, v3f velocity, float pitch, bool airborne, physics::Stance stance, float turned, std::optional<float> face, float tilt, const Ground &ground);
+	// `tilt`: leaned over sideways (radians, + to its left). `grip`: its hands on something, in the figure's frame (nodes).
+	void pose(float dtime, v3f velocity, float pitch, bool airborne, physics::Stance stance, float turned, std::optional<float> face, float tilt, const physics::Contacts &contacts, const Ground &ground, const Clear &clear);
 	// Lit as its place is (the entity's light).
 	void light(video::SColor colour);
 	// Seen from inside its own head: no head, the rest as it is, so you see your hands and feet.
@@ -66,4 +68,6 @@ private:
 	Limb m_thighs[2], m_shins[2], m_upper_arms[2], m_forearms[2], m_hands[2];
 	std::vector<scene::IMeshSceneNode *> m_boxes;
 	physics::Poser m_poser;
+	physics::Skeleton m_skeleton;
+	v3f m_clear; // how far the upper body is moved out of what it's beside
 };

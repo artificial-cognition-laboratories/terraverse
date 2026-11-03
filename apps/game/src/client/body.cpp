@@ -57,7 +57,7 @@ bool Body::moves(LocalPlayer &p)
 		m_thrusting = true;
 	if (m_thrusting)
 		return true;
-	const bool on_wall = m_climb || m_hanging || m_wall_run;
+	const bool on_wall = m_climb || m_hanging || m_wall_run || m_push || m_down;
 	const bool walks = !p.getParent() && !fly && !noclip && !p.in_liquid && !p.is_climbing;
 	// Luanti's movement has no stances: on its feet as it's handed over
 	if (!walks && on_wall)
@@ -81,16 +81,31 @@ void Body::onItsFeet()
 	m_climb.reset();
 	m_hanging.reset();
 	m_wall_run.reset();
+	m_push.reset();
+	m_down.reset();
 	m_move_ended = true;
 	m_stance = m_world->resize(*m_me, m_standing_height) ? physics::Stance::STAND : physics::Stance::CROUCH;
 }
 
 std::optional<float> Body::wallFace(float yaw) const
 {
+	if (m_down) { // the way it went over: face down its head's going on, on its back it's facing where it came from
+		const v3f n = m_down->face_down ? m_down->way * -1.f : m_down->way;
+		float to = yaw - std::atan2(n.X, -n.Z);
+		to = std::fmod(to + 3 * core::PI, 2 * core::PI) - core::PI;
+		return to;
+	}
+	if (m_push) { // the whole body turned to the wall it's pushing off
+		const v3f n = m_push->facing() * -1.f;
+		float to = yaw - std::atan2(n.X, -n.Z);
+		to = std::fmod(to + 3 * core::PI, 2 * core::PI) - core::PI;
+		return to;
+	}
 	const std::optional<physics::Ledge> &l = m_climb ? std::optional<physics::Ledge>(m_climb->ledge) : m_hanging;
 	if (!l)
 		return std::nullopt;
-	float a = yaw - std::atan2(l->normal.X, -l->normal.Z);
+	const v3f out = l->inward() * -1.f;
+	float a = yaw - std::atan2(out.X, -out.Z);
 	a = std::fmod(a + 3 * core::PI, 2 * core::PI) - core::PI;
 	return m_climb ? a + m_climb->side : a;
 }
@@ -102,6 +117,155 @@ float Body::wallLean(float yaw) const
 	// the view's right, in the world: the wall's out being to the right, it leans right
 	const v3f right(std::cos(yaw), 0, std::sin(yaw));
 	return -0.4f * m_wall_run->normal.dotProduct(right);
+}
+
+void Body::handsAt(const physics::Ledge &ledge, v3f &right, v3f &left) const
+{
+	// shoulder width along the edge, wrists just over it. Facing the wall, +x is the side
+	// that's right of someone looking in along -normal.
+	constexpr float APART = 0.34f, ABOVE = 0.06f; // (outside the shoulders, clear of the head)
+	const v3f along(-ledge.normal.Z, 0, ledge.normal.X);
+	const v3f at = ledge.lip + v3f(0, ABOVE, 0);
+	right = keepOnEdge(ledge, at + along * APART);
+	left = keepOnEdge(ledge, at - along * APART);
+}
+
+v3f Body::keepOnEdge(const physics::Ledge &ledge, v3f hand) const
+{
+	// in along the edge from there, till there's edge under it and a little beyond
+	constexpr float MARGIN = 0.08f, STEP_IN = 0.04f;
+	const physics::Solid solid = [this](v3s16 n) { return solidAt(n); };
+	const v3f lip_y(hand.X, ledge.lip.Y, hand.Z);
+	v3f in = ledge.lip - lip_y;
+	in.Y = 0;
+	const float far = in.getLength();
+	if (far < 1e-3f)
+		return hand;
+	in /= far;
+	for (float d = 0; d < far; d += STEP_IN)
+		if (physics::ledgeGoesOn(solid, lip_y + in * (d - MARGIN), ledge.normal))
+			return hand + in * d;
+	return v3f(ledge.lip.X, hand.Y, ledge.lip.Z);
+}
+
+std::optional<physics::Grip> Body::grip() const
+{
+	if (m_down) {
+		if (!m_down->fallen.handsDown())
+			return std::nullopt;
+		physics::Grip g;
+		const v3f across(-m_down->way.Z, 0, m_down->way.X);
+		g.held[0] = g.held[1] = true;
+		g.wrist[0] = m_down->hands + across * 0.3f;
+		g.wrist[1] = m_down->hands - across * 0.3f;
+		g.over = m_down->way;
+		return g;
+	}
+	if (m_trip_left > physics::TRIP_TIME - 0.3f) { // hands down on what it went over
+		physics::Grip g;
+		const v3f across(-m_trip_way.Z, 0, m_trip_way.X);
+		g.held[0] = g.held[1] = true;
+		g.wrist[0] = m_trip_at + across * 0.25f + v3f(0, 0.06f, 0);
+		g.wrist[1] = m_trip_at - across * 0.25f + v3f(0, 0.06f, 0);
+		g.over = m_trip_way;
+		return g;
+	}
+	if (m_push) {
+		if (!m_push->handsOn())
+			return std::nullopt;
+		physics::Grip g;
+		const v3f along(-m_push->normal().Z, 0, m_push->normal().X);
+		const int near = m_push->nearSide();
+		g.held[0] = near != 1;
+		g.held[1] = near != 0;
+		g.wrist[0] = m_push->handsAt() + (near == 2 ? along * 0.3f : m_push->facing() * 0.2f);
+		g.wrist[1] = m_push->handsAt() + (near == 2 ? along * -0.3f : m_push->facing() * 0.2f);
+		g.over = v3f(0, 1, 0);
+		return g;
+	}
+	const physics::Ledge *ledge = m_hanging ? &*m_hanging : m_climb ? &m_climb->ledge : m_in_reach ? &*m_in_reach : nullptr;
+	if (!ledge)
+		return std::nullopt;
+	physics::Grip g;
+	g.over = ledge->inward();
+	g.held[0] = g.held[1] = true;
+	if (m_hanging) {
+		g.wrist[0] = m_hands.at(0);
+		g.wrist[1] = m_hands.at(1);
+		g.moving = m_hands.moving();
+		return g;
+	}
+	handsAt(*ledge, g.wrist[0], g.wrist[1]);
+	if (ledge->in.getLengthSQ() > 0) { // on top, either side of the corner it's going over
+		const v3f across(-ledge->in.Z, 0, ledge->in.X);
+		const v3f at = ledge->lip + ledge->in * 0.25f + v3f(0, 0.06f, 0);
+		g.wrist[0] = at + across * -0.25f;
+		g.wrist[1] = at + across * 0.25f;
+		if (across.dotProduct(v3f(ledge->in.Z, 0, -ledge->in.X)) > 0)
+			std::swap(g.wrist[0], g.wrist[1]);
+	}
+	if (m_climb && m_climb->haul) {
+		// its hands stay till it's rising past them, then they're done
+		if (!m_climb->haul->holding())
+			return std::nullopt;
+	} else if (m_climb) {
+		const float p = m_climb->t / m_climb->path.time;
+		// thrown round them, the hands stay till it's past; otherwise each comes off once out of arm's reach
+		const bool pivots = m_climb->side != 0 || m_climb->dive;
+		if (p >= (pivots ? 0.8f : 0.65f))
+			return std::nullopt;
+		const v3f shoulder = v3f::from(m_now) + v3f(0, 1.2f, 0);
+		for (const int side : { 0, 1 }) {
+			g.wrist[side] += g.over * 0.15f;
+			if (!pivots && (g.wrist[side] - shoulder).getLength() > 0.75f && p > 0.3f)
+				g.held[side] = false;
+		}
+		// a side vault goes past the hand on the wall's side: its hips turned right, that's its left
+		if (m_climb->side != 0)
+			g.held[m_climb->side > 0 ? 0 : 1] = false;
+	}
+	return g;
+}
+
+float Body::thrownSide() const
+{
+	if (!m_climb || m_climb->side == 0 || m_climb->haul)
+		return 0;
+	// the wall's to its left when turned right: the hand plants there and the body goes round it, feet up and
+	// away from where it's going first, then over
+	constexpr float THROW = 0.9f;
+	return (m_climb->side > 0 ? THROW : -THROW) * std::sin(core::PI * std::min(m_climb->t / m_climb->path.time, 1.f));
+}
+
+float Body::thrownBack() const
+{
+	if (!m_climb || !m_climb->dive || m_climb->haul)
+		return 0;
+	// head first, hips up behind it, over the hands
+	constexpr float THROW = 1.1f;
+	return THROW * std::sin(core::PI * std::min(m_climb->t / m_climb->path.time, 1.f));
+}
+
+void Body::knockDown(float severity, v3f velocity)
+{
+	if (!m_me || m_down || m_thrusting)
+		return;
+	const v3f across(velocity.X, 0, velocity.Z);
+	const float pace = across.getLength();
+	const v3f way = pace > 0.5f ? across / pace : m_look;
+	// going the way it faced it goes on over its front; carried backward it goes down on its back
+	const bool face_down = way.dotProduct(m_look) >= -0.1f;
+	const v3f foot = v3f::from(m_now);
+	m_climb.reset();
+	m_hanging.reset();
+	m_wall_run.reset();
+	m_push.reset();
+	m_lift = 0;
+	m_trip_left = 0;
+	m_down = Down{ physics::Fallen(severity, face_down), way, face_down, foot + way * 0.45f + v3f(0, 0.06f, 0) };
+	m_stance = physics::Stance::DOWN;
+	m_world->resize(*m_me, physics::stanceInfo(m_stance).height);
+	actionstream << "body: down at " << pace << " nodes/s, " << (face_down ? "on its front" : "on its back") << std::endl;
 }
 
 void Body::airWall(const physics::World::CharacterState &was, v3f velocity, float jump)
@@ -119,7 +283,7 @@ void Body::airWall(const physics::World::CharacterState &was, v3f velocity, floa
 		m_stance = physics::Stance::WALL_RUN;
 		m_world->resize(*m_me, physics::stanceInfo(m_stance).height);
 	} else {
-		m_kick = physics::wallKick(velocity, *wall, jump);
+		m_push = physics::WallPush(*wall, velocity, jump, physics::wallFaceAt(v3f::from(was.foot), *wall, m_radius), m_look);
 	}
 }
 
@@ -135,8 +299,10 @@ v3f Body::wallStep(const physics::World::CharacterState &was, const physics::Her
 	if (m_jump_press > 0) { // off it, and on
 		m_jump_press = 0;
 		m_jump_used = true;
+		const v3f normal = run.normal; // (the run's over with the next line)
 		onItsFeet();
-		return physics::wallKick(velocity, m_kicked.value_or(v3f(0, 0, 0)), jump);
+		m_push = physics::WallPush(normal, velocity, jump, physics::wallFaceAt(v3f::from(was.foot), normal, m_radius), m_look);
+		return velocity;
 	}
 	if (m_crouch_press || run.left <= 0 || was.on_ground || !wall || wall->dotProduct(run.normal) < 0.5f) {
 		m_crouch_press = false;
@@ -151,38 +317,48 @@ void Body::startClimb(const physics::World::CharacterState &was, v3f velocity, f
 {
 	const physics::Solid solid = [this](v3s16 n) { return solidAt(n); };
 	const v3f foot = v3f::from(was.foot);
-	const std::optional<physics::Ledge> ledge = physics::findLedge(solid, foot, yaw);
-	std::optional<physics::Climb> kind = ledge ? physics::climbFor(*ledge, m_base, foot.Y) : std::nullopt;
+	std::optional<physics::Ledge> ledge = physics::findLedge(solid, foot, yaw, was.on_ground ? physics::VAULT_REACH : physics::GRAB_REACH);
+	if (ledge)
+		ledge = physics::overCorner(solid, *ledge, velocity);
+	std::optional<physics::Move> move = ledge ? physics::moveFor(*ledge, m_base, foot.Y, velocity) : std::nullopt;
 	if (was.on_ground) {
 		// from the ground, only a vault, and only on the way to it: stood beside a wall,
 		// Space is a jump. The press is spent either way: the next is what grabs.
 		const v3f across(velocity.X, 0, velocity.Z);
 		const bool heading = ledge && across.dotProduct(ledge->normal * -1.f) > 1;
-		if (kind != physics::Climb::VAULT || !heading)
-			kind = std::nullopt;
+		if (!move || move->climb != physics::Climb::VAULT || !heading)
+			move = std::nullopt;
 		m_jump_press = 0;
 	}
-	if (!kind)
+	if (!move)
 		return;
 	m_jump_press = 0;
 	m_jump_used = true;
-	const float pace = v3f(velocity.X, 0, velocity.Z).getLength();
-	Climbing c{ *kind, *ledge, physics::climbPath(*kind, *ledge, foot, m_radius, pace) };
-	// a vault runs on as it came in; a mantle ends standing
-	const v3f in = ledge->normal * -1.f;
-	if (*kind == physics::Climb::VAULT)
-	{
-		c.exit = in * std::max(pace, 2.f);
-		// coming in on the slant, it goes over sideways, legs swung past a hand
-		if (pace > 0.1f) {
-			const v3f way = v3f(velocity.X, 0, velocity.Z) / pace;
-			const float off = std::acos(std::clamp(way.dotProduct(in), -1.f, 1.f));
-			if (off > 0.6f) // (about 35°)
-				c.side = (way.X * in.Z - way.Z * in.X) > 0 ? 1.2f : -1.2f;
-		}
+	const v3f across(velocity.X, 0, velocity.Z);
+	const float pace = across.getLength();
+	Climbing c{ move->climb, *ledge, {} };
+	if (move->climb == physics::Climb::VAULT)
+		c.path = physics::climbPath(*move, *ledge, foot, m_radius, pace);
+	else
+		c.haul = physics::Haul(*ledge, foot, velocity, m_radius, move->climb == physics::Climb::MANTLE, m_base);
+	const v3f in = ledge->inward();
+	c.dive = move->dive;
+	if (move->climb == physics::Climb::VAULT) {
+		// it goes on as it came in: the way it was going, not turned square to the wall
+		c.exit = pace > 2 ? across : in * 2.f;
+		const v3f along = across - in * across.dotProduct(in);
+		const v3f drifted = c.path.to + along * c.path.time;
+		const auto clear = [&](float up) {
+			return !solidAt(v3s16(std::floor(drifted.X + 0.5f), std::floor(drifted.Y + up + 0.5f), std::floor(drifted.Z + 0.5f)));
+		};
+		if (clear(0.5f) && clear(1.5f))
+			c.path.to = drifted;
+		if (move->side) // turned toward the hand it goes past
+			c.side = (across.X * in.Z - across.Z * in.X) > 0 ? 1.2f : -1.2f;
 	}
-	m_stance = *kind == physics::Climb::VAULT ? physics::Stance::VAULT :
-			*kind == physics::Climb::MANTLE ? physics::Stance::MANTLE : physics::Stance::HANG;
+	actionstream << "body: " << move->name << " at " << pace << " nodes/s" << std::endl;
+	// (caught first, whichever it goes on to)
+	m_stance = move->climb == physics::Climb::VAULT ? physics::Stance::VAULT : physics::Stance::HANG;
 	m_world->resize(*m_me, physics::stanceInfo(m_stance).height);
 	m_climb = c;
 }
@@ -192,17 +368,34 @@ v3f Body::climbStep(LocalPlayer &p, const v3d &foot)
 	const float dt = (float)physics::STEP;
 	if (m_climb) {
 		m_climb->t += dt;
+		if (m_climb->haul) {
+			physics::Haul &haul = *m_climb->haul;
+			haul.step(dt);
+			if (m_stance == physics::Stance::HANG && haul.phase() != physics::Haul::Phase::CATCH && haul.phase() != physics::Haul::Phase::DONE) {
+				m_stance = physics::Stance::MANTLE;
+				m_world->resize(*m_me, physics::stanceInfo(m_stance).height);
+			}
+			const v3f out = haul.done() ? haul.exit() : v3f(0);
+			if (haul.done() && m_climb->kind == physics::Climb::HANG) {
+				m_world->place(*m_me, v3d::from(haul.at()), v3f(0));
+				m_hanging = m_climb->ledge;
+				v3f right, left;
+				handsAt(*m_hanging, right, left);
+				m_hands.place(right, left);
+				m_climb.reset();
+				return v3f(0);
+			}
+			m_world->place(*m_me, v3d::from(haul.at()), out);
+			if (haul.done())
+				onItsFeet();
+			return out;
+		}
 		const bool done = m_climb->t >= m_climb->path.time;
 		const v3f at = m_climb->path.at(m_climb->t);
 		const v3f exit = done ? m_climb->exit : v3f(0);
 		m_world->place(*m_me, v3d::from(at), exit);
 		if (done) {
-			if (m_climb->kind == physics::Climb::HANG) {
-				m_hanging = m_climb->ledge;
-				m_climb.reset();
-			} else {
-				onItsFeet();
-			}
+			onItsFeet();
 		}
 		return exit;
 	}
@@ -217,32 +410,42 @@ v3f Body::climbStep(LocalPlayer &p, const v3d &foot)
 	if (m_jump_press > 0) {
 		m_jump_press = 0;
 		m_jump_used = true;
+		// turned away from the wall: off it, the way it's looking, not up it
+		if (m_look.dotProduct(ledge.normal) > 0.3f) {
+			const v3f face = physics::wallFaceAt(v3f::from(foot), ledge.normal, m_radius);
+			const float up = std::sqrt(2 * std::max(0.f, -here(foot, v3f(0)).gravity.Y) * JUMP * p.physics_override.jump);
+			onItsFeet();
+			m_push = physics::WallPush(ledge.normal, v3f(0), up, face, m_look);
+			return v3f(0);
+		}
 		const v3s16 top(std::floor(ledge.lip.X - ledge.normal.X * 0.25f + 0.5f), std::floor(ledge.lip.Y + 1), std::floor(ledge.lip.Z - ledge.normal.Z * 0.25f + 0.5f));
 		if (!solidAt(top) && !solidAt(top + v3s16(0, 1, 0))) {
 			m_stance = physics::Stance::MANTLE;
 			m_world->resize(*m_me, physics::stanceInfo(m_stance).height);
-			Climbing c{ physics::Climb::MANTLE, ledge, physics::climbPath(physics::Climb::MANTLE, ledge, v3f::from(foot), m_radius) };
-			c.path.time = 0.65f; // the whole body's weight, from straight arms
+			Climbing c{ physics::Climb::MANTLE, ledge, {} };
+			c.haul = physics::Haul::pullUp(ledge, v3f::from(foot), m_radius);
 			m_hanging.reset();
 			m_climb = c;
 			return v3f(0);
 		}
 	}
-	// along the edge, as far as it goes: A and D as they are from where it looks
+	// along the edge: A and D as the body faces it, wherever the view has gone. As far as there's edge for its hands
+	constexpr float HANDS_OUT = 0.42f;
 	const PlayerControl &c = p.control;
-	const float yaw = p.getYaw() * core::DEGTORAD;
-	const float sc = std::cos(yaw), ss = std::sin(yaw);
-	const float right = std::sin(c.movement_direction) * c.movement_speed, ahead = std::cos(c.movement_direction) * c.movement_speed;
-	const v3f ask(right * sc - ahead * ss, 0, right * ss + ahead * sc);
-	const v3f along(ledge.normal.Z, 0, -ledge.normal.X);
-	const v3f moved = ledge.lip + along * (ask.dotProduct(along) * physics::SHIMMY * dt);
-	const v3f lookout = moved + along * (ask.dotProduct(along) > 0 ? m_radius : -m_radius);
+	const float right = std::sin(c.movement_direction) * c.movement_speed;
+	const v3f along(-ledge.normal.Z, 0, ledge.normal.X);
+	const v3f moved = ledge.lip + along * (right * physics::SHIMMY * dt);
+	const v3f lookout = moved + along * (right > 0 ? HANDS_OUT : -HANDS_OUT);
 	const physics::Solid solid = [this](v3s16 n) { return solidAt(n); };
 	if (physics::ledgeGoesOn(solid, lookout, ledge.normal))
 		m_hanging->lip = moved;
 	const v3f hung(m_hanging->lip.X + ledge.normal.X * (m_radius + 0.05f), ledge.lip.Y - physics::HANG_DROP,
 			m_hanging->lip.Z + ledge.normal.Z * (m_radius + 0.05f));
 	m_world->place(*m_me, v3d::from(hung), v3f(0));
+	v3f hand_right, hand_left;
+	handsAt(*m_hanging, hand_right, hand_left);
+	const physics::Ledge held = *m_hanging;
+	m_hands.step(dt, hand_right, hand_left, [&](v3f to) { return keepOnEdge(held, to); });
 	return v3f(0);
 }
 
@@ -267,9 +470,15 @@ void Body::holdStance(const physics::World::CharacterState &now)
 			if (m_stance == Stance::ROLL) // (a slide ends crouched, till asked otherwise)
 				m_move_ended = true;
 			m_stance = s;
+			m_said_stuck = false;
 			return;
 		}
 	}
+	// (hunting a crouch that won't undo: says whether the capsule's what refuses)
+	if (!m_said_stuck)
+		actionstream << "body: stance " << (int)m_stance << " can't become " << (int)next << " at " << now.foot.X << ","
+				<< now.foot.Y << "," << now.foot.Z << ", on ground " << now.on_ground << std::endl;
+	m_said_stuck = true;
 }
 
 v3f Body::keepOnEdge(const v3d &foot, v3f next) const
@@ -517,7 +726,10 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 	while (m_behind >= physics::STEP) {
 		const physics::World::CharacterState was = m_world->character(*m_me);
 		m_roll_left = std::max(0.f, m_roll_left - (float)physics::STEP);
-		m_jump_press = std::max(0.f, m_jump_press - (float)physics::STEP);
+		m_kick_left = std::max(0.f, m_kick_left - (float)physics::STEP);
+		// (pressed during a vault or a climb, it's the next move: the press waits for it)
+		if (!m_climb)
+			m_jump_press = std::max(0.f, m_jump_press - (float)physics::STEP);
 		if (was.on_ground)
 			m_base = (float)was.foot.Y;
 		else
@@ -526,7 +738,7 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 			m_jump_used = false;
 		if (was.on_ground)
 			m_kicked.reset();
-		const bool climbing = m_climb || m_hanging || m_wall_run;
+		const bool climbing = m_climb || m_hanging || m_wall_run || m_push || m_down;
 		m_late_roll = std::max(0.f, m_late_roll - (float)physics::STEP);
 		const physics::Stance stance_was = m_stance;
 		if (m_late_roll > 0 && m_asked != physics::Stance::STAND && m_stance == physics::Stance::STAND && was.on_ground) {
@@ -548,20 +760,92 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 		gait.flow = o.speed > 1 ? 1.25f : 1; // only a run builds
 		gait.jump = JUMP * o.jump;
 		const physics::Intent intent{ std::cos(c.movement_direction) * c.movement_speed,
-			std::sin(c.movement_direction) * c.movement_speed, p.getYaw() * core::DEGTORAD, c.jump && held.jumps && !m_jump_used };
+			std::sin(c.movement_direction) * c.movement_speed, p.getYaw() * core::DEGTORAD, (c.jump || m_jump_press > 0) && held.jumps && !m_jump_used && m_trip_left <= 0 };
 		// in the air, its motion carried to where it is now (the grid's axes turn)
 		const v3f v = was.on_ground ? was.velocity : m_field->carry(m_measured, was.foot, was.velocity);
 		m_measured = was.foot;
 		const physics::Here h = here(was.foot, v);
-		if (!m_thrusting && !climbing && m_stance == physics::Stance::STAND && m_jump_press > 0) {
+		m_in_reach.reset();
+		m_look = v3f(-std::sin(p.getYaw() * core::DEGTORAD), 0, std::cos(p.getYaw() * core::DEGTORAD));
+		const float wall_jump = std::sqrt(2 * std::max(0.f, -h.gravity.Y) * JUMP * o.jump);
+		const physics::Solid solid = [this](v3s16 n) { return solidAt(n); };
+		if (!m_thrusting && !climbing && m_stance == physics::Stance::STAND && !was.on_ground) {
+			// the hands go for what's in reach before it's asked: that's how it's known it can be
+			// (from further than it can take hold: going for it is what shows it can be had)
+			const std::optional<physics::Ledge> ledge = physics::findLedge(solid, v3f::from(was.foot), p.getYaw() * core::DEGTORAD, physics::VAULT_REACH);
+			if (ledge && physics::moveFor(*ledge, m_base, (float)was.foot.Y, v))
+				m_in_reach = ledge;
+			// Space (or still held from the jump) going along a wall runs on it, ledge or no:
+			// what's being passed isn't what it's trying to climb
+			if (m_jump_press > 0 || c.jump) {
+				const std::optional<v3f> wall = physics::findWall(solid, v3f::from(was.foot), m_radius);
+				if (wall && physics::runsAlong(v, *wall) && (!m_kicked || m_kicked->dotProduct(*wall) < 0.5f))
+					airWall(was, v, wall_jump);
+			}
+		}
+		if (was.on_ground && m_grab_wait) { // never got there: not a jump on landing
+			m_jump_press = 0;
+			m_grab_wait = false;
+		}
+		const bool free_to_climb = !m_thrusting && !climbing && !m_wall_run && m_stance == physics::Stance::STAND;
+		// on the way to an edge, in reach or nearly, or about to be as it rises: Space is for that, not for bouncing off
+		const auto edge_coming = [&] {
+			const float yaw = p.getYaw() * core::DEGTORAD;
+			const v3f foot = v3f::from(was.foot);
+			for (const float up : { 0.f, v.Y > 0 ? 0.6f : 0.f }) {
+				const v3f at = foot + v3f(0, up, 0);
+				const std::optional<physics::Ledge> l = physics::findLedge(solid, at, yaw, physics::VAULT_REACH);
+				if (l && physics::moveFor(*l, m_base, at.Y, v) && (v.dotProduct(l->normal * -1.f) > 0.5f || m_look.dotProduct(l->normal * -1.f) > 0.5f))
+					return true;
+			}
+			return false;
+		};
+		if (free_to_climb && m_jump_press > 0) {
 			startClimb(was, v, p.getYaw() * core::DEGTORAD);
 			// nothing to take hold of, in the air: a wall to run on or kick off
-			if (m_jump_press > 0 && !was.on_ground)
-				airWall(was, v, std::sqrt(2 * std::max(0.f, -h.gravity.Y) * JUMP * o.jump));
+			if (m_jump_press > 0 && !was.on_ground) {
+				if (edge_coming()) {
+					m_jump_press = GRAB_MEMORY;
+					m_grab_wait = true;
+				} else {
+					airWall(was, v, wall_jump);
+				}
+			}
+		} else if (free_to_climb && !was.on_ground && c.jump && !m_jump_used) {
+			// Space held from the jump takes hold of what it comes to, heading for it. (A hop, let go, doesn't.)
+			const std::optional<physics::Ledge> l = physics::findLedge(solid, v3f::from(was.foot), p.getYaw() * core::DEGTORAD);
+			if (l && v.dotProduct(l->normal * -1.f) > 0.5f)
+				startClimb(was, v, p.getYaw() * core::DEGTORAD);
 		}
 		v3f next;
-		if (m_wall_run) {
-			next = wallStep(was, h, std::sqrt(2 * std::max(0.f, -h.gravity.Y) * JUMP * o.jump));
+		if (m_down) {
+			// sliding to a stop where it went down. A direction, or Space, gets it up sooner
+			constexpr float FRICTION = 7, UP_AND_OFF = 3;
+			const float ahead = std::cos(c.movement_direction) * c.movement_speed, right = std::sin(c.movement_direction) * c.movement_speed;
+			const float yaw_now = p.getYaw() * core::DEGTORAD;
+			const v3f asked(right * std::cos(yaw_now) - ahead * std::sin(yaw_now), 0, right * std::sin(yaw_now) + ahead * std::cos(yaw_now));
+			const bool wants_up = asked.getLengthSQ() > 0.01f || c.jump;
+			m_down->fallen.step((float)physics::STEP, wants_up);
+			const float pace = std::hypot(v.X, v.Z);
+			const float kept = pace > 0.01f ? std::max(0.f, pace - FRICTION * (float)physics::STEP) / pace : 0;
+			next = v3f(v.X * kept, was.on_ground ? 0 : v.Y + h.gravity.Y * (float)physics::STEP, v.Z * kept);
+			if (m_down->fallen.done()) {
+				onItsFeet();
+				// off in the way it's asked, not from nothing
+				next += asked * UP_AND_OFF;
+				m_jump_used = c.jump;
+			}
+		} else if (m_push) {
+			next = m_push->step((float)physics::STEP);
+			if (m_push->done()) {
+				m_kick_feet = m_push->nearSide();
+				m_push.reset();
+				m_kick_left = KICK_SHOWN;
+			} else if (was.on_ground) {
+				m_push.reset(); // came down on something first
+			}
+		} else if (m_wall_run) {
+			next = wallStep(was, h, wall_jump);
 		} else if (m_climb || m_hanging) {
 			next = climbStep(p, was.foot);
 		} else if (m_thrusting) {
@@ -575,6 +859,15 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 				next = physics::roll(gait, intent, footing, (float)physics::STEP);
 			else
 				next = physics::walk(gait, intent, footing, (float)physics::STEP);
+			// let go of Space on the way up and it's a hop: the jump's made on the press, so nothing waits
+			if (was.on_ground && intent.jump && next.Y > 0)
+				m_rising = true;
+			else if (m_rising && !was.on_ground && !c.jump) {
+				if (next.Y > 0)
+					next.Y *= physics::HOP;
+				m_rising = false;
+			} else if (was.on_ground)
+				m_rising = false;
 			if (m_stance == physics::Stance::SLIDE && stance_was != physics::Stance::SLIDE) {
 				const float pace = std::hypot(next.X, next.Z);
 				if (pace > 0.01f && pace < physics::SLIDE_KICK) {
@@ -582,21 +875,17 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 					next.Z *= physics::SLIDE_KICK / pace;
 				}
 			}
-			if (m_stumble) { // a hard landing with no roll: most of its speed is gone
-				next.X *= physics::STUMBLE;
-				next.Z *= physics::STUMBLE;
-				m_stumble = false;
+			if (m_keep < 1) { // what a bad landing or a caught shin cost
+				next.X *= m_keep;
+				next.Z *= m_keep;
+				m_keep = 1;
 			}
 			if (edged && was.on_ground && !was.standing_on && !intent.jump)
 				next = keepOnEdge(was.foot, next);
 			if (!was.on_ground) // falling: the air holds it back
 				next -= v * (0.5f * h.air * v.getLength() * DRAG_AREA / MASS * (float)physics::STEP);
 		}
-		if (m_kick) { // off a wall: this, not what walking made of the old motion
-			next = *m_kick;
-			m_kick.reset();
-		}
-		if (!was.on_ground) {
+			if (!was.on_ground) {
 			// it goes by its velocity as it is halfway there (the grid's
 			// lines curve round the planet), and it's measured there
 			m_measured = was.foot + v3d::from(next) * (physics::STEP / 2);
@@ -606,6 +895,33 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 		m_world->step(physics::STEP);
 		m_behind -= physics::STEP;
 		physics::World::CharacterState now = m_world->character(*m_me);
+		// Up a step in one physics step (the capsule's way): it isn't drawn there at once. It's drawn where
+		// it was, catching up, and how far and how fast it was going decides what that cost.
+		{
+			constexpr float SHOWS_FROM = 0.12f, CATCHES_UP = 5, SCRAMBLES_UP = 1.5f, RECOVERS = 2;
+			const float s = (float)physics::STEP;
+			const float rise = (float)now.foot.Y - ((float)was.foot.Y + next.Y * s);
+			if (!climbing && !m_climb && !m_hanging && !m_wall_run && !m_thrusting && !now.standing_on &&
+					(was.on_ground || now.on_ground) && rise >= SHOWS_FROM && rise <= 1) {
+				const v3f across(was.velocity.X, 0, was.velocity.Z);
+				const float pace = across.getLength();
+				m_lift += rise;
+				if (physics::trips(rise, pace) && m_trip_left <= 0) {
+					m_trip_left = physics::TRIP_TIME;
+					m_stagger = 1;
+					m_keep = 0.45f;
+					m_trip_way = across / pace;
+					m_trip_at = v3f::from(now.foot) + m_trip_way * 0.5f;
+					actionstream << "body: tripped at " << pace << " nodes/s, " << rise << " up" << std::endl;
+				} else {
+					m_stagger = std::max(m_stagger, rise);
+					m_keep = std::min(m_keep, 1 - rise * 0.4f);
+				}
+			}
+			m_lift = std::max(0.f, m_lift - (m_trip_left > 0 ? SCRAMBLES_UP : CATCHES_UP) * s);
+			m_trip_left = std::max(0.f, m_trip_left - s);
+			m_stagger = std::max(0.f, m_stagger - RECOVERS * s);
+		}
 		m_was = m_now;
 		m_now = now.foot;
 		if (const std::optional<planet::Atlas::Carried> c = m_atlas ?
@@ -618,7 +934,7 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 			p.turnWithGround(c->angle);
 			now = m_world->character(*m_me);
 		}
-		if (!was.on_ground && now.on_ground && !climbing && !m_climb && !m_hanging && !m_wall_run) {
+		if (!was.on_ground && now.on_ground && !climbing && !m_climb && !m_hanging && !m_wall_run && !m_push) {
 			if (m_thrusting) {
 				// landed: on their feet, flying off (as a double-tap would)
 				m_thrusting = false;
@@ -633,8 +949,21 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 				m_stance = physics::Stance::ROLL;
 				m_roll_left = physics::ROLL_TIME;
 			} else if (fall >= physics::HARD_LANDING) {
-				m_stumble = true;
 				m_late_roll = physics::ROLL_LATE;
+			}
+			if (!rolled && !m_thrusting) {
+				// its speed goes as far as its balance did, and it shows till it's back
+				const float yaw_now = p.getYaw() * core::DEGTORAD;
+				const float ahead = std::cos(c.movement_direction) * c.movement_speed, right = std::sin(c.movement_direction) * c.movement_speed;
+				const v3f asked = right != 0 || ahead != 0 ?
+						v3f(right * std::cos(yaw_now) - ahead * std::sin(yaw_now), 0, right * std::sin(yaw_now) + ahead * std::cos(yaw_now)) : m_look;
+				const float off = fall >= physics::HARD_LANDING ? 1 : physics::landingStagger(fall, was.velocity, asked);
+				if (off >= physics::FALLS_FROM && (physics::landingStagger(fall, was.velocity, asked) >= physics::FALLS_FROM || fall >= physics::FALLS_AT))
+					knockDown(std::clamp((fall - 4) / 12, 0.f, 1.f), was.velocity);
+				if (off > 0.15f) {
+					m_stagger = std::max(m_stagger, off);
+					m_keep = std::min(m_keep, 1 - (1 - physics::STUMBLE) * off);
+				}
 			}
 			if (fall >= physics::HARD_LANDING) // (no roll yet in play: this says why)
 				actionstream << "body: landed at " << fall << " nodes/s, asking stance " << (int)m_asked
@@ -657,11 +986,11 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 	p.control.slide = m_stance == physics::Stance::SLIDE;
 	p.control.roll = m_stance == physics::Stance::ROLL;
 	p.control.climb = m_stance == physics::Stance::VAULT ? 1 : m_stance == physics::Stance::MANTLE ? 2 :
-			m_stance == physics::Stance::HANG ? 3 : m_stance == physics::Stance::WALL_RUN ? 4 : 0;
+			m_stance == physics::Stance::HANG ? 3 : m_stance == physics::Stance::WALL_RUN ? 4 : m_stance == physics::Stance::DOWN ? 5 : 0;
 	m_crouch_press = false;
 	push(dtime);
 	const physics::World::CharacterState now = m_world->character(*m_me);
-	const v3d drawn = m_was + (m_now - m_was) * (m_behind / physics::STEP);
+	const v3d drawn = m_was + (m_now - m_was) * (m_behind / physics::STEP) - v3d(0, m_lift, 0);
 	m_set = v3f::from(drawn * BS);
 	p.setPosition(m_set);
 	p.setSpeed(now.velocity * BS);

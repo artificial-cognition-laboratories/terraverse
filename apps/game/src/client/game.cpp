@@ -2338,8 +2338,11 @@ bool Game::sneakNow(LocalPlayer &player)
 		m_crouch = m_prone = false;
 		return held;
 	}
-	if (m_hand.out())
-		return m_crouch;
+	// (Ctrl is Ctrl while building, so nothing could undo a crouch kept through it)
+	if (m_hand.out()) {
+		m_crouch = m_prone = false;
+		return false;
+	}
 	if (pressed) {
 		m_crouch_since = porting::getTimeMs();
 		m_crouch = !m_crouch || m_prone;

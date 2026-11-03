@@ -74,6 +74,7 @@ cd apps/game/ui && bun run typecheck      # UI types
 ./.output/bin/luanti --test-module TestTerragen   # terragen unit tests (--run-unittests for the whole engine)
 ./.output/bin/luanti --test-module TestPhysics    # physics: resting, rolling, hinges, pushing, determinism
 bun check:terragen      # world generation end to end: probed world == standalone terragen, + unit tests
+bun pose-sheet          # the figure's moves as contact sheets (.output/pose-sheet/*.png), no game needed
 bun check:lab           # every Lab scenario built headless; each `expect` checked
 bun check:wiki          # every wiki demo (reactions + Lab) run in the engine sandbox; reactions must make their products
 bun check:matter        # a clay fire pit lit on a live server: the world's matter burns, flames, records reactions, saves
@@ -640,6 +641,25 @@ Luanti's for online play, singleplayer needs no account. Built so far: sign-in
 hosted for friends (STUN, UPnP, hole punching on the server's socket), Join
 gets a single-use ticket from ArcLabs, and the host's server admits by ticket
 (protocol 58). No relay yet: pairs that can't be punched through are told so.
+
+**Built (sprint 127, `planning/arc-movement.md`):** falling down and getting up (`physics::Fallen`, `Body::knockDown`). Protocol 95.
+
+**Built (sprint 126, `planning/arc-movement.md`):** balance: bad landings stagger, step-ups no longer jump, a shin caught at a run trips.
+
+**Built (sprint 125, `planning/arc-movement.md`):** kicks by angle of attack, climbs over corners (`physics::overCorner`), side vaults and Kongs as throws about the hands.
+
+**Built (sprint 124, `planning/arc-movement.md`):** wall kicks as a push (`physics::WallPush`); hands kept on the edge and out of the head; shimmy by the body's facing.
+
+**Built (sprint 123, `planning/arc-movement.md`):** climbs by force (`physics::Haul`): caught, pulled, let go, leg up, driven off; how it arrives decides how long that takes.
+
+**Built (sprint 122, `planning/arc-movement.md`):** the mass: hung, the body swings about its hands; on its feet it leans
+into what it's doing; legs in the air go by how it's rising and take turns.
+
+**Built (sprint 121, `planning/arc-movement.md`):** moves chosen by velocity (`physics::moveFor`, table `MOVES`), short hops,
+and `bun pose-sheet`: every move rendered to a PNG from the game's own pose code (`physics/skeleton`).
+
+**Built (sprint 120, `planning/arc-movement.md`):** contact and flow: hands by IK on edges (`armTo`,
+`Grip`, `HandOverHand`), reaching for what's in reach; moves chain, keep their speed, and go by how high the body is by then.
 
 **Built (sprint 119, `planning/arc-movement.md`):** wall runs and wall jumps (`findWall`, `runsAlong`,
 `wallKick`), side vaults; vaults hold the speed they came in at. Protocol 94.

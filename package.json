@@ -10,6 +10,7 @@
     "palette": "bash scripts/palette.sh",
     "components": "cd apps/game/ui && bun run gallery",
     "check:terragen": "bash scripts/terragen-check.sh",
+    "pose-sheet": "bash scripts/pose-sheet.sh",
     "check:lab": "bash scripts/lab-check.sh",
     "check:wiki": "bash scripts/wiki-check.sh",
     "check:matter": "bash scripts/matter-check.sh",

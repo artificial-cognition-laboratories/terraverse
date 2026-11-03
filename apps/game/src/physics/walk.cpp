@@ -128,6 +128,50 @@ v3f roll(const Gait &gait, const Intent &intent, const Footing &now, float dt)
 	return v3f(moved.X + ground.X, now.on_ground ? ground.Y : now.velocity.Y + gait.gravity.Y * dt, moved.Z + ground.Z);
 }
 
+float landingStagger(float fall, v3f velocity, v3f asked)
+{
+	const float hard = std::clamp((fall - 4) / 6, 0.f, 1.f) * 0.6f;
+	const v3f across(velocity.X, 0, velocity.Z);
+	const v3f flat(asked.X, 0, asked.Z);
+	const float pace = across.getLength(), wants = flat.getLength();
+	float against = 0;
+	if (pace > 1 && wants > 0.1f) // (0 going the way it wants, 1 straight against it)
+		against = (1 - across.dotProduct(flat) / (pace * wants)) / 2;
+	return std::min(1.f, hard + against * std::min(pace / 7, 1.f) * 0.8f);
+}
+
+Fallen::Fallen(float severity, bool face_down) : m_rest(0.35f + 0.65f * std::clamp(severity, 0.f, 1.f)), m_face_down(face_down) {}
+
+void Fallen::step(float dt, bool wants_up)
+{
+	constexpr float TIPS = 0.28f, LEAST_DOWN = 0.3f, GETS_UP = 1.0f, QUICKLY = 0.55f;
+	m_t += dt;
+	if (m_up_time == 0) {
+		if (m_t >= TIPS + m_rest || (wants_up && m_t >= TIPS + LEAST_DOWN))
+			m_up_time = wants_up ? QUICKLY : GETS_UP;
+		return;
+	}
+	m_up = std::min(1.f, m_up + dt / m_up_time);
+}
+
+bool Fallen::handsDown() const
+{
+	return m_face_down ? (m_t > 0.08f && m_up < 0.6f) : (m_up > 0 && m_up < 0.45f);
+}
+
+float Fallen::angle() const
+{
+	constexpr float LYING = 1.5f, TIPS = 0.28f;
+	const float over = std::min(1.f, m_t / TIPS);
+	float a = LYING * over * over; // slow, then all at once
+	if (m_up > 0) {
+		// hips first: little at the start of the push, most of it from the knees to the feet
+		const float u = m_up * m_up * (3 - 2 * m_up);
+		a = LYING * (1 - u);
+	}
+	return m_face_down ? a : -a;
+}
+
 Stance nextStance(Stance now, Stance asked, float pace, bool on_ground, float roll_left)
 {
 	switch (now) {

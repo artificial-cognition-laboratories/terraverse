@@ -5,6 +5,7 @@
 
 #include "irr_v3d.h"
 #include "orbit/field.h"
+#include "physics/pose.h"
 #include "physics/reach.h"
 #include "physics/walk.h"
 #include "physics/world.h"
@@ -59,12 +60,37 @@ public:
 	physics::Stance stance() const { return m_stance; }
 	// A slide or roll has finished since last asked: a tapped crouch is used up by it.
 	// New presses, not holds: Space takes hold of what's in reach, Ctrl lets go.
-	void pressJump() { m_jump_press = JUMP_MEMORY; }
+	void pressJump() { m_jump_press = JUMP_MEMORY; m_jump_used = false; }
 	void pressCrouch() { m_crouch_press = true; }
 	// On a wall: how far its hips are turned from a view at this yaw (radians, Luanti's).
 	std::optional<float> wallFace(float yaw) const;
 	// Running on a wall: how far to lean out from it (radians, + left of a view at this yaw).
 	float wallLean(float yaw) const;
+	// Its hands on an edge, or going for one in reach as it flies (world, nodes).
+	std::optional<physics::Grip> grip() const;
+	// Climbing: where the leg going up is put (world), if it is.
+	// Which feet are pushing off (physics::PoseIn::feet).
+	int feetUsed() const { return m_push ? m_push->nearSide() : m_kick_left > 0 ? m_kick_feet : -1; }
+	// Vaulting: thrown about its hands, legs round one or head first over both.
+	float thrownSide() const;
+	float thrownBack() const;
+	// Off balance, 0..1.
+	float stagger() const { return m_stagger; }
+	// Down: over from upright (radians, + face down), and how far through getting up.
+	float fallenAngle() const { return m_down ? m_down->fallen.angle() : 0; }
+	float risingAt() const { return m_down ? m_down->fallen.riseAt() : 0; }
+	// Off its feet, the way it's going: a landing too bad to take, and later a blow.
+	void knockDown(float severity, v3f velocity);
+	std::optional<v3f> stepOn() const
+	{
+		if (m_push)
+			return m_push->footOn();
+		return m_climb && m_climb->haul ? m_climb->haul->stepOn() : std::nullopt;
+	}
+	// Just kicked off a wall: toward it (world), fading from 1.
+	v3f kickPush() const { return m_kicked && m_kick_left > 0 ? *m_kicked * -(m_kick_left / KICK_SHOWN) : v3f(0); }
+	// How it's really going, on a wall (nodes/s): a climb is placed, so it has no velocity of its own.
+	v3f climbSpeed() const { return v3f::from(m_now - m_was) / (float)physics::STEP; }
 	bool takeMoveEnded() { const bool e = m_move_ended; m_move_ended = false; return e; }
 	// The brake held (thrusting: push against the motion).
 	void brake(bool held) { m_brake = held; }
@@ -156,8 +182,24 @@ private:
 	float m_standing_height = 0; // its capsule at full height (nodes)
 	physics::Stance m_asked = physics::Stance::STAND; // what the controls ask, this frame
 	float m_roll_left = 0;    // s
-	bool m_stumble = false;   // landed hard, unrolled: costs its speed next step
+	float m_keep = 1;         // × its speed, next step: a landing or a step it paid for
+	float m_stagger = 0;      // off balance, 0..1
+	float m_lift = 0;         // nodes: gone up a step in one physics step, drawn below that, catching up
+	struct Down
+	{
+		physics::Fallen fallen;
+		v3f way;  // along the ground: the way its head goes
+		bool face_down;
+		v3f hands; // on the ground, where they went down
+	};
+	std::optional<Down> m_down;
+	float m_trip_left = 0;    // s: tripped, scrambling
+	v3f m_trip_at, m_trip_way; // where its hands went down, and which way it was going
 	bool m_move_ended = false;
+	bool m_rising = false;    // jumped, Space still down: letting go now cuts it short
+	bool m_said_stuck = false; // a refused stance is logged once
+	static constexpr float GRAB_MEMORY = 0.35f; // s, and as long as an edge stays ahead
+	bool m_grab_wait = false;
 	static constexpr float JUMP_MEMORY = 0.2f; // s a press is remembered: slightly early still counts
 	float m_jump_press = 0;
 	bool m_crouch_press = false;
@@ -171,6 +213,8 @@ private:
 		physics::ClimbPath path;
 		float t = 0;
 		v3f exit{ 0 };
+		std::optional<physics::Haul> haul; // everything but a vault
+		bool dive = false;
 		float side = 0; // a side vault: turned this far from square (radians)
 	};
 	struct WallRun
@@ -181,12 +225,20 @@ private:
 		float left;     // s
 	};
 	std::optional<WallRun> m_wall_run;
-	std::optional<v3f> m_kick;    // the velocity a kick off a wall leaves it with, next
+	v3f m_look;  // flat, where the view goes
+	std::optional<physics::WallPush> m_push; // kicking off a wall
+	static constexpr float KICK_SHOWN = 0.35f; // s the kicking leg takes to come away
+	float m_kick_left = 0;
+	int m_kick_feet = -1;
 	std::optional<v3f> m_kicked;  // the wall last kicked off: not the same one twice before the ground
 	v3f wallStep(const physics::World::CharacterState &was, const physics::Here &h, float jump);
 	void airWall(const physics::World::CharacterState &was, v3f velocity, float jump);
 	std::optional<Climbing> m_climb;
 	std::optional<physics::Ledge> m_hanging;
+	std::optional<physics::Ledge> m_in_reach; // in the air: what Space would take hold of
+	physics::HandOverHand m_hands;
+	void handsAt(const physics::Ledge &ledge, v3f &right, v3f &left) const;
+	v3f keepOnEdge(const physics::Ledge &ledge, v3f hand) const;
 	bool solidAt(v3s16 p) const;
 	// Takes hold if it's asked and something's in reach.
 	void startClimb(const physics::World::CharacterState &was, v3f velocity, float yaw);

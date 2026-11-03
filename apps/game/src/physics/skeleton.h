@@ -1,0 +1,52 @@
+// Terra Firma
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+#pragma once
+
+#include "physics/pose.h"
+#include <matrix4.h>
+
+/*
+	Where a figure's bones go from a pose's joints (arc-movement, sprint 121). Pure,
+	so what client/figure draws and what scripts/pose-sheet renders are the same answer.
+	In nodes, each bone against its parent: lower holds hips and thighs; hips the chest;
+	the chest the head and upper arms; then down each limb.
+*/
+namespace physics {
+
+// Its proportions before it's scaled to the player's height: legs and torso three
+// quarters of a node each, a head of half.
+constexpr float FIGURE_SCALE = 1.77f / 2.0f;
+// Bones overlap at their joints, the lower one narrower, so a bend shows no gap
+// and their faces don't fight.
+constexpr float BONE_OVERLAP = 0.05f, BONE_WIDE = 0.25f, BONE_NARROW = 0.22f;
+constexpr float HIPS_TALL = 0.25f, CHEST_TALL = 0.5f, HEAD_SIZE = 0.5f, SHOULDER_UP = 0.375f, SHOULDER_OUT = 0.375f;
+constexpr float HAND_LONG = 0.125f;
+
+struct BonePlace
+{
+	v3f at;   // nodes
+	v3f turn; // degrees
+	core::matrix4 matrix() const;
+};
+struct Bones
+{
+	BonePlace lower, hips, chest, head;
+	BonePlace thigh[2], shin[2], upper[2], fore[2], hand[2];
+};
+
+class Skeleton
+{
+public:
+	// `grip`: hands on something, in the figure's frame (nodes). `tilt`: leaned sideways (radians, + left). `clear`: moved this far (figure's frame) to keep its upper body out of what it's beside.
+	Bones place(float dt, const Joints &j, float tilt, const Grip *grip, v3f clear = v3f(0));
+
+private:
+	float m_gripping[2]{};    // 0..1: how far a hand has gone from where the pose holds it to what it has hold of
+	v3f m_wrist[2];           // where it was, against the chest: on its way, a hand has only so much speed
+	bool m_wrist_known[2]{};
+	v3f m_pivot{ 0, 1.56f, 0.3f }; // what it swings about: its hands, last it had them
+	v3f m_grip_at[2], m_grip_over{ 0, 0, 1 }; // the last thing held: a hand comes away from there
+};
+
+} // namespace physics

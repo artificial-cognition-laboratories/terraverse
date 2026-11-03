@@ -1,0 +1,166 @@
+// Terra Firma
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+#include "physics/skeleton.h"
+
+
+#include <algorithm>
+#include <cmath>
+
+namespace physics {
+
+namespace {
+
+constexpr float DEG = 180.f / 3.14159265f;
+
+core::matrix4 axes(v3f x, v3f y, v3f z)
+{
+	core::matrix4 m;
+	m[0] = x.X; m[1] = x.Y; m[2] = x.Z;
+	m[4] = y.X; m[5] = y.Y; m[6] = y.Z;
+	m[8] = z.X; m[9] = z.Y; m[10] = z.Z;
+	return m;
+}
+
+} // namespace
+
+core::matrix4 BonePlace::matrix() const
+{
+	core::matrix4 m;
+	m.setRotationDegrees(turn);
+	m.setTranslation(at);
+	return m;
+}
+
+Bones Skeleton::place(float dt, const Joints &j, float tilt, const Grip *grip, v3f clear)
+{
+	const float S = FIGURE_SCALE;
+	Bones b;
+	b.hips.at = v3f(0, (HIP_HEIGHT - j.drop) * S, 0);
+	// Turned from the view, over in a roll, and into its shoulder first (read right to left).
+	core::matrix4 twist, spin, lean, tipped;
+	tipped.setRotationRadians(v3f(0, 0, tilt));
+	twist.setRotationRadians(v3f(0, j.twist, 0));
+	spin.setRotationRadians(v3f(j.spin, 0, 0));
+	lean.setRotationRadians(v3f(0, j.spin_lean, 0));
+	const core::matrix4 turn = tipped * twist * spin * lean;
+	b.lower.turn = turn.getRotationDegrees();
+	// a roll turns about the body's middle, not its feet
+	const v3f middle(0, 0.45f, 0);
+	const v3f moved = turn.rotateAndScaleVect(middle);
+	const v3f backed = twist.rotateAndScaleVect(v3f(0, 0, -j.back));
+	b.lower.at = (middle - moved + backed) * S;
+	// hung, all of it goes round its hands, in the frame of the hips: hands stay, the rest swings under them
+	if (j.swing_back != 0 || j.swing_side != 0) {
+		if (grip && (grip->held[0] || grip->held[1]))
+			m_pivot = grip->held[0] && grip->held[1] ? (grip->wrist[0] + grip->wrist[1]) / 2 : grip->wrist[grip->held[0] ? 0 : 1];
+		const v3f pivot = m_pivot;
+		core::matrix4 turned, unturn, swung, to, from;
+		twist.getInverse(unturn);
+		swung.setRotationRadians(v3f(j.swing_back, 0, j.swing_side));
+		to.setTranslation(pivot);
+		from.setTranslation(pivot * -1.f);
+		turned = to * twist * swung * unturn * from * b.lower.matrix();
+		b.lower.at = turned.getTranslation();
+		b.lower.turn = turned.getRotationDegrees();
+	}
+	// over about its feet, in the frame of the hips; a little up off the ground, it's a body lying on it
+	if (j.fallen != 0) {
+		core::matrix4 unturn, over, raised;
+		twist.getInverse(unturn);
+		over.setRotationRadians(v3f(j.fallen, 0, 0));
+		raised.setTranslation(v3f(0, 0.12f * std::fabs(j.fallen) / 1.5f, 0));
+		// (it's moved along the ground after it's turned over: turned with it, that move would lift it off)
+		core::matrix4 unmoved = b.lower.matrix();
+		unmoved.setTranslation(v3f(0));
+		const core::matrix4 turned = raised * twist * over * unturn * unmoved;
+		b.lower.at += turned.getTranslation();
+		b.lower.turn = turned.getRotationDegrees();
+	}
+	// (the lean's in the hips: the legs stay under it, on the feet)
+	b.hips.turn = v3f((j.pitch + j.waist * 0.3f + j.lean_ahead) * DEG, 0, -j.lean_right * DEG);
+	b.chest.at = v3f(0, HIPS_TALL * S, 0);
+	// the chest stays mostly with the hips; the head does the turning
+	b.chest.turn = v3f(j.waist * 0.7f * DEG, j.chest_twist * DEG, 0);
+	{
+		core::matrix4 under = b.lower.matrix() * b.hips.matrix(), undo_under;
+		under.getInverse(undo_under);
+		b.chest.at += undo_under.rotateAndScaleVect(clear);
+	}
+	// The head's own turn is what's left between its parents and the view. Summing angles
+	// isn't enough: on a bent body they don't add, and it rolled over sideways.
+	const core::matrix4 chest = b.lower.matrix() * b.hips.matrix() * b.chest.matrix();
+	core::matrix4 parents = chest;
+	parents.setTranslation(v3f(0));
+	core::matrix4 undo, view;
+	parents.getInverse(undo);
+	view.setRotationDegrees(v3f(j.head * DEG, 0, 0));
+	b.head.at = v3f(0, CHEST_TALL * S, 0);
+	// (rolling, it tucks and goes round with the body)
+	b.head.turn = j.spin != 0 || std::fabs(j.fallen) > 0.3f ? v3f(0.5f * DEG, 0, 0) : (undo * view).getRotationDegrees();
+	for (int side : { 0, 1 }) {
+		const float x = side ? -1.f : 1.f;
+		b.thigh[side] = { v3f(HIP_WIDE * x, HIP_HEIGHT - j.drop, 0) * S, v3f(j.hip[side] * DEG, 0, j.hip_out[side] * DEG) };
+		b.shin[side] = { v3f(0, -THIGH * S, 0), v3f(j.knee[side] * DEG, 0, 0) };
+		b.upper[side] = { v3f(SHOULDER_OUT * x, SHOULDER_UP, 0) * S, v3f(j.shoulder[side] * DEG, 0, j.shoulder_out[side] * DEG) };
+		b.fore[side] = { v3f(0, -UPPER_ARM * S, 0), v3f(j.elbow[side] * DEG, 0, 0) };
+		b.hand[side] = { v3f(0, -FOREARM * S, 0), v3f(0) };
+	}
+	// Hands on what they've hold of: from where the pose has them, so they reach for it and come away
+	core::matrix4 from_chest;
+	chest.getInverse(from_chest);
+	for (int side : { 0, 1 }) {
+		constexpr float REACHES = 16; // about a tenth of a second there
+		const bool holds = grip && grip->held[side];
+		if (holds) {
+			m_grip_at[side] = grip->wrist[side];
+			m_grip_over = grip->over;
+		}
+		m_gripping[side] += ((holds ? 1.f : 0.f) - m_gripping[side]) * std::min(1.f, REACHES * dt);
+		const float w = m_gripping[side];
+		if (w < 0.01f) {
+			m_wrist_known[side] = false;
+			continue;
+		}
+		const float x = side ? -1.f : 1.f;
+		const v3f shoulder = b.upper[side].at;
+		const core::matrix4 posed = b.upper[side].matrix() * b.fore[side].matrix();
+		v3f free(0, -FOREARM * S, 0);
+		posed.transformVect(free);
+		v3f wanted = m_grip_at[side];
+		from_chest.transformVect(wanted);
+		v3f wrist = free + (wanted - free) * w;
+		// planted, it stays planted however the body goes; going to or from, it's an arm with a top speed
+		constexpr float MOST_HAND_SPEED = 9; // nodes/s
+		if (m_wrist_known[side] && !(holds && w > 0.9f)) {
+			const v3f move = wrist - m_wrist[side];
+			const float most = MOST_HAND_SPEED * dt;
+			if (move.getLength() > most)
+				wrist = m_wrist[side] + move / move.getLength() * most;
+		}
+		m_wrist[side] = wrist;
+		m_wrist_known[side] = true;
+		const ArmTo arm = armTo((wrist - shoulder) / S, v3f(0.7f * x, -0.6f, -0.7f), UPPER_ARM, FOREARM);
+		const core::matrix4 upper = axes(arm.x, arm.y, arm.z);
+		b.upper[side].turn = upper.getRotationDegrees();
+		b.fore[side].turn = v3f(arm.elbow * DEG, 0, 0);
+		// the hand turned over onto it
+		core::matrix4 elbow;
+		elbow.setRotationDegrees(b.fore[side].turn);
+		const core::matrix4 fore = upper * elbow;
+		const v3f down = fore.rotateAndScaleVect(v3f(0, -1, 0));
+		const v3f over = from_chest.rotateAndScaleVect(m_grip_over);
+		v3f finger = down + (over - down) * w;
+		finger.normalize();
+		const v3f y = finger * -1.f;
+		v3f across = fore.rotateAndScaleVect(v3f(1, 0, 0));
+		across -= y * across.dotProduct(y);
+		across.normalize();
+		core::matrix4 undo_fore;
+		fore.getInverse(undo_fore);
+		b.hand[side].turn = (undo_fore * axes(across, y, across.crossProduct(y))).getRotationDegrees();
+	}
+	return b;
+}
+
+} // namespace physics

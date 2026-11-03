@@ -24,8 +24,36 @@
 */
 namespace physics {
 
+constexpr float HOP = 0.45f; // × what's left of a jump's rise, Space let go early
+
+// Balance (sprint 126): how far a body's weight is from over its feet, 0 fine to 1 as far as it can go and
+// stay up. A landing's is how hard it came down and how far from the way it's going it's trying to go.
+float landingStagger(float fall, v3f velocity, v3f asked);
+// Its shin caught something it went up over: at a run that's a trip, hands down and scramble.
+constexpr float TRIP_RISE = 0.3f, TRIP_PACE = 5, TRIP_TIME = 0.5f; // nodes, nodes/s, s
+inline bool trips(float rise, float pace) { return rise >= TRIP_RISE && pace >= TRIP_PACE; }
+
+// Past what balance can take, it goes down (sprint 127): over whichever way it's going, on the ground a while
+// by how hard it was, and up again. Asked to, it gets up sooner and quicker. The same state a blow will use.
+constexpr float FALLS_FROM = 0.85f;  // of landingStagger
+constexpr float FALLS_AT = 11;       // nodes/s down, however it landed
+class Fallen
+{
+public:
+	Fallen(float severity, bool face_down);
+	void step(float dt, bool wants_up);
+	bool done() const { return m_up >= 1; }
+	bool rising() const { return m_up > 0; }
+	float riseAt() const { return m_up; }       // 0..1 through getting up
+	bool handsDown() const;                      // braced, or pushing up off them
+	float angle() const;                         // radians over from upright: + face down, - on its back
+private:
+	float m_t = 0, m_rest, m_up = 0, m_up_time = 0;
+	bool m_face_down;
+};
+
 // How a body holds itself (arc-movement, sprint 116). Each is a row of STANCES.
-enum class Stance : unsigned char { STAND, CROUCH, PRONE, SLIDE, ROLL, VAULT, MANTLE, HANG, WALL_RUN };
+enum class Stance : unsigned char { STAND, CROUCH, PRONE, SLIDE, ROLL, VAULT, MANTLE, HANG, WALL_RUN, DOWN };
 struct StanceInfo
 {
 	float height;      // nodes: its capsule (0: as tall as the body is)
@@ -44,6 +72,7 @@ constexpr StanceInfo STANCES[] = {
 	{ 0.9f, 1, false, 0.3f, 0 },
 	{ 1.2f, 1, false, 0, 0 },
 	{ 1.2f, 1, false, 0, 0 },
+	{ 0.7f, 0, false, 1.2f, 0.28f },
 };
 inline const StanceInfo &stanceInfo(Stance s) { return STANCES[(int)s]; }
 

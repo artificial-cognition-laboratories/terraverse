@@ -1421,6 +1421,9 @@ void GenericCAO::step(float dtime, ClientEnvironment *env)
 			float yaw;
 			std::optional<float> face;
 			float tilt = 0;
+			std::optional<physics::Grip> grip;
+			v3f push;
+			std::optional<v3f> step_on;
 			if (m_is_local_player) {
 				LocalPlayer *me = env->getLocalPlayer();
 				moving = me->getSpeed() / BS;
@@ -1430,6 +1433,13 @@ void GenericCAO::step(float dtime, ClientEnvironment *env)
 				yaw = me->getYaw();
 				face = m_client->getBody().wallFace(yaw * core::DEGTORAD);
 				tilt = m_client->getBody().wallLean(yaw * core::DEGTORAD);
+				grip = m_client->getBody().grip();
+				push = m_client->getBody().kickPush();
+				step_on = m_client->getBody().stepOn();
+				if (step_on)
+					*step_on -= m_position / BS;
+				if (face)
+					moving = m_client->getBody().climbSpeed();
 				// (from where the head really is: lying down, it's far from the view's pivot)
 				const Camera *camera = m_client->getCamera();
 				m_figure->hideHead(camera->getCameraMode() == CAMERA_MODE_FIRST ||
@@ -1447,15 +1457,62 @@ void GenericCAO::step(float dtime, ClientEnvironment *env)
 			getPosRotMatrix().getInverse(back);
 			back.setTranslation(v3f(0));
 			back.transformVect(moving);
+			back.transformVect(push);
+			if (step_on)
+				back.transformVect(*step_on);
+			if (grip) { // into the figure's frame
+				for (const int side : { 0, 1 }) {
+					grip->wrist[side] -= m_position / BS;
+					back.transformVect(grip->wrist[side]);
+				}
+				back.transformVect(grip->over);
+			}
 			// Luanti's yaw turns the view left, the figure's frame +x is its right
 			const float turned = -wrapDegrees_180(yaw - m_figure_yaw) * core::DEGTORAD;
 			m_figure_yaw = yaw;
 			core::matrix4 turn = getPosRotMatrix();
 			turn.setTranslation(v3f(0));
-			m_figure->pose(dtime, moving, pitch, airborne, stance, turned, face, tilt, [&](v3f foot) {
+			physics::Contacts contacts;
+			contacts.grip = grip ? &*grip : nullptr;
+			contacts.push = push;
+			contacts.step_on = step_on;
+			if (m_is_local_player) {
+				const Body &body = m_client->getBody();
+				contacts.feet = body.feetUsed();
+				contacts.fallen = body.fallenAngle();
+				contacts.rising = body.risingAt();
+				contacts.stagger = body.stagger();
+				contacts.throw_side = body.thrownSide();
+				contacts.throw_back = body.thrownBack();
+			}
+			m_figure->pose(dtime, moving, pitch, airborne, stance, turned, face, tilt, contacts, [&](v3f foot) {
 				v3f at = foot * BS;
 				at = turn.rotateAndScaleVect(at);
 				return groundUnder(m_position + at) - m_position.Y / BS;
+			}, [&](v3f at, float r) {
+				// a ball against the whole nodes round it
+				const v3f p = m_position / BS + turn.rotateAndScaleVect(at);
+				Map &map = env->getMap();
+				const NodeDefManager *ndef = m_client->ndef();
+				v3f by;
+				const v3s16 c(std::floor(p.X + 0.5f), std::floor(p.Y + 0.5f), std::floor(p.Z + 0.5f));
+				for (s16 x = c.X - 1; x <= c.X + 1; x++)
+				for (s16 y = c.Y - 1; y <= c.Y + 1; y++)
+				for (s16 z = c.Z - 1; z <= c.Z + 1; z++) {
+					const MapNode n = map.getNode(v3s16(x, y, z));
+					if (n.getContent() == CONTENT_IGNORE || !ndef->get(n).walkable)
+						continue;
+					const v3f near(std::clamp(p.X, x - 0.5f, x + 0.5f), std::clamp(p.Y, y - 0.5f, y + 0.5f), std::clamp(p.Z, z - 0.5f, z + 0.5f));
+					const v3f off = p - near;
+					const float d = off.getLength();
+					if (d >= r || d < 1e-4f)
+						continue;
+					const v3f out = off / d * (r - d);
+					if (out.getLengthSQ() > by.getLengthSQ())
+						by = out;
+				}
+				back.transformVect(by);
+				return by;
 			});
 		}
 
