@@ -22,5 +22,15 @@ export default {
             game.verify([release.script("release:wait")])
             return game
         },
+        docs(release: Release) {
+            const docs = release.target({
+                cwd: "apps/docs",
+                rationale: "The landing page and install.sh on Cloud Run. Everyone's install runs this script, so its checks pass first and the deploy is proved against what's served.",
+            })
+            docs.gate([release.script("check")])
+            docs.publish(release.script("deploy"))
+            docs.verify([release.script("verify")])
+            return docs
+        },
     },
 }

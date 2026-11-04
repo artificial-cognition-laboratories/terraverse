@@ -1,0 +1,11 @@
+{
+  "name": "terraverse-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "bash ../../scripts/release/install-check.sh",
+    "bake": "bash bake/bake.sh",
+    "deploy": "bun run deploy.ts",
+    "verify": "bun run verify.ts"
+  }
+}

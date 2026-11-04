@@ -1,0 +1,82 @@
+@font-face { font-family: Silkscreen; src: url(fonts/silkscreen-latin-400-normal.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: Silkscreen; src: url(fonts/silkscreen-latin-700-normal.woff2) format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url(fonts/jetbrains-mono-latin-400-normal.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url(fonts/jetbrains-mono-latin-700-normal.woff2) format("woff2"); font-weight: 700; font-display: swap; }
+
+/* The game's own language: one light from the top left, hard edges, one accent. */
+:root {
+    --ink: #e9eef2;
+    --quiet: #9aa8b3;
+    --faint: #62717c;
+    --void: #03060a;
+    --panel: #0c1218;
+    --panel-up: #141c24;
+    --accent: rgb(0 148 210);
+    --accent-bright: #2fb6ee;
+    --raised: inset 1px 1px 0 #2b3843, inset -1px -1px 0 #04070a;
+    --sunk: inset 1px 1px 0 #04070a, inset -1px -1px 0 #22303a;
+    --pixel: Silkscreen, monospace;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+    --gutter: clamp(16px, 5vw, 72px);
+}
+* { box-sizing: border-box; border-radius: 0; }
+html { background: var(--void); scroll-behavior: auto; }
+body { margin: 0; height: 100svh; color: var(--ink); background: var(--void); font: 400 15px/1.7 var(--mono); overflow-x: hidden; }
+a { color: inherit; }
+code { font-family: var(--mono); }
+
+#planet {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    image-rendering: pixelated; cursor: grab; touch-action: pan-y;
+    opacity: 0; transition: opacity 1.2s;
+}
+#planet.ready { opacity: 1; }
+#planet.dragging { cursor: grabbing; }
+
+.bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 3;
+    display: flex; justify-content: space-between; align-items: center; gap: 16px;
+    padding: 14px var(--gutter); pointer-events: none;
+    background: linear-gradient(#03060ae0, #03060a00);
+}
+.bar a { pointer-events: auto; text-decoration: none; }
+.mark { font: 400 18px var(--pixel); white-space: nowrap; }
+.mark span { color: var(--accent-bright); }
+nav { display: flex; gap: clamp(12px, 3vw, 28px); font-size: 13px; color: var(--quiet); white-space: nowrap; }
+nav a:hover { color: var(--ink); }
+
+main { position: relative; z-index: 1; pointer-events: none; }
+main a, main button, main code, main p, main h1, main h2, main h3, main li { pointer-events: auto; }
+
+section { padding-inline: var(--gutter); }
+.eyebrow { margin: 0 0 16px; font: 400 12px var(--pixel); letter-spacing: .08em; text-transform: uppercase; color: var(--accent-bright); }
+
+.hero { min-height: 100svh; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding-block: 88px 40px; }
+h1 { margin: 0; font: 400 clamp(40px, 6vw, 96px)/1 var(--pixel); letter-spacing: -.02em; text-shadow: 0 4px 0 #000; }
+h1 em { font-style: normal; color: var(--accent-bright); }
+.lede { max-width: 50ch; margin: 28px 0 32px; font-size: clamp(15px, 1.25vw, 17px); color: #c9d3da; text-shadow: 0 1px 8px #000; }
+
+.install { width: min(620px, 100%); background: var(--panel); box-shadow: var(--raised); }
+.install-head { display: flex; justify-content: space-between; gap: 12px; padding: 8px 14px 0; font-size: 12px; color: var(--accent-bright); }
+.install-head .soon { color: var(--faint); }
+.install-line { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 14px; min-width: 0; }
+.install-line { flex-wrap: wrap; }
+.install-line code { flex: 1 1 26em; min-width: 0; font-size: 13.5px; }
+.install button {
+    flex: none; padding: 7px 14px; color: var(--ink); background: var(--accent); border: 0;
+    font: 400 12px var(--pixel); cursor: pointer; white-space: nowrap;
+    box-shadow: inset 1px 1px 0 #55c7f3, inset -1px -1px 0 #005c85;
+}
+.install button:hover { background: #0aa8ec; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 2px; }
+
+.now-showing { text-shadow: 0 1px 4px #000; display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 22px; font-size: 12px; color: var(--quiet); }
+.now-showing code { color: var(--ink); }
+.now-showing .hint { color: var(--faint); }
+
+.credit { margin-top: 10px; font-size: 12px; color: var(--faint); text-shadow: 0 1px 4px #000; }
+
+.no-webgl #planet { display: none; }
+@media (max-aspect-ratio: 125/100) { .hero { justify-content: flex-start; padding-top: 96px; } }
+@media (max-width: 480px) { .install-line code { font-size: 12px; flex-basis: 100%; } }
+@media (prefers-reduced-motion: reduce) { #planet { transition: none; } }

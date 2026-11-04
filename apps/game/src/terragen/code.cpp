@@ -192,7 +192,7 @@ WorldCode WorldCode::decode(const std::string &code)
 		throw CodeError("This isn't a world code.");
 	std::string version = code.substr(0, first);
 	if (version == "TF15" || version == "TF14" || version == "TF13" || version == "TF12" || version == "TF11" || version == "TF10" || version == "TF9" || version == "TF1" || version == "TF2" || version == "TF3" || version == "TF4" || version == "TF5" || version == "TF6" || version == "TF7" || version == "TF8")
-		throw CodeError("This world code is from an older build of Terra Firma (" + version + "); its worlds can't be generated any more.");
+		throw CodeError("This world code is from an older build of Terraverse (" + version + "); its worlds can't be generated any more.");
 	if (version != "TF16")
 		throw CodeError("This isn't a world code this game reads (TF16).");
 	size_t second = code.find('.', first + 1);
