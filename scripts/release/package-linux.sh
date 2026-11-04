@@ -55,7 +55,9 @@ system+='|libGL[A-Za-z]*|libOpenGL|libEGL|libgbm|libdrm|libvulkan'
 system+='|libX[A-Za-z]*|libxcb[-a-z]*|libxkbcommon|libwayland-[a-z]+|libasound|libpulse|libdbus-1|libudev|libsystemd|libcap'
 system+='|libfontconfig|libfreetype|libexpat|libz|libglib-2\.0|libgobject-2\.0|libgio-2\.0|libgmodule-2\.0|libffi|libpcre2-8|libmount|libblkid|libselinux'
 system+='|libnss3|libnssutil3|libnspr4|libsmime3|libplc4|libplds4|libatk-1\.0|libatk-bridge-2\.0|libatspi|libcups|libavahi-[a-z]+'
-system+='|libgnutls|libhogweed|libnettle|libp11-kit|libtasn1|libunistring'
+# Not libnettle, libhogweed or libunistring: their sonames move between distros
+# (Arch has nettle.so.9 where we link .so.8), and each version installs side by side.
+system+='|libgnutls|libp11-kit|libtasn1'
 system+='|libcairo|libpango-1\.0|libharfbuzz|libfribidi|libthai|libdatrie|libpixman-1|libgraphite2|libpng16'
 system+='|libkrb5|libk5crypto|libgssapi_krb5|libcom_err|libkrb5support|libkeyutils)\.so'
 LD_LIBRARY_PATH="$root/.output/bin" ldd "$root/.output/bin/luanti" | while read -r lib _ path _; do
