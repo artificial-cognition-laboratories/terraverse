@@ -13,7 +13,7 @@ Linux x86_64 only for now, and early: expect rough edges.
 curl -fsSL https://terraverse.arclabs.it/install.sh | sh
 ```
 
-The game and your worlds live in `~/.terraverse`. Run `terraverse update` for new versions and `terraverse rollback` to go back. You'll need `curl`, `tar`, `zstd` and `openssl`.
+The game and your worlds live in `~/.terraverse`. `terraverse update` moves to the latest version. `terraverse versions`, `use <version>`, `remove <version>` and `rollback` manage the others. You'll need `curl`, `tar`, `zstd` and `openssl`.
 
 ## Overview
 

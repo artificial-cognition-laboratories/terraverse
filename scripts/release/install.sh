@@ -7,6 +7,8 @@
 #   versions/<v>/      a release, read-only in use
 #   current, previous  which release runs, and the one to go back to
 #
+# Moves to the latest release. TERRAVERSE_VERSION=<v> fetches that one instead.
+#
 # Everything else in ~/.terraverse is the player's and is never touched here.
 # A release is trusted only if its manifest verifies against the key below.
 set -eu
@@ -25,6 +27,9 @@ done
 
 home=${TERRAVERSE_HOME:-${HOME:?HOME is not set}/.terraverse}
 case "$home" in /*) ;; *) fail "TERRAVERSE_HOME must be an absolute path" ;; esac
+wanted=${TERRAVERSE_VERSION:-}
+case "$wanted" in *[!0-9A-Za-z.-]*|.*) fail "bad version: '$wanted'" ;; esac
+[ -z "$wanted" ] || RELEASES="${RELEASES%/latest/download}/download/v$wanted"
 mkdir -p "$home/bin" "$home/versions"
 tmp=$(mktemp -d "$home/versions/.tmp-XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
@@ -41,6 +46,7 @@ version=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$tmp/manifest.json")
 url=$(field url)
 sum=$(field sha256)
 case "$version" in ''|*[!0-9A-Za-z.-]*|.*) fail "the manifest names a bad version: '$version'" ;; esac
+[ -z "$wanted" ] || [ "$version" = "$wanted" ] || fail "asked for $wanted, but the manifest is for $version"
 [ -n "$url" ] && [ -n "$sum" ] || fail "the manifest has no build for this system"
 
 if [ -e "$home/versions/$version" ]; then
@@ -63,12 +69,6 @@ if [ "$now" != "versions/$version" ]; then
 	point current "versions/$version"
 fi
 
-# Only the two versions you can run or go back to are kept.
-keep=$(readlink "$home/previous" 2>/dev/null || true)
-for dir in "$home"/versions/*; do
-	case "versions/${dir##*/}" in "versions/$version"|"$keep") ;; *) rm -rf "$dir" ;; esac
-done
-
 cat > "$home/bin/.terraverse.new" <<LAUNCHER
 #!/bin/sh
 # The Terraverse launcher, written by install.sh. It stays this small so that it
@@ -80,8 +80,34 @@ case "\${1:-}" in
 	update) curl -fsSL $INSTALL_URL | sh ;;
 	path) echo "\$home" ;;
 	versions)
-		echo "current:  \$(basename "\$(readlink "\$home/current")")"
-		[ ! -L "\$home/previous" ] || echo "previous: \$(basename "\$(readlink "\$home/previous")")"
+		now=\$(basename "\$(readlink "\$home/current")")
+		for dir in "\$home"/versions/*/; do
+			v=\$(basename "\$dir")
+			if [ "\$v" = "\$now" ]; then echo "\$v (current)"; else echo "\$v"; fi
+		done
+		;;
+	use)
+		v=\${2:?usage: terraverse use <version>}
+		case "\$v" in */*|.*) echo "terraverse: bad version: \$v" >&2; exit 1 ;; esac
+		if [ ! -d "\$home/versions/\$v" ]; then
+			curl -fsSL $INSTALL_URL | TERRAVERSE_VERSION="\$v" sh
+			exit
+		fi
+		now=\$(readlink "\$home/current")
+		if [ "\$now" != "versions/\$v" ]; then
+			ln -s "versions/\$v" "\$home/.link" && mv -T "\$home/.link" "\$home/current"
+			ln -s "\$now" "\$home/.link" && mv -T "\$home/.link" "\$home/previous"
+		fi
+		echo "now on \$v. terraverse update returns to the latest"
+		;;
+	remove)
+		v=\${2:?usage: terraverse remove <version>}
+		case "\$v" in */*|.*) echo "terraverse: bad version: \$v" >&2; exit 1 ;; esac
+		[ -d "\$home/versions/\$v" ] || { echo "terraverse: \$v isn't installed" >&2; exit 1; }
+		[ "\$(readlink "\$home/current")" != "versions/\$v" ] || { echo "terraverse: \$v is the current version" >&2; exit 1; }
+		[ "\$(readlink "\$home/previous" 2>/dev/null)" != "versions/\$v" ] || rm -f "\$home/previous"
+		rm -rf "\${home:?}/versions/\$v"
+		echo "removed \$v"
 		;;
 	rollback)
 		[ -L "\$home/previous" ] || { echo "terraverse: no previous version to go back to" >&2; exit 1; }

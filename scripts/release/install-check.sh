@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs install.sh against fake signed releases in a temporary home: a first
-# install, an update, rollback, pruning, and refusing tampered downloads.
+# install, an update, rollback, choosing versions, and refusing tampered downloads.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 work=$(mktemp -d)
@@ -65,7 +65,17 @@ expect "rolling back again returns" "$("$tv")" "game 1.1.0 home=$TERRAVERSE_HOME
 
 publish 1.2.0
 sh "$work/install.sh" >/dev/null
-expect "only current and previous are kept" "$(cd "$TERRAVERSE_HOME/versions" && ls -A | sort | tr '\n' ' ')" "1.1.0 1.2.0 "
+expect "every version stays installed" "$(cd "$TERRAVERSE_HOME/versions" && ls -A | sort | tr '\n' ' ')" "1.0.0 1.1.0 1.2.0 "
+expect "versions marks the current one" "$("$tv" versions | tr '\n' ' ')" "1.0.0 1.1.0 1.2.0 (current) "
+"$tv" use 1.0.0 >/dev/null
+expect "use runs an installed version" "$("$tv")" "game 1.0.0 home=$TERRAVERSE_HOME args="
+sh "$work/install.sh" >/dev/null
+expect "an update returns to the latest" "$("$tv")" "game 1.2.0 home=$TERRAVERSE_HOME args="
+if "$tv" remove 1.2.0 >/dev/null 2>&1; then echo "install-check: removed the current version" >&2; exit 1; fi
+"$tv" remove 1.0.0 >/dev/null
+expect "remove deletes a version" "$(cd "$TERRAVERSE_HOME/versions" && ls -A | sort | tr '\n' ' ')" "1.1.0 1.2.0 "
+if TERRAVERSE_VERSION=9.9.9 sh "$work/install.sh" >/dev/null 2>&1; then echo "install-check: installed the wrong version" >&2; exit 1; fi
+echo "ok: a manifest for another version is refused"
 [ -d "$TERRAVERSE_HOME/worlds/mine" ] || { echo "install-check: the player's worlds are gone" >&2; exit 1; }
 echo "ok: the player's worlds survive"
 grep -q "^Exec=\"$tv\"" "$HOME/.local/share/applications/terraverse.desktop" || { echo "install-check: bad desktop entry" >&2; exit 1; }
