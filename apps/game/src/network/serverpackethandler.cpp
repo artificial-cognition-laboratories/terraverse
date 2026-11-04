@@ -320,8 +320,7 @@ void Server::handleCommand_Init2(NetworkPacket* pkt)
 
 	// Send time of day
 	u16 time = m_env->getTimeOfDay();
-	float time_speed = g_settings->getFloat("time_speed");
-	SendTimeOfDay(peer_id, time, time_speed);
+	SendTimeOfDay(peer_id, time, getTimeSpeed()); // (Terra Firma: a stopped clock stays stopped for who joins)
 
 	SendPlanet(peer_id); // before the horizon: the far view is made with both
 	SendHorizon(peer_id);

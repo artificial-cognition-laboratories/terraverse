@@ -22,6 +22,7 @@
 #if CHECK_CLIENT_BUILD()
 #include "far/export.h" // Terra Firma
 #include "planetarium/standalone.h" // Terra Firma
+#include "planetarium/shot.h" // Terra Firma
 #endif
 #include "database/database.h"
 #include "config.h"
@@ -296,6 +297,10 @@ int main(int argc, char *argv[])
 
 #if CHECK_CLIENT_BUILD()
 	// Terra Firma: the Planetarium alone, on a world code (planetarium/standalone.h)
+	if (cmd_args.exists("planetarium-shot")) {
+		planetarium::runStandalone(planetarium::HOME_SHOT.code, std::nullopt, cmd_args.get("planetarium-shot"));
+		return 0;
+	}
 	if (cmd_args.exists("planetarium")) {
 		const std::string code = cmd_args.get("planetarium");
 		const std::optional<double> bench = cmd_args.exists("planetarium-bench")
@@ -428,6 +433,8 @@ static void set_allowed_options(OptionList *allowed_options)
 			_("Open the Planetarium (Terra Firma) on the planet world code <value>, and nothing else"))));
 	allowed_options->insert(std::make_pair("planetarium-bench", ValueSpec(VALUETYPE_STRING,
 			_("With --planetarium: run <value> seconds on a script (layers switched each second), print the worst frames, and exit"))));
+	allowed_options->insert(std::make_pair("planetarium-shot", ValueSpec(VALUETYPE_STRING,
+			_("Render the main menu's picture (Terra Firma) to the PNG <value>, and exit"))));
 	allowed_options->insert(std::make_pair("export-palette", ValueSpec(VALUETYPE_STRING,
 			_("Write the game's baked palette (Terra Firma) to <value>, from --world, and exit"))));
 	allowed_options->insert(std::make_pair("run-unittests", ValueSpec(VALUETYPE_FLAG,

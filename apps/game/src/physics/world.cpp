@@ -292,6 +292,8 @@ struct World::Impl
 		RVec3 from;                   // placed: where it was when they began
 		RVec3 was;                    // its foot before the last step: drawn between
 		float radius = 0;
+		bool skips_ground = false;    // high and fast: no building what it's through in a blink
+		bool keeps_speed = false;     // waiting for unloaded ground: its speed is held for when it goes on
 		bool unknown_is_air = false;  // unloaded ground: flown through, not waited for
 		std::map<Id, Vec3> pushed;    // what it's pressed on held assemblies since taken (N·s)
 	};
@@ -363,9 +365,9 @@ struct World::Impl
 		DefaultObjectLayerFilter objects(pairs, Layer::CHARACTER);
 		for (auto &[id, c] : chars) {
 			c.was = c.c->GetPosition();
-			if (!charGround(c) && !c.unknown_is_air) {
+			if (!c.skips_ground && !charGround(c) && !c.unknown_is_air) {
 				// in ground that isn't loaded: it waits there
-				c.c->SetLinearVelocity(Vec3::sZero());
+				c.c->SetLinearVelocity(c.keeps_speed ? vec(c.want) : Vec3::sZero());
 				continue;
 			}
 			// placed (a player the client moves): it goes there, pushing
@@ -1406,6 +1408,16 @@ bool World::resize(CharId id, float height)
 }
 
 void World::want(CharId id, v3f velocity) { m->chr(id).want = velocity; }
+
+void World::skipsGround(CharId id, bool skips)
+{
+	m->chr(id).skips_ground = skips;
+}
+
+void World::keepsSpeed(CharId id, bool keeps)
+{
+	m->chr(id).keeps_speed = keeps;
+}
 
 void World::unknownIsAir(CharId id, bool air)
 {

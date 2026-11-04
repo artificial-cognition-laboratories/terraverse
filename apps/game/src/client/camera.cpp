@@ -41,6 +41,9 @@ static const char *setting_names[] = {
 	"show_nametag_backgrounds",
 };
 
+// nodes: the figure's face from its neck
+static constexpr float FACE_ABOVE_NECK = 0.3f, FACE_AHEAD = 0.24f;
+
 Camera::Camera(MapDrawControl &draw_control, Client *client, RenderingEngine *rendering_engine):
 	m_draw_control(draw_control),
 	m_client(client),
@@ -361,6 +364,7 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 			break;
 		case CAMERA_MODE_FIRST:
 			eye_offset += player->eye_offset_first;
+			eye_offset.Y -= FACE_ABOVE_NECK * BS; // Terra Firma: the head turns at the neck (below)
 			break;
 		case CAMERA_MODE_THIRD:
 			eye_offset += player->eye_offset_third;
@@ -392,6 +396,13 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 	// Compute relative camera position and target
 	v3f rel_cam_pos = v3f(0,0,0);
 	v3f rel_cam_target = v3f(0,0,1);
+	// Terra Firma: first person looks from the face, as the head turns at the neck: looking
+	// down it's out ahead of the chest, and sees the front of the body
+	if (m_camera_mode == CAMERA_MODE_FIRST) {
+		const v3f face = v3f(0, FACE_ABOVE_NECK, FACE_AHEAD) * BS;
+		rel_cam_pos += face;
+		rel_cam_target += face;
+	}
 	v3f rel_cam_up = v3f(0,1,0);
 
 	if (m_cache_view_bobbing_amount != 0.0f && m_view_bobbing_anim != 0.0f &&
@@ -654,6 +665,7 @@ void Camera::updateViewingRange()
 	m_cameranode->setNearValue(0.1f * BS);
 
 	m_draw_control.wanted_range = std::fmin(adjustDist(viewing_range, getFovMax()), 6000);
+	m_draw_control.wanted_range = m_client->getBody().nearRange(m_draw_control.wanted_range); // Terra Firma: by the flight
 	f32 far_blocks = m_draw_control.range_all ? 10000 : std::fmax(2000, m_draw_control.wanted_range);
 	if (const planet::Atlas *atlas = m_client->getAtlas()) {
 		// Far terrain, near blocks and clouds share one depth buffer. It must

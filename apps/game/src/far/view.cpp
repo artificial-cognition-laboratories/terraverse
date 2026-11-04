@@ -14,6 +14,7 @@
 #include "log.h"
 #include "mapblock.h"
 #include "nodedef.h"
+#include "profiler.h"
 #include "settings.h"
 #include "terragen/planet.h"
 #include <ICameraSceneNode.h>
@@ -39,6 +40,7 @@ struct DrawState
 	float sea = 0;      // the scene y of the sea
 	float place[4] = {}; // the eye: map x, z (blocks), altitude (m), unused
 	float air = 1;      // m: the air's scale height
+	float behind = 0;   // 1: a stand-in, behind everything
 };
 
 class Uniforms : public IShaderUniformSetterRC
@@ -56,6 +58,7 @@ public:
 		m_place_vertex.set(m_state->place, services);
 		m_place_pixel.set(m_state->place, services);
 		m_air.set(&m_state->air, services);
+		m_behind.set(&m_state->behind, services);
 	}
 
 private:
@@ -68,6 +71,7 @@ private:
 	CachedVertexShaderSetting<float, 4> m_place_vertex{"farPlace"};
 	CachedPixelShaderSetting<float, 4> m_place_pixel{"farPlace"};
 	CachedPixelShaderSetting<float> m_air{"farAir"};
+	CachedPixelShaderSetting<float> m_behind{"farBehind"};
 };
 
 static void settingChanged(const std::string &, void *data)
@@ -119,7 +123,7 @@ void View::readSettings()
 }
 
 void View::update(const Camera &camera, ClientMap &map, float near_range, bool range_all,
-		std::optional<float> fog_limit)
+		std::optional<float> fog_limit, v3f velocity)
 {
 	const v3f eye = (camera.getCameraNode()->getPosition() + intToFloat(camera.getOffset(), BS)) / BS;
 	m_view = map.atlasView();
@@ -155,8 +159,17 @@ void View::update(const Camera &camera, ClientMap &map, float near_range, bool r
 		return;
 
 	// a block is a metre: the height counts toward a tile's distance as is
-	const Eye at{ { o.x / centre * sea, o.y / centre * sea, o.z / centre * sea }, m_altitude, m_cut, range, m_split };
-	m_tiles->update(at);
+	const Eye at{ { o.x / centre * sea, o.y / centre * sea, o.z / centre * sea }, m_altitude, m_cut, range, m_split, true };
+	Eye moving = at;
+	if (const float pace = velocity.getLength(); pace > 1)
+		for (int i = 0; i < 3; i++) {
+			const float share = (i == 0 ? velocity.X : i == 1 ? velocity.Y : velocity.Z) / pace;
+			moving.heading.x += frame->axes[i].x * share;
+			moving.heading.y += frame->axes[i].y * share;
+			moving.heading.z += frame->axes[i].z * share;
+		}
+	ScopeProfiler timed(g_profiler, "Far view update [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
+	m_tiles->update(moving);
 	m_eye = eye;
 	m_culled = camera.getFrustumCuller();
 }
@@ -188,25 +201,39 @@ void View::render()
 
 	// Share the camera's depth projection with near blocks and clouds. The
 	// latter draw later and must be tested against the actual far terrain.
-	driver->setMaterial(m_material);
-	for (const Tiles::Drawn &tile : m_tiles->drawn()) {
-		const std::optional<core::matrix4> world = m_view->place(tile.middle);
-		if (!world)
-			continue;
-		// a tile out of the camera's sight isn't drawn (the scene is the
-		// camera's offset from the map: the culler takes map positions)
-		aabb3f box(world->getTranslation());
-		for (const auto &part : tile.parts) {
-			aabb3f b = part->getBoundingBox();
-			world->transformBoxEx(b);
-			box.addInternalBox(b);
+	const auto draw = [&](const std::vector<Tiles::Drawn> &tiles, bool only_near) {
+		for (const Tiles::Drawn &tile : tiles) {
+			const std::optional<core::matrix4> world = m_view->place(tile.middle);
+			if (!world)
+				continue;
+			// a tile out of the camera's sight isn't drawn (the scene is the
+			// camera's offset from the map: the culler takes map positions)
+			aabb3f box(world->getTranslation());
+			for (const auto &part : tile.parts) {
+				aabb3f b = part->getBoundingBox();
+				world->transformBoxEx(b);
+				box.addInternalBox(b);
+			}
+			const float reach = box.getExtent().getLength() / 2;
+			if (m_culled(box.getCenter() + offset, reach))
+				continue;
+			if (only_near && box.getCenter().getDistanceFrom(camera->getAbsolutePosition()) - reach > m_state->cut)
+				continue;
+			driver->setTransform(video::ETS_WORLD, *world);
+			for (const auto &part : tile.parts)
+				driver->drawMeshBuffer(part.get());
 		}
-		if (m_culled(box.getCenter() + offset, box.getExtent().getLength() / 2))
-			continue;
-		driver->setTransform(video::ETS_WORLD, *world);
-		for (const auto &part : tile.parts)
-			driver->drawMeshBuffer(part.get());
-	}
+	};
+	// The backdrop: what shows where the near blocks or a finer tile haven't arrived.
+	// Drawn with true depth, so it hides itself properly, then its depth is dropped:
+	// everything after draws over it, and nothing of it can cover a pit or a lake bed.
+	driver->setMaterial(m_material);
+	m_state->behind = 1;
+	draw(m_tiles->behind(), false);
+	draw(m_tiles->drawn(), true);
+	driver->clearBuffers(video::ECBF_DEPTH);
+	m_state->behind = 0; // (the shader's told at each draw)
+	draw(m_tiles->drawn(), false);
 }
 
 } // namespace far

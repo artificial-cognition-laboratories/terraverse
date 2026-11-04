@@ -63,7 +63,7 @@ private:
 	// The create screen's planet (the window's: Shell::planetarium) is the
 	// world being made, from a code
 	Planetarium &m_planetarium;
-	planetarium::Planetarium::Opts body(const Json::Value &body);
+	Planetarium::Making body(const Json::Value &body);
 	std::optional<far::Baked> m_baked; // the game's palette, read once it's first needed
 	std::map<std::string, planet::Atlas> m_atlases; // by the bodies' sizes: each laid out once, every body of its system
 	std::optional<Choice> m_choice;

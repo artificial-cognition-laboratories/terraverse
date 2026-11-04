@@ -185,6 +185,9 @@ protected:
 	bool planetariumShown();
 	void toggleFog();
 	void toggleDebug();
+	// Terra Firma: the world controls' View page (settings view_*), applied as they change
+	void applyView();
+	struct { bool text = false, graph = false, wireframe = false, boxes = false; std::string bounds = "off"; } m_view;
 	void toggleUpdateCamera();
 
 	void increaseViewRange();

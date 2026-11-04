@@ -1,6 +1,7 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include "tuning.h"
 #include "physics/reach.h"
 
 #include <algorithm>
@@ -336,7 +337,8 @@ bool runsAlong(v3f velocity, v3f normal)
 
 v3f wallKick(v3f velocity, v3f normal, float up, v3f look)
 {
-	constexpr float KEPT = 0.85f, OUT = 4.5f, STEERED = 3.5f;
+	constexpr float KEPT = 0.85f;
+	const float OUT = tuning().kick_out, STEERED = tuning().kick_steer;
 	const v3f across(velocity.X, 0, velocity.Z);
 	const v3f along = across - normal * across.dotProduct(normal);
 	// looking out, along it or away: its legs drive it that way. Into the wall there's nothing to steer by

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue"
+import { computed, onMounted, watch } from "vue"
 import Corner from "../account/Corner.vue"
 import { useBridge } from "../bridge/use.ts"
 import Crosshair from "./Crosshair.vue"
@@ -14,13 +14,25 @@ import ShapeBar from "./ShapeBar.vue"
 import ToolRail from "./ToolRail.vue"
 import TravelScreen from "./TravelScreen.vue"
 import { useStore } from "./store.ts"
+import { worldOf } from "./map/bodies.ts"
+import { mapKey, worldMapData } from "./map/data.ts"
 import MapWidget from "./widgets/MapWidget.vue"
 import { loadWidgetSettings } from "./widgets/config.ts"
 import WorldControlsWidget from "./widgets/WorldControlsWidget.vue"
+import WikiButton from "./widgets/WikiButton.vue"
 
 const store = useStore()
 const bridge = useBridge()
 onMounted(() => { void loadWidgetSettings(bridge) })
+// the map's slow answers asked for as soon as the world's known, so it opens at once
+const mapData = worldMapData()
+// (by which world: the map's value changes as the player explores, and the screen charts other bodies itself)
+watch(() => store.ui.map ? mapKey(store.ui.map) : null, () => {
+    const map = store.ui.map
+    if (!map) return
+    void worldOf(bridge, map.code)
+    void mapData.ensure(bridge, map)
+}, { immediate: true })
 const hud = computed(() => store.state.hud)
 const player = computed(() => store.state.player)
 const flight = computed(() => store.ui.flight)
@@ -40,7 +52,7 @@ const hotbar = computed(() => {
 <template>
     <!-- the Lab browser shows the world, not the player's HUD -->
     <div v-if="hud?.visible && store.screen !== 'lab'" class="hud">
-        <Crosshair v-if="hud.crosshair" />
+        <Crosshair v-if="hud.crosshair && store.screen !== 'map'" />
         <FlightStrip v-if="flight?.regime === 'near' && !covered" :flight="flight" />
         <SpaceStrip v-if="flight?.regime === 'space' && !covered" :flight="flight" />
         <LabStrip />
@@ -50,6 +62,7 @@ const hotbar = computed(() => {
         <div v-if="!covered" class="corner-icons">
             <Corner />
             <WorldControlsWidget />
+            <WikiButton />
         </div>
         <div class="bottom">
             <div v-if="player" class="stats">

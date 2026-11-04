@@ -10,6 +10,7 @@ import { publishAudioLevels } from "./audio.ts"
 import { applyWidgetSettings } from "../game/widgets/config.ts"
 
 const bridge = useBridge()
+const APPLIES = { rejoin: "Applies when you next enter a world.", restart: "Applies when you restart the game." }
 defineProps<{ closeLabel?: string }>()
 const emit = defineEmits<{ close: [] }>()
 const values = ref<Record<string, SettingValue> | null>(null)
@@ -28,19 +29,18 @@ const railChoice = computed({
     get: () => categoryId.value,
     set: (id: string) => { query.value = ""; categoryId.value = id },
 })
-const RAIL = [
-    { id: "display", label: "Display", palette: { A: "#c9d4dc", B: "#40b8ec" },
-        rows: ["AAAAAAAAA", "ABBBBBBBA", "AB.....BA", "AB.....BA", "AB.....BA", "ABBBBBBBA", "AAAAAAAAA", "...AAA...", "..AAAAA.."] },
-    { id: "graphics", label: "Graphics", palette: { A: "#c9d4dc", B: "#40b8ec" },
-        rows: ["AAAAAAAAA", "ABBBABBBB", "ABBBABBBB", "ABBBABBBB", "AAAAAAAAA", "ABBBABBBB", "ABBBABBBB", "ABBBABBBB", "AAAAAAAAA"] },
-    { id: "controls", label: "Controls", shortLabel: "Input", palette: { A: "#c9d4dc", B: "#40b8ec" },
-        rows: ["...AAA...", "...ABA...", "...ABA...", "AAABABAAA", "ABBBBBBBA", "AAABABAAA", "...ABA...", "...ABA...", "...AAA..."] },
-    { id: "audio", label: "Audio", palette: { A: "#c9d4dc", B: "#40b8ec" },
-        rows: ["...AAA...", "..AABA...", ".A.BBA...", "A..BBA...", "A..BBA.A.", "A..BBA.A.", ".A.BBA...", "..AABA...", "...AAA..."] },
-    { id: "interface", label: "Interface", shortLabel: "UI", palette: { A: "#c9d4dc", B: "#40b8ec" },
-        rows: ["AAAAAAAAA", "ABBBBBBBA", "AB.....BA", "ABAAAAABA", "AB.....BA", "ABAAAAABA", "AB.....BA", "ABBBBBBBA", "AAAAAAAAA"] },
-    { id: "hud", label: "HUD", palette: { A: "#c9d4dc", B: "#40b8ec" },
-        rows: ["AAAAAAAAA", "A.......A", "A.AAA.A.A", "A.ABA.A.A", "A.AAA.A.A", "A.......A", "A.AAA.A.A", "A.......A", "AAAAAAAAA"] },
+const STEEL = "#c9d4dc", SHADE = "#6f7f8a", SKY = "#40b8ec", SUN = "#ffb040", EMBER = "#e0603d", GRASS = "#3c6e46"
+const RAIL: { id: string; label: string; rows: string[]; palette: Record<string, string> }[] = [
+    { id: "display", label: "Display", palette: { G: STEEL, D: SHADE, L: SKY, O: SUN },
+        rows: ["GGGGGGGGG", "GLLLLLOOG", "GLLLLLOOG", "GLLLLLLLG", "GLLLLLLLG", "GGGGGGGGG", "...DDD...", "...DDD...", "..GGGGG.."] },
+    { id: "graphics", label: "Graphics", palette: { O: SUN, W: STEEL, G: SHADE, T: GRASS },
+        rows: ["......OO.", "......OO.", "...W.....", "..WWW..G.", "..GGG.GGG", ".GGGGGGGG", ".GGGGGGGG", "GGGGGGGGG", "TTTTTTTTT"] },
+    { id: "controls", label: "Controls", palette: { G: STEEL, D: SHADE, R: EMBER },
+        rows: [".........", ".GGG.GGG.", "GGGGGGGGG", "GGDGGGRGG", "GDDDGRGRG", "GGDGGGRGG", "GGGGGGGGG", "GGG...GGG", "GG.....GG"] },
+    { id: "audio", label: "Audio", palette: { G: STEEL, L: SKY },
+        rows: ["....G....", "...GG..L.", "..GGG...L", "GGGGG.L.L", "GGGGG.L.L", "GGGGG.L.L", "..GGG...L", "...GG..L.", "....G...."] },
+    { id: "interface", label: "Interface", palette: { G: STEEL, R: SUN, S: SHADE, W: "#ffffff" },
+        rows: ["...GGG...", ".GG.R.GG.", ".G..R..G.", "G...R...G", "G...W...G", "G...S...G", ".G..S..G.", ".GG.S.GG.", "...GGG..."] },
 ]
 const pageGroups = computed(() => {
     const groups: { title: string; pages: Page[] }[] = []
@@ -192,7 +192,7 @@ onMounted(async () => {
                         <Segmented :model-value="choiceValue(o.key)" :options="o.choices"
                             @update:model-value="$event !== null && save(o.key, $event)" />
                     </template>
-                    <p class="option-note">{{ !available(o) && o.requires?.note ? o.requires.note : o.note }}<span v-if="o.restart"> Restart required.</span></p>
+                    <p class="option-note">{{ !available(o) && o.requires?.note ? o.requires.note : o.note }}<span v-if="o.applies" class="applies"> {{ APPLIES[o.applies] }}</span></p>
                 </div>
             </div>
         </template>
@@ -210,5 +210,6 @@ onMounted(async () => {
 .option.unavailable :deep(.segmented) { pointer-events: none; }
 .option-label { margin: 0 0 8px; font: 12px var(--font-display); text-transform: uppercase; }
 .option-note { max-width: 68ch; padding-top: 6px; }
+.applies { color: var(--ink-faint); }
 .settings :deep(.workbench-content-inner) { padding-bottom: 48px; }
 </style>

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "planetarium/system.h"
+#include "planetarium/galaxy.h"
 #include "planetarium/ribbon.h"
 #include "planetarium/camera.h"
 #include "constants.h"
@@ -19,12 +20,15 @@ namespace {
 
 constexpr int LONGITUDES = 48, LATITUDES = 24; // a sphere's pieces
 constexpr int ORBIT = 512;                     // an orbit line's pieces
-constexpr int STARS = 5000;                    // the sky's
 constexpr float ORBIT_WIDTH = 2.5f;            // an orbit line, pixels across
 constexpr double FADED = 0.12;                 // an orbit's brightness where its body is going
 constexpr double DOT = 2.5;                    // pixels: the least a body is drawn across
 constexpr double GLOW = 8;                     // the star's glow, in its radii
 constexpr u32 GLOW_SIZE = 128;                 // its texture, pixels a side
+constexpr u32 GLARE_SIZE = 512;                // the star's glare, pixels a side
+constexpr double GLARE_REACH = 90;             // how far it reaches, in the star's radii as seen...
+constexpr double GLARE_LEAST = 0.03, GLARE_MOST = 0.45; // ...kept to these shares of the screen's height
+constexpr double GLARE_CORE = 0.035;           // its blown-out middle, a share of its reach
 
 double length(const V &v) { return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
 
@@ -70,13 +74,16 @@ video::SColor starColour(int type)
 
 video::SColor scaled(video::SColor c, double k)
 {
-	return { 255, (u32)(c.getRed() * k), (u32)(c.getGreen() * k), (u32)(c.getBlue() * k) };
+	// (by how much shows, not by darkening: a dark line would stand out against a bright sky)
+	c.setAlpha((u32)(255 * std::clamp(k, 0.0, 1.0)));
+	return c;
 }
 
 } // namespace
 
 SystemLayer::SystemLayer(Opts opts) : m_opts(std::move(opts)), m_tilt(m_opts.system->spec().bodies.at(m_opts.focus).tilt * M_PI / 180)
 {
+	m_orbits = m_opts.orbits;
 	const terragen::System &s = *m_opts.system;
 	const V home = s.position(m_opts.focus, 0);
 	for (size_t i = 0; i < s.spec().bodies.size(); i++)
@@ -125,6 +132,8 @@ SystemLayer::~SystemLayer()
 {
 	if (m_glow)
 		m_driver->removeTexture(m_glow);
+	for (const auto &[colour, texture] : m_glares)
+		m_driver->removeTexture(texture);
 }
 
 double SystemLayer::spin(double day, double timeOfDay) const
@@ -181,8 +190,9 @@ void SystemLayer::draw(video::IVideoDriver *driver, const Camera &camera, double
 	std::sort(bodies.begin(), bodies.end(), [](const Body &a, const Body &b) { return a.distance > b.distance; });
 
 	driver->setTransform(video::ETS_VIEW, camera.view);
-	stars(driver, camera);
-	if (m_opts.orbits)
+	if (m_galaxy)
+		m_galaxy->draw(driver, camera.aspect, camera.fov, camera.shift, m_skyLevel);
+	if (m_orbits)
 		orbits(driver, camera, day);
 
 	const double focal = camera.height / (2 * std::tan(camera.fov / 2));
@@ -225,12 +235,15 @@ void SystemLayer::draw(video::IVideoDriver *driver, const Camera &camera, double
 		if (b.index < 0) {
 			const terragen::StarCauses &causes = s.spec().star;
 			this->star(driver, drawn, starColour(b.index == -1 ? causes.type : causes.companion.type));
-			glow(driver, camera, drawn);
+			if (!m_opts.glare)
+				glow(driver, camera, drawn);
 		} else {
 			sphere(driver, drawn, colourOf(s.cards()[(size_t)b.index].kind), day);
 			rim(driver, camera, b, day, near, far);
 		}
 	}
+	if (m_opts.glare)
+		glare(driver, camera, bodies);
 }
 
 void SystemLayer::star(video::IVideoDriver *driver, const Body &b, video::SColor colour)
@@ -270,6 +283,7 @@ void SystemLayer::shaders(IShaderSource *ssrc)
 {
 	m_lit = std::make_unique<Lit>(ssrc);
 	m_rim = std::make_unique<Rim>(ssrc, *m_opts.system);
+	m_galaxy = std::make_unique<Galaxy>(ssrc, m_sphere.get());
 }
 
 const video::SMaterial &SystemLayer::lit(size_t body, double day, const v3f &centre_at, double turn, bool on)
@@ -433,6 +447,118 @@ void SystemLayer::glow(video::IVideoDriver *driver, const Camera &camera, const 
 	driver->drawIndexedTriangleList(v, 4, ix, 2);
 }
 
+video::ITexture *SystemLayer::glareOf(video::IVideoDriver *driver, video::SColor colour)
+{
+	const auto found = m_glares.find(colour.color);
+	if (found != m_glares.end())
+		return found->second;
+	m_driver = driver;
+	// light as a lens takes it, added to what's behind: white where it's blown
+	// out, the star's own colour as it thins
+	std::vector<u32> pixels(GLARE_SIZE * GLARE_SIZE);
+	const double tint[3] = { colour.getRed() / 255.0, colour.getGreen() / 255.0, colour.getBlue() / 255.0 };
+	const auto spike = [](double along, double across, double length, double width) {
+		// a thin line through the middle, thinning to nothing at its ends
+		const double a = std::abs(along) / length;
+		if (a >= 1)
+			return 0.0;
+		const double w = width * (1 - a * 0.7);
+		return std::pow(1 - a, 2.5) * std::exp(-across * across / (w * w));
+	};
+	uint32_t seed = 0x2f6e2b1;
+	for (u32 y = 0; y < GLARE_SIZE; y++)
+		for (u32 x = 0; x < GLARE_SIZE; x++) {
+			const double dx = (x + 0.5) / GLARE_SIZE * 2 - 1, dy = (y + 0.5) / GLARE_SIZE * 2 - 1;
+			const double r = std::max(std::hypot(dx, dy), 1e-4);
+			const double edge = r >= 1 ? 0 : std::pow(1 - r * r, 2);
+			const double core = std::clamp((GLARE_CORE * 1.25 - r) / (GLARE_CORE * 0.5), 0.0, 1.0);
+			const double corona = std::pow(GLARE_CORE / r, 1.5) * 0.9;
+			const double halo = 0.26 * std::exp(-r * 5) + 0.05 * std::exp(-r * 2);
+			// the long pair across the star, tilted as a lens's would be; a shorter pair square to it
+			constexpr double TILT = 0.3;
+			const double c = std::cos(TILT), s = std::sin(TILT), u = dx * c + dy * s, v = -dx * s + dy * c;
+			const double spikes = 0.9 * spike(u, v, 0.98, 0.007) + 0.6 * spike(v, u, 0.6, 0.006);
+			const double white = std::min(1.0, core + corona * 0.8 + spikes * 0.7) * edge;
+			const double thin = (corona * 0.4 + halo + spikes * 0.3) * edge;
+			// (a shade of noise: long fades on black band without it)
+			seed = seed * 1664525u + 1013904223u;
+			const double dither = ((seed >> 8) / 16777216.0 - 0.5) / 255;
+			u32 out[3];
+			for (int i = 0; i < 3; i++)
+				out[i] = (u32)(std::clamp(white + thin * tint[i] + (white + thin > 0.002 ? dither : 0), 0.0, 1.0) * 255);
+			pixels[y * GLARE_SIZE + x] = video::SColor(255, out[0], out[1], out[2]).color;
+		}
+	video::IImage *image = driver->createImageFromData(video::ECF_A8R8G8B8, core::dimension2du(GLARE_SIZE, GLARE_SIZE),
+			pixels.data(), false, false);
+	video::ITexture *texture = driver->addTexture(("planetarium_glare_" + std::to_string(colour.color)).c_str(), image);
+	image->drop();
+	if (!texture)
+		throw BaseException("planetarium: can't make the star's glare");
+	m_glares.emplace(colour.color, texture);
+	return texture;
+}
+
+void SystemLayer::glare(video::IVideoDriver *driver, const Camera &camera, const std::vector<Body> &bodies)
+{
+	const terragen::StarCauses &causes = m_opts.system->spec().star;
+	const double f = 1 / std::tan(camera.fov / 2), focal = camera.height * f / 2;
+	const auto unit = [](const V &v, double l) { return V{ v.x / l, v.y / l, v.z / l }; };
+	for (const Body &star : bodies) {
+		if (star.index >= 0)
+			continue;
+		v3f d((f32)(star.at.x / star.distance), (f32)(star.at.y / star.distance), (f32)(star.at.z / star.distance));
+		d = camera.view.rotateAndScaleVect(d);
+		if (d.Z <= 0)
+			continue; // behind the camera
+		// by its distance, not its place on screen: drawn flat there, it's round
+		// wherever it stands, where the perspective would draw it an egg
+		const double seen = star.radius * focal / star.distance;
+		const double reach = std::clamp(seen * GLARE_REACH, GLARE_LEAST * camera.height, GLARE_MOST * camera.height);
+		// behind a nearer body its light's gone; coming out, it swells
+		// over about the width of its blown-out middle
+		const double soft = GLARE_CORE * reach / focal;
+		const V way = unit(star.at, star.distance);
+		double shown = 1;
+		for (const Body &b : bodies) {
+			if (b.index < 0 || b.distance >= star.distance || b.distance <= 0)
+				continue;
+			const V to = unit(b.at, b.distance);
+			const double apart = std::acos(std::clamp(way.x * to.x + way.y * to.y + way.z * to.z, -1.0, 1.0));
+			const double x = std::clamp((apart - std::asin(std::min(1.0, b.radius / b.distance))) / soft + 0.5, 0.0, 1.0);
+			shown = std::min(shown, x * x * (3 - 2 * x));
+		}
+		if (shown <= 0)
+			continue;
+		const f32 x = d.X / d.Z * (f32)f / camera.aspect + camera.shift.X, y = d.Y / d.Z * (f32)f + camera.shift.Y;
+		const f32 h = (f32)(reach * 2 / camera.height), w = h / camera.aspect;
+		const u32 level = (u32)(255 * shown);
+		const video::SColor c(255, level, level, level);
+		video::S3DVertex v[4] = {
+			{ { x - w, y - h, 0 }, v3f(), c, v2f(0, 1) },
+			{ { x + w, y - h, 0 }, v3f(), c, v2f(1, 1) },
+			{ { x + w, y + h, 0 }, v3f(), c, v2f(1, 0) },
+			{ { x - w, y + h, 0 }, v3f(), c, v2f(0, 0) },
+		};
+		const u16 ix[6] = { 0, 1, 2, 0, 2, 3 };
+		video::SMaterial mat;
+		mat.MaterialType = video::EMT_ONETEXTURE_BLEND; // added to what's behind it
+		mat.MaterialTypeParam = video::pack_textureBlendFunc(video::EBF_ONE, video::EBF_ONE, video::EMFN_MODULATE_1X,
+				video::EAS_TEXTURE | video::EAS_VERTEX_COLOR);
+		mat.FogEnable = false;
+		mat.BackfaceCulling = false;
+		mat.ZBuffer = video::ECFN_DISABLED;
+		mat.ZWriteEnable = video::EZW_OFF;
+		mat.ColorMask = video::ECP_RGB;
+		mat.setTexture(0, glareOf(driver, starColour(star.index == -1 ? causes.type : causes.companion.type)));
+		driver->setMaterial(mat);
+		// already in the screen's terms
+		driver->setTransform(video::ETS_WORLD, core::IdentityMatrix);
+		driver->setTransform(video::ETS_VIEW, core::IdentityMatrix);
+		driver->setTransform(video::ETS_PROJECTION, core::IdentityMatrix);
+		driver->drawIndexedTriangleList(v, 4, ix, 2);
+	}
+}
+
 void SystemLayer::orbits(video::IVideoDriver *driver, const Camera &camera, double day)
 {
 	const terragen::System &s = *m_opts.system;
@@ -483,100 +609,6 @@ void SystemLayer::orbits(video::IVideoDriver *driver, const Camera &camera, doub
 	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(camera.aspect, (f32)(0.5 * BS),
 			(f32)((m_extent * 3 + length(camera.at)) * BS), camera.shift, camera.fov));
 	ribbons.draw(driver, false); // behind everything: drawn first
-}
-
-void SystemLayer::stars(video::IVideoDriver *driver, const Camera &camera)
-{
-	if (m_starsFor != camera.height) {
-		// the same sky every time (a fixed seed), sized for this screen's pixels
-		m_starsFor = camera.height;
-		m_stars.clear();
-		m_starIndices.clear();
-		const double pixel = 2 * std::tan(camera.fov / 2) / camera.height;
-		uint32_t seed = 0x9e3779b9;
-		const auto next = [&seed]() { seed = seed * 1664525u + 1013904223u; return (seed >> 8) / 16777216.0; };
-		const auto gauss = [&]() { return std::sqrt(-2 * std::log(std::max(next(), 1e-9))) * std::cos(2 * M_PI * next()); };
-		// the galaxy's plane, tilted across the system's, and the way to its middle
-		v3f pole(0.32f, 0.84f, 0.44f);
-		pole.normalize();
-		v3f centre = pole.crossProduct(v3f(0, 0, 1));
-		centre.normalize();
-		const v3f across = pole.crossProduct(centre);
-		const auto inPlane = [&](double along, double lift) {
-			return (centre * (f32)std::cos(along) + across * (f32)std::sin(along)) * (f32)std::cos(lift) + pole * (f32)std::sin(lift);
-		};
-		const auto put = [&](const v3f &p, video::SColor c) {
-			m_stars.emplace_back(p, v3f(), c, v2f());
-			return (u32)(m_stars.size() - 1);
-		};
-
-		// the band: a faint glow along the plane, brightest toward the middle,
-		// mottled, a dark rift down part of it; brightness in alpha, over black
-		const int along = 360, rows = 9;
-		const u32 first = (u32)m_stars.size();
-		for (int i = 0; i < along; i++) {
-			const double t = 2 * M_PI * i / along;
-			const double toMiddle = 0.5 + 0.5 * std::cos(t);
-			const double mottle = 0.75 + 0.15 * std::sin(t * 7 + 1.3) + 0.1 * std::sin(t * 17 + 0.4);
-			for (int r = 0; r < rows; r++) {
-				const double k = (double)r / (rows - 1) * 2 - 1; // −1 .. 1 across
-				const double width = 0.16 + 0.12 * toMiddle;
-				const double rift = std::abs(t - M_PI) > 2.2 ? 1 - 0.55 * std::exp(-std::pow((k - 0.1) / 0.18, 2)) : 1;
-				const double a = 0.075 * (0.35 + 0.65 * toMiddle) * mottle * rift * std::exp(-k * k * 2.2);
-				put(inPlane(t, k * width * 2), video::SColor((u32)(255 * a), 214, 204, 190));
-			}
-		}
-		for (int i = 0; i < along; i++)
-			for (int r = 0; r + 1 < rows; r++) {
-				const u32 a = first + i * rows + r, b = first + ((i + 1) % along) * rows + r;
-				m_starIndices.insert(m_starIndices.end(), { a, b, a + 1, a + 1, b, b + 1 });
-			}
-
-		// the stars: most faint, a few bright (as magnitudes go); over half
-		// crowd the band, more toward its middle; coloured by how hot
-		static const video::SColor HUES[] = { { 255, 170, 196, 255 }, { 255, 228, 236, 255 }, { 255, 255, 248, 238 },
-			{ 255, 255, 232, 190 }, { 255, 255, 204, 160 } };
-		for (int n = 0; n < STARS; n++) {
-			v3f d;
-			if (next() < 0.55) {
-				const double t = gauss() * 1.1; // round the band, bunched toward its middle
-				d = inPlane(t, gauss() * (0.1 + 0.08 * std::exp(-t * t)));
-			} else {
-				const double y = next() * 2 - 1, a = next() * 2 * M_PI, r = std::sqrt(1 - y * y);
-				d = v3f((f32)(r * std::cos(a)), (f32)y, (f32)(r * std::sin(a)));
-			}
-			d.normalize();
-			const double bright = std::pow(next(), 5);
-			const f32 h = (f32)(pixel * (0.9 + 1.6 * bright)); // a pixel or two, a few to three
-			video::SColor c = HUES[std::min(4, (int)(next() * 5))];
-			c.setAlpha((u32)(255 * (0.18 + 0.72 * bright)));
-			v3f side = std::fabs(d.Y) < 0.9f ? d.crossProduct(v3f(0, 1, 0)) : d.crossProduct(v3f(1, 0, 0));
-			side.normalize();
-			const v3f up = side.crossProduct(d);
-			// a soft dot: its colour at the middle, gone at its rim
-			const u32 middle = put(d, c);
-			video::SColor rim = c;
-			rim.setAlpha(0);
-			for (int k = 0; k < 6; k++) {
-				const double a = M_PI / 3 * k;
-				put(d + (side * (f32)std::cos(a) + up * (f32)std::sin(a)) * h, rim);
-			}
-			for (u32 k = 0; k < 6; k++)
-				m_starIndices.insert(m_starIndices.end(), { middle, middle + 1 + k, middle + 1 + (k + 1) % 6 });
-		}
-	}
-	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(camera.aspect, 0.1f, 10.f, camera.shift, camera.fov));
-	video::SMaterial mat;
-	mat.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
-	mat.FogEnable = false;
-	mat.BackfaceCulling = false;
-	mat.ZBuffer = video::ECFN_DISABLED; // behind everything: drawn first
-	mat.ZWriteEnable = video::EZW_OFF;
-	mat.ColorMask = video::ECP_RGB;
-	driver->setMaterial(mat);
-	driver->setTransform(video::ETS_WORLD, core::IdentityMatrix);
-	driver->drawVertexPrimitiveList(m_stars.data(), (u32)m_stars.size(), m_starIndices.data(), (u32)m_starIndices.size() / 3,
-			video::EVT_STANDARD, scene::EPT_TRIANGLES, video::EIT_32BIT);
 }
 
 } // namespace planetarium

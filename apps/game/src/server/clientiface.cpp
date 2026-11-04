@@ -123,7 +123,8 @@ void RemoteClient::GetNextBlocks (
 	if (playerspeed.getLength() > 1.0f * BS)
 		playerspeeddir = playerspeed / playerspeed.getLength();
 	// Predict to next block
-	v3f playerpos_predicted = playerpos + playerspeeddir * (MAP_BLOCKSIZE * BS);
+	// Terra Firma: half a second on, at speed: what's sent nearest first is where it'll be
+	v3f playerpos_predicted = playerpos + playerspeeddir * std::max<f32>(MAP_BLOCKSIZE * BS, playerspeed.getLength() * 0.5f);
 
 	v3s16 center_nodepos = floatToInt(playerpos_predicted, BS);
 

@@ -1,6 +1,7 @@
 uniform lowp vec4 fogColor;
 uniform float fogDistance;
 uniform float fogShadingParameter;
+uniform float farBehind;     // 1: the backdrop pass, whose depth is cleared after it
 uniform float farCut;        // the near world's range from the eye (scene units): nearer, its blocks are the land
 uniform float farHaze;       // the distance past the cut the haze builds over, near the ground
 uniform float farShare;      // 0 in the air's haze .. 1 above the air, seeing the planet
@@ -31,7 +32,9 @@ float airmass(float eye, float altitude)
 void main(void)
 {
 	// within the near world's range its blocks are the land
-	if (varSeen < farCut)
+	// Nearer, the near world's blocks are the land (the backdrop pass draws it all,
+	// under them, for where they haven't arrived)
+	if (farBehind < 0.5 && varSeen < farCut)
 		discard;
 
 	vec4 col = vec4(varColor.rgb, 1.0);

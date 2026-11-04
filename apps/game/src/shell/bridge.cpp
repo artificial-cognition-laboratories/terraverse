@@ -37,6 +37,12 @@ void Bridge::off(const std::string &kind)
 	m_async.erase(kind);
 }
 
+void Bridge::drain()
+{
+	std::unique_lock<std::mutex> guard(m_lock);
+	m_idle.wait(guard, [this] { return m_stopping || (m_jobs.empty() && !m_working); });
+}
+
 void Bridge::stop()
 {
 	{
@@ -45,6 +51,7 @@ void Bridge::stop()
 		m_jobs.clear();
 	}
 	m_wake.notify_all();
+	m_idle.notify_all();
 	if (m_worker.joinable())
 		m_worker.join();
 }
@@ -78,7 +85,19 @@ void Bridge::work()
 				return;
 			job = std::move(m_jobs.front());
 			m_jobs.pop_front();
+			m_working = true;
 		}
+		// (at the end of this round however it ends)
+		struct Done
+		{
+			Bridge &bridge;
+			~Done()
+			{
+				std::lock_guard<std::mutex> guard(bridge.m_lock);
+				bridge.m_working = false;
+				bridge.m_idle.notify_all();
+			}
+		} done{ *this };
 		try {
 			deliver(job.callback, job.kind, true, 0, fastWriteJson(job.verb(job.intent)));
 		} catch (const Refused &e) {

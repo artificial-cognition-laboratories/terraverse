@@ -506,5 +506,5 @@ void ClientEnvironment::updateFrameTime(bool is_paused)
 
 float ClientEnvironment::lightTimeOfDay(float time_of_day)
 {
-	return m_solar.on ? solar::apparentTime(m_solar, time_of_day) : time_of_day;
+	return m_solar.on ? solar::apparentTime(m_solar, getDayCount(), time_of_day) : time_of_day;
 }

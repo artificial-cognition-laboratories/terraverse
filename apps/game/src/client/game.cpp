@@ -13,6 +13,7 @@
 #include <ISceneCollisionManager.h>
 #include <csignal>
 #include "client/atlas_view.h" // Terra Firma
+#include "physics/tuning.h"
 #include "client/body.h" // Terra Firma
 #include "client/gameui.h"
 #include "client/inputhandler.h"
@@ -403,9 +404,12 @@ Game::Game() :
 		"repeat_place_time", "repeat_dig_time", "noclip", "free_move", "fog_start",
 		"cinematic", "cinematic_camera_smoothing", "camera_smoothing", "invert_mouse",
 		"enable_hotbar_mouse_wheel", "invert_hotbar_mouse_wheel", "pause_on_lost_focus",
+		"view_debug_text", "view_profiler", "view_wireframe", "view_bboxes", "view_block_bounds",
 	};
 	for (auto s : settings)
 		g_settings->registerChangedCallback(s, &settingChangedCallback, this);
+	for (const physics::TuningKnob &knob : physics::TUNING_KNOBS)
+		g_settings->registerChangedCallback(knob.setting, &settingChangedCallback, this);
 
 	readSettings();
 }
@@ -477,6 +481,8 @@ bool Game::startup(volatile std::sig_atomic_t *kill,
 		m_game_ui->m_flags.show_minimal_debug = true;
 	}
 
+	applyView();
+
 	m_first_loop_after_window_activation = true;
 
 	g_client_translations->clear();
@@ -508,6 +514,13 @@ bool Game::startup(volatile std::sig_atomic_t *kill,
 			if (event.KeyInput.PressedDown && (ours || event.KeyInput.Key == KEY_ESCAPE))
 				m_planetarium_closing = true;
 			return true; // the player stands still meanwhile
+		}
+		// fresh from relative mode the device's mouse position has run off the window until
+		// the mouse next moves, and in game it's over the whole window: the wheel always counts
+		if (event.EventType == EET_MOUSE_INPUT_EVENT && event.MouseInput.Event == EMIE_MOUSE_WHEEL) {
+			SEvent wheel = event;
+			wheel.MouseInput.X = wheel.MouseInput.Y = 0;
+			return m_shell_session->planetarium().handle(wheel);
 		}
 		return m_shell_session->planetarium().handle(event);
 	});
@@ -639,7 +652,10 @@ void Game::run()
 		updateCamera(dtime);
 		updateSound(dtime);
 		processPlayerInteraction(dtime, m_game_ui->m_flags.show_hud);
-		updateFrame(&graph, &stats, dtime, cam_view);
+		{
+			ScopeProfiler timed(g_profiler, "Update frame [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
+			updateFrame(&graph, &stats, dtime, cam_view);
+		}
 		updateProfilerGraphs(&graph);
 
 		if (m_does_lost_focus_pause_game && !device->isWindowFocused() && !isMenuActive()) {
@@ -2083,6 +2099,30 @@ void Game::toggleFog()
 }
 
 
+void Game::applyView()
+{
+	const bool text = g_settings->getBool("view_debug_text"), graph = g_settings->getBool("view_profiler");
+	const bool wireframe = g_settings->getBool("view_wireframe"), boxes = g_settings->getBool("view_bboxes");
+	const std::string bounds = g_settings->get("view_block_bounds");
+	const auto changed = [](bool now, bool &was) { const bool c = now != was; was = now; return c; };
+	if (changed(text, m_view.text)) {
+		m_game_ui->m_flags.show_minimal_debug = text;
+		m_game_ui->m_flags.show_basic_debug = text;
+	}
+	if (changed(graph, m_view.graph))
+		m_game_ui->m_flags.show_profiler_graph = graph;
+	if (changed(wireframe, m_view.wireframe))
+		draw_control->show_wireframe = wireframe;
+	if (changed(boxes, m_view.boxes))
+		smgr->setGlobalDebugData(boxes ? bbox_debug_flag : 0, boxes ? 0 : bbox_debug_flag);
+	if (bounds != m_view.bounds) {
+		m_view.bounds = bounds;
+		const Hud::BlockBoundsMode want = bounds == "near" ? Hud::BLOCK_BOUNDS_NEAR :
+				bounds == "current" ? Hud::BLOCK_BOUNDS_CURRENT : Hud::BLOCK_BOUNDS_OFF;
+		while (hud->toggleBlockBounds() != want) {} // (it only steps)
+	}
+}
+
 void Game::toggleDebug()
 {
 	LocalPlayer *player = client->getEnv().getLocalPlayer();
@@ -2513,7 +2553,10 @@ inline void Game::step(f32 dtime)
 	}
 
 	if (!m_is_paused)
-		client->step(dtime);
+		{
+			ScopeProfiler timed(g_profiler, "Client step [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
+			client->step(dtime);
+		}
 }
 
 static void pauseNodeAnimation(PausedNodesList &paused, scene::ISceneNode *node) {
@@ -6158,17 +6201,18 @@ void Game::updateFrame(ProfilerGraph *graph, RunStats *stats, f32 dtime,
 			movers.push_back({ u32(o.obj->getId()) + 1, at + v3f(0, box.MinEdge.Y / BS, 0),
 					std::max(box.getExtent().X, box.getExtent().Z) / (2 * BS), box.getExtent().Y / BS });
 		}
+		ScopeProfiler water_timed(g_profiler, "Water all [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
 		liquid_layer->update(client->takeLiquidsChanged(), client->takeLiquidGround(), client->takeStreams(), movers,
 				client->getEnv().getClientMap(), camera->getOffset(), camera->getPosition() / BS,
 				client->getHorizon() ? std::optional<s16>(client->getHorizon()->water_level) : std::nullopt,
-				client->getEnv().getDayNightRatio(), dtime);
+				client->getEnv().getDayNightRatio(), dtime, player->getSpeed().getLength() / BS > 30);
 	}
 	if (far_view) {
 		std::optional<float> fog_limit;
 		if (sky->getFogDistance() >= 0)
 			fog_limit = sky->getFogDistance();
 		far_view->update(*camera, client->getEnv().getClientMap(), draw_control->wanted_range,
-				draw_control->range_all, fog_limit);
+				draw_control->range_all, fog_limit, player->getSpeed() / BS);
 		if (far_view->showing())
 			runData.fog_range = far_view->reach();
 	}
@@ -6217,6 +6261,9 @@ void Game::updateFrame(ProfilerGraph *graph, RunStats *stats, f32 dtime,
 
 	runData.time_of_day_smooth = time_of_day_smooth;
 
+	// Terra Firma: the date the smoothed time belongs to, which lags across midnight
+	const float smooth_lag = time_of_day_smooth - time_of_day;
+	sky->setDay(client->getEnv().getDayCount() + (smooth_lag > 0.5f ? -1 : smooth_lag < -0.5f ? 1 : 0));
 	sky->update(time_of_day_smooth, time_brightness, direct_brightness,
 			sunlight_seen, camera->getCameraMode(), player->getYaw(),
 			player->getPitch());
@@ -6519,6 +6566,12 @@ void Game::settingChangedCallback(const std::string &setting_name, void *data)
 
 void Game::readSettings()
 {
+	// Terra Firma: what the world controls change (only what did: F3 has its say too)
+	for (const physics::TuningKnob &knob : physics::TUNING_KNOBS)
+		physics::tuning().*knob.field = g_settings->getFloat(knob.setting);
+	if (hud && draw_control)
+		applyView();
+
 	LogLevel chat_log_level = Logger::stringToLevel(g_settings->get("chat_log_level"));
 	if (chat_log_level == LL_MAX) {
 		warningstream << "Supplied unrecognized chat_log_level; showing none." << std::endl;

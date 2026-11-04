@@ -16,7 +16,7 @@ using planetarium::MarkerLayer;
 using View = planetarium::Planetarium;
 
 static const char *const VERBS[] = { "planetarium.show", "planetarium.hide", "planetarium.focus", "planetarium.markers",
-	"planetarium.viewport", "planetarium.fly", "planetarium.frame", "planetarium.layer", "planetarium.time", "planetarium.seams" };
+	"planetarium.viewport", "planetarium.fly", "planetarium.frame", "planetarium.layer", "planetarium.time", "planetarium.seams", "planetarium.scene" };
 
 // a finite number field, or none if it's absent; Refused if it's anything else
 static std::optional<double> number(const Json::Value &v, const char *name)
@@ -49,7 +49,8 @@ static std::vector<MarkerLayer::Marker> markersOf(const Json::Value &list)
 		const std::string colour = m["colour"].asString();
 		if (colour.size() != 7 || std::sscanf(colour.c_str(), "#%2x%2x%2x", &r, &g, &b) != 3)
 			throw Refused("planetarium: a marker's colour is \"#rrggbb\", not '" + colour + "'");
-		out.push_back({ needed(m, "latitude"), needed(m, "longitude"), video::SColor(255, r, g, b) });
+		out.push_back({ needed(m, "latitude"), needed(m, "longitude"), video::SColor(255, r, g, b),
+				m.isMember("altitude") ? needed(m, "altitude") : 0.0 });
 	}
 	return out;
 }
@@ -69,6 +70,7 @@ Planetarium::Planetarium(Opts opts) : m_opts(std::move(opts))
 	m_opts.shell.on("planetarium.layer", [this](const Json::Value &intent) { return layer(intent); });
 	m_opts.shell.on("planetarium.time", [this](const Json::Value &intent) { return time(intent); });
 	m_opts.shell.on("planetarium.seams", [this](const Json::Value &intent) { return seams(intent); });
+	m_opts.shell.on("planetarium.scene", [this](const Json::Value &intent) { return scene(intent); });
 }
 
 Planetarium::~Planetarium()
@@ -79,12 +81,20 @@ Planetarium::~Planetarium()
 
 void Planetarium::serve(Body body, std::optional<Json::Value> backdrop)
 {
+	if (m_making.valid())
+		m_making.wait(); // its work may use what the last server owns
+	m_making = {};
+	m_wanted.reset();
+	m_makingWanted = false;
+	m_afterMade.clear();
 	m_backdrop.reset();
+	m_scene = Scene{}; // (whoever's served next: the game has its own view)
 	hide();
 	m_markers.clear();
 	m_view.reset();
 	m_insets = Insets{};
 	m_parked.reset(); // the last window's bodies
+	m_looked = false;
 	m_body = std::move(body);
 	m_backdrop = std::move(backdrop);
 	if (m_backdrop)
@@ -97,38 +107,90 @@ void Planetarium::ask(const Json::Value &body)
 		throw Refused("planetarium.show: no planet can be shown here now");
 	if (shown() && body == m_asked)
 		return; // that one's on screen (or coming): kept, not made again
-	View::Opts opts = m_body(body);
-	if (m_parked && !shown() && m_parked->body() == opts.body && m_parked->code() == opts.horizon.code) {
+	m_wanted = m_body(body);
+	m_makingWanted = false; // whatever's on the worker now is out of date
+	m_asked = body;
+	start();
+}
+
+void Planetarium::start()
+{
+	if (m_making.valid() || !m_wanted)
+		return;
+	m_making = std::async(std::launch::async, *m_wanted);
+	m_makingWanted = true;
+}
+
+void Planetarium::collect()
+{
+	if (!m_making.valid() || m_making.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+		return;
+	const bool wanted = m_makingWanted;
+	m_makingWanted = false;
+	try {
+		planetarium::Planetarium::Opts made = m_making.get();
+		if (!wanted) {
+			start(); // overtaken: the latest instead
+			return;
+		}
+		m_wanted.reset();
+		show(std::move(made));
+	} catch (const Refused &e) {
+		if (!wanted) {
+			start();
+			return;
+		}
+		// asked for from the page, which has moved on: the view stays as it is
+		infostream << "shell: planetarium.show refused: " << e.what() << std::endl;
+		m_wanted.reset();
+		m_afterMade.clear();
+		m_asked = Json::Value();
+		return;
+	}
+	std::vector<std::function<void()>> after = std::move(m_afterMade);
+	m_afterMade.clear();
+	for (const auto &ask : after) {
+		try {
+			ask();
+		} catch (const Refused &e) {
+			infostream << "shell: planetarium: " << e.what() << std::endl;
+		}
+	}
+}
+
+void Planetarium::show(View::Opts body)
+{
+	if (m_parked && !shown() && m_parked->body() == body.body && m_parked->code() == body.horizon.code) {
 		// the one hidden last (or prepared): back as it was, its land already built
 		m_current = std::move(m_parked);
 		m_current->markers(m_markers);
 		m_current->layer(m_layer);
 		apply(*m_current);
-	} else {
-		show(std::move(opts));
+		return;
 	}
-	m_asked = body;
-}
-
-void Planetarium::show(View::Opts body)
-{
 	auto next = std::make_unique<View>(std::move(body));
 	if (const View *was = m_current ? m_current.get() : m_next.get())
 		next->keep(*was); // the same view of the new body
 	next->markers(m_markers);
 	next->layer(m_layer);
 	apply(*next);
+	if (m_scene.shown)
+		compose(*next, 0); // (the backdrop made again, under it)
 	m_next = std::move(next);
 }
 
 void Planetarium::apply(View &p) const
 {
 	p.seams(m_seams);
+	p.orbits(!m_scene.shown);
 	p.day(m_clock.date * p.system().year());
 }
 
 void Planetarium::tick(double seconds)
 {
+	collect();
+	const double step = seconds / m_scene.seconds;
+	m_scene.blend = std::clamp(m_scene.blend + (m_scene.shown ? step : -step), 0.0, 1.0);
 	if (m_clock.running) {
 		m_clock.date += seconds * m_clock.rate;
 		m_clock.date -= std::floor(m_clock.date); // round the year again
@@ -166,6 +228,49 @@ Json::Value Planetarium::time(const Json::Value &intent)
 	for (View *p : { m_current.get(), m_next.get() })
 		if (p)
 			apply(*p);
+	return Json::Value();
+}
+
+void Planetarium::compose(planetarium::Planetarium &p, double seconds)
+{
+	m_scene.aspect = (float)m_screen.X / std::max(1u, m_screen.Y);
+	p.compose(planetarium::HOME_SHOT, m_scene.aspect, seconds);
+}
+
+void Planetarium::opening()
+{
+	m_scene.shown = true;
+	m_scene.blend = 1;
+	m_clock.date = planetarium::HOME_SHOT.date;
+	m_clock.running = false;
+	for (View *p : { m_current.get(), m_next.get() })
+		if (p) {
+			apply(*p);
+			compose(*p, 0);
+		}
+}
+
+Json::Value Planetarium::scene(const Json::Value &intent)
+{
+	if (!intent.isObject() || !intent["shown"].isBool())
+		throw Refused("planetarium.scene takes { shown, seconds }");
+	const double seconds = needed(intent, "seconds");
+	if (seconds <= 0 || seconds > 60)
+		throw Refused("planetarium.scene: it takes up to 60 seconds");
+	if (m_scene.shown && intent["shown"].asBool())
+		return Json::Value(); // there already (the menu opened on it)
+	m_scene.shown = intent["shown"].asBool();
+	m_scene.seconds = seconds;
+	if (m_scene.shown) {
+		m_clock.date = planetarium::HOME_SHOT.date;
+		m_clock.running = false;
+	}
+	for (View *p : { m_current.get(), m_next.get() })
+		if (p) {
+			apply(*p);
+			if (m_scene.shown)
+				compose(*p, seconds);
+		}
 	return Json::Value();
 }
 
@@ -208,8 +313,13 @@ void Planetarium::hide()
 		ask(*m_backdrop);
 		return;
 	}
-	if (std::unique_ptr<View> &shown = m_current ? m_current : m_next)
+	m_wanted.reset();
+	m_makingWanted = false;
+	m_afterMade.clear();
+	if (std::unique_ptr<View> &shown = m_current ? m_current : m_next) {
 		m_parked = std::move(shown);
+		m_looked = true;
+	}
 	m_current.reset();
 	m_next.reset();
 	m_asked = Json::Value();
@@ -229,7 +339,8 @@ void Planetarium::idle(std::optional<std::pair<double, double>> player)
 		return;
 	// moved far enough to see other tiles (a hundredth of a radian: tens of
 	// blocks): over them now, not on every step
-	if (player && (!m_over || std::abs(player->first - m_over->first) > 0.01 ||
+	// (once looked through, it stays where it was left)
+	if (player && !m_looked && (!m_over || std::abs(player->first - m_over->first) > 0.01 ||
 			std::abs(std::remainder(player->second - m_over->second, 2 * M_PI)) > 0.01)) {
 		m_parked->focus(player->first, player->second, std::nullopt);
 		m_over = player;
@@ -256,6 +367,10 @@ Json::Value Planetarium::focus(const Json::Value &intent)
 {
 	if (!intent.isObject())
 		throw Refused("planetarium.focus takes { latitude, longitude, altitude? } or { body }");
+	if (waiting()) {
+		m_afterMade.push_back([this, intent] { focus(intent); });
+		return Json::Value();
+	}
 	if (intent.isMember("body")) {
 		// another body of the system, by its id
 		if (!intent["body"].isString())
@@ -290,6 +405,10 @@ Json::Value Planetarium::fly(const Json::Value &intent)
 {
 	if (!intent.isObject())
 		throw Refused("planetarium.fly takes { body?, latitude?, longitude?, altitude? or radii?, seconds }");
+	if (waiting()) {
+		m_afterMade.push_back([this, intent] { fly(intent); });
+		return Json::Value();
+	}
 	const double seconds = needed(intent, "seconds");
 	if (seconds < 0 || seconds > 60)
 		throw Refused("planetarium.fly: a flight takes 0 to 60 seconds");
@@ -406,12 +525,15 @@ Json::Value Planetarium::viewport(const Json::Value &intent)
 
 bool Planetarium::handle(const SEvent &event)
 {
+	if (m_scene.shown)
+		return false; // a composed picture: not the mouse's to move
 	View *p = m_current ? m_current.get() : m_next.get();
 	return p && p->handle(event);
 }
 
 void Planetarium::draw(video::IVideoDriver *driver)
 {
+	collect();
 	const core::dimension2du screen = driver->getScreenSize();
 	m_screen = v2u32(screen.Width, screen.Height);
 	if (m_next) {
@@ -432,7 +554,14 @@ void Planetarium::draw(video::IVideoDriver *driver)
 	const float k = m_opts.shell.scale();
 	const double w = std::max(1, view.getWidth()), h = std::max(1, view.getHeight());
 	const double cx = (m_insets.left - m_insets.right) * k / 2, cy = (m_insets.top - m_insets.bottom) * k / 2;
-	m_current->frame(v2f((f32)(cx / (w / 2)), (f32)(-cy / (h / 2))));
+	const double eased = m_scene.blend * m_scene.blend * (3 - 2 * m_scene.blend);
+	const v2f centre = planetarium::HOME_SHOT.centre;
+	m_current->frame(v2f((f32)(cx / (w / 2) + centre.X * eased), (f32)(-cy / (h / 2) + centre.Y * eased)));
+	m_current->fov((f32)(planetarium::OrbitCamera::FOV + (planetarium::HOME_SHOT.fov - planetarium::OrbitCamera::FOV) * eased));
+	m_current->skyLevel((f32)(1 + (planetarium::HOME_SHOT.sky - 1) * eased));
+	// the window changed shape: the same picture on it
+	if (m_scene.shown && !m_current->flying() && m_scene.aspect != (float)screen.Width / std::max(1u, screen.Height))
+		compose(*m_current, 0);
 	m_current->draw(driver, view);
 	tellHover(*m_current);
 	if (const std::optional<std::optional<size_t>> chosen = m_current->takeChosen()) {

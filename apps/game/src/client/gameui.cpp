@@ -148,6 +148,10 @@ void GameUI::update(const RunStats &stats, Client *client, MapDrawControl *draw_
 			}
 		}
 
+		// Terra Firma: the body, for tuning its movement (world controls, View)
+		if (g_settings->getBool("view_movement"))
+			os << "\n" << client->getBody().readout();
+
 		// Terra Firma: the orbit the player's on (sprint 59; a stand-in for the flight HUD)
 		if (const std::optional<orbit::Elements> e = client->getBody().orbit()) {
 			os << "\n" << (client->getBody().thrusting() ? "thrusting | " : "")

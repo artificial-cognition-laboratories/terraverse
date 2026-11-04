@@ -195,10 +195,10 @@ bool Planetarium::drawBaked(video::IVideoDriver *driver, const core::matrix4 &lo
 	// the camera in the body's own frame: from its centre, turned back, at its scale
 	const double k = m_system.radius(index) / b->sea, spin = spinOf(index);
 	const OrbitCamera::Vec eye = OrbitCamera::turn({ -at.x / k, -at.y / k, -at.z / k }, -spin);
-	b->tiles->update(OrbitCamera::eyeAt(eye, b->sea, (float)m_screen.Y));
+	b->tiles->update(OrbitCamera::eyeAt(eye, b->sea, (float)m_screen.Y * std::tan(OrbitCamera::FOV / 2) / std::tan(m_fov / 2)));
 	if (!b->tiles->based())
 		return false; // its sphere till its coarse land is there
-	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, m_shift));
+	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, m_shift, m_fov));
 	driver->setTransform(video::ETS_VIEW, look);
 	driver->setMaterial(m_system.lit(index, m_day, v3f((f32)at.x, (f32)at.y, (f32)at.z) * BS, 0, !m_layer));
 	// where it is, turned on its axis, at the scene's scale; a tile from its middle
@@ -257,7 +257,7 @@ void Planetarium::focusBody(size_t body)
 void Planetarium::fly(const Flight &f)
 {
 	// where it ends: round the body, as asked, the rest as the camera is (or would be)
-	OrbitCamera end = f.body == m_target ? m_camera : cameraFor(f.body);
+	OrbitCamera end = f.camera ? *f.camera : f.body == m_target ? m_camera : cameraFor(f.body);
 	const double sea = radiusOf(f.body);
 	const std::optional<double> altitude = f.radii ? std::optional<double>(*f.radii * sea) : f.altitude;
 	if (f.latitude)
@@ -276,6 +276,35 @@ void Planetarium::fly(const Flight &f)
 	const OrbitCamera::Vec c = centreOf(from);
 	const core::matrix4 look = view();
 	m_flight = Flying{ from, { now.at.x - c.x, now.at.y - c.y, now.at.z - c.z }, f.body, end, f.seconds, 0, { look[1], look[5], look[9] } };
+}
+
+void Planetarium::compose(const Shot &shot, float aspect, double seconds)
+{
+	using Vec = OrbitCamera::Vec;
+	const auto cross = [](const Vec &a, const Vec &b) {
+		return Vec{ a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x };
+	};
+	const auto dot = [](const Vec &a, const Vec &b) { return a.x * b.x + a.y * b.y + a.z * b.z; };
+	const auto unit = [&](const Vec &v) { const double l = std::sqrt(dot(v, v)); return Vec{ v.x / l, v.y / l, v.z / l }; };
+	const auto mix = [](const Vec &a, double p, const Vec &b, double q) {
+		return Vec{ a.x * p + b.x * q, a.y * p + b.y * q, a.z * p + b.z * q };
+	};
+	// the star in the camera's frame (the ground's)
+	const terragen::System::Vec way = m_system.toStar(m_tiled, m_day);
+	const Vec sun = unit(OrbitCamera::turn({ way.x, way.y, way.z }, -m_spin));
+	// how far the star must stand from the body's centre, and which way across the screen
+	const double t = std::tan(shot.fov / 2);
+	const double dx = (shot.star.X - shot.centre.X) * t * aspect, dy = (shot.star.Y - shot.centre.Y) * t;
+	const double across = std::hypot(dx, dy), off = std::atan(across);
+	const Vec side = unit(cross(sun, std::abs(sun.y) < 0.9 ? Vec{ 0, 1, 0 } : Vec{ 1, 0, 0 }));
+	const Vec other = cross(sun, side);
+	const Vec ahead = mix(sun, std::cos(off), mix(side, std::cos(shot.around), other, std::sin(shot.around)), std::sin(off));
+	// the screen's up, so the star's on the way (dx, dy) from the centre
+	const Vec toward = unit(mix(sun, 1, ahead, -dot(sun, ahead)));
+	const Vec north = mix(toward, dy / across, cross(ahead, toward), dx / across);
+	OrbitCamera camera = cameraFor(m_tiled);
+	camera.place({ -ahead.x, -ahead.y, -ahead.z }, north, shot.altitude * m_sea);
+	fly({ m_tiled, std::nullopt, std::nullopt, std::nullopt, std::nullopt, seconds, camera });
 }
 
 OrbitCamera::Vec Planetarium::offsetOf(size_t body, const OrbitCamera &camera) const
@@ -376,30 +405,45 @@ std::optional<Planetarium::Hover> Planetarium::hoverFor(const OrbitCamera::Vec &
 {
 	if (!m_mouse)
 		return std::nullopt;
-	const double t = std::tan(OrbitCamera::FOV / 2), focal = m_screen.Y / (2 * t);
-	std::optional<Hover> best;
-	double nearest = 0;
-	bool bestInside = false;
+	const double t = std::tan(m_fov / 2), focal = m_screen.Y / (2 * t);
 	const size_t count = m_system.system().spec().bodies.size();
-	for (size_t i = 0; i <= count; i++) {
-		// the bodies, then the star (i == count)
-		const bool star = i == count;
+	// where a body (or the star, i == count) is on screen, if in front of the camera
+	struct Seen { v2f at; float shown, off; double distance; };
+	const auto see = [&](size_t i) -> std::optional<Seen> {
 		const OrbitCamera::Vec c = centreOf(i);
-		const double radius = radiusOf(i);
 		core::vector3df v((f32)(c.x - eye.x), (f32)(c.y - eye.y), (f32)(c.z - eye.z));
 		const double distance = v.getLength();
 		look.transformVect(v); // (the view has no translation: the camera is the origin)
 		if (v.Z <= 0)
-			continue; // behind
+			return std::nullopt; // behind
 		const double x = v.X / (v.Z * t * aspect) + m_shift.X, y = v.Y / (v.Z * t) + m_shift.Y;
 		const v2f at((f32)(m_corner.X + (x + 1) / 2 * m_screen.X), (f32)(m_corner.Y + (1 - y) / 2 * m_screen.Y));
-		const float shown = (f32)(radius / distance * focal);
+		const float dx = at.X - m_mouse->X, dy = at.Y - m_mouse->Y;
+		return Seen{ at, (f32)(radiusOf(i) / distance * focal), std::sqrt(dx * dx + dy * dy), distance };
+	};
+	// what's nearest under the mouse hides whatever's behind it (the body it's
+	// round too, though that isn't itself offered when it fills the screen)
+	double blocked = INFINITY;
+	for (size_t i = 0; i <= count; i++)
+		if (const std::optional<Seen> s = see(i); s && s->off <= s->shown)
+			blocked = std::min(blocked, s->distance);
+	std::optional<Hover> best;
+	double nearest = 0;
+	bool bestInside = false;
+	for (size_t i = 0; i <= count; i++) {
+		// the bodies, then the star (i == count)
+		const bool star = i == count;
+		const std::optional<Seen> s = see(i);
+		if (!s || s->distance > blocked)
+			continue;
+		const v2f at = s->at;
+		const float shown = s->shown, off = s->off;
+		const double distance = s->distance;
 		// what's hovered now keeps it a little past where it would start:
 		// on an edge it doesn't flick on and off frame to frame
 		const bool held = m_hover && m_hover->body == (star ? std::nullopt : std::optional<size_t>(i));
 		if (i == m_target && shown > m_screen.Y * (held ? 0.5f : 0.4f))
 			continue; // the body it's round, filling the screen
-		const float dx = at.X - m_mouse->X, dy = at.Y - m_mouse->Y, off = std::sqrt(dx * dx + dy * dy);
 		if (off > std::max(shown, 10.f) + (held ? 14 : 4))
 			continue;
 		// a disc the mouse is inside beats a dot's reach round it (a planet's
@@ -523,7 +567,7 @@ void Planetarium::update(v2u32 screen)
 		m_flight.reset();
 	}
 	const auto tilesFrom = std::chrono::steady_clock::now();
-	m_tiles.update(OrbitCamera::eyeAt(OrbitCamera::turn(eye(), -m_spin), m_sea, (float)screen.Y));
+	m_tiles.update(OrbitCamera::eyeAt(OrbitCamera::turn(eye(), -m_spin), m_sea, (float)screen.Y * std::tan(OrbitCamera::FOV / 2) / std::tan(m_fov / 2))); // (a long lens: finer for what fills the screen)
 	m_worstTiles = std::max(m_worstTiles, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tilesFrom).count());
 	if (++m_frame % 120 == 0) {
 		infostream << "planetarium: " << m_tiles.drawn().size() << " tiles drawn, " << m_tiles.pending() << " to build, "
@@ -547,7 +591,7 @@ void Planetarium::drawPath(video::IVideoDriver *driver, const OrbitCamera::Vec &
 		points.push_back(v3f((f32)(p.x - ground.x), (f32)(p.y - ground.y), (f32)(p.z - ground.z)) * BS);
 		colours.push_back(video::SColor(255, 0, (u32)(148 * fresh), (u32)(210 * fresh)));
 	}
-	Ribbons ribbons(2.5f, m_screen.Y / (2 * std::tan(OrbitCamera::FOV / 2)));
+	Ribbons ribbons(2.5f, m_screen.Y / (2 * std::tan(m_fov / 2)));
 	ribbons.add(points, colours, false);
 	ribbons.draw(driver, true);
 }
@@ -581,12 +625,12 @@ void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 	m_hover = hoverFor(eye, look, aspect);
 	m_system.highlight(m_hover ? m_hover->body : std::nullopt);
 	// the system round it, far to near; the body its tiles, in its turn
-	m_system.draw(driver, SystemLayer::Camera{ { eye.x, eye.y, eye.z }, look, OrbitCamera::FOV, aspect, m_shift, screen.Height }, m_day, [&](float near, float far) {
+	m_system.draw(driver, SystemLayer::Camera{ { eye.x, eye.y, eye.z }, look, m_fov, aspect, m_shift, screen.Height }, m_day, [&](float near, float far) {
 		// round it: the camera's own range, tight to the ground; from afar, the layer's
 		if (round)
-			driver->setTransform(video::ETS_PROJECTION, m_camera.projection(aspect, m_shift));
+			driver->setTransform(video::ETS_PROJECTION, m_camera.projection(aspect, m_shift, m_fov));
 		else {
-			driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, m_shift));
+			driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, m_shift, m_fov));
 		}
 		driver->setTransform(video::ETS_VIEW, spun);
 		// (an overlay is there to be read, on the night side too)

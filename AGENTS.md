@@ -642,6 +642,8 @@ hosted for friends (STUN, UPnP, hole punching on the server's socket), Join
 gets a single-use ticket from ArcLabs, and the host's server admits by ticket
 (protocol 58). No relay yet: pairs that can't be punched through are told so.
 
+**Built (sprint 128, `planning/arc-movement.md`):** one date and the mod menu. The server sends its day count (protocol 96), the body's clock runs on it unbroken, and `core.terra.set_hour` sets a planet's own time. World controls are data (`tf_player/controls.lua`, `tf_controls.page`), with live movement numbers (`physics/tuning.h`) and debug views (settings `view_*`).
+
 **Built (sprint 127, `planning/arc-movement.md`):** falling down and getting up (`physics::Fallen`, `Body::knockDown`). Protocol 95.
 
 **Built (sprint 126, `planning/arc-movement.md`):** balance: bad landings stagger, step-ups no longer jump, a shin caught at a run trips.

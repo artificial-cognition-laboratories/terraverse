@@ -5,7 +5,7 @@ import PauseScreen from "../../game/PauseScreen.vue"
 import MapScreen from "../../game/map/MapScreen.vue"
 import { useStore } from "../../game/store.ts"
 import { Section, Slider, Toggle } from "../../kit/index.ts"
-import { useMock } from "../mock.ts"
+import { mockWorldControls, useMock } from "../mock.ts"
 import { DEFAULTS, encodeWorldCode } from "../../worldgen/config.ts"
 import { mapUv } from "../../game/map/data.ts"
 
@@ -38,7 +38,7 @@ function push() {
         brush: "add", creating: !live.world, partJoint: "fixed",
     } : { out: false } })
     bridge.emit({ kind: "state", section: "library", value: ["small cart", "Spoked wheel"] })
-    bridge.emit({ kind: "ui", key: "world_controls", value: { mode: "survival", damage: true, time: 0.5, paused: false } })
+    bridge.emit({ kind: "ui", key: "world_controls", value: mockWorldControls() })
     bridge.emit({ kind: "ui", key: "map", value: {
         code, size: DEFAULTS.size, radius: DEFAULTS.size / (2 * Math.PI), sea: 1,
         star: DEFAULTS.star, tilt: DEFAULTS.tilt,

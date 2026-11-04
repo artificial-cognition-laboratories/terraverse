@@ -14,7 +14,7 @@
 namespace solar {
 
 // The local time of day (any number of turns): the body's clock against the engine's.
-float localTime(const SkySolar &s, float time_of_day);
+float localTime(const SkySolar &s, u32 day, float time_of_day);
 
 // A second star's effect on the light (visual only; the sky sets it each frame,
 // where it knows the star). A star only lights the world up to `cap` degrees' worth
@@ -41,6 +41,6 @@ float elevation(const SkySolar &s, float time_of_day);
 // real sun does now, on the same side of noon. Everything that colours and
 // lights the world is fed this, so the stock look follows the real sun: polar
 // night stays dark, the midnight sun stays light.
-float apparentTime(const SkySolar &s, float time_of_day);
+float apparentTime(const SkySolar &s, u32 day, float time_of_day);
 
 } // namespace solar

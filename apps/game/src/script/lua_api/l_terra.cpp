@@ -208,10 +208,70 @@ static terragen::System::Clock clockAt(Server *server, const v3f &pos)
 	return c;
 }
 
+// The clock with its days taken out: `at` + `turns` × (days + time of day)
+// holds across midnight, so the client works it out from the date it was sent.
+static terragen::System::Clock clockFromStart(Server *server, const v3f &pos)
+{
+	const terragen::System::Clock now = clockAt(server, pos);
+	const double days = server->getEnv().getDayCount();
+	return { now.turns, now.at - now.turns * days };
+}
+
 static fix localHour(Server *server, const v3f &pos)
 {
 	const double h = clockAt(server, pos).hour(server->getEnv().getTimeOfDayF());
 	return (fix)((h - std::floor(h)) * ONE);
+}
+
+// core.terra.hour(pos) → this body's time of day there, 0..1 (½ noon), and
+// the hours in its day (nil on a body that faces its star: it has no day)
+int ModApiTerra::l_hour(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+	Server *server = getServer(L);
+	const v3f pos = check_v3f(L, 1);
+	const terragen::System::Clock c = clockAt(server, pos);
+	const double h = c.hour(server->getEnv().getTimeOfDayF());
+	lua_pushnumber(L, h - std::floor(h));
+	if (c.turns == 0)
+		lua_pushnil(L);
+	else
+		lua_pushnumber(L, 24 / std::abs(c.turns));
+	return 2;
+}
+
+// core.terra.set_hour(pos, hour) → whether it could: runs the clock forward to
+// the next time it's `hour` there. A body facing its star has only the one.
+int ModApiTerra::l_set_hour(lua_State *L)
+{
+	Server *server = getServer(L);
+	const v3f pos = check_v3f(L, 1);
+	const double hour = luaL_checknumber(L, 2);
+	luaL_argcheck(L, hour >= 0 && hour <= 1, 2, "hour must be between 0 and 1");
+	const terragen::System::Clock c = clockAt(server, pos);
+	if (c.turns == 0) {
+		lua_pushboolean(L, false);
+		return 1;
+	}
+	const double tod = server->getEnv().getTimeOfDayF();
+	const double now = c.hour(tod);
+	double ahead = (c.turns > 0 ? hour - now : now - hour);
+	ahead -= std::floor(ahead);
+	const double date = server->getEnv().getDayCount() + tod + ahead / std::abs(c.turns);
+	const double whole = std::floor(date);
+	server->setDate((u32)whole, (u32)((date - whole) * 24000));
+	lua_pushboolean(L, true);
+	return 1;
+}
+
+// core.terra.skip_days(days): the date on, the time of day as it was
+int ModApiTerra::l_skip_days(lua_State *L)
+{
+	Server *server = getServer(L);
+	const int days = luaL_checkinteger(L, 1);
+	luaL_argcheck(L, days > 0, 1, "the date only goes forward");
+	server->setDate(server->getEnv().getDayCount() + days, server->getEnv().getTimeOfDay());
+	return 0;
 }
 
 // core.terra.sun(pos) → { latitude, declination, elevation (degrees),
@@ -227,7 +287,8 @@ int ModApiTerra::l_sun(lua_State *L)
 	fix decl = declination(w.code().tilt, c.date);
 	const fix hour = localHour(getServer(L), pos);
 	const fix up = elevation(latitude, decl, hour);
-	const terragen::System::Clock body_clock = clockAt(getServer(L), pos);
+	terragen::System::Clock body_clock = clockFromStart(getServer(L), pos);
+	body_clock.at -= std::floor(body_clock.at);
 	lua_createtable(L, 0, 7);
 	setNumber(L, "latitude", toDegrees(latitude));
 	setNumber(L, "declination", toDegrees(decl));
@@ -672,6 +733,9 @@ void ModApiTerra::Initialize(lua_State *L, int top)
 		{ "world", l_world },
 		{ "calendar", l_calendar },
 		{ "sun", l_sun },
+		{ "hour", l_hour },
+		{ "set_hour", l_set_hour },
+		{ "skip_days", l_skip_days },
 		{ "climate", l_climate },
 		{ "geology", l_geology },
 		{ "cover", l_cover },

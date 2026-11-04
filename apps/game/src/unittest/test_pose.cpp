@@ -14,6 +14,8 @@ using namespace physics;
 	bend forward and elbows back, a foot on the ground doesn't skate, and feet
 	meet the ground they're given.
 */
+static bool flightTiersHold();
+
 class TestPose : public TestBase {
 public:
 	TestPose() { TestManager::registerTestModule(this); }
@@ -85,6 +87,7 @@ void TestPose::runTests(IGameDef *gamedef)
 	TEST(testLimbsByAngleAndCorners);
 	TEST(testHandsStayOut);
 	TEST(testMassLeansAndJumpsAlternate);
+	UASSERT(flightTiersHold());
 }
 
 void TestPose::testTwoBonesReach()
@@ -766,4 +769,12 @@ void TestPose::testFallen()
 	// a bad landing takes it down; a clean one doesn't
 	UASSERT(landingStagger(6, v3f(0, -6, 7), v3f(0, 0, -1)) >= FALLS_FROM);
 	UASSERT(landingStagger(6, v3f(0, -6, 7), v3f(0, 0, 1)) < FALLS_FROM);
+}
+
+// (flight tiers) walking asks for all of the map; speed or height ask for less, and it doesn't flip on the line
+static bool flightTiersHold()
+{
+	using namespace physics;
+	return flightTier(5, 20, 0) == 0 && flightTier(100, 0, 0) == 1 && flightTier(500, 0, 0) == 2 &&
+			flightTier(0, 600, 0) == 2 && flightTier(95, 0, 1) == 1 && flightTier(70, 0, 1) == 0;
 }

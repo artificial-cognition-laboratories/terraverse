@@ -16,9 +16,10 @@ static float radians(float degrees)
 	return degrees * (float)M_PI / 180.0f;
 }
 
-float localTime(const SkySolar &s, float time_of_day)
+float localTime(const SkySolar &s, u32 day, float time_of_day)
 {
-	return s.at + s.turns * time_of_day;
+	const double t = s.at + (double)s.turns * ((double)day + time_of_day);
+	return (float)(t - std::floor(t));
 }
 
 float elevation(const SkySolar &s, float time_of_day)
@@ -36,10 +37,9 @@ void second(std::optional<Second> s)
 	g_second = s;
 }
 
-float apparentTime(const SkySolar &s, float time_of_day)
+float apparentTime(const SkySolar &s, u32 day, float time_of_day)
 {
-	float t = localTime(s, time_of_day);
-	t -= std::floor(t);
+	const float t = localTime(s, day, time_of_day);
 	float e = elevation(s, t);
 	if (g_second)
 		e = std::fmax(std::fmin(e, g_second->first_cap), std::fmin(g_second->elevation, g_second->cap));

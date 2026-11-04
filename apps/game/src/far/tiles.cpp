@@ -26,6 +26,8 @@ static constexpr double INSTALL_MS = 3;
 static constexpr double PAINT_MS = 3;
 // A tile not wanted for this many updates is dropped.
 static constexpr u32 KEEP_FRAMES = 600;
+static constexpr s32 BACKDROP_LEVEL = 3; // cells of 8 blocks
+static constexpr float STAY_WHOLE = 0.85f;
 
 /*
 	What the workers share: copies of what they build from, the queue, the
@@ -217,6 +219,7 @@ void Tiles::update(const Eye &eye)
 {
 	m_frame++;
 	m_draw.clear();
+	m_behind.clear();
 	std::vector<std::pair<float, Key>> want;
 	for (const TileKey &root : m_tiling.roots())
 		choose(Key(root), eye, m_draw, want);
@@ -258,6 +261,15 @@ bool Tiles::based() const
 	return true;
 }
 
+std::vector<Tiles::Drawn> Tiles::behind() const
+{
+	std::vector<Drawn> out;
+	out.reserve(m_behind.size());
+	for (const Key &key : m_behind)
+		out.push_back({ key.tile(), m_tiling.middle(key.tile()), m_tiles.at(key).parts });
+	return out;
+}
+
 std::vector<Tiles::Drawn> Tiles::drawn() const
 {
 	std::vector<Drawn> out;
@@ -296,20 +308,31 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 	float d = distance(key.tile(), eye);
 	if (d > eye.range)
 		return true; // beyond the eye's reach: nothing to draw
-	if (inside(key.tile(), eye))
-		return true; // all within the near world's range: its blocks are the land there
+	// all within the near world's range: its blocks are the land there, and this is
+	// only what shows where they haven't arrived, so it needn't be fine
+	const bool only_backdrop = inside(key.tile(), eye) && key.level <= BACKDROP_LEVEL;
 	// high up, a tile's size on screen goes by how far it is through the air
 	float seen = std::sqrt(d * d + eye.altitude * eye.altitude);
-	bool split = key.level > 0 && seen - eye.cut < (float)key.tile().span() * eye.split;
+	// (once whole a tile stays whole a little longer: on the line, it flipped between two details)
+	const auto held = m_tiles.find(key);
+	const float stay = held != m_tiles.end() && held->second.whole == m_frame - 1 ? STAY_WHOLE : 1.0f;
+	bool split = !only_backdrop && key.level > 0 && seen - eye.cut < (float)key.tile().span() * eye.split * stay;
 
 	if (!split) {
 		Entry &e = m_tiles[key];
 		e.used = m_frame;
 		if (e.ready) {
+			e.whole = m_frame;
 			draw.push_back(key);
 			return true;
 		}
-		want.emplace_back(d, key);
+		{
+			const Tiling::Vec m = m_tiling.middle(key.tile());
+			const double to[3] = { m.x - eye.at.x, m.y - eye.at.y, m.z - eye.at.z };
+			const double len = std::max(1.0, std::hypot(to[0], to[1], to[2]));
+			const double ahead = (to[0] * eye.heading.x + to[1] * eye.heading.y + to[2] * eye.heading.z) / len;
+			want.emplace_back(d * (float)(1 - 0.6 * ahead), key);
+		}
 		// meanwhile, finer tiles from before, if all of them are there
 		size_t mark = draw.size();
 		std::function<bool(const Key &)> finer = [&](const Key &k) {
@@ -341,6 +364,13 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 		return true;
 	// a finer tile isn't there yet: this one stands in for all four
 	auto it = m_tiles.find(key);
+	if (it != m_tiles.end() && it->second.ready && eye.keep_fine) {
+		// behind the finer ones that are there, so only the hole shows it: swapped
+		// for them, a whole view flashed coarse for each new tile
+		it->second.used = m_frame;
+		m_behind.push_back(key);
+		return true;
+	}
 	if (it != m_tiles.end() && it->second.ready) {
 		draw.resize(mark);
 		draw.push_back(key);

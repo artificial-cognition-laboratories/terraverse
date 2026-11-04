@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "body.h"
+#include "physics/tuning.h"
+#include "profiler.h"
+#include <sstream>
 
 #include "client.h"
 #include "collision.h"
@@ -41,7 +44,11 @@ constexpr float THRUST = 10, DOUBLING = 4, THRUST_MOST = 160;
 
 Body::Body(Client *client) : m_client(client) {}
 
-Body::~Body() = default;
+Body::~Body()
+{
+	if (m_sky_answer.valid())
+		m_sky_answer.wait();
+}
 
 bool Body::moves(LocalPlayer &p)
 {
@@ -279,7 +286,7 @@ void Body::airWall(const physics::World::CharacterState &was, v3f velocity, floa
 	m_kicked = *wall;
 	if (physics::runsAlong(velocity, *wall)) {
 		const v3f across(velocity.X, 0, velocity.Z);
-		m_wall_run = WallRun{ *wall, across - *wall * across.dotProduct(*wall), physics::WALL_RUN_LIFT, physics::WALL_RUN_TIME };
+		m_wall_run = WallRun{ *wall, across - *wall * across.dotProduct(*wall), physics::tuning().wall_run_lift, physics::tuning().wall_run_time };
 		m_stance = physics::Stance::WALL_RUN;
 		m_world->resize(*m_me, physics::stanceInfo(m_stance).height);
 	} else {
@@ -294,7 +301,7 @@ v3f Body::wallStep(const physics::World::CharacterState &was, const physics::Her
 	const physics::Solid solid = [this](v3s16 n) { return solidAt(n); };
 	const std::optional<v3f> wall = physics::findWall(solid, v3f::from(was.foot), m_radius);
 	run.left -= dt;
-	run.up += h.gravity.Y * physics::WALL_RUN_GRAVITY * dt;
+	run.up += h.gravity.Y * physics::tuning().wall_run_gravity * dt;
 	const v3f velocity = run.along + v3f(0, run.up, 0);
 	if (m_jump_press > 0) { // off it, and on
 		m_jump_press = 0;
@@ -434,7 +441,7 @@ v3f Body::climbStep(LocalPlayer &p, const v3d &foot)
 	const PlayerControl &c = p.control;
 	const float right = std::sin(c.movement_direction) * c.movement_speed;
 	const v3f along(-ledge.normal.Z, 0, ledge.normal.X);
-	const v3f moved = ledge.lip + along * (right * physics::SHIMMY * dt);
+	const v3f moved = ledge.lip + along * (right * physics::tuning().shimmy * dt);
 	const v3f lookout = moved + along * (right > 0 ? HANDS_OUT : -HANDS_OUT);
 	const physics::Solid solid = [this](v3s16 n) { return solidAt(n); };
 	if (physics::ledgeGoesOn(solid, lookout, ledge.normal))
@@ -533,6 +540,9 @@ bool Body::ensureWorld()
 	}
 	m_pull = workshop::fieldOf(*m_field);
 	m_mirrors.clear();
+	if (m_sky_answer.valid())
+		m_sky_answer.wait(); // (it reads what's replaced here)
+	m_lands.clear();
 	m_me.reset();
 	Client *client = m_client;
 	m_world = std::make_unique<physics::World>(physics::World::Opts{
@@ -672,19 +682,38 @@ void Body::mirror(LocalPlayer &p)
 
 // Above the highest ground any body could have here: 25 km of mountain, at
 // the planet's scale (terragen::blocksPerMetre's √(R / R⊕)).
-bool Body::aboveAllGround(const v3f &at) const
+// Flying through the sky faster than the map arrives. Clear of the land under
+// it and the land it's about to reach, what isn't loaded yet is air: waiting for
+// it stopped the body dead at every block's edge. Near the land it's still waited
+// for, or the floor is flown through before it arrives.
+float Body::landBelow(const v3f &at, const v3f &velocity)
 {
+	constexpr float LOOK_AHEAD = 1; // s
+	constexpr float NO_LAND = 1e9f; // a seam, or over the atlas's top
 	if (!m_atlas)
-		return true;
-	const std::optional<planet::Atlas::Cell> c = m_atlas->cell(planet::Atlas::moverNode(at.X, at.Y, at.Z));
-	if (!c)
-		return true; // seam, or over the sky's top: no ground to meet
-	const double radius = m_atlas->body(c->body).params().radius;
-	return c->k > 25000 * std::sqrt(radius / 6371000);
+		return NO_LAND;
+	const std::optional<far::Horizon> &horizon = m_client->getHorizon();
+	const auto below = [&](const v3f &there) {
+		const std::optional<planet::Atlas::Cell> c = m_atlas->cell(planet::Atlas::moverNode(there.X, there.Y, there.Z));
+		if (!c)
+			return NO_LAND;
+		std::unique_ptr<far::Generator> &land = m_lands[c->body];
+		if (!land)
+			land = std::make_unique<far::Generator>(*horizon, *m_atlas, c->body);
+		return (float)(c->k - land->surfaceAt(planet::Atlas::Cell(*c)));
+	};
+	// (a place in another grid isn't charted from this one's numbers: it's asked again from there)
+	return std::min(below(at), below(at + velocity * LOOK_AHEAD));
+}
+
+float Body::nearRange(float wanted) const
+{
+	return m_tier ? std::min(wanted, physics::FLIGHT_TIERS[m_tier - 1].near) : wanted;
 }
 
 void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisions)
 {
+	ScopeProfiler timed(g_profiler, "Body move [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
 	if (!ensureWorld())
 		return; // held a frame till the world's bodies are known
 	m_scale = p.physics_override.gravity;
@@ -710,11 +739,29 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 		m_now = m_was = m_measured = v3d::from(at / BS);
 		m_behind = 0;
 	}
-	// flying through the sky faster than the map arrives: what isn't here
-	// yet is air (walking, it's waited for)
-	// (only above where any ground could be: lower, flying waits for it too,
-	// or the floor is flown through before it arrives)
-	m_world->unknownIsAir(*m_me, m_thrusting && aboveAllGround(at / BS));
+	// (a column's asked for only a few times a second: it's generated)
+	m_sky_check -= dtime;
+	if (!m_thrusting) {
+		m_clear_of_land = false;
+		m_above_land = 0;
+	} else {
+		// (asked on a worker: a column in new country took long enough to drop frames)
+		if (m_sky_answer.valid() && m_sky_answer.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+		{
+			constexpr float CLEAR = 16; // nodes: over trees
+			m_above_land = m_sky_answer.get();
+			m_clear_of_land = m_above_land > CLEAR;
+		}
+		if (m_sky_check <= 0 && !m_sky_answer.valid()) {
+			m_sky_check = 0.25f;
+			m_sky_answer = std::async(std::launch::async, [this, here = at / BS, v = p.getSpeed() / BS] { return landBelow(here, v); });
+		}
+	}
+	m_world->unknownIsAir(*m_me, m_clear_of_land);
+	// ... and it asks for only as much of the map as is any use at this speed
+	m_tier = m_clear_of_land ? physics::flightTier(p.getSpeed().getLength() / BS, m_above_land, m_tier) : 0;
+	m_world->skipsGround(*m_me, m_tier > 0);
+	m_world->keepsSpeed(*m_me, m_thrusting); // (a flight held up by the map goes on as it was)
 	mirror(p);
 	m_moved = true;
 
@@ -922,6 +969,10 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 			m_trip_left = std::max(0.f, m_trip_left - s);
 			m_stagger = std::max(0.f, m_stagger - RECOVERS * s);
 		}
+		// (what stops a flight is worth a line: nothing else says which it was)
+		if (m_thrusting && was.velocity.getLength() > 20 && now.velocity.getLength() < was.velocity.getLength() * 0.5f)
+			actionstream << "body: flight stopped at " << now.foot.X << "," << now.foot.Y << "," << now.foot.Z << " from "
+					<< was.velocity.getLength() << " nodes/s, clear of land: " << m_clear_of_land << ", on ground: " << now.on_ground << std::endl;
 		m_was = m_now;
 		m_now = now.foot;
 		if (const std::optional<planet::Atlas::Carried> c = m_atlas ?
@@ -948,8 +999,8 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 				m_world->resize(*m_me, physics::stanceInfo(physics::Stance::ROLL).height);
 				m_stance = physics::Stance::ROLL;
 				m_roll_left = physics::ROLL_TIME;
-			} else if (fall >= physics::HARD_LANDING) {
-				m_late_roll = physics::ROLL_LATE;
+			} else if (fall >= physics::tuning().hard_landing) {
+				m_late_roll = physics::tuning().roll_late;
 			}
 			if (!rolled && !m_thrusting) {
 				// its speed goes as far as its balance did, and it shows till it's back
@@ -957,15 +1008,15 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 				const float ahead = std::cos(c.movement_direction) * c.movement_speed, right = std::sin(c.movement_direction) * c.movement_speed;
 				const v3f asked = right != 0 || ahead != 0 ?
 						v3f(right * std::cos(yaw_now) - ahead * std::sin(yaw_now), 0, right * std::sin(yaw_now) + ahead * std::cos(yaw_now)) : m_look;
-				const float off = fall >= physics::HARD_LANDING ? 1 : physics::landingStagger(fall, was.velocity, asked);
-				if (off >= physics::FALLS_FROM && (physics::landingStagger(fall, was.velocity, asked) >= physics::FALLS_FROM || fall >= physics::FALLS_AT))
+				const float off = fall >= physics::tuning().hard_landing ? 1 : physics::landingStagger(fall, was.velocity, asked);
+				if (off >= physics::tuning().falls_from && (physics::landingStagger(fall, was.velocity, asked) >= physics::tuning().falls_from || fall >= physics::tuning().falls_at))
 					knockDown(std::clamp((fall - 4) / 12, 0.f, 1.f), was.velocity);
 				if (off > 0.15f) {
 					m_stagger = std::max(m_stagger, off);
 					m_keep = std::min(m_keep, 1 - (1 - physics::STUMBLE) * off);
 				}
 			}
-			if (fall >= physics::HARD_LANDING) // (no roll yet in play: this says why)
+			if (fall >= physics::tuning().hard_landing) // (no roll yet in play: this says why)
 				actionstream << "body: landed at " << fall << " nodes/s, asking stance " << (int)m_asked
 						<< (rolled ? ", rolled" : ", no roll") << std::endl;
 			if (collisions && !rolled) { // (a roll takes the fall)
@@ -1260,4 +1311,17 @@ std::optional<std::pair<v3f, v3f>> Body::carried(u16 object) const
 		return std::nullopt;
 	const physics::Pose p = m_world->pose(m_mirrors.at(object).id);
 	return std::make_pair(v3f::from(p.position * BS), workshop::rotationOf(p.rotation));
+}
+
+std::string Body::readout() const
+{
+	static const char *const STANCES[] = { "stand", "crouch", "prone", "slide", "roll", "vault", "mantle", "hang", "wall run", "down" };
+	std::ostringstream os;
+	os << "body: " << STANCES[(size_t)m_stance];
+	if (m_me) {
+		const v3f v = m_world->velocity(*m_me);
+		os << " | speed: " << std::hypot(v.X, v.Z) << " nodes/s | rising: " << v.Y << " nodes/s";
+	}
+	os << " | stagger: " << m_stagger << " | flight tier: " << m_tier << ", " << m_above_land << " over the land";
+	return os.str();
 }

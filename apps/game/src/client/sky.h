@@ -41,6 +41,7 @@ public:
 	virtual video::SMaterial &getMaterial(u32 i) { return m_materials[i]; }
 	virtual u32 getMaterialCount() const { return SKY_MATERIAL_COUNT; }
 
+	void setDay(u32 day) { m_day = day; } // Terra Firma: before update
 	void update(float m_time_of_day, float time_brightness, float direct_brightness,
 			bool sunlight_seen, CameraMode cam_mode, float yaw, float pitch);
 
@@ -179,6 +180,7 @@ private:
 	// Used when m_visible=false
 	video::SColor m_fallback_bg_color = video::SColor(255, 255, 255, 255);
 	bool m_first_update = true; // Set before the sky is updated for the first time
+	u32 m_day = 0; // Terra Firma: the date its smoothed time belongs to (setDay)
 	float m_time_of_day; // apparent when solar (see solar::apparentTime)
 	float m_body_time = 0.0f; // the real time of day, placing solar bodies
 	float m_time_brightness;

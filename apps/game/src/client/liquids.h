@@ -75,7 +75,7 @@ public:
 	// one) and the time since the last frame.
 	void update(const std::unordered_set<v3s16> &changed, const std::unordered_set<v3s16> &ground,
 			const std::vector<Stream> &streams, const std::vector<Mover> &movers, ClientMap &map, v3s16 offset,
-			v3f camera, std::optional<s16> sea, u32 daynight, float dtime);
+			v3f camera, std::optional<s16> sea, u32 daynight, float dtime, bool hurrying);
 
 	void OnRegisterSceneNode() override;
 	void render() override;

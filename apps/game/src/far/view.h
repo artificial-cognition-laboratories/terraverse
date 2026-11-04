@@ -54,7 +54,7 @@ public:
 	// Once a frame, before drawing. `near_range`: how far the map blocks are
 	// drawn, in blocks. `fog_limit`: a server's fog distance, in blocks.
 	void update(const Camera &camera, ClientMap &map, float near_range, bool range_all,
-			std::optional<float> fog_limit);
+			std::optional<float> fog_limit, v3f velocity);
 
 	// Whether it draws this frame, and how far off what it draws can be
 	// (scene units): the fog follows it.

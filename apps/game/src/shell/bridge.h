@@ -44,6 +44,7 @@ public:
 	void off(const std::string &kind);
 	// Finishes the job in hand and stops the worker. Before Chromium shuts down.
 	void stop();
+	void drain(); // until the worker has nothing left
 
 	using CefMessageRouterBrowserSide::Handler::OnQuery;
 	bool OnQuery(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
@@ -68,7 +69,8 @@ private:
 
 	std::thread m_worker;
 	std::mutex m_lock;
-	std::condition_variable m_wake;
+	std::condition_variable m_wake, m_idle;
+	bool m_working = false;
 	std::deque<Job> m_jobs;
 	bool m_stopping = false;
 };

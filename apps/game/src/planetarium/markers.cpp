@@ -32,8 +32,15 @@ void MarkerLayer::draw(video::IVideoDriver *driver, const Vec &eye, double altit
 	for (const Marker &m : m_markers) {
 		const Vec up{ std::cos(m.latitude) * std::cos(m.longitude), std::sin(m.latitude),
 			std::cos(m.latitude) * std::sin(m.longitude) };
-		// past the horizon: hidden by the body (drawn over the land, it would show through)
-		if (up.x * eye.x + up.y * eye.y + up.z * eye.z < m_sea)
+		// behind the body: left out (drawn over the land, it would show through)
+		const auto seen = [&](double h) {
+			const Vec p{ up.x * (m_sea + h), up.y * (m_sea + h), up.z * (m_sea + h) };
+			const Vec d{ p.x - eye.x, p.y - eye.y, p.z - eye.z };
+			const double along = std::clamp(-(eye.x * d.x + eye.y * d.y + eye.z * d.z) / (d.x * d.x + d.y * d.y + d.z * d.z), 0.0, 1.0);
+			return std::hypot(eye.x + d.x * along, eye.y + d.y * along, eye.z + d.z * along) >= m_sea * (1 - 1e-9);
+		};
+		const double high = std::max(m.altitude, 0.0);
+		if (!seen(high))
 			continue;
 		const Vec east{ -std::sin(m.longitude), 0, std::cos(m.longitude) };
 		const Vec north{ -std::sin(m.latitude) * std::cos(m.longitude), std::cos(m.latitude),
@@ -43,12 +50,12 @@ void MarkerLayer::draw(video::IVideoDriver *driver, const Vec &eye, double altit
 			return Vec{ up.x * r + east.x * e + north.x * n, up.y * r + east.y * e + north.y * n,
 				up.z * r + east.z * e + north.z * n };
 		};
-		put(at(0, 0, 0), m.colour);
-		put(at(mast, 0, 0), m.colour);
+		put(at(seen(0) ? 0 : high, 0, 0), m.colour);
+		put(at(high + mast, 0, 0), m.colour);
 		for (int i = 0; i < RING; i++) {
 			const double a = 2 * M_PI * i / RING, b = 2 * M_PI * (i + 1) / RING;
-			put(at(1, ring * std::cos(a), ring * std::sin(a)), m.colour);
-			put(at(1, ring * std::cos(b), ring * std::sin(b)), m.colour);
+			put(at(high + 1, ring * std::cos(a), ring * std::sin(a)), m.colour);
+			put(at(high + 1, ring * std::cos(b), ring * std::sin(b)), m.colour);
 		}
 	}
 	video::SMaterial mat;

@@ -1031,7 +1031,9 @@ void GenericCAO::updateLight(u32 day_night_ratio)
 			pos_ok = true;
 		}
 	}
-	if (!pos_ok)
+	// Terra Firma: flying over the land it went black in air blocks that hold no
+	// light and bright between them, where none are loaded: up there it's the sun's
+	if (!pos_ok || (m_is_local_player && m_client->getBody().inOpenSky()))
 		light_at_pos = LIGHT_SUN;
 
 	video::SColor light;

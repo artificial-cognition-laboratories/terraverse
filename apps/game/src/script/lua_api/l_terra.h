@@ -17,6 +17,9 @@ private:
 	static int l_world(lua_State *L);
 	static int l_calendar(lua_State *L);
 	static int l_sun(lua_State *L);
+	static int l_hour(lua_State *L);
+	static int l_set_hour(lua_State *L);
+	static int l_skip_days(lua_State *L);
 	static int l_climate(lua_State *L);
 	static int l_geology(lua_State *L);
 	static int l_cover(lua_State *L);

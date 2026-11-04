@@ -333,10 +333,10 @@ void Sky::update(float time_of_day, float time_brightness,
 		return;
 	}
 
-	m_body_time = m_sky_params.solar.on ? solar::localTime(m_sky_params.solar, time_of_day) : time_of_day;
+	m_body_time = m_sky_params.solar.on ? solar::localTime(m_sky_params.solar, m_day, time_of_day) : time_of_day;
 	m_body_time -= std::floor(m_body_time);
 	m_time_of_day = m_sky_params.solar.on ?
-			solar::apparentTime(m_sky_params.solar, time_of_day) : time_of_day;
+			solar::apparentTime(m_sky_params.solar, m_day, time_of_day) : time_of_day;
 	m_time_brightness = time_brightness;
 	m_sunlight_seen = sunlight_seen;
 	m_in_clouds = false;

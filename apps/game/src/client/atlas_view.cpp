@@ -75,8 +75,11 @@ void AtlasView::update(v3f camera, v3f feet, v3s16 offset)
 	const v3f at = camera / BS, foot = feet / BS;
 	const planet::Atlas::Node eye = planet::Atlas::moverNode(at.X, at.Y, at.Z);
 	const planet::Atlas::Node stand = planet::Atlas::moverNode(foot.X, foot.Y, foot.Z);
-	const planet::Atlas::Node grid = m_atlas.cell(eye) ? eye : stand;
-	m_eye = m_atlas.frame(grid, { at.X, at.Y, at.Z });
+	// (above the atlas's top, charted from the column under it, as movement is: in orbit there's no cell)
+	std::optional<planet::Atlas::Node> grid = m_atlas.charted(eye);
+	if (!grid)
+		grid = m_atlas.charted(stand);
+	m_eye = grid ? m_atlas.frame(*grid, { at.X, at.Y, at.Z }) : std::nullopt;
 	if (!m_eye)
 		return;
 	// the eye's axes inverted (rows of the inverse, by cofactors)

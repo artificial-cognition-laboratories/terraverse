@@ -21,7 +21,7 @@
 
 namespace planetarium {
 
-void runStandalone(const std::string &code, std::optional<double> bench)
+void runStandalone(const std::string &code, std::optional<double> bench, std::optional<std::string> shot)
 {
 	const terragen::WorldCode world = terragen::WorldCode::decode(code);
 	far::Baked baked = far::Baked::load("terrafirma");
@@ -39,6 +39,13 @@ void runStandalone(const std::string &code, std::optional<double> bench)
 	const far::Horizon horizon{ code, MapgenParams().water_level, std::move(baked.content) };
 	auto planet = std::make_unique<Planetarium>(Planetarium::Opts{ atlas, horizon, std::move(baked.palette),
 			std::make_shared<const terragen::System>(terragen::SystemSpec::forWorld(world)) });
+	if (shot) {
+		planet->orbits(false);
+		planet->day(HOME_SHOT.date * planet->system().year());
+		planet->frame(HOME_SHOT.centre);
+		planet->fov(HOME_SHOT.fov);
+		planet->skyLevel(HOME_SHOT.sky);
+	}
 	bool quit = false;
 	receiver.capture = [&](const SEvent &event) {
 		if (event.EventType == EET_KEY_INPUT_EVENT) {
@@ -93,7 +100,21 @@ void runStandalone(const std::string &code, std::optional<double> bench)
 		}
 		driver->beginScene(true, true, video::SColor(255, 8, 10, 14));
 		const core::dimension2du window = driver->getScreenSize();
+		// (and it may take its shape after the first frames: framed for the one it has)
+		if (shot)
+			planet->compose(HOME_SHOT, (float)window.Width / window.Height, 0);
 		planet->draw(driver, core::recti(0, 0, window.Width, window.Height));
+		// land built, and a moment for the air's pictures (made on workers)
+		if (shot && planet->settled() && t > 5) {
+			video::IImage *image = driver->createScreenShot();
+			if (!image)
+				throw BaseException("planetarium: no screenshot");
+			const bool written = driver->writeImageToFile(image, shot->c_str());
+			image->drop();
+			if (!written)
+				throw BaseException("planetarium: couldn't write " + *shot);
+			quit = true;
+		}
 		driver->endScene();
 		const u64 spent = porting::getTimeMs() - start;
 		if (bench && t > SETTLE) {

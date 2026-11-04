@@ -17,6 +17,7 @@ public:
 	void testElevation();
 	void testWickedInverse();
 	void testLight();
+	void testDate();
 };
 
 static TestSolar g_test_instance;
@@ -26,6 +27,7 @@ void TestSolar::runTests(IGameDef *gamedef)
 	TEST(testElevation);
 	TEST(testWickedInverse);
 	TEST(testLight);
+	TEST(testDate);
 }
 
 static bool near(float a, float b, float tolerance)
@@ -50,7 +52,7 @@ void TestSolar::testWickedInverse()
 
 static u32 light(const SkySolar &s, float time_of_day)
 {
-	return time_to_daynight_ratio(solar::apparentTime(s, time_of_day) * 24000, true);
+	return time_to_daynight_ratio(solar::apparentTime(s, 0, time_of_day) * 24000, true);
 }
 
 void TestSolar::testLight()
@@ -64,4 +66,18 @@ void TestSolar::testLight()
 	UASSERT(light(polar_summer, 0.0f) > 900);           // midnight sun, 3° up: dawn-bright
 	// the same sun height gives the same light on either side of noon
 	UASSERTEQ(u32, light(equator, 0.3f), light(equator, 0.7f));
+}
+
+// A 30-hour day: the clock runs on through the engine's midnight, and one date
+// and time always read the same, however often they're asked or set.
+void TestSolar::testDate()
+{
+	SkySolar s{ true, 40, 10 };
+	s.turns = 0.8f;
+	s.at = 0.1f;
+	UASSERT(near(solar::localTime(s, 7, 0.9999f), solar::localTime(s, 8, 0), 0.001f));
+	const float light = solar::apparentTime(s, 12, 0.5f);
+	for (int i = 0; i < 5; i++)
+		UASSERT(solar::apparentTime(s, 12, 0.5f) == light);
+	UASSERT(!near(solar::localTime(s, 12, 0.5f), solar::localTime(s, 13, 0.5f), 0.1f)); // (the day isn't 24 hours)
 }

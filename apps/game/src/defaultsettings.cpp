@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
+#include "physics/tuning.h"
 #include "settings.h"
 #include "porting.h"
 #include "filesys.h"
@@ -300,6 +301,10 @@ void set_default_settings()
 	// within the first, quarters to the second, whole nodes past it (nodes)
 	settings->setDefault("ground_detail_near", "12");
 	settings->setDefault("ground_detail_far", "32");
+	// Terra Firma: water run as columns: sixteenths and quarters, nodes round the camera
+	settings->setDefault("water_fine", "true");
+	settings->setDefault("water_fine_reach", "10");
+	settings->setDefault("water_coarse_reach", "48");
 	settings->setDefault("performance_tradeoffs", "false");
 	settings->setDefault("array_texture_max", "65535");
 	settings->setDefault("lighting_alpha", "0.0");
@@ -314,7 +319,7 @@ void set_default_settings()
 	settings->setDefault("cinematic", "false");
 	settings->setDefault("camera_smoothing", "0.0");
 	settings->setDefault("cinematic_camera_smoothing", "0.05");
-	settings->setDefault("view_bobbing_amount", "1.0");
+	settings->setDefault("view_bobbing_amount", "0"); // Terra Firma: no bobbing, and no setting for it
 	settings->setDefault("enable_dig_particles", "true");
 	settings->setDefault("enable_3d_clouds", "true");
 	settings->setDefault("soft_clouds", "false");
@@ -340,6 +345,15 @@ void set_default_settings()
 	settings->setDefault("widget_map_shape", "0");
 	settings->setDefault("widget_map_rotate", "true");
 	settings->setDefault("widget_map_zoom", "3");
+	// Terra Firma: the world controls
+	settings->setDefault("view_debug_text", "false");
+	settings->setDefault("view_movement", "false");
+	settings->setDefault("view_profiler", "false");
+	settings->setDefault("view_wireframe", "false");
+	settings->setDefault("view_bboxes", "false");
+	settings->setDefault("view_block_bounds", "off");
+	for (const physics::TuningKnob &knob : physics::TUNING_KNOBS)
+		settings->setDefault(knob.setting, ftos(physics::Tuning{}.*knob.field));
 	settings->setDefault("widget_world_controls", "true");
 	settings->setDefault("widget_world_controls_corner", "1");
 	settings->setDefault("gui_scaling", "1.0");

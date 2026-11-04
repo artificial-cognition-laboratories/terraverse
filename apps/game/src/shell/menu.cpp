@@ -40,7 +40,6 @@ static const char *const VERBS[] = {
 };
 
 // The world the menu's universe is when none has been visited yet.
-static const char *const DEFAULT_CODE = "TF16.dGVycmE";
 
 static Json::Value worldJson(const Worlds &worlds, const WorldSpec &world)
 {
@@ -142,13 +141,13 @@ Menu::Menu(const Opts &opts) :
 	m_receiver(opts.receiver),
 	m_planetarium(opts.shell.planetarium())
 {
-	// the universe behind every page: the system of the world last visited
-	// (a fresh install: the default world's)
-	const std::string backdrop = m_worlds.lastVisited().value_or(DEFAULT_CODE);
+	// the universe behind every page: always the one world, so its picture
+	// can be composed (Home.vue: planetarium.scene)
 	Json::Value universe;
-	universe["code"] = backdrop;
+	universe["code"] = planetarium::HOME_SHOT.code;
 	m_planetarium.serve([this](const Json::Value &b) { return body(b); }, universe);
-	m_shell.on("community.list", [this](const Json::Value &) {
+	m_planetarium.opening();
+	m_shell.onAsync("community.list", [this](const Json::Value &) {
 		return m_community.list();
 	});
 	m_shell.on("community.mod.set", [this](const Json::Value &intent) {
@@ -161,7 +160,8 @@ Menu::Menu(const Opts &opts) :
 		m_community.setTexture(stringField(intent, "id"));
 		return Json::Value();
 	});
-	m_shell.on("worlds.list", [this](const Json::Value &) {
+	// (they read every world's files: on the worker, or opening the page freezes it)
+	m_shell.onAsync("worlds.list", [this](const Json::Value &) {
 		Json::Value out(Json::arrayValue);
 		for (const auto &world : m_worlds.list())
 			out.append(worldJson(m_worlds, world));
@@ -253,6 +253,7 @@ Menu::~Menu()
 {
 	for (const char *verb : VERBS)
 		m_shell.off(verb);
+	m_shell.drain(); // a verb on the worker may be using this menu
 	m_planetarium.serve(nullptr); // its bodies were this menu's
 }
 
@@ -307,7 +308,7 @@ std::optional<Choice> Menu::run(const std::string &error)
 
 // The world a code makes, as a new world of it is laid out (worlds.cpp: as
 // many blocks round as it is), its land from the game's baked palette.
-planetarium::Planetarium::Opts Menu::body(const Json::Value &body)
+Planetarium::Making Menu::body(const Json::Value &body)
 {
 	if (!body.isObject() || !body["code"].isString())
 		throw Refused("planetarium.show in the menu needs body { code }");
@@ -318,6 +319,8 @@ planetarium::Planetarium::Opts Menu::body(const Json::Value &body)
 	} catch (const std::exception &e) {
 		throw Refused(std::string("that world code doesn't decode: ") + e.what());
 	}
+	// on the worker, one at a time: m_baked and m_atlases are only touched here
+	return [this, code, world]() -> planetarium::Planetarium::Opts {
 	if (!m_baked)
 		m_baked = far::Baked::load(g_settings->get("game_id"));
 	// every body of its system, as the server lays them out (server.cpp), so
@@ -341,6 +344,7 @@ planetarium::Planetarium::Opts Menu::body(const Json::Value &body)
 	const planet::Atlas &atlas = laid->second;
 	return { atlas, far::Horizon{ code, MapgenParams().water_level, m_baked->content }, m_baked->palette,
 		std::make_shared<const terragen::System>(terragen::SystemSpec::forWorld(world)) };
+	};
 }
 
 } // namespace shell

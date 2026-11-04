@@ -54,7 +54,11 @@ Session::Session(const Opts &opts) :
 {
 	// the page shows this world's bodies: `body { code, body? }`, the
 	// home's when it names none
-	m_planetarium.serve([this](const Json::Value &body) { return world(bodyNamed(body)); });
+	m_planetarium.serve([this](const Json::Value &body) {
+		// (it reads the game's own state: here. The worker only hands it back)
+		auto made = std::make_shared<planetarium::Planetarium::Opts>(world(bodyNamed(body)));
+		return Planetarium::Making([made] { return *made; });
+	});
 	m_shell.on("inventory.move", [this](const Json::Value &intent) {
 		m_actions.move(intent);
 		return Json::Value();
@@ -82,7 +86,7 @@ Session::Session(const Opts &opts) :
 		return systemPreview(intent);
 	});
 	// the world's own system, for the map's bodies
-	m_shell.on("system.world", [](const Json::Value &intent) {
+	m_shell.onAsync("system.world", [](const Json::Value &intent) {
 		return worldSystem(intent);
 	});
 	// a tool picked on the page's rail (the focus view frees the mouse for it)
@@ -189,7 +193,9 @@ void Session::update(const HudView &view)
 		m_state.forget();
 		m_ui.replay();
 	}
-	m_state.update(view);
+	HudView shown = view;
+	shown.crosshair = shown.crosshair && !m_planetarium.shown(); // nothing's aimed at in the planetarium
+	m_state.update(shown);
 	m_ui.update();
 	m_director.update();
 	// the planet made ready as soon as the world's known, so V shows it at once
@@ -258,10 +264,14 @@ planetarium::Planetarium::Opts Session::world(int body) const
 	const std::optional<far::Horizon> &horizon = m_client->getHorizon();
 	if (!atlas || !horizon)
 		throw Refused("the Planetarium shows a planet, and this world isn't one");
-	far::Palette palette = far::Palette::live(m_client->ndef(), m_client->tsrc(), far::blocksIn(horizon->content));
-	const terragen::WorldCode code = terragen::WorldCode::decode(horizon->code);
-	m_year = code.year;
-	return { *atlas, *horizon, std::move(palette), std::make_shared<const terragen::System>(terragen::SystemSpec::forWorld(code)), body };
+	// made once: the body model and the palette are too slow for the main thread on every opening
+	if (!m_system) {
+		const terragen::WorldCode code = terragen::WorldCode::decode(horizon->code);
+		m_year = code.year;
+		m_system = std::make_shared<const terragen::System>(terragen::SystemSpec::forWorld(code));
+		m_palette = far::Palette::live(m_client->ndef(), m_client->tsrc(), far::blocksIn(horizon->content));
+	}
+	return { *atlas, *horizon, *m_palette, m_system, body };
 }
 
 std::optional<std::string> Session::showWorld()

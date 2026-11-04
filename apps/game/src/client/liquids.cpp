@@ -4,6 +4,7 @@
 #include "client/liquids.h"
 #include "client/clientmap.h"
 #include "client/shader.h"
+#include "settings.h"
 #include "exceptions.h"
 #include "fill/fill.h"
 #include "itemgroup.h"
@@ -131,16 +132,19 @@ Layer::Layer(scene::ISceneManager *smgr, const NodeDefManager *ndef, IShaderSour
 	m_material.BackfaceCulling = false;
 	m_material.ZWriteEnable = video::EZW_OFF;
 	m_material.FogEnable = true;
-	configure(m_fine, 16, 20, ALIGN, 24);   // a sixteenth, 10 nodes round
-	configure(m_coarse, 4, 96, 2 * ALIGN, 6); // a quarter, 48 nodes round
+	// (read once: the grids' textures are this size for as long as the world's open)
+	const auto across = [](const char *setting) { return ALIGN * int(std::lround(g_settings->getFloat(setting) * 2 / ALIGN)); };
+	configure(m_fine, 16, across("water_fine_reach"), ALIGN, 24);   // a sixteenth
+	configure(m_coarse, 4, across("water_coarse_reach"), 2 * ALIGN, 6); // a quarter
 
 	// the grids are drawn on the GPU where the driver reads a texture in a vertex shader (GL 3)
 	video::IVideoDriver *driver = smgr->getVideoDriver();
 	m_gpu = driver->getDriverType() == video::EDT_OPENGL3;
-	if (!m_gpu) {
+	if (!m_gpu)
 		warningstream << "liquids: water near is run and drawn on OpenGL 3 only; here it's drawn flat" << std::endl;
+	m_gpu = m_gpu && g_settings->getBool("water_fine");
+	if (!m_gpu)
 		return;
-	}
 	m_draw = std::make_shared<WaterDraw>();
 	m_uniforms = make_irr<WaterUniforms>(m_draw);
 	const u32 shader = shaders->getShader("liquid_shader", ShaderConstants{}, video::EMT_TRANSPARENT_VERTEX_ALPHA,
@@ -489,7 +493,7 @@ void Layer::build(v3s16 blockpos, Block &b, ClientMap &map, u32 daynight)
 
 void Layer::update(const std::unordered_set<v3s16> &changed, const std::unordered_set<v3s16> &ground,
 		const std::vector<Stream> &streams, const std::vector<Mover> &movers, ClientMap &map, v3s16 offset,
-		v3f camera, std::optional<s16> sea, u32 daynight, float dtime)
+		v3f camera, std::optional<s16> sea, u32 daynight, float dtime, bool hurrying)
 {
 	const s64 began = micros();
 	m_offset = offset;
@@ -566,7 +570,9 @@ void Layer::update(const std::unordered_set<v3s16> &changed, const std::unordere
 	std::unordered_set<v3s16> blocks(changed);
 	blocks.insert(ground.begin(), ground.end());
 	s64 looked = 0, ran = 0;
-	if (m_gpu) {
+	// Flown past too fast to see it slosh: the grids wait, and what's new is drawn flat
+	const bool grids_run = m_gpu && !hurrying;
+	if (grids_run) {
 		const s64 t0 = micros();
 		for (Grid *g : { &m_fine, &m_coarse }) {
 			place(*g);
@@ -632,14 +638,20 @@ void Layer::update(const std::unordered_set<v3s16> &changed, const std::unordere
 	fall(map, dtime);
 	const s64 grids = micros();
 
+	// (at speed a new block's flat mesh could take 20 ms a frame: the rest wait for the next)
+	constexpr s64 HURRIED_FLAT_US = 2000;
 	for (v3s16 bp : rebuild) {
+		if (hurrying && micros() - grids > HURRIED_FLAT_US) {
+			m_reflat.insert(bp);
+			continue;
+		}
 		auto it = m_blocks.find(bp);
 		if (it != m_blocks.end())
 			build(bp, it->second, map, daynight);
 	}
 	const s64 flat = micros();
 	g_profiler->graphAdd("Water flat blocks", rebuild.size());
-	if (m_gpu)
+	if (grids_run)
 		for (Grid *g : { &m_fine, &m_coarse })
 			run(*g, map, daynight, dtime, relight, blocks);
 	buildDrops(map, daynight);

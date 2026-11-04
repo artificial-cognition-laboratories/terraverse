@@ -27,7 +27,7 @@ static SystemLayer::Opts layerFor(const planet::Atlas &atlas, const far::Horizon
 	auto system = std::make_shared<const terragen::System>(
 			terragen::SystemSpec::forWorld(terragen::WorldCode::decode(horizon.code)));
 	const size_t focus = systemIndex(atlas, horizon, *system, body);
-	return { system, focus, atlas.body(body).params().radius / system->radius(focus), false };
+	return { system, focus, atlas.body(body).params().radius / system->radius(focus), false, false };
 }
 
 Sky::Sky(scene::ISceneManager *smgr, IShaderSource *ssrc, const planet::Atlas &atlas, const far::Horizon &horizon, int body) :

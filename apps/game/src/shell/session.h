@@ -51,6 +51,8 @@ public:
 	// A body of this world (its atlas index), as the Planetarium shows it.
 	// Throws Refused off a planet.
 	planetarium::Planetarium::Opts world(int body) const;
+	mutable std::shared_ptr<const terragen::System> m_system; // world()'s
+	mutable std::optional<far::Palette> m_palette;
 	// Shows the body the player is on (by a key: no page asked); why not, if it can't.
 	std::optional<std::string> showWorld();
 

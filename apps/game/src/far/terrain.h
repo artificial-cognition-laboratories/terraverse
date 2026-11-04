@@ -106,6 +106,9 @@ public:
 
 	Tile build(const TileKey &key) const;
 
+	// The top solid block of an atlas cell's column, or the liquid's surface if that's higher.
+	s32 surfaceAt(const planet::Atlas::Cell &cell) const;
+
 	// The storage column at (x, z) (throws for seam).
 	Cell column(s32 x, s32 z) const;
 	// The planet's cells as the generator fills them.

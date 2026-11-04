@@ -36,6 +36,7 @@ void main(void)
 	// as SystemLayer::sphere lights a far body
 	float shade = eclipse(litOcc0, varWorld) * eclipse(litOcc1, varWorld) * eclipse(litOcc2, varWorld) * eclipse(litOcc3, varWorld);
 	float day = max(dot(up, litSun), 0.0) * shade * (1.0 - litShare) + max(dot(up, litSecond), 0.0) * litShare;
-	float lit = mix(1.0, day * 0.92 + 0.08, litOn);
+	// the night side: only sky-glow on it, deep blue, the land's shapes barely there
+	vec3 lit = mix(vec3(1.0), mix(vec3(0.045, 0.06, 0.10), vec3(1.0), day), litOn);
 	gl_FragColor = vec4(varColor.rgb * lit, 1.0);
 }

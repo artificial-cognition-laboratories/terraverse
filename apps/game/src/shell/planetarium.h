@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <future>
+
 #include "planetarium/planetarium.h"
 #include <json/json.h>
 #include <functional>
@@ -38,7 +40,11 @@ class Planetarium
 public:
 	// The body the page asks for (`body` as the page sent it; may be null).
 	// Throws shell::Refused for one this window can't show.
-	using Body = std::function<planetarium::Planetarium::Opts(const Json::Value &body)>;
+	// What it gives back is run on a worker: a body's atlas and system take long
+	// enough to freeze the window (it may throw Refused there too; logged, the
+	// view stays). The window keeps drawing what it has until it's made.
+	using Making = std::function<planetarium::Planetarium::Opts()>;
+	using Body = std::function<Making(const Json::Value &body)>;
 
 	struct Opts
 	{
@@ -54,7 +60,7 @@ public:
 	// whenever the page hides the planet: the menu's universe, always there.
 	void serve(Body body, std::optional<Json::Value> backdrop = std::nullopt);
 
-	bool shown() const { return m_current != nullptr || m_next != nullptr; }
+	bool shown() const { return m_current != nullptr || m_next != nullptr || m_wanted.has_value(); }
 	// Shows a body directly (a key, a command line), as `planetarium.show` does.
 	void show(planetarium::Planetarium::Opts body);
 	// Hidden, the view's kept (parked) and shown again at once when the
@@ -100,9 +106,17 @@ private:
 	Body m_body;
 	std::optional<Json::Value> m_backdrop;
 	Json::Value m_asked; // the body shown (or being made), as asked for
+	std::future<planetarium::Planetarium::Opts> m_making; // on the worker (one at a time: what they share isn't locked)
+	bool m_makingWanted = false;   // what's on the worker is still what's wanted
+	std::optional<Making> m_wanted; // the latest asked for, not yet started or being made
+	std::vector<std::function<void()>> m_afterMade; // what the page asked of a body not made yet
+	void start();                  // the wanted body onto the worker, if it's free
+	void collect();                // one the worker's finished, onto the screen
+	bool waiting() const { return m_wanted.has_value(); }
 	std::unique_ptr<planetarium::Planetarium> m_current; // on screen
 	std::unique_ptr<planetarium::Planetarium> m_next;    // being made ready to take its place
 	std::unique_ptr<planetarium::Planetarium> m_parked;  // hidden, kept to show again
+	bool m_looked = false; // the parked one has been on screen: its camera's the player's now
 	std::optional<std::pair<double, double>> m_over; // where the parked camera's over (idle)
 	v2u32 m_screen{ 1280, 720 }; // the window, as last drawn (a parked body builds for it)
 	std::vector<planetarium::MarkerLayer::Marker> m_markers; // the page's, kept across a swap
@@ -125,11 +139,26 @@ private:
 	struct Clock
 	{
 		double date = 0.25;  // 0..1 of the playable body's orbit
-		bool running = true;
+		bool running = false; // the menu's backdrop holds still; the create viewer runs it
 		double rate = 1.0 / (365.25 * 60); // of an orbit a second: a day a minute (Earth's)
 		double reported = 0; // seconds since the page was last told
 	};
 	Clock m_clock;
+	// the page's composed view (planetarium.scene), and how far the frame's
+	// eased toward it (0..1)
+	struct Scene
+	{
+		bool shown = false;
+		double blend = 0, seconds = 1;
+		float aspect = 0; // the screen it was composed for
+	};
+	Scene m_scene;
+	Json::Value scene(const Json::Value &intent);
+public:
+	// The picture already there: no easing in (a menu opening on it).
+	void opening();
+private:
+	void compose(planetarium::Planetarium &p, double seconds);
 	void apply(planetarium::Planetarium &p) const; // the clock and the page's view, onto a body
 	// what the page was last told is under the mouse; what's there now, told if it's changed
 	std::optional<planetarium::Planetarium::Hover> m_hovered;

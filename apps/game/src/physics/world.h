@@ -274,6 +274,8 @@ public:
 	// Whether ground that isn't loaded is air to it (something flying faster
 	// than the map arrives), or waited for (walking: the default).
 	void unknownIsAir(CharId id, bool air);
+	void keepsSpeed(CharId id, bool keeps);
+	void skipsGround(CharId id, bool skips);
 	// Put somewhere, moving so (a teleport, or a hand-over from other movement).
 	void place(CharId id, const v3d &foot, v3f velocity);
 	struct CharacterState

@@ -174,7 +174,8 @@ core.register_on_leaveplayer(function(player)
 	modes[player:get_player_name()] = nil
 end)
 
-dofile(core.get_modpath("tf_player") .. "/widgets.lua")(modes, set_mode, damage)
+dofile(core.get_modpath("tf_player") .. "/widgets.lua")(modes)
+dofile(core.get_modpath("tf_player") .. "/controls.lua")(modes, set_mode, damage)
 
 -- The wiki (key G): offered where the world's rules allow it (tf_wiki in
 -- world.mt, chosen on the create screen's Rules). Worlds made before the

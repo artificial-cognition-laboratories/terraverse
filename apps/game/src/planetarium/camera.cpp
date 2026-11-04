@@ -57,6 +57,13 @@ void OrbitCamera::altitude(double altitude)
 	m_altitude = std::clamp(altitude, LOWEST, m_farthest);
 }
 
+void OrbitCamera::place(const Vec &up, const Vec &north, double altitude)
+{
+	m_up = up;
+	m_north = north;
+	this->altitude(altitude);
+}
+
 void OrbitCamera::resize(double sea, double farthest)
 {
 	const double radii = m_altitude / m_sea;
@@ -152,13 +159,13 @@ core::matrix4 OrbitCamera::perspective(float aspect, float near, float far, v2f 
 	return m;
 }
 
-core::matrix4 OrbitCamera::projection(float aspect, v2f shift) const
+core::matrix4 OrbitCamera::projection(float aspect, v2f shift, float fov) const
 {
 	// near: well short of the highest ground under it; far: past the body's
 	// back, and round the far side of an orbit drawn out to five radii
 	const float near = (float)std::max(1.0, m_altitude * 0.2) * BS;
 	const float far = (float)(m_altitude + 6.2 * m_sea) * BS;
-	return perspective(aspect, near, far, shift);
+	return perspective(aspect, near, far, shift, fov);
 }
 
 } // namespace planetarium

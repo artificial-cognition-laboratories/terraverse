@@ -331,6 +331,11 @@ void Shell::on(const std::string &kind, Verb verb)
 	m->bridge.on(kind, std::move(verb));
 }
 
+void Shell::drain()
+{
+	m->bridge.drain();
+}
+
 void Shell::onAsync(const std::string &kind, Verb verb)
 {
 	m->bridge.onAsync(kind, std::move(verb));

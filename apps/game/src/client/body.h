@@ -3,12 +3,14 @@
 
 #pragma once
 
+#include "far/terrain.h"
 #include "irr_v3d.h"
 #include "orbit/field.h"
 #include "physics/pose.h"
 #include "physics/reach.h"
 #include "physics/walk.h"
 #include "physics/world.h"
+#include <future>
 #include <map>
 #include <memory>
 #include <optional>
@@ -56,6 +58,12 @@ public:
 	// it starts thrusting here.
 	bool moves(LocalPlayer &p);
 	bool thrusting() const { return m_thrusting; }
+	// A line for the debug text: what the body's doing and how fast (world controls, View).
+	std::string readout() const;
+	// Flying well above the land: in the open sky, whatever the blocks here say of their light.
+	bool inOpenSky() const { return m_clear_of_land; }
+	// The near world this flight asks for, of `wanted` nodes.
+	float nearRange(float wanted) const;
 	// How it holds itself now: what was asked, unless a ceiling won't let it up.
 	physics::Stance stance() const { return m_stance; }
 	// A slide or roll has finished since last asked: a tapped crouch is used up by it.
@@ -154,7 +162,13 @@ public:
 	std::vector<physics::World::Contact> drivenWheels() const;
 
 private:
-	bool aboveAllGround(const v3f &at) const;
+	float landBelow(const v3f &at, const v3f &velocity); // nodes, the least of here and a second on
+	std::map<int, std::unique_ptr<far::Generator>> m_lands; // the land under a flight, by body
+	std::future<float> m_sky_answer;
+	float m_above_land = 0;
+	int m_tier = 0; // physics::FLIGHT_TIERS, from 1
+	float m_sky_check = 0;
+	bool m_clear_of_land = false;
 	struct Mirror
 	{
 		physics::World::Id id;

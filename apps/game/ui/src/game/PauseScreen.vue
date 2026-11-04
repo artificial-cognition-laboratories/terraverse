@@ -6,7 +6,7 @@ import SettingsPanel from "../settings/SettingsPanel.vue"
 
 /**
  * Esc in-game. The engine has paused singleplayer while this is open; Esc again resumes. The world isn't
- * dimmed and the HUD stays up (the map, the profile, the building rails), clickable round the buttons.
+ * dimmed and the HUD stays up (the map, the wiki, the profile, the building rails), clickable round the buttons.
  */
 const bridge = useBridge()
 const view = ref<"menu" | "settings">("menu")
@@ -18,7 +18,6 @@ const settingsQuery = ref("")
         <nav v-if="view === 'menu'" class="menu" aria-label="Paused">
             <Button variant="primary" @click="bridge.send('screen.close', {})">Resume</Button>
             <Button @click="view = 'settings'">Settings</Button>
-            <Button @click="bridge.send('screen.open', { name: 'map' })">Map</Button>
             <div class="pair">
                 <Button @click="bridge.send('game.leave', {})">Main menu</Button>
                 <Button variant="danger" @click="bridge.send('game.quit', {})">Quit</Button>

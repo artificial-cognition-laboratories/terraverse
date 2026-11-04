@@ -38,6 +38,8 @@ public:
 	void focus(double latitude, double longitude, std::optional<double> altitude = std::nullopt);
 	// at an altitude (kept within range), over where it is
 	void altitude(double altitude);
+	// from the centre to it (unit), the screen's up (unit, square to it), and how high
+	void place(const Vec &up, const Vec &north, double altitude);
 	// round a body of another size (its sea, its farthest): as high in its radii
 	void resize(double sea, double farthest);
 
@@ -61,7 +63,7 @@ public:
 	// view and projection, the camera at the origin (camera-relative: a
 	// point p is drawn at (p − position()) · BS)
 	core::matrix4 view() const;
-	core::matrix4 projection(float aspect, v2f shift = v2f()) const;
+	core::matrix4 projection(float aspect, v2f shift = v2f(), float fov = FOV) const;
 	// A perspective, its middle moved `shift` (the screen's half widths and
 	// heights, +x right, +y up): what's ahead is drawn there, not at the
 	// screen's middle (the free part of a screen half under a panel).

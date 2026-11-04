@@ -65,6 +65,7 @@ public:
 	void on(const std::string &kind, Verb verb);
 	// Slow, thread-safe work answered off the main thread (see Bridge::onAsync).
 	void onAsync(const std::string &kind, Verb verb);
+	void drain(); // until the worker has finished what it was given
 	void off(const std::string &kind);
 	// A one-off message to the page; held until the page is ready.
 	void send(const Json::Value &message);

@@ -43,6 +43,36 @@ function cannedSandbox(time: number): SandboxFrame {
     }
 }
 
+/** A stand-in for tf_player/controls.lua: one of each kind, on the pages it has. */
+export function mockWorldControls(): UiValues["world_controls"] {
+    return { mode: "creative", pages: [
+        { id: "time", title: "Time", icon: "time", sections: [
+            { title: "Time of day", hint: "On this planet", controls: [
+                { id: "time.noon", kind: "button", label: "Noon" }, { id: "time.dusk", kind: "button", label: "Dusk" },
+                { id: "time.hour", kind: "slider", label: "Set time", min: 0, max: 0.99, step: 0.01, format: "clock", value: 0.5 },
+            ] },
+            { title: "Clock", hint: "For everyone", controls: [
+                { id: "time.passes", kind: "toggle", label: "Time passes", value: true },
+                { id: "time.speed", kind: "choice", label: "Speed", value: 1, options: [{ value: 1, label: "×1" }, { value: 10, label: "×10" }, { value: 100, label: "×100" }] },
+            ] },
+            { title: "Date", controls: [{ id: "time.length", kind: "fact", label: "Length of the day", value: "30.0 h" }] },
+        ] },
+        { id: "player", title: "Player", icon: "player", sections: [
+            { title: "Moving", controls: [{ id: "player.fly", kind: "toggle", label: "Fly", setting: "free_move" }] },
+        ] },
+        { id: "travel", title: "Travel", icon: "travel", sections: [{ title: "Places", controls: [{ id: "travel.save", kind: "button", label: "Save this spot" }] }] },
+        { id: "world", title: "World", icon: "world", sections: [{ title: "Rules", controls: [{ id: "world.damage", kind: "fact", label: "Damage", value: "On" }] }] },
+        { id: "items", title: "Items", icon: "items", sections: [{ title: "Inventory", controls: [{ id: "items.clear", kind: "button", label: "Clear inventory", confirm: true, tone: "danger" }] }] },
+        { id: "tuning", title: "Tuning", icon: "tuning", sections: [{ title: "Wall kick", controls: [
+            { id: "tuning.kick_out", kind: "slider", label: "Out from the wall", setting: "tune_kick_out", min: 0, max: 12, step: 0.1, default: 4.5, unit: "n/s" },
+            { id: "tuning.reset", kind: "button", label: "Back to defaults", resets: true },
+        ] }] },
+        { id: "view", title: "View", icon: "view", sections: [{ title: "Overlays", controls: [
+            { id: "view.bounds", kind: "choice", label: "Block bounds", setting: "view_block_bounds", options: [{ value: "off", label: "Off" }, { value: "near", label: "Nearby" }] },
+        ] }] },
+    ] }
+}
+
 export function MockBridge() {
     const listeners = new Set<(message: EngineMessage) => void>()
     let worlds: World[] = [
@@ -85,35 +115,38 @@ export function MockBridge() {
     const settings: Record<string, number | boolean | string> = {
         viewing_range: 200, fov: 72, fps_max: 60, mouse_sensitivity: 0.2, sound_volume: 0.8,
         music_volume: 0.45, undersampling: 1, display_gamma: 1, pause_on_lost_focus: false,
-        screenshot_format: "png", screenshot_quality: 0, fog_start: 0.4, directional_colored_fog: true,
+        screenshot_format: "png", screenshot_quality: 0, fog_start: 0.4, 
         fullscreen: false, vsync: false, enable_dynamic_shadows: true,
         smooth_lighting: true, shadow_filters: "1", shadow_map_texture_size: "2048", shadow_map_max_distance: 140, shadow_soft_radius: 5,
         shadow_strength_gamma: 1, shadow_map_texture_32bit: true, shadow_map_color: false,
         enable_translucent_foliage: false, leaves_style: "fancy", mip_map: false,
         bilinear_filter: false, trilinear_filter: false, anisotropic_filter: false,
         antialiasing: "none", fsaa: "2", fxaa: false, connected_glass: false,
-        translucent_liquids: true, enable_post_processing: true, tone_mapping: false,
+        enable_post_processing: true, tone_mapping: false,
         enable_auto_exposure: false, exposure_compensation: 0, debanding: true,
-        enable_volumetric_lighting: false, soft_clouds: false, enable_waving_leaves: false,
-        enable_waving_plants: false, enable_waving_water: false, water_wave_height: 1,
-        enable_water_reflections: false, enable_dig_particles: true, performance_tradeoffs: false,
+        enable_volumetric_lighting: false, enable_waving_leaves: false,
+        enable_waving_plants: false, 
+        enable_dig_particles: true, performance_tradeoffs: false,
         occlusion_culler: "bfs", enable_raytraced_culling: true,
+        water_fine: true, water_fine_reach: 10, water_coarse_reach: 48, ground_detail_near: 12, ground_detail_far: 32,
         far_view: true, far_view_detail: 2, far_view_max: 16000,
-        fps_max_unfocused: 10, sound_volume_unfocused: 0.3, hud_scaling: 1,
-        view_bobbing_amount: 1, enable_bloom: false, enable_fog: true,
-        enable_3d_clouds: true, invert_mouse: false, doubletap_jump: true,
+        fps_max_unfocused: 10, sound_volume_unfocused: 0.3, 
+        enable_bloom: false, enable_fog: true,
+        invert_mouse: false, doubletap_jump: true,
         camera_smoothing: 0, arm_inertia: true, toggle_sneak_key: false, toggle_aux1_key: false,
-        autojump: false, always_fly_fast: true, aux1_descends: false, enable_hotbar_mouse_wheel: true,
+        enable_hotbar_mouse_wheel: true,
         invert_hotbar_mouse_wheel: false, safe_dig_and_place: false, repeat_place_time: 0.25,
         joystick_frustum_sensitivity: 170, joystick_inner_deadzone: 0.25, joystick_outer_deadzone: 0,
-        mute_sound: false, hurt_flash_enabled: true, gui_scaling: 1, smooth_scrolling: true,
-        inventory_items_animations: false, hud_hotbar_max_width: 1, show_nametag_backgrounds: true,
-        node_highlighting: "box", crosshair_alpha: 255, chat_font_size: 0, recent_chat_messages: 6,
+        mute_sound: false, hurt_flash_enabled: true, 
+        show_nametag_backgrounds: true,
+        node_highlighting: "box", chat_font_size: 0, recent_chat_messages: 6,
         widget_map: true, widget_map_corner: 0, widget_map_scale: 2, widget_map_shape: 0,
         widget_map_rotate: true, widget_map_zoom: 3,
         widget_world_controls: true, widget_world_controls_corner: 1,
+        free_move: false, fast_move: false, noclip: false, view_debug_text: false, view_movement: false, view_profiler: false,
+        view_wireframe: false, view_bboxes: false, view_block_bounds: "off", tune_kick_out: 4.5,
     }
-    const worldControls: UiValues["world_controls"] = { mode: "survival", damage: true, time: 0.5, paused: false }
+    const worldControls: UiValues["world_controls"] = mockWorldControls()
     const defaultBindings: Record<string, string> = {
         keymap_forward: "SYSTEM_SCANCODE_26|GAMEPAD_AXIS_MINUS_1",
         keymap_backward: "SYSTEM_SCANCODE_22|GAMEPAD_AXIS_PLUS_1",
@@ -320,6 +353,7 @@ export function MockBridge() {
         ready: () => null,
         // no native planet in the gallery: the page around it is what's shown
         "planetarium.show": () => null,
+        "planetarium.scene": () => null,
         "planetarium.hide": () => null,
         "planetarium.focus": () => null,
         "planetarium.markers": () => null,
@@ -393,20 +427,13 @@ export function MockBridge() {
         },
         "ui.send": (event) => {
             if (event.name === "map.teleport") return null // the gallery has no world to move in
-            if (event.name === "world.mode") {
-                worldControls.mode = event.payload.mode
-                emitAll({ kind: "ui", key: "world_controls", value: { ...worldControls } })
-                emitAll({ kind: "ui", key: "creative", value: event.payload.mode === "creative" })
-                return null
-            }
-            if (event.name === "world.time") {
-                const times = { dawn: 0.23, noon: 0.5, dusk: 0.77, midnight: 0 }
-                worldControls.time = typeof event.payload.time === "number" ? event.payload.time : times[event.payload.time]
-                emitAll({ kind: "ui", key: "world_controls", value: { ...worldControls } })
-                return null
-            }
-            if (event.name === "world.clock") {
-                worldControls.paused = event.payload.paused
+            if (event.name === "controls.set") {
+                for (const page of worldControls.pages) for (const section of page.sections) for (const control of section.controls) {
+                    if (control.id !== event.payload.id) continue
+                    if (control.kind === "toggle" && typeof event.payload.value === "boolean") control.value = event.payload.value
+                    if (control.kind === "slider" && typeof event.payload.value === "number") control.value = event.payload.value
+                    if (control.kind === "choice" && (typeof event.payload.value === "string" || typeof event.payload.value === "number")) control.value = event.payload.value
+                }
                 emitAll({ kind: "ui", key: "world_controls", value: { ...worldControls } })
                 return null
             }

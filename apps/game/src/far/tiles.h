@@ -31,6 +31,8 @@ struct Eye
 	float cut;       // nearer than this from the eye, someone else draws (the near world); 0 for none
 	float range;     // farther than this along the ground, nothing is drawn
 	float split;     // a tile splits while nearer than this many of its spans past the cut
+	bool keep_fine = false; // what isn't built yet shows a coarser tile behind the rest (behind()), not instead of it
+	Tiling::Vec heading{ 0, 0, 0 }; // unit, or none: which way it's moving, on the planet. What's ahead is built first
 };
 
 /*
@@ -74,6 +76,8 @@ public:
 	};
 	// What update() chose, ready to draw.
 	std::vector<Drawn> drawn() const;
+	// With Eye::keep_fine: coarser tiles filling holes, to draw behind everything else.
+	std::vector<Drawn> behind() const;
 	// How many tiles update() wanted that aren't built yet: 0 once the eye's
 	// view is complete.
 	size_t pending() const { return m_pending; }
@@ -111,6 +115,7 @@ private:
 		u32 painted = 0; // the tint it's coloured by (Tiles::m_tints)
 		bool ready = false;
 		u32 used = 0; // the frame it was last wanted or drawn
+		u32 whole = 0; // the frame it was last drawn as itself, not split
 	};
 
 	// how far a tile is from the eye along the ground (blocks, less half its size)
@@ -128,7 +133,7 @@ private:
 	const Tiling m_tiling;
 	std::unique_ptr<Workers> m_workers;
 	std::map<Key, Entry> m_tiles;
-	std::vector<Key> m_draw;
+	std::vector<Key> m_draw, m_behind;
 	u32 m_frame = 0;
 	size_t m_pending = 0;
 	std::shared_ptr<const Tint> m_tint;

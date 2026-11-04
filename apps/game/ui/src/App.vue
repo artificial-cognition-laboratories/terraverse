@@ -28,11 +28,12 @@ const lab = useLab()
         <PauseScreen v-if="store.screen === 'pause'" />
         <MapScreen v-else-if="store.screen === 'map'" />
         <InventoryScreen v-else-if="store.screen === 'inventory'" />
-        <WikiScreen v-else-if="store.screen === 'wiki'" place="game" @close="bridge.send('screen.close', {})" />
+        <div v-else-if="store.screen === 'wiki'" class="centred"><WikiScreen place="game" @close="bridge.send('screen.close', {})" /></div>
     </template>
     <InviteToast v-if="bridge.connected" />
 </template>
 
 <style scoped>
+.centred { position: fixed; inset: 0; display: grid; place-items: center; }
 .detached { padding: 24px; color: var(--ink-dim); background: var(--stone-0); height: 100%; margin: 0; }
 </style>

@@ -376,7 +376,11 @@ void Client::handleCommand_TimeOfDay(NetworkPacket* pkt)
 	float time_speed;
 	*pkt >> time_speed;
 
+	u32 day_count;
+	*pkt >> day_count; // Terra Firma: the server's, so the sky and the light read one date
+
 	// Update environment
+	m_env.setDayCount(day_count);
 	m_env.setTimeOfDay(time_of_day);
 	m_env.setTimeOfDaySpeed(time_speed);
 }

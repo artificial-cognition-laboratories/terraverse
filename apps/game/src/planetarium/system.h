@@ -12,6 +12,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <map>
 #include <vector>
 
 class IShaderSource;
@@ -33,6 +34,8 @@ namespace video { class IVideoDriver; class ITexture; }
 */
 namespace planetarium {
 
+class Galaxy;
+
 class SystemLayer
 {
 public:
@@ -42,6 +45,7 @@ public:
 		size_t focus;       // the body at the origin, drawn by the caller
 		double blocksPerKm; // the focused body's scale
 		bool orbits = true; // their paths drawn (a viewer's aid: not in a sky seen from the ground)
+		bool glare = true;  // the star dazzles, over all that's nearer (a camera's: not in a sky seen from the ground)
 	};
 	// (The scene is the focused body's frame: its centre the origin, its y
 	// its spin axis, tilted from its orbit's by its tilt.)
@@ -112,7 +116,15 @@ private:
 	void glow(video::IVideoDriver *driver, const Camera &camera, const Body &star);
 	void shells(video::IVideoDriver *driver, const Body &b, const terragen::System::Vec &sun);
 	void orbits(video::IVideoDriver *driver, const Camera &camera, double day);
-	void stars(video::IVideoDriver *driver, const Camera &camera);
+	void glare(video::IVideoDriver *driver, const Camera &camera, const std::vector<Body> &bodies);
+	video::ITexture *glareOf(video::IVideoDriver *driver, video::SColor colour);
+	std::map<u32, video::ITexture *> m_glares; // by the star's colour
+	float m_skyLevel = 1;
+	bool m_orbits; // Opts::orbits, or as orbits(bool) has it now
+public:
+	void orbits(bool shown) { m_orbits = shown; }
+	void skyLevel(float level) { m_skyLevel = level; }
+private:
 
 	// a vector of the system (km, the ecliptic's axes) in the scene's (blocks)
 	terragen::System::Vec scene(const terragen::System::Vec &km) const;
@@ -126,9 +138,7 @@ private:
 	std::optional<size_t> m_highlight;
 	// the sky: soft dots round the unit sphere and the galaxy's band behind
 	// them, made for a screen's height
-	std::vector<video::S3DVertex> m_stars;
-	std::vector<u32> m_starIndices;
-	u32 m_starsFor = 0;
+	std::unique_ptr<Galaxy> m_galaxy; // the stars behind it all, made with the shaders
 	std::vector<u16> m_window; // a cut sphere's triangles, this frame
 	irr_ptr<scene::SMeshBuffer> m_sphere; // unit, its normals its points
 	video::ITexture *m_glow = nullptr;

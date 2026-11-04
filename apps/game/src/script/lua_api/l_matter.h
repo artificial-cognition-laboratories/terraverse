@@ -60,4 +60,6 @@ private:
 
 public:
 	static void Initialize(lua_State *L, int top);
+	// a process runs one server after another: the next world starts its matter afresh
+	static void shutdown();
 };

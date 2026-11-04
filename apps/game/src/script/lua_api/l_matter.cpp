@@ -702,6 +702,11 @@ int ModApiMatter::l_density(lua_State *L)
 	});
 }
 
+void ModApiMatter::shutdown()
+{
+	s_matter.reset();
+}
+
 void ModApiMatter::Initialize(lua_State *L, int top)
 {
 	lua_newtable(L);

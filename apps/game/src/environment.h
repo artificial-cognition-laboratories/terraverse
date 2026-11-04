@@ -56,6 +56,7 @@ public:
 
 	void stepTimeOfDay(float dtime);
 
+	void setDayCount(u32 days);
 	void setTimeOfDaySpeed(float speed);
 
 	void setDayNightRatioOverride(bool enable, u32 value);

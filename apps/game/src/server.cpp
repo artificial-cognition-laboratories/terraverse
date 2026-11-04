@@ -59,6 +59,7 @@
 #include "modchannels.h"
 #include "script/common/c_types.h" // LuaError
 #include "scripting_server.h"
+#include "script/lua_api/l_matter.h"
 #include "server/mods.h" // ServerModManager
 
 // Network
@@ -443,6 +444,7 @@ Server::~Server()
 		m_workshop.reset();
 		m_inventory_mgr.reset();
 		m_script.reset();
+		ModApiMatter::shutdown(); // Terra Firma: it points at this server
 
 		// Note that this also deletes and saves the map.
 		delete m_env;
@@ -1532,6 +1534,16 @@ void Server::ProcessData(NetworkPacket *pkt)
 
 void Server::setTimeOfDay(u32 time)
 {
+	// (the date only goes forward: what's kept by it, the weather, replays from it)
+	if (time < m_env->getTimeOfDay())
+		m_env->setDayCount(m_env->getDayCount() + 1);
+	m_env->setTimeOfDay(time);
+	m_time_of_day_send_timer = 0;
+}
+
+void Server::setDate(u32 days, u32 time)
+{
+	m_env->setDayCount(days);
 	m_env->setTimeOfDay(time);
 	m_time_of_day_send_timer = 0;
 }
@@ -2240,7 +2252,7 @@ void Server::SendCamera(session_t peer_id, Player *player)
 void Server::SendTimeOfDay(session_t peer_id, u16 time, f32 time_speed)
 {
 	NetworkPacket pkt(TOCLIENT_TIME_OF_DAY, 0, peer_id);
-	pkt << time << time_speed;
+	pkt << time << time_speed << m_env->getDayCount(); // Terra Firma: the client never counts days itself
 
 	if (peer_id == PEER_ID_INEXISTENT) {
 		m_clients.sendToAll(&pkt);

@@ -96,6 +96,25 @@ A landing costs by how hard and how far from the way it wants to go (`landingSta
 Past what balance takes, or landing at 11 nodes/s unrolled, it goes down (`physics::Fallen`, `Body::knockDown`, `Stance::DOWN`): over about its feet the way it's
 going, front or back; slides to a stop; hands plant, knee and foot drawn under it, stands. A direction or Space gets up sooner, and off that way. Protocol 95.
 
+## 4j. One date, and the world controls (sprint 128) — built, unseen
+
+Time: the client had been counting a day whenever a sync found it ahead, and a body's clock restarted its
+`at` each engine day, so on any day that isn't 24 hours (Elder Mesa's is 30) the sky and the light disagreed and
+one `/time` gave different hours. The server now sends its day count; `at` holds no days; `set_hour` runs the
+clock forward to that hour of the planet's own day. A stopped clock banks nothing.
+
+Menu: `tf_player/controls.lua`, pages as data; `setting` controls are the client's own. Tuning is global to the
+machine, not per world. Not built: setting the weather, world rules live, a go-to-spawn, collision capsule outlines.
+
+Movement list still open from the playtest: get-up hands forward, higher timed rolls, tumbling at speed,
+kick waits for that leg's next step and is weaker, corner flops as a world setting later.
+
+## 4k. Flying at speed (sprint 129) — built, unseen
+
+A flight clear of the land asks for less of the map by speed or height (`physics::FLIGHT_TIERS`); wanted range is
+what the server sends and generates by, so the near world, water and generation all shrink with it. The far view is
+the land up there. Next to look at, by the new timers: physics ground on a worker, mesh upload budgets, FOV with speed.
+
 ## 5. Impact
 Punch, kick, knockback (server confirms), ragdoll falls on Jolt's ragdoll.
 

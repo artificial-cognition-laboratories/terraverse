@@ -11,6 +11,7 @@
 #include "planetarium/markers.h"
 #include "planetarium/paint.h"
 #include "planetarium/seams.h"
+#include "planetarium/shot.h"
 #include "planetarium/system.h"
 #include <chrono>
 #include <future>
@@ -103,13 +104,23 @@ public:
 		std::optional<double> latitude, longitude, altitude;
 		std::optional<double> radii; // or the altitude in the body's radii
 		double seconds;
+		std::optional<OrbitCamera> camera = std::nullopt; // or exactly this one (round `body`)
 	};
 	void fly(const Flight &flight);
+	// To a composed view of the tiled body, as the day stands (day first), on
+	// a screen this shape. The shot's centre is the host's to frame.
+	void compose(const Shot &shot, float aspect, double seconds);
+	// Whether the bodies' orbits are drawn.
+	void orbits(bool shown) { m_system.orbits(shown); }
 	bool flying() const { return m_flight.has_value(); }
 
 	// Where the view's middle is drawn (the free part of the screen: as
 	// OrbitCamera::perspective's shift).
 	void frame(v2f shift) { m_shift = shift; }
+	// The lens (radians, vertical): OrbitCamera::FOV unless a shot asks for another.
+	void fov(float fov) { m_fov = fov; }
+	// How bright the galaxy behind it is drawn, 0..1.
+	void skyLevel(float level) { m_system.skyLevel(level); }
 
 	// An overlay on the land (planning/sprint-83-planetarium.md): painted
 	// from the world model's fields as each tile is built (Painter), the
@@ -188,6 +199,7 @@ private:
 	size_t m_target; // the body the camera's round
 	double m_day = 0;
 	double m_spin = 0; // radians: the tiled body turned, its ground to space
+	float m_fov = OrbitCamera::FOV;
 	v2f m_shift;       // where the view's middle is drawn (frame)
 	std::optional<Layer> m_layer;
 	// the land's colours under a layer, from that body's world model (an atlas body's)

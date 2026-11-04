@@ -69,6 +69,12 @@ static Cell cellOf(const terra::Columns &columns, const terra::Column &c)
 	return cell;
 }
 
+s32 Generator::surfaceAt(const planet::Atlas::Cell &cell) const
+{
+	const Cell c = cellOf(*m_columns, m_columns->atPlace(m_atlas.place(cell)));
+	return std::max(c.ground, c.water);
+}
+
 Cell Generator::column(s32 x, s32 z) const
 {
 	const terra::Column c = m_columns->at(x, z);

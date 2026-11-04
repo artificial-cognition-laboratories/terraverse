@@ -35,6 +35,27 @@ inline bool trips(float rise, float pace) { return rise >= TRIP_RISE && pace >= 
 
 // Past what balance can take, it goes down (sprint 127): over whichever way it's going, on the ground a while
 // by how hard it was, and up again. Asked to, it gets up sooner and quicker. The same state a blow will use.
+// How much of the near world a flight wants. The map's built for walking past it:
+// at speed or high over the land, its blocks are gone before they're any use, and
+// the far view is the land instead. Only clear of the land (Body::move).
+struct FlightTier
+{
+	float speed; // nodes/s, or
+	float above; // nodes over the land: from either, this tier
+	float near;  // nodes of map blocks it asks for
+};
+constexpr FlightTier FLIGHT_TIERS[] = { { 100, 128, 64 }, { 400, 512, 16 } };
+// (0: walking's, all of it.) Eases out a fifth lower than it came in, so it doesn't flip on the line.
+inline int flightTier(float speed, float above, int was)
+{
+	int tier = 0;
+	for (int i = 0; i < (int)(sizeof(FLIGHT_TIERS) / sizeof(FLIGHT_TIERS[0])); i++) {
+		const float k = i < was ? 0.8f : 1.f;
+		if (speed >= FLIGHT_TIERS[i].speed * k || above >= FLIGHT_TIERS[i].above * k)
+			tier = i + 1;
+	}
+	return tier;
+}
 constexpr float FALLS_FROM = 0.85f;  // of landingStagger
 constexpr float FALLS_AT = 11;       // nodes/s down, however it landed
 class Fallen

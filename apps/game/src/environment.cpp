@@ -44,8 +44,8 @@ void Environment::setDayNightRatioOverride(bool enable, u32 value)
 void Environment::setTimeOfDay(u32 time)
 {
 	MutexAutoLock lock(m_time_lock);
-	if (m_time_of_day > time)
-		++m_day_count;
+	// Terra Firma: never counts a day. A client ahead of the server's sync was
+	// counting one every few seconds; whoever means a new day says so (setDayCount).
 	m_time_of_day = time;
 	m_time_of_day_f = (float)time / 24000.0;
 }
@@ -393,6 +393,11 @@ void Environment::continueRaycast(RaycastState *state, PointedThing *result_p)
 	}
 }
 
+void Environment::setDayCount(u32 days)
+{
+	m_day_count = days;
+}
+
 void Environment::stepTimeOfDay(float dtime)
 {
 	MutexAutoLock lock(this->m_time_lock);
@@ -402,7 +407,11 @@ void Environment::stepTimeOfDay(float dtime)
 	f32 cached_time_of_day_speed = m_time_of_day_speed;
 
 	f32 speed = cached_time_of_day_speed * 24000. / (24. * 3600);
-	m_time_conversion_skew += dtime;
+	// Terra Firma: a stopped clock banks nothing to spend when it starts again
+	if (speed <= 0)
+		m_time_conversion_skew = 0;
+	else
+		m_time_conversion_skew += dtime;
 	u32 units = (u32)(m_time_conversion_skew * speed);
 	bool sync_f = false;
 	if (units > 0) {

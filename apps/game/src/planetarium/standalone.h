@@ -18,6 +18,9 @@ namespace planetarium {
 // `bench`: run that many seconds on a script (a few to settle, then a layer
 // switched each second, through synthetic layers and back to none) and print
 // the worst frame overall and the worst just after a switch, then return.
-void runStandalone(const std::string &code, std::optional<double> bench = std::nullopt);
+// `shot`: render the main menu's picture (planetarium/shot.h) to that PNG, once
+// its land is built, and return. For tuning its looks without the game.
+void runStandalone(const std::string &code, std::optional<double> bench = std::nullopt,
+		std::optional<std::string> shot = std::nullopt);
 
 } // namespace planetarium

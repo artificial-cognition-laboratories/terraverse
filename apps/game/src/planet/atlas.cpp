@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "atlas.h"
+#include "log.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -502,12 +503,15 @@ std::optional<Atlas::Step> Atlas::step(Node from, int axis, int sign) const
 		if (it != cache.steps.end())
 			return it->second;
 	}
-	const std::optional<Step> found = findStep(from, *c, axis, sign);
+	bool paged = true;
+	const std::optional<Step> found = findStep(from, *c, axis, sign, paged);
+	if (!paged)
+		return std::nullopt; // not in the window yet: no step today, and not kept as the answer
 	std::lock_guard<std::mutex> hold(cache.lock);
 	return cache.steps.emplace(key, found).first->second;
 }
 
-std::optional<Atlas::Step> Atlas::findStep(Node from, const Cell &c, int axis, int sign) const
+std::optional<Atlas::Step> Atlas::findStep(Node from, const Cell &c, int axis, int sign, bool &paged) const
 {
 	Node q = from;
 	(axis == 0 ? q.x : axis == 1 ? q.y : q.z) += sign;
@@ -520,6 +524,10 @@ std::optional<Atlas::Step> Atlas::findStep(Node from, const Cell &c, int axis, i
 	const Cell target = on(c, *through);
 	if (plain && target == *plain)
 		return std::nullopt; // straight through is the plain step after all
+	if (!slotOf(tileOf(target))) {
+		paged = false;
+		return std::nullopt;
+	}
 	return Step{ node(target), quarters(c, target) };
 }
 
@@ -1009,6 +1017,8 @@ std::optional<Atlas::Seen> Atlas::seeAt(Node from, double x, double y, double z)
 	// average: on a curved cell that sits a hair inside the arc, and a floor
 	// seen there would be a ledge
 	const std::array<double, 3> at = unchart(*c, chart(target, 0, 0, 0));
+	if (!slotOf(tileOf(target)))
+		return nothing; // not paged in yet: from here, nothing there
 	return Seen{ node(target), quarters(*c, target),
 		from.x + at[0], from.y + at[1], from.z + at[2] };
 }
@@ -1035,6 +1045,12 @@ std::optional<Atlas::Carried> Atlas::carry(double wasX, double wasY, double wasZ
 	const bool above = r >= top - 0.5;
 	const double k = above ? (top - 0.5) / r : 1;
 	const Cell target = on(c, shape.locate({ there.x * k, there.y * k, there.z * k }));
+	// A mover can reach a tile before the server pages it in: it stays charted where
+	// it is and asks again next step, rather than ending the session.
+	if (!slotOf(tileOf(target))) {
+		warningstream << "planet::Atlas: a mover reached a tile that isn't in the window yet" << std::endl;
+		return std::nullopt;
+	}
 	const Node n = node(target);
 	std::array<double, 3> at = unchart(target, there);
 	if (above) {

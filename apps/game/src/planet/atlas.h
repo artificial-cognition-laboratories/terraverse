@@ -459,7 +459,7 @@ private:
 	std::vector<bool> cellsAround(Block block) const;
 	std::vector<Block> findAcross(Block block) const;
 	std::vector<Block> findAt(Node from, double x, double y, double z) const;
-	std::optional<Step> findStep(Node from, const Cell &c, int axis, int sign) const;
+	std::optional<Step> findStep(Node from, const Cell &c, int axis, int sign, bool &paged) const;
 	std::optional<BlockChart> findChart(Block block) const;
 	std::vector<RimNode> findRim(Block block) const;
 	std::optional<Cut> findCut(const Cell &c) const;

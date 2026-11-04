@@ -263,6 +263,17 @@ export type LabControl =
 
 export type LabValue = boolean | number | string
 
+export type ControlValue = boolean | number | string
+export type ControlIcon = "time" | "player" | "travel" | "world" | "items" | "tuning" | "view" | "other"
+/** One world control, declared in Lua. With `setting` it's this client's own engine setting, not the server's. */
+export type ControlItem =
+    | { id: string; kind: "button"; label: string; note?: string; confirm?: boolean; tone?: "danger"; opens?: ScreenName; resets?: boolean }
+    | { id: string; kind: "toggle"; label: string; note?: string; setting?: string; value?: boolean }
+    | { id: string; kind: "slider"; label: string; note?: string; setting?: string; value?: number; min: number; max: number; step: number; default?: number; unit?: string; format?: "clock" }
+    | { id: string; kind: "choice"; label: string; note?: string; setting?: string; value?: string | number; options: { value: string | number; label: string }[] }
+    | { id: string; kind: "fact"; label: string; note?: string; value: string }
+export type ControlPage = { id: string; title: string; icon: ControlIcon; sections: { title: string; hint?: string; controls: ControlItem[] }[] }
+
 /** A Lab scenario from a mod's lab.json, as `lab.list` returns it (src/shell/lab.cpp). */
 export type LabScenario = {
     id: string
@@ -291,8 +302,8 @@ export type UiValues = {
     map_trajectory: { points: [number, number, number][]; ending: "ground" | "time"; seconds: number }
     /** tf_player: the player's place on the world model and the current date. */
     map_position: { x: number; z: number; body?: string; date: number }
-    /** tf_player: server-approved world controls and their current state. */
-    world_controls: { mode: "creative" | "survival"; damage: boolean; time: number; paused: boolean }
+    /** tf_player/controls.lua: the world controls this player may use, as data. */
+    world_controls: { mode: "creative" | "survival"; pages: ControlPage[] }
     /**
      * tf_lab/panel.lua, in a scenario's world: which scenario, its control
      * values, whether the camera is orbiting it (`browsing`), and time.
@@ -359,9 +370,8 @@ export type UiEvents = {
 	/** Replace one hotbar slot from the catalogue; tf_player validates on the server. */
 	"creative.take": { item: string; slot: number; count: number }
 	"creative.clear": { slot: number }
-    "world.mode": { mode: "creative" | "survival" }
-    "world.time": { time: "dawn" | "noon" | "dusk" | "midnight" | number }
-    "world.clock": { paused: boolean }
+    /** A world control used (a button carries no value). The server checks it against its own table. */
+    "controls.set": { id: string; value?: ControlValue }
     /** A control changed (a button press carries no value). */
     "lab.control": { id: string; value: LabValue | null }
     /** Build the scenario again with its current values. */
@@ -439,7 +449,7 @@ export type PlanetariumFlight = {
     seconds: number
 }
 
-export type PlanetariumMarker = PlanetariumPlace & { colour: string /* "#rrggbb" */ }
+export type PlanetariumMarker = PlanetariumPlace & { colour: string /* "#rrggbb" */; altitude?: number /* blocks over the sea */ }
 /** In game the body is always the world being played (null); on the create screen, the world being made. */
 /** A world (its code); in game, `body` one of its bodies (by id), drawn from its tiles. */
 export type PlanetariumBody = null | { code: string; body?: string }
@@ -581,6 +591,8 @@ export type Intents = {
     "planetarium.time": { request: { running?: boolean; date?: number }; response: null }
     /** Whether the atlas's seams are drawn. */
     "planetarium.seams": { request: { shown: boolean }; response: null }
+    /** The main menu's composed view (src/planetarium/shot.h): its camera, moment and frame, eased over `seconds`; the mouse doesn't move it. */
+    "planetarium.scene": { request: { shown: boolean; seconds: number }; response: null }
     "planetarium.frame": { request: { left?: number; right?: number; top?: number; bottom?: number }; response: null }
     "planetarium.focus": { request: (PlanetariumPlace & { altitude?: number }) | { body: string }; response: null }
     "planetarium.markers": { request: { markers: PlanetariumMarker[] }; response: null }

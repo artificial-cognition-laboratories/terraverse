@@ -311,6 +311,7 @@ public:
 	float getTimeSpeed() const;
 
 	void setTimeOfDay(u32 time);
+	void setDate(u32 days, u32 time); // Terra Firma: day and time together, as one move of the clock
 
 	/*
 		Shall be called with the environment locked.
