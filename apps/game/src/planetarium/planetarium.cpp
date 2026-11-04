@@ -278,6 +278,13 @@ void Planetarium::fly(const Flight &f)
 	m_flight = Flying{ from, { now.at.x - c.x, now.at.y - c.y, now.at.z - c.z }, f.body, end, f.seconds, 0, { look[1], look[5], look[9] } };
 }
 
+double Planetarium::litLongitude() const
+{
+	const terragen::System::Vec way = m_system.toStar(m_tiled, m_day);
+	const OrbitCamera::Vec sun = OrbitCamera::turn({ way.x, way.y, way.z }, -m_spin);
+	return std::atan2(sun.z, sun.x) + 0.7; // (off to one side: a day side with its edge of night in view)
+}
+
 void Planetarium::compose(const Shot &shot, float aspect, double seconds)
 {
 	using Vec = OrbitCamera::Vec;

@@ -67,7 +67,7 @@ function cardRef(el: unknown) {
 <template>
     <div class="dock-scene">
         <div ref="dock" class="dock" :style="width ? { width: width } : undefined">
-            <Panel :title="`${title} / ${section}`" class="dock-panel">
+            <Panel :title="section ? `${title} / ${section}` : title" class="dock-panel">
                 <template #actions>
                     <slot name="actions" />
                 </template>

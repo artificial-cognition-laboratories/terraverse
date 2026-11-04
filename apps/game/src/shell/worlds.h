@@ -31,6 +31,7 @@ public:
 			const Json::Value &settings) const;
 	void remove(const std::string &path) const;      // throws Refused
 	void pin(const std::string &path, bool pinned) const;
+	void rename(const std::string &path, const std::string &name) const; // Refused for no name
 	// A Lab scenario's own world (a scenario from Lab::find), built fresh at
 	// <user>/lab on every call: its map generator (`world.mapgen`, default
 	// singlenode) and `tf_lab = <id>`, which is what tf_lab builds. Not in

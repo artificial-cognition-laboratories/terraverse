@@ -184,6 +184,21 @@ void Worlds::pin(const std::string &path, bool pinned) const
 		throw BaseException("shell: could not save " + conf);
 }
 
+void Worlds::rename(const std::string &path, const std::string &name) const
+{
+	WorldSpec world = find(path);
+	const std::string trimmed(trim(std::string_view(name)));
+	if (trimmed.empty())
+		throw Refused("A world needs a name.");
+	std::string conf = world.path + DIR_DELIM "world.mt";
+	Settings settings;
+	if (!settings.readConfigFile(conf.c_str()))
+		throw BaseException("shell: could not read " + conf);
+	settings.set("world_name", trimmed);
+	if (!settings.updateConfigFile(conf.c_str()))
+		throw BaseException("shell: could not save " + conf);
+}
+
 void Worlds::select(const WorldSpec &world) const
 {
 	std::string conf = world.path + DIR_DELIM "world.mt";

@@ -34,7 +34,7 @@
 namespace shell {
 
 static const char *const VERBS[] = {
-	"worlds.list", "worlds.create", "worlds.delete", "worlds.pin", "play", "lab.list", "lab.enter", "quit", "worldgen.preview", "system.preview", "system.home", "system.world", "weather.preview",
+	"worlds.list", "worlds.create", "worlds.delete", "worlds.pin", "worlds.rename", "play", "lab.list", "lab.enter", "quit", "worldgen.preview", "system.preview", "system.home", "system.world", "weather.preview",
 	"social.join", "community.list", "community.mod.set", "community.texture.set",
 	"servers.list", "servers.join", "servers.favorite.set",
 };
@@ -179,6 +179,10 @@ Menu::Menu(const Opts &opts) :
 		if (!intent["pinned"].isBool())
 			throw Refused("worlds.pin needs pinned");
 		m_worlds.pin(stringField(intent, "path"), intent["pinned"].asBool());
+		return Json::Value();
+	});
+	m_shell.on("worlds.rename", [this](const Json::Value &intent) {
+		m_worlds.rename(stringField(intent, "path"), stringField(intent, "name"));
 		return Json::Value();
 	});
 	m_shell.on("servers.list", [](const Json::Value &) {

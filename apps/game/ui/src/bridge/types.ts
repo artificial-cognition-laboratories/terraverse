@@ -446,6 +446,7 @@ export type PlanetariumFlight = {
     longitude?: number
     altitude?: number // blocks over the sea; or
     radii?: number    // the body's radii over its sea
+    lit?: boolean     // over the side the star lights (no latitude or longitude with it)
     seconds: number
 }
 
@@ -484,6 +485,7 @@ export type Intents = {
     capture: { request: { keyboard: boolean }; response: null }
     "worlds.list": { request: {}; response: World[] }
     "worlds.pin": { request: { path: string; pinned: boolean }; response: null }
+    "worlds.rename": { request: { path: string; name: string }; response: null }
     "servers.list": { request: {}; response: ServerDirectory }
     "servers.join": { request: { id: string }; response: null }
     "servers.favorite.set": { request: { id: string; favorite: boolean }; response: null }
@@ -592,6 +594,8 @@ export type Intents = {
     /** Whether the atlas's seams are drawn. */
     "planetarium.seams": { request: { shown: boolean }; response: null }
     /** The main menu's composed view (src/planetarium/shot.h): its camera, moment and frame, eased over `seconds`; the mouse doesn't move it. */
+    /** Whether the bodies' orbits are drawn, for a page that wants the view clear. */
+    "planetarium.orbits": { request: { shown: boolean }; response: null }
     "planetarium.scene": { request: { shown: boolean; seconds: number }; response: null }
     "planetarium.frame": { request: { left?: number; right?: number; top?: number; bottom?: number }; response: null }
     "planetarium.focus": { request: (PlanetariumPlace & { altitude?: number }) | { body: string }; response: null }

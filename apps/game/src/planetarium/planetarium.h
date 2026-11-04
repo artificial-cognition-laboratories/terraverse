@@ -107,6 +107,8 @@ public:
 		std::optional<OrbitCamera> camera = std::nullopt; // or exactly this one (round `body`)
 	};
 	void fly(const Flight &flight);
+	// Over the ground the star stands above now, a little past noon (radians of longitude).
+	double litLongitude() const;
 	// To a composed view of the tiled body, as the day stands (day first), on
 	// a screen this shape. The shot's centre is the host's to frame.
 	void compose(const Shot &shot, float aspect, double seconds);

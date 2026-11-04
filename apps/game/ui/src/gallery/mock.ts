@@ -354,6 +354,7 @@ export function MockBridge() {
         // no native planet in the gallery: the page around it is what's shown
         "planetarium.show": () => null,
         "planetarium.scene": () => null,
+        "planetarium.orbits": () => null,
         "planetarium.hide": () => null,
         "planetarium.focus": () => null,
         "planetarium.markers": () => null,
@@ -377,6 +378,12 @@ export function MockBridge() {
         "worlds.delete": ({ path }) => {
             worlds = worlds.filter((w) => w.path !== path)
             worldCodes.delete(path)
+            return null
+        },
+        "worlds.rename": ({ path, name }) => {
+            const world = worlds.find((w) => w.path === path)
+            if (!world) throw refuse("worlds.rename", "that world no longer exists")
+            world.name = name
             return null
         },
         "worlds.pin": ({ path, pinned }) => {

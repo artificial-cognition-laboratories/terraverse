@@ -153,6 +153,7 @@ private:
 		float aspect = 0; // the screen it was composed for
 	};
 	Scene m_scene;
+	bool m_orbits = true; // the page's (planetarium.orbits)
 	Json::Value scene(const Json::Value &intent);
 public:
 	// The picture already there: no easing in (a menu opening on it).
