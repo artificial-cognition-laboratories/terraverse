@@ -5,6 +5,16 @@
 </div>
 <br>
 
+## Install
+
+Linux x86_64 only for now, and early: expect rough edges.
+
+```bash
+curl -fsSL https://terraverse.arclabs.it/install.sh | sh
+```
+
+The game and your worlds live in `~/.terraverse`. Run `terraverse update` for new versions and `terraverse rollback` to go back. You'll need `curl`, `tar`, `zstd` and `openssl`.
+
 ## Overview
 
 Terraverse is built on [Luanti](https://github.com/luanti-org/luanti), a free open-source voxel game engine with easy modding and game creation. The fork has 2 primary goals. Build a open source sandbox for open ended cognition experiments, with first class integration with the (axon)[https://github.com/artificial-cognition-laboratories/axon] platform, and to create an open alternative to minecraft with community first class while keeping the game free to all. 
