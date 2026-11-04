@@ -1,6 +1,7 @@
 # physics: rigid bodies on Jolt Physics (sprint 57). No engine dependencies.
 set(physics_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/actor.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/aero.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/driven.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/mover.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pose.cpp

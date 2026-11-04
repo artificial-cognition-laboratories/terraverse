@@ -4764,6 +4764,7 @@ void Game::showHandle(v3s16 camera_offset)
 		labelPart(*obj, *said);
 	showSockets(*obj, false);
 	hoverJoints(*obj);
+	showBalance(*obj, camera_offset);
 	// its joints, selecting
 	if (!selecting)
 		return;
@@ -5144,6 +5145,59 @@ void Game::closeMenu()
 	m_menu.reset();
 	hud->getTiles()->clear();
 	hud->getLabels()->clear();
+}
+
+void Game::showBalance(GenericCAO &obj, v3s16 camera_offset)
+{
+	const piece::Machine &machine = *obj.getMachine();
+	if (machine.scale() != 1)
+		return; // a tool in the hand: no wing
+	// compiled afresh as it's built on, but not every frame
+	constexpr u64 EVERY_MS = 250;
+	const u64 now = porting::getTimeMs();
+	if (m_balance.object != m_hold->object() || now - m_balance.asked_ms >= EVERY_MS) {
+		m_balance.object = m_hold->object();
+		m_balance.asked_ms = now;
+		try {
+			m_balance.balance = physics::balanceOf(workshop::compile(machine, client->getMaterials(), client));
+		} catch (const std::exception &) {
+			m_balance.balance.reset(); // nothing built, or nothing weighable
+		}
+	}
+	if (!m_balance.balance)
+		return;
+	const physics::Balance &b = *m_balance.balance;
+	const core::matrix4 frame = obj.getFrame();
+	const v3f offset = intToFloat(camera_offset, BS);
+	std::vector<Hud::Guide> &guides = *hud->getGuides();
+	const auto mark = [&](v3f nodes, video::SColor colour, const std::string &text) {
+		v3f at = nodes * BS;
+		frame.transformVect(at);
+		constexpr f32 R = 0.35f * BS;
+		// a diamond each way, as a point seen through what's built
+		const v3f axes[3] = { v3f(R, 0, 0), v3f(0, R, 0), v3f(0, 0, R) };
+		for (int i = 0; i < 3; i++) {
+			const v3f u = axes[i], w = axes[(i + 1) % 3];
+			guides.push_back({ at + u - offset, at + w - offset, colour });
+			guides.push_back({ at + w - offset, at - u - offset, colour });
+			guides.push_back({ at - u - offset, at - w - offset, colour });
+			guides.push_back({ at - w - offset, at + u - offset, colour });
+		}
+		hud->getLabels()->push_back({ at, utf8_to_wide(text), colour });
+		return at;
+	};
+	std::ostringstream weighs;
+	weighs << "mass " << (int)std::lround(b.mass) << " kg";
+	const v3f mass = mark(b.mass_at, video::SColor(255, 255, 210, 80), weighs.str());
+	if (!b.lifts)
+		return;
+	// how far it's behind the mass along the front: a craft's stability in a number
+	const f32 behind = (b.mass_at - b.lift_at).dotProduct(v3f::from(machine.front()));
+	std::ostringstream says;
+	says << std::fixed << std::setprecision(1) << "lift " << std::abs(behind)
+			<< (behind >= 0 ? " behind mass: steady" : " ahead of mass: tumbles");
+	const v3f lift = mark(b.lift_at, video::SColor(255, 0, 170, 235), says.str());
+	guides.push_back({ mass - offset, lift - offset, video::SColor(255, 180, 190, 200) });
 }
 
 void Game::jointSign(v3f at, v3f axis, piece::Joint joint, video::SColor colour, f32 scale)

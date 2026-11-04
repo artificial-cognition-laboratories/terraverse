@@ -251,6 +251,8 @@ physics::Assembly compile(const piece::Machine &m, const Materials &materials, I
 {
 	const NodeDefManager *ndef = gamedef->ndef();
 	physics::Assembly a;
+	// ahead, with no seat to say: what the air takes as its front (sprint 103)
+	a.facing = v3f::from(m.front());
 	const std::vector<std::vector<u64>> groups = m.rigid();
 	// a small thing's boxes are scaled, and only its boxes (sprint 130)
 	const float scale = m.scale();

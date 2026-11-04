@@ -5,7 +5,9 @@
 
 #include "physics/walk.h"
 #include "physics/world.h"
+#include "physics/aero.h"
 #include "workshop/motion.h"
+#include <algorithm>
 #include <cmath>
 
 using namespace physics;
@@ -42,6 +44,8 @@ public:
 	void testCorrectedTowardAnother();
 	void testCartOnACart();
 	void testDriven();
+	void testAeroReadsShapes();
+	void testGlides();
 	void testTreadGrips();
 	void testQuick();
 	void testUpright();
@@ -82,6 +86,8 @@ void TestPhysics::runTests(IGameDef *gamedef)
 	TEST(testCorrectedTowardAnother);
 	TEST(testCartOnACart);
 	TEST(testDriven);
+	TEST(testAeroReadsShapes);
+	TEST(testGlides);
 	TEST(testTreadGrips);
 	TEST(testQuick);
 	TEST(testUpright);
@@ -840,6 +846,109 @@ Assembly car(float power, v3f facing = v3f(1, 0, 0), bool steers = true, bool dr
 		w.driven = driven && !front;
 	}
 	return a;
+}
+
+void TestPhysics::testAeroReadsShapes()
+{
+	const v3f ahead(0, 0, 1);
+	auto area = [](const physics::Aero &a) {
+		float sum = 0;
+		for (const physics::Surface &s : a.surfaces)
+			sum += s.area;
+		return sum;
+	};
+	// a plate: one wing, flat, all its area
+	const physics::Aero plate = physics::aeroOf({ aabb3f(-3, 0, -.5f, 3, 1 / 16.f, .5f) }, ahead);
+	UASSERT(!plate.surfaces.empty());
+	UASSERT(std::fabs(area(plate) - 6) < 0.1f);
+	for (const physics::Surface &s : plate.surfaces) {
+		UASSERT(std::fabs(s.normal.Y) == 1);
+		UASSERT(std::fabs(s.incidence) < 0.01f);
+		UASSERT(std::fabs(s.aspect - 6) < 0.1f);
+		UASSERT(s.at.Z > 0); // a quarter of its chord from the front
+	}
+	UASSERT(std::fabs(plate.shown.Y - 6) < 0.1f);
+	UASSERT(plate.shown.Z < 0.1f * 6 / 16.f + 0.01f); // edge on, it parts the air
+	// a fin: the same on its side
+	const physics::Aero fin = physics::aeroOf({ aabb3f(0, 0, -.5f, 1 / 16.f, 2, .5f) }, ahead);
+	UASSERT(!fin.surfaces.empty() && std::fabs(fin.surfaces[0].normal.X) == 1);
+	// a block is no wing
+	UASSERT(physics::aeroOf({ aabb3f(0, 0, 0, 1, 1, 1) }, ahead).surfaces.empty());
+	// a sixteenth up each sixteenth across a block: its front up by that
+	std::vector<aabb3f> ramp;
+	for (int i = 0; i < 16; i++)
+		ramp.push_back(aabb3f(0, i / 16.f * 0.25f, i / 16.f, 4, i / 16.f * 0.25f + 1 / 16.f, (i + 1) / 16.f));
+	const physics::Aero up = physics::aeroOf(ramp, ahead);
+	UASSERT(!up.surfaces.empty());
+	UASSERT(std::fabs(up.surfaces[0].incidence - std::atan(0.25f)) < 0.05f);
+	// a stalled wing lifts less than one just short of it
+	const physics::Surface s = plate.surfaces[0];
+	UASSERT(physics::coefficients(s, 0.2f).lift > physics::coefficients(s, 0.05f).lift);
+	UASSERT(physics::coefficients(s, 0.2f).lift > physics::coefficients(s, 0.5f).lift);
+	UASSERT(physics::coefficients(s, -0.2f).lift < 0);
+	// lift acts behind the middle of mass of a wing and tail
+	v3f centre;
+	const physics::Aero both = physics::aeroOf({ aabb3f(-3, 0, -.5f, 3, 1 / 16.f, .5f), aabb3f(-1, 0, -5, 1, 1 / 16.f, -4) }, ahead);
+	UASSERT(physics::centreOfLift({ both }, v3f(0, 1, 0), centre));
+	UASSERT(centre.Z < 0);
+	// the balance of a machine: a stone ahead of a wing, its mass ahead of the lift
+	Assembly a;
+	a.bodies.push_back(block(v3f(0, 0, 0), v3f(6, 1 / 16.f, 1), WOOD));
+	a.bodies[0].boxes.push_back(Box{ aabb3f(-.5f, -.5f, 3, .5f, .5f, 4), STONE, 0.6f });
+	const physics::Balance balance = physics::balanceOf(a);
+	UASSERT(balance.lifts);
+	UASSERT(balance.mass_at.Z > balance.lift_at.Z);
+}
+
+void TestPhysics::testGlides()
+{
+	const float AIR = 1.225f;
+	World::Opts opts{ [AIR](const v3d &, const v3f &) { return physics::Here{ v3f(0, -G, 0), AIR }; }, flatGround };
+	struct Flown
+	{
+		float fell, went;
+	};
+	auto fly = [&](const Assembly &a, int settle, int judged) {
+		World w(opts);
+		const World::Id id = w.add(a, { v3d(0, 30000, 0), {} }, v3f(0, 0, 44));
+		// launched off its trim it swings about its glide a while: judged after
+		for (int i = 0; i < settle * 60; i++)
+			w.step(STEP);
+		const Pose from = w.pose(id);
+		// the way it went, not how far off: with no dihedral it wanders round
+		float went = 0;
+		for (int i = 0; i < judged * 60; i++) {
+			w.step(STEP);
+			const v3f u = w.velocity(id);
+			went += std::hypot(u.X, u.Z) * (float)STEP;
+		}
+		const Pose p = w.pose(id);
+		return Flown{ float(from.position.Y - p.position.Y), went };
+	};
+	// a wing a little nose up, a level tail well behind, ballast keeping the
+	// centre of mass ahead of the wing's lift
+	Assembly glider;
+	Body whole;
+	for (int i = 0; i < 16; i++) // an eighth up over a metre and a half's chord
+		whole.boxes.push_back(Box{ aabb3f(-6, 1 / 8.f * i / 16, -1.5f + 1.5f * i / 16, 6, 1 / 8.f * i / 16 + 1 / 16.f, -1.5f + 1.5f * (i + 1) / 16), WOOD, 0.6f });
+	whole.boxes.push_back(Box{ aabb3f(-1.5f, 0, -6, 1.5f, 1 / 16.f, -5), WOOD, 0.6f }); // tail
+	whole.boxes.push_back(Box{ aabb3f(-1 / 32.f, 0, -6, 1 / 32.f, 1, -5), WOOD, 0.6f }); // fin
+	whole.boxes.push_back(Box{ aabb3f(-1 / 16.f, -1 / 8.f, -6, 1 / 16.f, 0, 2), WOOD, 0.6f }); // boom
+	whole.boxes.push_back(Box{ aabb3f(-.25f, -.25f, 2, .25f, .25f, 2.5f), STONE, 0.6f }); // ballast
+	glider.bodies.push_back(whole);
+	const Flown g = fly(glider, 240, 60);
+	infostream << "glider fell " << g.fell << " went " << g.went << std::endl;
+	// the same weight as a lump
+	float kg = 0;
+	for (const Box &x : whole.boxes)
+		kg += x.box.getVolume() * x.density;
+	Assembly lump;
+	const float side = std::cbrt(kg / STONE);
+	lump.bodies.push_back(block(v3f(0), v3f(side), STONE));
+	const Flown l = fly(lump, 0, 20);
+	infostream << "lump fell " << l.fell << " went " << l.went << std::endl;
+	UASSERT(g.went > 5 * g.fell);  // it flies
+	UASSERT(l.fell > l.went);      // a lump only falls
 }
 
 void TestPhysics::testDriven()

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "world.h"
+#include "aero.h"
 #include "profiler.h"
 
 #include <Jolt/Jolt.h>
@@ -231,6 +232,7 @@ struct World::Impl
 		std::vector<RefConst<Shape>> shapes;
 		std::vector<float> friction;
 		std::vector<float> masses;
+		std::vector<Aero> aero;
 		float mass = 0;
 	};
 	struct Rec
@@ -451,6 +453,14 @@ struct World::Impl
 			out.mass += mass;
 			out.masses.push_back(mass);
 			out.friction.push_back(rubs / mass);
+			std::vector<aabb3f> shape;
+			for (const Box &x : b.boxes)
+				shape.push_back(x.box);
+			Aero aero = aeroOf(shape, a.facing);
+			// a wheel rolls: it's no wing
+			if (b.round)
+				aero.surfaces.clear();
+			out.aero.push_back(std::move(aero));
 			if (b.round) {
 				const Round &r = *b.round;
 				const float v = core::PI * r.radius * r.radius * 2 * r.half_width;
@@ -1060,8 +1070,6 @@ struct World::Impl
 	// own gravity is off: one direction everywhere isn't a planet's).
 	void weigh()
 	{
-		// drag as a blunt body's: its coefficient times the area it shows
-		constexpr float CD = 1.0f;
 		for (auto &[id, r] : recs) {
 			if (r.tier != Tier::Live || r.held)
 				continue;
@@ -1070,20 +1078,51 @@ struct World::Impl
 				// a wheel's weight is its root's (wheeledMass)
 				if (!bi().IsActive(b) || r.follows(k))
 					continue;
-				// the area it shows the air: its boxes' bounds, a face's on average
-				aabb3f bounds = r.source.bodies[k].boxes[0].box;
-				for (const Box &x : r.source.bodies[k].boxes)
-					bounds.addInternalBox(x.box);
-				const v3f size = bounds.getExtent();
-				const float area = (size.X * size.Y + size.Y * size.Z + size.Z * size.X) / 3;
 				BodyLockRead lock(system.GetBodyLockInterfaceNoLock(), b);
 				const JPH::Body &body = lock.GetBody();
 				const float mass = 1 / std::max(1e-6f, body.GetMotionProperties()->GetInverseMass());
 				const Vec3 v = body.GetLinearVelocity();
 				const Here h = opts.field(rout(body.GetCenterOfMassPosition()), out(v));
-				const Vec3 force = vec(h.gravity) * mass - v * (0.5f * h.air * v.Length() * CD * area);
+				const RMat44 frame = body.GetWorldTransform();
+				const Mat44 turn = frame.GetRotation();
+				const Aero &aero = r.built.aero[k];
+				// the air's push, each where it acts
+				std::vector<std::pair<Vec3, RVec3>> pushes;
+				if (h.air > 0) {
+					const float q = 0.5f * h.air;
+					for (int axis = 0; axis < 3; axis++) {
+						const RVec3 p = frame * vec(aero.centre[axis]);
+						const Vec3 d = turn.GetColumn3(axis);
+						const float along = body.GetPointVelocity(p).Dot(d);
+						if (along != 0)
+							pushes.push_back({ d * (-q * aero.shown[axis] * std::abs(along) * along), p });
+					}
+					for (const Surface &s : aero.surfaces) {
+						const RVec3 p = frame * vec(s.at);
+						const Vec3 n = turn.Multiply3x3(vec(s.normal)), c = turn.Multiply3x3(vec(s.chord));
+						const Vec3 at = body.GetPointVelocity(p);
+						// the flow across its span
+						const float vc = at.Dot(c), vn = at.Dot(n);
+						const float vv = vc * vc + vn * vn;
+						if (vv < 0.01f)
+							continue;
+						const Coefficients k2 = coefficients(s, std::atan2(-vn, vc));
+						const Vec3 along = (c * vc + n * vn) / std::sqrt(vv);
+						const Vec3 up = (n - along * vn / std::sqrt(vv)).NormalizedOr(n);
+						pushes.push_back({ (up * k2.lift - along * k2.drag) * (q * vv * s.area), p });
+					}
+				}
+				// a light thing in fast air stops, it doesn't go backward, in a step
+				Vec3 total = Vec3::sZero();
+				for (const auto &[f, p] : pushes)
+					total += f;
+				const float most = mass * std::max(v.Length(), 1.f) / (float)STEP;
+				const float scale = std::min(1.f, most / std::max(total.Length(), 1e-6f));
+				const Vec3 weight = vec(h.gravity) * mass;
 				lock.ReleaseLock();
-				bi().AddForce(b, force, EActivation::DontActivate);
+				bi().AddForce(b, weight, EActivation::DontActivate);
+				for (const auto &[f, p] : pushes)
+					bi().AddForce(b, f * scale, p, EActivation::DontActivate);
 			}
 		}
 	}
@@ -1253,6 +1292,28 @@ struct World::Impl
 		}
 	}
 };
+
+Balance balanceOf(const Assembly &a)
+{
+	Balance out;
+	v3f moment(0);
+	std::vector<Aero> aeros;
+	for (const Body &b : a.bodies) {
+		std::vector<aabb3f> shape;
+		for (const Box &x : b.boxes) {
+			const float kg = x.box.getVolume() * x.density;
+			out.mass += kg;
+			moment += x.box.getCenter() * kg;
+			shape.push_back(x.box);
+		}
+		if (!b.round)
+			aeros.push_back(aeroOf(shape, a.facing));
+	}
+	if (out.mass > 0)
+		out.mass_at = moment / out.mass;
+	out.lifts = centreOfLift(aeros, v3f(0, 1, 0), out.lift_at);
+	return out;
+}
 
 Field uniform(v3f gravity)
 {

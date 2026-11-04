@@ -139,6 +139,17 @@ struct Assembly
 	float power = 0, rpm = 0;
 };
 
+// Where it's heavy and where it's lifted (sprint 103), the assembly's frame:
+// what a builder needs to see. It flies nose first if the mass is ahead of the lift.
+struct Balance
+{
+	float mass = 0;
+	v3f mass_at;
+	bool lifts = false;
+	v3f lift_at;
+};
+Balance balanceOf(const Assembly &a);
+
 // A driver's hands and feet (sprint 69): forward (-1 back .. 1), right
 // (-1 left .. 1), brake (0 .. 1). Forward is the seat's facing (sprint 73).
 struct Drive

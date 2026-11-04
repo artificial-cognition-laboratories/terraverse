@@ -500,6 +500,14 @@ private:
 	// drawn, the one looked at lit; a click picks it, or off them closes it
 	void menuStep(f32 dtime);
 	// a joint's sign at `at` about `axis` (BS, the world's), `scale` its size
+	// where the workpiece is heavy and lifted (sprint 103), asked a few times a second
+	void showBalance(GenericCAO &obj, v3s16 camera_offset);
+	struct
+	{
+		u16 object = 0;
+		u64 asked_ms = 0;
+		std::optional<physics::Balance> balance;
+	} m_balance;
 	void jointSign(v3f at, v3f axis, piece::Joint joint, video::SColor colour, f32 scale = 1);
 	void faceMenu(Menu &m) const;
 	// a sprung joint's spring, its travel and firmness, on rows `row` and the next
