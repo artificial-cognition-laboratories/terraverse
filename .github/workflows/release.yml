@@ -100,7 +100,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxcomposite1 libxdamage1 \
             libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2 libxkbcommon0
-          pkg=".output/releases/terrafirma-$VERSION-linux-x86_64"
+          pkg=".output/releases/terraverse-$VERSION-linux-x86_64"
           if LD_LIBRARY_PATH="$pkg/lib" ldd "$pkg/bin/luanti" | grep "not found"; then exit 1; fi
           "$pkg/terraverse" --version | tee /dev/stderr | grep -F "$VERSION"
           set +e
@@ -115,12 +115,12 @@ jobs:
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
-          files: .output/releases/terrafirma-${{ env.VERSION }}-linux-x86_64.tar.zst
+          files: .output/releases/terraverse-${{ env.VERSION }}-linux-x86_64.tar.zst
           generate_release_notes: true
 
       - name: Keep as an artifact
         if: github.ref_type != 'tag'
         uses: actions/upload-artifact@v4
         with:
-          name: terrafirma-${{ env.VERSION }}-linux-x86_64
-          path: .output/releases/terrafirma-${{ env.VERSION }}-linux-x86_64.tar.zst
+          name: terraverse-${{ env.VERSION }}-linux-x86_64
+          path: .output/releases/terraverse-${{ env.VERSION }}-linux-x86_64.tar.zst

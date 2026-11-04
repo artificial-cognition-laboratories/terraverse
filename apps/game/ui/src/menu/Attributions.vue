@@ -19,7 +19,7 @@ const title = computed(() => CATEGORIES.find((item) => item.id === category.valu
 type Credit = { title: string; by: string; detail: string; source?: string; sourceLabel?: string }
 const CREDITS: Record<Category, { intro: string; entries: Credit[] }> = {
     music: {
-        intro: "The sounds that give Terra Firma its sense of place.",
+        intro: "The sounds that give Terraverse its sense of place.",
         entries: [
             { title: "If Gaia Was One Of Us Part Four", by: "Denovaire", detail: "Local menu preview · release rights pending", source: "https://uppbeat.io/contributors/denovaire", sourceLabel: "Artist" },
             { title: "The Farwatch Plains", by: "Ian Aisling", detail: "Track on file · not in the game yet", source: "https://uppbeat.io/contributors/ian-aisling", sourceLabel: "Artist" },
@@ -29,8 +29,8 @@ const CREDITS: Record<Category, { intro: string; entries: Credit[] }> = {
     art: {
         intro: "The materials and original art that shape the world.",
         entries: [
-            { title: "Good Vibes", by: "Acaitart", detail: "Block textures · CC BY 4.0. Selected art is retinted and adapted for Terra Firma.", source: "https://github.com/Phyronnaz/VoxelAssets/tree/f1bb6fb20e36a47b8dacbdf23c4a10b994b6f224/GoodVibes", sourceLabel: "Source" },
-            { title: "Original game art", by: "Terra Firma", detail: "Interface pixel icons, weather particles, tools and effects made for the game." },
+            { title: "Good Vibes", by: "Acaitart", detail: "Block textures · CC BY 4.0. Selected art is retinted and adapted for Terraverse.", source: "https://github.com/Phyronnaz/VoxelAssets/tree/f1bb6fb20e36a47b8dacbdf23c4a10b994b6f224/GoodVibes", sourceLabel: "Source" },
+            { title: "Original game art", by: "Terraverse", detail: "Interface pixel icons, weather particles, tools and effects made for the game." },
         ],
     },
     fonts: {
@@ -44,7 +44,7 @@ const CREDITS: Record<Category, { intro: string; entries: Credit[] }> = {
         intro: "The open-source foundations beneath the game.",
         entries: [
             { title: "Luanti", by: "The Luanti contributors", detail: "Voxel engine · LGPL 2.1 or later", source: "https://www.luanti.org/", sourceLabel: "Project" },
-            { title: "Chromium Embedded Framework", by: "The CEF contributors", detail: "Embedded browser that draws Terra Firma's interface", source: "https://bitbucket.org/chromiumembedded/cef", sourceLabel: "Project" },
+            { title: "Chromium Embedded Framework", by: "The CEF contributors", detail: "Embedded browser that draws Terraverse's interface", source: "https://bitbucket.org/chromiumembedded/cef", sourceLabel: "Project" },
         ],
     },
 }

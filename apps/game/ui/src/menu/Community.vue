@@ -38,7 +38,7 @@ const allEntries = computed<Entry[]>(() => {
     if (!catalog.value || source.value === "discover") return []
     switch (group.value) {
         case "mods": return catalog.value.mods.map((mod) => ({
-            id: mod.id, name: mod.title, note: mod.source === "builtIn" ? "Terra Firma built-in" : mod.author || "Installed locally",
+            id: mod.id, name: mod.title, note: mod.source === "builtIn" ? "Terraverse built-in" : mod.author || "Installed locally",
             status: mod.source === "builtIn" ? "Core" : mod.enabledWorlds.length ? `${mod.enabledWorlds.length} worlds` : undefined,
         }))
         case "textures": return catalog.value.textures.map((pack) => ({
@@ -159,7 +159,7 @@ onMounted(() => refresh().catch(report))
                         <span v-if="selectedTexture.author" class="byline">by {{ selectedTexture.author }}</span></div>
                     <p class="description">{{ selectedTexture.description || "This pack has no description in its texture_pack.conf." }}</p>
                     <section class="detail-section"><h3>Appearance</h3>
-                        <p class="section-copy">Texture packs change the look of every world on this installation. Restart Terra Firma to apply a change.</p>
+                        <p class="section-copy">Texture packs change the look of every world on this installation. Restart Terraverse to apply a change.</p>
                         <div class="actions">
                             <Button v-if="selectedTexture.active" size="sm" :disabled="busy" @click="setTexture('')">Use default textures</Button>
                             <Button v-else variant="primary" :disabled="busy" @click="setTexture(selectedTexture.id)">Use this pack »</Button>

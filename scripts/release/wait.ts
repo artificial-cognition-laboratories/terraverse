@@ -4,7 +4,7 @@
 import { releaseTag, run } from "./version"
 
 const tag = releaseTag()
-const ASSETS = [`terrafirma-${tag}-linux-x86_64.tar.zst`]
+const ASSETS = [`terraverse-${tag}-linux-x86_64.tar.zst`]
 const BUDGET_MS = 28 * 60_000 // under arc's 30-minute step limit
 const LOOK_MS = 30_000
 

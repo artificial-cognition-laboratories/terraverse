@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Packs a built tree into a portable Linux folder, then a tarball:
 #
-#   terrafirma-<version>-linux-x86_64/
+#   terraverse-<version>-linux-x86_64/
 #     terraverse         the launcher: run this. Player data goes in ~/.terraverse
 #     bin/               the engine and Chromium (run in place)
 #     lib/               the libraries it needs that a desktop may not have
@@ -15,7 +15,7 @@ set -euo pipefail
 version=${1:?usage: package-linux.sh <version> [out-dir]}
 root=$(cd "$(dirname "$0")/../.." && pwd)
 out=${2:-"$root/.output/releases"}
-name="terrafirma-${version}-linux-x86_64"
+name="terraverse-${version}-linux-x86_64"
 stage="$out/$name"
 
 [ -x "$root/.output/bin/luanti" ] || { echo "package: no .output/bin/luanti — build first" >&2; exit 1; }

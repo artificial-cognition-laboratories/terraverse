@@ -177,7 +177,7 @@ Json::Value Community::list() const
 		row["enabledWorlds"] = jsonStrings(enabled_worlds[mod.virtual_path]);
 		row["configurable"] = builtin_names.count(mod.name) == 0 && addon_counts[mod.name] == 1;
 		if (builtin_names.count(mod.name))
-			row["issue"] = "This mod has the same name as a Terra Firma built-in.";
+			row["issue"] = "This mod has the same name as a Terraverse built-in.";
 		else if (addon_counts[mod.name] > 1)
 			row["issue"] = "Multiple installed copies share this mod name.";
 		out["mods"].append(row);

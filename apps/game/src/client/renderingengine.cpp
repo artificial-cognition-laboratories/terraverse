@@ -446,7 +446,7 @@ const VideoDriverInfo &RenderingEngine::getVideoDriverInfo(video::E_DRIVER_TYPE 
 void RenderingEngine::showErrorMessageBox(const std::string &message)
 {
 	auto *device = s_singleton ? s_singleton->m_device : nullptr;
-	::showErrorMessageBox(device, PROJECT_NAME_C, message.c_str());
+	::showErrorMessageBox(device, "Terraverse", message.c_str());
 }
 
 float RenderingEngine::getDisplayDensity()

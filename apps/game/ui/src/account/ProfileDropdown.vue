@@ -194,7 +194,7 @@ function backToFriends() {
                                 <div><dt>Email</dt><dd class="muted">Managed by ArcLabs</dd></div>
                                 <div><dt>Connection</dt><dd><span class="live" /> Connected</dd></div>
                             </dl>
-                            <p class="copy">Your ArcLabs identity connects you with friends across Terra Firma worlds.</p>
+                            <p class="copy">Your ArcLabs identity connects you with friends across Terraverse worlds.</p>
                             <div class="account-actions"><Button size="sm" @click="emit('signOut')">Sign out on this device</Button></div>
                         </template>
                     </div>

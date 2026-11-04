@@ -21,14 +21,14 @@ const post = yes("enable_post_processing")
 
 export const CATEGORIES: Category[] = [
 { id: "display", title: "Display", pages: [
-  { id: "window", title: "Window", group: "Screen", note: "How Terra Firma uses your display and behaves in the background.", options: [
+  { id: "window", title: "Window", group: "Screen", note: "How Terraverse uses your display and behaves in the background.", options: [
     { key: "fullscreen", label: "Fullscreen", note: "Fill the display instead of using a window.", kind: "toggle" },
     { key: "vsync", label: "VSync", note: "Match frames to the display to reduce tearing.", kind: "toggle", applies: "restart" },
     { key: "pause_on_lost_focus", label: "Pause when unfocused", note: "Pause a local world when you switch applications.", kind: "toggle" },
   ] },
   { id: "framerate", title: "Frame rate", group: "Screen", note: "Frame limits and world rendering resolution.", options: [
     { key: "fps_max", label: "Maximum frame rate", note: "The frame rate cap while playing.", kind: "slider", min: 30, max: 360, step: 10, format: v => `${v} fps`, terms: "fps" },
-    { key: "fps_max_unfocused", label: "Background frame rate", note: "The cap while Terra Firma is out of focus.", kind: "slider", min: 5, max: 60, step: 5, format: v => `${v} fps` },
+    { key: "fps_max_unfocused", label: "Background frame rate", note: "The cap while Terraverse is out of focus.", kind: "slider", min: 5, max: 60, step: 5, format: v => `${v} fps` },
     { key: "undersampling", label: "World resolution", note: "Render the world lower while keeping the interface sharp.", kind: "slider", min: 1, max: 4, step: 1, format: v => v === 1 ? "100%" : `${Math.round(100 / v)}%`, terms: "render scale", applies: "rejoin" },
   ] },
   { id: "brightness", title: "Brightness", group: "Screen", note: "Calibrate the image for your display.", options: [
@@ -139,7 +139,7 @@ export const CATEGORIES: Category[] = [
   { key: "mute_sound", label: "Mute all sound", note: "Turn off all game audio.", kind: "toggle" },
 ] }] },
 { id: "interface", title: "Interface", pages: [
-  { id: "map", title: "Map", group: "HUD", note: "A terrain map centred on you in Terra Firma worlds.", options: [
+  { id: "map", title: "Map", group: "HUD", note: "A terrain map centred on you in Terraverse worlds.", options: [
     { key: "widget_map", label: "Show map", note: "Show terrain around you.", kind: "toggle" },
     { key: "widget_map_corner", label: "Map position", note: "Choose the corner where it sits.", kind: "slider", min: 0, max: 3, step: 1, format: corner, requires: yes("widget_map") },
     { key: "widget_map_scale", label: "Map size", note: "Choose its size on screen.", kind: "slider", min: 1, max: 3, step: 1, format: v => ["", "Small", "Medium", "Large"][Math.round(v)]!, requires: yes("widget_map") },

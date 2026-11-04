@@ -407,7 +407,7 @@ export type Account =
     | { status: "signedIn"; id: string; username: string; name: string | null }
     | { status: "unreachable"; problem: string }
 
-/** An ArcLabs player, as Terra Firma's friends list shows them. */
+/** An ArcLabs player, as Terraverse's friends list shows them. */
 export type Player = { id: string; username: string; name: string | null }
 /** Where a player is: the menu, someone's world, or their own (hosting; `open`: friends can join). */
 export type Presence = { state: "menu" | "playing" | "hosting"; world: string | null; open: boolean }
@@ -503,7 +503,7 @@ export type Intents = {
     "community.list": { request: {}; response: CommunityCatalog }
     /** User-installed mods are selected per world; built-ins are required by this build. */
     "community.mod.set": { request: { id: string; world: string; enabled: boolean }; response: null }
-    /** A local texture pack is used after restarting Terra Firma; empty id restores defaults. */
+    /** A local texture pack is used after restarting Terraverse; empty id restores defaults. */
     "community.texture.set": { request: { id: string }; response: null }
     /** settings: written to the world's world.mt — creative_mode, enable_damage, tf_* (src/shell/worlds.cpp) */
     "worlds.create": { request: { name: string; code: string; settings: Record<string, string | number | boolean> }; response: World }
@@ -592,7 +592,7 @@ export type Intents = {
     "social.join": { request: { id: string; name: string }; response: null }
     /** Opens a screen the page decides on (src/shell/screens.cpp: SCREENS); one that needs a UI value stays shut without it. */
     "screen.open": { request: { name: ScreenName }; response: null }
-    /** Terra Firma: a tool picked on the rail (src/client/hand.h). */
+    /** Terraverse: a tool picked on the rail (src/client/hand.h). */
     "tools.pick": { request: { tool: ToolId }; response: null }
     "tools.ask": { request: Ask; response: null }
     "tools.brush": { request: { brush: BrushId; joint?: JointId }; response: null }

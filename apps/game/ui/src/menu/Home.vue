@@ -11,7 +11,7 @@ const scene = (shown: boolean) => bridge.send("planetarium.scene", { shown, seco
     .catch((error) => console.error("planetarium.scene", error))
 onMounted(() => scene(true))
 onBeforeUnmount(() => scene(false))
-const TITLE = "Terra Firma"
+const TITLE = "Terraverse"
 </script>
 
 <template>

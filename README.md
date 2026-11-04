@@ -1,13 +1,13 @@
 <div align="center">
     <img src="textures/base/pack/logo.png" width="32%">
-    <h1>TerraFirma</h1>
+    <h1>Terraverse</h1>
     <a href="https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html"><img src="https://img.shields.io/badge/license-LGPLv2.1%2B-blue.svg" alt="3"></a>
 </div>
 <br>
 
 ## Overview
 
-TerraFirma has been forked from (Luanti)[https://github.com/luanti-org/luanti], a free open-source voxel game engine with easy modding and game creation. The fork has 2 primary goals. Build a open source sandbox for open ended cognition experiments, with first class integration with the (axon)[https://github.com/artificial-cognition-laboratories/axon] platform, and to create an open alternative to minecraft with community first class while keeping the game free to all. 
+Terraverse is built on [Luanti](https://github.com/luanti-org/luanti), a free open-source voxel game engine with easy modding and game creation. The fork has 2 primary goals. Build a open source sandbox for open ended cognition experiments, with first class integration with the (axon)[https://github.com/artificial-cognition-laboratories/axon] platform, and to create an open alternative to minecraft with community first class while keeping the game free to all. 
 
 Weve rebuilt the engine to make worlds spherical. Adding a whole new layer for content, world generation and physics to be added to the game.
 

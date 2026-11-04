@@ -223,7 +223,7 @@ bool ClientLauncher::run(const GameParams &game_params, const Settings &cmd_args
 		!g_gamecallback->shutdown_requested) {
 		// Set the window caption
 		auto driver_name = m_rendering_engine->getVideoDriver()->getName();
-		std::string caption = std::string(PROJECT_NAME_C) +
+		std::string caption = std::string("Terraverse") +
 			" " + g_version_hash +
 			" [" + gettext("Main Menu") + "]" +
 			" [" + driver_name + "]";

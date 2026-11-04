@@ -1016,7 +1016,7 @@ bool Game::createClient(const GameStartData &start_data)
 	/* Set window caption
 	 */
 	auto driver_name = driver->getName();
-	std::string str = std::string(PROJECT_NAME_C) +
+	std::string str = std::string("Terraverse") +
 			" " + g_version_hash + " [";
 	str += simple_singleplayer_mode ? gettext("Singleplayer")
 			: gettext("Multiplayer");

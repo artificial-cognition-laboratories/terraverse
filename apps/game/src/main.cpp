@@ -430,13 +430,13 @@ static void set_allowed_options(OptionList *allowed_options)
 	allowed_options->insert(std::make_pair("port", ValueSpec(VALUETYPE_STRING,
 			_("Set network port (UDP)"))));
 	allowed_options->insert(std::make_pair("planetarium", ValueSpec(VALUETYPE_STRING,
-			_("Open the Planetarium (Terra Firma) on the planet world code <value>, and nothing else"))));
+			_("Open the Planetarium (Terraverse) on the planet world code <value>, and nothing else"))));
 	allowed_options->insert(std::make_pair("planetarium-bench", ValueSpec(VALUETYPE_STRING,
 			_("With --planetarium: run <value> seconds on a script (layers switched each second), print the worst frames, and exit"))));
 	allowed_options->insert(std::make_pair("planetarium-shot", ValueSpec(VALUETYPE_STRING,
-			_("Render the main menu's picture (Terra Firma) to the PNG <value>, and exit"))));
+			_("Render the main menu's picture (Terraverse) to the PNG <value>, and exit"))));
 	allowed_options->insert(std::make_pair("export-palette", ValueSpec(VALUETYPE_STRING,
-			_("Write the game's baked palette (Terra Firma) to <value>, from --world, and exit"))));
+			_("Write the game's baked palette (Terraverse) to <value>, from --world, and exit"))));
 	allowed_options->insert(std::make_pair("run-unittests", ValueSpec(VALUETYPE_FLAG,
 			_("Run legacy unit tests and Catch2 tests and exit"))));
 	allowed_options->insert(std::make_pair("run-tests", ValueSpec(VALUETYPE_FLAG,

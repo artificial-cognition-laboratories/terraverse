@@ -9,6 +9,6 @@ if ((await run(["git", "ls-remote", "--tags", "origin", `refs/tags/${tag}`])) !=
     throw new Error(`release: ${tag} already exists on GitHub — bump "version" in package.json`)
 
 await run(["git", "push", "origin", "HEAD"])
-await run(["git", "tag", "-a", tag, "-m", `Terra Firma ${tag}`])
+await run(["git", "tag", "-a", tag, "-m", `Terraverse ${tag}`])
 await run(["git", "push", "origin", tag])
 console.log(`release: pushed ${tag}; GitHub Actions is building it`)

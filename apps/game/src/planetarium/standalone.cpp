@@ -32,7 +32,7 @@ void runStandalone(const std::string &code, std::optional<double> bench, std::op
 
 	MyEventReceiver receiver;
 	RenderingEngine engine(&receiver);
-	engine.get_raw_device()->setWindowCaption(L"Terra Firma — Planetarium");
+	engine.get_raw_device()->setWindowCaption(L"Terraverse — Planetarium");
 
 	// as a new world of the code is laid out (shell/worlds.cpp): as many blocks round as it is
 	const planet::Atlas atlas(terragen::Atlas::standard(world.size / (2 * M_PI)));
