@@ -82,8 +82,9 @@ jobs:
             -DLUA_LIBRARY="$RUNNER_TEMP/luajit/lib/libluajit-5.1.a" \
             -DTERRAFIRMA_VERSION="$VERSION"
 
+      # -k: one run reports every compile error, not just the first.
       - name: Build the engine
-        run: cmake --build .output/build -j"$(nproc)" && bash scripts/stage-runtime.sh
+        run: cmake --build .output/build -j"$(nproc)" -- -k && bash scripts/stage-runtime.sh
 
       - name: Unit tests
         run: |

@@ -5,6 +5,7 @@
 
 #include "fixed.h"
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <unordered_set>
 #include <vector>
