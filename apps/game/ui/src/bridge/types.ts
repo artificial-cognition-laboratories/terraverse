@@ -15,6 +15,9 @@ export type ScreenName = "pause" | "inventory" | "lab" | "wiki" | "map"
 /** A slot in the local player's inventory. */
 export type SlotRef = { list: string; index: number }
 
+/** This build, and the latest signed release: null if it couldn't be asked, or on a development build. */
+export type UpdateCheck = { current: string; latest: string | null; available: boolean }
+
 export type World = {
     name: string; path: string; code: string | null
     mode: "survival" | "creative" | null; damage: boolean | null
@@ -494,6 +497,7 @@ export type EngineMessage =
 export type Intents = {
     ready: { request: {}; response: null }
     capture: { request: { keyboard: boolean }; response: null }
+    "update.check": { request: {}; response: UpdateCheck }
     "worlds.list": { request: {}; response: World[] }
     "worlds.pin": { request: { path: string; pinned: boolean }; response: null }
     "worlds.rename": { request: { path: string; name: string }; response: null }

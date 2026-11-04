@@ -10,7 +10,7 @@ import Home from "./Home.vue"
 import Community from "./Community.vue"
 import Settings from "./Settings.vue"
 import type { Screen } from "./screens.ts"
-import type { SystemWire } from "../bridge"
+import type { SystemWire, UpdateCheck } from "../bridge"
 import WorldSelect from "./WorldSelect.vue"
 import { useMenuMusic } from "./music.ts"
 
@@ -24,6 +24,9 @@ useMenuMusic(props.playMusic)
 const screen = ref<Screen>("home")
 const seedCode = ref<string | null>(null)
 const bridge = useBridge()
+// null until the engine answers; a failed check still names the running version
+const update = ref<UpdateCheck | null>(null)
+bridge.send("update.check", {}).then(answer => { update.value = answer })
 const REPO = "https://github.com/artificial-cognition-laboratories/terraverse"
 
 // the system a new world's draft starts from: the engine's, asked once
@@ -105,7 +108,10 @@ const CREDITS_ICON = {
                         <PixelIcon :rows="CREDITS_ICON.rows" :palette="CREDITS_ICON.palette" style="--u: 3px" />
                     </IconTile>
                 </nav>
-                <footer>v0.1 · built on luanti</footer>
+                <footer>
+                    <span v-if="update">{{ update.current }} · </span>built on luanti
+                    <p v-if="update?.available" class="update"><span>»</span> v{{ update.latest }} is out. Run <code>terraverse update</code></p>
+                </footer>
             </div>
         </Transition>
     </main>
@@ -150,6 +156,9 @@ const CREDITS_ICON = {
 .corners { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 .corners > * { pointer-events: auto; }
 .tools { position: absolute; right: 20px; bottom: 20px; display: flex; gap: 10px; }
+footer .update { margin: 4px 0 0; color: var(--ink); }
+footer .update code { font-family: "JetBrains Mono", monospace; text-transform: none; }
+footer .update span { color: rgb(0 148 210); }
 footer {
     position: absolute;
     left: 20px;

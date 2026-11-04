@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
+#include "release/release.h" // Terra Firma
+#include "version.h" // Terra Firma
 #include "server.h"
 #include "workshop/workshop.h"
 #include "orbit/field.h"
@@ -506,6 +508,12 @@ void Server::init()
 				m_gamespec, false);
 	} catch (const BaseException &e) {
 		throw ServerError(std::string("Failed to initialize world: ") + e.what());
+	}
+	// Terra Firma: which release may open this world, and a copy before a new one does
+	try {
+		release::openWorld(m_path_world, g_version_hash, porting::path_user + DIR_DELIM "backups");
+	} catch (const BaseException &e) {
+		throw ServerError(e.what());
 	}
 
 	// Create emerge manager

@@ -454,6 +454,7 @@ add_subdirectory(content)
 add_subdirectory(database)
 add_subdirectory(mapgen)
 add_subdirectory(terragen)
+add_subdirectory(release)
 add_subdirectory(planet)
 add_subdirectory(far)
 add_subdirectory(air)
@@ -589,6 +590,7 @@ set(common_SRCS
 	${weather_SRCS}
 	${sandbox_SRCS}
 	${online_SRCS}
+	${release_SRCS}
 	${server_network_SRCS}
 	${test_SRCS}
 	${unittest_SRCS}

@@ -1,6 +1,10 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include "release/release.h"
+#include "online/http.h"
+#include "settings.h"
+#include "version.h"
 #include "menu.h"
 #include "terragen/worlds.h"
 #include "lab.h"
@@ -161,6 +165,33 @@ Menu::Menu(const Opts &opts) :
 		return Json::Value();
 	});
 	// (they read every world's files: on the worker, or opening the page freezes it)
+	// Asks the backend, on the worker. Failing is quiet for the player, who can
+	// still play: the menu shows the running version and no notice.
+	m_shell.onAsync("update.check", [](const Json::Value &) {
+		Json::Value out;
+		out["current"] = g_version_hash;
+		out["latest"] = Json::Value();
+		out["available"] = false;
+		const auto ours = release::parse(g_version_hash);
+		if (!ours)
+			return out; // a development build has nothing to update to
+		HTTPFetchResult res = online::fetch(online::request(
+				{ g_settings->get("arclabs_url"), "" }, HTTP_GET, "/api/terrafirma/latest"));
+		if (!res.succeeded || res.response_code != 200) {
+			warningstream << "update check: the backend answered " << res.response_code << std::endl;
+			return out;
+		}
+		const Json::Value answer = online::parse(res.data);
+		const auto latest = release::latest(answer["manifest"].asString(),
+				answer["signature"].asString(), release::UPDATE_KEY);
+		if (!latest) {
+			errorstream << "update check: the latest release's signature is wrong; ignoring it" << std::endl;
+			return out;
+		}
+		out["latest"] = *latest;
+		out["available"] = *release::parse(*latest) > *ours;
+		return out;
+	});
 	m_shell.onAsync("worlds.list", [this](const Json::Value &) {
 		Json::Value out(Json::arrayValue);
 		for (const auto &world : m_worlds.list())

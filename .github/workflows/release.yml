@@ -89,6 +89,7 @@ jobs:
       - name: Unit tests
         run: |
           ./.output/bin/luanti --test-module TestOnline
+          ./.output/bin/luanti --test-module TestRelease
           ./.output/bin/luanti --test-module TestTerragen
 
       - name: Package
