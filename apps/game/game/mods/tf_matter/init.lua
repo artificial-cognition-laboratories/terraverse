@@ -58,23 +58,55 @@ core.register_on_mods_loaded(function()
 	-- what each solid block weighs in a machine (core.physics, sprint 57): its
 	-- matter's density; it grips as most things do, or barely if it's
 	-- slippery, or as its `_machine.friction` says (rubber: sprint 74)
-	local unweighed = {}
+	-- what each takes before it fails (Pa), roughly as the real thing: `_machine.tension`
+	-- and `.compression`, or by what breaks it. Sand's only held by being damp.
+	local BY_GROUP = {
+		{ "pile_yield", function(y) return y == 0 and 2e3 or 3e4, y == 0 and 5e4 or 3e5, 100 end, true },
+		{ "cracky", function(h) local t = ({ 1e7, 5e6, 2e6 })[h] or 2e6; return t, t * 10, 100 end },
+		{ "choppy", function() return 4e7, 3e7, 1e4 end },
+		{ "crumbly", function() return 3e4, 3e5, 100 end },
+		{ "snappy", function() return 1e5, 1e5, 1e3 end },
+	}
+	local function strength(def, machine)
+		if machine.tension then
+			return machine.tension, machine.compression or machine.tension, machine.toughness
+		end
+		for _, g in ipairs(BY_GROUP) do
+			local level = def.groups and def.groups[g[1]]
+			if level then
+				return g[2](level)
+			end
+		end
+	end
+	local unweighed, unjudged = {}, {}
 	for name, def in pairs(core.registered_nodes) do
 		if def.walkable ~= false and name ~= "air" and name ~= "ignore" then
 			local density = core.matter.density(name)
 			if density and density > 0 then
 				local slippery = def.groups and def.groups.slippery
 				local machine = def._machine or {}
-				local friction = machine.friction or (slippery and 0.1 or 0.6)
+				-- (what tyres get from it too, workshop::surfaceGrip: loose ground gives under them)
+				local loose = def.groups and def.groups.pile_bearing
+				local friction = machine.friction or (slippery and 0.1 or loose and 0.35 or 0.6)
 				-- a fitting weighs what it says (sprint 78: an engine is a
 				-- made thing, not a cubic metre of iron): its block's a metre
 				-- cubed, so its mass is its density
+				local tension, compression, toughness = strength(def, machine)
+				if not tension and not machine.role then
+					unjudged[#unjudged + 1] = name
+				end
 				core.physics.material(name, { density = machine.mass or density, friction = friction,
-					role = machine.role, power = machine.power, rpm = machine.rpm })
+					role = machine.role, power = machine.power, rpm = machine.rpm,
+					tension = tension, compression = compression, toughness = toughness })
 			else
 				unweighed[#unweighed + 1] = name
 			end
 		end
+	end
+	if #unjudged > 0 then
+		table.sort(unjudged)
+		core.log("action", "tf_matter: " .. #unjudged .. " solid blocks have no strength, so they never fail: "
+			.. table.concat(unjudged, ", "))
 	end
 	if #unweighed > 0 then
 		table.sort(unweighed)

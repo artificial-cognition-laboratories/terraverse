@@ -59,5 +59,5 @@ const TINTS = [{ O: "#2f7fb5", L: "#5fae5a", D: "#16405c" }, { O: "#b5653a", L: 
 export function planetIcon(key: string): Icon {
     let h = 0
     for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0
-    return { rows: GLOBE, palette: TINTS[h % TINTS.length] }
+    return { rows: GLOBE, palette: TINTS[h % TINTS.length]! }
 }

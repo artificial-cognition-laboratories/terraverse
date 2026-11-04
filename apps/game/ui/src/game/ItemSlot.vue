@@ -49,11 +49,12 @@ img {
 
 .count {
     position: absolute;
-    right: calc(var(--u) * -1);
-    bottom: calc(var(--u) * -2);
-    font: bold calc(var(--u) * 7) / 1 var(--font-pixel);
-    color: #fff;
-    text-shadow: var(--u) var(--u) 0 #3f3f3f;
+    right: 0;
+    bottom: calc(var(--u) * -1);
+    font: 400 calc(var(--u) * 6) / 1 var(--font-pixel);
+    letter-spacing: -0.08em;
+    color: var(--ink);
+    text-shadow: var(--b) var(--b) 0 var(--edge);
 }
 
 .wear {

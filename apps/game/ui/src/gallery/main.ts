@@ -1,14 +1,12 @@
 import { createApp } from "vue"
 import { BRIDGE } from "../bridge/use.ts"
 import { GameStore, STORE } from "../game/store.ts"
-import { LAB, LabFlow } from "../lab/flow.ts"
 import "../theme.css"
 import Gallery from "./Gallery.vue"
 import { MOCK, MockBridge, swatch } from "./mock.ts"
 
 const bridge = MockBridge()
 const store = GameStore({ bridge: bridge })
-const lab = LabFlow({ bridge: bridge, store: store })
 
 bridge.emit({
     kind: "items",
@@ -26,6 +24,5 @@ bridge.emit({
 const app = createApp(Gallery)
 app.provide(BRIDGE, bridge)
 app.provide(STORE, store)
-app.provide(LAB, lab)
 app.provide(MOCK, bridge)
 app.mount("#app")

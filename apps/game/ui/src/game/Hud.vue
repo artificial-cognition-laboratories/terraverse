@@ -6,7 +6,6 @@ import Crosshair from "./Crosshair.vue"
 import FlightStrip from "./flight/FlightStrip.vue"
 import SpaceStrip from "./flight/SpaceStrip.vue"
 import Hotbar from "./Hotbar.vue"
-import LabStrip from "../lab/LabStrip.vue"
 import ProbeCard from "./ProbeCard.vue"
 import StatBar from "./StatBar.vue"
 import ActionRail from "./ActionRail.vue"
@@ -55,7 +54,6 @@ const hotbar = computed(() => {
         <Crosshair v-if="hud.crosshair && store.screen !== 'map'" />
         <FlightStrip v-if="flight?.regime === 'near' && !covered" :flight="flight" />
         <SpaceStrip v-if="flight?.regime === 'space' && !covered" :flight="flight" />
-        <LabStrip />
         <ProbeCard v-if="!covered" />
         <ToolRail v-if="tools?.out && !covered" :tools="tools" :free="tools.cursor || paused" />
         <ActionRail v-if="tools?.out && library && !covered" :tools="tools" :library="library" :free="tools.cursor || paused" />

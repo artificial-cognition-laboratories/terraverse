@@ -24,10 +24,11 @@ void Ribbons::add(const std::vector<v3f> &points, const std::vector<video::SColo
 		// along the line here, and across it as the camera sees it
 		const v3f &before = i > 0 ? points[i - 1] : closed ? points[n - 1] : p;
 		const v3f &after = i + 1 < n ? points[i + 1] : closed ? points[0] : p;
-		v3f across = (after - before).crossProduct(p);
-		const float length = across.getLength();
-		if (length > 0)
-			across /= length;
+		// (in doubles: a far orbit's lengths in floats overflow when squared, leaving a ribbon no width)
+		const v3f a = after - before;
+		const v3d along(a.X, a.Y, a.Z), out(p.X, p.Y, p.Z), crossed = along.crossProduct(out);
+		const double length = crossed.getLength();
+		v3f across = length > 0 ? v3f((f32)(crossed.X / length), (f32)(crossed.Y / length), (f32)(crossed.Z / length)) : v3f();
 		// as wide on screen however far: a pixel is the distance over focal
 		across *= (f32)(p.getLength() / m_focal) * m_half;
 		video::SColor edge = colours[i];

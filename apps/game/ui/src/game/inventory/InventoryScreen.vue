@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue"
 import type { CreativeItem, SlotRef, Stack } from "../../bridge/index.ts"
 import { useBridge } from "../../bridge/use.ts"
+import { Button, IconButton, Panel, SearchBox } from "../../kit/index.ts"
 import ItemSlot from "../ItemSlot.vue"
 import { useStore } from "../store.ts"
 import { Carry } from "./carry.ts"
@@ -10,10 +11,10 @@ import SurvivalPanel from "./SurvivalPanel.vue"
 
 /**
  * The inventory, laid out as Minecraft's: in survival, the player's own
- * inventory; in creative, the catalogue in tabs (icons along the top, the
- * player's inventory along the bottom), the search box always there. One
- * frame whose size never changes with the tab. I or Esc closes it (unless
- * you're typing in the search). What's carried, and every click, is in
+ * inventory; in creative, the catalogue in tabs down its side, the search box
+ * always there and always holding the keyboard, so typing searches. One frame
+ * whose size never changes with the tab. Esc closes it, and so does I where
+ * there's no search to type an I into. What's carried, and every click, is in
  * carry.ts; the engine owns every stack.
  */
 const bridge = useBridge()
@@ -24,7 +25,8 @@ const creative = computed(() => store.ui.creative === true)
 const catalog = shallowRef<CreativeItem[] | null>(null)
 const tab = ref("building")
 const query = ref("")
-const search = ref<HTMLInputElement | null>(null)
+const search = ref<InstanceType<typeof SearchBox> | null>(null)
+const searching = computed(() => creative.value && tab.value !== "inventory")
 const over = ref<{ slot: SlotRef; stack: Stack | null } | { item: CreativeItem } | { part: string } | null>(null)
 
 // the catalogue's tabs, each drawn as an item from it (as Minecraft's)
@@ -64,18 +66,17 @@ function close() {
 }
 
 function keydown(e: KeyboardEvent) {
-    const typing = document.activeElement === search.value
     if (e.key === "Escape") { e.preventDefault(); close(); return }
-    if (typing) return
-    if (e.key === "i" || e.key === "I") { e.preventDefault(); close(); return }
-    if (/^[1-9]$/.test(e.key)) { e.preventDefault(); carry.key(Number(e.key), over.value && "part" in over.value ? null : over.value); return }
-    // any other letter starts a search, as Minecraft's creative tabs do
-    if (creative.value && tab.value !== "inventory" && e.key.length === 1 && /\S/.test(e.key) && !e.ctrlKey && !e.metaKey) {
-        query.value += e.key
-        nextTick(() => search.value?.focus())
-        e.preventDefault()
-    }
+    // a digit over a slot puts that item on the hotbar; anywhere else in a search it's typed
+    if (/^[1-9]$/.test(e.key) && (!searching.value || over.value)) { e.preventDefault(); carry.key(Number(e.key), over.value && "part" in over.value ? null : over.value); return }
+    if (searching.value) return
+    if (e.key === "i" || e.key === "I") { e.preventDefault(); close() }
 }
+// the engine only sends the page keys while an input has focus: nothing here may take it from the search
+function keepFocus(e: MouseEvent) {
+    if (!(e.target instanceof HTMLInputElement)) e.preventDefault()
+}
+watch(searching, () => nextTick(() => search.value?.focus()))
 function move(e: MouseEvent) { carry.cursor.value = { x: e.clientX, y: e.clientY } }
 function up(e: MouseEvent) { carry.release(e, document.elementFromPoint(e.clientX, e.clientY)) }
 
@@ -91,8 +92,10 @@ onMounted(() => {
     window.addEventListener("mousemove", move)
     window.addEventListener("mouseup", up)
     returnCraftResult()
+    search.value?.focus()
 })
 onBeforeUnmount(() => {
+    search.value?.blur() // or the engine's keys stay with a page that's gone
     window.removeEventListener("keydown", keydown, true)
     window.removeEventListener("mousemove", move)
     window.removeEventListener("mouseup", up)
@@ -109,48 +112,36 @@ const tooltip = computed(() => {
 </script>
 
 <template>
-    <div class="screen" @mousedown.self="carry.away()" @contextmenu.prevent>
-        <div class="frame" :class="{ creative: creative }" data-panel>
-            <nav v-if="creative" class="tabs top" aria-label="Categories">
-                <button v-for="t in tabs" :key="t.id" class="tab" :class="{ on: tab === t.id && !query }" :title="t.label" @click="choose(t.id)">
-                    <img v-if="t.face.icon" :src="t.face.icon" :alt="t.label" draggable="false">
-                </button>
-                <button class="tab" :class="{ on: tab === 'parts' && !query }" title="Parts: wheels, sprung corners, yours" @click="choose('parts')">
+    <div class="screen" @mousedown="keepFocus" @mousedown.self="carry.away()" @contextmenu.prevent>
+        <div class="frame" data-panel>
+            <nav v-if="creative" class="tabs" aria-label="Categories">
+                <IconButton v-for="t in tabs" :key="t.id" :label="t.label" side="left" :on="tab === t.id && !query" @click="choose(t.id)">
+                    <img v-if="t.face.icon" :src="t.face.icon" alt="" draggable="false">
+                </IconButton>
+                <IconButton label="Parts: wheels, sprung corners, yours" side="left" :on="tab === 'parts' && !query" @click="choose('parts')">
                     <svg viewBox="0 0 9 9" shape-rendering="crispEdges" aria-hidden="true">
                         <path fill="currentColor" d="M3 0h3v1h-3zM1 1h2v1h-2zM6 1h2v1h-2zM1 2h1v1h-1zM7 2h1v1h-1zM0 3h1v3h-1zM8 3h1v3h-1zM3 3h3v3h-3zM1 6h1v1h-1zM7 6h1v1h-1zM1 7h2v1h-2zM6 7h2v1h-2zM3 8h3v1h-3z" />
                     </svg>
-                </button>
-                <button class="tab" :class="{ on: !!query }" title="Search everything" @click="search?.focus()">
-                    <svg viewBox="0 0 9 9" shape-rendering="crispEdges" aria-hidden="true">
-                        <path fill="currentColor" d="M2 0h3v1h-3zM1 1h1v1h-1zM5 1h1v1h-1zM0 2h1v3h-1zM6 2h1v3h-1zM1 5h1v1h-1zM5 5h1v1h-1zM2 6h3v1h-3zM6 6h1v1h-1zM7 7h1v1h-1zM8 8h1v1h-1z" />
-                    </svg>
-                </button>
-            </nav>
-
-            <div class="body">
-                <header>
-                    <h2>{{ !creative ? "Inventory" : tab === "inventory" ? "Inventory" : query ? "Search" : tab === "parts" ? "Parts" : tabs.find((t) => t.id === tab)?.label ?? "" }}</h2>
-                    <button class="close" title="Close (I or Esc)" @click="close">✕</button>
-                </header>
-                <label v-if="creative && tab !== 'inventory'" class="search">
-                    <svg viewBox="0 0 9 9" shape-rendering="crispEdges" aria-hidden="true">
-                        <path fill="currentColor" d="M2 0h3v1h-3zM1 1h1v1h-1zM5 1h1v1h-1zM0 2h1v3h-1zM6 2h1v3h-1zM1 5h1v1h-1zM5 5h1v1h-1zM2 6h3v1h-3zM6 6h1v1h-1zM7 7h1v1h-1zM8 8h1v1h-1z" />
-                    </svg>
-                    <input ref="search" v-model="query" type="search" placeholder="Search everything" aria-label="Search every item">
-                </label>
-                <CreativePanel v-if="creative && tab !== 'inventory'" :carry="carry" :items="catalog ?? []" :category="tab" :query="query"
-                    @hover="over = $event" @taken="close" />
-                <SurvivalPanel v-else :carry="carry" @hover="over = $event" />
-                <p v-if="carry.problem.value" class="problem">{{ carry.problem.value }}</p>
-            </div>
-
-            <nav v-if="creative" class="tabs bottom" aria-label="Your inventory">
-                <button class="tab" :class="{ on: tab === 'inventory' }" title="Your inventory" @click="choose('inventory')">
+                </IconButton>
+                <IconButton label="Your inventory" side="left" :on="tab === 'inventory'" @click="choose('inventory')">
                     <svg viewBox="0 0 9 9" shape-rendering="crispEdges" aria-hidden="true">
                         <path fill="currentColor" d="M0 1h9v1h-9zM0 2h1v6h-1zM8 2h1v6h-1zM0 8h9v1h-9zM1 4h7v1h-7zM4 3h1v3h-1z" />
                     </svg>
-                </button>
+                </IconButton>
             </nav>
+
+            <Panel :title="!creative || tab === 'inventory' ? 'Inventory' : query ? 'Search' : tab === 'parts' ? 'Parts' : tabs.find((t) => t.id === tab)?.label ?? ''">
+                <template #actions>
+                    <Button size="sm" @click="close">Close</Button>
+                </template>
+                <div class="content">
+                    <SearchBox v-if="searching" ref="search" v-model="query" label="Search everything" />
+                    <CreativePanel v-if="searching" :carry="carry" :items="catalog ?? []" :category="tab" :query="query"
+                        @hover="over = $event" @taken="close" />
+                    <SurvivalPanel v-else :carry="carry" @hover="over = $event" />
+                    <p v-if="carry.problem.value" class="problem">{{ carry.problem.value }}</p>
+                </div>
+            </Panel>
         </div>
 
         <div v-if="carry.carried.value" class="hand" :style="{ left: `${carry.cursor.value.x}px`, top: `${carry.cursor.value.y}px` }">
@@ -172,39 +163,21 @@ const tooltip = computed(() => {
     background: rgb(4 8 12 / 0.45);
 }
 
-/* one size, whatever the tab: nine slots across, the catalogue's six rows plus the hotbar */
-.frame { position: relative; display: flex; flex-direction: column; }
-.body {
-    width: calc(var(--u) * (18 * 9 + 8 + 12));
-    min-height: calc(var(--u) * 180);
+/* one size, whatever the tab: the hotbar and its bin across, the search, six rows and the hotbar down */
+.frame { position: relative; display: flex; align-items: flex-start; }
+.content {
+    width: calc(var(--u) * (18 * 9 + 8 + 3 + 18));
+    min-height: calc(var(--u) * (18 * 7 + 5 + 6) + 32px);
     display: flex;
     flex-direction: column;
     gap: calc(var(--u) * 3);
-    padding: calc(var(--u) * 4) calc(var(--u) * 6) calc(var(--u) * 6);
-    border: var(--b) solid var(--edge);
-    background: var(--stone-1);
-    box-shadow: var(--raised), 6px 6px 0 rgb(0 0 0 / 0.35);
 }
-header { display: flex; align-items: center; justify-content: space-between; }
-h2 { margin: 0; font: 400 calc(var(--u) * 5) var(--font-display); text-transform: uppercase; color: var(--ink); }
-.close { border: 0; background: none; padding: 2px 6px; color: var(--ink-faint); font-size: 14px; }
-.close:hover { color: var(--ink); }
 
-/* tabs sit on the frame's edge, the chosen one joined to it */
-.tabs { display: flex; gap: var(--u); padding: 0 calc(var(--u) * 3); }
-.tab { width: calc(var(--u) * 22); height: calc(var(--u) * 22); display: grid; place-items: center; padding: 0;
-    border: var(--b) solid var(--edge); background: var(--stone-2); box-shadow: var(--raised); color: var(--ink-dim); }
-.tabs.top .tab { border-bottom: 0; margin-bottom: calc(var(--b) * -1); }
-.tabs.bottom .tab { border-top: 0; margin-top: calc(var(--b) * -1); }
-.tab.on { background: var(--stone-1); color: var(--accent-hi); z-index: 1; }
-.tab:hover { color: var(--ink); }
-.tab img { width: calc(var(--u) * 16); height: calc(var(--u) * 16); image-rendering: pixelated; }
-.tab svg { width: calc(var(--u) * 9); height: calc(var(--u) * 9); }
+/* beside the panel, not in it: their labels stick out to the left */
+.tabs { position: absolute; right: calc(100% + 8px); top: 0; display: flex; flex-direction: column; gap: 6px; }
+.tabs img { width: 32px; height: 32px; image-rendering: pixelated; }
+.tabs svg { width: 18px; height: 18px; }
 
-.search { display: flex; align-items: center; gap: 8px; padding: 3px 8px; border: var(--b) solid var(--edge); background: var(--stone-0); box-shadow: var(--sunk); color: var(--accent-hi); }
-.search:focus-within { border-color: var(--accent); }
-.search svg { width: 12px; height: 12px; flex: none; }
-.search input { flex: 1; min-width: 0; padding: 4px 0; border: 0; background: transparent; outline: none; font-size: 12px; }
 .problem { margin: 0; color: var(--danger); font-size: 11px; }
 
 .hand { position: fixed; pointer-events: none; transform: translate(-50%, -50%); filter: drop-shadow(var(--b) var(--b) 0 rgb(0 0 0 / 0.5)); }

@@ -7,7 +7,9 @@
 
 #include "irr_v3d.h"
 #include "mapnode.h"
+#include "physics/structure.h"
 #include "physics/world.h"
+#include <future>
 #include <map>
 #include <memory>
 #include <optional>
@@ -24,6 +26,9 @@ struct MapEditEvent;
 namespace piece { class Machine; }
 
 namespace workshop {
+
+struct StructureQuestion;
+class Laying;
 
 // What a block is as a thing that moves: from its matter (Lua says, by
 // core.physics.material).
@@ -46,6 +51,10 @@ struct Material
 	// a motor's (sprint 78): its power at full throttle (W) and how fast
 	// it turns at most (rpm); an engine's a fitting, not a block of iron
 	float power = 0, rpm = 0;
+	// what it takes before it fails (Pa): pulled apart or sheared, and crushed.
+	// 0: none declared, and it isn't what fails (physics::StructureCell)
+	float tension = 0, compression = 0;
+	float toughness = 0; // J/m² a crack through it costs
 };
 
 // How a machine is held (TOSERVER_OBJECT_HOLD's u8): not at all, still
@@ -154,6 +163,17 @@ public:
 	void impulse(u16 object, v3f impulse, std::optional<v3f> from = std::nullopt);
 	// Set back on its feet, lifted `lift` (nodes): physics::World::upright.
 	void upright(LuaEntitySAO &obj, float lift);
+	// A blast at `centre` (nodes), `power` Pa·s at a node off. The pulse: objects
+	// flung and loaded by what reaches each cell, the ground cut as far as it
+	// overcomes what each block takes. The throw: chunks of what was cut, real
+	// objects, flying. The fallout: the rest laid round it as a rim. Fire's Lua's.
+	// What it mostly dug, and how far (for what Lua shows of it): none if nothing.
+	struct Crater
+	{
+		content_t material = CONTENT_AIR;
+		float radius = 0;
+	};
+	Crater blast(v3f centre, float power);
 
 private:
 	struct Tracked
@@ -162,7 +182,41 @@ private:
 		size_t text;    // its piece text's hash: when it changes, it's rebuilt
 		std::optional<v3f> seat; // its driver's (nodes, its frame)
 		std::string parts_sent;
+		bool resting = false; // it had come to rest, and was asked whether it holds
 	};
+	// What came to rest holds itself up and what's taken a blow survives it, or
+	// it's cut into what does. The solve's off the server's thread, one at a time;
+	// its answer counts only if the thing's as it was asked about.
+	void settle(const std::map<u16, LuaEntitySAO *> &seen);
+	struct Judging
+	{
+		u16 object;
+		size_t text;
+		bool blow; // (a hand doesn't stop a blow counting; it does stop a rest)
+		std::shared_ptr<StructureQuestion> question;
+	};
+	std::optional<Judging> m_judging;
+	std::future<physics::StructureResult> m_answer;
+	std::vector<Judging> m_to_judge; // asked as it happened, waiting their turn
+	std::set<u16> m_rubble; // broken off something: small and weak, it crumbles where it stops
+	bool crumble(u16 id, LuaEntitySAO &e, physics::World::Id body);
+	// A blast's rim, laid a little each step: it comes down as fallout, not as a stall.
+	struct Fallout
+	{
+		std::unique_ptr<Laying> laying;
+		struct Column
+		{
+			s32 x, z;
+			int height;
+		};
+		std::vector<Column> columns;
+		size_t next = 0;
+		s32 top;
+		int grain;
+		content_t material;
+	};
+	std::vector<Fallout> m_fallout;
+	void fall();
 
 	bool ground(v3s16 block, std::vector<aabb3f> &boxes);
 	Tracked *tracked(u16 object);
@@ -193,6 +247,10 @@ u8 facedirOf(v3f look);
 // has its least sixteenth: against the face along it, on the block grid
 // across it. The client outlines what the server fits.
 v3s32 fittingCorner(v3s32 at, v3s16 normal);
+
+// How well tyres grip the node under a place (physics::World::Opts::surface): its
+// material's friction against an ordinary block's.
+float surfaceGrip(Map &map, const NodeDefManager *ndef, const Materials &materials, const v3d &at);
 
 // A machine compiled as physics sees it (its frame: nodes, from its node
 // (0, 0, 0)'s centre): each rigid group a body of its built blocks' boxes,

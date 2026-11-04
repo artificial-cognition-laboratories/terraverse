@@ -14,7 +14,10 @@
 #include <Jolt/Core/JobSystemSingleThreaded.h>
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
+#include <Jolt/Physics/Body/BodyFilter.h>
 #include <Jolt/Physics/Body/BodyLock.h>
+#include <Jolt/Physics/Collision/CollideShape.h>
+#include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
 #include <Jolt/Physics/Collision/GroupFilterTable.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
@@ -256,6 +259,10 @@ struct World::Impl
 		std::vector<Ref<Constraint>> hinges;
 		Ref<VehicleConstraint> vehicle;  // live, not held: its wheels
 		std::optional<Drive> drive;      // driven: so
+		Vec3 will_move = Vec3::sZero(), will_spin = Vec3::sZero(); // what its forces alone would make it, this step
+		bool expecting = false;
+		std::optional<Blow> blow;        // the hardest not yet asked about
+		float blow_size = 0;
 		bool isWheel(size_t body) const
 		{
 			for (const Wheel &w : source.wheels)
@@ -701,6 +708,17 @@ struct World::Impl
 			r.vehicle = new VehicleConstraint(lock.GetBody(), v);
 		}
 		r.vehicle->SetVehicleCollisionTester(new VehicleCollisionTesterCastCylinder(Layer::TYRE));
+		if (opts.surface) {
+			VehicleConstraint *vehicle = r.vehicle;
+			const std::function<float(const v3d &)> &surface = opts.surface;
+			r.vehicle->SetCombineFriction([vehicle, &surface](uint wheel, float &longitudinal, float &lateral, const JPH::Body &body, const SubShapeID &) {
+				const RVec3 at = vehicle->GetWheel(wheel)->GetContactPosition();
+				const float here = surface(v3d(at.GetX(), at.GetY() - 0.05, at.GetZ()));
+				// (Jolt's own combining, then the ground's say)
+				longitudinal = sqrt(longitudinal * body.GetFriction()) * here;
+				lateral = sqrt(lateral * body.GetFriction()) * here;
+			});
+		}
 		system.AddConstraint(r.vehicle);
 		system.AddStepListener(r.vehicle);
 		inputs(r);
@@ -1066,6 +1084,37 @@ struct World::Impl
 				const Vec3 force = vec(h.gravity) * mass - v * (0.5f * h.air * v.Length() * CD * area);
 				lock.ReleaseLock();
 				bi().AddForce(b, force, EActivation::DontActivate);
+			}
+		}
+	}
+
+	// Blows: what a step did to a root that the forces on it don't account for.
+	void expect()
+	{
+		for (auto &[id, r] : recs) {
+			r.expecting = false;
+			if (r.tier != Tier::Live || r.held || r.bodies.empty() || !bi().IsActive(r.bodies[0]))
+				continue;
+			BodyLockRead lock(system.GetBodyLockInterfaceNoLock(), r.bodies[0]);
+			const JPH::Body &body = lock.GetBody();
+			const float dt = (float)STEP;
+			r.will_move = body.GetLinearVelocity() + body.GetAccumulatedForce() * (body.GetMotionProperties()->GetInverseMass() * dt);
+			r.will_spin = body.GetAngularVelocity() + body.GetInverseInertia().Multiply3x3(body.GetAccumulatedTorque()) * dt;
+			r.expecting = true;
+		}
+	}
+	void feel()
+	{
+		// (a turn's measured at about a node out: enough to tell a corner's hit from nothing)
+		for (auto &[id, r] : recs) {
+			if (!r.expecting || r.tier != Tier::Live || r.bodies.empty())
+				continue;
+			const Vec3 dv = bi().GetLinearVelocity(r.bodies[0]) - r.will_move;
+			const Vec3 dw = bi().GetAngularVelocity(r.bodies[0]) - r.will_spin;
+			const float size = dv.LengthSq() + dw.LengthSq();
+			if (size > r.blow_size) {
+				r.blow_size = size;
+				r.blow = Blow{ out(dv), out(dw) };
 			}
 		}
 	}
@@ -1443,8 +1492,12 @@ World::CharacterState World::character(CharId id) const
 			for (const BodyID &b : r.bodies)
 				if (b == c.c->GetGroundBodyID())
 					standing_on = rid;
+	// Rubble underfoot gives way, and is kicked about by the foot on it: its speed
+	// isn't a ride. Walked on with its velocity counted, it throws you in the air.
+	constexpr float RIDDEN = 200; // kg
+	const bool rides = on && (!standing_on || mass(*standing_on) >= RIDDEN);
 	return { rout(c.c->GetPosition()), out(c.c->GetLinearVelocity()), on,
-		on ? out(c.c->GetGroundVelocity()) : v3f(0), on ? out(c.c->GetGroundNormal()) : v3f(0, 1, 0), standing_on };
+		rides ? out(c.c->GetGroundVelocity()) : v3f(0), on ? out(c.c->GetGroundNormal()) : v3f(0, 1, 0), standing_on };
 }
 
 v3d World::drawn(CharId id) const
@@ -1682,7 +1735,9 @@ void World::step(double dt)
 		m->steer();
 		m->weigh();
 		m->moveChars(steps, n);
+		m->expect();
 		m->system.Update((float)STEP, 1, &m->temp, &m->jobs);
+		m->feel();
 		m->behind -= STEP;
 		steps++;
 	}
@@ -1729,6 +1784,47 @@ bool World::asleep(Id id) const
 {
 	Impl::Rec &r = m->rec(id);
 	return r.tier == Tier::Frozen || m->asleep(r);
+}
+
+std::optional<World::Blow> World::blow(Id id)
+{
+	Impl::Rec &r = m->rec(id);
+	std::optional<Blow> out = r.blow;
+	r.blow.reset();
+	r.blow_size = 0;
+	return out;
+}
+
+v3f World::gravity(Id id) const
+{
+	const Pose at = pose(id);
+	return m->opts.field(at.position, velocity(id)).gravity;
+}
+
+std::vector<bool> World::touching(Id id, const std::vector<aabb3f> &boxes) const
+{
+	Impl::Rec &r = m->rec(id);
+	std::vector<bool> out(boxes.size(), false);
+	if (r.tier != Tier::Live)
+		return out;
+	const Pose at = pose(id);
+	const JPH::Quat turn(at.rotation.x, at.rotation.y, at.rotation.z, at.rotation.w);
+	const RVec3 origin(at.position.X, at.position.Y, at.position.Z);
+	IgnoreMultipleBodiesFilter own;
+	own.Reserve((uint)r.bodies.size());
+	for (const BodyID &b : r.bodies)
+		own.IgnoreBody(b);
+	const NarrowPhaseQuery &query = m->system.GetNarrowPhaseQuery();
+	CollideShapeSettings settings;
+	for (size_t i = 0; i < boxes.size(); i++) {
+		const v3f half = (boxes[i].MaxEdge - boxes[i].MinEdge) / 2, middle = (boxes[i].MaxEdge + boxes[i].MinEdge) / 2;
+		const BoxShape shape(Vec3(half.X, half.Y, half.Z), 0.f);
+		const RMat44 frame = RMat44::sRotationTranslation(turn, origin + turn * Vec3(middle.X, middle.Y, middle.Z));
+		AnyHitCollisionCollector<CollideShapeCollector> hit;
+		query.CollideShape(&shape, Vec3::sReplicate(1.f), frame, settings, origin, hit, {}, {}, own);
+		out[i] = hit.HadHit();
+	}
+	return out;
 }
 
 std::vector<Relative> World::relatives(Id id) const

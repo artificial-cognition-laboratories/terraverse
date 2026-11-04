@@ -39,6 +39,7 @@ struct ServerMatter
 	std::vector<std::pair<content_t, u8>> node_of; // by kind: the node and param2 that are it
 	std::unordered_map<int64_t, double> ambient; // by 16-block cube
 	bool started = false;
+	std::vector<WorldMatter::Spec> plain; // the plain blocks registered, for the bake (ModApiMatter::baked)
 };
 
 static std::unique_ptr<ServerMatter> s_matter;
@@ -257,8 +258,10 @@ int ModApiMatter::l_register_block(lua_State *L)
 			throw LuaError("core.matter.register_block: no node called " + node);
 		// levelled: its definition keeps how full it is in param2
 		const bool leveled = getServer(L)->ndef()->get(c).param_type_2 == CPT2_LEVELED;
-		int32_t kind = m.world->kind({ node, id, {}, share, state == "solid" ? matter::State::Solid : matter::State::Liquid,
-				form, flowing, vessel, leveled, loose });
+		const WorldMatter::Spec spec{ node, id, {}, share, state == "solid" ? matter::State::Solid : matter::State::Liquid,
+				form, flowing, vessel, leveled, loose };
+		int32_t kind = m.world->kind(spec);
+		m.plain.push_back(spec);
 		if (m.kind_of.size() <= c) {
 			m.kind_of.resize(c + 1, -1);
 			m.points_of.resize(c + 1, 1);
@@ -269,6 +272,38 @@ int ModApiMatter::l_register_block(lua_State *L)
 		lua_pushinteger(L, kind);
 		return 1;
 	});
+}
+
+Json::Value ModApiMatter::baked(const NodeDefManager *ndef)
+{
+	if (!s_matter)
+		throw BaseException("export: the game's matter never started");
+	Json::Value out(Json::arrayValue);
+	for (const WorldMatter::Spec &s : s_matter->plain) {
+		const ContentFeatures &f = ndef->get(s.node);
+		Json::Value b;
+		b["node"] = s.node;
+		b["matter"] = s.matter;
+		b["share"] = s.share;
+		b["liquid"] = s.state == matter::State::Liquid;
+		b["form"] = s.form;
+		b["flowing"] = s.flowing;
+		b["vessel"] = s.vessel;
+		b["leveled"] = s.leveled;
+		b["loose"] = s.loose;
+		// (top, bottom, side: as tiledef's order has them)
+		for (int t : { 0, 1, 2 })
+			b["tiles"].append(f.tiledef[t].name);
+		if (f.node_box.type == NODEBOX_FIXED)
+			for (const aabb3f &box : f.node_box.fixed) {
+				Json::Value part(Json::arrayValue);
+				for (float v : { box.MinEdge.X, box.MinEdge.Y, box.MinEdge.Z, box.MaxEdge.X, box.MaxEdge.Y, box.MaxEdge.Z })
+					part.append(v / BS + 0.5f); // from the block's corner
+				b["boxes"].append(part);
+			}
+		out.append(b);
+	}
+	return out;
 }
 
 int ModApiMatter::l_substances(lua_State *L)

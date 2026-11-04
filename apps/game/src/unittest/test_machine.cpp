@@ -12,7 +12,10 @@
 #include "piece/machine.h"
 #include "sculpt/sculpt.h"
 #include "workshop/motion.h"
+#include "workshop/knap.h"
+#include "workshop/small.h"
 #include <cmath>
+#include <iostream>
 #include <set>
 
 using namespace piece;
@@ -43,6 +46,8 @@ public:
 	void testStarters();
 	void testPulledOff();
 	void testOnAsHeld();
+	void testSmall();
+	void testKnapping();
 };
 
 static TestMachine g_test_instance;
@@ -68,6 +73,8 @@ void TestMachine::runTests(IGameDef *gamedef)
 	TEST(testStarters);
 	TEST(testPulledOff);
 	TEST(testOnAsHeld);
+	TEST(testSmall);
+	TEST(testKnapping);
 }
 
 namespace {
@@ -159,6 +166,7 @@ void TestMachine::testWrittenAndReadBack()
 	UASSERT(m.sockets().empty() && m.links().size() == 1);
 	std::string old = m.write();
 	old.erase(old.size() - 6 - 2 - 2, 2);
+	old.erase(4 + 8, 4); // its scale (TFM6)
 	old.replace(0, 4, "TFM4");
 	back.read(old);
 	UASSERT(back.front() == v3s16(-1, 0, 0) && back.links()[0].spring == piece::Spring{});
@@ -449,6 +457,101 @@ void TestMachine::testRigidGroups()
 	// a hinge made a weld: one group
 	m.relink(root, wheel, Joint::Fixed, std::nullopt);
 	UASSERTEQ(size_t, m.rigid().size(), 1);
+}
+
+void TestMachine::testSmall()
+{
+	Game g;
+	const Machine stone = workshop::stone(&g.gamedef, g.planks, v3s16(6, 5, 7), 1);
+	UASSERT(stone.scale() == workshop::SMALL_SCALE);
+	Machine back(&g.gamedef);
+	back.read(stone.write());
+	UASSERT(back.scale() == stone.scale() && back.write() == stone.write());
+
+	// its entity's box is by whole nodes of its grid: one, at its size
+	const Header h = header(stone.write());
+	UASSERT(h.built->getExtent().getDistanceFrom(v3f(1.f / 8)) < 1e-4f);
+	workshop::Materials materials;
+	materials.set(g.planks, { 2600, 0.6f });
+	const physics::Assembly a = workshop::compile(stone, materials, &g.gamedef);
+	float kg = 0;
+	for (const physics::Box &b : a.bodies[0].boxes)
+		kg += b.box.getVolume() * b.density;
+	// under the whole bounding box's weight; a real stone's, not a block's
+	UASSERT(kg > 0.2f && kg < 15.f / 128 * 13.f / 128 * 17.f / 128 * 2600);
+
+	// the same seed the same stone, another another
+	UASSERT(workshop::stone(&g.gamedef, g.planks, v3s16(6, 5, 7), 2).parts()[0].object.built().write()
+			!= stone.parts()[0].object.built().write());
+	EXCEPTION_CHECK(BaseException, back.setScale(0));
+
+	// what's kept per thing has to stay small enough to carry many (a handle's the worst of them)
+	const std::string handle = workshop::stick(&g.gamedef, g.planks, 3, 90, 3).write();
+	std::cout << "    a handle's text is " << handle.size() << " bytes, a stone's " << stone.write().size() << std::endl;
+	UASSERT(handle.size() < 8192);
+}
+
+void TestMachine::testKnapping()
+{
+	Game g;
+	Machine box = workshop::smallOfCells(&g.gamedef, g.planks, [] {
+		std::vector<v3s32> cells;
+		for (s32 x = 0; x < 15; x++)
+			for (s32 y = 0; y < 15; y++)
+				for (s32 z = 0; z < 15; z++)
+					cells.emplace_back(x, y, z);
+		return cells;
+	}());
+	// the middle of a face thuds; its edge flakes
+	const auto thud = workshop::strike(box, v3s32(7, 14, 7), v3f(0, -1, 0), 0.5f, 1, 1, &g.gamedef);
+	UASSERTEQ(size_t, thud.removed, size_t(0));
+	UASSERT(thud.left.empty());
+	const v3f slant = v3f(1, -1, 0).normalize();
+	const auto light = workshop::strike(box, v3s32(0, 14, 7), slant, 0.2f, 1, 1, &g.gamedef);
+	const auto heavy = workshop::strike(box, v3s32(0, 14, 7), slant, 2.f, 1, 1, &g.gamedef);
+	UASSERT(light.removed > 0);
+	UASSERT(heavy.removed > light.removed); // a heavier stone takes more
+
+	// a stone worked along one edge, from both sides, comes to an edge of its own
+	Machine worked(&g.gamedef);
+	worked.read(box.write());
+	const int before = workshop::edgeOf(worked);
+	const auto filled = [&](v3s32 c) {
+		const shape::Shape *cut = worked.parts()[0].object.built().shape(v3s16(0));
+		return shape::Shape::inside(v3s16(c.X, c.Y, c.Z)) && cut && cut->has(v3s16(c.X, c.Y, c.Z));
+	};
+	int blows = 0;
+	for (int pass = 0; pass < 12; pass++)
+		for (s32 z = 1; z <= 13; z += 3) {
+			// the rim, along the outermost cell left, just under the face it peels
+			const bool top = pass % 2 == 0;
+			std::optional<v3s32> rim;
+			for (s32 x = 14; x >= 0 && !rim; x--)
+				for (s32 i = 0; i < 15 && !rim; i++) {
+					const v3s32 c(x, top ? 14 - i : i, z);
+					if (filled(c))
+						rim = c;
+				}
+			if (!rim)
+				continue;
+			const auto s = workshop::strike(worked, *rim, v3f(-1, top ? -0.3f : 0.3f, 0), 0.5f, 1, 7, &g.gamedef);
+			if (s.left.empty())
+				continue; // (a thud)
+			worked.read(s.left[0].write());
+			blows++;
+			if (workshop::edgeOf(worked) > before)
+				goto edged;
+		}
+edged:
+	std::cout << "    took " << blows << " blows" << std::endl;
+	std::cout << "    edge before " << before << ", after " << workshop::edgeOf(worked) << std::endl;
+	UASSERT(workshop::edgeOf(worked) > before);
+
+	// some of what comes of a fresh stone, to judge the thresholds by
+	int rough = 0;
+	for (u32 seed = 0; seed < 20; seed++)
+		rough += workshop::edgeOf(workshop::stone(&g.gamedef, g.planks, v3s16(6, 5, 7), seed)) > 0;
+	std::cout << "    fresh stones with an edge already: " << rough << " of 20" << std::endl;
 }
 
 void TestMachine::testCompiledForPhysics()

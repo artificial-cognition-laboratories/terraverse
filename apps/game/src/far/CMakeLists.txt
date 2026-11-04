@@ -12,6 +12,7 @@ set(far_SRCS
 
 set(far_client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/export.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/landbake.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/mesh.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/palette_live.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/tiles.cpp

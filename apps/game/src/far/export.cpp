@@ -11,11 +11,16 @@
 #include "client/inputhandler.h"
 #include "log.h"
 #include "nodedef.h"
+#include "script/lua_api/l_matter.h"
 #include "server.h"
 #include "settings.h"
 #include "util/string.h"
 #include <IFileSystem.h>
 #include <IVideoDriver.h>
+#include "far/landbake.h"
+#include "pile/piles.h"
+#include "workshop/motion.h"
+#include "workshop/showcase.h"
 #include <fstream>
 #include <memory>
 
@@ -49,8 +54,26 @@ void exportPalette(const GameParams &params, const std::string &path)
 
 	const NodeDefManager *ndef = server.getNodeDefManager();
 	const Palette palette = Palette::live(ndef, tsrc.get(), blocksIn(horizon->content));
-	const Json::Value json = Baked::write(horizon->content, palette,
+	Json::Value json = Baked::write(horizon->content, palette,
 			[&](content_t id) { return ndef->get(id).name; });
+
+	json["scene"] = ModApiMatter::baked(ndef);
+	// what a course needs of a block beyond its looks: how tyres grip it, how it gives
+	for (Json::Value &b : json["scene"]) {
+		content_t id;
+		if (!ndef->getId(b["node"].asString(), id))
+			throw BaseException("export palette: no block " + b["node"].asString());
+		if (const workshop::Material *m = server.getMaterials().get(id))
+			b["friction"] = m->friction;
+		if (const std::optional<pile::Material> p = pile::materialOf(ndef->get(id))) {
+			b["pile"].append(p->repose);
+			b["pile"].append(p->yield);
+			b["pile"].append(p->bearing);
+			b["pile"].append(p->give);
+		}
+	}
+	json["river"] = far::bakeRiverPatch();
+	json["machines"] = workshop::bakeShowcase(&server, server.getMaterials());
 
 	Json::StreamWriterBuilder writer;
 	writer["indentation"] = "\t";

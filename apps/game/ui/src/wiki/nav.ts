@@ -5,7 +5,7 @@
 import { inject, provide, reactive, ref, shallowRef, type InjectionKey, type ShallowRef } from "vue"
 import type { MatterElement, MatterReaction, MatterRock, MatterSubstance } from "../bridge"
 
-export type Section = "matter" | "reactions" | "reactor" | "lab" | "flight"
+export type Section = "matter" | "reactions" | "heat" | "movement" | "vehicles" | "fluids" | "air" | "worlds"
 
 export type Table = {
     elements: MatterElement[]
@@ -16,24 +16,16 @@ export type Table = {
     byId: Map<string, MatterSubstance>
 }
 
-/**
- * `seen`: in game, the reactions the player has seen happen in the world
- * (tf_matter); null in the menu, where everything is open.
- */
-export function WikiNav(opts: { place: "menu" | "game"; seen: () => Set<string> | null }) {
+export function WikiNav(opts: { place: "menu" | "game" }) {
     const state = reactive({
         section: "matter" as Section,
-        chosen: { matter: "water", reactions: null, reactor: null, lab: null, flight: null } as Record<Section, string | null>,
+        chosen: { matter: "table", reactions: null, heat: null, movement: null, vehicles: null, fluids: null, air: null, worlds: null } as Record<Section, string | null>,
     })
     const table: ShallowRef<Table | null> = shallowRef(null)
     const search = ref("")
     return {
         place: opts.place,
         /** Whether a reaction has been seen (always, in the menu). */
-        seen(id: string) {
-            const s = opts.seen()
-            return s === null || s.has(id)
-        },
         state: state,
         table: table,
         search: search,

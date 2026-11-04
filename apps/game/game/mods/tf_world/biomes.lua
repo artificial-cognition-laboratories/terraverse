@@ -14,7 +14,7 @@ core.register_node("tf_world:snow", {
 core.register_node("tf_world:ice", {
 	description = "Ice",
 	tiles = { "tf_goodvibes_packed_ice.png" },
-	groups = { cracky = 3 },
+	groups = { cracky = 3, slippery = 3 },
 	_matter = { matter = "water", share = 1 } -- the polar wall: ice, but never the form water freezes into,
 })
 

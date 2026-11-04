@@ -360,7 +360,7 @@ std::shared_ptr<const Climate> climateKept(const WorldCode &c, const std::vector
 	return kept.get({ { c.processes.warming, c.temperature, c.humidity, c.tilt }, land }, [&] { return climate(c, land); });
 }
 
-std::shared_ptr<Grid> build(const WorldCode &code)
+std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(const ErosionRound &)> *watch = nullptr)
 {
 	const Sphere &sphere = gridSphere();
 	auto g = std::make_shared<Grid>();
@@ -551,6 +551,8 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 		for (fix &v : h)
 			v -= old_sea;
 	}
+	if (watch)
+		(*watch)({ h, g->sediment, accumulate(receivers(fill(h)), upstreamOrder(receivers(fill(h))), rain) });
 	for (int round = 0; round < rounds; round++) {
 		for (size_t i = 0; i < n && code.processes.water; i++)
 			if (h[i] >= 0) {
@@ -636,6 +638,8 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 			h[i] += (fix)whole;
 			crumbs[i] = moved[i] - whole * a;
 		}
+		if (watch)
+			(*watch)({ h, g->sediment, area });
 	}
 	for (size_t i = 0; i < n; i++)
 		g->to_deep += crumbs[i]; // (under a unit of height a cell: counted as gone, so the balance is exact)
@@ -712,6 +716,11 @@ std::shared_ptr<Grid> build(const WorldCode &code)
 // (grid_file.cpp) none: not kept yet
 std::shared_ptr<const Grid> loadGrid(const std::string &code);
 void saveGrid(const std::string &code, const Grid &grid);
+
+std::shared_ptr<const Grid> watchErosion(const WorldCode &code, const std::function<void(const ErosionRound &)> &watch)
+{
+	return build(code, &watch);
+}
 
 std::shared_ptr<const Grid> gridFor(const WorldCode &code)
 {

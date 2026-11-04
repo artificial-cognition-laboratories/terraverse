@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue"
 import { useBridge } from "../bridge/use.ts"
-import { useStore } from "../game/store.ts"
 import { Button, WorkbenchPanel } from "../kit/index.ts"
-import FlightSection from "./FlightSection.vue"
-import LabSection from "./LabSection.vue"
+import { AIR_DEMOS } from "./air.ts"
+import { LAB_DEMOS } from "./demos.ts"
+import DemosSection from "./DemosSection.vue"
+import FluidsSection from "./FluidsSection.vue"
 import MatterSection from "./MatterSection.vue"
+import MovementSection from "./MovementSection.vue"
+import WorldsSection from "./WorldsSection.vue"
 import { provideWiki, WikiNav, type Section } from "./nav.ts"
 import ReactionsSection from "./ReactionsSection.vue"
-import ReactorSection from "./ReactorSection.vue"
 
 /**
  * The wiki: what everything is made of and how it behaves, shown rather
@@ -19,11 +21,7 @@ import ReactorSection from "./ReactorSection.vue"
 const props = defineProps<{ place: "menu" | "game" }>()
 defineEmits<{ close: [] }>()
 const bridge = useBridge()
-const store = useStore()
-const wiki = WikiNav({
-    place: props.place,
-    seen: () => (props.place === "game" ? new Set(store.ui.discovered ?? []) : null),
-})
+const wiki = WikiNav({ place: props.place })
 provideWiki(wiki)
 
 onMounted(async () => {
@@ -37,12 +35,18 @@ const RAIL: { id: Section; label: string; shortLabel?: string; rows: string[]; p
         rows: ["...O.O...", "..O...O..", ".O.....O.", "O...N...O", "O..NNN..O", "O...N...O", ".O.....O.", "..O...O..", "...O.O..."] },
     { id: "reactions", label: "Reactions", shortLabel: "React", palette: { F: "#ffb040", R: "#e0603d", W: "#8a5a32" },
         rows: ["....F....", "...FRF...", "..FRRF...", "..FRRRF..", ".FRRRRF..", ".FRRRRRF.", "..FRRRF..", ".WWWWWWW.", "..W...W.."] },
-    { id: "reactor", label: "Reactor", palette: { G: "#c9d4dc", L: "#40b8ec", F: "#ffb040" },
-        rows: ["..G...G..", "..G...G..", ".G.....G.", ".GLLLLLG.", ".GLLLLLG.", "..GLLLG..", "...GGG...", "..F.F.F..", ".F.F.F.F."] },
-    { id: "lab", label: "Lab", palette: { W: "#c9d4dc", G: "#c9d4dc", L: "#40b8ec" },
-        rows: ["...WWW...", "....G....", "....G....", "...G.G...", "..G...G..", ".GLLLLLG.", ".GLLLLLG.", ".GLLLLLG.", "..GGGGG.."] },
-    { id: "flight", label: "Flight: Newton's cannon", shortLabel: "Flight", palette: { P: "#3c6e46", O: "#ffb040", W: "#c9d4dc" },
-        rows: ["...OOO...", ".O.....O.", "O..PPP..O", "O.PPPPP.O", "O.PPPPP.W", "O.PPPPP.O", "O..PPP..O", ".O.....O.", "...OOO..."] },
+    { id: "heat", label: "Heat & fire", shortLabel: "Heat", palette: { F: "#ffb040", R: "#e0603d", S: "#c9d4dc" },
+        rows: ["..S...F..", "..S..FF..", "..S.FRF..", "..S.FRRF.", "..S.FRRF.", ".SSS.FF..", ".SSS.....", ".SSS.....", "..S......"] },
+    { id: "fluids", label: "Fluids & ground", shortLabel: "Flow", palette: { W: "#4aa3df", L: "#a7d8f0", S: "#d8c58a" },
+        rows: ["....L....", "....W....", "...WWW...", "...WLW...", "..WWWWW..", "..WLLWW..", "...WWW...", ".SSSSSSS.", "SSSSSSSSS"] },
+    { id: "air", label: "Air & pressure", shortLabel: "Air", palette: { C: "#c9d4dc", F: "#ffb040" },
+        rows: ["..CCC....", ".C...C.CC", "......C..", "CCCCCC...", ".........", "CCCCCCCC.", "........C", "...F...C.", "..FFF.CC."] },
+    { id: "worlds", label: "Worlds", palette: { G: "#5f7a45", B: "#3f76e4", S: "#c9b27c", R: "#7c7c78" },
+        rows: [".....R...", "....RRR..", "...RRRRR.", "..GGRBRG.", ".GGGGBGG.", "GGGGBBGGG", "GGSBBSGGG", "SSBBBSSSS", "BBBBBBBBB"] },
+    { id: "movement", label: "Movement", shortLabel: "Move", palette: { S: "#d8a07a", B: "#0094d2", T: "#8a93ad" },
+        rows: ["....SS...", "....SS...", "...BBB.B.", "..B.BBB..", ".B..BB...", "....TT...", "...T..T..", "..T...T..", ".T.....T."] },
+    { id: "vehicles", label: "Vehicles", shortLabel: "Drive", palette: { B: "#0094d2", W: "#c9d4dc", D: "#3a3f55" },
+        rows: [".........", "...BBBB..", "..BWWWB..", ".BBBBBBBB", ".BBBBBBBB", ".DDBBBDDB", ".DWDBDWD.", "..D...D..", "........."] },
 ]
 const section = computed({
     get: () => wiki.state.section,
@@ -55,16 +59,18 @@ const query = wiki.search
 <template>
     <WorkbenchPanel v-model:group="section" v-model:query="query" class="wiki"
         title="Wiki" :section="sectionLabel" :groups="RAIL" rail-label="Wiki sections"
-        :search-label="section === 'flight' ? undefined : `Search ${sectionLabel.toLowerCase()}`"
+        :search-label="`Search ${sectionLabel.toLowerCase()}`"
         :search-placeholder="`Search ${sectionLabel.toLowerCase()}…`">
         <template #actions><Button size="sm" @click="$emit('close')">{{ place === "menu" ? "Back" : "Close" }}</Button></template>
         <template #workspace>
             <div v-if="wiki.table.value" class="section">
                 <MatterSection v-if="wiki.state.section === 'matter'" />
                 <ReactionsSection v-else-if="wiki.state.section === 'reactions'" />
-                <ReactorSection v-else-if="wiki.state.section === 'reactor'" />
-                <LabSection v-else-if="wiki.state.section === 'lab'" />
-                <FlightSection v-else-if="wiki.state.section === 'flight'" />
+                <DemosSection v-else-if="wiki.state.section === 'heat'" key="heat" section="heat" :demos="LAB_DEMOS" />
+                <DemosSection v-else-if="wiki.state.section === 'air'" key="air" section="air" :demos="AIR_DEMOS" />
+                <WorldsSection v-else-if="wiki.state.section === 'worlds'" />
+                <FluidsSection v-else-if="wiki.state.section === 'fluids'" />
+                <MovementSection v-else-if="wiki.state.section === 'movement' || wiki.state.section === 'vehicles'" :key="wiki.state.section" :kind="wiki.state.section" />
             </div>
             <p v-else class="loading">reading the tables…</p>
         </template>
@@ -72,6 +78,9 @@ const query = wiki.search
 </template>
 
 <style scoped>
+/* the middle is a hole: the scene's drawn natively under the page (src/shell/scene.h). What's left paints its own. */
+.wiki { background: none; }
+.wiki :deep(.body), .wiki :deep(.workbench-stage) { background: none; }
 .section { min-width: 0; min-height: 0; height: 100%; }
 .loading { color: var(--ink-faint); }
 </style>

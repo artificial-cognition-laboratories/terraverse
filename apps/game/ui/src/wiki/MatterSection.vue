@@ -2,13 +2,15 @@
 import { computed, ref, watch } from "vue"
 import type { MatterState } from "../bridge/index.ts"
 import { useBridge } from "../bridge/use.ts"
-import { ListEmpty, ListGroup, ListItem, Segmented, WorkbenchColumns } from "../kit/index.ts"
+import { ListEmpty, ListGroup, ListItem, WorkbenchColumns } from "../kit/index.ts"
 import { ENVIRONMENTS } from "../matter/environments.ts"
-import PeriodicTable from "../matter/PeriodicTable.vue"
-import PhaseBox from "../matter/PhaseBox.vue"
 import PhaseDiagram from "../matter/PhaseDiagram.vue"
 import Structure from "../matter/Structure.vue"
+import type { SandboxSpec } from "../bridge/index.ts"
 import { useTable, useWiki } from "./nav.ts"
+import { AIR } from "./demos.ts"
+import SceneStage from "./SceneStage.vue"
+import TableSection from "./TableSection.vue"
 
 /**
  * Matter: every substance the engine knows, its structure in 3D, its phase
@@ -20,13 +22,10 @@ const bridge = useBridge()
 const wiki = useWiki()
 const table = useTable()
 
-const view = ref<"structure" | "table">("structure")
-const chosen = computed<string>({ get: () => wiki.state.chosen.matter ?? "water", set: (id) => { wiki.state.chosen.matter = id } })
+const chosen = computed<string>({ get: () => wiki.state.chosen.matter ?? "table", set: (id) => { wiki.state.chosen.matter = id } })
 const rock = ref<string | null>(null)
-const element = ref<string | null>(null)
 const substance = computed(() => table.byId.get(chosen.value) ?? null)
 const pickedRock = computed(() => table.rocks.find((r) => r.id === rock.value) ?? null)
-const modelled = computed(() => new Set(table.substances.filter((s) => s.kind === "element").map((s) => Object.keys(s.composition)[0]!)))
 const matches = (text: string) => text.toLowerCase().includes(wiki.search.value.trim().toLowerCase())
 const groups = computed(() => [
     { label: "Elements", items: table.substances.filter((s) => s.kind === "element" && matches(`${s.name} ${s.formula} ${s.id}`)) },
@@ -50,21 +49,19 @@ async function ask() {
 }
 watch([chosen, marker], ask, { deep: true, immediate: true })
 
-function pickElement(symbol: string) {
-    const s = table.substances.find((x) => x.kind === "element" && x.composition[symbol])
-    if (s) { chosen.value = s.id; element.value = null; view.value = "structure" }
-    else element.value = symbol
-}
-function pick(id: string) { chosen.value = id; element.value = null; rock.value = null }
+function pick(id: string) { chosen.value = id; rock.value = null }
 
-const heat = computed(() => {
-    const s = substance.value
-    return s ? Math.max(0, Math.min(1, marker.value.t / (s.critical[0] * 1.2))) : 0.5
-})
-const color = computed(() => {
-    const first = substance.value ? Object.keys(substance.value.composition)[0] : undefined
-    return (first && table.bySymbol.get(first)?.color) || "#b0b8c0"
-})
+// a block of it, in the conditions chosen: the engine says what it does there
+const scene = ref<SandboxSpec | null>(null)
+let settling = 0
+watch([chosen, marker], () => {
+    clearTimeout(settling)
+    settling = window.setTimeout(() => {
+        const s = substance.value
+        scene.value = s ? { size: [3, 2, 3], ambient: marker.value.t, pressure: marker.value.p, air: AIR,
+            blocks: [{ at: [1, 0, 1], node: `tf_matter:${s.id}`, temperature: marker.value.t, hold: true }] } : null
+    }, scene.value ? 150 : 0)
+}, { deep: true, immediate: true })
 const substanceName = (id: string) => table.byId.get(id)?.name ?? id
 function mineralColour(id: string) {
     let h = 0
@@ -74,19 +71,19 @@ function mineralColour(id: string) {
 const celsius = (k: number) => `${Math.round(k)} K · ${Math.round(k - 273.15)} °C`
 const pressure = (p: number) => p >= 1e9 ? `${(p / 1e9).toPrecision(3)} GPa` : p >= 1e6 ? `${(p / 1e6).toPrecision(3)} MPa`
     : p >= 1e3 ? `${(p / 1e3).toPrecision(3)} kPa` : `${p.toPrecision(3)} Pa`
-const views = [{ value: "structure", label: "Structure" }, { value: "table", label: "Periodic table" }] as const
 </script>
 
 <template>
-    <WorkbenchColumns>
+    <WorkbenchColumns :open="chosen !== 'table' || !!rock">
         <template #list>
+            <ListItem :on="chosen === 'table' && !rock" @click="pick('table')">Periodic table</ListItem>
             <ListGroup v-for="g in groups" v-show="g.items.length" :key="g.label" :title="g.label">
-                <ListItem v-for="s in g.items" :key="s.id" :on="chosen === s.id && !element && !rock" @click="pick(s.id)">
+                <ListItem v-for="s in g.items" :key="s.id" :on="chosen === s.id && !rock" @click="pick(s.id)">
                     <template #lead>{{ s.formula }}</template>{{ s.name }}
                 </ListItem>
             </ListGroup>
             <ListGroup v-if="rocks.length" title="Rocks">
-                <ListItem v-for="r in rocks" :key="r.id" :on="rock === r.id" @click="rock = r.id; element = null">
+                <ListItem v-for="r in rocks" :key="r.id" :on="rock === r.id" @click="rock = r.id">
                     <template #lead>{{ r.origin.slice(0, 4) }}</template>{{ r.name }}
                 </ListItem>
             </ListGroup>
@@ -94,19 +91,10 @@ const views = [{ value: "structure", label: "Structure" }, { value: "table", lab
         </template>
 
         <template #content>
-            <Segmented v-model="view" :options="views" class="views" />
-            <div v-if="view === 'structure' && substance" class="stage">
-                <Structure :structure="substance.structure" :elements="table.bySymbol" class="model" />
-                <div class="box-wrap">
-                    <PhaseBox v-if="reading" :state="reading.state" :heat="heat" :color="color" class="box" />
-                    <p v-if="reading" class="state" :class="reading.state">{{ reading.state }}</p>
-                </div>
-            </div>
-            <PeriodicTable v-else-if="view === 'table'" :elements="table.elements" :modelled="modelled"
-                :selected="element ?? (substance?.kind === 'element' ? Object.keys(substance.composition)[0]! : null)" @pick="pickElement" />
-        </template>
-
-        <template #facts>
+            <TableSection v-if="chosen === 'table' && !rock" />
+            <SceneStage v-else :spec="scene" :speed="1">
+                <template #corner><Structure v-if="substance" :structure="substance.structure" :elements="table.bySymbol" class="model" /></template>
+                <template #facts>
             <template v-if="pickedRock">
                 <h4>{{ pickedRock.name }} <span class="dim">{{ pickedRock.origin }}</span></h4>
                 <p class="copy">{{ pickedRock.note }}</p>
@@ -123,14 +111,20 @@ const views = [{ value: "structure", label: "Structure" }, { value: "table", lab
                 </ul>
                 <p class="dim">A mixture of minerals by mass: what it melts into and what it gives when smelted come from these.</p>
             </template>
-            <template v-else-if="element && table.bySymbol.get(element)">
-                <h4>{{ table.bySymbol.get(element)!.name }} <span class="dim">{{ table.bySymbol.get(element)!.symbol }} · {{ table.bySymbol.get(element)!.number }}</span></h4>
-                <p class="dim">{{ table.bySymbol.get(element)!.category }} · {{ table.bySymbol.get(element)!.mass }} g/mol</p>
-                <p class="copy">Not modelled yet: its substance has no phase data. Lit elements have one.</p>
-            </template>
             <template v-else-if="substance">
                 <h4>{{ substance.name }} <span class="dim">{{ substance.formula }}</span></h4>
                 <p class="copy">{{ substance.note }}</p>
+                <div class="here">
+                    <span>{{ celsius(marker.t) }} · {{ pressure(marker.p) }}</span>
+                    <strong v-if="reading" :class="reading.state">{{ reading.state }}</strong>
+                    <span v-if="reading?.boils_at" class="dim">boils at {{ Math.round(reading.boils_at) }} K here</span>
+                    <span v-if="reading?.melts_at" class="dim">melts at {{ Math.round(reading.melts_at) }} K here</span>
+                </div>
+                <div class="diagram"><PhaseDiagram v-model="marker" :substance="substance" /></div>
+                <div class="worlds">
+                    <button v-for="env in ENVIRONMENTS" :key="env.label" @click="marker = { t: env.t, p: env.p }">{{ env.label }}</button>
+                </div>
+                <details><summary>Properties</summary>
                 <dl>
                     <div><dt>Molar mass</dt><dd>{{ substance.molar_mass.toFixed(2) }} g/mol</dd></div>
                     <div><dt>Triple point</dt><dd>{{ Math.round(substance.triple[0]) }} K · {{ pressure(substance.triple[1]) }}</dd></div>
@@ -143,17 +137,7 @@ const views = [{ value: "structure", label: "Structure" }, { value: "table", lab
                     <div><dt>Latent heat</dt><dd>{{ substance.fusion }} melt · {{ substance.vaporization }} boil kJ/mol</dd></div>
                 </dl>
                 <p v-if="substance.approximate" class="dim">Some of these numbers are estimates.</p>
-
-                <div class="here">
-                    <span>{{ celsius(marker.t) }} · {{ pressure(marker.p) }}</span>
-                    <strong v-if="reading" :class="reading.state">{{ reading.state }}</strong>
-                    <span v-if="reading?.boils_at" class="dim">boils at {{ Math.round(reading.boils_at) }} K here</span>
-                    <span v-if="reading?.melts_at" class="dim">melts at {{ Math.round(reading.melts_at) }} K here</span>
-                </div>
-                <div class="diagram"><PhaseDiagram v-model="marker" :substance="substance" /></div>
-                <div class="worlds">
-                    <button v-for="env in ENVIRONMENTS" :key="env.label" @click="marker = { t: env.t, p: env.p }">{{ env.label }}</button>
-                </div>
+                </details>
 
                 <template v-if="madeBy.length">
                     <h5>Made by</h5>
@@ -164,21 +148,20 @@ const views = [{ value: "structure", label: "Structure" }, { value: "table", lab
                     <div class="links"><button v-for="r in usedIn" :key="r.id" class="link" @click="wiki.go('reactions', r.id)">{{ r.name }}</button></div>
                 </template>
             </template>
+                </template>
+            </SceneStage>
         </template>
     </WorkbenchColumns>
 </template>
 
 <style scoped>
-.views { width: 300px; }
-.stage { flex: 1; min-height: 0; display: grid; grid-template-rows: 1fr 170px; gap: 12px; }
-.model { min-height: 0; }
-.box-wrap { position: relative; }
-.box { width: 100%; height: 100%; }
-.state { position: absolute; top: 8px; left: 10px; margin: 0; font: 12px var(--font-display); text-transform: uppercase; }
+.model { width: 170px; height: 150px; }
 .here { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; padding: 8px 10px; border: var(--b) solid var(--edge); background: var(--stone-1); box-shadow: var(--sunk); font-size: 11px; }
 .here strong { font: 14px var(--font-display); text-transform: uppercase; }
 .solid { color: #8fb6e8; } .liquid { color: #40b8ec; } .gas { color: #d9b07a; } .supercritical { color: #c99be0; }
-.diagram { flex: none; height: 280px; }
+.diagram { flex: none; height: 210px; }
+summary { cursor: pointer; color: var(--ink-faint); font: 11px var(--font-display); text-transform: uppercase; letter-spacing: 0.12em; }
+details dl { margin-top: 8px !important; }
 .worlds { display: flex; flex-wrap: wrap; gap: 6px; }
 .worlds button { border: var(--b) solid var(--edge); background: var(--stone-2); padding: 3px 7px; font: 10px var(--font-display); text-transform: uppercase; color: var(--ink-dim); }
 .worlds button:hover { color: var(--ink); }

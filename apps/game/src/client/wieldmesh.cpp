@@ -3,6 +3,9 @@
 // Copyright (C) 2010-2014 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "wieldmesh.h"
+#include "piece/machine.h"
+#include "util/base64.h"
+scene::SMesh *generateMachineMesh(Client *client, const piece::Machine &machine); // content_cao.cpp
 #include "settings.h"
 #include "shader.h"
 #include "inventory.h"
@@ -488,6 +491,28 @@ void WieldMeshSceneNode::setItem(const ItemStack &item, Client *client, bool che
 
 		setExtruded(wield_texture, wield_overlay_texture, wield_scale);
 		// initialize the color
+		setColor(video::SColor(0xFFFFFFFF));
+		return;
+	}
+
+	// Terra Firma: a small thing is drawn as itself, at its size, its middle in the hand
+	if (const std::string text = item.metadata.getString("piece"); !text.empty()) {
+		piece::Machine machine(client);
+		machine.read(base64_decode(text));
+		mesh = generateMachineMesh(client, machine);
+		const v3f middle = mesh->getBoundingBox().getCenter();
+		for (u32 i = 0; i < mesh->getMeshBufferCount(); i++) {
+			scene::IMeshBuffer *buf = mesh->getMeshBuffer(i);
+			auto *v = static_cast<video::S3DVertex *>(buf->getVertices());
+			for (u32 j = 0; j < buf->getVertexCount(); j++)
+				v[j].Pos -= middle;
+			buf->recalculateBoundingBox();
+			m_buffer_info.emplace_back(0);
+		}
+		mesh->recalculateBoundingBox();
+		changeToMesh(mesh);
+		mesh->drop();
+		m_meshnode->setScale(wield_scale * WIELD_SCALE_FACTOR / BS);
 		setColor(video::SColor(0xFFFFFFFF));
 		return;
 	}

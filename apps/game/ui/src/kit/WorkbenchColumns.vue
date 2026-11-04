@@ -8,7 +8,7 @@ import { WORKBENCH_SEARCH } from "./workbench.ts"
  * The facts column shows when there's a facts slot; the columns own the
  * type inside them, so every screen's facts read alike.
  */
-const props = withDefaults(defineProps<{ listWidth?: number; factsWidth?: number; contentWidth?: number }>(), {
+const props = withDefaults(defineProps<{ listWidth?: number; factsWidth?: number; contentWidth?: number; /** The content is a native scene under the page: nothing painted, nothing padded. */ open?: boolean }>(), {
     listWidth: 260,
     factsWidth: 380,
     contentWidth: 600,
@@ -33,8 +33,8 @@ const searchQuery = computed({
             </div>
             <div class="workbench-list-scroll"><slot name="list" /></div>
         </nav>
-        <main class="workbench-content">
-            <div class="workbench-content-inner" :style="{ maxWidth: `${contentWidth}px` }"><slot name="content" /></div>
+        <main class="workbench-content" :class="{ open }">
+            <div class="workbench-content-inner" :style="open ? undefined : { maxWidth: `${contentWidth}px` }"><slot name="content" /></div>
         </main>
         <aside v-if="$slots.facts" class="workbench-facts"><slot name="facts" /></aside>
     </div>
@@ -50,6 +50,8 @@ const searchQuery = computed({
 .workbench-content, .workbench-facts { overflow-y: auto; }
 .workbench-content, .workbench-facts { display: flex; flex-direction: column; gap: 12px; padding: 18px 22px; background: var(--stone-0); }
 .workbench-content-inner { display: flex; flex-direction: column; gap: 12px; width: 100%; min-width: 0; min-height: 100%; margin-inline: auto; }
+.workbench-content.open { padding: 0; background: none; overflow: hidden; }
+.workbench-content.open > .workbench-content-inner { height: 100%; }
 .workbench-facts { border-left: var(--b) solid var(--edge); }
 .workbench-facts :deep(h4) { margin: 0; font: 400 18px var(--font-display); text-transform: uppercase; overflow-wrap: anywhere; }
 .workbench-facts :deep(h5) { margin: 6px 0 0; font: 11px var(--font-display); text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); }

@@ -29,6 +29,7 @@ public:
 	bool has(v3s16 c) const { return m_bits[index(c)]; }
 	void set(v3s16 c, bool filled) { m_bits[index(c)] = filled; }
 	bool empty() const { return m_bits.none(); }
+	size_t count() const { return m_bits.count(); }
 	bool isWhole() const { return m_bits.all(); }
 	// At least half of it is there.
 	bool half() const { return m_bits.count() * 2 >= CELLS; }

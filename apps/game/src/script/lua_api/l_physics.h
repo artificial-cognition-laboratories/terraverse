@@ -24,6 +24,11 @@ private:
 	static int l_velocity(lua_State *L);
 	static int l_mass(lua_State *L);
 	static int l_impulse(lua_State *L);
+	static int l_blast(lua_State *L);
+	static int l_small_stone(lua_State *L);
+	static int l_small_stick(lua_State *L);
+	static int l_knap(lua_State *L);
+	static int l_edge(lua_State *L);
 
 public:
 	static void Initialize(lua_State *L, int top);

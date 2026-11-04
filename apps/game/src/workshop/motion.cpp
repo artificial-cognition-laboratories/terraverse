@@ -2,6 +2,13 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "motion.h"
+#include "entities.h"
+#include "fracture.h"
+#include "rubble.h"
+#include "porting.h"
+#include "log.h"
+#include <random>
+#include <chrono>
 
 #include "gamedef.h"
 #include "log.h"
@@ -211,7 +218,8 @@ Motion::Motion(ServerEnvironment &env, IGameDef *gamedef, const Materials &mater
 	m_env(env), m_gamedef(gamedef), m_materials(materials)
 {
 	m_world = std::make_unique<physics::World>(physics::World::Opts{ fieldOf(field),
-			[this](v3s16 block, std::vector<aabb3f> &boxes) { return ground(block, boxes); } });
+			[this](v3s16 block, std::vector<aabb3f> &boxes) { return ground(block, boxes); },
+			[this](const v3d &at) { return surfaceGrip(m_env.getMap(), m_gamedef->ndef(), m_materials, at); } });
 }
 
 Motion::~Motion() = default;
@@ -244,6 +252,10 @@ physics::Assembly compile(const piece::Machine &m, const Materials &materials, I
 	const NodeDefManager *ndef = gamedef->ndef();
 	physics::Assembly a;
 	const std::vector<std::vector<u64>> groups = m.rigid();
+	// a small thing's boxes are scaled, and only its boxes (sprint 130)
+	const float scale = m.scale();
+	if (scale != 1 && groups.size() > 1)
+		throw std::runtime_error("a small thing can't have moving joints yet");
 	std::map<u64, size_t> group_of;
 	float mass = 0;
 	for (size_t gi = 0; gi < groups.size(); gi++) {
@@ -283,12 +295,25 @@ physics::Assembly compile(const piece::Machine &m, const Materials &materials, I
 					b.MinEdge += intToFloat(n, BS);
 					b.MaxEdge += intToFloat(n, BS);
 					at.transformBoxEx(b);
-					b.MinEdge /= BS;
-					b.MaxEdge /= BS;
+					b.MinEdge *= scale / BS;
+					b.MaxEdge *= scale / BS;
 					body.boxes.push_back({ b, mat->density, mat->friction });
 					mass += b.getVolume() * mat->density;
 				}
 			});
+		}
+		// a small thing's one box, of its weight (sprint 130): hundreds of 8 mm
+		// boxes each, with stones on every chunk, is more than it's worth to bump them
+		if (scale != 1 && !body.boxes.empty()) {
+			aabb3f whole = body.boxes[0].box;
+			float kg = 0;
+			for (const physics::Box &b : body.boxes) {
+				whole.addInternalBox(b.box);
+				kg += b.box.getVolume() * b.density;
+			}
+			const float friction = body.boxes[0].friction;
+			body.boxes.clear();
+			body.boxes.push_back({ whole, kg / whole.getVolume(), friction });
 		}
 		// a group of nothing built (all ghost) is nothing to move: it's left out
 		if (body.boxes.empty()) {
@@ -393,6 +418,13 @@ physics::Assembly compile(const piece::Machine &m, const Materials &materials, I
 		a.hubs.push_back(h);
 	}
 	return a;
+}
+
+float surfaceGrip(Map &map, const NodeDefManager *, const Materials &materials, const v3d &at)
+{
+	const MapNode n = map.getNode(v3s16(std::floor(at.X + 0.5), std::floor(at.Y + 0.5), std::floor(at.Z + 0.5)));
+	const Material *m = materials.get(n.getContent());
+	return m ? m->friction / physics::Wheel::GRIP : 1;
 }
 
 bool groundBoxes(Map &map, const NodeDefManager *ndef, v3s16 block, std::vector<aabb3f> &boxes)
@@ -610,6 +642,342 @@ void Motion::step(float dtime)
 			t.parts_sent = os.str();
 			e->sendParts(t.parts_sent);
 		}
+	}
+	settle(seen);
+	fall();
+}
+
+Motion::Crater Motion::blast(v3f centre, float power)
+{
+	// Objects first: each's own cells, or (a machine this doesn't judge) a node's face of it.
+	for (auto &[id, t] : m_tracked) {
+		if (m_world->held(t.id))
+			continue;
+		const v3f at = v3f::from(m_world->pose(t.id).position);
+		if ((at - centre).getLength() > BLAST_REACH * 2)
+			continue;
+		ServerActiveObject *o = m_env.getActiveObject(id);
+		auto *e = dynamic_cast<LuaEntitySAO *>(o);
+		if (!e)
+			continue;
+		try {
+			piece::Machine m(m_gamedef);
+			const std::string &text = e->accessObjectProperties()->piece;
+			m.read(text);
+			if (std::optional<Blasted> b = blasted(m, m_materials, m_gamedef, *m_world, t.id, centre, power)) {
+				m_world->impulse(t.id, b->impulse, v3d::from(centre));
+				if (!m_driven.count(id)) {
+					// (ahead of what's waiting: this is the news)
+					m_to_judge.erase(std::remove_if(m_to_judge.begin(), m_to_judge.end(), [&](const Judging &j) { return j.object == id; }), m_to_judge.end());
+					m_to_judge.insert(m_to_judge.begin(), Judging{ id, std::hash<std::string>{}(text), true,
+							std::make_shared<StructureQuestion>(std::move(b->question)) });
+				}
+			} else {
+				const v3f away = at - centre;
+				const float r2 = std::max(away.getLengthSQ(), 1.f);
+				m_world->impulse(t.id, v3f(away).normalize() * (power / r2), v3d::from(centre));
+			}
+		} catch (const std::exception &ex) {
+			errorstream << "physics: blast on object " << id << ": " << ex.what() << std::endl;
+		}
+	}
+	// Then the ground: each block gone as far out as the blast overcomes what it takes.
+	Map &map = m_env.getMap();
+	const NodeDefManager *ndef = m_gamedef->ndef();
+	// How far it digs goes as the cube root of its power over the ground's strength, as real
+	// craters do: this is what makes it about 3.6 nodes in dirt for 1500.
+	constexpr float CRATERING = 930;
+	std::map<content_t, u32> dug; // sixteenths of it, by what they were
+	float furthest = 0;
+	const auto reachIn = [&](const MapNode &n) -> float {
+		const ContentFeatures &f = ndef->get(n);
+		if (f.liquid_type != LIQUID_NONE || itemgroup_get(f.groups, "liquid")) // (the matter's to move, not this)
+			return 0;
+		if (!f.walkable) // plants and such: nothing to them
+			return std::cbrt(CRATERING * power / 1e5f);
+		const Material *mat = m_materials.get(n.getContent());
+		// (past this it's the ground's weight that holds it in, not what binds it: sand digs as soil does)
+		return mat && mat->tension > 0 ? std::cbrt(CRATERING * power / std::max(mat->tension, 3e4f)) : 0;
+	};
+	constexpr int MOST_REACH = 12;
+	const v3s16 middle = floatToInt(centre, 1.f);
+	for (s16 y = -MOST_REACH; y <= MOST_REACH; y++)
+		for (s16 z = -MOST_REACH; z <= MOST_REACH; z++)
+			for (s16 x = -MOST_REACH; x <= MOST_REACH; x++) {
+				const v3s16 p = middle + v3s16(x, y, z);
+				const MapNode n = map.getNode(p);
+				if (n.getContent() == CONTENT_AIR || n.getContent() == CONTENT_IGNORE)
+					continue;
+				const float r = std::min(reachIn(n), (float)MOST_REACH);
+				if (r <= 0)
+					continue;
+				const v3f off = v3f::from(p) - centre;
+				const float half = 0.87f; // a corner's distance from a node's middle
+				if (off.getLength() - half > r)
+					continue;
+				const bool solid = ndef->get(n).walkable;
+				const shape::Shape *had = map.getShape(p);
+				shape::Shape s = had ? *had : shape::Shape::whole();
+				const shape::Shape before = s;
+				const u32 was = solid ? (u32)s.count() : 0;
+				if (off.getLength() + half <= r) {
+					if (solid)
+						dug[n.getContent()] += was;
+					furthest = std::max(furthest, r);
+					m_env.removeNode(p);
+					continue;
+				}
+				for (s16 cy = 0; cy < shape::STEPS; cy++)
+					for (s16 cz = 0; cz < shape::STEPS; cz++)
+						for (s16 cx = 0; cx < shape::STEPS; cx++) {
+							const v3f c = off + (v3f(cx, cy, cz) + v3f(0.5f)) / (float)shape::STEPS - v3f(0.5f);
+							if (s.has(v3s16(cx, cy, cz)) && c.getLength() <= r)
+								s.set(v3s16(cx, cy, cz), false);
+						}
+				if (s == before)
+					continue;
+				if (solid) // (a plant's nothing to speak of: it isn't ground to throw or lay)
+					dug[n.getContent()] += was - (u32)s.count();
+				furthest = std::max(furthest, r);
+				if (s.empty())
+					m_env.removeNode(p);
+				else
+					map.setShape(p, s);
+			}
+	Crater crater;
+	u32 most = 0, total = 0;
+	for (const auto &[c, n] : dug) {
+		total += n;
+		if (n > most) {
+			most = n;
+			crater.material = c;
+		}
+	}
+	if (!total)
+		return crater;
+	crater.radius = furthest;
+
+	// The throw: chunks of what was dug, a quarter to half a node, out and up.
+	std::mt19937 random((u32)(centre.X * 16) * 73856093u ^ (u32)(centre.Y * 16) * 19349663u ^ (u32)(centre.Z * 16) * 83492791u);
+	const auto between = [&](float a, float b) { return std::uniform_real_distribution<float>(a, b)(random); };
+	constexpr int MOST_CHUNKS = 16;
+	constexpr float CHUNKS_SHARE = 0.15f, FALLOUT_SHARE = 0.5f; // of what's dug; the rest's packed into the walls
+	Entities entities(m_env, m_gamedef);
+	std::vector<std::pair<content_t, u32>> by(dug.begin(), dug.end());
+	std::discrete_distribution<size_t> pick = [&] {
+		std::vector<double> w;
+		for (const auto &[c, n] : by)
+			w.push_back(n);
+		return std::discrete_distribution<size_t>(w.begin(), w.end());
+	}();
+	u32 thrown = 0;
+	const float speed = std::sqrt(power / 1500.f) * 12;
+	for (int i = 0; i < MOST_CHUNKS && thrown < total * CHUNKS_SHARE; i++) {
+		const content_t c = by[pick(random)].first;
+		if (!m_materials.get(c))
+			continue;
+		const int side = (int)between(4, 9);
+		shape::Shape cube = shape::Shape::whole();
+		for (s16 y = 0; y < shape::STEPS; y++)
+			for (s16 z = 0; z < shape::STEPS; z++)
+				for (s16 x = 0; x < shape::STEPS; x++)
+					cube.set(v3s16(x, y, z), x < side && y < side && z < side);
+		piece::Object o(m_gamedef);
+		o.design().map().setNode({ 0, 0, 0 }, MapNode(c));
+		o.design().map().setShape({ 0, 0, 0 }, cube);
+		o.build();
+		piece::Machine m(m_gamedef);
+		m.add({ std::move(o), piece::Pose{ v3s32(0), 0 } });
+		const float turn = between(0, 6.2832f), rise = between(0.35f, 1.3f);
+		const v3f dir = v3f(std::cos(turn) * std::cos(rise), std::sin(rise), std::sin(turn) * std::cos(rise));
+		LuaEntitySAO &e = entities.spawn((centre + dir * (furthest * between(0.2f, 0.6f))) * BS, v3f(between(0, 360), between(0, 360), 0), m);
+		e.setVelocity(dir * (speed * between(0.5f, 1.3f)) * BS);
+		m_rubble.insert(e.getId());
+		thrown += side * side * side;
+	}
+
+	// The fallout: a rim, thickest at the lip, what wasn't thrown or packed in.
+	// sixteenths a column, each way: finer costs more than it shows, on a big rim more
+	const int GRAIN = furthest > 5 ? 4 : 2;
+	const s32 cx = (s32)std::floor((centre.X + 0.5f) * shape::STEPS), cz = (s32)std::floor((centre.Z + 0.5f) * shape::STEPS);
+	const s32 top = (s32)std::floor((centre.Y + 0.5f) * shape::STEPS) + (s32)((furthest + 2) * shape::STEPS);
+	const float inner = furthest * shape::STEPS, outer = inner * 1.7f;
+	double spread = 0;
+	for (s32 z = -(s32)outer; z <= (s32)outer; z += GRAIN)
+		for (s32 x = -(s32)outer; x <= (s32)outer; x += GRAIN) {
+			const float d = std::sqrt((float)(x * x + z * z));
+			if (d >= inner && d <= outer)
+				spread += inner * inner * inner / (d * d * d) * GRAIN * GRAIN;
+		}
+	const double lay = std::max(0.0, total * (double)FALLOUT_SHARE - thrown);
+	if (spread > 0 && lay > 0) {
+		const float lip = std::min(32.f, (float)(lay / spread));
+		Fallout f;
+		f.laying = std::make_unique<Laying>(map, ndef, [this](v3s16 p, MapNode n) { m_env.setNode(p, n); });
+		f.top = top;
+		f.grain = GRAIN;
+		f.material = crater.material;
+		for (s32 z = -(s32)outer; z <= (s32)outer; z += GRAIN)
+			for (s32 x = -(s32)outer; x <= (s32)outer; x += GRAIN) {
+				const float d = std::sqrt((float)(x * x + z * z));
+				if (d < inner || d > outer)
+					continue;
+				const float rough = between(0.6f, 1.4f);
+				const int height = (int)(lip * inner * inner * inner / (d * d * d) * rough + between(0, 1));
+				if (height > 0)
+					f.columns.push_back({ cx + x, cz + z, height });
+			}
+		// in no order: it rains down all round, not swept across
+		std::shuffle(f.columns.begin(), f.columns.end(), random);
+		m_fallout.push_back(std::move(f));
+	}
+	return crater;
+}
+
+void Motion::fall()
+{
+	constexpr float BUDGET = 8; // ms a server step: a big rim comes down in a few seconds
+	const auto began = std::chrono::steady_clock::now();
+	const auto spent = [&] { return std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - began).count(); };
+	for (auto it = m_fallout.begin(); it != m_fallout.end() && spent() < BUDGET;) {
+		Fallout &f = *it;
+		// a block's worth at a time, written as it goes: what's come down is seen coming down
+		constexpr size_t BATCH = 128;
+		size_t laid = 0;
+		for (; f.next < f.columns.size() && laid < BATCH && spent() < BUDGET; f.next++, laid++) {
+			const Fallout::Column &c = f.columns[f.next];
+			for (int h = 0; h < c.height; h++)
+				for (int a = 0; a < f.grain; a++)
+					for (int b = 0; b < f.grain; b++)
+						f.laying->drop(v3s32(c.x + a, f.top, c.z + b), f.material);
+		}
+		const bool written = f.laying->finish(std::max(0.f, BUDGET - spent()));
+		if (written && f.next >= f.columns.size())
+			it = m_fallout.erase(it);
+		else
+			break;
+	}
+}
+
+bool Motion::crumble(u16 id, LuaEntitySAO &e, physics::World::Id body)
+{
+	constexpr size_t MOST_CELLS_CRUMBLED = 256; // 4 nodes' worth: bigger holds together as a lump
+	constexpr float WEAKEST = 1e5f;             // Pa: rock's past this, and stays rubble
+	piece::Machine m(m_gamedef);
+	m.read(e.accessObjectProperties()->piece);
+	const std::optional<StructureOf> s = structureOf(m, m_materials, m_gamedef);
+	if (!s || s->cells.size() > MOST_CELLS_CRUMBLED)
+		return false;
+	for (const physics::StructureCell &c : s->structure.cells)
+		if (c.tension <= 0 || c.tension > WEAKEST)
+			return false;
+	const physics::Pose pose = m_world->pose(body);
+	const core::matrix4 at = m.parts().front().pose.matrix();
+	Laying laying(m_env.getMap(), m_gamedef->ndef(), [&](v3s16 p, MapNode n) { m_env.setNode(p, n); });
+	m.parts().front().object.built().each([&](v3s16 n, MapNode node, const shape::Shape *cut) {
+		for (s16 y = 0; y < shape::STEPS; y++)
+			for (s16 z = 0; z < shape::STEPS; z++)
+				for (s16 x = 0; x < shape::STEPS; x++) {
+					if (cut && !cut->has(v3s16(x, y, z)))
+						continue;
+					v3f local = v3f::from(n) * BS + (v3f(x, y, z) + v3f(0.5f)) / (float)shape::STEPS * BS - v3f(BS / 2);
+					at.transformVect(local);
+					const v3f world = turned(pose.rotation, local / BS) + v3f::from(pose.position);
+					laying.drop(v3s32((s32)std::floor((world.X + 0.5f) * shape::STEPS),
+							(s32)std::floor((world.Y + 0.5f) * shape::STEPS),
+							(s32)std::floor((world.Z + 0.5f) * shape::STEPS)), node.getContent());
+				}
+	});
+	laying.finish();
+	e.markForRemoval();
+	return true;
+}
+
+void Motion::settle(const std::map<u16, LuaEntitySAO *> &seen)
+{
+	const auto inHands = [&](u16 id) {
+		return m_held.count(id) || m_carried.count(id) || m_grabbed.count(id) || m_driven.count(id);
+	};
+	const auto pending = [&](u16 id) {
+		for (const Judging &j : m_to_judge)
+			if (j.object == id)
+				return true;
+		return m_judging && m_judging->object == id;
+	};
+	const auto ask = [&](u16 id, physics::World::Id body, const std::optional<physics::World::Blow> &blow) {
+		try {
+			const std::string &text = seen.at(id)->accessObjectProperties()->piece;
+			piece::Machine m(m_gamedef);
+			m.read(text);
+			if (std::optional<StructureQuestion> q = asked(m, m_materials, m_gamedef, *m_world, body, blow))
+				m_to_judge.push_back({ id, std::hash<std::string>{}(text), blow.has_value(),
+						std::make_shared<StructureQuestion>(std::move(*q)) });
+		} catch (const std::exception &ex) {
+			errorstream << "physics: can't tell whether object " << id << " holds: " << ex.what() << std::endl;
+		}
+	};
+	for (auto &[id, t] : m_tracked) {
+		const bool rest = m_world->asleep(t.id) && m_world->tier(t.id) == physics::Tier::Live;
+		const std::optional<physics::World::Blow> blow = m_world->blow(t.id);
+		const bool hit = blow && (blow->velocity.getLength() >= LEAST_BLOW || blow->spin.getLength() >= LEAST_BLOW);
+		// in someone's hands it's being worked on or held up: asked when it's let go and lands.
+		// On the bench or at the wheel nothing's asked at all
+		if (!m_held.count(id) && !m_driven.count(id) && !pending(id)) {
+			if (hit) {
+				ask(id, t.id, blow);
+			} else if (rest && !t.resting && !inHands(id)) {
+				LuaEntitySAO *e = seen.at(id);
+				if (!m_rubble.count(id) || !crumble(id, *e, t.id))
+					ask(id, t.id, std::nullopt);
+			}
+		}
+		t.resting = rest;
+	}
+	for (auto it = m_rubble.begin(); it != m_rubble.end();)
+		it = m_env.getActiveObject(*it) ? std::next(it) : m_rubble.erase(it);
+	if (m_judging && m_answer.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+		const Judging j = std::move(*m_judging);
+		m_judging.reset();
+		const physics::StructureResult r = m_answer.get();
+		const auto e = seen.find(j.object);
+		if (e != seen.end() && !m_held.count(j.object) && (j.blow || !inHands(j.object))) {
+			ObjectProperties *props = e->second->accessObjectProperties();
+			if (!r.settled)
+				warningstream << "physics: object " << j.object << " of " << j.question->of.cells.size() << " cells wasn't solved: it stays as built" << std::endl;
+			if (r.groups > 1 && std::hash<std::string>{}(props->piece) == j.text) {
+				piece::Machine m(m_gamedef);
+				m.read(props->piece);
+				std::vector<Cut> pieces = cut(m, j.question->of, r, m_gamedef);
+				infostream << "physics: object " << j.object << " broke into " << pieces.size() << " (" << r.broken
+						<< " joints, " << r.rounds << " solves)" << std::endl;
+				Entities entities(m_env, m_gamedef);
+				// all new, where they were, moving as it was; only what's in someone's hands stays
+				// the entity it is (its grid as it was: the physics has it there)
+				const v3f rot = e->second->getRotation(), where = e->second->getBasePosition();
+				const bool keep = inHands(j.object);
+				if (keep) {
+					piece::Machine whole(m_gamedef);
+					whole.read(pieces[0].machine.write());
+					auto &o = whole.parts().front().object;
+					const v3s16 back = floatToInt(pieces[0].by, 1.f);
+					o.shift(back);
+					entities.store(*e->second, whole);
+				}
+				for (size_t i = keep ? 1 : 0; i < pieces.size(); i++) {
+					LuaEntitySAO &piece = entities.spawn(where + turned(quatOf(rot), pieces[i].by * BS), rot, pieces[i].machine);
+					piece.setVelocity(e->second->getVelocity());
+					m_rubble.insert(piece.getId());
+				}
+				if (!keep)
+					e->second->markForRemoval();
+			}
+		}
+	}
+	if (!m_judging && !m_to_judge.empty()) {
+		m_judging = std::move(m_to_judge.front());
+		m_to_judge.erase(m_to_judge.begin());
+		const std::shared_ptr<StructureQuestion> q = m_judging->question;
+		m_answer = std::async(std::launch::async, [q] { return physics::solveStructure(q->of.structure, q->resting, q->load); });
 	}
 }
 

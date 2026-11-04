@@ -25,7 +25,7 @@ class IGameDef;
 	(node (0, 0, 0)'s least): a part's sixteenth (n, c) spans 16n + c to
 	16n + c + 1; the first part's are the machine's.
 
-	Its text is "TFM5" (sprint 75: each joint's spring, how far it travels and how firm; TFM4 had none: sprint 73's
+	Its text is "TFM6" (sprint 130: its scale; TFM5 had none, sprint 75: each joint's spring, how far it travels and how firm; TFM4 had none: sprint 73's
 	joint kinds are new numbers in it), its id, its parts, its joints, its sockets, its
 	front (TFM3 had no front: its grid's +z; TFM2 had no sockets; TFM1, sprint 52, had what each part was made as: read
 	past). An object's text
@@ -138,6 +138,13 @@ public:
 	v3s16 front() const { return m_front; }
 	// Throws on one that isn't a level unit axis.
 	void setFront(v3s16 front);
+	// How big it is against the world's grid (sprint 130: a tool's grid is
+	// finer than a building's). Only what it's drawn, hit and weighed as:
+	// its parts' sixteenths are its own all the same. 0 < scale <= 1.
+	f32 scale() const { return m_scale; }
+	void setScale(f32 scale);
+	// Its frame (BS) in the entity's: what's put before a part's pose.
+	core::matrix4 scaling() const;
 	Part *part(u64 id);
 	const Part *part(u64 id) const;
 	Part &add(Part part);
@@ -254,6 +261,7 @@ private:
 	std::vector<Link> m_links;
 	std::vector<Socket> m_sockets;
 	v3s16 m_front{ 0, 0, 1 };
+	f32 m_scale = 1;
 	std::optional<Plug> m_plug;
 
 	// `other`'s parts, joints and sockets made this one's, its face

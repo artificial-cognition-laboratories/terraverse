@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <functional>
+
 #include "code.h"
 #include "craters.h"
 #include "fixed.h"
@@ -98,6 +100,14 @@ struct Grid
 
 // The grid for a world code, built on first use and shared after (thread-safe).
 std::shared_ptr<const Grid> gridFor(const WorldCode &code);
+// A grid built afresh, told of the land before erosion and after each of its rounds (the wiki's time-lapse).
+// Watching changes nothing it makes. `area`: rain gathered through each cell.
+struct ErosionRound
+{
+	const std::vector<fix> &land, &sediment;
+	const std::vector<int64_t> &area;
+};
+std::shared_ptr<const Grid> watchErosion(const WorldCode &code, const std::function<void(const ErosionRound &)> &watch);
 // Keep built grids in `dir` as well, so a world opened before needn't be
 // worked out again. `build` names the generator: only its own files are read
 // (a code means the same world, but a changed build may not reach it the same

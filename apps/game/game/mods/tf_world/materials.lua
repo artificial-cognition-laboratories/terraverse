@@ -11,17 +11,20 @@ end
 local metal = "tf_matter_substance.png"
 
 local MATERIALS = {
-	{ id = "timber", name = "Timber", matter = "wood", share = 0.4, groups = { choppy = 2 },
+	-- flint breaks clean (tf_tools' knapping): a hard, brittle silica
+	{ id = "flint", tension = 5e7, compression = 5e8, toughness = 50, name = "Flint", matter = "silica", share = 1, groups = { cracky = 2 },
+		tiles = { look(metal, "#4a4640") } },
+	{ id = "timber", tension = 4e7, compression = 3e7, toughness = 1e4, name = "Timber", matter = "wood", share = 0.4, groups = { choppy = 2 },
 		tiles = { "tf_goodvibes_oak_log.png^[transformR90^[colorize:#c49a62:90" } },
-	{ id = "aluminium", name = "Aluminium", matter = "aluminium", share = 1, groups = { cracky = 2 },
+	{ id = "aluminium", tension = 2e8, compression = 2e8, toughness = 1e5, name = "Aluminium", matter = "aluminium", share = 1, groups = { cracky = 2 },
 		tiles = { look(metal, "#d4d8de") }, friction = 0.5 },
-	{ id = "steel", name = "Steel", matter = "steel", share = 1, groups = { cracky = 1 },
+	{ id = "steel", tension = 4e8, compression = 4e8, toughness = 2e5, name = "Steel", matter = "steel", share = 1, groups = { cracky = 1 },
 		tiles = { look(metal, "#7f8a96") }, friction = 0.5 },
-	{ id = "rubber", name = "Rubber (a tyre's tread: it grips)", matter = "rubber", share = 1, groups = { choppy = 3 },
+	{ id = "rubber", tension = 1.5e7, compression = 1.5e7, toughness = 1e4, name = "Rubber (a tyre's tread: it grips)", matter = "rubber", share = 1, groups = { choppy = 3 },
 		tiles = { look(metal, "#2a2b2e") }, friction = 1.0 },
-	{ id = "canvas", name = "Canvas", matter = "wood", share = 0.33, groups = { snappy = 3 },
+	{ id = "canvas", tension = 3e7, compression = 1e5, toughness = 5e3, name = "Canvas", matter = "wood", share = 0.33, groups = { snappy = 3 },
 		tiles = { "tf_goodvibes_sandstone_top.png^[colorize:#ece4cf:200" } },
-	{ id = "glass", name = "Glass", matter = "glass", share = 1, groups = { cracky = 3 },
+	{ id = "glass", tension = 3e7, compression = 5e8, toughness = 10, name = "Glass", matter = "glass", share = 1, groups = { cracky = 3 },
 		tiles = { look(metal, "#cfeef4") }, drawtype = "glasslike", alpha = "blend" },
 }
 
@@ -35,6 +38,6 @@ for _, m in ipairs(MATERIALS) do
 		sunlight_propagates = m.drawtype and true or nil,
 		groups = m.groups,
 		_matter = { matter = m.matter, share = m.share },
-		_machine = m.friction and { friction = m.friction } or nil,
+		_machine = { friction = m.friction, tension = m.tension, compression = m.compression, toughness = m.toughness },
 	})
 end

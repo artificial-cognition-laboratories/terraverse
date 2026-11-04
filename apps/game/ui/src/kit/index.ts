@@ -2,6 +2,7 @@
 export { default as Button } from "./Button.vue"
 export { default as Choice } from "./Choice.vue"
 export { default as Field } from "./Field.vue"
+export { default as IconButton } from "./IconButton.vue"
 export { default as IconTile } from "./IconTile.vue"
 export { default as IconChoice } from "./IconChoice.vue"
 export { default as IconRail } from "./IconRail.vue"

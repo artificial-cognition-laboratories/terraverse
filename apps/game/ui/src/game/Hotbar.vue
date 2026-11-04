@@ -21,10 +21,11 @@ const pick = (slot: number) => {
 <style scoped>
 .hotbar {
     display: flex;
+    gap: var(--u);
     padding: var(--u);
-    background: rgb(20 20 20 / 0.55);
-    border: var(--u) solid #1b1b1b;
-    box-shadow: inset 0 0 0 var(--u) #5a5a5a;
+    border: var(--b) solid var(--edge);
+    background: rgb(21 24 27 / 0.94);
+    box-shadow: var(--raised), var(--ledge);
 }
 
 .hotbar.free { pointer-events: auto; }
@@ -36,15 +37,15 @@ const pick = (slot: number) => {
     place-items: center;
     width: calc(var(--u) * 20);
     height: calc(var(--u) * 20);
-    box-shadow: inset 0 0 0 var(--u) rgb(139 139 139 / 0.35);
+    border: var(--b) solid var(--edge);
+    background: var(--stone-0);
+    box-shadow: var(--sunk);
 }
 
-.cell.selected::after {
-    content: "";
-    position: absolute;
-    inset: calc(var(--u) * -2);
-    border: calc(var(--u) * 2) solid #f2f2f2;
-    box-shadow: 0 0 0 var(--u) #1b1b1b, inset 0 0 0 var(--u) #1b1b1b;
+.cell.selected {
+    background: var(--stone-2);
+    outline: var(--b) solid var(--accent-hi);
+    box-shadow: inset 0 calc(var(--u) * -1) 0 var(--accent), var(--sunk);
     z-index: 1;
 }
 </style>

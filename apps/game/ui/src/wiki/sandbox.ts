@@ -4,7 +4,7 @@
 
 import { shallowRef } from "vue"
 import type { BridgeHandle } from "../bridge"
-import type { SandboxBlock, SandboxFrame, SandboxSpec } from "../bridge"
+import type { SandboxFrame, SandboxSpec } from "../bridge"
 
 const TICK = 0.1 // s of real time between steps
 
@@ -15,6 +15,7 @@ export function SandboxRun(opts: { bridge: BridgeHandle }) {
     const problem = shallowRef<string | null>(null)
     const running = shallowRef(true)
     const speed = shallowRef<number>(SPEEDS[0])
+    const shown = shallowRef<number | null>(null) // the sandbox made, for the scene to draw
     let id: number | null = null, spec: SandboxSpec | null = null, timer = 0, busy = false, generation = 0
 
     async function drop() {
@@ -23,6 +24,7 @@ export function SandboxRun(opts: { bridge: BridgeHandle }) {
         generation++
         const was = id
         id = null
+        shown.value = null
         if (was !== null) await opts.bridge.send("sandbox.drop", { id: was })
     }
 
@@ -52,6 +54,7 @@ export function SandboxRun(opts: { bridge: BridgeHandle }) {
                 return
             }
             id = made.id
+            shown.value = made.id
             frame.value = await opts.bridge.send("sandbox.step", { id: made.id, seconds: 0.001 })
             timer = window.setInterval(() => tick(mine), TICK * 1000)
         } catch (err) {
@@ -61,15 +64,12 @@ export function SandboxRun(opts: { bridge: BridgeHandle }) {
 
     return {
         frame: frame,
+        shown: shown,
         problem: problem,
         running: running,
         speed: speed,
         start: start,
         restart() { if (spec) start(spec) },
-        async set(block: SandboxBlock) {
-            if (id === null) return
-            frame.value = await opts.bridge.send("sandbox.set", { ...block, id: id })
-        },
         dispose: drop,
     }
 }

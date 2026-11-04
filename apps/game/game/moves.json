@@ -1,0 +1,1099 @@
+{
+ "moves": [
+  {
+   "id": "walk",
+   "group": "On foot",
+   "title": "Walking",
+   "keys": "W",
+   "note": "It takes about a quarter of a second to get going, and it brakes harder than it starts. It has weight: a turn at speed is a curve.",
+   "size": [
+    5,
+    6,
+    14
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      13
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 3,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1
+    }
+   ],
+   "expect": []
+  },
+  {
+   "id": "run",
+   "group": "On foot",
+   "title": "Running",
+   "keys": "Shift + W",
+   "note": "Past a walk it builds slowly. A clean line keeps building; a sharp turn or a hard landing loses it.",
+   "size": [
+    5,
+    6,
+    24
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      23
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 3,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1,
+     "run": true
+    }
+   ],
+   "expect": []
+  },
+  {
+   "id": "crouch",
+   "group": "On foot",
+   "title": "Crouching",
+   "keys": "Ctrl",
+   "note": "Lower and slower, and it won't walk off an edge by accident.",
+   "size": [
+    5,
+    6,
+    10
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      4
+     ]
+    },
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      5
+     ],
+     "to": [
+      4,
+      0,
+      5
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 4,
+   "cues": [
+    {
+     "at": 0,
+     "crouch": true
+    },
+    {
+     "at": 0.3,
+     "ahead": 1,
+     "crouch": true
+    }
+   ],
+   "expect": [
+    "crouch"
+   ]
+  },
+  {
+   "id": "prone",
+   "group": "On foot",
+   "title": "Lying down",
+   "keys": "Z",
+   "note": "Under what a crouch won't fit beneath, slowly.",
+   "size": [
+    5,
+    6,
+    10
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      9
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 4,
+   "cues": [
+    {
+     "at": 0,
+     "prone": true
+    },
+    {
+     "at": 0.6,
+     "ahead": 1,
+     "prone": true
+    }
+   ],
+   "expect": [
+    "prone"
+   ]
+  },
+  {
+   "id": "jump",
+   "group": "On foot",
+   "title": "Jump and hop",
+   "keys": "Space",
+   "note": "A jump is a height. Let go of Space on the way up and it's a hop, with the legs taking turns to lead.",
+   "size": [
+    5,
+    6,
+    30
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      29
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 4,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 1,
+     "jump": true,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 1.5,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 2.4,
+     "jump": true,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 2.46,
+     "ahead": 1,
+     "run": true
+    }
+   ],
+   "expect": []
+  },
+  {
+   "id": "slide",
+   "group": "Landing and sliding",
+   "title": "Slide",
+   "keys": "Ctrl at a run",
+   "note": "Crouch at a run and it drops into a slide, keeping its speed for a while.",
+   "size": [
+    5,
+    6,
+    24
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      23
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 4,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 1.3,
+     "crouch": true,
+     "ahead": 1,
+     "run": true
+    }
+   ],
+   "expect": [
+    "slide"
+   ]
+  },
+  {
+   "id": "roll",
+   "group": "Landing and sliding",
+   "title": "Landing roll",
+   "keys": "Ctrl as it lands",
+   "note": "Ask for a crouch just as it comes down hard and a roll takes the fall, with no damage and most of its speed kept.",
+   "size": [
+    5,
+    8,
+    20
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      19
+     ]
+    },
+    {
+     "node": "tf_world:timber",
+     "from": [
+      0,
+      1,
+      0
+     ],
+     "to": [
+      4,
+      5,
+      3
+     ]
+    }
+   ],
+   "start": [
+    2,
+    5.5,
+    1.5
+   ],
+   "end": 4,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 0.7,
+     "crouch": true,
+     "ahead": 1,
+     "run": true
+    }
+   ],
+   "expect": [
+    "roll"
+   ]
+  },
+  {
+   "id": "stumble",
+   "group": "Landing and sliding",
+   "title": "Hard landing",
+   "keys": "(no crouch)",
+   "note": "The same drop with no crouch costs speed and balance: it staggers till its weight is back over its feet.",
+   "size": [
+    5,
+    6,
+    18
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      17
+     ]
+    },
+    {
+     "node": "tf_world:timber",
+     "from": [
+      0,
+      1,
+      0
+     ],
+     "to": [
+      4,
+      3,
+      3
+     ]
+    }
+   ],
+   "start": [
+    2,
+    3.5,
+    1.5
+   ],
+   "end": 3.5,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1
+    }
+   ],
+   "expect": []
+  },
+  {
+   "id": "fall",
+   "group": "Landing and sliding",
+   "title": "Falling over",
+   "keys": "(too far)",
+   "note": "Past what balance can take it goes down, over whichever way it was going, stays down by how hard it was, and gets up.",
+   "size": [
+    5,
+    12,
+    20
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      19
+     ]
+    },
+    {
+     "node": "tf_world:timber",
+     "from": [
+      0,
+      1,
+      0
+     ],
+     "to": [
+      4,
+      9,
+      3
+     ]
+    }
+   ],
+   "start": [
+    2,
+    9.5,
+    1.5
+   ],
+   "end": 6,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 3,
+     "ahead": 0
+    }
+   ],
+   "expect": [
+    "down"
+   ]
+  },
+  {
+   "id": "kong",
+   "group": "Over things",
+   "title": "Kong vault",
+   "keys": "Space at a run",
+   "note": "Straight at a low wall, fast: head first over both hands.",
+   "size": [
+    5,
+    6,
+    32
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      31
+     ]
+    },
+    {
+     "node": "tf_world:timber",
+     "from": [
+      0,
+      1,
+      10
+     ],
+     "to": [
+      4,
+      1,
+      10
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 4,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 1.35,
+     "jump": true,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 1.7,
+     "ahead": 1,
+     "run": true
+    }
+   ],
+   "expect": [
+    "kong"
+   ]
+  },
+  {
+   "id": "speed",
+   "group": "Over things",
+   "title": "Speed vault",
+   "keys": "Space at a run, on a slant",
+   "note": "Coming in a little off square, it goes over one hand and keeps going the way it was.",
+   "size": [
+    9,
+    6,
+    32
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      8,
+      0,
+      31
+     ]
+    },
+    {
+     "node": "tf_world:timber",
+     "from": [
+      0,
+      1,
+      10
+     ],
+     "to": [
+      8,
+      1,
+      10
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 4,
+   "cues": [
+    {
+     "at": 0,
+     "yaw": -20,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 1.4,
+     "yaw": -20,
+     "jump": true,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 1.7,
+     "yaw": -20,
+     "ahead": 1,
+     "run": true
+    }
+   ],
+   "expect": [
+    "speed vault"
+   ]
+  },
+  {
+   "id": "side",
+   "group": "Over things",
+   "title": "Side vault",
+   "keys": "Space on a long slant",
+   "note": "At a sharper angle the legs swing past one hand.",
+   "size": [
+    11,
+    6,
+    28
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      10,
+      0,
+      27
+     ]
+    },
+    {
+     "node": "tf_world:timber",
+     "from": [
+      0,
+      1,
+      10
+     ],
+     "to": [
+      10,
+      1,
+      10
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 4,
+   "cues": [
+    {
+     "at": 0,
+     "yaw": -45,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 1.8,
+     "yaw": -45,
+     "jump": true,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 2.1,
+     "yaw": -45,
+     "ahead": 1,
+     "run": true
+    }
+   ],
+   "expect": [
+    "side vault"
+   ]
+  },
+  {
+   "id": "onto",
+   "group": "Over things",
+   "title": "Onto a ledge",
+   "keys": "Space at a walk",
+   "note": "Slowly, onto something it can stand on: up and on, not over.",
+   "size": [
+    5,
+    6,
+    20
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      19
+     ]
+    },
+    {
+     "node": "tf_world:timber",
+     "from": [
+      0,
+      1,
+      6
+     ],
+     "to": [
+      4,
+      1,
+      19
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 4,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1
+    },
+    {
+     "at": 0.95,
+     "ahead": 1,
+     "jump": true
+    },
+    {
+     "at": 1.2,
+     "ahead": 1
+    }
+   ],
+   "expect": [
+    "onto it"
+   ]
+  },
+  {
+   "id": "mantle",
+   "group": "Over things",
+   "title": "Mantle",
+   "keys": "Space, held",
+   "note": "Too high to step over. Caught by the hands, pulled up, one leg on the top, then driving off it.",
+   "size": [
+    5,
+    7,
+    30
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      29
+     ]
+    },
+    {
+     "node": "tf_world:timber",
+     "from": [
+      0,
+      1,
+      7
+     ],
+     "to": [
+      4,
+      2,
+      29
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 4.5,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 0.75,
+     "ahead": 1,
+     "run": true,
+     "jump": true
+    },
+    {
+     "at": 2,
+     "ahead": 1,
+     "run": true
+    }
+   ],
+   "expect": [
+    "mantle"
+   ]
+  },
+  {
+   "id": "hang",
+   "group": "On walls",
+   "title": "Hang and pull up",
+   "keys": "Space, then Space",
+   "note": "Higher still it hangs by its hands, swinging under them, and goes on only when asked.",
+   "size": [
+    5,
+    8,
+    12
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      11
+     ]
+    },
+    {
+     "node": "tf_world:timber",
+     "from": [
+      0,
+      1,
+      6
+     ],
+     "to": [
+      4,
+      3,
+      11
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 6,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 0.35,
+     "jump": true,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 2.5
+    },
+    {
+     "at": 3,
+     "jump": true
+    },
+    {
+     "at": 3.3
+    }
+   ],
+   "expect": [
+    "hang"
+   ]
+  },
+  {
+   "id": "shimmy",
+   "group": "On walls",
+   "title": "Shimmy",
+   "keys": "A / D, hanging",
+   "note": "Hand over hand along the edge, each staying where it's put till the body has left it behind.",
+   "size": [
+    9,
+    8,
+    12
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      8,
+      0,
+      11
+     ]
+    },
+    {
+     "node": "tf_world:timber",
+     "from": [
+      0,
+      1,
+      6
+     ],
+     "to": [
+      8,
+      3,
+      11
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 6,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 0.35,
+     "jump": true,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 1.6
+    },
+    {
+     "at": 2,
+     "right": 1
+    }
+   ],
+   "expect": [
+    "hang"
+   ]
+  },
+  {
+   "id": "wallrun",
+   "group": "On walls",
+   "title": "Wall run",
+   "keys": "Space beside a wall",
+   "note": "Jumping along a wall, it takes to it and runs for over a second on what speed it has, under a third of its weight.",
+   "size": [
+    7,
+    7,
+    30
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      6,
+      0,
+      29
+     ]
+    },
+    {
+     "node": "tf_world:timber",
+     "from": [
+      0,
+      1,
+      0
+     ],
+     "to": [
+      0,
+      4,
+      23
+     ]
+    }
+   ],
+   "start": [
+    1.05,
+    0.5,
+    1.5
+   ],
+   "end": 4,
+   "cues": [
+    {
+     "at": 0,
+     "yaw": 3,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 1.1,
+     "yaw": 3,
+     "jump": true,
+     "ahead": 1,
+     "run": true
+    }
+   ],
+   "expect": [
+    "wall run"
+   ]
+  },
+  {
+   "id": "kick",
+   "group": "On walls",
+   "title": "Wall kick",
+   "keys": "Space in the air, at a wall",
+   "note": "It goes on in till a foot, and at speed its hands, are planted and bent, then they straighten and throw it off.",
+   "size": [
+    7,
+    8,
+    14
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      6,
+      0,
+      13
+     ]
+    },
+    {
+     "node": "tf_world:timber",
+     "from": [
+      0,
+      1,
+      10
+     ],
+     "to": [
+      6,
+      6,
+      10
+     ]
+    }
+   ],
+   "start": [
+    3,
+    0.5,
+    1.5
+   ],
+   "end": 4,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 1,
+     "jump": true,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 1.1,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 1.35,
+     "jump": true,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 1.6,
+     "ahead": 0
+    }
+   ],
+   "expect": [
+    "wall kick"
+   ]
+  }
+ ]
+}

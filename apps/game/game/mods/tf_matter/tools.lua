@@ -132,6 +132,86 @@ core.register_tool("tf_matter:blowtorch", {
 	on_use = function() end, -- held, not clicked: the step below feeds it
 })
 
+-- What's pointed at, as far as a gun reaches: the place, and the face's air.
+local function aimed(user, reach)
+	local eye = vector.offset(user:get_pos(), 0, user:get_properties().eye_height, 0)
+	local dir = user:get_look_dir()
+	for thing in core.raycast(eye, vector.add(eye, vector.multiply(dir, reach)), true, false) do
+		if thing.type == "node" then
+			return thing.intersection_point, thing.above
+		elseif thing.type == "object" and thing.ref ~= user then
+			return thing.intersection_point, core.get_node(vector.round(thing.intersection_point)).name == "air" and vector.round(thing.intersection_point) or nil
+		end
+	end
+end
+
+-- The blast gun (creative): what a charge does, for finding out what things take.
+-- Left-click a small one, right-click ten times that. It flings and breaks by
+-- core.physics.blast, and leaves the air hot; what burns, burns.
+local BLAST = { reach = 96, small = 1500, big = 15000, hot = 1200 }
+local function fire_blast(user, power)
+	local at, air = aimed(user, BLAST.reach)
+	if not at then return end
+	local crater = core.physics.blast(at, power)
+	if air and core.matter.capacity(air) then
+		core.matter.heat(air, BLAST.hot)
+	end
+	local size = math.sqrt(power / BLAST.small)
+	-- the flash and the smoke: only what's seen of it. What's real is what the blast did
+	core.add_particlespawner({
+		amount = math.floor(50 * size), time = 0.08, pos = at,
+		minvel = vector.new(-10 * size, -2, -10 * size), maxvel = vector.new(10 * size, 14 * size, 10 * size),
+		minexptime = 0.1, maxexptime = 0.4, minsize = 3, maxsize = 9,
+		texture = "[fill:8x8:#ffc060", glow = 14,
+	})
+	core.add_particlespawner({
+		amount = math.floor(50 * size), time = 0.3, pos = at,
+		minvel = vector.new(-3, 1, -3), maxvel = vector.new(3, 5 * size, 3),
+		minacc = vector.new(0, 0.5, 0), maxacc = vector.new(0, 1, 0),
+		minexptime = 1, maxexptime = 3, minsize = 6, maxsize = 16,
+		texture = "[fill:8x8:#55504a",
+	})
+	if crater then
+		-- the fines thrown with the chunks: far more of them than could be real objects
+		core.add_particlespawner({
+			amount = math.floor(200 * size), time = 0.15, pos = at,
+			minvel = vector.new(-12 * size, 3, -12 * size), maxvel = vector.new(12 * size, 18 * size, 12 * size),
+			minacc = vector.new(0, -9.81, 0), maxacc = vector.new(0, -9.81, 0),
+			minexptime = 0.8, maxexptime = 2.5, minsize = 1, maxsize = 3, collisiondetection = true,
+			node = { name = crater.node },
+		})
+	end
+end
+core.register_tool("tf_matter:blast_gun", {
+	description = "Blast gun\nLeft-click: a charge · right-click: ten times that",
+	inventory_image = "tf_matter_heat_gun.png^[colorize:#e03020:120",
+	groups = { creative_functional = 1 },
+	on_use = function(stack, user) fire_blast(user, BLAST.small) end,
+	on_place = function(stack, user) fire_blast(user, BLAST.big) end,
+	on_secondary_use = function(stack, user) fire_blast(user, BLAST.big) end,
+})
+
+-- The flamethrower (creative): the blowtorch's flame, at range and ten times the fuel. Held.
+core.register_tool("tf_matter:flamethrower", {
+	description = "Flamethrower\nHold left-click: burning propane where it lands",
+	inventory_image = "tf_matter_heat_gun.png^[colorize:#ff9010:120",
+	groups = { creative_functional = 1 },
+	on_use = function() end,
+})
+local FLAME = { reach = 32, rate = 0.1 }
+local function flame(user, dtime)
+	local _, air = aimed(user, FLAME.reach)
+	if not air or not core.matter.capacity(air) then return end
+	local fuel = FLAME.rate * dtime
+	core.matter.add(air, "propane", fuel)
+	for gas, per in pairs(TORCH.air) do
+		core.matter.add(air, gas, fuel * per)
+	end
+	if core.matter.temperature(air) < TORCH.light then
+		core.matter.heat(air, TORCH.light)
+	end
+end
+
 core.register_globalstep(function(dtime)
 	for _, user in ipairs(core.get_connected_players()) do
 		local control = user:get_player_control()
@@ -139,6 +219,9 @@ core.register_globalstep(function(dtime)
 			torch(user, dtime)
 		else
 			torches[user:get_player_name()] = nil
+		end
+		if (control.dig or control.LMB) and user:get_wielded_item():get_name() == "tf_matter:flamethrower" then
+			flame(user, dtime)
 		end
 	end
 end)

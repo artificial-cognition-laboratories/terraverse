@@ -21,7 +21,7 @@ namespace {
 constexpr int LONGITUDES = 48, LATITUDES = 24; // a sphere's pieces
 constexpr int ORBIT = 512;                     // an orbit line's pieces
 constexpr float ORBIT_WIDTH = 2.5f;            // an orbit line, pixels across
-constexpr double FADED = 0.12;                 // an orbit's brightness where its body is going
+constexpr double FADED = 0.45;                 // how much of an orbit shows where its body is going: enough to read over the galaxy
 constexpr double DOT = 2.5;                    // pixels: the least a body is drawn across
 constexpr double GLOW = 8;                     // the star's glow, in its radii
 constexpr u32 GLOW_SIZE = 128;                 // its texture, pixels a side

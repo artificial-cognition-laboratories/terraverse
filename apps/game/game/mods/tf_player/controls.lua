@@ -312,7 +312,7 @@ tf_controls.page({
 	id = "items", title = "Items", icon = "items",
 	sections = {
 		{ title = "Kits", controls = {
-			kit("tools", "Tools", { "tf_matter:fire_drill", "tf_matter:heat_gun", "tf_matter:blowtorch", "tf_matter:probe", "tf_matter:scoop" }),
+			kit("tools", "Tools", { "tf_matter:fire_drill", "tf_matter:heat_gun", "tf_matter:blowtorch", "tf_matter:blast_gun", "tf_matter:flamethrower", "tf_matter:probe", "tf_matter:scoop" }),
 			kit("fire", "Fire", { "tf_matter:kindling 20", "tf_matter:charcoal 20", "tf_matter:fired_clay 40", "tf_matter:bellows", "tf_matter:crucible" }),
 			kit("building", "Building", { "tf_world:stone 99", "tf_world:stone_bricks 99", "tf_world:sandstone 99", "tf_world:dirt 99", "tf_world:sand 99" }),
 		} },

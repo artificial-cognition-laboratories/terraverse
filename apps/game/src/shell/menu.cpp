@@ -34,7 +34,7 @@
 namespace shell {
 
 static const char *const VERBS[] = {
-	"worlds.list", "worlds.create", "worlds.delete", "worlds.pin", "worlds.rename", "play", "lab.list", "lab.enter", "quit", "worldgen.preview", "system.preview", "system.home", "system.world", "weather.preview",
+	"worlds.list", "worlds.create", "worlds.delete", "worlds.pin", "worlds.rename", "play", "quit", "worldgen.preview", "system.preview", "system.home", "system.world", "weather.preview",
 	"social.join", "community.list", "community.mod.set", "community.texture.set",
 	"servers.list", "servers.join", "servers.favorite.set",
 };
@@ -202,16 +202,6 @@ Menu::Menu(const Opts &opts) :
 		m_worlds.select(world);
 		m_shell.social().enter(world.name, true);
 		m_choice = Choice{ world, false, std::nullopt };
-		return Json::Value();
-	});
-	m_shell.on("lab.list", [this](const Json::Value &) {
-		return m_lab.list();
-	});
-	m_shell.on("lab.enter", [this](const Json::Value &intent) {
-		WorldSpec world = m_worlds.lab(m_lab.find(stringField(intent, "id")));
-		m_worlds.select(world);
-		m_shell.social().enter("the Lab", false); // its worlds are one player's
-		m_choice = Choice{ world, true, std::nullopt };
 		return Json::Value();
 	});
 	// ~150 ms when the land changes (the water simulation): off the main

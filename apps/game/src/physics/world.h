@@ -208,6 +208,8 @@ public:
 		std::function<bool(v3s16 block, std::vector<aabb3f> &boxes)> ground;
 		// How near a player keeps an assembly Live (nodes); it freezes at
 		// rest past `freeze` (more: so it doesn't flicker at the edge).
+		// How well tyres grip the ground at a place, × their own (ordinary ground 1, ice much less). None: 1.
+		std::function<float(const v3d &)> surface;
 		float live = 48, freeze = 56;
 		float step_up = 0.6f; // nodes a character walks up without jumping
 	};
@@ -306,6 +308,19 @@ public:
 	float mass(Id id) const;
 	Tier tier(Id id) const;
 	bool asleep(Id id) const;
+	// The hardest blow its root has taken since last asked: what its velocity
+	// (nodes/s) and spin (rad/s) did that its forces don't explain, in the world's
+	// axes. So a hand or gravity is no blow, and a floor is. None: nothing to speak of.
+	struct Blow
+	{
+		v3f velocity, spin;
+	};
+	std::optional<Blow> blow(Id id);
+	// What pulls on it where it is (m/s²).
+	v3f gravity(Id id) const;
+	// Of these boxes (nodes, its frame), which meet the ground or anything else
+	// not of it. For a Live assembly; none of them on a Frozen one.
+	std::vector<bool> touching(Id id, const std::vector<aabb3f> &boxes) const;
 	// Each body but the root, in order: where it is in the root's frame.
 	std::vector<Relative> relatives(Id id) const;
 

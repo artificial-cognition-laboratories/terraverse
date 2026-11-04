@@ -87,9 +87,9 @@ function down(item: CreativeItem, e: MouseEvent) {
 
 <style scoped>
 .creative { display: flex; flex-direction: column; gap: calc(var(--u) * 3); height: 100%; }
-/* nine across, six down, scrolling: the same size whatever the tab */
+/* nine across, six down, scrolling, with the scrollbar's room kept in the frame's width: the same size whatever the tab */
 .catalogue { display: grid; grid-template-columns: repeat(9, calc(var(--u) * 18)); grid-auto-rows: calc(var(--u) * 18); gap: var(--u);
-    height: calc(var(--u) * 18 * 6 + var(--u) * 5); overflow-y: auto; overflow-x: hidden; align-content: start; padding-right: 2px; }
+    height: calc(var(--u) * 18 * 6 + var(--u) * 5); overflow-y: auto; overflow-x: hidden; align-content: start; scrollbar-gutter: stable; }
 .cell { display: grid; place-items: center; padding: 0; border: var(--b) solid var(--edge); background: var(--stone-0); box-shadow: var(--sunk); }
 .cell:hover { background: #1b2730; box-shadow: inset 0 0 0 var(--b) var(--accent-lo), var(--sunk); }
 .cell img { width: calc(var(--u) * 16); height: calc(var(--u) * 16); image-rendering: pixelated; }

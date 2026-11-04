@@ -27,6 +27,8 @@
 #include <cmath>
 #include <cstring>
 
+#include "shallow.h"
+
 namespace liquids {
 
 static const float GLIDE = 4;      // per s: how fast a shown level closes on its fill (a quarter-second's ease)
@@ -46,9 +48,7 @@ static const float NONE_TEXEL = -1e9; // in the height texture: none
 static const int ABOVE = 8, BELOW = 24; // nodes over and under the camera they look for water and ground
 static const int ALIGN = 4;           // nodes: both grids' corners sit on this, so a coarse tile is wholly in the fine grid or out
 static const float POOLS = 0.25;      // s between finding the pools again
-static const float G = 9.81;          // nodes/s² (a node is a metre)
-static const float DAMP = 1.2;        // per s: how fast a flow dies away (sloshing settles in a few seconds)
-static const float FRICTION = 1.5;    // per s, over a sixteenth's depth: the ground drags thin water still
+static constexpr float G = shallow::G;
 static const float HOLD = 3;          // per s: how fast a pool's water closes on the server's amount
 static const float HOLD_MOST = 0.25;  // nodes³/s a tile's pool may be filled or drained by, at most
 static const float SLACK = 1 / 128.0f; // nodes³ a tile's water may be off before it's pulled back
@@ -1192,7 +1192,7 @@ void Layer::hold(Grid &g, float dtime)
 // node's depth at most (the sea's deep, and slow is cheap).
 void Layer::flow(Grid &g, float dt)
 {
-	const float damp = 1 - DAMP * dt, L = 1.0f / g.res;
+	const float L = 1.0f / g.res;
 	std::vector<int> awake;
 	for (int t = 0; t < int(g.tile.size()); t++)
 		if (g.tile[t].awake && g.tile[t].known)
@@ -1208,25 +1208,16 @@ void Layer::flow(Grid &g, float dt)
 					out = {};
 					continue;
 				}
-				const float slowed = std::max(0.0f, damp - dt * FRICTION / std::max(d * 16, 0.25f));
-				const float speed = std::min(d, 1.0f);
 				const bool edge[4] = { gx + 1 >= g.cols, gx == 0, gz + 1 >= g.cols, gz == 0 };
-				float sum = 0;
+				bool open[4];
+				float higher[4] = {};
 				for (int s = 0; s < 4; s++) {
 					const int n = c + stepOf(g, s);
-					if (edge[s] || g.floor[n] == NONE) {
-						out[s] = 0;
-						continue;
-					}
-					const float higher = (g.floor[c] - g.floor[n]) / 16.0f + (d - g.depth[n]);
-					out[s] = std::max(0.0f, out[s] * slowed + dt * G * speed * higher / L);
-					sum += out[s];
+					open[s] = !edge[s] && g.floor[n] != NONE;
+					if (open[s])
+						higher[s] = (g.floor[c] - g.floor[n]) / 16.0f + (d - g.depth[n]);
 				}
-				if (sum * dt > d * L) {
-					const float k = d * L / (sum * dt);
-					for (float &o : out)
-						o *= k;
-				}
+				shallow::flowOut(out, d, dt, L, open, higher);
 			}
 	}
 	for (int t : awake) {
@@ -1439,12 +1430,7 @@ bool Layer::settle(Grid &g, int t)
 				moved = moved || was != NONE;
 				continue;
 			}
-			const float d = g.depth[c] * 16, raw = g.floor[c] + d;
-			const s32 least = g.floor[c] + 1;
-			if (shown == NONE ? d >= 0.2f : d < 0.08f)
-				shown = d < 0.08f ? NONE : std::max(least, s32(std::lround(raw)));
-			else if (shown != NONE && std::fabs(raw - shown) > 0.7f)
-				shown = std::max(least, s32(std::lround(raw)));
+			shown = shallow::topShown(shown, g.floor[c], g.depth[c], NONE);
 			moved = moved || shown != was;
 		}
 	return moved;

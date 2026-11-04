@@ -67,7 +67,5 @@ private:
 	Limb m_hips, m_chest, m_head;
 	Limb m_thighs[2], m_shins[2], m_upper_arms[2], m_forearms[2], m_hands[2];
 	std::vector<scene::IMeshSceneNode *> m_boxes;
-	physics::Poser m_poser;
-	physics::Skeleton m_skeleton;
-	v3f m_clear; // how far the upper body is moved out of what it's beside
+	physics::Posing m_posing;
 };

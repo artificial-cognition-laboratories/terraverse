@@ -149,10 +149,10 @@ const CREDITS_ICON = {
 
 .corners { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 .corners > * { pointer-events: auto; }
-.tools { position: absolute; right: 20px; bottom: 40px; display: flex; gap: 10px; }
+.tools { position: absolute; right: 20px; bottom: 20px; display: flex; gap: 10px; }
 footer {
     position: absolute;
-    right: 20px;
+    left: 20px;
     bottom: 14px;
     font: 11px var(--font-display);
     color: var(--ink-faint);
@@ -161,7 +161,8 @@ footer {
 .corners-enter-active, .corners-leave-active { transition: opacity 140ms steps(4); }
 .corners-enter-from, .corners-leave-to { opacity: 0; }
 
-.screen-enter-active, .screen-leave-active { transition: opacity 140ms steps(4), transform 140ms steps(4); }
-.screen-enter-from { opacity: 0; transform: translateY(12px); }
-.screen-leave-to { opacity: 0; transform: translateY(-12px); }
+/* opacity only: a transform on a screen moves what it pins to the window (Dock, its
+   buttons) to its own box for as long as the transition runs, and back with a jump */
+.screen-enter-active, .screen-leave-active { transition: opacity 140ms steps(4); }
+.screen-enter-from, .screen-leave-to { opacity: 0; }
 </style>

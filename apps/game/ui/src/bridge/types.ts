@@ -225,23 +225,32 @@ export type MatterMixture = {
 /** One block of a sandbox, as the page sets it (src/shell/wiki.cpp): solids or liquids by share of its volume, or a gas by mole share. */
 export type SandboxBlock = {
     at: [number, number, number] // y is up
-    fill?: Record<string, number>
-    gas?: Record<string, number>
-    temperature?: number // K
-    heater?: number      // W, kept on until set again
+    node?: string                // a block of the game's, by name
+    add?: Record<string, number> // moles of substances put in it (a crucible's charge)
+    temperature?: number         // K
+    hold?: boolean               // kept at that temperature (what's heating it)
 }
 
-/** A sandbox to make: blocks along each side (1..16), a block's edge (m), the room around it. */
+/** A few blocks of the world to make (src/sandbox/stage.h): blocks along each side (1..16), the room around it. */
 export type SandboxSpec = {
     size: [number, number, number]
-    block: number
     ambient: number  // K
     pressure: number // Pa
     air: Record<string, number> // the room's gas by mole share
     blocks: SandboxBlock[]
+    blows?: { at: [number, number, number]; rate: number; until: number }[] // the room's air pushed in: moles a second, till then (s)
+    pours?: { at: [number, number, number]; substance: string; rate: number; temperature?: number; until: number }[] // moles a second, till then (s)
 }
 
-/** What a sandbox looks like now: per block, x fastest, then z, then y from the bottom. */
+/** One of the wiki's Movement scenes (game/moves.json). */
+export type SceneKind = "movement" | "vehicles" | "ground"
+export type MoveScene = { id: string; group: string; title: string; keys: string; note: string; later?: boolean }
+export type MoveState = { time: number; doing: string; pace: number; mass?: number }
+
+export type ReliefState = { round: number; rounds: number }
+
+export type SceneRect = { x: number; y: number; width: number; height: number }
+
 export type SandboxFrame = {
     size: [number, number, number]
     time: number          // s simulated
@@ -460,6 +469,8 @@ export type PlanetariumViewport = { whole: true } | { x: number; y: number; widt
 export type PlanetariumHover = { id: string; name: string; kind: string; x: number; y: number; radius: number }
 export type PlanetariumMessage =
     | { kind: "planetarium"; event: "picked"; latitude: number; longitude: number; cell: PlanetariumCell }
+    /** The block under the mouse in a scene (index into its frame), −1 for none. */
+    | { kind: "scene"; event: "hover"; index: number }
     /** The host's clock while it runs (the menu's): the date, 0..1 through the year. */
     | { kind: "planetarium"; event: "time"; date: number; running: boolean }
     /** What's under the mouse, as it changes or moves: where it's drawn (page pixels); the star's id "star". */
@@ -507,8 +518,20 @@ export type Intents = {
     /** The wiki's sandboxes: tiny pieces of the universe run with the game's physics (src/sandbox) */
     "sandbox.create": { request: SandboxSpec; response: { id: number } }
     "sandbox.step": { request: { id: number; seconds: number }; response: SandboxFrame }
-    "sandbox.set": { request: SandboxBlock & { id: number }; response: SandboxFrame }
     "sandbox.drop": { request: { id: number }; response: null }
+    /** A sandbox drawn natively where the page leaves room (src/shell/scene.h); */
+    "moves.list": { request: { scenes: SceneKind }; response: MoveScene[] }
+    "moves.show": { request: { scenes: SceneKind; id: string; rect: SceneRect; right: number }; response: null }
+    "moves.set": { request: { speed: number; running: boolean }; response: null }
+    "moves.restart": { request: {}; response: null }
+    "moves.state": { request: {}; response: MoveState }
+    "relief.show": { request: { rect: SceneRect; right: number }; response: null }
+    "relief.set": { request: { lens: string; speed: number; running: boolean }; response: null }
+    "relief.restart": { request: {}; response: null }
+    "relief.state": { request: {}; response: ReliefState }
+    "scene.show": { request: { id: number; rect: SceneRect; right: number; heat: boolean }; response: null }
+    "scene.place": { request: { rect: SceneRect; right: number }; response: null }
+    "scene.hide": { request: {}; response: null }
     /** Newton's cannonball on the world's planet (src/shell/wiki.cpp: orbit::Flight); points in planet radii, x east, y up */
     "orbit.coast": {
         request: { altitude: number; speed: number; angle: number; mass: number; drag_area: number; seconds: number }
@@ -530,9 +553,7 @@ export type Intents = {
     "system.world": { request: { code: string }; response: SystemWire & { cards: BodyCard[] } }
     play: { request: { path: string }; response: null }
     /** Every Lab scenario, from the game's lab.json files (src/shell/lab.cpp). */
-    "lab.list": { request: {}; response: LabScenario[] }
     /** Builds that scenario's own world and enters it (src/shell/worlds.cpp: Worlds::lab). */
-    "lab.enter": { request: { id: string }; response: null }
     /** An event for game Lua (src/shell/ui.cpp). */
     "ui.send": { request: UiEvent; response: null }
     quit: { request: {}; response: null }

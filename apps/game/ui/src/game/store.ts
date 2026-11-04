@@ -25,6 +25,7 @@ export function GameStore(opts: { bridge: BridgeHandle }) {
         /** What game Lua set for this page (player:set_ui), by key. */
         ui: noUi(),
         /** The last place clicked on the Planetarium, while it's shown. */
+        sceneHover: null as number | null,
         picked: null as Omit<Extract<PlanetariumMessage, { event: "picked" }>, "kind" | "event"> | null,
         clock: null as { date: number; running: boolean } | null, // the planet viewer's clock, while it runs
         /** The body under the mouse on the Planetarium, while it's shown. */
@@ -55,6 +56,9 @@ export function GameStore(opts: { bridge: BridgeHandle }) {
                 break
             case "screen":
                 store.screen = message.screen
+                break
+            case "scene":
+                store.sceneHover = message.index
                 break
             case "planetarium":
                 switch (message.event) {

@@ -5,6 +5,7 @@
 
 #include "physics/pose.h"
 #include <matrix4.h>
+#include <functional>
 
 /*
 	Where a figure's bones go from a pose's joints (arc-movement, sprint 121). Pure,
@@ -48,5 +49,24 @@ private:
 	v3f m_pivot{ 0, 1.56f, 0.3f }; // what it swings about: its hands, last it had them
 	v3f m_grip_at[2], m_grip_over{ 0, 0, 1 }; // the last thing held: a hand comes away from there
 };
+
+// How a figure stands now, from how it moves: the rule client/figure draws and the wiki's scenes draw.
+class Posing
+{
+public:
+	using Ground = std::function<float(v3f)>;     // the ground under a place (figure's frame), against its feet
+	using Clear = std::function<v3f(v3f, float)>; // how far a ball there has to go to be out of what's solid
+	Bones pose(float dtime, v3f velocity, float pitch, bool airborne, Stance stance, float turned, std::optional<float> face,
+			float tilt, const Contacts &contacts, const Ground &ground, const Clear &clear);
+
+private:
+	Poser m_poser;
+	Skeleton m_skeleton;
+	v3f m_clear; // how far the upper body is moved out of what it's beside
+};
+
+// The boxes it's made of, as client/figure builds them.
+enum class BoneColour { SKIN, SHIRT, TROUSERS };
+void eachBoneBox(const Bones &b, const std::function<void(const core::matrix4 &, v3f size, v3f centre, BoneColour)> &box);
 
 } // namespace physics

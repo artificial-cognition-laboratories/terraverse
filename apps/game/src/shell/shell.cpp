@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "shell.h"
+#include <IEventReceiver.h>
 #include "account.h"
 #include "social.h"
 #include "app.h"
@@ -51,6 +52,8 @@ static const char *modeName(Mode mode)
 
 struct Shell::Impl
 {
+	std::function<void(video::IVideoDriver *)> underlayDraw;
+	std::function<bool(const SEvent &)> underlayMouse;
 	Opts opts;
 	std::string item_dir;
 	Viewport viewport;
@@ -304,12 +307,21 @@ void Shell::frame()
 		m->browser->GetHost()->WasResized();
 	}
 
+	if (m->underlayDraw)
+		m->underlayDraw(m->opts.driver);
 	m->surface.draw(m->pixels);
 }
 
 bool Shell::onEvent(const SEvent &event)
 {
-	return m->input.handle(event, m->browser->GetHost(), m->keyboard);
+	const bool took = m->input.handle(event, m->browser->GetHost(), m->keyboard);
+	if (!m->underlayMouse || event.EventType != EET_MOUSE_INPUT_EVENT)
+		return took;
+	// (a drag carries on over the page's panels)
+	const EMOUSE_INPUT_EVENT what = event.MouseInput.Event;
+	if (took && what != EMIE_MOUSE_MOVED && what != EMIE_LMOUSE_LEFT_UP)
+		return true;
+	return m->underlayMouse(event) || took;
 }
 
 void Shell::setMode(Mode mode)
@@ -329,6 +341,12 @@ unsigned Shell::pageLoads() const
 void Shell::on(const std::string &kind, Verb verb)
 {
 	m->bridge.on(kind, std::move(verb));
+}
+
+void Shell::underlay(std::function<void(video::IVideoDriver *)> draw, std::function<bool(const SEvent &)> mouse)
+{
+	m->underlayDraw = std::move(draw);
+	m->underlayMouse = std::move(mouse);
 }
 
 void Shell::drain()

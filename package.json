@@ -13,6 +13,7 @@
     "pose-sheet": "bash scripts/pose-sheet.sh",
     "check:lab": "bash scripts/lab-check.sh",
     "check:wiki": "bash scripts/wiki-check.sh",
+    "check:moves": "bun run stage && .output/bin/luanti --test-module TestMoves",
     "check:matter": "bash scripts/matter-check.sh",
     "check:far": "bash scripts/far-check.sh",
     "check:palette": "bash scripts/palette.sh --check",

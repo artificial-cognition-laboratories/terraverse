@@ -30,6 +30,9 @@
 	  count() → blocks awake
 	  save()
 */
+class NodeDefManager;
+namespace Json { class Value; }
+
 class ModApiMatter : public ModApiBase
 {
 private:
@@ -62,4 +65,6 @@ public:
 	static void Initialize(lua_State *L, int top);
 	// a process runs one server after another: the next world starts its matter afresh
 	static void shutdown();
+	// The plain blocks the game registered, for scenes to build from without Lua (far/export.cpp).
+	static Json::Value baked(const NodeDefManager *ndef);
 };

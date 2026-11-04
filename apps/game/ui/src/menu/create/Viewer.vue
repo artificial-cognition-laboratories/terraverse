@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from "vue"
+import { computed, onBeforeUnmount, ref, toRef, watch } from "vue"
 import PixelIcon from "../../game/PixelIcon.vue"
 import { IconTile, Slider } from "../../kit/index.ts"
 import { body as bodyOf, STAR, type Body } from "../../system/model.ts"
@@ -112,9 +112,8 @@ watch(() => store.picked, (pick) => {
 })
 // the clock: running, the date follows the native clock (the planets move,
 // the Earth turns); scrubbing stops it there, and the climate follows the date
-const running = ref(true)
-// only while this screen is up: the menu behind it holds still
-onMounted(() => planet.time({ running: true }))
+const running = ref(false) // stopped until asked: running, the camera goes round with the ground
+// never left running behind: the menu holds still
 onBeforeUnmount(() => planet.time({ running: false }))
 const shownDate = computed<number>({
     get: () => running.value && store.clock ? store.clock.date : date.value,

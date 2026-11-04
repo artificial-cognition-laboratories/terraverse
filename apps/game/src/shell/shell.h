@@ -65,6 +65,8 @@ public:
 	void on(const std::string &kind, Verb verb);
 	// Slow, thread-safe work answered off the main thread (see Bridge::onAsync).
 	void onAsync(const std::string &kind, Verb verb);
+	// What draws between the planet and the page, and takes the mouse the page leaves (a wiki scene).
+	void underlay(std::function<void(video::IVideoDriver *)> draw, std::function<bool(const SEvent &)> mouse);
 	void drain(); // until the worker has finished what it was given
 	void off(const std::string &kind);
 	// A one-off message to the page; held until the page is ready.

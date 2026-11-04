@@ -39,7 +39,8 @@ const SpringStep FIRMNESSES[SPRING_STEPS] = {
 
 namespace {
 
-const char MAGIC[] = "TFM5";
+const char MAGIC[] = "TFM6";
+const char MAGIC_5[] = "TFM5";
 const char MAGIC_4[] = "TFM4";
 const char MAGIC_3[] = "TFM3";
 const char MAGIC_2[] = "TFM2";
@@ -88,13 +89,15 @@ struct Texts
 	std::vector<Machine::Socket> sockets;
 	v3s16 front{ 0, 0, 1 }; // before fronts (TFM3 and older): its grid's +z
 	std::optional<Machine::Plug> plug;
+	f32 scale = 1; // before scale (TFM5 and older): full size
 };
 
 Texts texts(const std::string &text)
 {
 	const bool first = text.compare(0, 4, MAGIC_1) == 0, second = text.compare(0, 4, MAGIC_2) == 0,
-			third = text.compare(0, 4, MAGIC_3) == 0, fourth = text.compare(0, 4, MAGIC_4) == 0;
-	if (!first && !second && !third && !fourth && text.compare(0, 4, MAGIC) != 0) // an object's, or a piece's: one part
+			third = text.compare(0, 4, MAGIC_3) == 0, fourth = text.compare(0, 4, MAGIC_4) == 0,
+			fifth = text.compare(0, 4, MAGIC_5) == 0;
+	if (!first && !second && !third && !fourth && !fifth && text.compare(0, 4, MAGIC) != 0) // an object's, or a piece's: one part
 		return { std::nullopt, { { Pose{ v3s32(0), 0 }, text } }, {}, {} };
 	std::istringstream is(text, std::ios::binary);
 	is.ignore(4);
@@ -102,6 +105,11 @@ Texts texts(const std::string &text)
 	out.id = readU64(is);
 	if (*out.id == 0)
 		throw SerializationError("machine: no id");
+	if (!first && !second && !third && !fourth && !fifth) {
+		out.scale = readF32(is);
+		if (!(out.scale > 0 && out.scale <= 1))
+			throw SerializationError("machine: its scale isn't one");
+	}
 	out.parts.resize(readU16(is));
 	for (Texts::Part &p : out.parts) {
 		p.pose.offset = readV3S32(is);
@@ -228,6 +236,7 @@ void Machine::read(const std::string &text)
 	m_sockets = std::move(t.sockets);
 	m_front = t.front;
 	m_plug = t.plug;
+	m_scale = t.scale;
 	// one part from before machines: the machine's id is the object's (as
 	// its header says)
 	m_id = t.id ? *t.id : m_parts.front().object.id();
@@ -238,6 +247,7 @@ std::string Machine::write() const
 	std::ostringstream os(std::ios::binary);
 	os.write(MAGIC, 4);
 	writeU64(os, m_id);
+	writeF32(os, m_scale);
 	writeU16(os, u16(m_parts.size()));
 	for (const Part &p : m_parts) {
 		writeV3S32(os, p.pose.offset);
@@ -273,6 +283,20 @@ std::string Machine::write() const
 		}
 	}
 	return os.str();
+}
+
+void Machine::setScale(f32 scale)
+{
+	if (!(scale > 0 && scale <= 1))
+		throw BaseException("Machine::setScale: not a scale");
+	m_scale = scale;
+}
+
+core::matrix4 Machine::scaling() const
+{
+	core::matrix4 m;
+	m.setScale(v3f(m_scale));
+	return m;
 }
 
 void Machine::setFront(v3s16 front)
@@ -741,6 +765,9 @@ void Machine::join(const Face &mine, Machine other, const Face &theirs, Joint jo
 
 void Machine::adopt(Machine other, const Face &theirs, v3f p, v3s16 n, u8 spin)
 {
+	// their sixteenths are made ours, which only means anything at one size
+	if (other.m_scale != m_scale)
+		throw BaseException("Machine::adopt: parts of different scales");
 	const v3f q = other.point(theirs);
 	const v3s16 m = other.normal(theirs);
 	// their face's normal turned against ours, then spun about it; their
@@ -837,6 +864,11 @@ Header header(const std::string &text)
 		if (!t.id) // one part, from before machines: its id is the object's
 			out.id = o.id;
 	}
+	for (std::optional<aabb3f> *box : { &out.built, &out.designed })
+		if (*box) {
+			(*box)->MinEdge *= t.scale;
+			(*box)->MaxEdge *= t.scale;
+		}
 	return out;
 }
 

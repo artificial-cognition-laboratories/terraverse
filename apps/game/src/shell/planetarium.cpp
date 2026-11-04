@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "planetarium.h"
+#include "log.h"
 #include "bridge.h"
 #include "shell.h"
 #include "terragen/body.h"
@@ -16,7 +17,7 @@ using planetarium::MarkerLayer;
 using View = planetarium::Planetarium;
 
 static const char *const VERBS[] = { "planetarium.show", "planetarium.hide", "planetarium.focus", "planetarium.markers",
-	"planetarium.viewport", "planetarium.fly", "planetarium.frame", "planetarium.layer", "planetarium.time", "planetarium.seams", "planetarium.scene" };
+	"planetarium.viewport", "planetarium.fly", "planetarium.frame", "planetarium.layer", "planetarium.time", "planetarium.seams", "planetarium.scene", "planetarium.orbits" };
 
 // a finite number field, or none if it's absent; Refused if it's anything else
 static std::optional<double> number(const Json::Value &v, const char *name)
@@ -70,6 +71,12 @@ Planetarium::Planetarium(Opts opts) : m_opts(std::move(opts))
 	m_opts.shell.on("planetarium.layer", [this](const Json::Value &intent) { return layer(intent); });
 	m_opts.shell.on("planetarium.time", [this](const Json::Value &intent) { return time(intent); });
 	m_opts.shell.on("planetarium.seams", [this](const Json::Value &intent) { return seams(intent); });
+	m_opts.shell.on("planetarium.orbits", [this](const Json::Value &intent) {
+		if (!intent.isObject() || !intent["shown"].isBool())
+			throw Refused("planetarium.orbits takes { shown }");
+		m_orbits = intent["shown"].asBool();
+		return Json::Value();
+	});
 	m_opts.shell.on("planetarium.scene", [this](const Json::Value &intent) { return scene(intent); });
 }
 
@@ -88,7 +95,8 @@ void Planetarium::serve(Body body, std::optional<Json::Value> backdrop)
 	m_makingWanted = false;
 	m_afterMade.clear();
 	m_backdrop.reset();
-	m_scene = Scene{}; // (whoever's served next: the game has its own view)
+	m_scene = Scene{};
+	m_orbits = true; // (whoever's served next: the game has its own view)
 	hide();
 	m_markers.clear();
 	m_view.reset();
@@ -182,7 +190,7 @@ void Planetarium::show(View::Opts body)
 void Planetarium::apply(View &p) const
 {
 	p.seams(m_seams);
-	p.orbits(!m_scene.shown);
+	p.orbits(m_orbits && !m_scene.shown);
 	p.day(m_clock.date * p.system().year());
 }
 
@@ -416,12 +424,16 @@ Json::Value Planetarium::fly(const Json::Value &intent)
 			altitude = number(intent, "altitude"), radii = number(intent, "radii");
 	if (altitude && radii)
 		throw Refused("planetarium.fly: an altitude or radii, not both");
+	const bool lit = intent["lit"].isBool() && intent["lit"].asBool();
+	if (lit && lat)
+		throw Refused("planetarium.fly: lit, or a place, not both");
 	if (lat.has_value() != lon.has_value())
 		throw Refused("planetarium.fly: a place is a latitude and a longitude");
 	for (View *p : { m_current.get(), m_next.get() })
 		if (p) {
 			const size_t body = intent.isMember("body") ? bodyIndex(*p, intent["body"]) : p->target();
-			p->fly({ body, lat, lon, altitude, radii, seconds });
+			// (lit: a little north of the line, past noon)
+				p->fly({ body, lit ? std::optional<double>(0.35) : lat, lit ? std::optional<double>(p->litLongitude()) : lon, altitude, radii, seconds });
 		}
 	return Json::Value();
 }

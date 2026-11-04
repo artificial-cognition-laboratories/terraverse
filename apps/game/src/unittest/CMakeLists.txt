@@ -34,6 +34,8 @@ set(unittest_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/test_online.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_air.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_orbit.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_moves.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_structure.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_physics.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_pose.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_sandbox.cpp

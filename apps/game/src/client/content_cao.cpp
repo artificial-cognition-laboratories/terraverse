@@ -3,6 +3,9 @@
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "content_cao.h"
+#include "porting.h"
+#include "profiler.h"
+#include "workshop/knap.h"
 #include <array>
 #include "piece/frame.h" // Terra Firma
 #include "piece/machine.h" // Terra Firma
@@ -267,20 +270,28 @@ static scene::SMesh *generateNodeMesh(Client *client, MapNode n,
 	return meshCollected(client, collector, ndef->get(n).alpha, animation);
 }
 
+static constexpr u64 PIECE_MESH_WINDOW_US = 16000, PIECE_MESH_BUDGET_US = 4000;
+
 // Terra Firma: a piece's blocks (and cut nodes), meshed as the world's are,
 // local node (0, 0, 0) at the object's origin; a ghost's see-through
 static scene::SMesh *generatePieceMesh(Client *client, const piece::Piece &piece, bool ghost,
 	std::optional<video::SColor> tint, std::vector<MeshAnimationInfo> &animation)
 {
 	constexpr s16 MARGIN = 4; // what the mesher reads round what it draws
+	// only as much of its grid as it fills: most of a stone's mesh time was
+	// the mesher walking the empty rest (sprint 130)
+	s16 side = 1;
+	piece.each([&](v3s16 p, MapNode, const shape::Shape *) {
+		side = std::max({ side, s16(p.X + 1), s16(p.Y + 1), s16(p.Z + 1) });
+	});
 	MeshCollector collector(v3f(0), v3f());
 	{
-		MeshMakeData mmd(client->ndef(), piece::SIDE, MeshGrid{1});
+		MeshMakeData mmd(client->ndef(), side, MeshGrid{1});
 		mmd.m_blockpos = v3s16(0);
-		mmd.m_vmanip.addArea(VoxelArea(v3s16(-MARGIN), v3s16(piece::SIDE - 1 + MARGIN)));
-		for (s16 x = -MARGIN; x < piece::SIDE + MARGIN; x++)
-			for (s16 y = -MARGIN; y < piece::SIDE + MARGIN; y++)
-				for (s16 z = -MARGIN; z < piece::SIDE + MARGIN; z++)
+		mmd.m_vmanip.addArea(VoxelArea(v3s16(-MARGIN), v3s16(side - 1 + MARGIN)));
+		for (s16 x = -MARGIN; x < side + MARGIN; x++)
+			for (s16 y = -MARGIN; y < side + MARGIN; y++)
+				for (s16 z = -MARGIN; z < side + MARGIN; z++)
 					mmd.m_vmanip.setNodeNoEmerge({ x, y, z }, MapNode(CONTENT_AIR, 0xff, 0));
 		piece.each([&](v3s16 p, MapNode n, const shape::Shape *s) {
 			n.setParam1(0xff);
@@ -306,6 +317,28 @@ static scene::SMesh *generatePieceMesh(Client *client, const piece::Piece &piece
 		}
 		buf->setDirty(scene::EBT_VERTEX);
 	}
+	return mesh;
+}
+
+// Terra Firma: a small thing in the hand (sprint 130): what's built of it, whole, at its size
+scene::SMesh *generateMachineMesh(Client *client, const piece::Machine &machine)
+{
+	auto *mesh = new scene::SMesh();
+	for (const piece::Machine::Part &part : machine.parts()) {
+		std::vector<MeshAnimationInfo> animation;
+		scene::SMesh *one = generatePieceMesh(client, part.object.built(), false, std::nullopt, animation);
+		const core::matrix4 at = machine.scaling() * part.pose.matrix();
+		for (u32 i = 0; i < one->getMeshBufferCount(); i++) {
+			scene::IMeshBuffer *buf = one->getMeshBuffer(i);
+			auto *v = static_cast<video::S3DVertex *>(buf->getVertices());
+			for (u32 j = 0; j < buf->getVertexCount(); j++)
+				at.transformVect(v[j].Pos);
+			buf->recalculateBoundingBox();
+			mesh->addMeshBuffer(buf);
+		}
+		one->drop();
+	}
+	mesh->recalculateBoundingBox();
 	return mesh;
 }
 
@@ -834,6 +867,24 @@ void GenericCAO::addToScene(ITextureSource *tsrc, scene::ISceneManager *smgr)
 		m_wield_meshnode->setScale(m_prop.visual_size / 2.0f);
 		break;
 	} case OBJECTVISUAL_PIECE: { // Terra Firma
+		// a crowd of them come into range together is drawn over a few frames,
+		// and not all in one (sprint 130: 278 ms at once, walking onto new ground)
+		static u64 window_began = 0, window_spent = 0;
+		const u64 began = porting::getTimeUs();
+		if (began - window_began >= PIECE_MESH_WINDOW_US) {
+			window_began = began;
+			window_spent = 0;
+		}
+		if (window_spent >= PIECE_MESH_BUDGET_US) {
+			m_visuals_expired = true;
+			break;
+		}
+		ScopeProfiler timed(g_profiler, "Piece mesh [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
+		struct Spent
+		{
+			u64 from;
+			~Spent() { window_spent += porting::getTimeUs() - from; }
+		} spent{ began };
 		m_machine.reset();
 		if (m_prop.piece.empty())
 			break; // its blocks not given it yet: nothing to draw
@@ -852,6 +903,7 @@ void GenericCAO::addToScene(ITextureSource *tsrc, scene::ISceneManager *smgr)
 				for (u32 j = 0; j < buf->getVertexCount(); j++) {
 					at.transformVect(v[j].Pos);
 					turned.transformVect(v[j].Normal);
+					v[j].Normal.normalize(); // (a small thing's frame is scaled)
 				}
 				buf->setDirty(scene::EBT_VERTEX);
 				mesh->addMeshBuffer(buf);
@@ -870,7 +922,7 @@ void GenericCAO::addToScene(ITextureSource *tsrc, scene::ISceneManager *smgr)
 				g++;
 			scene::SMesh *into = group_meshes[g];
 			auto append = [&](scene::SMesh *part, const core::matrix4 &at) { appendTo(into, part, at); };
-			const core::matrix4 at = part.pose.matrix();
+			const core::matrix4 at = m_machine->scaling() * part.pose.matrix();
 			const u64 id = part.object.id();
 			const bool selected = m_look.selected == id, hovered = m_look.hovered == id;
 			const bool dim = m_look.through ? !(selected || hovered) : m_look.selected && !selected;
@@ -878,13 +930,46 @@ void GenericCAO::addToScene(ITextureSource *tsrc, scene::ISceneManager *smgr)
 					: hovered || m_look.lit ? std::optional<video::SColor>(video::SColor(255, 200, 235, 255)) : std::nullopt;
 			std::vector<MeshAnimationInfo> animation;
 			const u32 base = mesh->getMeshBufferCount();
-			append(generatePieceMesh(m_client, part.object.built(), dim, tint, animation), at);
+			// a small thing looked at shows its edge (sprint 130), lit apart from the rest of it
+			std::vector<v3s32> edge;
+			if (m_machine->scale() < 1 && (m_look.lit || hovered))
+				edge = workshop::edgeCells(part.object.built());
+			if (edge.empty()) {
+				append(generatePieceMesh(m_client, part.object.built(), dim, tint, animation), at);
+			} else {
+				piece::Piece rest(m_client), lit(m_client);
+				rest.read(part.object.built().write());
+				std::map<v3s16, shape::Shape> edges;
+				for (const v3s32 &c : edge)
+					edges[v3s16(c.X / shape::STEPS, c.Y / shape::STEPS, c.Z / shape::STEPS)].set(
+							v3s16(c.X % shape::STEPS, c.Y % shape::STEPS, c.Z % shape::STEPS), true);
+				for (auto &[n, cells] : edges) {
+					const MapNode node = rest.node(n);
+					const shape::Shape *had = rest.shape(n);
+					shape::Shape left = had ? *had : shape::Shape::whole();
+					for (s16 x = 0; x < shape::STEPS; x++)
+						for (s16 y = 0; y < shape::STEPS; y++)
+							for (s16 z = 0; z < shape::STEPS; z++)
+								if (cells.has({ x, y, z }))
+									left.set({ x, y, z }, false);
+					if (left.empty())
+						rest.map().setNode(n, MapNode(CONTENT_AIR));
+					else
+						rest.map().setShape(n, left);
+					lit.map().setNode(n, node);
+					lit.map().setShape(n, cells);
+				}
+				append(generatePieceMesh(m_client, rest, dim, tint, animation), at);
+				std::vector<MeshAnimationInfo> none;
+				append(generatePieceMesh(m_client, lit, false, video::SColor(255, 255, 255, 190), none), at);
+			}
 			for (MeshAnimationInfo &a : animation) {
 				a.i += base;
 				m_meshnode_animation.push_back(a);
 			}
 			std::vector<MeshAnimationInfo> unanimated;
-			append(generatePieceMesh(m_client, part.object.unbuilt(), true, std::nullopt, unanimated), at);
+			if (const piece::Piece unbuilt = part.object.unbuilt(); !unbuilt.empty())
+				append(generatePieceMesh(m_client, unbuilt, true, std::nullopt, unanimated), at);
 		}
 		mesh->recalculateBoundingBox();
 

@@ -1,0 +1,181 @@
+{
+ "moves": [
+  {
+   "id": "slump",
+   "group": "Loose ground",
+   "title": "Sand slumps",
+   "keys": "Dig",
+   "note": "A hole cut in sand. Nothing holds its walls, so they slide in until the slope is one it can rest at. Sand gives at once.",
+   "size": [
+    9,
+    5,
+    9
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      8,
+      0,
+      8
+     ]
+    }
+   ],
+   "ground": {
+    "node": "tf_world:sand",
+    "y": 1,
+    "from": [
+     0,
+     0
+    ],
+    "to": [
+     8,
+     8
+    ],
+    "deep": 12,
+    "holes": [
+     [
+      56,
+      56,
+      87,
+      87,
+      10
+     ]
+    ]
+   },
+   "start": [
+    1,
+    1.25,
+    1
+   ],
+   "end": 5,
+   "cues": [],
+   "expect": {
+    "steepest_at_most": 2
+   },
+   "distance": 8
+  },
+  {
+   "id": "stands",
+   "group": "Loose ground",
+   "title": "Soil holds its wall",
+   "keys": "Dig",
+   "note": "The same hole in soil. It can stand much steeper before it gives, so the cut stays a cut.",
+   "size": [
+    9,
+    5,
+    9
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      8,
+      0,
+      8
+     ]
+    }
+   ],
+   "ground": {
+    "node": "tf_world:dirt",
+    "y": 1,
+    "from": [
+     0,
+     0
+    ],
+    "to": [
+     8,
+     8
+    ],
+    "deep": 12,
+    "holes": [
+     [
+      56,
+      56,
+      87,
+      87,
+      10
+     ]
+    ]
+   },
+   "start": [
+    1,
+    1.25,
+    1
+   ],
+   "end": 5,
+   "cues": [],
+   "expect": {
+    "steepest_at_least": 8
+   },
+   "distance": 8
+  },
+  {
+   "id": "foot",
+   "group": "Loose ground",
+   "title": "Footprints",
+   "keys": "W",
+   "note": "Walking on sand. Each step presses a patch down and pushes what it moved out to the sides as a little ridge.",
+   "size": [
+    9,
+    5,
+    16
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      8,
+      0,
+      15
+     ]
+    }
+   ],
+   "ground": {
+    "node": "tf_world:sand",
+    "y": 1,
+    "from": [
+     0,
+     0
+    ],
+    "to": [
+     8,
+     15
+    ],
+    "deep": 12
+   },
+   "start": [
+    4,
+    1.25,
+    1.5
+   ],
+   "end": 3,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1
+    }
+   ],
+   "expect": {
+    "lowest_at_most": 11,
+    "highest_at_least": 13
+   },
+   "distance": 9
+  }
+ ]
+}

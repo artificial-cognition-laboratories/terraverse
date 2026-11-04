@@ -1636,6 +1636,11 @@ void Game::processKeyInput()
 		m_hand.ask(Hand::ACTIONS[size_t(Hand::Verb::Mirror)].id, "");
 	} else if (wasKeyDown(KeyType::UNDO)) {
 		m_hand.ask(Hand::ACTIONS[size_t(Hand::Verb::Undo)].id, "");
+	} else if (const GenericCAO *small = !m_driving && !m_hand.out() && m_lit && wasKeyDown(KeyType::FOCUS)
+			? dynamic_cast<GenericCAO *>(client->getEnv().getActiveObject(m_lit)) : nullptr;
+			small && small->getMachine() && small->getMachine()->scale() < 1) {
+		// Terra Firma: a small thing goes in the hand (sprint 130: tf_tools says if it can)
+		client->sendUiEvent("tf_tools:take", std::to_string(m_lit));
 	} else if (!m_driving && wasKeyDown(KeyType::FOCUS)) { // (driving, F gets up)
 		m_hand.ask(Hand::ACTIONS[size_t(Hand::Verb::Focus)].id, "");
 	} else if (m_menu && input->cancelPressed()) {
@@ -3301,7 +3306,10 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 		m_lit_part = lit_part;
 	}
 	if (lit != m_lit) {
-		if (lit)
+		const GenericCAO *small = lit ? dynamic_cast<GenericCAO *>(client->getEnv().getActiveObject(lit)) : nullptr;
+		if (small && !m_hand.out() && small->getMachine() && small->getMachine()->scale() < 1)
+			m_game_ui->showTranslatedStatusText(holdingSmall() ? "Left click: strike · F: pick up" : "F: pick up");
+		else if (lit)
 			m_game_ui->showTranslatedStatusText(m_hand.out() ? "Draw on it here · F to pick it up · Tab: hands to carry it"
 					: "Hold left to grab it here · Alt: carry it · F to pick it up and work on it");
 		m_lit = lit;
@@ -3311,8 +3319,30 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 	// plugged in put there (sprint 64)
 	const std::optional<std::pair<u16, u64>> again = !m_carry && !m_hand.out() && isKeyDown(KeyType::AUX1)
 			&& wasKeyPressed(KeyType::DIG) ? socketAt() : std::nullopt;
+	const GenericCAO *struck = !m_carry && !m_grab && !m_menu && !m_hand.out() && !m_driving && lit
+			&& wasKeyPressed(KeyType::DIG) && holdingSmall()
+			? dynamic_cast<GenericCAO *>(client->getEnv().getActiveObject(lit)) : nullptr;
+	if (struck && (!struck->getMachine() || struck->getMachine()->scale() == 1))
+		struck = nullptr;
 	if (again) {
 		client->sendPlugAgain(again->first, again->second);
+	} else if (struck) {
+		// Terra Firma: one small thing struck with another (sprint 130): where,
+		// and which way, on its grid; tf_tools says what comes of it
+		if (const std::optional<Aim> aim = aimAtPiece(lit)) {
+			const shape::Sixteenth s = shape::hit(aim->node, aim->point, aim->normal);
+			core::matrix4 into;
+			if (!aim->frame.getInverse(into))
+				throw BaseException("a part's frame has no inverse");
+			v3f in = m_pointed_from.end - m_pointed_from.start;
+			in = into.rotateAndScaleVect(in);
+			in.normalize();
+			std::ostringstream json;
+			json << "{\"object\":" << lit << ",\"cell\":[" << s.node.X * shape::STEPS + s.cell.X << ","
+				<< s.node.Y * shape::STEPS + s.cell.Y << "," << s.node.Z * shape::STEPS + s.cell.Z << "],\"in\":["
+				<< in.X << "," << in.Y << "," << in.Z << "]}";
+			client->sendUiEvent("tf_tools:strike", json.str());
+		}
 	} else if (m_driving) {
 		// Terra Firma: sat in from an object's menu (sprint 69, 71)
 		handleDrive(pointed, dtime);
@@ -3555,7 +3585,10 @@ void Game::handlePointingAtNode(const PointedThing &pointed,
 
 	ClientMap &map = client->getEnv().getClientMap();
 
-	if (runData.nodig_delay_timer <= 0.0 && isKeyDown(KeyType::DIG)
+	// Terra Firma: left click uses what's in the hand, and only something made to
+	// dig digs (the `digs` group); carving by hand is build mode's (sprint 130)
+	if (itemgroup_get(selected_item.getDefinition(itemdef_manager).groups, "digs") > 0
+			&& runData.nodig_delay_timer <= 0.0 && isKeyDown(KeyType::DIG)
 			&& !runData.digging_blocked
 			&& client->checkPrivilege("interact")) {
 		handleDigging(pointed, nodepos, selected_item, hand_item, dtime);
@@ -3649,7 +3682,7 @@ std::optional<Game::Aim> Game::aimAtPiece(u16 id) const
 	for (const piece::Machine::Part &part : obj->getMachine()->parts()) {
 		if (alone && *m_part != part.object.id())
 			continue;
-		const core::matrix4 frame = obj->getFrame() * part.pose.matrix();
+		const core::matrix4 frame = obj->getFrame() * obj->getMachine()->scaling() * part.pose.matrix();
 		core::matrix4 into;
 		if (!frame.getInverse(into))
 			throw BaseException("a part's frame has no inverse");
@@ -3666,6 +3699,13 @@ std::optional<Game::Aim> Game::aimAtPiece(u16 id) const
 		}
 	}
 	return best;
+}
+
+bool Game::holdingSmall() const
+{
+	ItemStack selected, hand;
+	const ItemStack &held = client->getEnv().getLocalPlayer()->getWieldedItem(&selected, &hand);
+	return !held.metadata.getString("piece").empty();
 }
 
 const Hand::BrushKind &Game::brushNow() const
@@ -5955,7 +5995,9 @@ void Game::handlePointingAtObject(const PointedThing &pointed, const ItemStack &
 
 	m_game_ui->setInfoText(infotext);
 
-	if (isKeyDown(KeyType::DIG)) {
+	// Terra Firma: a machine isn't punched: it's grabbed, or struck (above)
+	const auto *punched = dynamic_cast<GenericCAO *>(runData.selected_object);
+	if (isKeyDown(KeyType::DIG) && !(punched && punched->getMachine())) {
 		bool do_punch = false;
 		bool do_punch_damage = false;
 

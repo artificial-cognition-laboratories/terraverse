@@ -5,6 +5,9 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/client.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/community.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/course.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/finewater.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/relief.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/ime.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/input.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/items.cpp
@@ -25,6 +28,7 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/system.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/matter.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/wiki.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/scene.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/surface.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/worlds.cpp
 )

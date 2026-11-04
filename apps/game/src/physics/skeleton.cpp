@@ -163,4 +163,84 @@ Bones Skeleton::place(float dt, const Joints &j, float tilt, const Grip *grip, v
 	return b;
 }
 
+Bones Posing::pose(float dtime, v3f velocity, float pitch, bool airborne, Stance stance, float turned, std::optional<float> face,
+		float tilt, const Contacts &contacts, const Ground &ground, const Clear &clear)
+{
+	PoseIn in;
+	in.moving = velocity;
+	in.pitch = pitch;
+	const bool climbing = stance == Stance::VAULT || stance == Stance::MANTLE || stance == Stance::HANG || stance == Stance::WALL_RUN || stance == Stance::DOWN;
+	in.airborne = airborne && !climbing;
+	in.stance = stance;
+	in.push = contacts.push;
+	const Grip *grip = contacts.grip;
+	if (grip)
+		in.hand_moving = grip->moving;
+	if (contacts.step_on) {
+		in.steps = true;
+		in.step_on = *contacts.step_on / FIGURE_SCALE;
+	}
+	in.feet = contacts.feet;
+	in.fallen = contacts.fallen;
+	in.rising = contacts.rising;
+	in.stagger = contacts.stagger;
+	in.throw_side = contacts.throw_side;
+	in.throw_back = contacts.throw_back;
+	if (airborne) // (the ground under it: where it comes down)
+		in.above = std::max(0.f, -ground(v3f(0)));
+	in.turned = turned;
+	if (face) {
+		in.faces = true;
+		in.face = *face;
+	}
+	for (int side : { 0, 1 }) {
+		// asked in the figure's scale, as its feet are drawn; no point looking from the air
+		const v3f foot = m_poser.footAt(side) * FIGURE_SCALE;
+		in.ground[side] = in.airborne || climbing ? 0 : ground(foot) / FIGURE_SCALE;
+	}
+	const Joints j = m_poser.step(dtime, in);
+
+	const Bones b = m_skeleton.place(dtime, j, tilt, grip, m_clear);
+	// Its head and shoulders go round what they meet. Asked where they'd be without the last
+	// answer, so being moved clear doesn't read as there being nothing to clear.
+	const bool upright = stance != Stance::ROLL && stance != Stance::PRONE && stance != Stance::SLIDE && stance != Stance::DOWN;
+	v3f wanted;
+	if (upright) {
+		const core::matrix4 chest = b.lower.matrix() * b.hips.matrix() * b.chest.matrix();
+		const auto ball = [&](const core::matrix4 &m, v3f at, float r) {
+			m.transformVect(at);
+			const v3f by = clear(at - m_clear, r);
+			if (by.getLengthSQ() > wanted.getLengthSQ())
+				wanted = by;
+		};
+		ball(chest * b.head.matrix(), v3f(0, HEAD_SIZE / 2, 0) * FIGURE_SCALE, 0.27f);
+		for (int side : { 0, 1 })
+			ball(chest, b.upper[side].at, 0.14f);
+	}
+	if (wanted.getLength() > 0.3f)
+		wanted = wanted / wanted.getLength() * 0.3f;
+	m_clear += (wanted - m_clear) * std::min(1.f, 18 * dtime);
+	return b;
+}
+
+void eachBoneBox(const Bones &b, const std::function<void(const core::matrix4 &, v3f, v3f, BoneColour)> &box)
+{
+	constexpr float S = FIGURE_SCALE;
+	const auto hanging = [&](const core::matrix4 &m, float length, float wide, BoneColour c) {
+		box(m, v3f(wide, length + BONE_OVERLAP, wide) * S, v3f(0, (BONE_OVERLAP - length) / 2, 0) * S, c);
+	};
+	const core::matrix4 lower = b.lower.matrix(), hips = lower * b.hips.matrix(), chest = hips * b.chest.matrix();
+	box(hips, v3f(0.48f, HIPS_TALL, 0.23f) * S, v3f(0, HIPS_TALL / 2, 0) * S, BoneColour::TROUSERS);
+	box(chest, v3f(0.5f, CHEST_TALL + 0.02f, BONE_WIDE) * S, v3f(0, CHEST_TALL / 2, 0) * S, BoneColour::SHIRT);
+	box(chest * b.head.matrix(), v3f(HEAD_SIZE) * S, v3f(0, HEAD_SIZE / 2, 0) * S, BoneColour::SKIN);
+	for (int side : { 0, 1 }) {
+		const core::matrix4 thigh = lower * b.thigh[side].matrix(), upper = chest * b.upper[side].matrix(), fore = upper * b.fore[side].matrix();
+		hanging(thigh, THIGH, BONE_WIDE, BoneColour::TROUSERS);
+		hanging(thigh * b.shin[side].matrix(), SHIN, BONE_NARROW, BoneColour::TROUSERS);
+		hanging(upper, UPPER_ARM, BONE_WIDE, BoneColour::SHIRT);
+		hanging(fore, FOREARM, BONE_NARROW, BoneColour::SHIRT);
+		box(fore * b.hand[side].matrix(), v3f(BONE_WIDE, HAND_LONG, BONE_WIDE) * S, v3f(0, -HAND_LONG / 2, 0) * S, BoneColour::SKIN);
+	}
+}
+
 } // namespace physics

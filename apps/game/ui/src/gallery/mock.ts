@@ -418,16 +418,6 @@ export function MockBridge() {
             return null
         },
         play: () => null,
-        "lab.list": () => SCENARIOS,
-        "lab.enter": ({ id }) => {
-            // as the engine would: a world loads, then tf_lab speaks
-            setTimeout(() => {
-                emitAll({ kind: "mode", mode: "game" })
-                lab = { id: id, values: labDefaults(id), browsing: true, speed: 1, speeds: [0, 1, 10, 100] }
-                publishLab()
-            }, 600)
-            return null
-        },
         "screen.open": ({ name }) => {
             queueMicrotask(() => emitAll({ kind: "screen", screen: name }))
             return null
@@ -549,8 +539,19 @@ export function MockBridge() {
         // a canned sandbox: a pool of water warming under a heater (the gallery has no physics)
         "sandbox.create": () => { sandboxTime = 0; return { id: 1 } },
         "sandbox.step": ({ seconds }) => { sandboxTime += seconds; return cannedSandbox(sandboxTime) },
-        "sandbox.set": () => cannedSandbox(sandboxTime),
         "sandbox.drop": () => null,
+        "moves.list": () => [{ id: "walk", group: "On foot", title: "Walking", keys: "W", note: "Mock: the moves are the engine's." }],
+        "moves.show": () => null,
+        "moves.set": () => null,
+        "moves.restart": () => null,
+        "moves.state": () => ({ time: 0, doing: "stand", pace: 0 }),
+        "relief.show": () => null,
+        "relief.set": () => null,
+        "relief.restart": () => null,
+        "relief.state": () => ({ round: 0, rounds: 12 }),
+        "scene.show": () => null,
+        "scene.place": () => null,
+        "scene.hide": () => null,
         "orbit.coast": () => { throw new Error("orbit.coast is not wired in the gallery: it needs the engine") },
         "matter.state": () => ({ state: "liquid", boils_at: 373.15, melts_at: 273.15 }),
         "worldgen.preview": ({ code, date, resolution }) => mockPreview(decodeWorldCode(code), date, resolution),

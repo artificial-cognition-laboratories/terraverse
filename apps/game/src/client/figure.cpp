@@ -71,60 +71,7 @@ void Figure::pose(float dtime, v3f velocity, float pitch, bool airborne, physics
 	using namespace physics;
 	if (dtime <= 0)
 		return;
-	PoseIn in;
-	in.moving = velocity;
-	in.pitch = pitch;
-	const bool climbing = stance == Stance::VAULT || stance == Stance::MANTLE || stance == Stance::HANG || stance == Stance::WALL_RUN || stance == Stance::DOWN;
-	in.airborne = airborne && !climbing;
-	in.stance = stance;
-	in.push = contacts.push;
-	const physics::Grip *grip = contacts.grip;
-	if (grip)
-		in.hand_moving = grip->moving;
-	if (contacts.step_on) {
-		in.steps = true;
-		in.step_on = *contacts.step_on / S;
-	}
-	in.feet = contacts.feet;
-	in.fallen = contacts.fallen;
-	in.rising = contacts.rising;
-	in.stagger = contacts.stagger;
-	in.throw_side = contacts.throw_side;
-	in.throw_back = contacts.throw_back;
-	if (airborne) // (the ground under it: where it comes down)
-		in.above = std::max(0.f, -ground(v3f(0)));
-	in.turned = turned;
-	if (face) {
-		in.faces = true;
-		in.face = *face;
-	}
-	for (int side : { 0, 1 }) {
-		// asked in the figure's scale, as its feet are drawn; no point looking from the air
-		const v3f foot = m_poser.footAt(side) * S;
-		in.ground[side] = in.airborne || climbing ? 0 : ground(foot) / S;
-	}
-	const Joints j = m_poser.step(dtime, in);
-
-	const Bones b = m_skeleton.place(dtime, j, tilt, grip, m_clear);
-	// Its head and shoulders go round what they meet. Asked where they'd be without the last
-	// answer, so being moved clear doesn't read as there being nothing to clear.
-	const bool upright = stance != Stance::ROLL && stance != Stance::PRONE && stance != Stance::SLIDE && stance != Stance::DOWN;
-	v3f wanted;
-	if (upright) {
-		const core::matrix4 chest = b.lower.matrix() * b.hips.matrix() * b.chest.matrix();
-		const auto ball = [&](const core::matrix4 &m, v3f at, float r) {
-			m.transformVect(at);
-			const v3f by = clear(at - m_clear, r);
-			if (by.getLengthSQ() > wanted.getLengthSQ())
-				wanted = by;
-		};
-		ball(chest * b.head.matrix(), v3f(0, HEAD_SIZE / 2, 0) * S, 0.27f);
-		for (int side : { 0, 1 })
-			ball(chest, b.upper[side].at, 0.14f);
-	}
-	if (wanted.getLength() > 0.3f)
-		wanted = wanted / wanted.getLength() * 0.3f;
-	m_clear += (wanted - m_clear) * std::min(1.f, 18 * dtime);
+	const Bones b = m_posing.pose(dtime, velocity, pitch, airborne, stance, turned, face, tilt, contacts, ground, clear);
 	const auto put = [](const Limb &limb, const BonePlace &at) {
 		limb.pivot->setPosition(at.at * BS);
 		limb.pivot->setRotation(at.turn);
