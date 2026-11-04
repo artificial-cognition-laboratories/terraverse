@@ -722,6 +722,14 @@ void initializePaths()
 	}
 	path_cache = path_user + DIR_DELIM "cache";
 
+	// Terra Firma: the launcher names where the player's data lives, so it
+	// survives updates. Unset in development, which keeps its data in .output.
+	if (const char *home = getenv("TERRAVERSE_HOME"); home && *home) {
+		FATAL_ERROR_IF(!fs::IsPathAbsolute(home), "TERRAVERSE_HOME must be an absolute path");
+		path_user = home;
+		path_cache = path_user + DIR_DELIM "cache";
+	}
+
 #else
 	infostream << "Using system-wide paths (NOT RUN_IN_PLACE)" << std::endl;
 

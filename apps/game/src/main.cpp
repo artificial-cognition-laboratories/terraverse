@@ -908,6 +908,8 @@ static bool read_config_file(const Settings &cmd_args)
 	} else {
 		std::vector<std::string> filenames;
 		filenames.push_back(porting::path_user + DIR_DELIM + CONFIGFILE);
+		// Terra Firma: nothing above TERRAVERSE_HOME is ours to read
+		if (!getenv("TERRAVERSE_HOME")) {
 		// Legacy configuration file location
 		filenames.push_back(porting::path_user +
 				DIR_DELIM + ".." + DIR_DELIM + CONFIGFILE);
@@ -918,6 +920,7 @@ static bool read_config_file(const Settings &cmd_args)
 		filenames.push_back(porting::path_user +
 				DIR_DELIM + ".." + DIR_DELIM + ".." + DIR_DELIM + CONFIGFILE);
 #endif
+		}
 
 		for (const std::string &filename : filenames) {
 			bool r = g_settings->readConfigFile(filename.c_str());
@@ -942,6 +945,13 @@ static bool read_config_file(const Settings &cmd_args)
 static void init_log_streams(const Settings &cmd_args)
 {
 	std::string log_filename = porting::path_user + DIR_DELIM + DEBUGFILE;
+	// Terra Firma: an installed game keeps its logs together
+	if (getenv("TERRAVERSE_HOME")) {
+		const std::string logs = porting::path_user + DIR_DELIM "logs";
+		if (!fs::CreateAllDirs(logs))
+			throw BaseException("could not create " + logs);
+		log_filename = logs + DIR_DELIM + DEBUGFILE;
+	}
 
 	if (cmd_args.exists("logfile"))
 		log_filename = cmd_args.get("logfile");

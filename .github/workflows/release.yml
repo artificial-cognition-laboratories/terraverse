@@ -102,12 +102,14 @@ jobs:
             libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2 libxkbcommon0
           pkg=".output/releases/terrafirma-$VERSION-linux-x86_64"
           if LD_LIBRARY_PATH="$pkg/lib" ldd "$pkg/bin/luanti" | grep "not found"; then exit 1; fi
-          "$pkg/terrafirma" --version | tee /dev/stderr | grep -F "$VERSION"
+          "$pkg/terraverse" --version | tee /dev/stderr | grep -F "$VERSION"
           set +e
-          timeout 20 "$pkg/terrafirma" --server --gameid terrafirma --world "$RUNNER_TEMP/world" --port 30500 2>&1 | tee boot.log
+          export TERRAVERSE_HOME="$RUNNER_TEMP/home"
+          timeout 20 "$pkg/terraverse" --server --gameid terrafirma --world "$RUNNER_TEMP/world" --port 30500 2>&1 | tee boot.log
           set -e
           grep -q 'listening on' boot.log
           ! grep -q 'ERROR\[' boot.log
+          test -f "$TERRAVERSE_HOME/logs/debug.txt" # player data left the package
 
       - name: Attach to the release
         if: github.ref_type == 'tag'

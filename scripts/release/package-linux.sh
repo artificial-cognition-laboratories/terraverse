@@ -2,7 +2,7 @@
 # Packs a built tree into a portable Linux folder, then a tarball:
 #
 #   terrafirma-<version>-linux-x86_64/
-#     terrafirma         the launcher: run this
+#     terraverse         the launcher: run this. Player data goes in ~/.terraverse
 #     bin/               the engine and Chromium (run in place)
 #     lib/               the libraries it needs that a desktop may not have
 #     builtin client fonts games/terrafirma locale matter textures ui/dist misc
@@ -66,13 +66,14 @@ LD_LIBRARY_PATH="$root/.output/bin" ldd "$root/.output/bin/luanti" | while read 
 	cp -L "$path" "$stage/lib/$lib"
 done
 
-cat > "$stage/terrafirma" <<'LAUNCH'
+cat > "$stage/terraverse" <<'LAUNCH'
 #!/bin/sh
 # Terra Firma: run the engine with its own libraries found first.
 here=$(dirname "$(readlink -f "$0")")
+export TERRAVERSE_HOME="${TERRAVERSE_HOME:-${HOME:?HOME is not set}/.terraverse}"
 LD_LIBRARY_PATH="$here/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" exec "$here/bin/luanti" "$@"
 LAUNCH
-chmod +x "$stage/terrafirma"
+chmod +x "$stage/terraverse"
 printf '%s\n' "$version" > "$stage/VERSION"
 
 tar -C "$out" -cf - "$name" | zstd -19 -T0 -q -o "$out/$name.tar.zst" -f
