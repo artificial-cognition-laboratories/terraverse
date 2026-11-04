@@ -1,7 +1,7 @@
 // Checks what Cloud Run is actually serving after a deploy.
 import { $ } from "bun"
 
-const url = (await $`gcloud run services describe terraverse-site --region europe-west1 --project axon-487515 --format=value(status.url)`.text()).trim()
+const url = (await $`gcloud run services describe terraverse-site --region europe-west1 --project axon-487515 --format=${"value(status.url)"}`.text()).trim()
 for (const [path, expect] of [["/", "<title>Terraverse</title>"], ["/install.sh", "#!/bin/sh"], ["/worlds/worlds.json", "TF16."]] as const) {
     const response = await fetch(url + path)
     const body = await response.text()
