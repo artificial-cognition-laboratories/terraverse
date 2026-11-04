@@ -111,11 +111,34 @@ jobs:
           ! grep -q 'ERROR\[' boot.log
           test -f "$TERRAVERSE_HOME/logs/debug.txt" # player data left the package
 
+      - name: Write the manifest
+        run: |
+          bun scripts/release/manifest.ts "$VERSION" linux-x86_64 \
+            ".output/releases/terraverse-$VERSION-linux-x86_64.tar.zst" .output/releases/manifest.json
+
+      # The private key exists only as this secret. The game trusts the public
+      # half, so nothing else can publish an update it will accept.
+      - name: Sign the manifest
+        if: github.ref_type == 'tag'
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          key="$RUNNER_TEMP/update.key"
+          trap 'rm -f "$key"' EXIT
+          (umask 077; printf '%s\n' "$UPDATE_SIGNING_KEY" > "$key")
+          cd .output/releases
+          openssl pkeyutl -sign -inkey "$key" -rawin -in manifest.json -out manifest.json.sig
+          openssl pkeyutl -verify -pubin -inkey "$GITHUB_WORKSPACE/scripts/release/update-key.pub" \
+            -rawin -in manifest.json -sigfile manifest.json.sig
+
       - name: Attach to the release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
-          files: .output/releases/terraverse-${{ env.VERSION }}-linux-x86_64.tar.zst
+          files: |
+            .output/releases/terraverse-${{ env.VERSION }}-linux-x86_64.tar.zst
+            .output/releases/manifest.json
+            .output/releases/manifest.json.sig
           generate_release_notes: true
 
       - name: Keep as an artifact
@@ -123,4 +146,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: terraverse-${{ env.VERSION }}-linux-x86_64
-          path: .output/releases/terraverse-${{ env.VERSION }}-linux-x86_64.tar.zst
+          path: |
+            .output/releases/terraverse-${{ env.VERSION }}-linux-x86_64.tar.zst
+            .output/releases/manifest.json
