@@ -23,7 +23,8 @@ for (const s of read("substances.json").substances) {
 const out: { name: string; spec: unknown; expect: string[]; wet?: unknown; hottest?: unknown; left?: unknown; active?: unknown }[] = []
 for (const r of read("reactions.json").reactions as MatterReaction[]) {
     const demo = reactionDemo(r, substances)
-    if (demo.runnable) out.push({ name: `reaction ${r.id}`, spec: demo.spec, expect: Object.keys(r.products) })
+    if (demo.runnable) out.push({ name: `reaction ${r.id}`, spec: demo.spec, // (what was put in as well as made, water that goes on to evaporate, can't be told by how much there is at the end)
+        expect: Object.keys(r.products).filter((id) => !(r.requires ?? []).some((q) => q.substance === id)) })
 }
 for (const d of LAB_DEMOS) out.push({ name: `lab ${d.id}`, spec: d.spec, expect: [] })
 for (const d of FLUID_DEMOS) out.push({ name: `fluid ${d.id}`, spec: d.spec, expect: [], wet: d.wet })

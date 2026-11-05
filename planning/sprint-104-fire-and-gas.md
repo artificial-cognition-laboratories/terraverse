@@ -10,5 +10,7 @@ sixteenth cubes, no cell-sized boxes.
 - Liquid is coloured by column, carried by what runs ahead of the matter.
 - A liquid in open air isn't drawn as a slab: drawFine has it.
 
-Open: gases that burn do so within a tick at x1 (methane: one frame); the wiki's
-two neutralising scenes fail check:wiki, and did before this.
+Conduction is right, and slow: a metre of copper takes hours (checked by hand
+against k and heat capacity). Scenes that need heat quickly use a burner (`power`).
+
+Open: premixed gases burn within a tick at x1 (methane: one frame).
