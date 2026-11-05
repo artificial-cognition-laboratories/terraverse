@@ -40,6 +40,7 @@ void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox:
 	std::vector<int32_t> floors((size_t)x * z, 0);
 	std::vector<uint32_t> colours((size_t)x * z, 0);
 	std::vector<float> heats((size_t)x * z, 293);
+	std::vector<std::vector<std::pair<int, const shape::Shape *>>> cut((size_t)x * z); // melting blocks, top first
 	// (a powder on its way down isn't ground)
 	const auto restsOn = [&](int nx, int ny, int nz) {
 		if (ny == 0)
@@ -75,6 +76,10 @@ void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox:
 				}
 				if (b && FinePowder::isPowder(*b) && !restsOn(nx, ny, nz))
 					continue; // on its way down
+				if (b && b->spec.matter != "air" && c.shape) {
+					cut[node].push_back({ ny, c.shape.get() }); // by column, below: and what's under its gaps
+					continue;
+				}
 				if (b && b->spec.matter != "air") {
 					floor = (int32_t)std::lround((ny + (b->spec.leveled ? c.level : 1.0)) * 16);
 					break;
@@ -94,7 +99,16 @@ void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox:
 	for (int cz = 0; cz < m_d; cz++)
 		for (int cx = 0; cx < m_w; cx++) {
 			const int c = cz * m_w + cx;
-			const int32_t f = floors[(size_t)(cz / 16) * x + cx / 16];
+			int32_t f = floors[(size_t)(cz / 16) * x + cx / 16];
+			for (const auto &[ny, left] : cut[(size_t)(cz / 16) * x + cx / 16]) {
+				s16 top = 15;
+				while (top >= 0 && !left->has(v3s16(cx % 16, top, cz % 16)))
+					top--;
+				if (top >= 0) {
+					f = ny * 16 + top + 1;
+					break;
+				}
+			}
 			if (const uint32_t colour = colours[(size_t)(cz / 16) * x + cx / 16])
 				m_colour[c] = colour, m_temperature[c] = heats[(size_t)(cz / 16) * x + cx / 16];
 			if (f != m_floor[c]) {

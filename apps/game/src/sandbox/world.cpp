@@ -25,6 +25,7 @@ static const double SMOKE = 0.03;         // share of a block's gas, not the roo
 static const double WIND = 25;            // how much faster gas leaves upward into open air than through still air
 static const double REDRAW_LEVEL = 1.0 / 16; // of a block: a running level's change worth redrawing
 static const double REDRAW_EVERY = 0.5;      // s: the most often a running level is redrawn
+static const int CARVE_CELLS = 48;           // sixteenths melted before a block's cut again (each cut remeshes its map block)
 static const double DROP = 1e-4;          // of a block: less liquid than this in the air is a drop falling, not a puddle
 static const double STIRRED = 1e-5;
 static const double VACUUM = 1.0;         // Pa: the least pressure a body's air is run at       // m³ flowed in a step that keeps a block awake
@@ -413,6 +414,8 @@ void WorldMatter::reshape(Cell &c, bool exactly)
 {
 	if (m_kinds[c.kind].vessel)
 		return; // a crucible of molten tin is still the crucible
+	if (melting(c, exactly))
+		return;
 	Physics::Main m = sky(c).physics.main(c.mix);
 	const bool runs = m.substance >= 0 && m.fill > DROP && (m.state == State::Liquid || c.loose);
 	auto plain = [&](const Kind &k) {
@@ -471,6 +474,40 @@ void WorldMatter::reshape(Cell &c, bool exactly)
 		draw(to);
 	// no form for what fills it: the block stays as it is, awake, until one is registered
 	showFill(c, exactly); // and what liquid lies in its open space (a pit in the sand)
+}
+
+// The solid of a block, melting, is the block, cut down to it: its water's in the
+// open space that makes, and runs, as it would from a pit. Only when
+// none's left does it become what's left there.
+bool WorldMatter::melting(Cell &c, bool exactly)
+{
+	const Kind &k = m_kinds[c.kind];
+	if (!m_ground.carve || k.air || k.flowing || k.leveled || k.loose || k.state != State::Solid || k.main < 0)
+		return false;
+	const size_t s = k.main;
+	if (c.carved == 4096 && (c.mix.amounts[s] <= 0 || c.mix.in(s, State::Liquid) <= 0))
+		return false;
+	const matter::Substance &sub = m_matter.substances()[s];
+	const Physics &physics = sky(c).physics;
+	const double m3 = c.mix.in(s, State::Solid) * sub.molar_mass / 1000.0 / sub.density(State::Solid, c.mix.temperature, physics.pressure());
+	const int cells = (int)std::lround(std::min(1.0, m3 / physics.volume()) * 4096);
+	if (cells <= 0)
+		return false;
+	if (exactly || (std::abs(cells - c.carved) >= CARVE_CELLS && m_clock - c.carved_at >= REDRAW_EVERY / 2) || cells == 4096) {
+		static const Pos FACES[6] = { { 1, 0, 0 }, { -1, 0, 0 }, { 0, 1, 0 }, { 0, -1, 0 }, { 0, 0, 1 }, { 0, 0, -1 } };
+		unsigned exposed = 0;
+		for (int f = 0; f < 6; f++)
+			if (m_ground.room({ c.pos.x + FACES[f].x, c.pos.y + FACES[f].y, c.pos.z + FACES[f].z }).total() > 0)
+				exposed |= 1u << f;
+		if (exposed && cells != c.carved) {
+			m_ground.carve(c.pos, cells, exposed);
+			c.carved = cells;
+			c.carved_at = m_clock;
+			disturb(c.pos); // (its own open space, and what lies beside it)
+		}
+	}
+	showFill(c, exactly);
+	return true;
 }
 
 int32_t WorldMatter::airForm() const

@@ -175,6 +175,10 @@ static ServerMatter &made(lua_State *L)
 		},
 	};
 	// each body's own air, from its card (sprint 96): a fire on the Moon starves
+	ground.carve = [sm](Pos p, int cells, unsigned exposed) {
+		Map &map = sm->server->getEnv().getMap();
+		map.setShape(v3s16(p.x, p.y, p.z), shape::melted(map.getShape(v3s16(p.x, p.y, p.z)), cells, exposed));
+	};
 	std::vector<WorldMatter::Air> airs;
 	const planet::Atlas *atlas = sm->server->atlas();
 	if (atlas) {

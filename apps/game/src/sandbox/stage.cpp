@@ -20,6 +20,7 @@ Stage::Stage(const Opts &opts) :
 		throw SandboxError("a stage is 1 to 16 blocks a side");
 	const size_t cells = (size_t)m_x * m_y * m_z;
 	m_levels.assign(cells, 1);
+	m_shapes.assign(cells, nullptr);
 	m_fills.assign(cells, Liquid{});
 	m_colours.assign(cells, 0);
 
@@ -35,12 +36,41 @@ Stage::Stage(const Opts &opts) :
 				return; // gone up and out into the room
 			m_kinds[index(p)] = kind;
 			m_levels[index(p)] = level;
+			m_shapes[index(p)] = nullptr; // as a block changing does, in the world
 		},
 		[this](Pos) { return m_ambient; },
 		[this](Pos p) { return inside(p) ? m_levels[index(p)] : 1.0; },
 		// as the world's (openOf): air, a liquid and a levelled heap have room in them; a solid block has none
-		[this](Pos p) { return roomy(p) ? Room::open() : Room::closed(); },
-		[this](Pos p, int) { return roomy(p) ? (uint16_t)0xFFFF : (uint16_t)0; },
+		[this](Pos p) {
+			const shape::Shape *cut = inside(p) ? m_shapes[index(p)].get() : nullptr;
+			if (!cut)
+				return roomy(p) ? Room::open() : Room::closed();
+			Room r;
+			for (s16 y = 0; y < 16; y++) {
+				r.layers[y] = 0;
+				for (s16 z = 0; z < 16; z++)
+					for (s16 x = 0; x < 16; x++)
+						r.layers[y] += cut->has(v3s16(x, y, z)) ? 0 : 1;
+			}
+			return r;
+		},
+		[this](Pos p, int side) {
+			// as the world's (faceAt): where both are empty somewhere along the face they share
+			static const Pos DIRS[4] = { { 1, 0, 0 }, { -1, 0, 0 }, { 0, 0, 1 }, { 0, 0, -1 } };
+			const Pos d = DIRS[side], q{ p.x + d.x, p.y + d.y, p.z + d.z };
+			const shape::Shape *a = inside(p) ? m_shapes[index(p)].get() : nullptr, *b = inside(q) ? m_shapes[index(q)].get() : nullptr;
+			if (!a && !b)
+				return roomy(p) && roomy(q) ? (uint16_t)0xFFFF : (uint16_t)0;
+			uint16_t mask = 0;
+			for (s16 y = 0; y < 16; y++)
+				for (s16 i = 0; i < 16; i++) {
+					const v3s16 mine = d.x ? v3s16(d.x > 0 ? 15 : 0, y, i) : v3s16(i, y, d.z > 0 ? 15 : 0);
+					const v3s16 theirs = d.x ? v3s16(d.x > 0 ? 0 : 15, y, i) : v3s16(i, y, d.z > 0 ? 0 : 15);
+					if ((a ? !a->has(mine) : roomy(p)) && (b ? !b->has(theirs) : roomy(q)))
+						mask |= 1 << y;
+				}
+			return mask;
+		},
 		[this](Pos p) { return inside(p) ? m_fills[index(p)] : Liquid{}; },
 		[this](Pos p, int32_t substance, double share, uint32_t colour) {
 			if (!inside(p))
@@ -49,6 +79,10 @@ Stage::Stage(const Opts &opts) :
 			m_colours[index(p)] = colour;
 		},
 		nullptr,
+		[this](Pos p, int cells, unsigned exposed) {
+			if (inside(p))
+				m_shapes[index(p)] = std::make_shared<const shape::Shape>(shape::melted(m_shapes[index(p)].get(), cells, exposed));
+		},
 	};
 	m_world = std::make_unique<WorldMatter>(WorldMatter::Opts{ m_matter,
 		{ WorldMatter::Air{ opts.pressure, opts.gravity, opts.air } }, std::move(ground) });
@@ -244,6 +278,7 @@ std::vector<Stage::Cell> Stage::view() const
 				const int32_t kind = m_kinds[i];
 				c.block = kind >= 0 && (size_t)kind < m_kindOf.size() ? m_kindOf[kind] : -1;
 				c.level = m_levels[i];
+				c.shape = m_shapes[i];
 				c.fill = m_fills[i];
 				c.fill_colour = m_colours[i];
 				if (const std::optional<WorldMatter::Awake> a = m_world->inspect({ x, y, z })) {

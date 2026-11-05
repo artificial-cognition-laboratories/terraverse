@@ -55,6 +55,15 @@ private:
 };
 
 /*
+	What's left of `now` (none: whole) as a thing melts from outside in, or
+	freezes back, at `cells` sixteenths. `exposed`: which faces it meets the open
+	by, a bit each (+x −x +y −y +z −z). What's nearest them goes first, and most
+	at the corners, where more than one is near. Goes on from `now`, as those
+	faces change. At least one's left.
+*/
+Shape melted(const Shape *now, int cells, unsigned exposed);
+
+/*
 	A map block's cut nodes, by position in the block. Whoever changes a
 	node's content drops its shape (Map::setNode, MapBlock::copyFrom); a
 	whole shape is only kept when asked (keep: ground frozen as it stood,

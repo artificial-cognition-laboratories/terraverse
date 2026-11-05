@@ -82,6 +82,10 @@ public:
 		// which of the airs (Opts::airs) a position is in: each body its own
 		// (sprint 96: fire fails on the Moon); unset with only one
 		std::function<size_t(Pos)> air;
+		// a block melting from outside in (sprint 104): cut it to so many of its
+		// 4096 sixteenths, its open faces a bit each (shape::melted). Unset: it
+		// keeps its water in till it's all melted.
+		std::function<void(Pos, int, unsigned)> carve;
 	};
 	// The air of a world's body: its pressure at the ground and its gases.
 	struct Air
@@ -216,6 +220,8 @@ private:
 		uint32_t fill_colour = 0;
 		double owed = 0;              // s of chemistry not yet run (the budget passed it over)
 		double moved = 0;             // m³ flowed in or out last step: how busy it is
+		int carved = 4096;            // the sixteenths of it left, melting
+		double carved_at = -1e9;      // s (the world's clock): when
 	};
 	// An asleep block whose matter isn't simply its kind's (a puddle of brine,
 	// a heap a little over its drawn level, a crucible of bronze): kept as it was.
@@ -246,6 +252,7 @@ private:
 	double wakeAt(const Kind &k, const Sky &sky, double ambient) const; // where an asleep block of a kind really is
 	void exchange(Cell &c, double k, double dt);
 	void reshape(Cell &c, bool exactly = false);
+	bool melting(Cell &c, bool exactly); // a block part melted: cut to what's left of it
 	int32_t fullForm(int32_t substance, matter::State state) const;
 	int32_t airForm() const; // the air a liquid lies in (sprint 81) // a liquid's plain (unlevelled) block, −1: none
 	void flow(const std::vector<int64_t> &ids, double dt); // liquids and powders: sprint 80 (flow.cpp)

@@ -1,6 +1,7 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include "constants.h"
 #include "scene.h"
 #include "exceptions.h"
 #include "filesys.h"
@@ -242,7 +243,13 @@ void Scene::rebuild()
 					// levelled: as full as it is, to the sixty-fourth it's kept in, drawn to the sixteenth
 					// (or cut, as a course's kerb: level below whole on what isn't levelled)
 					const float tall = block->spec.leveled || c.level < 1 ? std::max(1 / 16.f, sixteenth(c.level)) : 1.f;
-					addBox(block->tiles, liquid, corner + v3f(0.5f, tall / 2, 0.5f), v3f(1, tall, 1), lc);
+					if (c.shape) { // what's left of it, melting
+						std::vector<aabb3f> left;
+						c.shape->boxes(left);
+						for (const aabb3f &b : left)
+							addBox(block->tiles, false, corner + v3f(0.5f, 0.5f, 0.5f) + b.getCenter() / BS, b.getExtent() / BS, lc);
+					} else
+						addBox(block->tiles, liquid, corner + v3f(0.5f, tall / 2, 0.5f), v3f(1, tall, 1), lc);
 				}
 				// a node box's own parts (a crucible's walls)
 				if (block)

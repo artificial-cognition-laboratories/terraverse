@@ -6,6 +6,7 @@
 #include "filesys.h"
 #include "porting.h"
 #include "matter/matter.h"
+#include "sandbox/stage.h"
 #include "shell/course.h"
 #include "shell/finepowder.h"
 #include "client/liquidlook.h"
@@ -32,6 +33,7 @@ public:
 	void testEveryVehicle();
 	void testEndless();
 	void testDrivenDrawnSmoothly();
+	void testIceMeltsInwards();
 	void testFineWater();
 	void testPourColour();
 	void testPlume();
@@ -52,6 +54,7 @@ void TestMoves::runTests(IGameDef *gamedef)
 	TEST(testEveryVehicle);
 	TEST(testEndless);
 	TEST(testDrivenDrawnSmoothly);
+	TEST(testIceMeltsInwards);
 	TEST(testFineWater);
 	TEST(testPourColour);
 	TEST(testPlume);
@@ -176,6 +179,71 @@ void TestMoves::testDrivenDrawnSmoothly()
 		UASSERT(worst_drawn > 0.4f);
 		UASSERT(back > -0.001f);
 	}
+}
+
+// A block of ice over a burner goes from the outside in: its water runs out as it's made, what's
+// left stands on the floor and is the matter's solid to within a cut, and no water's lost.
+void TestMoves::testIceMeltsInwards()
+{
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	std::ifstream in(game + "palette.json");
+	Json::Value palette;
+	in >> palette;
+	const std::vector<sandbox::StageBlock> blocks = sandbox::Stage::read(palette["scene"]);
+	static matter::Matter table = matter::Matter::load(porting::path_share + DIR_DELIM "matter");
+	sandbox::Stage stage({ table, blocks, 3, 2, 3, 293, 101325, 9.81, { { "nitrogen", 0.79 }, { "oxygen", 0.21 } } });
+	Json::Value spec;
+	Json::Value &list = spec["blocks"];
+	for (int x = 0; x < 3; x++)
+		for (int z = 0; z < 3; z++) {
+			Json::Value b;
+			b["at"].append(x); b["at"].append(0); b["at"].append(z);
+			b["node"] = "tf_world:stone";
+			list.append(b);
+		}
+	Json::Value ice;
+	ice["at"].append(1); ice["at"].append(1); ice["at"].append(1);
+	ice["node"] = "tf_world:ice";
+	ice["temperature"] = 258;
+	ice["power"] = 5e6;
+	list.append(ice);
+	stage.setUp(spec, 293);
+	const size_t middle = ((size_t)1 * 3 + 1) * 3 + 1;
+	const double water = stage.moles("water");
+	int steps = 0, was = 4096, sizes = 0, worst_jump = 0;
+	shell::FineWater fine;
+	float held = 0, worst_water = 0;
+	bool seated = true, inward = true;
+	for (; steps < 6000; steps++) {
+		stage.step(0.1);
+		const std::vector<sandbox::Stage::Cell> view = stage.view();
+		const sandbox::Stage::Cell &c = view[middle];
+		fine.sync(3, 2, 3, view, blocks);
+		worst_water = std::max(worst_water, fine.target() - held);
+		held = fine.target();
+		const bool still_ice = c.block >= 0 && blocks[c.block].spec.matter != "air";
+		if (!still_ice)
+			break;
+		if (!c.shape)
+			continue;
+		const int cells = (int)c.shape->count();
+		if (cells != was) {
+			sizes++;
+			worst_jump = std::max(worst_jump, was - cells);
+			was = cells;
+		}
+		if (cells > 200) {
+			seated = seated && c.shape->has(v3s16(8, 0, 8));
+			inward = inward && c.shape->has(v3s16(8, 2, 8)) && !c.shape->has(v3s16(0, 15, 0));
+		}
+	}
+	std::cout << "ice: gone after " << steps * 0.1 << " s in " << sizes << " cuts, biggest " << worst_jump << "/4096, water " << water << " -> " << stage.moles("water") << ", most water shown at once " << worst_water << std::endl;
+	UASSERT(steps < 6000);
+	UASSERT(sizes >= 20);
+	UASSERT(worst_jump < 500);
+	UASSERT(worst_water < 0.15f);
+	UASSERT(seated && inward);
+	UASSERT(std::fabs(stage.moles("water") - water) < water * 0.02);
 }
 
 void TestMoves::testEveryVehicle()
