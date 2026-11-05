@@ -41,7 +41,7 @@ public:
 		float yaw = 0;              // radians, Luanti's
 		bool jump = false;          // Space held
 		Stance asked = Stance::STAND;
-		float walk = 4;             // nodes/s
+		float walk = 3.5f;          // nodes/s
 		float run = 1;              // × walking
 		float jump_height = 1.25f;  // nodes
 		bool thrusting = false;

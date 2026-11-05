@@ -514,7 +514,7 @@ Mover::Stepped Mover::step(const Input &in)
 	Gait gait;
 	gait.walk = in.walk * held.speed;
 	gait.run = low ? 1 : in.run;
-	gait.flow = in.run > 1 ? 1.25f : 1; // only a run builds
+	gait.flow = in.run > 1 ? 1.1f : 1; // only a run builds (to a sprint about 6 nodes/s: a person's, sprint 105)
 	gait.jump = in.jump_height;
 	const Intent intent{ in.ahead,
 		in.right, in.yaw, (in.jump || m_jump_press > 0) && held.jumps && !m_jump_used && m_trip_left <= 0 };

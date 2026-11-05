@@ -99,7 +99,7 @@ inline const StanceInfo &stanceInfo(Stance s) { return STANCES[(int)s]; }
 
 struct Gait
 {
-	float walk = 4;          // nodes/s
+	float walk = 3.5f;       // nodes/s: a jog, as a person goes
 	float run = 1;           // × walk at most when running (sprint: the caller's)
 	float start = 18;        // nodes/s² up to walking speed
 	float push_on = 5;       // nodes/s² from walking up to running

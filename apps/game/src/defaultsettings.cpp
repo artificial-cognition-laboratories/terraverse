@@ -571,7 +571,7 @@ void set_default_settings()
 	settings->setDefault("movement_acceleration_default", "3");
 	settings->setDefault("movement_acceleration_air", "2");
 	settings->setDefault("movement_acceleration_fast", "10");
-	settings->setDefault("movement_speed_walk", "4");
+	settings->setDefault("movement_speed_walk", "3.5"); // Terra Firma (sprint 105): a person's jog
 	settings->setDefault("movement_speed_crouch", "1.35");
 	settings->setDefault("movement_speed_fast", "20");
 	settings->setDefault("movement_speed_climb", "3");

@@ -230,7 +230,7 @@ void Actor::update(float dt)
 			const Felt felt = m_limbs->felt();
 			for (int side : { 0, 1 }) {
 				const v3f f = felt.foot[side];
-				const bool down = f.Y - groundAt(f) < 0.08f;
+				const bool down = f.Y - groundAt(f) < 0.13f; // (its shin's round end is 0.08 up, touching)
 				if (down && m_foot_was_down[side]) {
 					m_skate += std::hypot(f.X - m_foot_was[side].X, f.Z - m_foot_was[side].Z);
 					m_planted_steps++;
