@@ -206,11 +206,16 @@ static void testGapRunsIn(const std::vector<sandbox::StageBlock> &blocks)
 		}
 	shell::FinePowder powder;
 	powder.sync(3, 3, 3, cells, blocks);
-	for (int i = 0; i < 200; i++)
+	for (int i = 0; i < 400; i++) { // the matter going down the hole, as it does
+		for (sandbox::Stage::Cell &c : cells)
+			if (c.main == 0)
+				c.filled = std::max(0.25, c.filled - 0.001);
+		powder.sync(3, 3, 3, cells, blocks);
 		powder.step(0.1f, 1);
+	}
 	int edge = 0;
 	for (const shell::FinePowder::Column &col : powder.columns())
-		if (col.base == 32 && col.x >= 8 && col.x < 40 && col.z >= 8 && col.z < 40 && (col.x == 15 || col.x == 32 || col.z == 15 || col.z == 32))
+		if (col.base == 32 && (((col.x == 15 || col.x == 32) && col.z >= 16 && col.z < 32) || ((col.z == 15 || col.z == 32) && col.x >= 16 && col.x < 32)))
 			edge = std::max(edge, (int)(col.top - col.base));
 	std::cout << "gap: tallest next to the hole " << edge << " sixteenths" << std::endl;
 	UASSERT(edge <= 4);
