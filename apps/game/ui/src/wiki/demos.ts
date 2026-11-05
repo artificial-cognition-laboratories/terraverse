@@ -97,6 +97,8 @@ const box = (size: [number, number, number], blocks: SandboxBlock[], air = AIR):
     ({ size: size, ambient: ROOM, pressure: ATM, air: air, blocks: blocks })
 const floor = (y = 0): SandboxBlock[] => [0, 1, 2].flatMap((x) => [0, 1, 2].map((z): SandboxBlock => ({ at: [x, y, z], node: "tf_world:stone" })))
 
+const BURNER = 6e6 // W a block of the pot gets: a metre cube of water warms in about a minute
+
 export const LAB_DEMOS: LabDemo[] = [
     {
         id: "ice", group: "Heat", title: "Ice melts", speed: 600,
@@ -105,21 +107,20 @@ export const LAB_DEMOS: LabDemo[] = [
     },
     {
         id: "boil", group: "Heat", title: "Water boils", speed: 1,
-        note: "A red-hot floor under a pot. First a few bubbles that die on the way up, then a rolling boil that holds at 100 °C. The steam is clear where it leaves, and shows as mist where it cools.",
+        note: "A red-hot floor under a pot. It warms for a while, with a few bubbles that die on the way up, then a rolling boil that holds at 100 °C for as long as there is water. The steam is clear where it leaves, and shows as mist where it cools.",
         spec: box([5, 8, 5], [0, 1, 2, 3, 4].flatMap((x) => [0, 1, 2, 3, 4].flatMap((z): SandboxBlock[] => {
             const wall = x === 0 || z === 0 || x === 4 || z === 4
             return [
                 wall ? { at: [x, 0, z], node: "tf_world:stone" } : { at: [x, 0, z], node: "tf_world:stone", temperature: 1000, hold: true },
-                ...[1, 2].map((y): SandboxBlock => wall ? { at: [x, y, z], node: "tf_world:stone_bricks" }
-                    : y === 1 ? { at: [x, y, z], node: "tf_world:water_source", temperature: 374, hold: true } : { at: [x, y, z], node: "tf_world:water_source" }),
+                ...[1, 2].map((y): SandboxBlock => wall ? { at: [x, y, z], node: "tf_world:stone_bricks" } : { at: [x, y, z], node: "tf_world:water_source", power: BURNER }),
             ]
         }))),
     },
     {
-        id: "conduct", group: "Heat", title: "Copper and wood, heated at one end", speed: 60,
-        note: "The same heat into the end of each rod. Copper carries it along in seconds; wood keeps it where it's put.",
-        spec: box([2, 1, 6], [
-            ...[0, 1, 2, 3, 4, 5].flatMap((z): SandboxBlock[] => [{ at: [0, 0, z], node: "tf_matter:copper" }, { at: [1, 0, z], node: "tf_world:log" }]),
+        id: "conduct", group: "Heat", title: "Copper and wood, heated at one end", speed: 600,
+        note: "The same heat into the end of each bar. These are bars a metre thick, so even copper takes an hour to carry it a few blocks; wood barely moves it at all. Turn on the heat view to watch it go.",
+        spec: box([2, 1, 4], [
+            ...[0, 1, 2, 3].flatMap((z): SandboxBlock[] => [{ at: [0, 0, z], node: "tf_matter:copper" }, { at: [1, 0, z], node: "tf_world:log" }]),
             { at: [0, 0, 0], node: "tf_matter:copper", temperature: 700, hold: true }, { at: [1, 0, 0], node: "tf_world:log", temperature: 700, hold: true },
         ]),
     },

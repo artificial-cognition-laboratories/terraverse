@@ -231,6 +231,7 @@ export type SandboxBlock = {
     node?: string                // a block of the game's, by name
     add?: Record<string, number> // moles of substances put in it (a crucible's charge)
     temperature?: number         // K
+    power?: number               // watts put into it (what's heating it, if it can run short)
     hold?: boolean               // kept at that temperature (what's heating it)
 }
 

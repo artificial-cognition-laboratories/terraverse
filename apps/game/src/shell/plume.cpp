@@ -91,8 +91,10 @@ void Plume::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox::Sta
 							// off the surface, if it's coming off a liquid
 							const bool wet = c.fill.substance >= 0 && c.fill.share > 0.005;
 							const float surface = wet ? (float)std::min(1.0, c.fill.share) : 0;
-							Source g{ corner, v3f(0, surface, 0), v3f(1, wet ? std::min(1.f, surface + 0.2f) : 1.f, 1), want, m_rise[i], steam ? STEAM : own.color & 0xffffff, steam ? 0.05f + 0.1f * shows : 0.14f + 0.14f * shows };
-							g.biggest = steam ? 0.45f : 1;
+							Source g{ corner, v3f(0, surface, 0), v3f(1, wet ? std::min(1.f, surface + 0.2f) : 1.f, 1), want, m_rise[i], steam ? STEAM : own.color & 0xffffff, steam ? 0.08f + 0.12f * shows : 0.14f + 0.14f * shows };
+							g.biggest = steam ? 0.3f : 1;
+							if (steam)
+								g.want *= 2; // fine, so more of it
 							m_gas.push_back(g);
 						}
 					}

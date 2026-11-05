@@ -447,7 +447,7 @@ void Scene::drawFine(video::IVideoDriver *driver, float dt)
 		const float half = C / 2;
 		const v3f at(ox + b.x, b.y, oz + b.z);
 		for (const Face &f : FACES)
-			put(at + f.normal * half, f.u * half, f.v * half, f.normal, video::SColor(170, 225, 238, 248));
+			put(at + f.normal * half, f.u * half, f.v * half, f.normal, video::SColor(95, 215, 232, 245));
 	}
 	for (const FineWater::Burst &b : m_fine.takeBursts()) {
 		if (m_drops.size() >= 800 || rand() % 3)

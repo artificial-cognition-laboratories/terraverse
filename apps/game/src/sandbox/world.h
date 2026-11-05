@@ -126,6 +126,8 @@ public:
 	double density(int32_t kind) const;
 	const std::string &node(int32_t kind) const;
 
+	// Put heat into a block (a burner, of so many watts): wakes it.
+	void warm(Pos at, double joules);
 	// Bring a block to at least a temperature (a spark, a torch): wakes it.
 	void heat(Pos at, double temperature);
 	// Set a block's temperature exactly (a heat gun, a quench): wakes it.

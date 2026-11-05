@@ -51,6 +51,8 @@ public:
 	void heat(Pos at, double temperature);
 	// Kept at a temperature (something under it, a furnace's heat) until the scene's dropped.
 	void hold(Pos at, double temperature);
+	// So many watts into it until the scene's dropped: a heat source that can run short, as a hold can't.
+	void burner(Pos at, double watts) { m_burners.push_back({ at, watts }); }
 	void add(Pos at, const std::string &substance, double moles, double temperature);
 	// Poured from above something, moles a second till `until` (s): it heaps and runs.
 	void pour(Pos at, const std::string &substance, double rate, double temperature, double until);
@@ -98,6 +100,7 @@ private:
 	std::vector<uint32_t> m_colours;
 	std::vector<int32_t> m_kindOf; // WorldMatter's kind → index into m_blocks
 	std::map<size_t, std::pair<Pos, double>> m_holds;
+	std::vector<std::pair<Pos, double>> m_burners; // watts into a block
 	struct Blowing
 	{
 		Pos at;

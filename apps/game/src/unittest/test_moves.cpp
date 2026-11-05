@@ -37,6 +37,7 @@ public:
 	void testWallsStayDry();
 	void testBoiling();
 	void testLook();
+	void testBurner();
 	void testRiverPatch();
 };
 
@@ -54,6 +55,7 @@ void TestMoves::runTests(IGameDef *gamedef)
 	TEST(testWallsStayDry);
 	TEST(testBoiling);
 	TEST(testLook);
+	TEST(testBurner);
 	TEST(testRiverPatch);
 }
 
@@ -447,6 +449,35 @@ void TestMoves::testBoiling()
 	UASSERTEQ(int, cold[2], 0);
 	UASSERT(near[1] > 0 && near[0] < boiling[0] / 3);
 	UASSERT(boiling[0] > 50 && boiling[2] > 100);
+}
+
+// A burner warms water over time, then it holds at boiling and boils away at the rate the heat allows.
+void TestMoves::testBurner()
+{
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	std::ifstream in(game + "palette.json");
+	Json::Value palette;
+	in >> palette;
+	const std::vector<sandbox::StageBlock> blocks = sandbox::Stage::read(palette["scene"]);
+	const matter::Matter table = matter::Matter::load(porting::path_share + DIR_DELIM "matter");
+	sandbox::Stage stage(sandbox::Stage::Opts{ table, blocks, 3, 4, 3, 293, 101325, 9.81, { { "nitrogen", 0.79 }, { "oxygen", 0.21 } } });
+	for (int x = 0; x < 3; x++)
+		for (int z = 0; z < 3; z++) {
+			stage.place({ x, 0, z }, "tf_world:stone");
+			stage.place({ x, 1, z }, x == 1 && z == 1 ? "tf_world:water_source" : "tf_world:stone_bricks");
+		}
+	stage.burner({ 1, 1, 1 }, 6e6);
+	const auto hot = [&] { return stage.view()[(1 * 3 + 1) * 3 + 1].temperature; };
+	const double start = stage.moles("water");
+	stage.step(10);
+	const double ten = hot();
+	stage.step(90);
+	const double hundred = hot(), left = stage.moles("water");
+	std::cout << "burner: 10 s " << ten << " K, 100 s " << hundred << " K, water left " << left / start << std::endl;
+	// 6 MW into 4.2 MJ/K: about 1.4 K a second, by the block's heat capacity
+	UASSERT(ten > 295 && ten < 330);
+	UASSERT(hundred > 365 && hundred < 380);
+	UASSERT(left > start * 0.85);
 }
 
 // A black body: nothing below Draper's point, then red, orange, and towards white; ripples are on steps of light.

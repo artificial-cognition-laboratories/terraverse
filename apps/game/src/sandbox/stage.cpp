@@ -197,6 +197,8 @@ void Stage::setUp(const Json::Value &spec, double ambient)
 		const double t = b.get("temperature", ambient).asDouble();
 		for (const std::string &id : b["add"].getMemberNames())
 			add(where, id, b["add"][id].asDouble(), t);
+		if (b.isMember("power"))
+			burner(where, b["power"].asDouble());
 		if (b["hold"].asBool())
 			hold(where, t);
 		else if (b.isMember("temperature"))
@@ -218,6 +220,8 @@ void Stage::step(double seconds)
 		for (const auto &[cell, held] : m_holds)
 			m_world->touch(held.first, held.second);
 		const double dt = seconds / steps, now = m_time + seconds * i / steps;
+		for (const auto &[at, watts] : m_burners)
+			m_world->warm(at, watts * dt);
 		for (const Pouring &p : m_pours)
 			if (now < p.until)
 				m_world->pour(p.at, p.substance, p.rate * dt, p.temperature);

@@ -13,7 +13,7 @@ namespace shell {
 static constexpr float STEP = 1 / 100.0f, L = 1 / 16.0f, AREA = L * L;
 static constexpr int MOST_STEPS = 3; // in a frame; past it the water runs slow rather than the frame
 static constexpr float FILM = 1 / 32.0f, HOLD = 3, HOLD_MOST = 0.25f, SLACK = 1 / 128.0f, POOLS = 0.25f, SPLASH = 0.03f, STILL = 1e-5f, SLEEP = 1, SPILL = 1 / 128.0f;
-static constexpr float BUBBLES = 22, BUBBLE_DEEP = 1 / 8.0f, BUBBLE_KICK = 0.05f; // a node a second at full boil; none in less depth; what a burst throws out
+static constexpr float BUBBLES = 12, BUBBLE_DEEP = 1 / 8.0f, BUBBLE_KICK = 0.05f; // a node a second at full boil; none in less depth; what a burst throws out
 static constexpr size_t MOST_BUBBLES = 500;
 
 void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox::Stage::Cell> &cells, const std::vector<sandbox::StageBlock> &blocks)

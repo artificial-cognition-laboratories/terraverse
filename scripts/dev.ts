@@ -58,6 +58,8 @@ async function launchGame(args: string[]) {
 if (!(await Bun.file(`${root}/.output/build/CMakeCache.txt`).exists()))
     await run(["cmake", "-S", ".", "-B", ".output/build", "-DRUN_IN_PLACE=TRUE"], root, "configure")
 // CMake regenerates its build files when CMake inputs change.
+// (no link-time optimisation here: that's most of a rebuild's wait; a release has its own)
+await run(["cmake", "-S", ".", "-B", ".output/build", "-DRUN_IN_PLACE=TRUE", "-DENABLE_LTO=FALSE"], root, "configure")
 await run(["cmake", "--build", ".output/build", "-j8"], root, "engine build")
 await run(["bash", "scripts/stage-runtime.sh"], root, "runtime staging")
 if (!(await Bun.file(`${ui}/node_modules/.bin/vite`).exists()))
