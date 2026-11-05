@@ -56,6 +56,10 @@ public:
 	float guidedMean() const { return m_guided_steps ? m_guided_sum / m_guided_steps : 0; }
 	// How fast a foot that's down slides along the ground, on average (nodes/s): a planted foot shouldn't.
 	float skate() const { return m_planted_steps ? m_skate / (m_planted_steps * (float)STEP) : 0; }
+	// How much of the time it stood on its legs, and how hard they worked then.
+	float legsMean() const { return m_legs_steps ? m_legs_sum / m_legs_steps : 0; }
+	float standing() const { return m_guided_steps ? m_legs_steps / (float)m_guided_steps : 0; }
+	int motors() const { return m_limbs->motors(); }
 	int fell() const { return m_fell; } // times its body went over by itself
 	int holdingSteps() const { return m_holding_steps; }
 	int gaveUp() const { return m_mover->gaveUp(); }
@@ -89,7 +93,8 @@ private:
 	float m_skate = 0;
 	int m_planted_steps = 0;
 	int m_fell = 0;
-	float m_guided = 0, m_guided_sum = 0;
+	float m_guided = 0, m_guided_sum = 0, m_legs_sum = 0;
+	int m_legs_steps = 0;
 	int m_guided_steps = 0, m_holding_steps = 0;
 	Posing m_posing;
 	Bones m_bones;

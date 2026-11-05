@@ -6,6 +6,8 @@
 #include "physics/motion_cycles.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 
 namespace physics {
 
@@ -143,14 +145,15 @@ float Strides::strideAt(float pace)
 	return recorded_stride * std::clamp(pace / std::max(recorded_pace, 0.01f), 1.f, LONGEST);
 }
 
-Bones Strides::step(float dt, const Bones &asked, float pace, float twist, bool on)
+Bones Strides::step(float dt, const Bones &asked, v3f moving, float turned, float twist, bool on)
 {
+	const float pace = std::hypot(moving.X, moving.Z);
 	constexpr float COMES_IN = 5; // /s: it takes over, and lets go, over a fifth of a second
 	const float going = std::clamp(pace / 0.6f, 0.f, 1.f);
 	m_share += ((on ? going : 0.f) - m_share) * std::min(1.f, COMES_IN * dt);
 	if (m_share < 0.005f) {
 		m_share = 0;
-		m_planted[0] = m_planted[1] = false;
+		m_planted[0] = m_planted[1] = m_locked[0] = m_locked[1] = false;
 		return asked;
 	}
 	const float run = runShare(pace);
@@ -220,6 +223,41 @@ Bones Strides::step(float dt, const Bones &asked, float pace, float twist, bool 
 		lowest = std::min(lowest, foot.Y);
 	}
 	b.lower.at.Y -= lowest;
+
+	// A foot that's down stays where it was put: the body's going on over it, so it goes back as fast in the
+	// figure's frame, turned as the body turns. The leg's solved to it, its knee where the recording's points.
+	core::matrix4 turned_by;
+	turned_by.setRotationRadians(v3f(0, -turned, 0));
+	const core::matrix4 l2 = b.lower.matrix();
+	for (int side : { 0, 1 }) {
+		v3f hip = b.thigh[side].at, foot(0, -SHIN * S, 0), knee(0, 0, 0);
+		l2.transformVect(hip);
+		const core::matrix4 leg = l2 * b.thigh[side].matrix();
+		leg.transformVect(knee = v3f(0, -THIGH * S, 0));
+		(leg * b.shin[side].matrix()).transformVect(foot);
+		if (!m_planted[side] || m_share < 0.5f) {
+			m_locked[side] = false;
+			continue;
+		}
+		if (!m_locked[side]) {
+			m_locked[side] = true;
+			m_lock[side] = v3f(foot.X, 0, foot.Z);
+		} else {
+			m_lock[side] = turned_by.rotateAndScaleVect(m_lock[side]) - v3f(moving.X, 0, moving.Z) * dt;
+		}
+		// past what the leg reaches, the foot comes up early: it's left behind, not dragged
+		const v3f to = m_lock[side] - hip;
+		if (to.getLength() > (THIGH + SHIN) * S * 1.1f) { // (a planted leg's about straight: the solve holds it so)
+			m_locked[side] = false;
+			continue;
+		}
+		const v3f pole = (knee - hip) - (to / to.getLength()) * (knee - hip).dotProduct(to / to.getLength());
+		const ArmTo solved = armTo(to / S, pole.getLengthSQ() > 1e-6f ? pole : v3f(0, 0, 1), THIGH, SHIN);
+		// (armTo's axes are an arm's: its x is across the other way for a knee bending forward)
+		const core::matrix4 thigh_now = axes(solved.x * -1.f, solved.y, solved.z * -1.f);
+		b.thigh[side].turn = against(l2, thigh_now).getRotationDegrees();
+		b.shin[side].turn = v3f(-solved.elbow * core::RADTODEG, 0, 0);
+	}
 
 	Bones out = asked;
 	out.lower = blend(asked.lower, b.lower, m_share);

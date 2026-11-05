@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "irr_v3d.h"
+
 
 /*
 	Strides from people (sprint 105): a recorded walk and run (100STYLE's, one averaged stride each,
@@ -22,7 +24,9 @@ class Strides
 public:
 	// `asked`: the pose's own answer. `pace`: nodes/s along the ground. `twist`: the hips toward where it goes
 	// (Joints::twist). `on`: on its feet, on the ground, nothing in its hands. What it should be now.
-	Bones step(float dt, const Bones &asked, float pace, float twist, bool on);
+	// `moving`: the body's velocity in the figure's frame, `turned`: how far it turned right this step (radians),
+	// so a foot that's down stays where it was put while the body goes on over it.
+	Bones step(float dt, const Bones &asked, v3f moving, float turned, float twist, bool on);
 	float phase() const { return m_phase; }
 	float share() const { return m_share; } // how much of what's drawn is this, 0..1
 	bool planted(int side) const { return m_planted[side]; } // its foot's down, as recorded, now
@@ -35,6 +39,8 @@ private:
 	float m_phase = 0;
 	float m_share = 0;
 	bool m_planted[2]{};
+	bool m_locked[2]{};
+	v3f m_lock[2]; // where a foot that's down was put, in the figure's frame as it's moved since
 };
 
 } // namespace physics

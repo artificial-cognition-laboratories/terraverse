@@ -223,6 +223,8 @@ void Actor::update(float dt)
 		m_guided = std::max(m_guided, m_limbs->guided());
 		m_guided_sum += std::min(m_limbs->guided(), 1.f);
 		m_guided_steps++;
+		m_legs_sum += std::min(m_limbs->legsUsed(), 1.f);
+		m_legs_steps += m_limbs->legsUsed() > 0;
 		m_holding_steps += m_limbs->holding(0) || m_limbs->holding(1);
 		m_mover->feel(m_limbs->felt());
 		// a foot down on the ground slides by how much it moves along it (it should hardly)
@@ -230,7 +232,7 @@ void Actor::update(float dt)
 			const Felt felt = m_limbs->felt();
 			for (int side : { 0, 1 }) {
 				const v3f f = felt.foot[side];
-				const bool down = f.Y - groundAt(f) < 0.13f; // (its shin's round end is 0.08 up, touching)
+				const bool down = m_posing.planted(side) && f.Y - groundAt(f) < 0.13f; // (meant to be down, and is: its shin's round end is 0.08 up, touching)
 				if (down && m_foot_was_down[side]) {
 					m_skate += std::hypot(f.X - m_foot_was[side].X, f.Z - m_foot_was[side].Z);
 					m_planted_steps++;
@@ -314,6 +316,14 @@ void Actor::poseAndDrive(float dt, float turned)
 		m_limbs->read();
 	}
 	m_limbs->hold(hands, over);
+	// its feet that are down, by the pose and by where they really are: what it stands on
+	bool feet[2]{};
+	if ((st == Stance::STAND || st == Stance::CROUCH) && now.on_ground) { // (off the ground, a foot's let go at once)
+		const Felt felt = m_limbs->felt();
+		for (int side : { 0, 1 })
+			feet[side] = m_posing.planted(side) && felt.foot[side].Y - groundAt(felt.foot[side]) < 0.13f; // (its shin's round end: 0.08 up, touching)
+	}
+	m_limbs->standOn(feet);
 	m_limbs->drive(asked, foot, m_yaw, m_stiff, m_mover->stance() == Stance::DOWN && contacts.rising <= 0 ? LIMP : TONE);
 }
 

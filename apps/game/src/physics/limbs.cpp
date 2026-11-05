@@ -235,6 +235,29 @@ void Limbs::hold(const std::optional<v3f> (&hands)[2], v3f over)
 				hands[side] ? std::optional<v3d>(v3d::from(*hands[side] + v3f(0, FOREARM_THICK, 0))) : std::nullopt, over);
 }
 
+void Limbs::standOn(const bool (&feet)[2])
+{
+	// A foot stood on stays where it was put till it's lifted, held there as a hand on a hold is: by the ground.
+	// Left further behind or ahead than a leg reaches, it comes up whatever the stride says.
+	constexpr float REACHES = 0.62f; // (nearly a leg)
+	const std::array<v3f, PARTS> c = middles();
+	const Felt f = felt();
+	const v3f hips = v3f::from(m_now[P_HIPS].position);
+	std::vector<size_t> parts;
+	for (int side : { 0, 1 }) {
+		const auto from_hips = [&](v3f p) { return std::hypot(p.X - hips.X, p.Z - hips.Z); };
+		if (!feet[side] || (m_stood_at[side] && from_hips(*m_stood_at[side]) > REACHES))
+			m_stood_at[side].reset();
+		else if (!m_stood_at[side] && from_hips(f.foot[side]) < REACHES * 0.8f)
+			m_stood_at[side] = f.foot[side];
+		if (m_stood_at[side])
+			parts.push_back(P_SHIN + side);
+		m_world.reachWith(m_id, P_SHIN + side, v3f(0, -physics::SHIN * S, 0) - c[P_SHIN + side],
+				m_stood_at[side] ? std::optional<v3d>(v3d::from(*m_stood_at[side])) : std::nullopt);
+	}
+	m_world.standsOn(m_id, parts);
+}
+
 bool Limbs::holding(int side) const { return m_world.holding(m_id, P_FORE + side); }
 
 Felt Limbs::felt() const

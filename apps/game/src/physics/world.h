@@ -338,6 +338,11 @@ public:
 	// `over`: the way across what it holds (an edge's in from it): from below, it comes up and over, not into its face.
 	void reachWith(LimbsId id, size_t part, v3f point, std::optional<v3d> to, v3f over = v3f(0));
 	bool holding(LimbsId id, size_t part) const;
+	// The parts it stands on now (its feet that are down). Standing, its legs push it where it's to be,
+	// between those and the rest of it: the ground holds it up, and nothing else does.
+	void standsOn(LimbsId id, const std::vector<size_t> &parts);
+	float legsUsed(LimbsId id) const;
+	int limbMotors(LimbsId id) const; // its joints whose muscles are working // how hard its legs pushed last step, of all they can (past 1: they couldn't)
 	// Its legs (or arms) drove it: every part's going this much faster at once.
 	void launchLimbs(LimbsId id, v3f by);
 	std::vector<Pose> limbs(LimbsId id) const;

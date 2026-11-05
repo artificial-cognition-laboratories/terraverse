@@ -235,7 +235,7 @@ Bones Posing::pose(float dtime, v3f velocity, float pitch, bool airborne, Stance
 	// On its feet and going, it strides as a person does: the recording's, at its own pace.
 	{
 		const bool on = stance == Stance::STAND && !airborne && !face && !(grip && (grip->held[0] || grip->held[1])) && contacts.stagger < 0.3f;
-		b = m_strides.step(dtime, b, std::hypot(velocity.X, velocity.Z), j.twist, on);
+		b = m_strides.step(dtime, b, velocity, turned, j.twist, on);
 		for (int side : { 0, 1 })
 			m_planted[side] = !airborne && (m_strides.share() > 0.5f ? m_strides.planted(side) : j.planted[side]);
 	}

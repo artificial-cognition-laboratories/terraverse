@@ -302,6 +302,7 @@ struct World::Impl
 		std::vector<Ref<Constraint>> joint_of; // each part's to its parent (none for the hips)
 		std::vector<float> strength;
 		float motors_tone = -1;           // what the motors were last set to
+		std::vector<size_t> motors_feet;
 		struct Reach
 		{
 			Vec3 point;                   // on the part
@@ -311,6 +312,8 @@ struct World::Impl
 			RVec3 held_at;
 		};
 		std::map<size_t, Reach> reaches;
+		std::vector<size_t> feet; // standing on
+		float legs_used = 0;
 		std::vector<Pose> to, was_to;
 		float stiff = 1, tone = 0;
 		float used = 0; // of the guide, last step: 1 or more, it couldn't keep up
@@ -327,18 +330,29 @@ struct World::Impl
 	void muscles(Limbs &f)
 	{
 		constexpr float QUICK = 9; // Hz: a limb gets where it's going in about a tenth of a second
-		if (f.motors_tone != f.tone) {
+		if (f.motors_tone != f.tone || f.motors_feet != f.feet) {
 			f.motors_tone = f.tone;
+			f.motors_feet = f.feet;
 			for (size_t i = 0; i < f.joint_of.size(); i++) {
 				Constraint *c = f.joint_of[i].GetPtr();
 				if (!c)
 					continue;
-				const MotorSettings m(QUICK * std::sqrt(std::max(f.tone, 0.01f)), 1, 0, f.strength[i] * f.tone);
+				// legs and back carry the body: quicker to hold against it. A leg that's standing gives, though: its
+				// foot's held by the ground, and its shape goes as the body goes over it
+				constexpr float BEARS = 20, STANDING_GIVES = 0.3f; // Hz; × its strength
+				const float hz = f.strength[i] >= 400 ? BEARS : QUICK;
+				const bool stands = std::find(f.feet.begin(), f.feet.end(), i) != f.feet.end() ||
+						std::find(f.feet.begin(), f.feet.end(), i + 2) != f.feet.end(); // (its shin's, or its thigh's: a shin's its thigh + 2)
+				const float give = stands ? STANDING_GIVES : 1.f;
+				const MotorSettings m(hz * std::sqrt(std::max(f.tone * give, 0.01f)), 1, 0, f.strength[i] * f.tone * give);
 				const EMotorState state = f.tone > 0 ? EMotorState::Position : EMotorState::Off;
-				if (auto *h = dynamic_cast<HingeConstraint *>(c)) {
+				// (by its own tag, not dynamic_cast: Jolt's built without what that needs)
+				if (c->GetSubType() == EConstraintSubType::Hinge) {
+					auto *h = static_cast<HingeConstraint *>(c);
 					h->GetMotorSettings() = m;
 					h->SetMotorState(state);
-				} else if (auto *t = dynamic_cast<SwingTwistConstraint *>(c)) {
+				} else if (c->GetSubType() == EConstraintSubType::SwingTwist) {
+					auto *t = static_cast<SwingTwistConstraint *>(c);
 					t->GetSwingMotorSettings() = m;
 					t->GetTwistMotorSettings() = m;
 					t->SetSwingMotorState(state);
@@ -354,10 +368,10 @@ struct World::Impl
 				continue;
 			// (built standing, every part square: so how it's turned against its parent is the joint's own turn)
 			const JPH::Quat against = (quat(f.to[f.parents[i]].rotation).Conjugated() * quat(f.to[i].rotation)).Normalized();
-			if (auto *h = dynamic_cast<HingeConstraint *>(c))
-				h->SetTargetAngle(2 * std::atan2(against.GetX(), against.GetW()));
-			else if (auto *t = dynamic_cast<SwingTwistConstraint *>(c))
-				t->SetTargetOrientationBS(against);
+			if (c->GetSubType() == EConstraintSubType::Hinge)
+				static_cast<HingeConstraint *>(c)->SetTargetAngle(2 * std::atan2(against.GetX(), against.GetW()));
+			else if (c->GetSubType() == EConstraintSubType::SwingTwist)
+				static_cast<SwingTwistConstraint *>(c)->SetTargetOrientationBS(against);
 		}
 	}
 
@@ -445,14 +459,61 @@ struct World::Impl
 				if (twist.Length() > GUIDE_TURN * f.stiff)
 					twist = twist.Normalized() * (GUIDE_TURN * f.stiff);
 			}
-			const Vec3 dv = push * (float)STEP, dw = twist * (float)STEP;
+			// Standing, that push is its legs': between the feet it stands on and the rest of it, as much one way as
+			// the other. So nothing holds it up but the ground under its feet, and they're pressed to it as hard as it's
+			// held: what holds them there is friction, under its weight. Its legs can do LEGS, no more.
+			constexpr float LEGS = 30; // nodes/s² of the whole body: three times its weight
+			const bool standing = !f.feet.empty() && f.stiff > 0 && f.stiff <= 1.01f;
+			float foot_mass = 0;
+			Vec3 assist = Vec3::sZero();
+			if (standing) {
+				for (const size_t p : f.feet) {
+					BodyLockRead lock(system.GetBodyLockInterfaceNoLock(), f.bodies[p]);
+					foot_mass += 1 / lock.GetBody().GetMotionProperties()->GetInverseMass();
+				}
+				f.legs_used = push.Length() / LEGS;
+				// (the guide's own cap was for when it held it: the legs' is theirs)
+				const Vec3 off = Vec3(rvec(f.to[0].position) - hips_at);
+				const Vec3 wanted_speed = f.was_to.empty() ? Vec3::sZero() : Vec3(rvec(f.to[0].position) - rvec(f.was_to[0].position)) / (float)STEP;
+				push = off * (SPRING * SPRING) + (wanted_speed - hips_moving) * GIVE - vec(here.gravity);
+				f.legs_used = push.Length() / LEGS;
+				if (push.Length() > LEGS)
+					push = push.Normalized() * LEGS;
+				// a leg pushes along the ground only as far as its foot grips: past that the foot would slip
+				constexpr float GRIPS = 0.6f;
+				const float down = std::max(push.GetY(), 0.f);
+				const Vec3 along(push.GetX(), 0, push.GetZ());
+				if (along.Length() > GRIPS * down) {
+					const Vec3 kept = along.Length() > 1e-6f ? along.Normalized() * (GRIPS * down) : Vec3::sZero();
+					push = Vec3(kept.GetX(), push.GetY(), kept.GetZ());
+					// what they can't, the guide does, as far as it's let: till balance steps it, that's what keeps it up
+					// (and more, the further it's fallen behind: left a body's length back, it's no longer the player's)
+					const float behind = std::hypot(off.GetX(), off.GetZ());
+					const float ASSIST = 12 + 60 * std::max(0.f, behind - 0.5f);
+					Vec3 rest = along - kept;
+					f.used = rest.Length() / ASSIST;
+					if (rest.Length() > ASSIST)
+						rest = rest.Normalized() * ASSIST;
+					assist = rest;
+				} else {
+					f.used = 0;
+				}
+			} else {
+				f.legs_used = 0;
+			}
+			const float rest_mass = mass - foot_mass;
+			const Vec3 dv = standing ? push * (mass / std::max(rest_mass, 1.f) * (float)STEP) : push * (float)STEP;
+			const Vec3 dw = twist * (float)STEP, assist_dv = assist * (mass / std::max(rest_mass, 1.f) * (float)STEP);
 			for (size_t i = 0; i < f.bodies.size(); i++) {
 				BodyLockWrite lock(system.GetBodyLockInterfaceNoLock(), f.bodies[i]);
 				JPH::Body &body = lock.GetBody();
 				const RVec3 at = body.GetCenterOfMassPosition();
 				const Here h = opts.field(rout(at), out(body.GetLinearVelocity()));
-				body.SetLinearVelocity(body.GetLinearVelocity() + vec(h.gravity) * (float)STEP + dv + dw.Cross(Vec3(at - middle)));
-				body.SetAngularVelocity(body.GetAngularVelocity() + dw);
+				const bool foot = standing && std::find(f.feet.begin(), f.feet.end(), i) != f.feet.end();
+				// (a foot it stands on is held where it's put, by the ground: what its leg pushes, the ground takes)
+				body.SetLinearVelocity(body.GetLinearVelocity() + vec(h.gravity) * (float)STEP + (foot ? Vec3::sZero() : dv + assist_dv + dw.Cross(Vec3(at - middle))));
+				if (!foot)
+					body.SetAngularVelocity(body.GetAngularVelocity() + dw);
 			}
 			reach(f);
 		}
@@ -1769,6 +1830,24 @@ void World::launchLimbs(LimbsId id, v3f by)
 	for (const BodyID &b : m->figures.at(id).bodies)
 		m->bi().AddLinearVelocity(b, vec(by));
 }
+
+void World::standsOn(LimbsId id, const std::vector<size_t> &parts) { m->figures.at(id).feet = parts; }
+
+int World::limbMotors(LimbsId id) const
+{
+	int on = 0;
+	for (const Ref<Constraint> &c : m->figures.at(id).joint_of) {
+		if (!c)
+			continue;
+		if (c->GetSubType() == EConstraintSubType::Hinge)
+			on += static_cast<const HingeConstraint *>(c.GetPtr())->GetMotorState() == EMotorState::Position;
+		else if (c->GetSubType() == EConstraintSubType::SwingTwist)
+			on += static_cast<const SwingTwistConstraint *>(c.GetPtr())->GetSwingMotorState() == EMotorState::Position;
+	}
+	return on;
+}
+
+float World::legsUsed(LimbsId id) const { return m->figures.at(id).legs_used; }
 
 bool World::holding(LimbsId id, size_t part) const
 {

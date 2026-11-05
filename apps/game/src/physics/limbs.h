@@ -31,6 +31,10 @@ public:
 	// Hands taking hold (world), or let go: each reaches, then holds where it got to.
 	void hold(const std::optional<v3f> (&hands)[2], v3f over);
 	bool holding(int side) const;
+	// Stood on these feet now (0 right, 1 left).
+	void standOn(const bool (&feet)[2]);
+	float legsUsed() const { return m_world.legsUsed(m_id); }
+	int motors() const { return m_world.limbMotors(m_id); }
 	void launch(v3f by) { m_world.launchLimbs(m_id, by); }
 	// Where the parts got to. Call after the step: keeps this and the last, to draw between.
 	void read();
@@ -49,6 +53,7 @@ private:
 	World::LimbsId m_id;
 	Bones m_asked;
 	std::vector<Pose> m_was, m_now;
+	std::optional<v3f> m_stood_at[2]; // where each foot it stands on was put down
 };
 
 } // namespace physics
