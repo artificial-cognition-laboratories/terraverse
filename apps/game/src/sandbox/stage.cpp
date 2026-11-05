@@ -79,9 +79,9 @@ Stage::Stage(const Opts &opts) :
 			m_colours[index(p)] = colour;
 		},
 		nullptr,
-		[this](Pos p, int cells, unsigned exposed) {
+		[this](Pos p, int cells, unsigned exposed, bool melting) {
 			if (inside(p))
-				m_shapes[index(p)] = std::make_shared<const shape::Shape>(shape::melted(m_shapes[index(p)].get(), cells, exposed));
+				m_shapes[index(p)] = std::make_shared<const shape::Shape>(shape::melted(m_shapes[index(p)].get(), cells, exposed, melting));
 		},
 	};
 	m_world = std::make_unique<WorldMatter>(WorldMatter::Opts{ m_matter,

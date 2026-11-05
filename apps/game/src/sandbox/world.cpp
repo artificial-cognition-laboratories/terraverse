@@ -500,7 +500,7 @@ bool WorldMatter::melting(Cell &c, bool exactly)
 			if (m_ground.room({ c.pos.x + FACES[f].x, c.pos.y + FACES[f].y, c.pos.z + FACES[f].z }).total() > 0)
 				exposed |= 1u << f;
 		if (exposed && cells != c.carved) {
-			m_ground.carve(c.pos, cells, exposed);
+			m_ground.carve(c.pos, cells, exposed, cells < c.carved);
 			c.carved = cells;
 			c.carved_at = m_clock;
 			disturb(c.pos); // (its own open space, and what lies beside it)

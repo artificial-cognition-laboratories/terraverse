@@ -85,7 +85,7 @@ public:
 		// a block melting from outside in (sprint 104): cut it to so many of its
 		// 4096 sixteenths, its open faces a bit each (shape::melted). Unset: it
 		// keeps its water in till it's all melted.
-		std::function<void(Pos, int, unsigned)> carve;
+		std::function<void(Pos, int, unsigned, bool)> carve;
 	};
 	// The air of a world's body: its pressure at the ground and its gases.
 	struct Air

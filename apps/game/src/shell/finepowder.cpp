@@ -28,6 +28,8 @@ void FinePowder::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox
 	for (size_t i = 0; i < cells.size(); i++) {
 		const sandbox::StageBlock *b = cells[i].block >= 0 && (size_t)cells[i].block < blocks.size() ? &blocks[cells[i].block] : nullptr;
 		m_closed[i] = b && b->spec.matter != "air" && b->spec.state != matter::State::Liquid && !isPowder(*b);
+		if (b && b->spec.vessel)
+			m_closed[i] = true; // what's in a crucible is the crucible's to draw, within its walls
 	}
 	const auto closed = [&](int nx, int ny, int nz) { return (bool)m_closed[((size_t)ny * z + nz) * x + nx]; };
 	const auto layerAt = [&](int32_t base) -> Layer & {

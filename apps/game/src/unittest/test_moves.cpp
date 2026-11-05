@@ -244,6 +244,49 @@ void TestMoves::testIceMeltsInwards()
 	UASSERT(worst_water < 0.15f);
 	UASSERT(seated && inward);
 	UASSERT(std::fabs(stage.moles("water") - water) < water * 0.02);
+	// and never in pieces
+	shape::Shape left = shape::melted(nullptr, 300, 0b111111, true);
+	UASSERT(left.count() <= 300 && left.count() > 150);
+	shape::Shape again = shape::melted(&left, 100, 0b111111, true);
+	UASSERT(again.count() <= 100 && !again.empty());
+	std::vector<v3s16> todo;
+	shape::Shape seen = again;
+	int reached = 0;
+	for (s16 y = 0; y < 16 && todo.empty(); y++)
+		for (s16 z = 0; z < 16 && todo.empty(); z++)
+			for (s16 x = 0; x < 16 && todo.empty(); x++)
+				if (seen.has(v3s16(x, y, z))) {
+					seen.set(v3s16(x, y, z), false);
+					todo.push_back(v3s16(x, y, z));
+				}
+	static const v3s16 NEAR[6] = { { 1, 0, 0 }, { -1, 0, 0 }, { 0, 1, 0 }, { 0, -1, 0 }, { 0, 0, 1 }, { 0, 0, -1 } };
+	while (!todo.empty()) {
+		const v3s16 c = todo.back();
+		todo.pop_back();
+		reached++;
+		for (const v3s16 &d : NEAR)
+			if (shape::Shape::inside(c + d) && seen.has(c + d)) {
+				seen.set(c + d, false);
+				todo.push_back(c + d);
+			}
+	}
+	UASSERTEQ(int, reached, (int)again.count());
+	// a crucible's charge is drawn in its walls: no heap of it reaches past them
+	sandbox::Stage pot({ table, blocks, 3, 2, 3, 293, 101325, 9.81, { { "nitrogen", 0.79 }, { "oxygen", 0.21 } } });
+	Json::Value charge;
+	Json::Value crucible;
+	crucible["at"].append(1); crucible["at"].append(0); crucible["at"].append(1);
+	crucible["node"] = "tf_matter:crucible";
+	crucible["add"]["hematite"] = 500;
+	charge["blocks"].append(crucible);
+	pot.setUp(charge, 293);
+	shell::FinePowder powder;
+	for (int i = 0; i < 100; i++) {
+		pot.step(0.1);
+		powder.sync(3, 2, 3, pot.view(), blocks);
+		powder.step(0.1, 1);
+	}
+	UASSERT(powder.columns().empty());
 }
 
 void TestMoves::testEveryVehicle()

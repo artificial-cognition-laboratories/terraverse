@@ -130,9 +130,13 @@ export const LAB_DEMOS: LabDemo[] = [
         spec: box([3, 2, 3], [{ at: [1, 0, 1], node: "tf_matter:carbon_dioxide", temperature: 190 }]),
     },
     {
-        id: "pour", group: "Heat", title: "Tin melts and pours", speed: 10,
-        note: "Tin melts at 232 °C, low for a metal. Heated on a shelf, it melts and runs down into the space below.",
-        spec: box([1, 3, 1], [{ at: [0, 2, 0], node: "tf_matter:tin", temperature: 560, hold: true }]),
+        id: "pour", group: "Heat", title: "Tin melts and pours", speed: 1,
+        note: "Tin melts at 232 °C, low for a metal. A block on a shelf over a burner softens from the outside in, runs off the edge, and pools on a hot floor that keeps it liquid.",
+        spec: box([3, 3, 3], [
+            ...floor().map((b): SandboxBlock => ({ ...b, temperature: 560, hold: true })),
+            { at: [1, 1, 1], node: "tf_world:stone", temperature: 560, hold: true },
+            { at: [1, 2, 1], node: "tf_matter:tin", temperature: 480, power: 2e7 },
+        ]),
     },
     {
         id: "fire", group: "Fire", title: "Wood burns in air", speed: 1,
