@@ -54,6 +54,7 @@ public:
 	// How hard the hips' guide worked: its most (past 1 it couldn't keep up), and on average.
 	float guidedMost() const { return m_guided; }
 	float guidedMean() const { return m_guided_steps ? m_guided_sum / m_guided_steps : 0; }
+	int fell() const { return m_fell; } // times its body went over by itself
 	int holdingSteps() const { return m_holding_steps; }
 	int gaveUp() const { return m_mover->gaveUp(); }
 	float inItself() const { return m_limbs->inItself(); }
@@ -80,6 +81,8 @@ private:
 	std::unique_ptr<Limbs> m_limbs;
 	float m_stiff = 1;
 	float m_rush = 0, m_pop = 0;
+	float m_over_for = 0;
+	int m_fell = 0;
 	float m_guided = 0, m_guided_sum = 0;
 	int m_guided_steps = 0, m_holding_steps = 0;
 	Posing m_posing;

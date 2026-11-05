@@ -400,45 +400,59 @@ struct World::Impl
 
 	void driveLimbs()
 	{
-		constexpr float GUIDE = 30, GUIDE_TURN = 120; // nodes/s², rad/s² at most
+		constexpr float GUIDE = 30, GUIDE_TURN = 160; // nodes/s², rad/s² at most
+		constexpr float SPRING = 14, GIVE = 2 * SPRING; // /s, critically damped
 		for (auto &[id, f] : figures) {
 			muscles(f);
 			f.used = 0;
-			Vec3 guide = Vec3::sZero(); // the hips' error makes it, the whole body has it: a hand under it, not a string on one part
+			if (f.to.size() < f.bodies.size())
+				continue;
+			// The guide's a hand under the whole body, not a string on one part: the hips' error makes it, and the
+			// whole of it is pushed along, and turned about its middle, as one.
+			RVec3 hips_at;
+			JPH::Quat hips_turn;
+			bi().GetPositionAndRotation(f.bodies[0], hips_at, hips_turn);
+			const Vec3 hips_moving = bi().GetLinearVelocity(f.bodies[0]), hips_spin = bi().GetAngularVelocity(f.bodies[0]);
+			RVec3 middle = RVec3::sZero();
+			float mass = 0;
+			for (const BodyID &b : f.bodies) {
+				BodyLockRead lock(system.GetBodyLockInterfaceNoLock(), b);
+				const float m = 1 / lock.GetBody().GetMotionProperties()->GetInverseMass();
+				middle += lock.GetBody().GetCenterOfMassPosition() * m;
+				mass += m;
+			}
+			middle /= mass;
+			const Here here = opts.field(rout(hips_at), out(hips_moving));
+			Vec3 push = Vec3::sZero(), twist = Vec3::sZero();
+			if (f.stiff > 0) {
+				const Vec3 off = Vec3(rvec(f.to[0].position) - hips_at);
+				const Vec3 wanted_speed = f.was_to.empty() ? Vec3::sZero() : Vec3(rvec(f.to[0].position) - rvec(f.was_to[0].position)) / (float)STEP;
+				push = off * (SPRING * SPRING) + (wanted_speed - hips_moving) * GIVE - vec(here.gravity);
+				f.used = push.Length() / (GUIDE * f.stiff);
+				if (push.Length() > GUIDE * f.stiff)
+					push = push.Normalized() * (GUIDE * f.stiff);
+				// only kept up and facing its way: how the hips swing and twist in a stride is the muscles' business
+				const JPH::Quat to_turn = quat(f.to[0].rotation);
+				const Vec3 up_now = hips_turn * Vec3::sAxisY(), up_to = to_turn * Vec3::sAxisY();
+				Vec3 tip = up_now.Cross(up_to);
+				const float tip_by = std::atan2(tip.Length(), up_now.Dot(up_to));
+				tip = tip.Length() > 1e-5f ? tip.Normalized() * tip_by : Vec3::sZero();
+				const Vec3 ahead_now = hips_turn * Vec3::sAxisZ(), ahead_to = to_turn * Vec3::sAxisZ();
+				const float facing = std::atan2(ahead_now.GetZ() * ahead_to.GetX() - ahead_now.GetX() * ahead_to.GetZ(), ahead_now.GetX() * ahead_to.GetX() + ahead_now.GetZ() * ahead_to.GetZ());
+				const Vec3 spin_now(0, hips_spin.GetY(), 0);
+				twist = tip * (SPRING * SPRING) + Vec3(0, facing, 0) * (0.3f * SPRING * SPRING) - (hips_spin - spin_now) * GIVE - spin_now * (0.55f * GIVE);
+				f.used = std::max(f.used, twist.Length() / (GUIDE_TURN * f.stiff));
+				if (twist.Length() > GUIDE_TURN * f.stiff)
+					twist = twist.Normalized() * (GUIDE_TURN * f.stiff);
+			}
+			const Vec3 dv = push * (float)STEP, dw = twist * (float)STEP;
 			for (size_t i = 0; i < f.bodies.size(); i++) {
 				BodyLockWrite lock(system.GetBodyLockInterfaceNoLock(), f.bodies[i]);
 				JPH::Body &body = lock.GetBody();
 				const RVec3 at = body.GetCenterOfMassPosition();
 				const Here h = opts.field(rout(at), out(body.GetLinearVelocity()));
-				const Vec3 limp = body.GetLinearVelocity() + vec(h.gravity) * (float)STEP;
-				Vec3 go = limp, turn = body.GetAngularVelocity();
-				const int parent = f.parents[i];
-				if (i >= f.to.size())
-					continue;
-				if (parent < 0) {
-					if (f.stiff > 0) {
-						// the guide: a spring to where the hips are asked to be, moving as they're asked to move,
-						// with no more than GUIDE to give; past that the body's on its own
-						constexpr float SPRING = 14, GIVE = 2 * SPRING; // /s, critically damped
-						const Vec3 off = Vec3(rvec(f.to[i].position) - at);
-						const Vec3 wanted_speed = f.was_to.empty() ? Vec3::sZero() : Vec3(rvec(f.to[i].position) - rvec(f.was_to[i].position)) / (float)STEP;
-						Vec3 accel = off * (SPRING * SPRING) + (wanted_speed - body.GetLinearVelocity()) * GIVE - vec(h.gravity);
-						f.used = std::max(f.used, accel.Length() / (GUIDE * f.stiff));
-						if (accel.Length() > GUIDE * f.stiff)
-							accel = accel.Normalized() * (GUIDE * f.stiff);
-						guide = accel;
-						const JPH::Quat turn_off = (quat(f.to[i].rotation) * body.GetRotation().Conjugated()).EnsureWPositive();
-						Vec3 axis;
-						float angle;
-						turn_off.GetAxisAngle(axis, angle);
-						Vec3 spin = axis * (angle * SPRING * SPRING) - turn * GIVE;
-						if (spin.Length() > GUIDE_TURN * f.stiff)
-							spin = spin.Normalized() * (GUIDE_TURN * f.stiff);
-						turn += spin * (float)STEP;
-					}
-				}
-				body.SetLinearVelocity(go + guide * (float)STEP);
-				body.SetAngularVelocity(turn);
+				body.SetLinearVelocity(body.GetLinearVelocity() + vec(h.gravity) * (float)STEP + dv + dw.Cross(Vec3(at - middle)));
+				body.SetAngularVelocity(body.GetAngularVelocity() + dw);
 			}
 			reach(f);
 		}
@@ -1748,6 +1762,12 @@ void World::reachWith(LimbsId id, size_t part, v3f point, std::optional<v3d> to,
 	r.point = vec(point);
 	r.over = vec(over);
 	r.to = to ? std::optional<RVec3>(rvec(*to)) : std::nullopt;
+}
+
+void World::launchLimbs(LimbsId id, v3f by)
+{
+	for (const BodyID &b : m->figures.at(id).bodies)
+		m->bi().AddLinearVelocity(b, vec(by));
 }
 
 bool World::holding(LimbsId id, size_t part) const

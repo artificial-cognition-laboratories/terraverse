@@ -230,7 +230,7 @@ void Mover::knockDown(float severity, v3f velocity)
 	m_push.reset();
 	m_lift = 0;
 	m_trip_left = 0;
-	m_down = Down{ Fallen(severity, face_down), way, face_down, foot + way * 0.45f + v3f(0, 0.06f, 0) };
+	m_down = Down{ Fallen(severity, face_down), way, face_down, foot + way * 0.45f + v3f(0, 0.06f, 0), foot };
 	m_stance = Stance::DOWN;
 	m_opts.world.resize(m_me, stanceInfo(m_stance).height);
 	say(std::string("down at ") + std::to_string(pace) + " nodes/s, " + (face_down ? "on its front" : "on its back"));
@@ -590,8 +590,13 @@ Mover::Stepped Mover::step(const Input &in)
 		const float kept = pace > 0.01f ? std::max(0.f, pace - FRICTION * (float)STEP) / pace : 0;
 		next = v3f(v.X * kept, was.on_ground ? 0 : v.Y + h.gravity.Y * (float)STEP, v.Z * kept);
 		if (m_body_at) {
-			constexpr float KEEPS_UNDER = 8;
-			const v3f off = v3f::from(*m_body_at - was.foot);
+			// under its body, along the way it went over, as far as a body slides falling: what it sprawls past that
+			// sideways is the body's, and comes back as it gets up
+			constexpr float KEEPS_UNDER = 8, GOES = 4; // (at a run it slides a good way, as a body does)
+			const v3f way = m_down->way;
+			const v3f body = v3f::from(*m_body_at);
+			const float along = std::clamp((body - m_down->from).dotProduct(way), 0.f, GOES);
+			const v3f off = m_down->from + way * along - v3f::from(was.foot);
 			next.X = off.X * KEEPS_UNDER;
 			next.Z = off.Z * KEEPS_UNDER;
 		}

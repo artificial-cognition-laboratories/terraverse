@@ -111,6 +111,7 @@ private:
 		v3f way;  // along the ground: the way its head goes
 		bool face_down;
 		v3f hands; // on the ground, where they went down
+		v3f from;  // where its feet were
 	};
 	struct Climbing
 	{

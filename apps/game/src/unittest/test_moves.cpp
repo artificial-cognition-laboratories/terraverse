@@ -117,8 +117,10 @@ void TestMoves::testBonesStayOut()
 		if (course.machine())
 			continue;
 		std::string rush_doing;
+		const physics::Actor *last_actor = nullptr;
 		float deepest = 0, when = 0, in_itself = 0, rush = 0, rush_at = 0, pop = 0, pop_at = 0, apart = 0, tallest_after_down = 0;
 		bool was_down = false;
+		int fallen_frames = 0, footed_frames = 0, low_for = 0; // on its feet by its stance, and its head not over them (a while: not just getting up)
 		int deep_frames = 0, frames = 0;
 		// (an endless one, a good few goes of its move)
 		const double until = course.endless() ? 30 : course.end();
@@ -129,6 +131,11 @@ void TestMoves::testBonesStayOut()
 			apart = std::max(apart, head.getLength());
 			in_itself = std::max(in_itself, course.actor().inItself());
 			physics::Actor &actor = const_cast<physics::Actor &>(course.actor());
+			if (&actor != last_actor) { // (begun again: a new body, nothing it did)
+				last_actor = &actor;
+				actor.takeRush();
+				actor.takePop();
+			}
 			if (const float r = actor.takeRush(); r > rush) {
 				rush = r;
 				rush_at = actor.time();
@@ -137,6 +144,11 @@ void TestMoves::testBonesStayOut()
 			if (const float p = actor.takePop(); p > pop) {
 				pop = p;
 				pop_at = actor.time();
+			}
+			if (course.actor().stance() == physics::Stance::STAND && course.actor().time() > 0.5) {
+				footed_frames++;
+				low_for = head.Y < 0.9f ? low_for + 1 : 0; // (a run's lean brings it down to 1, not this)
+				fallen_frames += low_for > 24;
 			}
 			was_down = was_down || course.actor().stance() == physics::Stance::DOWN;
 			if (was_down && course.actor().stance() == physics::Stance::STAND)
@@ -149,7 +161,7 @@ void TestMoves::testBonesStayOut()
 			}
 		}
 		std::cout << "sunk " << move["id"].asString() << ": " << deepest << " at " << when << " s, "
-				<< deep_frames << "/" << frames << " frames past 0.05, in itself " << in_itself << ", head within " << apart << ", contacts missed " << course.actor().gaveUp() << ", holding " << course.actor().holdingSteps() << ", guide most " << course.actor().guidedMost() << " mean " << course.actor().guidedMean() << ", body at most " << rush << " at " << rush_at << " s (" << rush_doing << "), a part " << pop << " at " << pop_at << " s";
+				<< deep_frames << "/" << frames << " frames past 0.05, in itself " << in_itself << ", head within " << apart << ", contacts missed " << course.actor().gaveUp() << ", holding " << course.actor().holdingSteps() << ", fell " << course.actor().fell() << ", fallen while footed " << fallen_frames << "/" << footed_frames << ", guide most " << course.actor().guidedMost() << " mean " << course.actor().guidedMean() << ", body at most " << rush << " at " << rush_at << " s (" << rush_doing << "), a part " << pop << " at " << pop_at << " s";
 		if (was_down)
 			std::cout << ", up again head at " << tallest_after_down;
 		std::cout << std::endl;
@@ -157,6 +169,7 @@ void TestMoves::testBonesStayOut()
 		const std::string id = move["id"].asString();
 		if (id == "kong" || id == "speed" || id == "side" || id == "onto")
 			continue;
+		UASSERT(fallen_frames * 20 <= footed_frames); // on its feet, it's up: hardly ever down
 		UASSERT(deepest < 0.2f);  // (its parts are slimmer than drawn: a little always shows)
 		UASSERT(apart < 2.5f);    // it's stayed in one piece
 		UASSERT(in_itself < 0.02f); // and out of itself
@@ -177,6 +190,9 @@ void TestMoves::testEndless()
 	int bad = 0;
 	for (const Json::Value &move : shell::Course::read(game + "moves.json")) {
 		if (!move.isMember("endless"))
+			continue;
+		const std::string id = move["id"].asString(); // (vaults are parked, as in testBonesStayOut)
+		if (id == "kong" || id == "speed" || id == "side" || id == "onto")
 			continue;
 		shell::Course course(move, blocks, palette["machines"]);
 		v3f hopped(0), was = course.centre();

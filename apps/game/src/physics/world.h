@@ -338,6 +338,8 @@ public:
 	// `over`: the way across what it holds (an edge's in from it): from below, it comes up and over, not into its face.
 	void reachWith(LimbsId id, size_t part, v3f point, std::optional<v3d> to, v3f over = v3f(0));
 	bool holding(LimbsId id, size_t part) const;
+	// Its legs (or arms) drove it: every part's going this much faster at once.
+	void launchLimbs(LimbsId id, v3f by);
 	std::vector<Pose> limbs(LimbsId id) const;
 	// How much of its guide it took last step to keep its hips where they're asked: past 1, it couldn't.
 	float limbsGuided(LimbsId id) const;

@@ -30,6 +30,7 @@ public:
 	// Hands taking hold (world), or let go: each reaches, then holds where it got to.
 	void hold(const std::optional<v3f> (&hands)[2], v3f over);
 	bool holding(int side) const;
+	void launch(v3f by) { m_world.launchLimbs(m_id, by); }
 	// Where the parts got to. Call after the step: keeps this and the last, to draw between.
 	void read();
 	// As the figure at this foot and yaw draws them, `t` (0..1) between the last two steps.
@@ -37,7 +38,8 @@ public:
 	float guided() const { return m_world.limbsGuided(m_id); }
 	Felt felt() const; // where its hands and feet are now
 	std::vector<v3f> parts() const; // each part's middle, now
-	v3d hips() const; // where they are now, in the world
+	v3d hips() const;
+	float upright() const; // its chest's up against the world's up: 1 stood, 0 lying // where they are now, in the world
 	// How deep the deepest limb's middle or end is in its chest, hips or head (nodes): it should keep out.
 	float inItself() const;
 

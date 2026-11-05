@@ -191,7 +191,14 @@ void Actor::update(float dt)
 		in.asked = m_on.prone ? Stance::PRONE : m_on.crouch ? Stance::CROUCH : Stance::STAND;
 		in.run = m_on.run ? SPRINT : 1;
 		const Stance before = m_mover->stance();
+		const World::CharacterState was = m_world->character(m_mover->id());
 		m_mover->step(in);
+		// A jump's the legs throwing the body up: it goes as the player does, it isn't hauled up after them.
+		if (const World::CharacterState now_c = m_world->character(m_mover->id()); was.on_ground && !now_c.on_ground && now_c.velocity.Y > 1)
+			m_limbs->launch(v3f(0, now_c.velocity.Y - std::max(was.velocity.Y, 0.f), 0));
+		// and a landing's them taking it: most of the fall's stopped there, the rest's a dip (sprint 105: till legs carry it)
+		else if (!was.on_ground && now_c.on_ground && was.velocity.Y < -1)
+			m_limbs->launch(v3f(0, -0.7f * was.velocity.Y, 0));
 		const std::vector<v3f> was_parts = m_limbs->parts();
 		const v3d was_hips = m_limbs->hips();
 		m_limbs->read();
@@ -203,6 +210,16 @@ void Actor::update(float dt)
 				m_pop = std::max(m_pop, (now_parts[i] - was_parts[i] - body).getLength() / (float)STEP);
 		}
 		m_mover->bodyAt(m_limbs->hips());
+		// Gone over past what it can come back from, it's down, whatever it was doing: the body says so, not the move.
+		constexpr float OVER = 0.45f, FOR = 0.15f; // its chest's up, s
+		const bool on_feet = m_mover->stance() == Stance::STAND || m_mover->stance() == Stance::CROUCH;
+		m_over_for = on_feet && m_limbs->upright() < OVER ? m_over_for + (float)STEP : 0;
+		if (m_over_for >= FOR) {
+			const v3f v = m_world->character(m_mover->id()).velocity;
+			m_mover->knockDown(std::clamp(std::hypot(v.X, v.Z) / 8, 0.2f, 1.f), v);
+			m_over_for = 0;
+			m_fell++;
+		}
 		m_guided = std::max(m_guided, m_limbs->guided());
 		m_guided_sum += std::min(m_limbs->guided(), 1.f);
 		m_guided_steps++;

@@ -261,6 +261,8 @@ std::vector<v3f> Limbs::parts() const
 	return out;
 }
 
+float Limbs::upright() const { return fromQuat(m_now[P_CHEST].rotation).rotateAndScaleVect(v3f(0, 1, 0)).Y; }
+
 v3d Limbs::hips() const { return m_now[P_HIPS].position; }
 
 float Limbs::inItself() const
