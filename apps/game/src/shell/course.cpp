@@ -4,6 +4,7 @@
 #include "course.h"
 #include "exceptions.h"
 #include "workshop/showcase.h"
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 
@@ -66,6 +67,62 @@ Course::Course(const Json::Value &move, const std::vector<sandbox::StageBlock> &
 		cue.crouch = c["crouch"].asBool();
 		cue.prone = c["prone"].asBool();
 		m_cues.push_back(cue);
+	}
+	m_px = m_x;
+	m_py = m_y;
+	m_pz = m_z;
+	m_pattern = m_blocks;
+	m_pattern_heights = m_heights;
+	if (move.isMember("endless")) {
+		const Json::Value &e = move["endless"];
+		Endless endless;
+		endless.rise = e.get("rise", 0).asInt();
+		endless.along = e.get("along", 0).asInt();
+		endless.wide = e["wide"].asBool();
+		for (const Json::Value &c : e["steps"]) {
+			Step step;
+			if (c.isMember("z"))
+				step.z = c["z"].asFloat();
+			if (c.isMember("after"))
+				step.after = c["after"].asFloat();
+			step.keys.ahead = c.get("ahead", 0).asFloat();
+			step.keys.right = c.get("right", 0).asFloat();
+			step.keys.yaw = c.get("yaw", 0).asFloat() * core::DEGTORAD;
+			step.keys.run = c["run"].asBool();
+			step.keys.jump = c["jump"].asBool();
+			step.keys.crouch = c["crouch"].asBool();
+			step.keys.prone = c["prone"].asBool();
+			endless.steps.push_back(step);
+		}
+		m_endless = std::move(endless);
+		// what's drawn: enough to either side that the ends aren't in sight
+		constexpr int AROUND = 24, ACROSS = 10;
+		const int z0 = -AROUND, z1 = std::max(m_endless->along, 1) + AROUND;
+		const int x0 = m_endless->wide ? -ACROSS : 0, x1 = m_endless->wide ? m_px + ACROSS : m_px;
+		// its height, from what's in that stretch
+		int y0 = 1 << 20, y1 = -(1 << 20);
+		for (int z = z0; z < z1; z++)
+			for (int y = -64; y < 64; y++) {
+				if (at(v3s16(x0 < 0 ? 0 : x0, y, z)) < 0 && at(v3s16(std::max(x1 - 1, 0) % std::max(m_px, 1), y, z)) < 0)
+					continue;
+				y0 = std::min(y0, y);
+				y1 = std::max(y1, y);
+			}
+		if (y0 > y1)
+			throw BaseException("wiki: an endless move has no blocks: " + move["id"].asString());
+		m_window = v3s16(x0, y0, z0);
+		m_x = x1 - x0;
+		m_y = y1 - y0 + 1 + 4; // (and room over it)
+		m_z = z1 - z0;
+		m_blocks.assign((size_t)m_x * m_y * m_z, -1);
+		m_heights.assign(m_blocks.size(), 1);
+		for (int y = 0; y < m_y; y++)
+			for (int z = 0; z < m_z; z++)
+				for (int x = 0; x < m_x; x++) {
+					const v3s16 n(m_window.X + x, m_window.Y + y, m_window.Z + z);
+					m_blocks[((size_t)y * m_z + z) * m_x + x] = at(n);
+					m_heights[((size_t)y * m_z + z) * m_x + x] = heightAt(n);
+				}
 	}
 	m_ground_json = move["ground"];
 	restart();
@@ -177,16 +234,50 @@ std::optional<Scene::Ground> Course::ground() const
 	return out;
 }
 
+v3s16 Course::wrapped(v3s16 n) const
+{
+	if (!m_endless)
+		return n;
+	if (m_endless->wide)
+		n.X = std::clamp<s16>(n.X, 0, m_px - 1);
+	if (m_endless->along > 0) {
+		const int z = n.Z, along = m_endless->along;
+		const int k = z >= 0 ? z / along : -((-z + along - 1) / along);
+		n.Z = (s16)(z - k * along);
+		n.Y = (s16)(n.Y - k * m_endless->rise);
+	}
+	return n;
+}
+
 int32_t Course::at(v3s16 n) const
 {
-	if (n.X < 0 || n.Y < 0 || n.Z < 0 || n.X >= m_x || n.Y >= m_y || n.Z >= m_z)
+	n = wrapped(n);
+	if (n.X < 0 || n.Y < 0 || n.Z < 0 || n.X >= m_px || n.Y >= m_py || n.Z >= m_pz)
 		return -1;
-	return m_blocks[((size_t)n.Y * m_z + n.Z) * m_x + n.X];
+	return m_pattern[((size_t)n.Y * m_pz + n.Z) * m_px + n.X];
+}
+
+float Course::heightAt(v3s16 n) const
+{
+	n = wrapped(n);
+	if (n.X < 0 || n.Y < 0 || n.Z < 0 || n.X >= m_px || n.Y >= m_py || n.Z >= m_pz)
+		return 1;
+	return m_pattern_heights[((size_t)n.Y * m_pz + n.Z) * m_px + n.X];
 }
 
 void Course::restart()
 {
 	makeGround();
+	m_hop_owed -= v3f(0); // (what's owed the camera stays owed)
+	if (m_hopped != v3s16(0, 0, 0)) {
+		// back to the start: the camera comes too
+		m_hop_owed += v3f(m_hopped.X, m_hopped.Y, m_hopped.Z);
+		m_hopped = v3s16(0, 0, 0);
+	}
+	m_step = 0;
+	m_repeat = 0;
+	m_step_at = m_moved_at = 0;
+	m_furthest = 0;
 	const physics::Actor::Boxes solid = [this](v3s16 n, std::vector<aabb3f> &out) { boxes(n, out); };
 	if (m_assembly) {
 		// the block under a tyre says how it grips; loose ground is one material
@@ -216,7 +307,7 @@ void Course::boxes(v3s16 n, std::vector<aabb3f> &out) const
 		return;
 	const auto &parts = m_table[block].boxes;
 	if (parts.empty())
-		out.emplace_back(-0.5f, -0.5f, -0.5f, 0.5f, m_heights[((size_t)n.Y * m_z + n.Z) * m_x + n.X] - 0.5f, 0.5f);
+		out.emplace_back(-0.5f, -0.5f, -0.5f, 0.5f, heightAt(n) - 0.5f, 0.5f);
 	for (const auto &b : parts) // (from its corner, there)
 		out.emplace_back(b[0] - 0.5f, b[1] - 0.5f, b[2] - 0.5f, b[3] - 0.5f, b[4] - 0.5f, b[5] - 0.5f);
 }
@@ -224,6 +315,8 @@ void Course::boxes(v3s16 n, std::vector<aabb3f> &out) const
 v3f Course::toScene(v3f at) const
 {
 	// a node's centre is on the integers here; in the scene its corner is
+	if (m_endless)
+		return v3f(at.X - m_hopped.X - m_window.X + 0.5f - m_x / 2.0f, at.Y - m_hopped.Y - m_window.Y + 0.5f, at.Z - m_hopped.Z - m_window.Z + 0.5f - m_z / 2.0f);
 	return v3f(at.X + 0.5f - m_x / 2.0f, at.Y + 0.5f, at.Z + 0.5f - m_z / 2.0f);
 }
 
@@ -271,8 +364,72 @@ void Course::update(float dt)
 	else
 		m_actor->update(dt * (float)speed);
 	pressAndSlide(dt * (float)speed);
-	if (time() >= m_end)
+	if (m_endless)
+		playEndless();
+	else if (time() >= m_end)
 		restart();
+}
+
+v3f Course::travelled() const
+{
+	return m_actor->at() - v3f::from(m_start);
+}
+
+v3f Course::takeHop()
+{
+	const v3f out = m_hop_owed;
+	m_hop_owed = v3f(0);
+	return out;
+}
+
+// The keys by how far along the repeat it is; the picture hopped back when it's a repeat on.
+void Course::playEndless()
+{
+	constexpr double STUCK = 12; // s with no way made: it's come off the course, so it starts again
+	constexpr float WAY = 0.5f, FAR = 30000; // (a node's position is 16 bits: well before that, it starts again)
+	const Endless &e = *m_endless;
+	const v3f at = m_actor->at();
+	if (!e.steps.empty()) {
+		const float along = at.Z - (float)(m_repeat * e.along);
+		if (e.along > 0 && along >= e.along + e.steps[0].z.value_or(0)) {
+			m_repeat++;
+			m_step = 0;
+			m_actor->press(e.steps[0].keys);
+			m_step_at = time();
+		} else if (time() < 0.05) {
+			m_actor->press(e.steps[0].keys);
+		} else if (m_step + 1 < e.steps.size()) {
+			const Step &next = e.steps[m_step + 1];
+			if ((next.z && along >= *next.z) || (next.after && time() - m_step_at >= *next.after)) {
+				m_actor->press(next.keys);
+				m_step++;
+				m_step_at = time();
+			}
+		}
+	}
+	const float way = e.along > 0 ? at.Z : std::fabs(at.X);
+	if (way > m_furthest + WAY) {
+		m_furthest = way;
+		m_moved_at = time();
+	}
+	if (time() - m_moved_at > STUCK || std::fabs(at.Z) > FAR || std::fabs(at.X) > FAR || std::fabs(at.Y) > FAR) {
+		restart();
+		return;
+	}
+	const auto hop = [&](int x, int y, int z) {
+		m_hopped += v3s16(x, y, z);
+		m_hop_owed -= v3f(x, y, z);
+	};
+	const int repeat = std::max(e.along, 1);
+	while (at.Z - m_hopped.Z >= m_start.Z + repeat && e.along > 0)
+		hop(0, e.rise, e.along);
+	if (e.wide) {
+		const float middle = m_px / 2.0f;
+		while (at.X - m_hopped.X > middle + 1)
+			hop(1, 0, 0);
+		while (at.X - m_hopped.X < middle - 1)
+			hop(-1, 0, 0);
+	}
 }
 
 Scene::Frame Course::frame() const

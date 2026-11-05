@@ -80,6 +80,11 @@ public:
 	void machine(Looks looks) { m_looks = std::move(looks); m_parts.clear(); m_built_parts = false; }
 	void machine(std::optional<Machine> at) { m_machine = std::move(at); }
 	void follow(v3f at);
+	// As follow, in height as well: what it stands on goes up and down.
+	void followAll(v3f at);
+	// The picture's hopped by this: the camera with it, so nothing's seen to move.
+	void hop(v3f by) { m_target += by; }
+	void outline(bool on) { m_outline = on; }
 	// Loose ground in it, in sixteenth columns from here (sixteenths of height). Remeshed when `version` moves on.
 	struct Ground
 	{
@@ -127,7 +132,7 @@ private:
 	std::optional<int> pick() const;
 	core::matrix4 view() const;
 
-	bool m_shown = false, m_heat = false, m_dirty = false;
+	bool m_shown = false, m_heat = false, m_dirty = false, m_outline = true;
 	core::recti m_rect;
 	float m_right = 0;
 	v2f shift() const;

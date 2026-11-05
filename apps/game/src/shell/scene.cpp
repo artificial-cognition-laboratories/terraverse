@@ -591,6 +591,11 @@ void Scene::follow(v3f at)
 	m_target += (v3f(at.X, 0, at.Z) - m_target) * 0.12f;
 }
 
+void Scene::followAll(v3f at)
+{
+	m_target += (at - m_target) * 0.12f;
+}
+
 static core::matrix4 turnOf(const physics::Quat &q)
 {
 	core::matrix4 m;
@@ -716,7 +721,7 @@ void Scene::draw(video::IVideoDriver *driver)
 	drawFigure(driver);
 	drawMachine(driver);
 	// the floor it stands on: the blocks' outline, so an empty scene still has a place
-	{
+	if (m_outline) {
 		const float hx = m_sizedX / 2.0f, hz = m_sizedZ / 2.0f;
 		const video::SColor c(255, 58, 66, 74);
 		video::S3DVertex v[4] = { { { -hx, 0, -hz }, v3f(), c, v2f() }, { { hx, 0, -hz }, v3f(), c, v2f() },

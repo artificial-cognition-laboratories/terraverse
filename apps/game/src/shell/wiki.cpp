@@ -123,6 +123,7 @@ Wiki::Wiki(Shell &shell) : m_shell(shell)
 			m_scene.looks(&blocks(), {}, {});
 			m_scene.heat(false);
 			m_scene.frame(m_course->frame());
+			m_scene.outline(!m_course->endless());
 			m_scene.distance(move.get("distance", 9).asFloat());
 			m_scene.figure(std::nullopt);
 			m_scene.machine(m_course->looks());
@@ -165,7 +166,11 @@ Wiki::Wiki(Shell &shell) : m_shell(shell)
 			m_course_at = now;
 			m_scene.figure(m_course->figure());
 			m_scene.machine(m_course->machine());
-			m_scene.follow(m_course->centre());
+			m_scene.hop(m_course->takeHop());
+			if (m_course->endless())
+				m_scene.followAll(m_course->centre());
+			else
+				m_scene.follow(m_course->centre());
 			m_scene.ground(m_course->ground());
 		}
 		{

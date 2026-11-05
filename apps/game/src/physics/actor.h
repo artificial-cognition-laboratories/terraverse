@@ -6,6 +6,7 @@
 #include "physics/mover.h"
 #include "physics/skeleton.h"
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -36,6 +37,10 @@ public:
 	~Actor();
 
 	void update(float dt);
+	// These controls from now, whatever's cued (a scene that plays by where it is, not when).
+	void press(const Cue &cue);
+	// How many times it's done that, by name, as did() has them.
+	int times(const std::string &what) const;
 	double time() const { return m_time; }
 	v3f at() const { return m_drawn; }   // its feet (nodes)
 	float yaw() const { return m_yaw; }
@@ -65,6 +70,7 @@ private:
 	v3f m_drawn;
 	float m_yaw = 0;
 	std::vector<std::string> m_did;
+	std::map<std::string, int> m_times;
 	std::string m_doing;
 };
 

@@ -38,7 +38,10 @@
      "ahead": 1
     }
    ],
-   "expect": []
+   "expect": [],
+   "endless": {
+    "along": 1
+   }
   },
   {
    "id": "run",
@@ -79,7 +82,10 @@
      "run": true
     }
    ],
-   "expect": []
+   "expect": [],
+   "endless": {
+    "along": 1
+   }
   },
   {
    "id": "crouch",
@@ -139,7 +145,10 @@
    ],
    "expect": [
     "crouch"
-   ]
+   ],
+   "endless": {
+    "along": 1
+   }
   },
   {
    "id": "prone",
@@ -186,7 +195,10 @@
    ],
    "expect": [
     "prone"
-   ]
+   ],
+   "endless": {
+    "along": 1
+   }
   },
   {
    "id": "jump",
@@ -220,36 +232,28 @@
     1.5
    ],
    "end": 4,
-   "cues": [
-    {
-     "at": 0,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 1,
-     "jump": true,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 1.5,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 2.4,
-     "jump": true,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 2.46,
-     "ahead": 1,
-     "run": true
-    }
-   ],
-   "expect": []
+   "expect": [],
+   "endless": {
+    "along": 14,
+    "steps": [
+     {
+      "z": 0,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "z": 6,
+      "jump": true,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "after": 0.1,
+      "ahead": 1,
+      "run": true
+     }
+    ]
+   }
   },
   {
    "id": "slide",
@@ -283,22 +287,33 @@
     1.5
    ],
    "end": 4,
-   "cues": [
-    {
-     "at": 0,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 1.3,
-     "crouch": true,
-     "ahead": 1,
-     "run": true
-    }
-   ],
    "expect": [
     "slide"
-   ]
+   ],
+   "endless": {
+    "along": 18,
+    "steps": [
+     {
+      "z": 0,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "z": 9,
+      "crouch": true,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "after": 1.6,
+      "ahead": 1,
+      "run": true
+     }
+    ]
+   },
+   "repeats": {
+    "slide": 3
+   }
   },
   {
    "id": "roll",
@@ -345,22 +360,39 @@
     1.5
    ],
    "end": 4,
-   "cues": [
-    {
-     "at": 0,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 0.7,
-     "crouch": true,
-     "ahead": 1,
-     "run": true
-    }
-   ],
    "expect": [
     "roll"
-   ]
+   ],
+   "endless": {
+    "along": 20,
+    "rise": -5,
+    "steps": [
+     {
+      "z": 0,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "z": 4.4,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "after": 0.5,
+      "crouch": true,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "after": 1,
+      "ahead": 1,
+      "run": true
+     }
+    ]
+   },
+   "repeats": {
+    "roll": 3
+   }
   },
   {
    "id": "stumble",
@@ -407,13 +439,17 @@
     1.5
    ],
    "end": 3.5,
-   "cues": [
-    {
-     "at": 0,
-     "ahead": 1
-    }
-   ],
-   "expect": []
+   "expect": [],
+   "endless": {
+    "along": 18,
+    "rise": -3,
+    "steps": [
+     {
+      "z": 0,
+      "ahead": 1
+     }
+    ]
+   }
   },
   {
    "id": "fall",
@@ -460,20 +496,32 @@
     1.5
    ],
    "end": 6,
-   "cues": [
-    {
-     "at": 0,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 3,
-     "ahead": 0
-    }
-   ],
    "expect": [
     "down"
-   ]
+   ],
+   "endless": {
+    "along": 20,
+    "rise": -9,
+    "steps": [
+     {
+      "z": 0,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "z": 4.6,
+      "ahead": 0
+     },
+     {
+      "after": 5,
+      "ahead": 1,
+      "run": true
+     }
+    ]
+   },
+   "repeats": {
+    "down": 2
+   }
   },
   {
    "id": "kong",
@@ -520,27 +568,33 @@
     1.5
    ],
    "end": 4,
-   "cues": [
-    {
-     "at": 0,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 1.35,
-     "jump": true,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 1.7,
-     "ahead": 1,
-     "run": true
-    }
-   ],
    "expect": [
     "kong"
-   ]
+   ],
+   "endless": {
+    "along": 20,
+    "steps": [
+     {
+      "z": 0,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "z": 8.3,
+      "jump": true,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "after": 0.35,
+      "ahead": 1,
+      "run": true
+     }
+    ]
+   },
+   "repeats": {
+    "kong": 3
+   }
   },
   {
    "id": "speed",
@@ -587,30 +641,37 @@
     1.5
    ],
    "end": 4,
-   "cues": [
-    {
-     "at": 0,
-     "yaw": -20,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 1.4,
-     "yaw": -20,
-     "jump": true,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 1.7,
-     "yaw": -20,
-     "ahead": 1,
-     "run": true
-    }
-   ],
    "expect": [
     "speed vault"
-   ]
+   ],
+   "endless": {
+    "along": 20,
+    "wide": true,
+    "steps": [
+     {
+      "z": 0,
+      "yaw": -20,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "z": 8.3,
+      "yaw": -20,
+      "jump": true,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "after": 0.3,
+      "yaw": -20,
+      "ahead": 1,
+      "run": true
+     }
+    ]
+   },
+   "repeats": {
+    "speed vault": 3
+   }
   },
   {
    "id": "side",
@@ -657,30 +718,37 @@
     1.5
    ],
    "end": 4,
-   "cues": [
-    {
-     "at": 0,
-     "yaw": -45,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 1.8,
-     "yaw": -45,
-     "jump": true,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 2.1,
-     "yaw": -45,
-     "ahead": 1,
-     "run": true
-    }
-   ],
    "expect": [
     "side vault"
-   ]
+   ],
+   "endless": {
+    "along": 20,
+    "wide": true,
+    "steps": [
+     {
+      "z": 0,
+      "yaw": -45,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "z": 8.3,
+      "yaw": -45,
+      "jump": true,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "after": 0.3,
+      "yaw": -45,
+      "ahead": 1,
+      "run": true
+     }
+    ]
+   },
+   "repeats": {
+    "side vault": 3
+   }
   },
   {
    "id": "onto",
@@ -727,24 +795,31 @@
     1.5
    ],
    "end": 4,
-   "cues": [
-    {
-     "at": 0,
-     "ahead": 1
-    },
-    {
-     "at": 0.95,
-     "ahead": 1,
-     "jump": true
-    },
-    {
-     "at": 1.2,
-     "ahead": 1
-    }
-   ],
    "expect": [
     "onto it"
-   ]
+   ],
+   "endless": {
+    "along": 14,
+    "rise": 1,
+    "steps": [
+     {
+      "z": 0,
+      "ahead": 1
+     },
+     {
+      "z": 4.4,
+      "ahead": 1,
+      "jump": true
+     },
+     {
+      "after": 0.25,
+      "ahead": 1
+     }
+    ]
+   },
+   "repeats": {
+    "onto it": 3
+   }
   },
   {
    "id": "mantle",
@@ -791,27 +866,34 @@
     1.5
    ],
    "end": 4.5,
-   "cues": [
-    {
-     "at": 0,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 0.75,
-     "ahead": 1,
-     "run": true,
-     "jump": true
-    },
-    {
-     "at": 2,
-     "ahead": 1,
-     "run": true
-    }
-   ],
    "expect": [
     "mantle"
-   ]
+   ],
+   "endless": {
+    "along": 20,
+    "rise": 2,
+    "steps": [
+     {
+      "z": 0,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "z": 4.8,
+      "jump": true,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "after": 1.25,
+      "ahead": 1,
+      "run": true
+     }
+    ]
+   },
+   "repeats": {
+    "mantle": 3
+   }
   },
   {
    "id": "hang",
@@ -822,7 +904,7 @@
    "size": [
     5,
     8,
-    12
+    14
    ],
    "blocks": [
     {
@@ -835,7 +917,7 @@
      "to": [
       4,
       0,
-      11
+      13
      ]
     },
     {
@@ -848,7 +930,7 @@
      "to": [
       4,
       3,
-      11
+      13
      ]
     }
    ],
@@ -858,32 +940,44 @@
     1.5
    ],
    "end": 6,
-   "cues": [
-    {
-     "at": 0,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 0.35,
-     "jump": true,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 2.5
-    },
-    {
-     "at": 3,
-     "jump": true
-    },
-    {
-     "at": 3.3
-    }
-   ],
    "expect": [
     "hang"
-   ]
+   ],
+   "endless": {
+    "along": 14,
+    "rise": 3,
+    "steps": [
+     {
+      "z": 0,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "z": 3.2,
+      "jump": true,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "after": 2.2
+     },
+     {
+      "after": 0.5,
+      "jump": true
+     },
+     {
+      "after": 0.3
+     },
+     {
+      "after": 0.4,
+      "ahead": 1,
+      "run": true
+     }
+    ]
+   },
+   "repeats": {
+    "hang": 3
+   }
   },
   {
    "id": "shimmy",
@@ -930,29 +1024,35 @@
     1.5
    ],
    "end": 6,
-   "cues": [
-    {
-     "at": 0,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 0.35,
-     "jump": true,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 1.6
-    },
-    {
-     "at": 2,
-     "right": 1
-    }
-   ],
    "expect": [
     "hang"
-   ]
+   ],
+   "endless": {
+    "wide": true,
+    "steps": [
+     {
+      "z": 0,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "z": 3.2,
+      "jump": true,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "after": 1.2
+     },
+     {
+      "after": 0.4,
+      "right": 1
+     }
+    ]
+   },
+   "repeats": {
+    "hang": 1
+   }
   },
   {
    "id": "wallrun",
@@ -999,24 +1099,30 @@
     1.5
    ],
    "end": 4,
-   "cues": [
-    {
-     "at": 0,
-     "yaw": 3,
-     "ahead": 1,
-     "run": true
-    },
-    {
-     "at": 1.1,
-     "yaw": 3,
-     "jump": true,
-     "ahead": 1,
-     "run": true
-    }
-   ],
    "expect": [
     "wall run"
-   ]
+   ],
+   "endless": {
+    "along": 16,
+    "steps": [
+     {
+      "z": 0,
+      "yaw": 3,
+      "ahead": 1,
+      "run": true
+     },
+     {
+      "z": 6,
+      "yaw": 3,
+      "jump": true,
+      "ahead": 1,
+      "run": true
+     }
+    ]
+   },
+   "repeats": {
+    "wall run": 3
+   }
   },
   {
    "id": "kick",

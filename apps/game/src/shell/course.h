@@ -21,6 +21,12 @@ namespace shell {
 	One of the wiki's Movement scenes (game/moves.json): a few of the game's
 	blocks and which keys are down when, played by a physics::Actor. Starts
 	again when it ends, so a move can be watched as many times as it takes.
+
+	An `endless` one has no end: its blocks repeat forever along z (each repeat
+	maybe higher or lower: stairs), and its keys go by how far along the repeat
+	the body is. Physics sees the whole endless pattern. What's drawn is a stretch
+	of it round the body, which hops back by exactly one repeat as the body
+	gets too far along: the same blocks, so nothing's seen to move.
 */
 class Course
 {
@@ -42,6 +48,10 @@ public:
 	const physics::Actor &actor() const { return *m_actor; }
 	const physics::Driven *driven() const { return m_driven.get(); }
 	double end() const { return m_end; }
+	bool endless() const { return m_endless.has_value(); }
+	v3f travelled() const;      // how far it's come from where it started, in the endless pattern
+	// How far the picture's hopped since last asked (scene's frame): the camera goes with it.
+	v3f takeHop();
 	// Loose ground in it (sixteenths): where it's lowest and highest now, and where it started.
 	std::optional<Scene::Ground> ground() const;
 	std::array<int, 2> groundRange() const;
@@ -83,6 +93,31 @@ private:
 	void boxes(v3s16 n, std::vector<aabb3f> &out) const;
 	v3f toScene(v3f at) const;
 	int32_t at(v3s16 n) const; // the block there, or -1
+	float heightAt(v3s16 n) const;
+	v3s16 wrapped(v3s16 n) const; // into the blocks as written
+	void playEndless();
+	struct Step
+	{
+		std::optional<float> z, after; // when: this far along the repeat, or this long after the last step
+		physics::Actor::Cue keys;
+	};
+	struct Endless
+	{
+		int rise = 0, along = 0; // a repeat: this much higher, this much along z (0: no repeat that way)
+		bool wide = false;       // its blocks go on forever across x
+		std::vector<Step> steps;
+	};
+	std::optional<Endless> m_endless;
+	int32_t m_px, m_py, m_pz;     // the blocks as written
+	std::vector<int32_t> m_pattern;
+	std::vector<float> m_pattern_heights;
+	v3s16 m_window;               // the drawn cells' first, in the endless pattern
+	v3s16 m_hopped;               // how far the picture's hopped back so far
+	v3f m_hop_owed;
+	size_t m_step = 0;
+	int m_repeat = 0;
+	double m_step_at = 0, m_moved_at = 0;
+	float m_furthest = 0;
 };
 
 } // namespace shell

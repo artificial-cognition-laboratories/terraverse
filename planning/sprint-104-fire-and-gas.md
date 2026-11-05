@@ -14,3 +14,7 @@ Conduction is right, and slow: a metre of copper takes hours (checked by hand
 against k and heat capacity). Scenes that need heat quickly use a burner (`power`).
 
 Open: premixed gases burn within a tick at x1 (methane: one frame).
+
+Endless moves (`endless` in moves.json): the blocks repeat along z, maybe rising or
+falling, and keys go by position in the repeat. The picture hops back one repeat,
+with the camera. A wall kick stays a loop: it turns back at its wall.

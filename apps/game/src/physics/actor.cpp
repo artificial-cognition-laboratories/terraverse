@@ -70,6 +70,7 @@ bool Actor::solid(v3s16 n) const
 
 void Actor::note(const std::string &what)
 {
+	m_times[what]++;
 	m_did.push_back(what);
 	m_doing = what;
 }
@@ -120,6 +121,22 @@ v3f Actor::clearOf(v3f p, float r) const
 	return by;
 }
 
+// new presses, as the game's keys send them
+void Actor::press(const Cue &next)
+{
+	if (next.jump && !m_on.jump)
+		m_mover->pressJump();
+	if (next.crouch && !m_on.crouch)
+		m_mover->pressCrouch();
+	m_on = next;
+}
+
+int Actor::times(const std::string &what) const
+{
+	const auto found = m_times.find(what);
+	return found == m_times.end() ? 0 : found->second;
+}
+
 void Actor::update(float dt)
 {
 	if (dt <= 0)
@@ -130,13 +147,7 @@ void Actor::update(float dt)
 		m_time += STEP;
 		m_behind -= STEP;
 		while (m_cue < m_cues.size() && m_cues[m_cue].at <= m_time) {
-			const Cue next = m_cues[m_cue++];
-			// new presses, as the game's keys send them
-			if (next.jump && !m_on.jump)
-				m_mover->pressJump();
-			if (next.crouch && !m_on.crouch)
-				m_mover->pressCrouch();
-			m_on = next;
+			press(m_cues[m_cue++]);
 		}
 		m_yaw = m_on.yaw;
 		Mover::Input in;

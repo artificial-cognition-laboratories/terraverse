@@ -30,6 +30,7 @@ public:
 	void runTests(IGameDef *gamedef);
 	void testEveryMove();
 	void testEveryVehicle();
+	void testEndless();
 	void testFineWater();
 	void testPourColour();
 	void testPlume();
@@ -48,6 +49,7 @@ void TestMoves::runTests(IGameDef *gamedef)
 {
 	TEST(testEveryMove);
 	TEST(testEveryVehicle);
+	TEST(testEndless);
 	TEST(testFineWater);
 	TEST(testPourColour);
 	TEST(testPlume);
@@ -91,6 +93,48 @@ void TestMoves::testEveryMove()
 		std::cout << (missing.empty() ? "ok   " : "FAIL ") << move["id"].asString() << ": ends at z " << course.actor().at().Z
 				<< " pace " << course.actor().pace() << " | did: " << all << (missing.empty() ? "" : " | missing:" + missing) << std::endl;
 		bad += !missing.empty();
+	}
+	UASSERTEQ(int, bad, 0);
+}
+
+// Each endless move goes on: a minute in, it's still making way and has done its thing again and again,
+// and never been found stuck. Where it's drawn stays in what's drawn, however far it's gone.
+void TestMoves::testEndless()
+{
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	std::ifstream in(game + "palette.json");
+	Json::Value palette;
+	in >> palette;
+	const std::vector<sandbox::StageBlock> blocks = sandbox::Stage::read(palette["scene"]);
+	int bad = 0;
+	for (const Json::Value &move : shell::Course::read(game + "moves.json")) {
+		if (!move.isMember("endless"))
+			continue;
+		shell::Course course(move, blocks, palette["machines"]);
+		v3f hopped(0), was = course.centre();
+		float furthest = 0, jolt = 0;
+		const physics::Actor *actor = &course.actor();
+		bool restarted = false;
+		for (int f = 0; f < 60 * 60; f++) {
+			course.update(1 / 60.f);
+			restarted = restarted || &course.actor() != actor;
+			const v3f by = course.takeHop();
+			const v3f now = course.centre();
+			jolt = std::max(jolt, (now - by - was).getLength());
+			was = now;
+			furthest = std::max(furthest, std::fabs(now.Z));
+			hopped += by;
+		}
+		std::string all, missing;
+		for (const std::string &d : course.actor().did())
+			all += d + "×" + std::to_string(course.actor().times(d)) + " ";
+		for (const std::string &want : move["repeats"].getMemberNames())
+			if (course.actor().times(want) < move["repeats"][want].asInt())
+				missing += " " + want;
+		const bool ok = missing.empty() && !restarted && furthest < 40;
+		std::cout << (ok ? "ok   " : "FAIL ") << move["id"].asString() << ": went " << course.travelled().Z << ", across " << course.travelled().X << ", up " << course.travelled().Y
+				<< ", drawn within " << furthest << ", jolt " << jolt << (restarted ? " RESTARTED" : "") << " | " << all << (missing.empty() ? "" : " | missing:" + missing) << std::endl;
+		bad += !ok;
 	}
 	UASSERTEQ(int, bad, 0);
 }
