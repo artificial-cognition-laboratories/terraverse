@@ -45,6 +45,8 @@ public:
 	v3f at() const { return m_drawn; }   // its feet (nodes)
 	float yaw() const { return m_yaw; }
 	const Bones &bones() const { return m_bones; }
+	// How far its deepest bone corner is inside something solid, as drawn now (nodes).
+	float sunk() const;
 	Stance stance() const { return m_mover->stance(); }
 	float pace() const;
 	// Everything it's done so far: moves by name, and stances.

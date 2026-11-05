@@ -121,6 +121,31 @@ v3f Actor::clearOf(v3f p, float r) const
 	return by;
 }
 
+float Actor::sunk() const
+{
+	const float c = std::cos(m_yaw), s = std::sin(m_yaw);
+	float deepest = 0;
+	std::vector<aabb3f> boxes;
+	const auto point = [&](v3f f) {
+		const v3f w = m_drawn + v3f(f.X * c - f.Z * s, f.Y, f.X * s + f.Z * c);
+		const v3s16 n(std::floor(w.X + 0.5f), std::floor(w.Y + 0.5f), std::floor(w.Z + 0.5f));
+		const v3f in = w - v3f(n.X, n.Y, n.Z);
+		boxes.clear();
+		m_boxes(n, boxes);
+		for (const aabb3f &b : boxes)
+			if (b.isPointInside(in))
+				deepest = std::max(deepest, std::min({ in.X - b.MinEdge.X, b.MaxEdge.X - in.X, in.Y - b.MinEdge.Y, b.MaxEdge.Y - in.Y,
+						in.Z - b.MinEdge.Z, b.MaxEdge.Z - in.Z }));
+	};
+	eachBoneBox(m_bones, [&](const core::matrix4 &m, v3f size, v3f centre, BoneColour) {
+		for (const float x : { -0.5f, 0.5f })
+			for (const float y : { -0.5f, 0.5f })
+				for (const float z : { -0.5f, 0.5f })
+					point(m.transformVect(centre + v3f(size.X * x, size.Y * y, size.Z * z)));
+	});
+	return deepest;
+}
+
 // new presses, as the game's keys send them
 void Actor::press(const Cue &next)
 {

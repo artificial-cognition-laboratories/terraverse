@@ -30,6 +30,7 @@ public:
 	const char *getName() { return "TestMoves"; }
 	void runTests(IGameDef *gamedef);
 	void testEveryMove();
+	void testBonesStayOut();
 	void testEveryVehicle();
 	void testEndless();
 	void testDrivenDrawnSmoothly();
@@ -51,6 +52,7 @@ static TestMoves g_test_instance;
 void TestMoves::runTests(IGameDef *gamedef)
 {
 	TEST(testEveryMove);
+	TEST(testBonesStayOut);
 	TEST(testEveryVehicle);
 	TEST(testEndless);
 	TEST(testDrivenDrawnSmoothly);
@@ -100,6 +102,37 @@ void TestMoves::testEveryMove()
 		bad += !missing.empty();
 	}
 	UASSERTEQ(int, bad, 0);
+}
+
+// What a body's drawn doing against what's there: how deep any bone goes into anything solid, and when.
+void TestMoves::testBonesStayOut()
+{
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	std::ifstream in(game + "palette.json");
+	Json::Value palette;
+	in >> palette;
+	const std::vector<sandbox::StageBlock> blocks = sandbox::Stage::read(palette["scene"]);
+	for (const Json::Value &move : shell::Course::read(game + "moves.json")) {
+		shell::Course course(move, blocks, palette["machines"]);
+		if (course.machine())
+			continue;
+		float deepest = 0, when = 0;
+		int deep_frames = 0, frames = 0;
+		// (an endless one, a good few goes of its move)
+		const double until = course.endless() ? 30 : course.end();
+		while (course.actor().time() + 1 / 60.0 < until) {
+			course.update(1 / 60.f);
+			const float sunk = course.actor().sunk();
+			frames++;
+			deep_frames += sunk > 0.05f;
+			if (sunk > deepest) {
+				deepest = sunk;
+				when = course.actor().time();
+			}
+		}
+		std::cout << "sunk " << move["id"].asString() << ": " << deepest << " at " << when << " s, "
+				<< deep_frames << "/" << frames << " frames past 0.05" << std::endl;
+	}
 }
 
 // Each endless move goes on: a minute in, it's still making way and has done its thing again and again,
