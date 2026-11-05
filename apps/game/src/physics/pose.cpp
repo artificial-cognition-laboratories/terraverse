@@ -42,8 +42,9 @@ struct Row
 };
 const Row ROWS[] = {
 	{ STAND, STROLL, 1.13f, WALK, 0 },
-	{ { 0.5f, 0.1f, 0.8f, 0.f, -0.35f, 0.25f, 0.33f, 0.02f, 0.f, 0.6f },
-	  { 0.55f, 0.1f, 0.9f, 0.3f, -0.35f, 0.25f, 0.33f, 0.02f, 0.f, 0.6f }, 1.13f, WALK * 0.5f, 0 },
+	// low on bent legs, back straight and tipped from the hips, arms loose outside the knees
+	{ { 0.25f, 0.24f, 0.6f, 0.f, -0.15f, 0.5f, 0.36f, 0.08f, 0.f, 0.6f },
+	  { 0.3f, 0.24f, 0.7f, 0.3f, -0.15f, 0.5f, 0.36f, 0.08f, 0.f, 0.6f }, 1.13f, WALK * 0.5f, 0 },
 	// on the belly, arms ahead: the capsule's round the shoulders, so the legs trail behind it
 	{ { 0.1f, 0.15f, 1.1f, 0.f, -2.5f, 1.4f, 0.55f, 0.68f, 0.1f, 0.4f },
 	  { 0.1f, 0.15f, 1.1f, 0.35f, -2.5f, 1.4f, 0.55f, 0.68f, 0.1f, 0.4f }, 0.3f, WALK * 0.25f, 0.6f },
@@ -51,8 +52,8 @@ const Row ROWS[] = {
 	{ { -0.1f, 0.45f, 0.5f, 0.f, -0.5f, -0.55f, 0.42f, -0.42f, 0.06f, 0.f },
 	  { -0.1f, 0.45f, 0.5f, 0.f, -0.5f, -0.55f, 0.42f, -0.42f, 0.06f, 0.f }, 0.3f, WALK, 0 },
 	// a tuck, turned over whole by Joints::spin
-	{ { 0.8f, 0.2f, 1.5f, 0.f, -1.f, 0.5f, 0.3f, 0.05f, 0.22f, 0.f },
-	  { 0.8f, 0.2f, 1.5f, 0.f, -1.f, 0.5f, 0.3f, 0.05f, 0.22f, 0.f }, 1.13f, WALK, 0 },
+	{ { 0.75f, 0.2f, 1.5f, 0.f, -1.f, 0.9f, 0.3f, 0.05f, 0.22f, 0.f },
+	  { 0.75f, 0.2f, 1.5f, 0.f, -1.f, 0.9f, 0.3f, 0.05f, 0.22f, 0.f }, 1.13f, WALK, 0 },
 	// a hand down on it, legs swung up and across
 	{ { 0.5f, 0.5f, 0.4f, 0.f, -1.f, 0.3f, 0.25f, -0.2f, 0.35f, 0.f },
 	  { 0.5f, 0.5f, 0.4f, 0.f, -1.f, 0.3f, 0.25f, -0.2f, 0.35f, 0.f }, 1.13f, WALK, 0 },
@@ -147,7 +148,7 @@ void HandOverHand::step(float dt, v3f rest0, v3f rest1, const std::function<v3f(
 {
 	// One, two: the leading hand reaches well out, the trailing one comes up after it. Each stays
 	// till the body's gone on from it: the leading hand mustn't drift in to the head, the trailing's let go long.
-	constexpr float INSIDE = 0.12f, REACH = 0.25f, LEAD_IN = 0.1f, TRAIL_OUT = 0.15f, TRAIL_TO = 0.05f, SETTLED = 0.06f, TAKES = 0.16f, LIFTS = 0.1f;
+	constexpr float INSIDE = 0.12f, REACH = 0.4f, LEAD_IN = 0.1f, TRAIL_OUT = 0.15f, TRAIL_TO = 0.05f, SETTLED = 0.06f, TAKES = 0.26f, LIFTS = 0.14f;
 	const v3f rest[2] = { rest0, rest1 };
 	v3f axis = rest0 - rest1;
 	axis.normalize();

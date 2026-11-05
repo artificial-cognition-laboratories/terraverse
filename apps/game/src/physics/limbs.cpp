@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <initializer_list>
 
 namespace physics {
 
@@ -157,6 +158,7 @@ std::vector<LimbSpec> specs()
 	for (int side : { 0, 1 }) {
 		parts[P_THIGH + side] = limb(BONE_WIDE, physics::THIGH, 10, P_HIPS, c[P_THIGH + side] * -1.f);
 		parts[P_THIGH + side].cone = 1.5f;
+		parts[P_THIGH + side].passes = { P_CHEST }; // (bending at the hips brings them together: that's the hips' to stop)
 		parts[P_SHIN + side] = limb(BONE_NARROW, physics::SHIN, 5, P_THIGH + side, c[P_SHIN + side] * -1.f);
 		parts[P_SHIN + side].bends_from = -0.1f;
 		parts[P_SHIN + side].bends_to = 2.6f;
@@ -203,10 +205,10 @@ Limbs::Limbs(World &world, const Bones &bones, const v3d &foot, float yaw, v3f v
 
 Limbs::~Limbs() { m_world.removeLimbs(m_id); }
 
-void Limbs::drive(const Bones &bones, const v3d &foot, float yaw, float stiff)
+void Limbs::drive(const Bones &bones, const v3d &foot, float yaw, float stiff, float tone)
 {
 	m_asked = bones;
-	m_world.driveLimbs(m_id, inWorld(bones, foot, yaw), stiff);
+	m_world.driveLimbs(m_id, inWorld(bones, foot, yaw), stiff, tone);
 }
 
 void Limbs::read()
@@ -216,6 +218,38 @@ void Limbs::read()
 }
 
 v3d Limbs::hips() const { return m_now[P_HIPS].position; }
+
+float Limbs::inItself() const
+{
+	const std::vector<LimbSpec> parts = specs();
+	float deepest = 0;
+	const v3d at = m_now[P_HIPS].position;
+	const auto box = [&](int part, int limb) {
+		core::matrix4 place = fromQuat(m_now[part].rotation), un;
+		place.setTranslation(v3f::from(m_now[part].position - at));
+		place.getInverse(un);
+		core::matrix4 turn = fromQuat(m_now[limb].rotation);
+		turn.setTranslation(v3f::from(m_now[limb].position - at));
+		for (const float along : { -1.f, 0.f, 1.f }) {
+			v3f p = turn.transformVect(v3f(0, parts[limb].half.Y * along, 0));
+			un.transformVect(p);
+			const v3f h = parts[part].half;
+			deepest = std::max(deepest, std::min({ h.X - std::fabs(p.X), h.Y - std::fabs(p.Y), h.Z - std::fabs(p.Z) }));
+		}
+	};
+	for (int side : { 0, 1 }) {
+		for (const int part : { P_CHEST, P_HIPS, P_HEAD }) {
+			if (part != P_CHEST)
+				box(part, P_UPPER + side);
+			box(part, P_FORE + side);
+			if (part != P_HIPS && part != P_CHEST)
+				box(part, P_THIGH + side);
+			if (part != P_HIPS)
+				box(part, P_SHIN + side);
+		}
+	}
+	return deepest;
+}
 
 Bones Limbs::drawn(const v3d &foot, float yaw, float t) const
 {

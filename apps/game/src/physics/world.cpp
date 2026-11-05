@@ -104,7 +104,7 @@ public:
 			/* carr.  */ { true, true, false, true, false, false, false },
 			/* wheel  */ { false, false, true, false, false, false, false },
 			/* tyre   */ { true, true, false, false, false, false, false },
-			/* limb   */ { true, true, false, false, false, false, false },
+			/* limb   */ { true, true, false, false, false, false, true },
 		};
 		return TOUCH[a][b];
 	}
@@ -294,8 +294,9 @@ struct World::Impl
 	{
 		std::vector<BodyID> bodies;
 		std::vector<Ref<Constraint>> joints;
+		std::vector<int> parents;
 		std::vector<Pose> to;
-		float stiff = 1;
+		float stiff = 1, tone = 0;
 	};
 	std::map<LimbsId, Limbs> figures;
 	LimbsId next_limbs = 1;
@@ -323,6 +324,20 @@ struct World::Impl
 					Vec3 spin = axis * std::min(angle / CATCH_UP, FASTEST_TURN);
 					go = limp + (want - limp) * f.stiff;
 					turn = turn + (spin - turn) * f.stiff;
+				}
+				const int parent = f.parents[i];
+				if (f.tone > 0 && parent >= 0 && i < f.to.size()) {
+					constexpr float SETTLES = 6 * (float)STEP;
+					RVec3 unused;
+					JPH::Quat parent_turn;
+					bi().GetPositionAndRotation(f.bodies[parent], unused, parent_turn);
+					const JPH::Quat wanted = parent_turn * quat(f.to[parent].rotation).Conjugated() * quat(f.to[i].rotation);
+					const JPH::Quat off = (wanted * body.GetRotation().Conjugated()).EnsureWPositive();
+					Vec3 axis;
+					float angle;
+					off.GetAxisAngle(axis, angle);
+					const Vec3 spin = axis * std::min(angle / SETTLES, FASTEST_TURN) + bi().GetAngularVelocity(f.bodies[parent]);
+					turn = turn + (spin - turn) * f.tone;
 				}
 				body.SetLinearVelocity(go);
 				body.SetAngularVelocity(turn);
@@ -1545,8 +1560,17 @@ std::vector<std::pair<World::Id, v3f>> World::pushes(CharId id)
 World::LimbsId World::addLimbs(const std::vector<LimbSpec> &parts, const std::vector<Pose> &built, const std::vector<Pose> &at, v3f velocity)
 {
 	Impl::Limbs f;
+	const LimbsId id = m->next_limbs++;
+	Ref<GroupFilterTable> keeps_out = new GroupFilterTable((uint)parts.size());
+	for (size_t i = 0; i < parts.size(); i++) {
+		if (parts[i].parent >= 0)
+			keeps_out->DisableCollision(parts[i].parent, (int)i);
+		for (const int other : parts[i].passes)
+			keeps_out->DisableCollision(other, (int)i);
+	}
 	for (size_t i = 0; i < parts.size(); i++) {
 		const LimbSpec &p = parts[i];
+		f.parents.push_back(p.parent);
 		Ref<ShapeSettings> shape;
 		if (p.capsule)
 			shape = new CapsuleShapeSettings(p.half.Y, p.half.X);
@@ -1557,6 +1581,7 @@ World::LimbsId World::addLimbs(const std::vector<LimbSpec> &parts, const std::ve
 		s.mMassPropertiesOverride.mMass = p.mass;
 		s.mAllowSleeping = false;
 		s.mMotionQuality = EMotionQuality::LinearCast;
+		s.mCollisionGroup = CollisionGroup(keeps_out, id, (CollisionGroup::SubGroupID)i);
 		s.mFriction = 0.7f;
 		s.mRestitution = 0;
 		s.mLinearDamping = 0.05f;
@@ -1603,7 +1628,6 @@ World::LimbsId World::addLimbs(const std::vector<LimbSpec> &parts, const std::ve
 		m->bi().SetLinearAndAngularVelocity(f.bodies[i], vec(velocity), Vec3::sZero());
 	}
 	f.to = at;
-	const LimbsId id = m->next_limbs++;
 	m->figures[id] = std::move(f);
 	return id;
 }
@@ -1622,11 +1646,12 @@ void World::removeLimbs(LimbsId id)
 	m->figures.erase(it);
 }
 
-void World::driveLimbs(LimbsId id, const std::vector<Pose> &to, float stiff)
+void World::driveLimbs(LimbsId id, const std::vector<Pose> &to, float stiff, float tone)
 {
 	Impl::Limbs &f = m->figures.at(id);
 	f.to = to;
 	f.stiff = stiff;
+	f.tone = tone;
 }
 
 std::vector<Pose> World::limbs(LimbsId id) const

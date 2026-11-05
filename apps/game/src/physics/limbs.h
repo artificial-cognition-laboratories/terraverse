@@ -25,12 +25,14 @@ public:
 	Limbs &operator=(const Limbs &) = delete;
 
 	// One physics step's asking, made before it runs.
-	void drive(const Bones &bones, const v3d &foot, float yaw, float stiff);
+	void drive(const Bones &bones, const v3d &foot, float yaw, float stiff, float tone);
 	// Where the parts got to. Call after the step: keeps this and the last, to draw between.
 	void read();
 	// As the figure at this foot and yaw draws them, `t` (0..1) between the last two steps.
 	Bones drawn(const v3d &foot, float yaw, float t) const;
 	v3d hips() const; // where they are now, in the world
+	// How deep the deepest limb's middle or end is in its chest, hips or head (nodes): it should keep out.
+	float inItself() const;
 
 private:
 	World &m_world;

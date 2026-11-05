@@ -91,7 +91,7 @@ void Mover::handsAt(const Ledge &ledge, v3f &right, v3f &left) const
 {
 	// shoulder width along the edge, wrists just over it. Facing the wall, +x is the side
 	// that's right of someone looking in along -normal.
-	constexpr float APART = 0.34f, ABOVE = 0.06f; // (outside the shoulders, clear of the head)
+	constexpr float APART = 0.3f, ABOVE = 0.06f; // (outside the shoulders, clear of the head)
 	const v3f along(-ledge.normal.Z, 0, ledge.normal.X);
 	const v3f at = ledge.lip + v3f(0, ABOVE, 0);
 	right = keepOnEdge(ledge, at + along * APART);
@@ -403,7 +403,9 @@ v3f Mover::climbStep(const Input &in, const v3d &foot)
 	constexpr float HANDS_OUT = 0.42f;
 	const float right = in.right;
 	const v3f along(-ledge.normal.Z, 0, ledge.normal.X);
-	const v3f moved = ledge.lip + along * (right * tuning().shimmy * dt);
+	// It's the arms that move it: pulled along on both hands, hardly going with one in the air.
+	const float pull = m_hands.moving() >= 0 ? 0.5f : 1.3f;
+	const v3f moved = ledge.lip + along * (right * tuning().shimmy * pull * dt);
 	const v3f lookout = moved + along * (right > 0 ? HANDS_OUT : -HANDS_OUT);
 	const Solid &solid = m_opts.solid;
 	if (ledgeGoesOn(solid, lookout, ledge.normal))

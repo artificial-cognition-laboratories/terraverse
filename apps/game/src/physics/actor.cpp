@@ -237,15 +237,15 @@ void Actor::poseAndDrive(float dt, float turned)
 	const Bones asked = m_posing.pose(dt, toFigure(moving), 0, !now.on_ground, m_mover->stance(), turned, face, m_mover->wallLean(m_yaw), contacts,
 			[&](v3f f) { return groundAt(at + toWorld(f)) - at.Y; },
 			[&](v3f p, float r) { return toFigure(clearOf(at + toWorld(p), r)); });
-	// Down it's limp, and it stiffens again as it gets up.
-	constexpr float HELD = 0.9f, LIMP = 0.02f;
-	const float wanted = m_mover->stance() != Stance::DOWN ? HELD : LIMP + (HELD - LIMP) * contacts.rising;
+	// Down it lets go of where the pose is, keeping only its shape, and takes hold again as it gets up.
+	constexpr float HELD = 0.9f, TONE = 0.3f;
+	const float wanted = m_mover->stance() != Stance::DOWN ? HELD : HELD * contacts.rising;
 	m_stiff = wanted < m_stiff ? wanted : std::min(wanted, m_stiff + dt * 4);
 	if (!m_limbs) {
 		m_limbs = std::make_unique<Limbs>(*m_world, asked, foot, m_yaw, now.velocity);
 		m_limbs->read();
 	}
-	m_limbs->drive(asked, foot, m_yaw, m_stiff);
+	m_limbs->drive(asked, foot, m_yaw, m_stiff, TONE);
 }
 
 } // namespace physics

@@ -200,7 +200,29 @@ Bones Posing::pose(float dtime, v3f velocity, float pitch, bool airborne, Stance
 	}
 	const Joints j = m_poser.step(dtime, in);
 
-	const Bones b = m_skeleton.place(dtime, j, tilt, grip, m_clear);
+	Bones b = m_skeleton.place(dtime, j, tilt, grip, m_clear);
+	// Down, it's the shape it holds that's asked: legs out, a little bent, not under it.
+	if (stance == Stance::DOWN && contacts.rising <= 0)
+		for (int side : { 0, 1 }) {
+			b.thigh[side].turn = v3f(-20, 0, side == 0 ? 8.f : -8.f);
+			b.shin[side].turn = v3f(30, 0, 0);
+		}
+	// On the ground whole, the lowest of it rests on it: it's lifted till nothing's asked to be in the floor.
+	if (stance == Stance::ROLL || stance == Stance::DOWN || stance == Stance::PRONE || stance == Stance::SLIDE) {
+		constexpr float RESTS = 0.02f, FLOOR_NOT_WALL = 0.3f;
+		float under = 0;
+		eachBoneBox(b, [&](const core::matrix4 &m, v3f size, v3f centre, BoneColour) {
+			for (const float x : { -0.5f, 0.5f })
+				for (const float y : { -0.5f, 0.5f })
+					for (const float z : { -0.5f, 0.5f }) {
+						const v3f at = m.transformVect(centre + v3f(size.X * x, size.Y * y, size.Z * z));
+						const float floor = ground(at);
+						if (floor <= FLOOR_NOT_WALL)
+							under = std::max(under, floor + RESTS - at.Y);
+					}
+		});
+		b.lower.at.Y += under;
+	}
 	// Its head and shoulders go round what they meet. Asked where they'd be without the last
 	// answer, so being moved clear doesn't read as there being nothing to clear.
 	const bool upright = stance != Stance::ROLL && stance != Stance::PRONE && stance != Stance::SLIDE && stance != Stance::DOWN;
