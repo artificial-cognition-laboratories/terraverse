@@ -42,6 +42,7 @@ public:
 	void testReach();
 	void testArmReachesThePoint();
 	void testHandOverHand();
+	void testStrideGoesOnFromAStepUp();
 	void testHangingHandsReach();
 	void testHigherBodyGoesOver();
 	void testMovesGoByVelocity();
@@ -77,6 +78,7 @@ void TestPose::runTests(IGameDef *gamedef)
 	TEST(testReach);
 	TEST(testArmReachesThePoint);
 	TEST(testHandOverHand);
+	TEST(testStrideGoesOnFromAStepUp);
 	TEST(testHangingHandsReach);
 	TEST(testHigherBodyGoesOver);
 	TEST(testMovesGoByVelocity);
@@ -485,6 +487,26 @@ void TestPose::testHandOverHand()
 	for (int i = 0; i < 240; i++) {
 		hands.step(1.f / 120, body + apart, body - apart);
 		UASSERT(hands.moving() < 0);
+	}
+}
+
+void TestPose::testStrideGoesOnFromAStepUp()
+{
+	// whichever leg went up on the top, running off it that leg's the one on the ground, the other coming through
+	for (const int feet : { 0, 1 }) {
+		Poser p;
+		PoseIn up;
+		up.stance = Stance::MANTLE;
+		up.moving = v3f(0, 0, 3);
+		up.steps = true;
+		up.step_on = v3f(0, 0.3f, 0.2f);
+		up.feet = feet;
+		for (int i = 0; i < 30; i++)
+			p.step(1.f / 60, up);
+		PoseIn run;
+		run.moving = v3f(0, 0, 6);
+		const Joints j = p.step(1.f / 60, run);
+		UASSERT(j.planted[feet] && !j.planted[1 - feet]);
 	}
 }
 

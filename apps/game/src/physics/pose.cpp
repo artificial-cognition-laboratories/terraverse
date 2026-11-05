@@ -308,6 +308,10 @@ Joints Poser::step(float dt, const PoseIn &in)
 	const float landing = std::clamp(1 - until / 0.3f, 0.f, 1.f);
 	const float push = std::min(in.push.getLength(), 1.f);
 	const v3f pushed = push > 0.01f ? intoTurned(in.push, m_twist) / in.push.getLength() : v3f(0);
+	// A foot up on something is a step in its stride, late on as the body goes over it: what follows is
+	// the other leg coming through, not this one thrown across again.
+	if (in.steps && in.feet != 2)
+		m_phase = std::fmod((in.feet == 1 || (in.feet < 0 && m_lead == 1) ? 0.5f : 0.f) + 0.4f + 1.f, 1.f);
 	for (int side : { 0, 1 }) {
 		// half a stride apart. On the ground for half of one, moving back exactly as
 		// fast as the body goes on: that's what stops it skating.
