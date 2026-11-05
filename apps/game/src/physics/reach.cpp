@@ -230,6 +230,47 @@ std::optional<v3f> Haul::stepOn() const
 
 v3f Haul::exit() const { return m_ledge.inward() * m_pace; }
 
+bool Haul::handsOn() const
+{
+	constexpr float ON = 0.25f;
+	if (!m_felt)
+		return true;
+	const v3f in = m_ledge.inward(), sideways(-in.Z, 0, in.X);
+	for (const int side : { 0, 1 }) {
+		v3f off = m_felt->wrist[side] - m_ledge.lip;
+		off -= sideways * off.dotProduct(sideways); // (spread along the edge is where they should be)
+		if (off.getLength() > ON)
+			return false;
+	}
+	return true;
+}
+
+bool Haul::footOn() const
+{
+	constexpr float ON = 0.25f;
+	if (!m_felt)
+		return true;
+	const v3f top = m_ledge.lip + m_ledge.inward() * 0.2f, in = m_ledge.inward(), sideways(-in.Z, 0, in.X);
+	for (const int side : { 0, 1 }) {
+		v3f off = m_felt->foot[side] - top;
+		off -= sideways * off.dotProduct(sideways);
+		if (off.getLength() <= ON)
+			return true;
+	}
+	return false;
+}
+
+bool Haul::waiting(float dt)
+{
+	constexpr float WAITS = 0.6f;
+	m_waited += dt;
+	if (m_waited < WAITS)
+		return true;
+	m_gave_up = true;
+	m_waited = 0;
+	return false;
+}
+
 void Haul::step(float dt)
 {
 	// Its arms: stiff enough to stop a person, not so stiff it's a snap. Critically damped.
@@ -253,8 +294,10 @@ void Haul::step(float dt)
 			v3f to = m_hung;
 			to.Y = std::min(m_hung.Y, m_at.Y);
 			m_velocity += toward(to) * dt;
-			if (m_velocity.Y >= -STOPPED)
+			if (m_velocity.Y >= -STOPPED && (handsOn() || !waiting(dt))) {
+				m_waited = 0;
 				m_phase = Phase::PULL;
+			}
 		} else if (m_velocity += toward(m_hung) * dt; ((m_hung - m_at).getLength() < 0.03f && m_velocity.getLength() < 0.3f) || m_time > 1.5f) {
 			m_at = m_hung;
 			m_velocity = v3f(0);
@@ -281,7 +324,12 @@ void Haul::step(float dt)
 		if (left <= 0.02f) {
 			m_at.Y = m_on.Y;
 			m_velocity.Y = 0;
-			m_phase = Phase::DRIVE;
+			if (footOn() || !waiting(dt)) {
+				m_waited = 0;
+				m_phase = Phase::DRIVE;
+			} else {
+				m_velocity = v3f(0); // stood up on its arms till the foot's there
+			}
 		}
 		break;
 	}

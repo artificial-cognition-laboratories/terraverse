@@ -71,6 +71,12 @@ struct ClimbPath
 constexpr float VAULT_PACE = 4.5f, VAULT_KEEPS = 0.85f; // nodes/s; × what it came in with
 ClimbPath climbPath(const Move &move, const Ledge &ledge, v3f foot, float radius, float pace = 4);
 
+// Where a body's hands and feet really are (sprint 105): what the moves wait on. Without it they go by the clock.
+struct Felt
+{
+	v3f wrist[2], foot[2];
+};
+
 // A body taking hold of an edge, moved by forces rather than along a curve (sprint 123), so how it
 // arrives decides how it goes. Caught: its hands stay, and what it arrived with is taken up by its
 // arms, sagging under them if it was falling. Pulled: its back and arms throw it up, slow and then
@@ -84,6 +90,12 @@ public:
 	// From hanging still, straight into the pull.
 	static Haul pullUp(const Ledge &ledge, v3f foot, float radius);
 	void step(float dt);
+	// What its limbs did, for the next step: its hands have to be on before it pulls, a foot on top before it drives.
+	void feel(const Felt &felt) { m_felt = felt; }
+	bool handsOn() const;
+	bool footOn() const;
+	// A contact it waited for and never made: it went on without.
+	bool gaveUp() const { return m_gave_up; }
 	Phase phase() const { return m_phase; }
 	v3f at() const { return m_at; }
 	v3f velocity() const { return m_velocity; }
@@ -101,8 +113,10 @@ public:
 private:
 	Ledge m_ledge;
 	v3f m_at, m_velocity, m_hung, m_on;
-	float m_floor, m_pace, m_time = 0;
-	bool m_pull;
+	float m_floor, m_pace, m_time = 0, m_waited = 0;
+	bool m_pull, m_gave_up = false;
+	std::optional<Felt> m_felt;
+	bool waiting(float dt); // for a contact that isn't made: true while it's worth it
 	Phase m_phase = Phase::CATCH;
 };
 

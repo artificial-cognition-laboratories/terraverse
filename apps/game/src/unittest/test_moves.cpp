@@ -138,7 +138,7 @@ void TestMoves::testBonesStayOut()
 			}
 		}
 		std::cout << "sunk " << move["id"].asString() << ": " << deepest << " at " << when << " s, "
-				<< deep_frames << "/" << frames << " frames past 0.05, in itself " << in_itself << ", head within " << apart;
+				<< deep_frames << "/" << frames << " frames past 0.05, in itself " << in_itself << ", head within " << apart << ", contacts missed " << course.actor().gaveUp();
 		if (was_down)
 			std::cout << ", up again head at " << tallest_after_down;
 		std::cout << std::endl;

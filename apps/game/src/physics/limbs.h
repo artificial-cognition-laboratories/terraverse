@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "physics/reach.h"
 #include "physics/skeleton.h"
 #include "physics/world.h"
 #include <vector>
@@ -30,6 +31,7 @@ public:
 	void read();
 	// As the figure at this foot and yaw draws them, `t` (0..1) between the last two steps.
 	Bones drawn(const v3d &foot, float yaw, float t) const;
+	Felt felt() const; // where its hands and feet are now
 	v3d hips() const; // where they are now, in the world
 	// How deep the deepest limb's middle or end is in its chest, hips or head (nodes): it should keep out.
 	float inItself() const;

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "test.h"
+#include <functional>
 
 #include "physics/pose.h"
 #include "physics/reach.h"
@@ -617,6 +618,38 @@ void TestPose::testHaul()
 	// its feet above where it'd hang, coming down or still: it always goes on (this once held it there for good)
 	for (const v3f v : { v3f(0, -2, 3), v3f(0, -0.1f, 0), v3f(0) })
 		UASSERT(run(v3f(0, 1.6f, -0.5f), v, true, low, hard) < 2.5f); // (a pull takes its time)
+	// it pulls when its hands are on, not before; it drives when a foot's on top, not before
+	{
+		const Ledge edge{ v3f(0, 0, -1), v3f(0, 2.2f, 0), false, true };
+		const auto until = [&](const std::function<Felt(const Haul &)> &felt, Haul::Phase phase, bool &gave_up) {
+			Haul h(edge, v3f(0, 0.7f, -0.4f), v3f(0), 0.3f, true, 0);
+			int steps = 0;
+			while (h.phase() < phase && steps < 600) {
+				h.feel(felt(h));
+				h.step(1.f / 60);
+				steps++;
+			}
+			gave_up = h.gaveUp();
+			return steps;
+		};
+		Felt on;
+		on.wrist[0] = on.wrist[1] = edge.lip + v3f(0, 0.06f, 0);
+		on.foot[0] = on.foot[1] = edge.lip + v3f(0, 0, 0.2f);
+		Felt away = on;
+		away.wrist[0] = edge.lip + v3f(0, -1, -1);
+		away.foot[0] = away.foot[1] = v3f(0, 0, -3);
+		bool gave_up;
+		const int hands_on = until([&](const Haul &) { return on; }, Haul::Phase::PULL, gave_up);
+		UASSERT(!gave_up);
+		const int hands_off = until([&](const Haul &) { return away; }, Haul::Phase::PULL, gave_up);
+		UASSERT(gave_up && hands_off > hands_on + 20);
+		// hands on, foot never: it's held at the top till it gives up
+		const auto no_foot = [&](const Haul &) { Felt f = on; f.foot[0] = f.foot[1] = v3f(0, 0, -3); return f; };
+		const int foot_on = until([&](const Haul &) { return on; }, Haul::Phase::DRIVE, gave_up);
+		UASSERT(!gave_up);
+		const int foot_off = until(no_foot, Haul::Phase::DRIVE, gave_up);
+		UASSERT(gave_up && foot_off > foot_on + 20);
+	}
 	// not asked to pull: it comes to rest hanging
 	Haul h(l, foot, v3f(0, -3, 0), 0.3f, false, -10);
 	for (int i = 0; i < 180 && !h.done(); i++)

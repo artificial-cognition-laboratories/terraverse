@@ -217,6 +217,21 @@ void Limbs::read()
 	m_now = m_world.limbs(m_id);
 }
 
+Felt Limbs::felt() const
+{
+	const std::array<v3f, PARTS> c = middles();
+	const auto end = [&](int part, float length) {
+		const v3f off = fromQuat(m_now[part].rotation).rotateAndScaleVect(v3f(0, -length * S, 0) - c[part]);
+		return v3f::from(m_now[part].position) + off;
+	};
+	Felt f;
+	for (int side : { 0, 1 }) {
+		f.wrist[side] = end(P_FORE + side, FOREARM);
+		f.foot[side] = end(P_SHIN + side, physics::SHIN);
+	}
+	return f;
+}
+
 v3d Limbs::hips() const { return m_now[P_HIPS].position; }
 
 float Limbs::inItself() const

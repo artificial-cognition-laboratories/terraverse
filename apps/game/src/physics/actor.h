@@ -48,6 +48,7 @@ public:
 	const Bones &bones() const { return m_bones; }
 	// How far its deepest bone corner is inside something solid, as drawn now (nodes).
 	float sunk() const;
+	int gaveUp() const { return m_mover->gaveUp(); }
 	float inItself() const { return m_limbs->inItself(); }
 	v3f head() const; // its head's place against its feet, as drawn
 	Stance stance() const { return m_mover->stance(); }

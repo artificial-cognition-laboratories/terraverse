@@ -194,6 +194,7 @@ void Actor::update(float dt)
 		m_mover->step(in);
 		m_limbs->read();
 		m_mover->bodyAt(m_limbs->hips());
+		m_mover->feel(m_limbs->felt());
 		const Stance after = m_mover->stance();
 		if (after != before)
 			note(stanceName(after));

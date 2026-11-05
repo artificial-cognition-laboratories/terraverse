@@ -340,7 +340,11 @@ v3f Mover::climbStep(const Input &in, const v3d &foot)
 		m_climb->t += dt;
 		if (m_climb->haul) {
 			Haul &haul = *m_climb->haul;
+			if (m_felt)
+				haul.feel(*m_felt);
+			const bool had_given_up = haul.gaveUp();
 			haul.step(dt);
+			m_gave_up += haul.gaveUp() && !had_given_up;
 			if (m_stance == Stance::HANG && haul.phase() != Haul::Phase::CATCH && haul.phase() != Haul::Phase::DONE) {
 				m_stance = Stance::MANTLE;
 				m_opts.world.resize(m_me, stanceInfo(m_stance).height);
