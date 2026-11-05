@@ -51,6 +51,10 @@ public:
 	// The fastest the body went since last asked, and any part against it (nodes/s): a jump's a pop.
 	float takeRush() { const float r = m_rush; m_rush = 0; return r; }
 	float takePop() { const float p = m_pop; m_pop = 0; return p; }
+	// How hard the hips' guide worked: its most (past 1 it couldn't keep up), and on average.
+	float guidedMost() const { return m_guided; }
+	float guidedMean() const { return m_guided_steps ? m_guided_sum / m_guided_steps : 0; }
+	int holdingSteps() const { return m_holding_steps; }
 	int gaveUp() const { return m_mover->gaveUp(); }
 	float inItself() const { return m_limbs->inItself(); }
 	v3f head() const; // its head's place against its feet, as drawn
@@ -76,6 +80,8 @@ private:
 	std::unique_ptr<Limbs> m_limbs;
 	float m_stiff = 1;
 	float m_rush = 0, m_pop = 0;
+	float m_guided = 0, m_guided_sum = 0;
+	int m_guided_steps = 0, m_holding_steps = 0;
 	Posing m_posing;
 	Bones m_bones;
 	Cue m_on;

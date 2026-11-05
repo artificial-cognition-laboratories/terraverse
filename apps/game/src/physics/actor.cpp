@@ -203,6 +203,10 @@ void Actor::update(float dt)
 				m_pop = std::max(m_pop, (now_parts[i] - was_parts[i] - body).getLength() / (float)STEP);
 		}
 		m_mover->bodyAt(m_limbs->hips());
+		m_guided = std::max(m_guided, m_limbs->guided());
+		m_guided_sum += std::min(m_limbs->guided(), 1.f);
+		m_guided_steps++;
+		m_holding_steps += m_limbs->holding(0) || m_limbs->holding(1);
 		m_mover->feel(m_limbs->felt());
 		const Stance after = m_mover->stance();
 		if (after != before)
@@ -228,6 +232,21 @@ void Actor::poseAndDrive(float dt, float turned)
 	const std::optional<float> face = m_mover->wallFace(m_yaw);
 	v3f moving = face ? m_mover->climbSpeed() : now.velocity;
 	std::optional<Grip> grip = m_mover->grip();
+	// Each hand to the hold on its own side, whichever way a move numbered them: the right one's on the right.
+	if (grip && toFigure(grip->wrist[0] - at).X < toFigure(grip->wrist[1] - at).X) {
+		std::swap(grip->wrist[0], grip->wrist[1]);
+		std::swap(grip->held[0], grip->held[1]);
+		if (grip->moving >= 0)
+			grip->moving = 1 - grip->moving;
+	}
+	std::optional<v3f> hands[2];
+	v3f over(0);
+	if (grip && m_mover->gripping() && grip->over.Y < 0.5f) // (on top of an edge; a wall or the floor's met straight)
+		over = grip->over;
+	if (grip && m_mover->gripping())
+		for (const int side : { 0, 1 })
+			if (grip->held[side] && grip->moving != side)
+				hands[side] = grip->wrist[side];
 	if (grip) {
 		for (const int side : { 0, 1 })
 			grip->wrist[side] = toFigure(grip->wrist[side] - at);
@@ -248,14 +267,23 @@ void Actor::poseAndDrive(float dt, float turned)
 			[&](v3f f) { return groundAt(at + toWorld(f)) - at.Y; },
 			[&](v3f p, float r) { return toFigure(clearOf(at + toWorld(p), r)); });
 	// Down it lets go of where the pose is, keeping only its shape, and takes hold again as it gets up.
-	constexpr float HELD = 0.9f, TONE = 0.3f;
-	const float wanted = m_mover->stance() != Stance::DOWN ? HELD : HELD * contacts.rising * contacts.rising; // (its arms first)
-	m_stiff = wanted < m_stiff ? wanted : std::min(wanted, m_stiff + dt * 4);
+	constexpr float HELD = 1, TONE = 0.9f, LIMP = 0.3f;
+	// (a climb's still a path its hands are held to, till each is a plan of contacts: it has more help)
+	const Stance st = m_mover->stance();
+	const float CLIMB = 1.5f;
+	const float held = st == Stance::VAULT || st == Stance::MANTLE || st == Stance::HANG || st == Stance::WALL_RUN ? CLIMB : HELD;
+	float wanted = st != Stance::DOWN ? held : HELD * contacts.rising * contacts.rising; // (its arms first)
+	// hung by both hands, its hands carry it: the guide only keeps it from wandering off
+	constexpr float HUNG = 0.25f;
+	if (st == Stance::HANG && m_limbs && m_limbs->holding(0) && m_limbs->holding(1))
+		wanted = HUNG;
+	m_stiff = wanted < m_stiff ? wanted : std::min(wanted, m_stiff + dt * 8);
 	if (!m_limbs) {
 		m_limbs = std::make_unique<Limbs>(*m_world, asked, foot, m_yaw, now.velocity);
 		m_limbs->read();
 	}
-	m_limbs->drive(asked, foot, m_yaw, m_stiff, TONE);
+	m_limbs->hold(hands, over);
+	m_limbs->drive(asked, foot, m_yaw, m_stiff, m_mover->stance() == Stance::DOWN && contacts.rising <= 0 ? LIMP : TONE);
 }
 
 } // namespace physics

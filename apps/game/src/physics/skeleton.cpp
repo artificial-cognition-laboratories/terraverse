@@ -101,6 +101,35 @@ Bones Skeleton::place(float dt, const Joints &j, float tilt, const Grip *grip, v
 	for (int side : { 0, 1 }) {
 		const float x = side ? -1.f : 1.f;
 		b.thigh[side] = { v3f(HIP_WIDE * x, HIP_HEIGHT - j.drop, 0) * S, v3f(j.hip[side] * DEG, 0, j.hip_out[side] * DEG) };
+		if (j.crawl[side] >= 0) {
+			// Crawling, the leg's laid out along the floor behind: the thigh back and, drawn up, out to the side, the
+			// shin back in under it. Both just off the floor; the knee bends in the plane they make, as a knee does.
+			constexpr float OFF_FLOOR = 0.08f;
+			const float up = j.crawl[side];
+			const v3f hip = b.thigh[side].at;
+			const float out = 1.5f * up;
+			const float t_len = THIGH * S, s_len = physics::SHIN * S;
+			v3f d(x * std::sin(out), 0, -std::cos(out));
+			d.Y = std::clamp((OFF_FLOOR - hip.Y) / t_len, -0.9f, 0.f);
+			d.normalize();
+			const v3f knee = hip + d * t_len;
+			v3f sd(-x * 0.2f * up, 0, -1);
+			sd.Y = std::clamp((OFF_FLOOR - knee.Y) / s_len, -0.9f, 0.9f);
+			sd.normalize();
+			v3f across = d.crossProduct(sd);
+			if (across.getLengthSQ() < 1e-4f)
+				across = v3f(1, 0, 0);
+			across.normalize();
+			if (across.crossProduct(d * -1.f).Y > 0) // (the front of the thigh to the floor, as it lies)
+				across *= -1.f;
+			const core::matrix4 thigh = axes(across, d * -1.f, across.crossProduct(d * -1.f));
+			const core::matrix4 shin = axes(across, sd * -1.f, across.crossProduct(sd * -1.f));
+			core::matrix4 undo_thigh;
+			thigh.getInverse(undo_thigh);
+			b.thigh[side].turn = thigh.getRotationDegrees();
+			b.shin[side].turn = (undo_thigh * shin).getRotationDegrees();
+		}
+
 		b.shin[side] = { v3f(0, -THIGH * S, 0), v3f(j.knee[side] * DEG, 0, 0) };
 		b.upper[side] = { v3f(SHOULDER_OUT * x, SHOULDER_UP, 0) * S, v3f(j.shoulder[side] * DEG, 0, j.shoulder_out[side] * DEG) };
 		b.fore[side] = { v3f(0, -UPPER_ARM * S, 0), v3f(j.elbow[side] * DEG, 0, 0) };
@@ -202,11 +231,7 @@ Bones Posing::pose(float dtime, v3f velocity, float pitch, bool airborne, Stance
 	}
 	const Joints j = m_poser.step(dtime, in);
 
-	// Hung, the chest's against the wall, not held out where the capsule is: asked a little into it, the wall stops it.
-	v3f in_to_wall(0);
-	if (stance == Stance::HANG && face)
-		in_to_wall = v3f(std::sin(*face), 0, std::cos(*face)) * 0.2f;
-	Bones b = m_skeleton.place(dtime, j, tilt, grip, m_clear + in_to_wall);
+	Bones b = m_skeleton.place(dtime, j, tilt, grip, m_clear);
 	// Down, it's the shape it holds that's asked: legs out, a little bent, not under it.
 	if (stance == Stance::DOWN && contacts.rising <= 0)
 		for (int side : { 0, 1 }) {

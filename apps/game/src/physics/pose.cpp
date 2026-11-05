@@ -444,9 +444,8 @@ Joints Poser::step(float dt, const PoseIn &in)
 		for (int side : { 0, 1 }) {
 			const float way = side ? -1.f : 1.f;
 			const float up = std::max(0.f, side ? -c : c) * m_stride.at;
-			out.hip[side] = -0.75f * up;
-			out.hip_out[side] = way * (0.1f + 0.95f * up);
-			out.knee[side] = 0.15f + 1.7f * up;
+			out.crawl[side] = up;
+			(void)way;
 		}
 	}
 	out.waist = key.waist + (in.stance == Stance::DOWN ? 0.9f * std::sin(PI * in.rising) : 0.f);
@@ -465,7 +464,7 @@ Joints Poser::step(float dt, const PoseIn &in)
 			const float c = std::sin(m_phase * 2 * PI) * m_stride.at;
 			const float reach = std::max(0.f, side ? c : -c), pull = 1 - reach;
 			out.shoulder[side] = key.arm - key.waist + 0.35f * pull;
-			out.shoulder_out[side] = (0.35f + 0.6f * pull) * way;
+			out.shoulder_out[side] = -(0.35f + 0.6f * pull) * way; // (the arm's ahead, over the head: out's the other way about)
 			out.elbow[side] = -(0.4f + 1.3f * pull);
 		}
 	}

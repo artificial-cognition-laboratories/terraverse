@@ -14,6 +14,7 @@ namespace {
 constexpr float S = FIGURE_SCALE;
 // A little inside what's drawn: limbs touch where they look to, and don't catch on block edges.
 constexpr float SLIM = 0.85f;
+constexpr float FOREARM_THICK = BONE_NARROW / 2 * S * SLIM; // a hand's on top of what it holds: its wrist that far over
 
 enum Part { P_HIPS, P_CHEST, P_HEAD, P_THIGH, P_SHIN = P_THIGH + 2, P_UPPER = P_SHIN + 2, P_FORE = P_UPPER + 2, PARTS = P_FORE + 2 };
 
@@ -150,26 +151,32 @@ std::vector<LimbSpec> specs()
 	parts[P_CHEST].parent = P_HIPS;
 	parts[P_CHEST].joint = c[P_CHEST] * -1.f;
 	parts[P_CHEST].cone = 0.8f;
+	parts[P_CHEST].strength = 400;
 	parts[P_HEAD].half = v3f(HEAD_SIZE) * (S * SLIM / 2);
 	parts[P_HEAD].mass = 5;
 	parts[P_HEAD].parent = P_CHEST;
 	parts[P_HEAD].joint = c[P_HEAD] * -1.f;
 	parts[P_HEAD].cone = 0.7f;
+	parts[P_HEAD].strength = 60;
 	for (int side : { 0, 1 }) {
 		parts[P_THIGH + side] = limb(BONE_WIDE, physics::THIGH, 10, P_HIPS, c[P_THIGH + side] * -1.f);
 		// a hip swings a long way forward, a little back; a shoulder up and forward, hardly behind
 		parts[P_THIGH + side].cone = 1.4f;
+		parts[P_THIGH + side].strength = 450;
 		parts[P_THIGH + side].cone_axis = v3f(0, -0.7f, 0.7f);
 		parts[P_THIGH + side].passes = { P_CHEST }; // (bending at the hips brings them together: that's the hips' to stop)
 		parts[P_SHIN + side] = limb(BONE_NARROW, physics::SHIN, 5, P_THIGH + side, c[P_SHIN + side] * -1.f);
 		parts[P_SHIN + side].bends_from = -0.1f;
 		parts[P_SHIN + side].bends_to = 2.6f;
+		parts[P_SHIN + side].strength = 400;
 		parts[P_UPPER + side] = limb(BONE_WIDE, UPPER_ARM, 3, P_CHEST, c[P_UPPER + side] * -1.f);
 		parts[P_UPPER + side].cone = 1.85f;
+		parts[P_UPPER + side].strength = 150;
 		parts[P_UPPER + side].cone_axis = v3f(0, -0.26f, 0.97f);
 		parts[P_FORE + side] = limb(BONE_NARROW, FOREARM, 2, P_UPPER + side, c[P_FORE + side] * -1.f);
 		parts[P_FORE + side].bends_from = -2.6f; // (an elbow bends one way)
 		parts[P_FORE + side].bends_to = 0.05f;
+		parts[P_FORE + side].strength = 100;
 	}
 	return parts;
 }
@@ -219,6 +226,16 @@ void Limbs::read()
 	m_was = std::move(m_now);
 	m_now = m_world.limbs(m_id);
 }
+
+void Limbs::hold(const std::optional<v3f> (&hands)[2], v3f over)
+{
+	const std::array<v3f, PARTS> c = middles();
+	for (int side : { 0, 1 })
+		m_world.reachWith(m_id, P_FORE + side, v3f(0, -FOREARM * S, 0) - c[P_FORE + side],
+				hands[side] ? std::optional<v3d>(v3d::from(*hands[side] + v3f(0, FOREARM_THICK, 0))) : std::nullopt, over);
+}
+
+bool Limbs::holding(int side) const { return m_world.holding(m_id, P_FORE + side); }
 
 Felt Limbs::felt() const
 {
@@ -307,6 +324,9 @@ Bones Limbs::drawn(const v3d &foot, float yaw, float t) const
 		out.shin[side] = against(bone(P_THIGH + side), bone(P_SHIN + side));
 		out.upper[side] = against(chest, bone(P_UPPER + side));
 		out.fore[side] = against(bone(P_UPPER + side), bone(P_FORE + side));
+		// (a hand's not a part of its own: only one that's holding is turned over onto what it holds)
+		if (!holding(side))
+			out.hand[side].turn = v3f(0);
 	}
 	return out;
 }

@@ -124,6 +124,7 @@ struct Joints
 	float swing_back = 0, swing_side = 0; // hanging: swung about its hands (radians: feet back from what it faces, feet to its right)
 	float lean_ahead = 0, lean_right = 0; // the upper body into how it's speeding up or turning, over the feet (radians)
 	float hip[2]{}, hip_out[2]{}, knee[2]{};
+	float crawl[2]{ -1, -1 }; // lying, crawling: how far each knee's drawn up the side along the floor (0..1), or -1
 	float shoulder[2]{}, shoulder_out[2]{}, elbow[2]{};
 	v3f foot[2];        // where each foot was asked to be
 	bool planted[2]{};  // it's on the ground, carrying the body

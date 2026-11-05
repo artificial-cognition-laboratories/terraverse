@@ -30,8 +30,12 @@
 #include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
 #include <Jolt/Physics/Constraints/HingeConstraint.h>
+#include <Jolt/Physics/Constraints/MotorSettings.h>
+#include <Jolt/Physics/Constraints/PointConstraint.h>
 #include <Jolt/Physics/Constraints/SwingTwistConstraint.h>
 #include <Jolt/Physics/Constraints/HingeConstraint.h>
+#include <Jolt/Physics/Constraints/MotorSettings.h>
+#include <Jolt/Physics/Constraints/PointConstraint.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Physics/Vehicle/VehicleCollisionTester.h>
 #include <Jolt/Physics/Vehicle/VehicleConstraint.h>
@@ -295,17 +299,112 @@ struct World::Impl
 		std::vector<BodyID> bodies;
 		std::vector<Ref<Constraint>> joints;
 		std::vector<int> parents;
-		std::vector<Pose> to;
+		std::vector<Ref<Constraint>> joint_of; // each part's to its parent (none for the hips)
+		std::vector<float> strength;
+		float motors_tone = -1;           // what the motors were last set to
+		struct Reach
+		{
+			Vec3 point;                   // on the part
+			Vec3 over = Vec3::sZero();
+			std::optional<RVec3> to;
+			Ref<Constraint> held;         // got there: held to it
+			RVec3 held_at;
+		};
+		std::map<size_t, Reach> reaches;
+		std::vector<Pose> to, was_to;
 		float stiff = 1, tone = 0;
+		float used = 0; // of the guide, last step: 1 or more, it couldn't keep up
 	};
 	std::map<LimbsId, Limbs> figures;
 	LimbsId next_limbs = 1;
 
 	// Each part's velocity set to what gets it where it's to be, so what's in the way still stops it.
+	// Muscles, not strings (sprint 105). Each part's turned against its parent toward how the pose has them,
+	// however the whole has gone: nothing pulls a hand or a foot to a place. Only the hips are guided toward
+	// where the body's asked to be, and by no more than GUIDE: what that can't do, the body doesn't do.
+	// Its muscles: each joint's motor turned toward how the pose has that part against its parent, as strong as
+	// that joint is by `tone`. They act in the solver, against whatever's on them.
+	void muscles(Limbs &f)
+	{
+		constexpr float QUICK = 9; // Hz: a limb gets where it's going in about a tenth of a second
+		if (f.motors_tone != f.tone) {
+			f.motors_tone = f.tone;
+			for (size_t i = 0; i < f.joint_of.size(); i++) {
+				Constraint *c = f.joint_of[i].GetPtr();
+				if (!c)
+					continue;
+				const MotorSettings m(QUICK * std::sqrt(std::max(f.tone, 0.01f)), 1, 0, f.strength[i] * f.tone);
+				const EMotorState state = f.tone > 0 ? EMotorState::Position : EMotorState::Off;
+				if (auto *h = dynamic_cast<HingeConstraint *>(c)) {
+					h->GetMotorSettings() = m;
+					h->SetMotorState(state);
+				} else if (auto *t = dynamic_cast<SwingTwistConstraint *>(c)) {
+					t->GetSwingMotorSettings() = m;
+					t->GetTwistMotorSettings() = m;
+					t->SetSwingMotorState(state);
+					t->SetTwistMotorState(state);
+				}
+			}
+		}
+		if (f.to.size() < f.joint_of.size())
+			return;
+		for (size_t i = 0; i < f.joint_of.size(); i++) {
+			Constraint *c = f.joint_of[i].GetPtr();
+			if (!c)
+				continue;
+			// (built standing, every part square: so how it's turned against its parent is the joint's own turn)
+			const JPH::Quat against = (quat(f.to[f.parents[i]].rotation).Conjugated() * quat(f.to[i].rotation)).Normalized();
+			if (auto *h = dynamic_cast<HingeConstraint *>(c))
+				h->SetTargetAngle(2 * std::atan2(against.GetX(), against.GetW()));
+			else if (auto *t = dynamic_cast<SwingTwistConstraint *>(c))
+				t->SetTargetOrientationBS(against);
+		}
+	}
+
+	// Hands for holds: reaching with an arm's strength, then held by a joint to the world where they got to.
+	void reach(Limbs &f)
+	{
+		constexpr float TAKES_HOLD = 0.25f, LETS_GO = 0.25f, ARM = 8, QUICK = 0.08f; // nodes, nodes, nodes/s at most, s
+		for (auto &[part, r] : f.reaches) {
+			BodyLockWrite lock(system.GetBodyLockInterfaceNoLock(), f.bodies[part]);
+			JPH::Body &body = lock.GetBody();
+			const RVec3 at = body.GetCenterOfMassTransform() * r.point;
+			if (r.held && (!r.to || Vec3(*r.to - r.held_at).Length() > LETS_GO)) {
+				system.RemoveConstraint(r.held);
+				r.held = nullptr;
+			}
+			if (!r.to || r.held)
+				continue;
+			const Vec3 off(*r.to - at);
+			// still under it and short of it: up past the edge first, a little out from it
+			const Vec3 flat(off.GetX(), 0, off.GetZ());
+			const bool under = off.GetY() > -0.02f && flat.Length() > TAKES_HOLD && r.over.LengthSq() > 0;
+			const Vec3 aim = under ? off + Vec3(0, 0.22f, 0) - r.over * 0.12f : off;
+			if (off.Length() < TAKES_HOLD) {
+				// held to the hold itself, not where the hand got to: what's left between them the arm pulls up
+				PointConstraintSettings p;
+				p.mPoint1 = *r.to;
+				p.mPoint2 = at;
+				r.held = p.Create(JPH::Body::sFixedToWorld, body);
+				r.held_at = *r.to;
+				system.AddConstraint(r.held);
+				continue;
+			}
+			Vec3 go = aim / QUICK;
+			if (go.Length() > ARM)
+				go = go.Normalized() * ARM;
+			// (the point's velocity made that: the part goes as a whole, what turning it would add left to the arm)
+			body.SetLinearVelocity(body.GetLinearVelocity() + (go - body.GetPointVelocity(at)));
+		}
+	}
+
 	void driveLimbs()
 	{
-		constexpr float CATCH_UP = 2 * (float)STEP, FASTEST = 40, FASTEST_TURN = 40;
-		for (auto &[id, f] : figures)
+		constexpr float GUIDE = 30, GUIDE_TURN = 120; // nodes/s², rad/s² at most
+		for (auto &[id, f] : figures) {
+			muscles(f);
+			f.used = 0;
+			Vec3 guide = Vec3::sZero(); // the hips' error makes it, the whole body has it: a hand under it, not a string on one part
 			for (size_t i = 0; i < f.bodies.size(); i++) {
 				BodyLockWrite lock(system.GetBodyLockInterfaceNoLock(), f.bodies[i]);
 				JPH::Body &body = lock.GetBody();
@@ -313,35 +412,36 @@ struct World::Impl
 				const Here h = opts.field(rout(at), out(body.GetLinearVelocity()));
 				const Vec3 limp = body.GetLinearVelocity() + vec(h.gravity) * (float)STEP;
 				Vec3 go = limp, turn = body.GetAngularVelocity();
-				if (f.stiff > 0 && i < f.to.size()) {
-					Vec3 want = Vec3(rvec(f.to[i].position) - at) / CATCH_UP;
-					if (want.Length() > FASTEST)
-						want = want.Normalized() * FASTEST;
-					const JPH::Quat off = (quat(f.to[i].rotation) * body.GetRotation().Conjugated()).EnsureWPositive();
-					Vec3 axis;
-					float angle;
-					off.GetAxisAngle(axis, angle);
-					Vec3 spin = axis * std::min(angle / CATCH_UP, FASTEST_TURN);
-					go = limp + (want - limp) * f.stiff;
-					turn = turn + (spin - turn) * f.stiff;
-				}
 				const int parent = f.parents[i];
-				if (f.tone > 0 && parent >= 0 && i < f.to.size()) {
-					constexpr float SETTLES = 6 * (float)STEP;
-					RVec3 unused;
-					JPH::Quat parent_turn;
-					bi().GetPositionAndRotation(f.bodies[parent], unused, parent_turn);
-					const JPH::Quat wanted = parent_turn * quat(f.to[parent].rotation).Conjugated() * quat(f.to[i].rotation);
-					const JPH::Quat off = (wanted * body.GetRotation().Conjugated()).EnsureWPositive();
-					Vec3 axis;
-					float angle;
-					off.GetAxisAngle(axis, angle);
-					const Vec3 spin = axis * std::min(angle / SETTLES, FASTEST_TURN) + bi().GetAngularVelocity(f.bodies[parent]);
-					turn = turn + (spin - turn) * f.tone;
+				if (i >= f.to.size())
+					continue;
+				if (parent < 0) {
+					if (f.stiff > 0) {
+						// the guide: a spring to where the hips are asked to be, moving as they're asked to move,
+						// with no more than GUIDE to give; past that the body's on its own
+						constexpr float SPRING = 14, GIVE = 2 * SPRING; // /s, critically damped
+						const Vec3 off = Vec3(rvec(f.to[i].position) - at);
+						const Vec3 wanted_speed = f.was_to.empty() ? Vec3::sZero() : Vec3(rvec(f.to[i].position) - rvec(f.was_to[i].position)) / (float)STEP;
+						Vec3 accel = off * (SPRING * SPRING) + (wanted_speed - body.GetLinearVelocity()) * GIVE - vec(h.gravity);
+						f.used = std::max(f.used, accel.Length() / (GUIDE * f.stiff));
+						if (accel.Length() > GUIDE * f.stiff)
+							accel = accel.Normalized() * (GUIDE * f.stiff);
+						guide = accel;
+						const JPH::Quat turn_off = (quat(f.to[i].rotation) * body.GetRotation().Conjugated()).EnsureWPositive();
+						Vec3 axis;
+						float angle;
+						turn_off.GetAxisAngle(axis, angle);
+						Vec3 spin = axis * (angle * SPRING * SPRING) - turn * GIVE;
+						if (spin.Length() > GUIDE_TURN * f.stiff)
+							spin = spin.Normalized() * (GUIDE_TURN * f.stiff);
+						turn += spin * (float)STEP;
+					}
 				}
-				body.SetLinearVelocity(go);
+				body.SetLinearVelocity(go + guide * (float)STEP);
 				body.SetAngularVelocity(turn);
 			}
+			reach(f);
+		}
 	}
 
 	struct Ground
@@ -433,9 +533,10 @@ struct World::Impl
 		DefaultObjectLayerFilter objects(pairs, Layer::CHARACTER);
 		for (auto &[id, c] : chars) {
 			c.was = c.c->GetPosition();
+			const bool grounded = c.skips_ground || charGround(c); // (held or not, what's round it stays built: its body's in it)
 			if (c.held_still)
 				continue;
-			if (!c.skips_ground && !charGround(c) && !c.unknown_is_air) {
+			if (!grounded && !c.unknown_is_air) {
 				// in ground that isn't loaded: it waits there
 				c.c->SetLinearVelocity(c.keeps_speed ? vec(c.want) : Vec3::sZero());
 				continue;
@@ -1594,6 +1695,9 @@ World::LimbsId World::addLimbs(const std::vector<LimbSpec> &parts, const std::ve
 			throw PhysicsError("physics: too many bodies");
 		f.bodies.push_back(b);
 	}
+	f.joint_of.resize(parts.size());
+	for (const LimbSpec &p : parts)
+		f.strength.push_back(p.strength);
 	for (size_t i = 0; i < parts.size(); i++) {
 		const LimbSpec &p = parts[i];
 		if (p.parent < 0)
@@ -1627,6 +1731,7 @@ World::LimbsId World::addLimbs(const std::vector<LimbSpec> &parts, const std::ve
 		Ref<Constraint> c = joint->Create(*locks.GetBody(0), *locks.GetBody(1));
 		m->system.AddConstraint(c);
 		f.joints.push_back(c);
+		f.joint_of[i] = c;
 	}
 	for (size_t i = 0; i < parts.size(); i++) {
 		m->bi().SetPositionAndRotation(f.bodies[i], rvec(at[i].position), quat(at[i].rotation), EActivation::Activate);
@@ -1637,11 +1742,29 @@ World::LimbsId World::addLimbs(const std::vector<LimbSpec> &parts, const std::ve
 	return id;
 }
 
+void World::reachWith(LimbsId id, size_t part, v3f point, std::optional<v3d> to, v3f over)
+{
+	Impl::Limbs::Reach &r = m->figures.at(id).reaches[part];
+	r.point = vec(point);
+	r.over = vec(over);
+	r.to = to ? std::optional<RVec3>(rvec(*to)) : std::nullopt;
+}
+
+bool World::holding(LimbsId id, size_t part) const
+{
+	const auto &rs = m->figures.at(id).reaches;
+	const auto it = rs.find(part);
+	return it != rs.end() && it->second.held;
+}
+
 void World::removeLimbs(LimbsId id)
 {
 	const auto it = m->figures.find(id);
 	if (it == m->figures.end())
 		return;
+	for (auto &[part, r] : it->second.reaches)
+		if (r.held)
+			m->system.RemoveConstraint(r.held);
 	for (const Ref<Constraint> &c : it->second.joints)
 		m->system.RemoveConstraint(c);
 	for (const BodyID &b : it->second.bodies) {
@@ -1654,10 +1777,13 @@ void World::removeLimbs(LimbsId id)
 void World::driveLimbs(LimbsId id, const std::vector<Pose> &to, float stiff, float tone)
 {
 	Impl::Limbs &f = m->figures.at(id);
+	f.was_to = f.to.empty() ? to : f.to;
 	f.to = to;
 	f.stiff = stiff;
 	f.tone = tone;
 }
+
+float World::limbsGuided(LimbsId id) const { return m->figures.at(id).used; }
 
 std::vector<Pose> World::limbs(LimbsId id) const
 {

@@ -77,6 +77,12 @@ public:
 	std::optional<float> wallFace(float yaw) const;
 	float wallLean(float yaw) const;
 	std::optional<Grip> grip() const;
+	// Its hands are on something and carrying it, not just near: hung, hauling, down on them, kicking off.
+	bool gripping() const
+	{
+		return m_hanging || (m_climb && m_climb->haul && m_climb->haul->holding()) || (m_down && m_down->fallen.handsDown()) ||
+				m_trip_left > TRIP_TIME - 0.3f || (m_push && m_push->handsOn());
+	}
 	int feetUsed() const { return m_push ? m_push->nearSide() : m_kick_left > 0 ? m_kick_feet : -1; }
 	float thrownSide() const;
 	float thrownBack() const;

@@ -209,6 +209,7 @@ struct LimbSpec
 	float cone = 1;   // a ball joint's swing, radians, about...
 	v3f cone_axis{ 0, -1, 0 }; // ...this, as built: off its length, it swings further one way than the other
 	std::vector<int> passes; // earlier parts it needn't keep out of, besides its parent
+	float strength = 100;     // N·m its joint's muscles can turn it with, at most
 };
 
 // What a place does to what's in it (sprint 59: gravity is a field).
@@ -329,10 +330,17 @@ public:
 	using LimbsId = unsigned;
 	LimbsId addLimbs(const std::vector<LimbSpec> &parts, const std::vector<Pose> &built, const std::vector<Pose> &at, v3f velocity);
 	void removeLimbs(LimbsId id);
-	// Each step it goes to these. `stiff`: 1 it goes there as nearly as what's in the way lets it, 0 it's let go.
-	// `tone`: 1 each part holds its turn against its parent's as they'd be there, wherever the whole has got to; 0 limp.
+	// Each step it goes to these. `stiff`: how strongly its hips are guided to theirs (0 let go): the rest
+	// follows by `tone`, each part turned against its parent as they'd be there (1 firmly, 0 limp).
 	void driveLimbs(LimbsId id, const std::vector<Pose> &to, float stiff, float tone = 0);
+	// A part's point (in its own frame) reaching for a place, with an arm's strength; there, it's held to it by a
+	// joint till let go (sprint 105: grip). None: let go.
+	// `over`: the way across what it holds (an edge's in from it): from below, it comes up and over, not into its face.
+	void reachWith(LimbsId id, size_t part, v3f point, std::optional<v3d> to, v3f over = v3f(0));
+	bool holding(LimbsId id, size_t part) const;
 	std::vector<Pose> limbs(LimbsId id) const;
+	// How much of its guide it took last step to keep its hips where they're asked: past 1, it couldn't.
+	float limbsGuided(LimbsId id) const;
 
 	// Held where it's put (a body climbing: its hands have it): no floor pulls it down, no step lifts it.
 	void holdsStill(CharId id, bool held);

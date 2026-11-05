@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "test.h"
+#include "physics/skeleton.h"
 #include <functional>
 
 #include "physics/pose.h"
@@ -43,6 +44,7 @@ public:
 	void testArmReachesThePoint();
 	void testHandOverHand();
 	void testStrideGoesOnFromAStepUp();
+	void testCrawlLiesFlat();
 	void testHangingHandsReach();
 	void testHigherBodyGoesOver();
 	void testMovesGoByVelocity();
@@ -79,6 +81,7 @@ void TestPose::runTests(IGameDef *gamedef)
 	TEST(testArmReachesThePoint);
 	TEST(testHandOverHand);
 	TEST(testStrideGoesOnFromAStepUp);
+	TEST(testCrawlLiesFlat);
 	TEST(testHangingHandsReach);
 	TEST(testHigherBodyGoesOver);
 	TEST(testMovesGoByVelocity);
@@ -513,6 +516,36 @@ void TestPose::testStrideGoesOnFromAStepUp()
 		const Joints j = p.step(1.f / 60, run);
 		UASSERT(j.planted[feet] && !j.planted[1 - feet]);
 	}
+}
+
+// Crawling it lies flat: nothing of it's under the floor or held up off it, and each knee in turn comes out to its side.
+void TestPose::testCrawlLiesFlat()
+{
+	Posing posing;
+	Contacts contacts;
+	float lowest = 1e3f, highest_hips = -1e3f, widest[2]{};
+	for (int i = 0; i < 300; i++) {
+		const Bones b = posing.pose(1 / 60.f, v3f(0, 0, 1), 0, false, Stance::PRONE, 0, std::nullopt, 0, contacts,
+				[](v3f) { return 0.f; }, [](v3f, float) { return v3f(0); });
+		if (i < 120)
+			continue;
+		int k = 0;
+		eachBoneBox(b, [&](const core::matrix4 &m, v3f size, v3f centre, BoneColour) {
+			v3f c = centre;
+			m.transformVect(c);
+			lowest = std::min(lowest, c.Y);
+			if (k == 0)
+				highest_hips = std::max(highest_hips, c.Y);
+			if (k == 4) // the shins
+				widest[0] = std::max(widest[0], c.X);
+			if (k == 9)
+				widest[1] = std::max(widest[1], -c.X);
+			k++;
+		});
+	}
+	UASSERT(lowest > 0);
+	UASSERT(highest_hips < 0.35f);
+	UASSERT(widest[0] > 0.25f && widest[1] > 0.25f);
 }
 
 void TestPose::testHangingHandsReach()
