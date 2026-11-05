@@ -31,6 +31,7 @@ public:
 	void testEveryMove();
 	void testEveryVehicle();
 	void testEndless();
+	void testDrivenDrawnSmoothly();
 	void testFineWater();
 	void testPourColour();
 	void testPlume();
@@ -50,6 +51,7 @@ void TestMoves::runTests(IGameDef *gamedef)
 	TEST(testEveryMove);
 	TEST(testEveryVehicle);
 	TEST(testEndless);
+	TEST(testDrivenDrawnSmoothly);
 	TEST(testFineWater);
 	TEST(testPourColour);
 	TEST(testPlume);
@@ -140,6 +142,42 @@ void TestMoves::testEndless()
 }
 
 // Each Vehicles scene: the car got as fast, as far and as high as it says, and its bodies are all drawn.
+// Frames don't land on the 60 Hz steps. What's drawn keeps pace between them: a frame with
+// no step in it can't hold the car still while the camera goes on, then jump it two.
+void TestMoves::testDrivenDrawnSmoothly()
+{
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	std::ifstream in(game + "palette.json");
+	Json::Value palette;
+	in >> palette;
+	const std::vector<sandbox::StageBlock> blocks = sandbox::Stage::read(palette["scene"]);
+	for (const Json::Value &move : shell::Course::read(game + "vehicles.json")) {
+		if (move["id"].asString() != "pull")
+			continue;
+		shell::Course course(move, blocks, palette["machines"]);
+		const float dts[] = { 0.016f, 0.017f, 0.016f, 0.009f, 0.024f };
+		double drawn = course.driven()->drawnPose().position.Z, stepped = course.driven()->pose().position.Z;
+		float worst_drawn = 1, worst_stepped = 1, back = 0;
+		for (int i = 0; i < 300; i++) {
+			const float dt = dts[i % 5];
+			const float pace = course.driven()->pace();
+			course.update(dt);
+			const double d = course.driven()->drawnPose().position.Z, s = course.driven()->pose().position.Z;
+			if (pace > 3) { // well under way: it should go about as far as its pace says, each frame
+				const float want = pace * dt;
+				worst_drawn = std::min(worst_drawn, (float)(d - drawn) / want);
+				worst_stepped = std::min(worst_stepped, (float)(s - stepped) / want);
+			}
+			back = std::min(back, (float)(s - stepped));
+			drawn = d;
+			stepped = s;
+		}
+		std::cout << "pull: slowest frame drawn " << worst_drawn << " of its pace (raw steps " << worst_stepped << "), most the physics went back " << back << std::endl;
+		UASSERT(worst_drawn > 0.4f);
+		UASSERT(back > -0.001f);
+	}
+}
+
 void TestMoves::testEveryVehicle()
 {
 	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;

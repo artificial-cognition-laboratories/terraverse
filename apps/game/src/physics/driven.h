@@ -31,7 +31,9 @@ public:
 	void update(float dt);
 	double time() const { return m_time; }
 	Pose pose() const { return m_world->pose(m_id); }
-	std::vector<Relative> relatives() const { return m_world->relatives(m_id); }
+	// where to draw it: between its last two steps, as a frame rarely lands on a step
+	Pose drawnPose() const;
+	std::vector<Relative> drawnRelatives() const;
 	float pace() const;
 	std::vector<World::Contact> contacts() const { return m_world->contacts(m_id); }
 	float mass() const { return m_world->mass(m_id); }
@@ -44,6 +46,8 @@ private:
 	std::unique_ptr<World> m_world;
 	World::Id m_id;
 	double m_time = 0, m_behind = 0;
+	Pose m_was_pose;
+	std::vector<Relative> m_was_relatives;
 	std::string m_doing;
 };
 

@@ -69,7 +69,7 @@ const ICONS = {
     <div ref="host" class="scene" :class="{ empty: chosen?.later }">
         <aside v-if="chosen" ref="card" class="facts" :class="{ closed: !factsOpen }">
             <button class="fold" :aria-label="factsOpen ? 'Hide the facts' : 'Show the facts'" @click="factsOpen = !factsOpen">{{ factsOpen ? "»" : "«" }}</button>
-            <div v-if="factsOpen" class="body">
+            <div v-if="factsOpen" class="facts-body">
                 <h4>{{ chosen.title }}</h4>
                 <p v-if="chosen.keys" class="keys">{{ chosen.keys }}</p>
                 <p class="copy">{{ chosen.note }}</p>
@@ -94,8 +94,8 @@ const ICONS = {
 .facts { position: absolute; top: 12px; right: 12px; width: 280px; max-height: calc(100% - 72px); display: flex; flex-direction: column; border: var(--b) solid var(--edge); background: rgb(21 24 27 / 0.92); box-shadow: var(--raised); }
 .facts.closed { width: auto; }
 .fold { align-self: flex-end; padding: 2px 8px; border: 0; background: none; color: var(--accent-hi); font: 13px var(--font-display); }
-.body { overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 0 14px 14px; }
-.body h4 { margin: 0; font: 400 16px var(--font-display); text-transform: uppercase; overflow-wrap: anywhere; }
+.facts-body { overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 0 14px 14px; }
+.facts-body h4 { margin: 0; font: 400 16px var(--font-display); text-transform: uppercase; overflow-wrap: anywhere; }
 .keys { margin: 0; color: var(--accent-hi); font: 11px var(--font-display); }
 .copy { margin: 0; }
 .doing { position: absolute; left: 16px; right: 16px; bottom: 54px; margin: 0; color: var(--ink-dim); font-size: 11px; }

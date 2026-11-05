@@ -325,17 +325,17 @@ float Course::pace() const { return m_driven ? m_driven->pace() : m_actor->pace(
 
 v3f Course::centre() const
 {
-	return toScene(m_driven ? v3f::from(m_driven->pose().position) : m_actor->at());
+	return toScene(m_driven ? v3f::from(m_driven->drawnPose().position) : m_actor->at());
 }
 
 std::optional<Scene::Machine> Course::machine() const
 {
 	if (!m_driven)
 		return std::nullopt;
-	const physics::Pose root = m_driven->pose();
+	const physics::Pose root = m_driven->drawnPose();
 	Scene::Machine out;
 	out.root = { toScene(v3f::from(root.position)), root.rotation };
-	for (const physics::Relative &r : m_driven->relatives())
+	for (const physics::Relative &r : m_driven->drawnRelatives())
 		out.bodies.push_back({ r.offset, r.rotation });
 	return out;
 }
