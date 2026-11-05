@@ -6,7 +6,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-g++ -std=c++17 -O2 -I"$root/apps/game/src" -I"$root/library/jsoncpp" "$root"/apps/game/src/matter/*.cpp "$root"/apps/game/src/sandbox/*.cpp \
+g++ -std=c++17 -O2 -I"$root/apps/game/src" -I"$root/library/jsoncpp" -I"$root/library/irr/include" "$root/apps/game/src/shape/melt.cpp" "$root"/apps/game/src/matter/*.cpp "$root"/apps/game/src/sandbox/*.cpp \
 	"$root/library/jsoncpp/jsoncpp.cpp" "$root/scripts/wiki-check/run.cpp" -o "$work/run"
 bun "$root/scripts/wiki-check/specs.ts" > "$work/specs.json"
 "$work/run" "$root/assets/matter" "$root/apps/game/game/palette.json" < "$work/specs.json"
