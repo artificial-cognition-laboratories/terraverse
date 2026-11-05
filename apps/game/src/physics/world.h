@@ -206,7 +206,8 @@ struct LimbSpec
 	int parent = -1;  // joined to this part
 	v3f joint;        // where, in this part's frame
 	float bends_from = 0, bends_to = 0; // about x, radians, from where it stands when built: a hinge. Equal: a ball joint
-	float cone = 1;   // a ball joint's swing, radians
+	float cone = 1;   // a ball joint's swing, radians, about...
+	v3f cone_axis{ 0, -1, 0 }; // ...this, as built: off its length, it swings further one way than the other
 	std::vector<int> passes; // earlier parts it needn't keep out of, besides its parent
 };
 
@@ -332,6 +333,9 @@ public:
 	// `tone`: 1 each part holds its turn against its parent's as they'd be there, wherever the whole has got to; 0 limp.
 	void driveLimbs(LimbsId id, const std::vector<Pose> &to, float stiff, float tone = 0);
 	std::vector<Pose> limbs(LimbsId id) const;
+
+	// Held where it's put (a body climbing: its hands have it): no floor pulls it down, no step lifts it.
+	void holdsStill(CharId id, bool held);
 
 	// Advances by `dt` in fixed steps (at most a fifth of a second's: a
 	// slow server drops time rather than falling further behind).

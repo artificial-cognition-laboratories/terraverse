@@ -116,7 +116,8 @@ void TestMoves::testBonesStayOut()
 		shell::Course course(move, blocks, palette["machines"]);
 		if (course.machine())
 			continue;
-		float deepest = 0, when = 0, in_itself = 0, apart = 0, tallest_after_down = 0;
+		std::string rush_doing;
+		float deepest = 0, when = 0, in_itself = 0, rush = 0, rush_at = 0, pop = 0, pop_at = 0, apart = 0, tallest_after_down = 0;
 		bool was_down = false;
 		int deep_frames = 0, frames = 0;
 		// (an endless one, a good few goes of its move)
@@ -127,6 +128,16 @@ void TestMoves::testBonesStayOut()
 			const v3f head = course.actor().head();
 			apart = std::max(apart, head.getLength());
 			in_itself = std::max(in_itself, course.actor().inItself());
+			physics::Actor &actor = const_cast<physics::Actor &>(course.actor());
+			if (const float r = actor.takeRush(); r > rush) {
+				rush = r;
+				rush_at = actor.time();
+				rush_doing = actor.doing() + "/" + physics::stanceName(actor.stance());
+			}
+			if (const float p = actor.takePop(); p > pop) {
+				pop = p;
+				pop_at = actor.time();
+			}
 			was_down = was_down || course.actor().stance() == physics::Stance::DOWN;
 			if (was_down && course.actor().stance() == physics::Stance::STAND)
 				tallest_after_down = std::max(tallest_after_down, head.Y);
@@ -138,13 +149,14 @@ void TestMoves::testBonesStayOut()
 			}
 		}
 		std::cout << "sunk " << move["id"].asString() << ": " << deepest << " at " << when << " s, "
-				<< deep_frames << "/" << frames << " frames past 0.05, in itself " << in_itself << ", head within " << apart << ", contacts missed " << course.actor().gaveUp();
+				<< deep_frames << "/" << frames << " frames past 0.05, in itself " << in_itself << ", head within " << apart << ", contacts missed " << course.actor().gaveUp() << ", body at most " << rush << " at " << rush_at << " s (" << rush_doing << "), a part " << pop << " at " << pop_at << " s";
 		if (was_down)
 			std::cout << ", up again head at " << tallest_after_down;
 		std::cout << std::endl;
 		UASSERT(deepest < 0.2f);  // (its parts are slimmer than drawn: a little always shows)
 		UASSERT(apart < 2.5f);    // it's stayed in one piece
 		UASSERT(in_itself < 0.02f); // and out of itself
+		UASSERT(rush < 16 && pop < 18); // and nothing of it jumped: no step goes faster than a body can
 		UASSERT(!was_down || tallest_after_down > 1.2f); // and got up
 	}
 }

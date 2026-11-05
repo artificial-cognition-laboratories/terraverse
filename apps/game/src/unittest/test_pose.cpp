@@ -310,7 +310,12 @@ void TestPose::testRollGoesRound()
 	const int steps = (int)(ROLL_TIME * 60);
 	for (int i = 0; i < steps; i++) {
 		const Joints j = poser.step(1 / 60.f, in);
-		UASSERT(j.spin > last);
+		// landing first, legs taking it: then over and round
+		if ((i + 1) / 60.f <= ROLL_ABSORB) {
+			UASSERTEQ(float, j.spin, 0);
+		} else {
+			UASSERT(j.spin > last);
+		}
 		last = j.spin;
 	}
 	UASSERT(last > 5.5f);
@@ -419,7 +424,7 @@ void TestPose::testReach()
 	UASSERT(thin && thin->thin);
 	const ClimbPath over = climbPath(OVER, *thin, foot, 0.3f);
 	UASSERT(over.to.Z > 2.5f && over.to.Z < 3); // just past the far side
-	UASSERT(std::abs(over.to.Y + 0.48f) < 0.01f); // and down on the ground there
+	UASSERT(std::abs(over.to.Y - (thin->lip.Y + 0.05f)) < 0.01f); // as high as it went over: from there it falls
 	// at the speed it came in at, whatever that is
 	const ClimbPath fast = climbPath(OVER, *thin, foot, 0.3f, 6);
 	const float dist = v3f(fast.to.X - foot.X, 0, fast.to.Z - foot.Z).getLength();
@@ -618,7 +623,7 @@ void TestPose::testHaul()
 		while (!h.done() && steps < 600) {
 			h.step(1.f / 60);
 			lowest = std::min(lowest, h.at().Y);
-			hardest = std::max(hardest, (h.velocity() - was).getLength() * 60);
+			hardest = std::max(hardest, std::fabs((h.velocity() - was).Y) * 60); // (up and down: in to the wall, the wall stops it)
 			was = h.velocity();
 			if (!h.holding())
 				left_hands = true;

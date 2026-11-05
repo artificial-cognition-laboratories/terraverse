@@ -157,16 +157,19 @@ std::vector<LimbSpec> specs()
 	parts[P_HEAD].cone = 0.7f;
 	for (int side : { 0, 1 }) {
 		parts[P_THIGH + side] = limb(BONE_WIDE, physics::THIGH, 10, P_HIPS, c[P_THIGH + side] * -1.f);
-		parts[P_THIGH + side].cone = 1.5f;
+		// a hip swings a long way forward, a little back; a shoulder up and forward, hardly behind
+		parts[P_THIGH + side].cone = 1.4f;
+		parts[P_THIGH + side].cone_axis = v3f(0, -0.7f, 0.7f);
 		parts[P_THIGH + side].passes = { P_CHEST }; // (bending at the hips brings them together: that's the hips' to stop)
 		parts[P_SHIN + side] = limb(BONE_NARROW, physics::SHIN, 5, P_THIGH + side, c[P_SHIN + side] * -1.f);
 		parts[P_SHIN + side].bends_from = -0.1f;
 		parts[P_SHIN + side].bends_to = 2.6f;
 		parts[P_UPPER + side] = limb(BONE_WIDE, UPPER_ARM, 3, P_CHEST, c[P_UPPER + side] * -1.f);
-		parts[P_UPPER + side].cone = 2.6f;
+		parts[P_UPPER + side].cone = 1.85f;
+		parts[P_UPPER + side].cone_axis = v3f(0, -0.26f, 0.97f);
 		parts[P_FORE + side] = limb(BONE_NARROW, FOREARM, 2, P_UPPER + side, c[P_FORE + side] * -1.f);
-		parts[P_FORE + side].bends_from = -2.6f;
-		parts[P_FORE + side].bends_to = 2.6f;
+		parts[P_FORE + side].bends_from = -2.6f; // (an elbow bends one way)
+		parts[P_FORE + side].bends_to = 0.05f;
 	}
 	return parts;
 }
@@ -229,7 +232,16 @@ Felt Limbs::felt() const
 		f.wrist[side] = end(P_FORE + side, FOREARM);
 		f.foot[side] = end(P_SHIN + side, physics::SHIN);
 	}
+	f.shoulders = v3f::from(m_now[P_CHEST].position) + fromQuat(m_now[P_CHEST].rotation).rotateAndScaleVect(v3f(0, CHEST_TALL / 2 * S, 0));
 	return f;
+}
+
+std::vector<v3f> Limbs::parts() const
+{
+	std::vector<v3f> out;
+	for (const Pose &p : m_now)
+		out.push_back(v3f::from(p.position));
+	return out;
 }
 
 v3d Limbs::hips() const { return m_now[P_HIPS].position; }

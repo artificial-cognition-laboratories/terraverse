@@ -220,7 +220,9 @@ v3f Poser::footAt(int side) const
 
 Joints Poser::step(float dt, const PoseIn &in)
 {
-	const Row &row = ROWS[(int)in.stance];
+	// A roll lands first: crouched into it, arms going forward, then springs over.
+	const bool absorbing = in.stance == Stance::ROLL && m_roll < ROLL_ABSORB;
+	const Row &row = ROWS[(int)(absorbing ? Stance::CROUCH : in.stance)];
 
 	// The feet hold their ground as the view turns, till the hips can't twist further.
 	// Going, the hips face the way it goes (or the way it's backing from): the head
@@ -293,7 +295,7 @@ Joints Poser::step(float dt, const PoseIn &in)
 	m_roll = in.stance == Stance::ROLL ? m_roll + dt : 0;
 	// Slow as the legs take the fall, then thrown. The body turns so the leading shoulder goes
 	// down first, and comes back straight: the ground runs across the back, shoulder to hip.
-	const float through = std::clamp(m_roll / ROLL_TIME, 0.f, 1.f);
+	const float through = std::clamp((m_roll - ROLL_ABSORB) / (ROLL_TIME - ROLL_ABSORB), 0.f, 1.f);
 	out.spin = in.stance == Stance::ROLL ? 2 * PI * through * through * (3 - 2 * through) : 0;
 	out.spin_lean = in.stance == Stance::ROLL ? 0.75f * std::sin(PI * through) : 0;
 	// lying, the body's over where it was, not beside it: the feet go back as far as the head came on
@@ -436,6 +438,17 @@ Joints Poser::step(float dt, const PoseIn &in)
 		out.knee[side] = leg.joint;
 	}
 
+	// Crawling on its belly: a knee drawn up the side as the other arm reaches, then pulled along on that elbow.
+	if (in.stance == Stance::PRONE) {
+		const float c = std::sin(m_phase * 2 * PI);
+		for (int side : { 0, 1 }) {
+			const float way = side ? -1.f : 1.f;
+			const float up = std::max(0.f, side ? -c : c) * m_stride.at;
+			out.hip[side] = -0.75f * up;
+			out.hip_out[side] = way * (0.1f + 0.95f * up);
+			out.knee[side] = 0.15f + 1.7f * up;
+		}
+	}
 	out.waist = key.waist + (in.stance == Stance::DOWN ? 0.9f * std::sin(PI * in.rising) : 0.f);
 	out.head = std::clamp(in.pitch, -1.2f, 1.2f);
 	const float swing = key.swing * std::cos(m_phase * 2 * PI);
@@ -447,6 +460,14 @@ Joints Poser::step(float dt, const PoseIn &in)
 		out.shoulder[side] = swing * way + key.arm - key.waist + thrown * air;
 		out.shoulder_out[side] = (key.arm_out + 0.5f * down * air) * way;
 		out.elbow[side] = -key.elbow;
+		if (in.stance == Stance::PRONE) {
+			// the arm opposite the drawn knee reaches; the other's out at the elbow, pulling
+			const float c = std::sin(m_phase * 2 * PI) * m_stride.at;
+			const float reach = std::max(0.f, side ? c : -c), pull = 1 - reach;
+			out.shoulder[side] = key.arm - key.waist + 0.35f * pull;
+			out.shoulder_out[side] = (0.35f + 0.6f * pull) * way;
+			out.elbow[side] = -(0.4f + 1.3f * pull);
+		}
 	}
 	return out;
 }

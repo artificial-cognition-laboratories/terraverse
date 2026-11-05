@@ -583,6 +583,9 @@ Mover::Stepped Mover::step(const Input &in)
 		const v3f asked(right * std::cos(yaw_now) - ahead * std::sin(yaw_now), 0, right * std::sin(yaw_now) + ahead * std::cos(yaw_now));
 		const bool wants_up = asked.getLengthSQ() > 0.01f || in.jump;
 		m_down->fallen.step((float)STEP, wants_up);
+		// till it pushes up, its hands go under its shoulders as they lie: that's where they push from
+		if (m_felt && !m_down->fallen.rising())
+			m_down->hands = v3f(m_felt->shoulders.X, (float)was.foot.Y + 0.06f, m_felt->shoulders.Z) + m_down->way * 0.1f;
 		const float pace = std::hypot(v.X, v.Z);
 		const float kept = pace > 0.01f ? std::max(0.f, pace - FRICTION * (float)STEP) / pace : 0;
 		next = v3f(v.X * kept, was.on_ground ? 0 : v.Y + h.gravity.Y * (float)STEP, v.Z * kept);
@@ -655,6 +658,7 @@ Mover::Stepped Mover::step(const Input &in)
 		next = m_opts.carry(was.foot, m_measured, next);
 	}
 	m_opts.world.want(m_me, next);
+	m_opts.world.holdsStill(m_me, m_climb.has_value() || m_hanging.has_value());
 	m_opts.world.step(STEP);
 	World::CharacterState now = m_opts.world.character(m_me);
 	// Up a step in one physics step (the capsule's way): it isn't drawn there at once. It's drawn where

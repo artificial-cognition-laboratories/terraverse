@@ -192,7 +192,16 @@ void Actor::update(float dt)
 		in.run = m_on.run ? SPRINT : 1;
 		const Stance before = m_mover->stance();
 		m_mover->step(in);
+		const std::vector<v3f> was_parts = m_limbs->parts();
+		const v3d was_hips = m_limbs->hips();
 		m_limbs->read();
+		{
+			const std::vector<v3f> now_parts = m_limbs->parts();
+			const v3f body = v3f::from(m_limbs->hips() - was_hips);
+			m_rush = std::max(m_rush, body.getLength() / (float)STEP);
+			for (size_t i = 0; i < now_parts.size(); i++)
+				m_pop = std::max(m_pop, (now_parts[i] - was_parts[i] - body).getLength() / (float)STEP);
+		}
 		m_mover->bodyAt(m_limbs->hips());
 		m_mover->feel(m_limbs->felt());
 		const Stance after = m_mover->stance();
@@ -240,7 +249,7 @@ void Actor::poseAndDrive(float dt, float turned)
 			[&](v3f p, float r) { return toFigure(clearOf(at + toWorld(p), r)); });
 	// Down it lets go of where the pose is, keeping only its shape, and takes hold again as it gets up.
 	constexpr float HELD = 0.9f, TONE = 0.3f;
-	const float wanted = m_mover->stance() != Stance::DOWN ? HELD : HELD * contacts.rising;
+	const float wanted = m_mover->stance() != Stance::DOWN ? HELD : HELD * contacts.rising * contacts.rising; // (its arms first)
 	m_stiff = wanted < m_stiff ? wanted : std::min(wanted, m_stiff + dt * 4);
 	if (!m_limbs) {
 		m_limbs = std::make_unique<Limbs>(*m_world, asked, foot, m_yaw, now.velocity);

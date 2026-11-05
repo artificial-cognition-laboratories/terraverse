@@ -48,6 +48,9 @@ public:
 	const Bones &bones() const { return m_bones; }
 	// How far its deepest bone corner is inside something solid, as drawn now (nodes).
 	float sunk() const;
+	// The fastest the body went since last asked, and any part against it (nodes/s): a jump's a pop.
+	float takeRush() { const float r = m_rush; m_rush = 0; return r; }
+	float takePop() { const float p = m_pop; m_pop = 0; return p; }
 	int gaveUp() const { return m_mover->gaveUp(); }
 	float inItself() const { return m_limbs->inItself(); }
 	v3f head() const; // its head's place against its feet, as drawn
@@ -72,6 +75,7 @@ private:
 	std::unique_ptr<Mover> m_mover;
 	std::unique_ptr<Limbs> m_limbs;
 	float m_stiff = 1;
+	float m_rush = 0, m_pop = 0;
 	Posing m_posing;
 	Bones m_bones;
 	Cue m_on;

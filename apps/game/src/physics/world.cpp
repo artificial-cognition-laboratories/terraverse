@@ -355,6 +355,7 @@ struct World::Impl
 	{
 		Ref<CharacterVirtual> c;
 		v3f want{ 0 };                // the velocity it moves at next step
+		bool held_still = false;
 		std::optional<RVec3> to;      // placed: where it's to be after this call's steps (pushing on the way)
 		RVec3 from;                   // placed: where it was when they began
 		RVec3 was;                    // its foot before the last step: drawn between
@@ -432,6 +433,8 @@ struct World::Impl
 		DefaultObjectLayerFilter objects(pairs, Layer::CHARACTER);
 		for (auto &[id, c] : chars) {
 			c.was = c.c->GetPosition();
+			if (c.held_still)
+				continue;
 			if (!c.skips_ground && !charGround(c) && !c.unknown_is_air) {
 				// in ground that isn't loaded: it waits there
 				c.c->SetLinearVelocity(c.keeps_speed ? vec(c.want) : Vec3::sZero());
@@ -1610,7 +1613,9 @@ World::LimbsId World::addLimbs(const std::vector<LimbSpec> &parts, const std::ve
 		} else {
 			Ref<SwingTwistConstraintSettings> t = new SwingTwistConstraintSettings;
 			t->mPosition1 = t->mPosition2 = where;
-			t->mTwistAxis1 = t->mTwistAxis2 = along * -1.f;
+			const Vec3 centre = (quat(built[i].rotation) * vec(p.cone_axis)).Normalized();
+			t->mTwistAxis1 = t->mTwistAxis2 = centre;
+			(void)along;
 			t->mPlaneAxis1 = t->mPlaneAxis2 = across;
 			t->mNormalHalfConeAngle = t->mPlaneHalfConeAngle = p.cone;
 			t->mTwistMinAngle = -0.6f;
@@ -1700,6 +1705,8 @@ void World::unknownIsAir(CharId id, bool air)
 {
 	m->chr(id).unknown_is_air = air;
 }
+
+void World::holdsStill(CharId id, bool held) { m->chr(id).held_still = held; }
 
 void World::place(CharId id, const v3d &foot, v3f velocity)
 {

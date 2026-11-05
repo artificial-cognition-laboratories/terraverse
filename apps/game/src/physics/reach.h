@@ -64,6 +64,7 @@ struct ClimbPath
 	float top = 0;   // y it clears
 	float time = 1;  // s
 	bool arc = false; // across at a steady speed, over and down, not up and then across
+	float down_from = 0.7f; // of the way: it comes down once it's clear of the top
 	v3f at(float t) const; // t in s
 };
 // `pace`: how fast it's going in (nodes/s). Its hands have to get down and take its weight, so it crosses
@@ -75,6 +76,7 @@ ClimbPath climbPath(const Move &move, const Ledge &ledge, v3f foot, float radius
 struct Felt
 {
 	v3f wrist[2], foot[2];
+	v3f shoulders; // between them
 };
 
 // A body taking hold of an edge, moved by forces rather than along a curve (sprint 123), so how it

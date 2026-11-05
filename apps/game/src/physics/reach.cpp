@@ -161,7 +161,8 @@ v3f ClimbPath::at(float t) const
 {
 	const float p = std::clamp(t / time, 0.f, 1.f);
 	if (arc) {
-		constexpr float UP = 0.4f, DOWN = 0.7f;
+		constexpr float UP = 0.4f;
+		const float DOWN = std::clamp(down_from, UP, 0.95f);
 		float y = top;
 		if (p < UP) {
 			const float u = p / UP;
@@ -190,15 +191,17 @@ ClimbPath climbPath(const Move &move, const Ledge &ledge, v3f foot, float radius
 	if (move.climb != Climb::VAULT)
 		throw std::logic_error("reach: only a vault follows a path; the rest are a Haul");
 	// over and down onto the far side, just past it, or onto the top and on
+	// Over it, the hands carry it only till it's past the far side, as high as it went over: from there it's
+	// thrown, and comes down as anything does, onto its legs.
 	v3f to = on;
 	if (move.over) {
 		to = on + in * (0.5f + radius + 0.05f);
-		to.Y = ledge.far + 0.02f;
+		to.Y = ledge.lip.Y + 0.05f;
 	}
 	const float across = v3f(to.X - foot.X, 0, to.Z - foot.Z).getLength();
 	// (the longest over both hands; onto it, the body's lifted as well as carried)
 	const float least = move.dive ? 0.5f : move.over ? 0.38f : 0.45f;
-	return { foot, to, ledge.lip.Y + 0.05f, std::max(across / std::clamp(pace, 2.f, VAULT_PACE), least), true };
+	return { foot, to, ledge.lip.Y + 0.05f, std::max(across / std::clamp(pace, 2.f, VAULT_PACE), least), true, move.over ? 1.f : 0.7f };
 }
 
 Haul::Haul(const Ledge &ledge, v3f foot, v3f velocity, float radius, bool pull, float floor) :
@@ -348,6 +351,15 @@ void Haul::step(float dt)
 		return;
 	}
 	m_at += m_velocity * dt;
+	// Under the top it's the wall's side of the lip, however it came in: else the capsule's put in the wall and
+	// pops up onto the top in one step, a body's height of climb gone in a frame.
+	if (m_at.Y < m_on.Y - 0.15f) {
+		const float past = (m_at - m_hung).dotProduct(in);
+		if (past > 0) {
+			m_at -= in * past;
+			m_velocity -= in * std::max(0.f, m_velocity.dotProduct(in));
+		}
+	}
 	if (m_at.Y < m_floor) {
 		m_at.Y = m_floor;
 		m_velocity.Y = std::max(m_velocity.Y, 0.f);

@@ -138,7 +138,8 @@ v3f roll(const Gait &gait, const Intent &intent, const Footing &now, float dt);
 constexpr float SLIDE_FROM = 4.4f, SLIDE_TO = 2.5f; // nodes/s across: fast enough to start one, and where it ends
 constexpr float SLIDE_KICK = 6;                     // nodes/s it drops into one at, at least
 constexpr float ROLL_LATE = 0.2f;                   // s after a hard landing a crouch still makes it a roll
-constexpr float ROLL_TIME = 0.55f;               // s
+constexpr float ROLL_TIME = 0.7f;                // s, landing and all
+constexpr float ROLL_ABSORB = 0.14f;             // s the legs take the fall before they spring it forward into the roll
 constexpr float HARD_LANDING = 7;                // nodes/s down: a roll takes it, or it costs speed and hurts
 constexpr float STUMBLE = 0.4f;                  // what's kept across, landing that hard with no roll
 

@@ -150,7 +150,9 @@ Bones Skeleton::place(float dt, const Joints &j, float tilt, const Grip *grip, v
 		const core::matrix4 fore = upper * elbow;
 		const v3f down = fore.rotateAndScaleVect(v3f(0, -1, 0));
 		const v3f over = from_chest.rotateAndScaleVect(m_grip_over);
-		v3f finger = down + (over - down) * w;
+		// (hooked over it, not laid flat on it: a wrist only bends so far)
+		constexpr float HOOKS = 0.55f;
+		v3f finger = down + (over - down) * (w * HOOKS);
 		finger.normalize();
 		const v3f y = finger * -1.f;
 		v3f across = fore.rotateAndScaleVect(v3f(1, 0, 0));
@@ -200,7 +202,11 @@ Bones Posing::pose(float dtime, v3f velocity, float pitch, bool airborne, Stance
 	}
 	const Joints j = m_poser.step(dtime, in);
 
-	Bones b = m_skeleton.place(dtime, j, tilt, grip, m_clear);
+	// Hung, the chest's against the wall, not held out where the capsule is: asked a little into it, the wall stops it.
+	v3f in_to_wall(0);
+	if (stance == Stance::HANG && face)
+		in_to_wall = v3f(std::sin(*face), 0, std::cos(*face)) * 0.2f;
+	Bones b = m_skeleton.place(dtime, j, tilt, grip, m_clear + in_to_wall);
 	// Down, it's the shape it holds that's asked: legs out, a little bent, not under it.
 	if (stance == Stance::DOWN && contacts.rising <= 0)
 		for (int side : { 0, 1 }) {
