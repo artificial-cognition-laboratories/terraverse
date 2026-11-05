@@ -17,7 +17,7 @@ static constexpr u32 STEAM = 0xe8eef2;
 float Plume::Puff::size() const
 {
 	const float t = age / life;
-	return burning ? start * (1 - 0.75f * t) : start * (1 + 1.5f * t);
+	return burning ? start * (1 - 0.75f * t) : start * (1 + 3 * t);
 }
 
 video::SColor Plume::Puff::colour() const
@@ -82,11 +82,19 @@ void Plume::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox::Sta
 					const bool steam = (size_t)c.vapour < water.size() && water[c.vapour];
 					// the gases you can really see have a colour; the rest barely show
 					const int spread = std::max({ own.getRed(), own.getGreen(), own.getBlue() }) - std::min({ own.getRed(), own.getGreen(), own.getBlue() });
-					const float shows = steam || spread > 40 ? 1 : CLEAR;
+					// steam proper is clear: it's mist where it's cooled that shows, thin close over the boil, thick higher up
+					const float shows = steam ? std::clamp((float)(430 - c.temperature) / 60, 0.45f, 1.f) : spread > 40 ? 1 : CLEAR;
 					const float want = (float)c.haze * shows * PUFFS;
 					if (want >= 0.5f) {
 						m_wanted[i] = want;
-						m_gas.push_back({ corner, v3f(0), v3f(1), want, m_rise[i], steam ? STEAM : own.color & 0xffffff, 0.14f + 0.14f * shows });
+						{
+							// off the surface, if it's coming off a liquid
+							const bool wet = c.fill.substance >= 0 && c.fill.share > 0.005;
+							const float surface = wet ? (float)std::min(1.0, c.fill.share) : 0;
+							Source g{ corner, v3f(0, surface, 0), v3f(1, wet ? std::min(1.f, surface + 0.2f) : 1.f, 1), want, m_rise[i], steam ? STEAM : own.color & 0xffffff, steam ? 0.05f + 0.1f * shows : 0.14f + 0.14f * shows };
+							g.biggest = steam ? 0.45f : 1;
+							m_gas.push_back(g);
+						}
 					}
 				}
 			}
@@ -160,8 +168,8 @@ void Plume::step(float dt)
 		const int c = cellAt(s.corner);
 		if (m_counts[c] >= s.want || gas >= MOST_GAS || random() > dt * 8)
 			continue;
-		const v3f at = s.corner + v3f(random(), random(), random());
-		m_puffs.push_back({ at, 0, 2.5f + random() * 2.5f, (2 + random() * 2) / 16, random() * 6.28f, s.opacity, s.tint, false });
+		const v3f at = s.corner + s.lo + v3f(random() * (s.hi.X - s.lo.X), random() * (s.hi.Y - s.lo.Y), random() * (s.hi.Z - s.lo.Z));
+		m_puffs.push_back({ at, 0, 2.5f + random() * 2.5f, (2 + random() * 2) / 16 * s.biggest, random() * 6.28f, s.opacity, s.tint, false });
 		gas++;
 	}
 	for (const Source &s : m_flames) {

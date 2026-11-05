@@ -178,6 +178,7 @@ private:
 	void fall(ClientMap &map, float dtime);
 	int land(Grid &g, Drop &d, std::vector<Drop> &thrown); // −1: not over it, 0: still falling, 1: landed
 	bool settle(Grid &g, int tile);
+	void surfaceTexels(Grid &g, int t);
 	void texels(Grid &g, int tile, ClientMap &map, u32 daynight);
 	void run(Grid &g, ClientMap &map, u32 daynight, float dtime, bool relight, const std::unordered_set<v3s16> &changed);
 	void draw(Grid &g, video::IVideoDriver *driver);

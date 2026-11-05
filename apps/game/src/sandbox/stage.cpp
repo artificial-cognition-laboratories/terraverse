@@ -8,11 +8,13 @@
 
 namespace sandbox {
 
+static constexpr double NEAR_BOILING = 25; // K under it: the first bubbles
+
 // The world's own steps are short: a long one (the scene at ×600) is many of them.
 static constexpr double LONGEST_STEP = 0.25;
 
 Stage::Stage(const Opts &opts) :
-	m_matter(opts.matter), m_blocks(opts.blocks), m_x(opts.x), m_y(opts.y), m_z(opts.z), m_ambient(opts.ambient)
+	m_matter(opts.matter), m_blocks(opts.blocks), m_x(opts.x), m_y(opts.y), m_z(opts.z), m_ambient(opts.ambient), m_pressure(opts.pressure)
 {
 	if (m_x < 1 || m_y < 1 || m_z < 1 || m_x > 16 || m_y > 16 || m_z > 16)
 		throw SandboxError("a stage is 1 to 16 blocks a side");
@@ -250,6 +252,15 @@ std::vector<Stage::Cell> Stage::view() const
 					c.haze = a->haze;
 					c.flame = a->flame;
 				}
+				// how near boiling its liquid is
+				size_t liquid = m_matter.substances().size();
+				if (c.fill.substance >= 0)
+					liquid = (size_t)c.fill.substance;
+				else if (c.block >= 0 && m_blocks[c.block].spec.state == matter::State::Liquid && m_blocks[c.block].spec.matter != "air")
+					liquid = m_matter.index(m_blocks[c.block].spec.matter);
+				if (liquid < m_matter.substances().size())
+					if (const std::optional<double> boils = m_matter.substances()[liquid].boilingPoint(m_pressure))
+						c.boil = std::clamp((c.temperature - (*boils - NEAR_BOILING)) / (NEAR_BOILING - 1), 0.0, 1.0);
 			}
 	// a solid fuel's fire is lit by its soot, whatever gas is burning over it
 	uint32_t sooty = 0;

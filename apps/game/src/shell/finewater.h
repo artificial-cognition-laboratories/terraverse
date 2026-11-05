@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "client/liquidlook.h"
 #include "sandbox/stage.h"
 #include <array>
 #include <vector>
@@ -34,6 +35,15 @@ public:
 	// What's gone over an edge since the last call: a column, and which way (x+, x−, z+, z−).
 	struct Spill { int column, side; };
 	std::vector<Spill> takeSpills();
+	// Bubbles, if it's boiling: `dt` as step's, stopped when the scene's paused. Burst ones say where.
+	struct Bubble { float x, y, z, speed, dies; bool burst; };
+	void bubble(float dt, float pace);
+	const std::vector<Bubble> &bubbles() const { return m_bubbles; }
+	struct Burst { int column; float boil; };
+	std::vector<Burst> takeBursts();
+	float bubbleCount() const { return (float)m_bubbles.size(); }
+	liquids::look::Surface lookOf(int c) const;
+	double temperatureAt(int c) const { return m_temperature[c]; }
 	float volume() const;   // nodes³ it holds
 	float target() const;   // nodes³ the matter has
 	int nodeOf(int c) const { return (c / m_w / 16) * m_nx + (c % m_w) / 16; }
@@ -51,6 +61,12 @@ private:
 	std::vector<std::array<float, 4>> m_out;
 	std::vector<std::array<float, 4>> m_over; // by column and side: what's gone over a drop, towards the next spill
 	std::vector<Spill> m_spills;
+	std::vector<float> m_temperature;         // by column, carried as its colour is
+	std::vector<float> m_boil;                // by node
+	std::vector<Bubble> m_bubbles;
+	std::vector<Burst> m_bursts;
+	uint32_t m_seed = 1;
+	float m_due = 0;
 	float m_pools_in = 0, m_behind = 0, m_still = 0;
 };
 

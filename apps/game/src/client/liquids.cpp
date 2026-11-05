@@ -28,6 +28,7 @@
 #include <cstring>
 
 #include "shallow.h"
+#include "liquidlook.h"
 
 namespace liquids {
 
@@ -157,13 +158,13 @@ Layer::Layer(scene::ISceneManager *smgr, const NodeDefManager *ndef, IShaderSour
 	const bool mipmaps = driver->getTextureCreationFlag(video::ETCF_CREATE_MIP_MAPS);
 	driver->setTextureCreationFlag(video::ETCF_CREATE_MIP_MAPS, false);
 	for (Grid *g : { &m_fine, &m_coarse }) {
-		video::IImage *image = driver->createImage(video::ECF_G32R32F, core::dimension2du(g->cols, g->cols));
+		video::IImage *image = driver->createImage(video::ECF_A32B32G32R32F, core::dimension2du(g->cols, g->cols));
 		g->heights = driver->addTexture(g == &m_fine ? "liquids_fine" : "liquids_coarse", image);
 		image->drop();
 		if (!g->heights)
 			throw BaseException("liquids: the driver made no float texture for the water's heights");
 		g->heights->grab();
-		g->texels.assign(size_t(g->cols) * g->cols * 2, NONE_TEXEL);
+		g->texels.assign(size_t(g->cols) * g->cols * 4, NONE_TEXEL);
 		g->upload = true;
 	}
 	driver->setTextureCreationFlag(video::ETCF_CREATE_MIP_MAPS, mipmaps);
@@ -673,6 +674,8 @@ void Layer::run(Grid &g, ClientMap &map, u32 daynight, float dtime, bool relight
 			k.drawn = false;
 		if (k.awake && settle(g, t))
 			k.drawn = false;
+		if (k.awake && k.drawn)
+			surfaceTexels(g, t); // (rippling under its sixteenths, moving or not)
 		if (k.drawn)
 			continue;
 		settle(g, t);
@@ -1436,6 +1439,23 @@ bool Layer::settle(Grid &g, int t)
 	return moved;
 }
 
+// A tile's columns' ripples and foam into the height texture (client/liquidlook.h)
+void Layer::surfaceTexels(Grid &g, int t)
+{
+	const int first = (t / g.tiles) * 16 * g.cols + (t % g.tiles) * 16;
+	const auto top = [&](int c) { return g.floor[c] == NONE || g.depth[c] <= 0 ? -1e9f : g.floor[c] / 16.0f + g.depth[c]; };
+	for (int cz = 0; cz < 16; cz++)
+		for (int cx = 0; cx < 16; cx++) {
+			const int c = first + cz * g.cols + cx, gx = c % g.cols, gz = c / g.cols;
+			const std::array<float, 4> beside = { gx + 1 < g.cols ? top(c + 1) : -1e9f, gx > 0 ? top(c - 1) : -1e9f,
+				gz + 1 < g.cols ? top(c + g.cols) : -1e9f, gz > 0 ? top(c - g.cols) : -1e9f };
+			const look::Surface s = look::surface(top(c), beside, 1.0f / g.res, g.out[c], g.depth[c]);
+			g.texels[c * 4 + 2] = s.light;
+			g.texels[c * 4 + 3] = s.foam;
+		}
+	g.upload = true;
+}
+
 // A tile's columns into the height texture: each top and ground, over the grid's base
 void Layer::texels(Grid &g, int t, ClientMap &map, u32 daynight)
 {
@@ -1452,8 +1472,8 @@ void Layer::texels(Grid &g, int t, ClientMap &map, u32 daynight)
 		for (int cx = 0; cx < 16; cx++) {
 			const int c = first + cz * g.cols + cx;
 			const s32 shown = g.shown[c], floor = g.floor[c];
-			g.texels[c * 2] = shown == NONE ? NONE_TEXEL : float(shown - base);
-			g.texels[c * 2 + 1] = floor == NONE ? NONE_TEXEL : float(floor - base);
+			g.texels[c * 4] = shown == NONE ? NONE_TEXEL : float(shown - base);
+			g.texels[c * 4 + 1] = floor == NONE ? NONE_TEXEL : float(floor - base);
 			level = level && shown == one && shown != NONE && shown - floor >= 16; // deep: shaded alike either way
 			if (shown != NONE) {
 				mean += shown - base;
@@ -1462,6 +1482,7 @@ void Layer::texels(Grid &g, int t, ClientMap &map, u32 daynight)
 				low = std::min(low, float(floor - base));
 			}
 		}
+	surfaceTexels(g, t);
 	tile.low = low - 16; // a side stands down to its neighbour's ground, which may be lower
 	tile.high = high;
 	tile.wet = wet > 0;
@@ -1515,7 +1536,7 @@ void Layer::draw(Grid &g, video::IVideoDriver *driver)
 			if (fine)
 				continue; // the fine grid's
 		}
-		bool whole = tile.level;
+		bool whole = tile.level && !tile.awake; // (awake: it may be rippling)
 		for (int s = 0; s < 4 && whole; s++) {
 			const int nx = tx + SIDES[s].X, nz = tz + SIDES[s].Z;
 			if (nx < 0 || nx >= g.tiles || nz < 0 || nz >= g.tiles)

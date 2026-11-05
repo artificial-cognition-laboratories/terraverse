@@ -8,6 +8,7 @@
 #include "matter/matter.h"
 #include "shell/course.h"
 #include "shell/finepowder.h"
+#include "client/liquidlook.h"
 #include "shell/finewater.h"
 #include "shell/relief.h"
 #include <algorithm>
@@ -34,6 +35,8 @@ public:
 	void testFinePowder();
 	void testSteps();
 	void testWallsStayDry();
+	void testBoiling();
+	void testLook();
 	void testRiverPatch();
 };
 
@@ -49,6 +52,8 @@ void TestMoves::runTests(IGameDef *gamedef)
 	TEST(testFinePowder);
 	TEST(testSteps);
 	TEST(testWallsStayDry);
+	TEST(testBoiling);
+	TEST(testLook);
 	TEST(testRiverPatch);
 }
 
@@ -402,6 +407,64 @@ void TestMoves::testWallsStayDry()
 	std::cout << "walls: wet " << on_walls << ", spills from them " << spills << std::endl;
 	UASSERTEQ(int, on_walls, 0);
 	UASSERTEQ(int, spills, 0);
+}
+
+// Cold water has no bubbles; near boiling a few die on the way up; boiling, they break the surface and ripple it.
+void TestMoves::testBoiling()
+{
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	std::ifstream in(game + "palette.json");
+	Json::Value palette;
+	in >> palette;
+	const std::vector<sandbox::StageBlock> blocks = sandbox::Stage::read(palette["scene"]);
+	int water = -1;
+	for (size_t i = 0; i < blocks.size(); i++)
+		if (blocks[i].spec.node == "tf_world:water_source")
+			water = (int)i;
+	std::vector<sandbox::Stage::Cell> cells(3 * 3 * 3);
+	for (size_t i = 0; i < 9; i++)
+		cells[i].block = water, cells[i].level = 1;
+	const auto run = [&](double boil) {
+		for (size_t i = 0; i < 9; i++)
+			cells[i].boil = boil;
+		shell::FineWater fine;
+		int bursts = 0, most = 0, rippled = 0;
+		for (int f = 0; f < 240; f++) {
+			fine.sync(3, 3, 3, cells, blocks);
+			fine.step(1 / 60.f, 1);
+			fine.bubble(1 / 60.f, 1);
+			bursts += (int)fine.takeBursts().size();
+			most = std::max(most, (int)fine.bubbles().size());
+		}
+		for (int c = 0; c < fine.width() * fine.depth(); c++)
+			rippled += fine.lookOf(c).light != 1;
+		return std::array<int, 3>{ bursts, most, rippled };
+	};
+	const auto cold = run(0), near = run(0.5), boiling = run(1);
+	std::cout << "boiling (bursts, bubbles, rippled): cold " << cold[0] << "," << cold[1] << "," << cold[2] << " near " << near[0] << "," << near[1] << "," << near[2]
+			<< " boiling " << boiling[0] << "," << boiling[1] << "," << boiling[2] << std::endl;
+	UASSERTEQ(int, cold[1], 0);
+	UASSERTEQ(int, cold[2], 0);
+	UASSERT(near[1] > 0 && near[0] < boiling[0] / 3);
+	UASSERT(boiling[0] > 50 && boiling[2] > 100);
+}
+
+// A black body: nothing below Draper's point, then red, orange, and towards white; ripples are on steps of light.
+void TestMoves::testLook()
+{
+	using namespace liquids::look;
+	UASSERT(glow(700).share == 0);
+	const Glow red = glow(900), orange = glow(1500), white = glow(5000);
+	std::cout << "glow 900 K " << red.r << "," << red.g << "," << red.b << " x" << red.share << "; 1500 K " << orange.r << "," << orange.g << "," << orange.b << " x" << orange.share << std::endl;
+	UASSERT(red.r > 0.9f && red.g < 0.5f && red.share > 0 && red.share < 0.3f);
+	UASSERT(orange.g > red.g && orange.b < orange.g && orange.share > 0.8f);
+	UASSERT(white.b > 0.9f && white.g > 0.9f);
+	const Surface flat = surface(1, { 1, 1, 1, 1 }, 1 / 16.f, {}, 1);
+	UASSERT(flat.light == 1 && flat.foam == 0);
+	const Surface sloped = surface(1, { 0.99f, 1.01f, 1, 1 }, 1 / 16.f, {}, 1);
+	UASSERT(sloped.light != 1);
+	const Surface ledge = surface(1, { 0, 1, 1, 1 }, 1 / 16.f, {}, 1);
+	UASSERT(ledge.light == 1);
 }
 
 // The Worlds time-lapse says what its pages say: rounds of a real river, sediment gathering, heavy grains

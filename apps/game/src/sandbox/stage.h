@@ -71,6 +71,7 @@ public:
 		int32_t vapour = -1;
 		double haze = 0;
 		uint32_t flame = 0;  // what's burning in it, 0xrrggbb; 0: nothing
+		double boil = 0;     // its liquid: 0 well short of boiling, 1 boiling
 	};
 	std::vector<Cell> view() const; // x fastest, then z, then y (bottom layer first)
 	double time() const { return m_time; }
@@ -89,7 +90,7 @@ private:
 	const matter::Matter &m_matter;
 	const std::vector<StageBlock> &m_blocks;
 	int32_t m_x, m_y, m_z;
-	double m_ambient, m_time = 0;
+	double m_ambient, m_pressure, m_time = 0;
 	int32_t m_air = -1;
 	std::vector<int32_t> m_kinds; // by cell
 	std::vector<double> m_levels;

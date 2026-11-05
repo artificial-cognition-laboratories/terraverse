@@ -15,15 +15,12 @@ namespace shell {
 
 static constexpr float FOV = 0.7f;
 
-// The glow of something this hot (K): none below about 750 K.
+// What something this hot looks like: its own colour, giving way to its black body glow.
 static video::SColor glowing(video::SColor c, double t)
 {
-	const double strength = std::clamp((t - 750) / 1250, 0.0, 1.0);
-	if (strength <= 0)
-		return c;
-	const double g = std::clamp((t - 900) / 1200, 0.0, 1.0), b = std::clamp((t - 1600) / 1500, 0.0, 1.0);
-	const auto mix = [&](u32 from, double to) { return (u32)std::min(255.0, from * (1 - strength * 0.7) + to * 255 * strength); };
-	return video::SColor(c.getAlpha(), mix(c.getRed(), 1), mix(c.getGreen(), 0.25 + 0.75 * g), mix(c.getBlue(), 0.05 + 0.9 * b));
+	const liquids::look::Glow g = liquids::look::glow(t);
+	const auto mix = [&](u32 own, float hot) { return (u32)std::clamp(own * (1 - g.share) + hot * 255 * g.share, 0.f, 255.f); };
+	return video::SColor(c.getAlpha(), mix(c.getRed(), g.r), mix(c.getGreen(), g.g), mix(c.getBlue(), g.b));
 }
 
 // A temperature for the heat overlay: blue cold, white at room temperature, red hot.
@@ -368,12 +365,17 @@ void Scene::drawFine(video::IVideoDriver *driver, float dt)
 	if (!m_fine_on || m_heat)
 		return;
 	m_fine.step(dt, m_fine_pace);
-	constexpr float C = 1.f / 16, SHEEN = 0.22f;
+	constexpr float C = 1.f / 16, SHEEN = 0.22f, ALPHA = 175;
 	const float ox = -m_sizedX / 2.0f, oz = -m_sizedZ / 2.0f;
-	const auto tinted = [&](u32 v, float by, bool top, u32 alpha) {
+	// (as liquid_shader's: the game's water and this are one look)
+	const auto tinted = [&](u32 v, double heat, float by, bool top, float foam, float alpha) {
+		const liquids::look::Glow g = liquids::look::glow(heat);
 		const float k = top ? SHEEN : 0;
-		const auto mix = [&](u32 own, u32 sky) { return (u32)std::clamp((own * (1 - k) + sky * k) * by, 0.f, 255.f); };
-		return video::SColor(alpha, mix((v >> 16) & 255, 190), mix((v >> 8) & 255, 215), mix(v & 255, 235));
+		const auto mix = [&](u32 own, u32 sky, float foamed, float hot) {
+			const float lit = (own * (1 - k) + sky * k) * (1 - foam) + foamed * 255 * foam;
+			return (u32)std::clamp((lit * (1 - g.share) + hot * 255 * g.share) * by, 0.f, 255.f);
+		};
+		return video::SColor((u32)std::clamp(alpha + g.share * 255, 0.f, 255.f), mix((v >> 16) & 255, 190, 0.92f, g.r), mix((v >> 8) & 255, 215, 0.96f, g.g), mix(v & 255, 235, 1.0f, g.b));
 	};
 	const int w = m_fine.width(), d = m_fine.depth();
 	std::vector<video::S3DVertex> &vs = m_fine_vertices;
@@ -410,18 +412,24 @@ void Scene::drawFine(video::IVideoDriver *driver, float dt)
 				x++;
 				continue;
 			}
+			const auto topColour = [&](int n) {
+				const float deep = std::clamp((m_fine.shown(n) - m_fine.floorAt(n)) / 16.f, 0.f, 1.f);
+				const liquids::look::Surface look = m_fine.lookOf(n);
+				return tinted(m_fine.colourAt(n), m_fine.temperatureAt(n), (1 - 0.35f * deep) * look.light, true, look.foam, ALPHA + 60 * deep);
+			};
 			const u32 colour = m_fine.colourAt(c);
+			const video::SColor top = topColour(c);
 			int end = x + 1;
-			while (end < w && m_fine.shown(z * w + end) == h && m_fine.colourAt(z * w + end) == colour)
+			while (end < w && m_fine.shown(z * w + end) == h && topColour(z * w + end) == top)
 				end++;
 			const float y = h * C, x0 = ox + x * C, x1 = ox + end * C, z0 = oz + z * C;
-			put(v3f((x0 + x1) / 2, y, z0 + C / 2), v3f((x1 - x0) / 2, 0, 0), v3f(0, 0, C / 2), v3f(0, 1, 0), tinted(colour, 0.95f, true, 235));
+			put(v3f((x0 + x1) / 2, y, z0 + C / 2), v3f((x1 - x0) / 2, 0, 0), v3f(0, 0, C / 2), v3f(0, 1, 0), top);
 			const auto side = [&](const Face &f, v3f at, float half, s32 other) {
 				other = std::max(other, m_fine.floorAt(c));
 				if (other >= h)
 					return;
 				const float tall = (h - other) * C;
-				put(at + v3f(0, -tall / 2, 0), f.u * half, f.v * (tall / 2), f.normal, tinted(colour, f.light, false, 175));
+				put(at + v3f(0, -tall / 2, 0), f.u * half, f.v * (tall / 2), f.normal, tinted(colour, m_fine.temperatureAt(c), f.light * 0.85f, false, 0, ALPHA));
 			};
 			for (int k = x; k < end; k++) {
 				const float kx = ox + (k + 0.5f) * C;
@@ -432,6 +440,24 @@ void Scene::drawFine(video::IVideoDriver *driver, float dt)
 			side(FACES[3], v3f(x0, y, z0 + C / 2), C / 2, beside(x - 1, z));
 			x = end;
 		}
+	// bubbles under the surface, paler than what they're in; each that bursts may throw a drop up
+	const bool running = porting::getTimeMs() < m_fine_at + 500;
+	m_fine.bubble(running ? dt : 0, m_fine_pace);
+	for (const FineWater::Bubble &b : m_fine.bubbles()) {
+		const float half = C / 2;
+		const v3f at(ox + b.x, b.y, oz + b.z);
+		for (const Face &f : FACES)
+			put(at + f.normal * half, f.u * half, f.v * half, f.normal, video::SColor(170, 225, 238, 248));
+	}
+	for (const FineWater::Burst &b : m_fine.takeBursts()) {
+		if (m_drops.size() >= 800 || rand() % 3)
+			continue;
+		const int cx = b.column % w, cz = b.column / w;
+		const u32 v = m_fine.colourAt(b.column);
+		const float a = (rand() % 1000) / 1000.f * 6.283f;
+		m_drops.push_back({ v3f(ox + (cx + 0.5f) * C, m_fine.shown(b.column) == FineWater::NONE ? 0 : (m_fine.shown(b.column) + 1) * C, oz + (cz + 0.5f) * C),
+				v3f(std::cos(a) * 0.4f, 1.1f + (rand() % 100) / 100.f, std::sin(a) * 0.4f), glowing(video::SColor(255, (v >> 16) & 255, (v >> 8) & 255, v & 255), m_fine.temperatureAt(b.column)) });
+	}
 	// what's gone over an edge falls from its lip
 	for (const FineWater::Spill &s : m_fine.takeSpills()) {
 		if (m_drops.size() >= 800)
@@ -440,7 +466,7 @@ void Scene::drawFine(video::IVideoDriver *driver, float dt)
 		const v3f way(s.side == 0 ? 1.f : s.side == 1 ? -1.f : 0.f, 0, s.side == 2 ? 1.f : s.side == 3 ? -1.f : 0.f);
 		const u32 v = m_fine.colourAt(s.column);
 		const v3f lip(ox + (cx + 0.5f) * C + way.X * C, m_fine.floorAt(s.column) * C, oz + (cz + 0.5f) * C + way.Z * C);
-		m_drops.push_back({ lip, way * 0.4f, video::SColor(255, (v >> 16) & 255, (v >> 8) & 255, v & 255) });
+		m_drops.push_back({ lip, way * 0.4f, glowing(video::SColor(255, (v >> 16) & 255, (v >> 8) & 255, v & 255), m_fine.temperatureAt(s.column)) });
 	}
 	// what's being poured: sixteenth cubes falling, each throwing a little out where it lands
 	if (m_frame) {
@@ -454,7 +480,9 @@ void Scene::drawFine(video::IVideoDriver *driver, float dt)
 			for (int k = 0; k < 3 && m_drops.size() < 400; k++) {
 				const float a = (rand() % 1000) / 1000.f * 6.283f, r = (rand() % 1000) / 1000.f * 0.12f;
 				const video::SColor colour = substance < m_substances.size() ? m_substances[substance] : video::SColor(255, 63, 118, 228);
-				m_drops.push_back({ v3f(ox + at.x + 0.5f + std::cos(a) * r, at.y + 0.5f, oz + at.z + 0.5f + std::sin(a) * r), v3f(0, -1, 0), colour });
+				const size_t cell = ((size_t)at.y * m_sizedZ + at.z) * m_sizedX + at.x;
+				m_drops.push_back({ v3f(ox + at.x + 0.5f + std::cos(a) * r, at.y + 0.5f, oz + at.z + 0.5f + std::sin(a) * r), v3f(0, -1, 0),
+						glowing(colour, cell < m_frame->cells.size() ? m_frame->cells[cell].temperature : 0) });
 			}
 	}
 	for (size_t i = 0; i < m_drops.size();) {

@@ -13,6 +13,8 @@ namespace shell {
 static constexpr float STEP = 1 / 100.0f, L = 1 / 16.0f, AREA = L * L;
 static constexpr int MOST_STEPS = 3; // in a frame; past it the water runs slow rather than the frame
 static constexpr float FILM = 1 / 32.0f, HOLD = 3, HOLD_MOST = 0.25f, SLACK = 1 / 128.0f, POOLS = 0.25f, SPLASH = 0.03f, STILL = 1e-5f, SLEEP = 1, SPILL = 1 / 128.0f;
+static constexpr float BUBBLES = 22, BUBBLE_DEEP = 1 / 8.0f, BUBBLE_KICK = 0.05f; // a node a second at full boil; none in less depth; what a burst throws out
+static constexpr size_t MOST_BUBBLES = 500;
 
 void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox::Stage::Cell> &cells, const std::vector<sandbox::StageBlock> &blocks)
 {
@@ -28,12 +30,16 @@ void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox:
 		m_depth.assign(n, 0);
 		m_out.assign(n, {});
 		m_over.assign(n, {});
+		m_temperature.assign(n, 293);
+		m_boil.assign((size_t)x * z, 0);
+		m_bubbles.clear();
 		m_targets.assign((size_t)x * z, 0);
 		m_colour.assign(n, 0x3f76e4);
 		m_began = false;
 	}
 	std::vector<int32_t> floors((size_t)x * z, 0);
 	std::vector<uint32_t> colours((size_t)x * z, 0);
+	std::vector<float> heats((size_t)x * z, 293);
 	// (a powder on its way down isn't ground)
 	const auto restsOn = [&](int nx, int ny, int nz) {
 		if (ny == 0)
@@ -47,7 +53,7 @@ void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox:
 	for (int nz = 0; nz < z; nz++)
 		for (int nx = 0; nx < x; nx++) {
 			const size_t node = (size_t)nz * x + nx;
-			float water = 0;
+			float water = 0, boil = 0;
 			int32_t floor = 0;
 			for (int ny = y - 1; ny >= 0; ny--) {
 				const sandbox::Stage::Cell &c = cells[((size_t)ny * z + nz) * x + nx];
@@ -57,10 +63,14 @@ void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox:
 				if (c.fill.substance >= 0 && c.fill.share > 0.005) {
 					water += (float)c.fill.share;
 					colours[node] = c.fill_colour;
+					heats[node] = (float)c.temperature;
+					boil = std::max(boil, (float)c.boil);
 				}
 				if (b && b->spec.state == matter::State::Liquid && b->spec.matter != "air") {
 					water += b->spec.leveled ? (float)c.level : 1;
 					colours[node] = b->spec.matter == "water" ? 0x3f76e4 : c.fill_colour ? c.fill_colour : colours[node];
+					heats[node] = (float)c.temperature;
+					boil = std::max(boil, (float)c.boil);
 					continue;
 				}
 				if (b && FinePowder::isPowder(*b) && !restsOn(nx, ny, nz))
@@ -76,6 +86,7 @@ void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox:
 				}
 			}
 			floors[node] = floor;
+			m_boil[node] = boil;
 			if (std::fabs(water - m_targets[node]) > 1e-4f)
 				m_quiet = false;
 			m_targets[node] = water;
@@ -85,7 +96,7 @@ void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox:
 			const int c = cz * m_w + cx;
 			const int32_t f = floors[(size_t)(cz / 16) * x + cx / 16];
 			if (const uint32_t colour = colours[(size_t)(cz / 16) * x + cx / 16])
-				m_colour[c] = colour;
+				m_colour[c] = colour, m_temperature[c] = heats[(size_t)(cz / 16) * x + cx / 16];
 			if (f != m_floor[c]) {
 				m_floor[c] = f;
 				m_quiet = false;
@@ -216,7 +227,7 @@ void FineWater::flow(float dt)
 				continue;
 			const float amount = o * dt / L;
 			if (m_depth[c + STEPS[s]] <= 0)
-				m_colour[c + STEPS[s]] = m_colour[c]; // ahead of the matter: it's still what it was
+				m_colour[c + STEPS[s]] = m_colour[c], m_temperature[c + STEPS[s]] = m_temperature[c]; // ahead of the matter: it's still what it was
 			if (m_floor[c] - m_floor[c + STEPS[s]] > 1 && m_depth[c + STEPS[s]] * 16 < m_floor[c] - m_floor[c + STEPS[s]]) {
 				m_over[c][s] += amount;
 				if (m_over[c][s] > SPILL) {
@@ -271,6 +282,73 @@ std::vector<FineWater::Spill> FineWater::takeSpills()
 {
 	std::vector<Spill> out;
 	out.swap(m_spills);
+	return out;
+}
+
+liquids::look::Surface FineWater::lookOf(int c) const
+{
+	const auto top = [&](int n) { return m_depth[n] <= 0 ? -1e9f : m_floor[n] / 16.0f + m_depth[n]; };
+	const int cx = c % m_w, cz = c / m_w;
+	const std::array<float, 4> beside = { cx + 1 < m_w ? top(c + 1) : -1e9f, cx > 0 ? top(c - 1) : -1e9f, cz + 1 < m_d ? top(c + m_w) : -1e9f, cz > 0 ? top(c - m_w) : -1e9f };
+	return liquids::look::surface(top(c), beside, L, m_out[c], m_depth[c]);
+}
+
+// Near boiling, a few that die on the way up in cooler water; boiling, many that reach the top and break it.
+// The rate's the look of boiling, so doesn't go up with the clock past a little.
+void FineWater::bubble(float dt, float pace)
+{
+	if (dt <= 0 || !m_began)
+		return;
+	const auto random = [&] {
+		m_seed = m_seed * 1664525u + 1013904223u;
+		return (m_seed >> 8) / 16777216.0f;
+	};
+	for (int nz = 0; nz < m_nz; nz++)
+		for (int nx = 0; nx < m_nx; nx++) {
+			const float boil = m_boil[(size_t)nz * m_nx + nx];
+			if (boil <= 0)
+				continue;
+			float due = boil * boil * BUBBLES * dt * std::min(pace, 2.f) + random();
+			for (; due >= 1 && m_bubbles.size() < MOST_BUBBLES; due -= 1) {
+				// (in columns of a few shared spots, so they come up in strings, as off a hot floor)
+				const int spot = (int)(random() * 5);
+				const int cx = nx * 16 + (3 + spot * 7 + (nx * 5 + nz * 3) * 3) % 16, cz = nz * 16 + (5 + spot * 11 + nx * 3) % 16;
+				const int c = cz * m_w + cx;
+				if (m_depth[c] < BUBBLE_DEEP)
+					continue;
+				const float x = (cx + random()) * L, z = (cz + random()) * L, y = m_floor[c] / 16.0f;
+				const bool breaks = boil >= 0.95f || random() < boil * boil * boil;
+				m_bubbles.push_back({ x, y, z, 0.45f + random() * 0.4f, breaks ? 1e9f : y + m_depth[c] * (0.3f + random() * 0.4f), false });
+			}
+		}
+	for (size_t i = 0; i < m_bubbles.size();) {
+		Bubble &b = m_bubbles[i];
+		b.y += b.speed * dt;
+		b.x += std::sin(b.y * 23) * 0.03f * dt;
+		const int cx = std::clamp((int)(b.x / L), 0, m_w - 1), cz = std::clamp((int)(b.z / L), 0, m_d - 1), c = cz * m_w + cx;
+		const float top = m_floor[c] / 16.0f + m_depth[c];
+		if (b.y >= top && b.dies > 1e8f) {
+			// it breaks the surface: rings go out from here
+			for (float &o : m_out[c])
+				o += BUBBLE_KICK;
+			m_quiet = false;
+			m_still = 0;
+			if (m_bursts.size() < 64)
+				m_bursts.push_back({ c, m_boil[nodeOf(c)] });
+		}
+		if (b.y >= top || b.y >= b.dies) {
+			m_bubbles[i] = m_bubbles.back();
+			m_bubbles.pop_back();
+			continue;
+		}
+		i++;
+	}
+}
+
+std::vector<FineWater::Burst> FineWater::takeBursts()
+{
+	std::vector<Burst> out;
+	out.swap(m_bursts);
 	return out;
 }
 

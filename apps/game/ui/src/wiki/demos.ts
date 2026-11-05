@@ -104,9 +104,16 @@ export const LAB_DEMOS: LabDemo[] = [
         spec: box([1, 3, 1], [{ at: [0, 2, 0], node: "tf_world:ice", temperature: 258 }]),
     },
     {
-        id: "boil", group: "Heat", title: "Water boils", speed: 60,
-        note: "A heater under water: it warms to 100 °C and holds there while it boils. The steam rises, meets cooler air and condenses again.",
-        spec: box([1, 4, 1], [{ at: [0, 0, 0], node: "tf_world:water_source", temperature: 390, hold: true }]),
+        id: "boil", group: "Heat", title: "Water boils", speed: 1,
+        note: "A red-hot floor under a pot. First a few bubbles that die on the way up, then a rolling boil that holds at 100 °C. The steam is clear where it leaves, and shows as mist where it cools.",
+        spec: box([5, 8, 5], [0, 1, 2, 3, 4].flatMap((x) => [0, 1, 2, 3, 4].flatMap((z): SandboxBlock[] => {
+            const wall = x === 0 || z === 0 || x === 4 || z === 4
+            return [
+                wall ? { at: [x, 0, z], node: "tf_world:stone" } : { at: [x, 0, z], node: "tf_world:stone", temperature: 1000, hold: true },
+                ...[1, 2].map((y): SandboxBlock => wall ? { at: [x, y, z], node: "tf_world:stone_bricks" }
+                    : y === 1 ? { at: [x, y, z], node: "tf_world:water_source", temperature: 374, hold: true } : { at: [x, y, z], node: "tf_world:water_source" }),
+            ]
+        }))),
     },
     {
         id: "conduct", group: "Heat", title: "Copper and wood, heated at one end", speed: 60,

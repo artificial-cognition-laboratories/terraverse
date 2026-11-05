@@ -9,7 +9,7 @@
 // side's foot) or 1 (its head); texture x the face (0 top, 1..4 the sides
 // +x −x +z −z, 5 a level tile's one top), y the column in the tile (x + 16 z).
 // Two grids share it: a column's a sixteenth of a node (fine) or a quarter (coarse).
-uniform sampler2D texture0; // per column: r its top, g its ground (sixteenths over the grid's base; −1e9: none)
+uniform sampler2D texture0; // per column: r its top, g its ground (sixteenths over the grid's base; −1e9: none), b its light, a its foam (client/liquidlook.h)
 uniform highp vec4 waterGrid;   // scene x, y, z of the grid's corner at its base; columns a side
 uniform highp vec4 waterTile;   // the tile's first column x, z; its tops' mean; its light
 uniform highp vec4 waterColour; // the liquid's; columns a node
@@ -22,13 +22,14 @@ const float NONE = -1.0e8;
 const float SHEEN = 0.22;                         // tops catch the sky (clear liquids are still seen)
 const vec3 SKY = vec3(190.0, 215.0, 235.0) / 255.0;
 const float ALPHA = 175.0 / 255.0;
+const vec3 FOAM = vec3(0.92, 0.96, 1.0);
 
 void main(void)
 {
 	int face = int(inTexCoord0.x + 0.5);
 	int c = int(inTexCoord0.y + 0.5);
 	ivec2 col = ivec2(int(waterTile.x) + c - (c / 16) * 16, int(waterTile.y) + c / 16);
-	vec2 here = texelFetch(texture0, col, 0).rg;
+	vec4 here = texelFetch(texture0, col, 0);
 	float h = here.r;
 	bool shown = h > NONE;
 	float y = h;
@@ -66,7 +67,10 @@ void main(void)
 		// deep reads deep (darker, less clear); higher than the rest a little lighter (ripples are seen)
 		float deep = clamp((h - here.g) / 16.0, 0.0, 1.0);
 		float by = (1.0 + 0.3 * (h - waterTile.z) / 16.0) * (1.0 - 0.35 * deep);
-		varColor = vec4(clamp(mix(waterColour.rgb, SKY, SHEEN) * shade * by, 0.0, 1.0), ALPHA + 60.0 / 255.0 * deep);
+		if (face == 0)
+			by *= here.b;
+		vec3 lit = mix(mix(waterColour.rgb, SKY, SHEEN), FOAM, face == 0 ? here.a : 0.0);
+		varColor = vec4(clamp(lit * shade * by, 0.0, 1.0), ALPHA + 60.0 / 255.0 * deep);
 	} else {
 		varColor = vec4(clamp(waterColour.rgb * shade * 0.85, 0.0, 1.0), ALPHA);
 	}
