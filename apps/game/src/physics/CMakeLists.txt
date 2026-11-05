@@ -4,6 +4,7 @@ set(physics_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/aero.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/driven.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/limbs.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/motion.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/mover.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pose.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/reach.cpp

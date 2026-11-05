@@ -225,6 +225,20 @@ void Actor::update(float dt)
 		m_guided_steps++;
 		m_holding_steps += m_limbs->holding(0) || m_limbs->holding(1);
 		m_mover->feel(m_limbs->felt());
+		// a foot down on the ground slides by how much it moves along it (it should hardly)
+		{
+			const Felt felt = m_limbs->felt();
+			for (int side : { 0, 1 }) {
+				const v3f f = felt.foot[side];
+				const bool down = f.Y - groundAt(f) < 0.08f;
+				if (down && m_foot_was_down[side]) {
+					m_skate += std::hypot(f.X - m_foot_was[side].X, f.Z - m_foot_was[side].Z);
+					m_planted_steps++;
+				}
+				m_foot_was_down[side] = down;
+				m_foot_was[side] = f;
+			}
+		}
 		const Stance after = m_mover->stance();
 		if (after != before)
 			note(stanceName(after));

@@ -6,6 +6,7 @@
 #include "physics/reach.h"
 #include "physics/skeleton.h"
 #include "physics/world.h"
+#include <optional>
 #include <vector>
 
 /*

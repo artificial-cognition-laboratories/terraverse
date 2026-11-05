@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "physics/motion.h"
 #include "physics/pose.h"
 #include <matrix4.h>
 #include <functional>
@@ -56,12 +57,17 @@ class Posing
 public:
 	using Ground = std::function<float(v3f)>;     // the ground under a place (figure's frame), against its feet
 	using Clear = std::function<v3f(v3f, float)>; // how far a ball there has to go to be out of what's solid
+	float strideShare() const { return m_strides.share(); }
+	// Which feet are down and carrying it, as it's posed now.
+	bool planted(int side) const { return m_planted[side]; }
 	Bones pose(float dtime, v3f velocity, float pitch, bool airborne, Stance stance, float turned, std::optional<float> face,
 			float tilt, const Contacts &contacts, const Ground &ground, const Clear &clear);
 
 private:
 	Poser m_poser;
 	Skeleton m_skeleton;
+	Strides m_strides; // a person's stride, recorded, for going about on its feet
+	bool m_planted[2]{};
 	v3f m_clear; // how far the upper body is moved out of what it's beside
 };
 
