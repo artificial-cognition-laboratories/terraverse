@@ -51,6 +51,8 @@ Wiki::Wiki(Shell &shell) : m_shell(shell)
 		}
 		{
 			std::lock_guard<std::mutex> lock(m_lock);
+			if (m_shown != intent["id"].asInt())
+				m_scene.fresh();
 			m_shown = intent["id"].asInt();
 			publish(m_shown, find(intent));
 		}

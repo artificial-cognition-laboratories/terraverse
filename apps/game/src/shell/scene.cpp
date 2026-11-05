@@ -94,6 +94,21 @@ void Scene::hide()
 	m_target = v3f(0);
 }
 
+void Scene::fresh()
+{
+	m_frame.reset();
+	m_fine_on = false;
+	m_fine_time = -1;
+	m_fine_pace = 1;
+	m_fine_at = 0;
+	m_fine = FineWater();
+	m_plume = Plume();
+	m_powder = FinePowder();
+	m_powder_batches.clear();
+	m_drops.clear();
+	m_dirty = true;
+}
+
 void Scene::frame(Frame frame)
 {
 	// a stage's liquid, in sixteenths, is run here between its steps

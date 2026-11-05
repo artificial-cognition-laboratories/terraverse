@@ -47,10 +47,12 @@ private:
 		float rise;
 		u32 tint;
 		float opacity;
+		float biggest = 1;     // of a flame's usual cube: what fits where it is
 	};
 	std::vector<Source> m_gas, m_flames;
 	std::vector<float> m_rise;   // by cell: how fast its gas climbs
 	std::vector<bool> m_closed;  // by cell: solid
+	std::vector<bool> m_walled;  // by cell: has sides a flame keeps off (solid, or a vessel)
 	std::vector<int> m_counts;   // by cell
 	std::vector<float> m_wanted; // by cell
 	std::vector<Puff> m_puffs;

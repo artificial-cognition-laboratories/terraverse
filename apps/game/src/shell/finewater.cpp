@@ -123,6 +123,12 @@ void FineWater::pools()
 // A pool is held to what the matter has in the nodes it's in, and moves freely within it.
 void FineWater::hold(float dt, float pace)
 {
+	// a film left where the matter has none dries: it's too thin to belong to a pool, so nothing else would take it
+	for (int c = 0; c < m_w * m_d; c++)
+		if (m_depth[c] > 0 && m_depth[c] <= FILM && m_targets[nodeOf(c)] <= 0) {
+			m_depth[c] = std::max(0.0f, m_depth[c] - FILM * dt * pace);
+			m_quiet = false;
+		}
 	const float rate = std::min(1.0f, HOLD * dt * pace);
 	int count = 0;
 	for (const int p : m_pool)
@@ -186,7 +192,11 @@ void FineWater::flow(float dt)
 		}
 		const int cx = c % m_w, cz = c / m_w;
 		const int around[4] = { c + 1, c - 1, c + m_w, c - m_w };
-		const bool open[4] = { cx + 1 < m_w, cx > 0, cz + 1 < m_d, cz > 0 };
+		bool open[4] = { cx + 1 < m_w, cx > 0, cz + 1 < m_d, cz > 0 };
+		// (never up onto higher ground the matter has no water on: a full basin stays in its walls)
+		for (int s = 0; s < 4; s++)
+			if (open[s] && m_floor[around[s]] > m_floor[c] && m_targets[nodeOf(around[s])] <= 0)
+				open[s] = false;
 		float higher[4] = {};
 		for (int s = 0; s < 4; s++)
 			if (open[s]) {

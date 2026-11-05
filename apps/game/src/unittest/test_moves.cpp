@@ -33,6 +33,7 @@ public:
 	void testPlume();
 	void testFinePowder();
 	void testSteps();
+	void testWallsStayDry();
 	void testRiverPatch();
 };
 
@@ -47,6 +48,7 @@ void TestMoves::runTests(IGameDef *gamedef)
 	TEST(testPlume);
 	TEST(testFinePowder);
 	TEST(testSteps);
+	TEST(testWallsStayDry);
 	TEST(testRiverPatch);
 }
 
@@ -360,6 +362,46 @@ void TestMoves::testSteps()
 	UASSERT(roughest <= 8);
 	UASSERT(spills > 0);
 	UASSERT(lip_wet > lip_seen / 2);
+}
+
+// A full basin let go may surge onto its walls, as the matter says, but once that's over nothing's left on them.
+void TestMoves::testWallsStayDry()
+{
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	std::ifstream in(game + "palette.json");
+	Json::Value palette;
+	in >> palette;
+	const std::vector<sandbox::StageBlock> blocks = sandbox::Stage::read(palette["scene"]);
+	const matter::Matter table = matter::Matter::load(porting::path_share + DIR_DELIM "matter");
+	sandbox::Stage stage(sandbox::Stage::Opts{ table, blocks, 11, 5, 5, 293, 101325, 9.81, { { "nitrogen", 0.79 }, { "oxygen", 0.21 } } });
+	for (int x = 0; x < 11; x++)
+		for (int z = 0; z < 5; z++) {
+			stage.place({ x, 0, z }, "tf_world:stone");
+			for (int y = 1; y <= 3; y++)
+				if (x == 0 || z == 0 || x == 10 || z == 4 || (x == 5 && y >= 2))
+					stage.place({ x, y, z }, "tf_world:stone_bricks");
+				else if (x < 5)
+					stage.place({ x, y, z }, "tf_world:water_source");
+		}
+	shell::FineWater fine;
+	int on_walls = 0, spills = 0;
+	for (int frame = 0; frame < 60 * 30; frame++) {
+		if (frame % 6 == 0) {
+			stage.step(1);
+			fine.sync(11, 5, 5, stage.view(), blocks);
+		}
+		fine.step(1 / 60.f, 10);
+		const std::vector<shell::FineWater::Spill> gone = fine.takeSpills();
+		if (frame < 60 * 15)
+			continue; // the surge, and its drying
+		for (const shell::FineWater::Spill &s : gone)
+			spills += fine.floorAt(s.column) >= 64;
+		for (int c = 0; c < fine.width() * fine.depth(); c++)
+			on_walls += fine.floorAt(c) >= 64 && fine.shown(c) != shell::FineWater::NONE;
+	}
+	std::cout << "walls: wet " << on_walls << ", spills from them " << spills << std::endl;
+	UASSERTEQ(int, on_walls, 0);
+	UASSERTEQ(int, spills, 0);
 }
 
 // The Worlds time-lapse says what its pages say: rounds of a real river, sediment gathering, heavy grains

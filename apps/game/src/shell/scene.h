@@ -96,6 +96,8 @@ public:
 	void ground(std::optional<Ground> ground);
 	void distance(float d) { m_distance = d; }
 	void hide();
+	// A different simulation from here: nothing of the last one's picture stays (the camera does).
+	void fresh();
 	bool shown() const { return m_shown; }
 	void show() { m_shown = true; }
 
