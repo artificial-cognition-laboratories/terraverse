@@ -81,6 +81,8 @@ public:
 	float thrownSide() const;
 	float thrownBack() const;
 	float stagger() const { return m_stagger; }
+	// Down, its body lying where it went: the capsule keeps under it.
+	void bodyAt(const v3d &hips) { m_body_at = hips; }
 	float fallenAngle() const { return m_down ? m_down->fallen.angle() : 0; }
 	float risingAt() const { return m_down ? m_down->fallen.riseAt() : 0; }
 	std::optional<v3f> stepOn() const
@@ -147,6 +149,7 @@ private:
 	float m_stagger = 0;      // off balance, 0..1
 	float m_lift = 0;         // nodes: gone up a step in one physics step, drawn below that, catching up
 	std::optional<Down> m_down;
+	std::optional<v3d> m_body_at;
 	float m_trip_left = 0;    // s: tripped, scrambling
 	v3f m_trip_at, m_trip_way; // where its hands went down, and which way it was going
 	bool m_move_ended = false;

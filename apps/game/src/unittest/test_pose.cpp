@@ -420,7 +420,7 @@ void TestPose::testReach()
 	// at the speed it came in at, whatever that is
 	const ClimbPath fast = climbPath(OVER, *thin, foot, 0.3f, 6);
 	const float dist = v3f(fast.to.X - foot.X, 0, fast.to.Z - foot.Z).getLength();
-	UASSERT(std::abs(dist / fast.time - 6) < 0.01f);
+	UASSERT(dist / fast.time <= VAULT_PACE + 0.01f); // however fast it came, its hands set the pace
 	// a wall alongside: run on it at speed, kick off it otherwise
 	const Solid side = [](v3s16 p) { return p.X == 1; };
 	const std::optional<v3f> wall = findWall(side, v3f(0.2f, 0, 0), 0.3f);
@@ -616,7 +616,7 @@ void TestPose::testHaul()
 	UASSERT(low >= foot.Y - 0.01f);
 	// its feet above where it'd hang, coming down or still: it always goes on (this once held it there for good)
 	for (const v3f v : { v3f(0, -2, 3), v3f(0, -0.1f, 0), v3f(0) })
-		UASSERT(run(v3f(0, 1.6f, -0.5f), v, true, low, hard) < 1.5f);
+		UASSERT(run(v3f(0, 1.6f, -0.5f), v, true, low, hard) < 2.5f); // (a pull takes its time)
 	// not asked to pull: it comes to rest hanging
 	Haul h(l, foot, v3f(0, -3, 0), 0.3f, false, -10);
 	for (int i = 0; i < 180 && !h.done(); i++)

@@ -17,6 +17,7 @@
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyFilter.h>
 #include <Jolt/Physics/Body/BodyLock.h>
+#include <Jolt/Physics/Body/BodyLockMulti.h>
 #include <Jolt/Physics/Collision/CollideShape.h>
 #include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
 #include <Jolt/Physics/Collision/GroupFilterTable.h>
@@ -28,6 +29,8 @@
 #include <Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
 #include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
+#include <Jolt/Physics/Constraints/HingeConstraint.h>
+#include <Jolt/Physics/Constraints/SwingTwistConstraint.h>
 #include <Jolt/Physics/Constraints/HingeConstraint.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Physics/Vehicle/VehicleCollisionTester.h>
@@ -56,7 +59,7 @@ using namespace JPH;
 // only there to be touched; its tyre (what a vehicle casts for the
 // ground) meets the ground and what moves.
 namespace Layer {
-constexpr ObjectLayer GROUND = 0, MOVING = 1, CHARACTER = 2, CARRIED = 3, WHEEL = 4, TYRE = 5, COUNT = 6;
+constexpr ObjectLayer GROUND = 0, MOVING = 1, CHARACTER = 2, CARRIED = 3, WHEEL = 4, TYRE = 5, LIMB = 6, COUNT = 7;
 }
 namespace Broad {
 constexpr BroadPhaseLayer STILL(0), MOVING(1);
@@ -94,13 +97,14 @@ public:
 	bool ShouldCollide(ObjectLayer a, ObjectLayer b) const override
 	{
 		static constexpr bool TOUCH[Layer::COUNT][Layer::COUNT] = {
-			//          ground moving character carried wheel tyre
-			/* ground */ { false, true, true, true, false, true },
-			/* moving */ { true, true, true, true, false, true },
-			/* char.  */ { true, true, false, false, true, false },
-			/* carr.  */ { true, true, false, true, false, false },
-			/* wheel  */ { false, false, true, false, false, false },
-			/* tyre   */ { true, true, false, false, false, false },
+			//          ground moving character carried wheel tyre limb
+			/* ground */ { false, true, true, true, false, true, true },
+			/* moving */ { true, true, true, true, false, true, true },
+			/* char.  */ { true, true, false, false, true, false, false },
+			/* carr.  */ { true, true, false, true, false, false, false },
+			/* wheel  */ { false, false, true, false, false, false, false },
+			/* tyre   */ { true, true, false, false, false, false, false },
+			/* limb   */ { true, true, false, false, false, false, false },
 		};
 		return TOUCH[a][b];
 	}
@@ -285,6 +289,45 @@ struct World::Impl
 	};
 	std::map<Id, Rec> recs;
 	Id next = 1;
+
+	struct Limbs
+	{
+		std::vector<BodyID> bodies;
+		std::vector<Ref<Constraint>> joints;
+		std::vector<Pose> to;
+		float stiff = 1;
+	};
+	std::map<LimbsId, Limbs> figures;
+	LimbsId next_limbs = 1;
+
+	// Each part's velocity set to what gets it where it's to be, so what's in the way still stops it.
+	void driveLimbs()
+	{
+		constexpr float CATCH_UP = 2 * (float)STEP, FASTEST = 40, FASTEST_TURN = 40;
+		for (auto &[id, f] : figures)
+			for (size_t i = 0; i < f.bodies.size(); i++) {
+				BodyLockWrite lock(system.GetBodyLockInterfaceNoLock(), f.bodies[i]);
+				JPH::Body &body = lock.GetBody();
+				const RVec3 at = body.GetCenterOfMassPosition();
+				const Here h = opts.field(rout(at), out(body.GetLinearVelocity()));
+				const Vec3 limp = body.GetLinearVelocity() + vec(h.gravity) * (float)STEP;
+				Vec3 go = limp, turn = body.GetAngularVelocity();
+				if (f.stiff > 0 && i < f.to.size()) {
+					Vec3 want = Vec3(rvec(f.to[i].position) - at) / CATCH_UP;
+					if (want.Length() > FASTEST)
+						want = want.Normalized() * FASTEST;
+					const JPH::Quat off = (quat(f.to[i].rotation) * body.GetRotation().Conjugated()).EnsureWPositive();
+					Vec3 axis;
+					float angle;
+					off.GetAxisAngle(axis, angle);
+					Vec3 spin = axis * std::min(angle / CATCH_UP, FASTEST_TURN);
+					go = limp + (want - limp) * f.stiff;
+					turn = turn + (spin - turn) * f.stiff;
+				}
+				body.SetLinearVelocity(go);
+				body.SetAngularVelocity(turn);
+			}
+	}
 
 	struct Ground
 	{
@@ -1499,6 +1542,105 @@ std::vector<std::pair<World::Id, v3f>> World::pushes(CharId id)
 	return all;
 }
 
+World::LimbsId World::addLimbs(const std::vector<LimbSpec> &parts, const std::vector<Pose> &built, const std::vector<Pose> &at, v3f velocity)
+{
+	Impl::Limbs f;
+	for (size_t i = 0; i < parts.size(); i++) {
+		const LimbSpec &p = parts[i];
+		Ref<ShapeSettings> shape;
+		if (p.capsule)
+			shape = new CapsuleShapeSettings(p.half.Y, p.half.X);
+		else
+			shape = new BoxShapeSettings(vec(p.half), std::min({ p.half.X, p.half.Y, p.half.Z, 0.04f }));
+		BodyCreationSettings s(shape, rvec(built[i].position), quat(built[i].rotation), EMotionType::Dynamic, Layer::LIMB);
+		s.mOverrideMassProperties = EOverrideMassProperties::CalculateInertia;
+		s.mMassPropertiesOverride.mMass = p.mass;
+		s.mAllowSleeping = false;
+		s.mMotionQuality = EMotionQuality::LinearCast;
+		s.mFriction = 0.7f;
+		s.mRestitution = 0;
+		s.mLinearDamping = 0.05f;
+		s.mAngularDamping = 0.6f;
+		const BodyID b = m->bi().CreateAndAddBody(s, EActivation::Activate);
+		if (b.IsInvalid())
+			throw PhysicsError("physics: too many bodies");
+		f.bodies.push_back(b);
+	}
+	for (size_t i = 0; i < parts.size(); i++) {
+		const LimbSpec &p = parts[i];
+		if (p.parent < 0)
+			continue;
+		const Vec3 pivot = quat(built[i].rotation) * vec(p.joint);
+		const RVec3 where = rvec(built[i].position) + pivot;
+		const Vec3 across = quat(built[i].rotation) * Vec3::sAxisX(), along = quat(built[i].rotation) * Vec3::sAxisY();
+		Ref<TwoBodyConstraintSettings> joint;
+		if (p.bends_from != p.bends_to) {
+			Ref<HingeConstraintSettings> h = new HingeConstraintSettings;
+			h->mPoint1 = h->mPoint2 = where;
+			h->mHingeAxis1 = h->mHingeAxis2 = across;
+			h->mNormalAxis1 = h->mNormalAxis2 = along;
+			h->mLimitsMin = p.bends_from;
+			h->mLimitsMax = p.bends_to;
+			joint = h;
+		} else {
+			Ref<SwingTwistConstraintSettings> t = new SwingTwistConstraintSettings;
+			t->mPosition1 = t->mPosition2 = where;
+			t->mTwistAxis1 = t->mTwistAxis2 = along * -1.f;
+			t->mPlaneAxis1 = t->mPlaneAxis2 = across;
+			t->mNormalHalfConeAngle = t->mPlaneHalfConeAngle = p.cone;
+			t->mTwistMinAngle = -0.6f;
+			t->mTwistMaxAngle = 0.6f;
+			joint = t;
+		}
+		const BodyID pair[2] = { f.bodies[p.parent], f.bodies[i] };
+		BodyLockMultiWrite locks(m->system.GetBodyLockInterfaceNoLock(), pair, 2);
+		Ref<Constraint> c = joint->Create(*locks.GetBody(0), *locks.GetBody(1));
+		m->system.AddConstraint(c);
+		f.joints.push_back(c);
+	}
+	for (size_t i = 0; i < parts.size(); i++) {
+		m->bi().SetPositionAndRotation(f.bodies[i], rvec(at[i].position), quat(at[i].rotation), EActivation::Activate);
+		m->bi().SetLinearAndAngularVelocity(f.bodies[i], vec(velocity), Vec3::sZero());
+	}
+	f.to = at;
+	const LimbsId id = m->next_limbs++;
+	m->figures[id] = std::move(f);
+	return id;
+}
+
+void World::removeLimbs(LimbsId id)
+{
+	const auto it = m->figures.find(id);
+	if (it == m->figures.end())
+		return;
+	for (const Ref<Constraint> &c : it->second.joints)
+		m->system.RemoveConstraint(c);
+	for (const BodyID &b : it->second.bodies) {
+		m->bi().RemoveBody(b);
+		m->bi().DestroyBody(b);
+	}
+	m->figures.erase(it);
+}
+
+void World::driveLimbs(LimbsId id, const std::vector<Pose> &to, float stiff)
+{
+	Impl::Limbs &f = m->figures.at(id);
+	f.to = to;
+	f.stiff = stiff;
+}
+
+std::vector<Pose> World::limbs(LimbsId id) const
+{
+	std::vector<Pose> out;
+	for (const BodyID &b : m->figures.at(id).bodies) {
+		RVec3 at;
+		JPH::Quat turn;
+		m->bi().GetPositionAndRotation(b, at, turn);
+		out.push_back({ rout(at), { turn.GetX(), turn.GetY(), turn.GetZ(), turn.GetW() } });
+	}
+	return out;
+}
+
 World::CharId World::addCharacter(const CharacterSpec &spec, const v3d &foot) { return m->makeChar(spec, foot); }
 
 void World::removeCharacter(CharId id)
@@ -1795,6 +1937,7 @@ void World::step(double dt)
 		m->tiers();
 		m->steer();
 		m->weigh();
+		m->driveLimbs();
 		m->moveChars(steps, n);
 		m->expect();
 		m->system.Update((float)STEP, 1, &m->temp, &m->jobs);

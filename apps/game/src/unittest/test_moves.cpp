@@ -116,13 +116,19 @@ void TestMoves::testBonesStayOut()
 		shell::Course course(move, blocks, palette["machines"]);
 		if (course.machine())
 			continue;
-		float deepest = 0, when = 0;
+		float deepest = 0, when = 0, apart = 0, tallest_after_down = 0;
+		bool was_down = false;
 		int deep_frames = 0, frames = 0;
 		// (an endless one, a good few goes of its move)
 		const double until = course.endless() ? 30 : course.end();
 		while (course.actor().time() + 1 / 60.0 < until) {
 			course.update(1 / 60.f);
 			const float sunk = course.actor().sunk();
+			const v3f head = course.actor().head();
+			apart = std::max(apart, head.getLength());
+			was_down = was_down || course.actor().stance() == physics::Stance::DOWN;
+			if (was_down && course.actor().stance() == physics::Stance::STAND)
+				tallest_after_down = std::max(tallest_after_down, head.Y);
 			frames++;
 			deep_frames += sunk > 0.05f;
 			if (sunk > deepest) {
@@ -131,7 +137,13 @@ void TestMoves::testBonesStayOut()
 			}
 		}
 		std::cout << "sunk " << move["id"].asString() << ": " << deepest << " at " << when << " s, "
-				<< deep_frames << "/" << frames << " frames past 0.05" << std::endl;
+				<< deep_frames << "/" << frames << " frames past 0.05, head within " << apart;
+		if (was_down)
+			std::cout << ", up again head at " << tallest_after_down;
+		std::cout << std::endl;
+		UASSERT(deepest < 0.2f);  // (its parts are slimmer than drawn: a little always shows)
+		UASSERT(apart < 2.5f);    // it's stayed in one piece
+		UASSERT(!was_down || tallest_after_down > 1.2f); // and got up
 	}
 }
 

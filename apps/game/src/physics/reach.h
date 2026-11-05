@@ -33,7 +33,7 @@ constexpr float MOST_REACH = 2.05f;      // nodes: hands above the feet
 constexpr float VAULT_TO = 1.3f, MANTLE_TO = 2.3f; // nodes above where it left the ground
 constexpr float COMING_DOWN = 0.9f;      // nodes above the feet: higher than this, falling, it can't just go over
 constexpr float STEPS_OVER = 1.1f;       // nodes above the feet as they are: waist high by now, it goes over whatever it jumped from
-constexpr float HANG_DROP = 1.5f;       // the feet below the lip, hanging: arms a little bent, hands on it (the figure leans in to the wall)
+constexpr float HANG_DROP = 1.55f;      // the feet below the lip, hanging: arms all but straight, hands on it (the figure leans in to the wall)
 constexpr float SHIMMY = 1.2f;           // nodes/s
 
 // The best edge to hand from a foot, looking along a yaw (Luanti's: radians, 0 is +z): straight
@@ -66,7 +66,9 @@ struct ClimbPath
 	bool arc = false; // across at a steady speed, over and down, not up and then across
 	v3f at(float t) const; // t in s
 };
-// `pace`: how fast it's going in (nodes/s). A vault takes as long as that takes: it doesn't speed up.
+// `pace`: how fast it's going in (nodes/s). Its hands have to get down and take its weight, so it crosses
+// no faster than they can, and what that costs it comes out of what it leaves with.
+constexpr float VAULT_PACE = 4.5f, VAULT_KEEPS = 0.85f; // nodes/s; × what it came in with
 ClimbPath climbPath(const Move &move, const Ledge &ledge, v3f foot, float radius, float pace = 4);
 
 // A body taking hold of an edge, moved by forces rather than along a curve (sprint 123), so how it

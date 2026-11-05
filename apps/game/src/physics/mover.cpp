@@ -315,7 +315,7 @@ void Mover::startClimb(const World::CharacterState &was, v3f velocity, float yaw
 	c.dive = move->dive;
 	if (move->climb == Climb::VAULT) {
 		// it goes on as it came in: the way it was going, not turned square to the wall
-		c.exit = pace > 2 ? across : in * 2.f;
+		c.exit = pace > 2 ? across * VAULT_KEEPS : in * 2.f;
 		const v3f along = across - in * across.dotProduct(in);
 		const v3f drifted = c.path.to + along * c.path.time;
 		const auto clear = [&](float up) {
@@ -580,6 +580,12 @@ Mover::Stepped Mover::step(const Input &in)
 		const float pace = std::hypot(v.X, v.Z);
 		const float kept = pace > 0.01f ? std::max(0.f, pace - FRICTION * (float)STEP) / pace : 0;
 		next = v3f(v.X * kept, was.on_ground ? 0 : v.Y + h.gravity.Y * (float)STEP, v.Z * kept);
+		if (m_body_at) {
+			constexpr float KEEPS_UNDER = 8;
+			const v3f off = v3f::from(*m_body_at - was.foot);
+			next.X = off.X * KEEPS_UNDER;
+			next.Z = off.Z * KEEPS_UNDER;
+		}
 		if (m_down->fallen.done()) {
 			onItsFeet();
 			// off in the way it's asked, not from nothing

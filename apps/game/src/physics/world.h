@@ -197,6 +197,18 @@ struct CharacterSpec
 	float max_slope;      // degrees it can stand on
 };
 
+// One part of a jointed body (sprint 105): a box, or a capsule along its y.
+struct LimbSpec
+{
+	v3f half;         // box half sizes; a capsule's: radius in x, half its straight part in y
+	bool capsule = false;
+	float mass = 1;   // kg
+	int parent = -1;  // joined to this part
+	v3f joint;        // where, in this part's frame
+	float bends_from = 0, bends_to = 0; // about x, radians, from where it stands when built: a hinge. Equal: a ball joint
+	float cone = 1;   // a ball joint's swing, radians
+};
+
 // What a place does to what's in it (sprint 59: gravity is a field).
 struct Here
 {
@@ -309,6 +321,15 @@ public:
 	v3d drawn(CharId id) const;
 	// A block of ground changed: built again, what's on it woken.
 	void groundChanged(v3s16 block);
+
+	// A jointed body (sprint 105): parts that meet the ground and what moves, not characters or each other.
+	// `built`: where each stands as its joints are measured. It's then put at `at`.
+	using LimbsId = unsigned;
+	LimbsId addLimbs(const std::vector<LimbSpec> &parts, const std::vector<Pose> &built, const std::vector<Pose> &at, v3f velocity);
+	void removeLimbs(LimbsId id);
+	// Each step it goes to these. `stiff`: 1 it goes there as nearly as what's in the way lets it, 0 it's limp.
+	void driveLimbs(LimbsId id, const std::vector<Pose> &to, float stiff);
+	std::vector<Pose> limbs(LimbsId id) const;
 
 	// Advances by `dt` in fixed steps (at most a fifth of a second's: a
 	// slow server drops time rather than falling further behind).

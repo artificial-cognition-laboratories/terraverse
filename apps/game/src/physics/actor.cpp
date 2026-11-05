@@ -51,10 +51,11 @@ Actor::Actor(Boxes boxes, const v3d &foot, std::vector<Cue> cues) : m_boxes(std:
 	m_mover = std::make_unique<Mover>(std::move(mover), RADIUS, HEIGHT, foot);
 	m_drawn = v3f::from(foot);
 	m_doing = stanceName(Stance::STAND);
-	update(0.001f);
+	poseAndDrive(STEP, 0);
+	m_bones = m_limbs->drawn(foot, m_yaw, 1);
 }
 
-Actor::~Actor() = default;
+Actor::~Actor() { m_limbs.reset(); }
 
 bool Actor::solid(v3s16 n) const
 {
@@ -146,6 +147,11 @@ float Actor::sunk() const
 	return deepest;
 }
 
+v3f Actor::head() const
+{
+	return (m_bones.lower.matrix() * m_bones.hips.matrix() * m_bones.chest.matrix() * m_bones.head.matrix()).getTranslation();
+}
+
 // new presses, as the game's keys send them
 void Actor::press(const Cue &next)
 {
@@ -166,7 +172,6 @@ void Actor::update(float dt)
 {
 	if (dt <= 0)
 		return;
-	const float was_yaw = m_yaw;
 	m_behind += dt;
 	while (m_behind >= STEP) {
 		m_time += STEP;
@@ -174,7 +179,10 @@ void Actor::update(float dt)
 		while (m_cue < m_cues.size() && m_cues[m_cue].at <= m_time) {
 			press(m_cues[m_cue++]);
 		}
+		const float was_yaw = m_yaw;
 		m_yaw = m_on.yaw;
+		// what's asked of the body for this step, from where it stands now
+		poseAndDrive(STEP, -std::remainder(m_yaw - was_yaw, 2 * core::PI));
 		Mover::Input in;
 		in.ahead = m_on.ahead;
 		in.right = m_on.right;
@@ -184,6 +192,8 @@ void Actor::update(float dt)
 		in.run = m_on.run ? SPRINT : 1;
 		const Stance before = m_mover->stance();
 		m_mover->step(in);
+		m_limbs->read();
+		m_mover->bodyAt(m_limbs->hips());
 		const Stance after = m_mover->stance();
 		if (after != before)
 			note(stanceName(after));
@@ -192,7 +202,14 @@ void Actor::update(float dt)
 	}
 	const v3d drawn = m_mover->was() + (m_mover->now() - m_mover->was()) * (m_behind / STEP) - v3d(0, m_mover->lift(), 0);
 	m_drawn = v3f::from(drawn);
+	if (m_limbs)
+		m_bones = m_limbs->drawn(drawn, m_yaw, (float)(m_behind / STEP));
+}
 
+void Actor::poseAndDrive(float dt, float turned)
+{
+	const v3d foot = m_mover->now() - v3d(0, m_mover->lift(), 0);
+	const v3f at = v3f::from(foot);
 	// into the figure's frame: +x its right, +z ahead (Body's axes, as content_cao's turning matrix has them)
 	const float c = std::cos(m_yaw), s = std::sin(m_yaw);
 	const auto toFigure = [&](v3f w) { return v3f(w.X * c + w.Z * s, w.Y, -w.X * s + w.Z * c); };
@@ -203,24 +220,32 @@ void Actor::update(float dt)
 	std::optional<Grip> grip = m_mover->grip();
 	if (grip) {
 		for (const int side : { 0, 1 })
-			grip->wrist[side] = toFigure(grip->wrist[side] - m_drawn);
+			grip->wrist[side] = toFigure(grip->wrist[side] - at);
 		grip->over = toFigure(grip->over);
 	}
 	Contacts contacts;
 	contacts.grip = grip ? &*grip : nullptr;
 	contacts.push = toFigure(m_mover->kickPush());
 	if (const std::optional<v3f> on = m_mover->stepOn())
-		contacts.step_on = toFigure(*on - m_drawn);
+		contacts.step_on = toFigure(*on - at);
 	contacts.feet = m_mover->feetUsed();
 	contacts.fallen = m_mover->fallenAngle();
 	contacts.rising = m_mover->risingAt();
 	contacts.stagger = m_mover->stagger();
 	contacts.throw_side = m_mover->thrownSide();
 	contacts.throw_back = m_mover->thrownBack();
-	const float turned = -std::remainder(m_yaw - was_yaw, 2 * core::PI);
-	m_bones = m_posing.pose(dt, toFigure(moving), 0, !now.on_ground, m_mover->stance(), turned, face, m_mover->wallLean(m_yaw), contacts,
-			[&](v3f foot) { return groundAt(m_drawn + toWorld(foot)) - m_drawn.Y; },
-			[&](v3f at, float r) { return toFigure(clearOf(m_drawn + toWorld(at), r)); });
+	const Bones asked = m_posing.pose(dt, toFigure(moving), 0, !now.on_ground, m_mover->stance(), turned, face, m_mover->wallLean(m_yaw), contacts,
+			[&](v3f f) { return groundAt(at + toWorld(f)) - at.Y; },
+			[&](v3f p, float r) { return toFigure(clearOf(at + toWorld(p), r)); });
+	// Down it's limp, and it stiffens again as it gets up.
+	constexpr float HELD = 0.9f, LIMP = 0.02f;
+	const float wanted = m_mover->stance() != Stance::DOWN ? HELD : LIMP + (HELD - LIMP) * contacts.rising;
+	m_stiff = wanted < m_stiff ? wanted : std::min(wanted, m_stiff + dt * 4);
+	if (!m_limbs) {
+		m_limbs = std::make_unique<Limbs>(*m_world, asked, foot, m_yaw, now.velocity);
+		m_limbs->read();
+	}
+	m_limbs->drive(asked, foot, m_yaw, m_stiff);
 }
 
 } // namespace physics

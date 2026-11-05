@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "physics/limbs.h"
 #include "physics/mover.h"
 #include "physics/skeleton.h"
 #include <functional>
@@ -47,6 +48,7 @@ public:
 	const Bones &bones() const { return m_bones; }
 	// How far its deepest bone corner is inside something solid, as drawn now (nodes).
 	float sunk() const;
+	v3f head() const; // its head's place against its feet, as drawn
 	Stance stance() const { return m_mover->stance(); }
 	float pace() const;
 	// Everything it's done so far: moves by name, and stances.
@@ -57,6 +59,7 @@ public:
 private:
 	bool solid(v3s16 n) const;
 	void note(const std::string &what);
+	void poseAndDrive(float dt, float turned);
 	float groundAt(v3f at) const;
 	v3f clearOf(v3f at, float r) const;
 
@@ -65,6 +68,8 @@ private:
 	size_t m_cue = 0;
 	std::unique_ptr<World> m_world;
 	std::unique_ptr<Mover> m_mover;
+	std::unique_ptr<Limbs> m_limbs;
+	float m_stiff = 1;
 	Posing m_posing;
 	Bones m_bones;
 	Cue m_on;

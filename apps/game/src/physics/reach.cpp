@@ -196,8 +196,9 @@ ClimbPath climbPath(const Move &move, const Ledge &ledge, v3f foot, float radius
 		to.Y = ledge.far + 0.02f;
 	}
 	const float across = v3f(to.X - foot.X, 0, to.Z - foot.Z).getLength();
-	// (onto it, the body's lifted as well as carried: not so quick it's a blink)
-	return { foot, to, ledge.lip.Y + 0.05f, std::max(across / std::max(pace, 2.f), move.over ? 0.2f : 0.35f), true };
+	// (the longest over both hands; onto it, the body's lifted as well as carried)
+	const float least = move.dive ? 0.5f : move.over ? 0.38f : 0.45f;
+	return { foot, to, ledge.lip.Y + 0.05f, std::max(across / std::clamp(pace, 2.f, VAULT_PACE), least), true };
 }
 
 Haul::Haul(const Ledge &ledge, v3f foot, v3f velocity, float radius, bool pull, float floor) :
@@ -233,9 +234,9 @@ void Haul::step(float dt)
 {
 	// Its arms: stiff enough to stop a person, not so stiff it's a snap. Critically damped.
 	constexpr float ARMS = 40, DAMPING = 12.6f, MOST = 40; // /s², /s, nodes/s²
-	constexpr float PULL = 16, LET_GO = 0.55f;             // nodes/s²; nodes under the lip it's let go at
+	constexpr float PULL = 6, LET_GO = 0.55f;              // nodes/s²; nodes under the lip it's let go at
 	constexpr float STOPPED = 0.4f;                        // nodes/s down: as good as stopped
-	constexpr float SLOWS = 14, LEAST_UP = 0.5f, ACROSS = 10, DRIVE_LEAST = 3;
+	constexpr float SLOWS = 8, LEAST_UP = 0.5f, ACROSS = 6, DRIVE_LEAST = 3;
 	const auto toward = [&](v3f to) {
 		v3f a = (to - m_at) * ARMS - m_velocity * DAMPING;
 		if (a.getLength() > MOST)
