@@ -11,6 +11,7 @@
 #include "client/liquidlook.h"
 #include "shell/finewater.h"
 #include "shell/relief.h"
+#include <map>
 #include <algorithm>
 #include <cmath>
 #include <fstream>
@@ -306,23 +307,40 @@ void TestMoves::testFinePowder()
 		stage.step(1);
 		fine.sync(11, 7, 11, stage.view(), blocks);
 		most_falling = std::max(most_falling, fine.falling().size());
-		fine.step(1, 10);
+		for (int f = 0; f < 60; f++)
+			fine.step(1 / 60.f, 1);
 	}
 	std::set<int> tops;
+	std::map<std::pair<int, int>, int> at;
 	float held = 0, has = 0;
 	for (const shell::FinePowder::Column &c : fine.columns()) {
 		UASSERTEQ(int, c.base, 16);
 		UASSERT(c.top > c.base);
 		tops.insert(c.top);
+		at[{ c.x, c.z }] = c.top;
 		held += (c.top - c.base) / 4096.f;
 	}
 	for (const sandbox::Stage::Cell &c : stage.view())
 		if (c.main >= 0 && c.state == matter::State::Solid && c.block >= 0 && shell::FinePowder::isPowder(blocks[c.block]))
 			has += (float)c.level;
 	std::cout << "salt heap: " << tops.size() << " heights, holds " << held << " of " << has << ", most falling blocks " << most_falling << std::endl;
+	// no cliffs at a block's edge: stepping across one is as across anywhere, and it's about as wide on a diagonal
+	int cliff = 0, along = 0, across = 0;
+	for (const auto &[where, top] : at) {
+		const auto next = at.find({ where.first + 1, where.second });
+		cliff = std::max(cliff, std::abs(top - (next == at.end() ? 16 : next->second)));
+		const int dx = where.first - 88, dz = where.second - 88;
+		if (dz == 0)
+			along = std::max(along, std::abs(dx));
+		if (dx == dz)
+			across = std::max(across, std::abs(dx));
+	}
+	std::cout << "salt heap: steepest step " << cliff << ", reaches " << along << " along, " << across << " on the diagonal (" << across * 1.41f << ")" << std::endl;
 	UASSERT(tops.size() >= 8);
 	UASSERT(most_falling >= 1);
-	UASSERT(std::fabs(held - has) < has * 0.35f);
+	UASSERT(std::fabs(held - has) < has * 0.1f);
+	UASSERT(cliff <= 3);
+	UASSERT(across * 1.41f > along * 0.7f && across * 1.41f < along * 1.3f);
 }
 
 // Water down a flight of steps at speed stays water: no column stands far over what's beside it.
@@ -478,6 +496,11 @@ void TestMoves::testBurner()
 	UASSERT(ten > 295 && ten < 330);
 	UASSERT(hundred > 365 && hundred < 380);
 	UASSERT(left > start * 0.85);
+	// nothing but air: it has nothing to heat
+	sandbox::Stage empty(sandbox::Stage::Opts{ table, blocks, 1, 1, 1, 293, 101325, 9.81, { { "nitrogen", 0.79 }, { "oxygen", 0.21 } } });
+	empty.burner({ 0, 0, 0 }, 6e6);
+	empty.step(30);
+	UASSERT(empty.view()[0].temperature < 400);
 }
 
 // A black body: nothing below Draper's point, then red, orange, and towards white; ripples are on steps of light.

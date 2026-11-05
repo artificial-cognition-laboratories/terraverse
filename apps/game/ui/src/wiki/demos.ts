@@ -101,9 +101,9 @@ const BURNER = 6e6 // W a block of the pot gets: a metre cube of water warms in 
 
 export const LAB_DEMOS: LabDemo[] = [
     {
-        id: "ice", group: "Heat", title: "Ice melts", speed: 600,
-        note: "Ice in a warm room warms to 0 °C, then stays there, part ice and part water, until the heat to melt it all has come in. The water runs down and pools.",
-        spec: box([1, 3, 1], [{ at: [0, 2, 0], node: "tf_world:ice", temperature: 258 }]),
+        id: "ice", group: "Heat", title: "Ice melts", speed: 1,
+        note: "A block of ice over a burner. It warms to 0 °C, then stays there while the heat goes into melting it, and the water runs out and pools. In a warm room alone, a block this size would take days.",
+        spec: box([3, 2, 3], [...floor(), { at: [1, 1, 1], node: "tf_world:ice", temperature: 258, power: 5e6 }]),
     },
     {
         id: "boil", group: "Heat", title: "Water boils", speed: 1,

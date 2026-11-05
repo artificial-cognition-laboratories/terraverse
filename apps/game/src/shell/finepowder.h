@@ -10,11 +10,12 @@
 namespace shell {
 
 /*
-	A scene's powder as sixteenth columns: what rests in each block's stack is
-	eased towards, and the surface between block centres sloped, stopping at
-	walls. As with FineWater, the matter is the truth and this is the picture of
-	it: nothing goes back. What's on its way down isn't part of a surface:
-	falling() says where it is, for the scene's grains.
+	A scene's powder as sixteenth columns that avalanche: each floor's heap holds
+	what the matter has on that floor, but what lands goes on the heap's top and
+	slides to its angle of repose, column by column, with no notion of blocks.
+	The matter's own heap moves by the block; this is the picture of it, and
+	nothing goes back. What's on its way down isn't part of a heap: falling()
+	says where it is, for the scene's grains.
 */
 class FinePowder
 {
@@ -40,17 +41,21 @@ public:
 	const std::vector<Falling> &falling() const { return m_falling; }
 
 private:
-	struct Span
+	struct Layer // a floor's heap
 	{
-		float target = 0, shown = 0; // sixteenths over its base
+		std::vector<float> height;       // by column: sixteenths over its floor
+		std::vector<float> want, has;    // by node: sixteenths of a whole block
+		std::vector<bool> open;          // by node: it has this floor, and room over it
 		int substance = -1;
 		double temperature = 0;
 	};
-	float surface(int nx, int nz, float level) const;
-	bool closed(int nx, int ny, int nz) const { return m_closed[((size_t)ny * m_z + nz) * m_x + nx]; }
+	void land(Layer &layer, int nx, int nz, float sixteenths);
+	void lift(Layer &layer, int nx, int nz, float sixteenths);
+	bool slide(Layer &layer) const;
 	int32_t m_x = 0, m_y = 0, m_z = 0;
 	std::vector<bool> m_closed; // by cell: something a powder stands on or leans against
-	std::vector<std::map<int32_t, Span>> m_spans; // by node, by base
+	std::vector<bool> m_wet;    // by node: liquid has lain here, so what's solid here froze where it lay: no heap
+	std::map<int32_t, Layer> m_layers; // by floor
 	std::vector<Column> m_columns;
 	std::vector<Falling> m_falling;
 };

@@ -292,7 +292,8 @@ void WorldMatter::touch(Pos at, double temperature)
 void WorldMatter::warm(Pos at, double joules)
 {
 	Cell *c = wake(at, m_ground.ambient(at));
-	const double capacity = c ? c->mix.heatCapacity() : 0;
+	// (with nothing but gas left in it there's nothing to put it into: a burner doesn't heat a pot boiled dry)
+	const double capacity = c && sky(*c).physics.condensed(c->mix) > 0 ? c->mix.heatCapacity() : 0;
 	if (capacity > 0) {
 		c->mix.temperature += joules / capacity;
 		c->quiet = 0;
