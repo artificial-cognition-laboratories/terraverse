@@ -155,6 +155,7 @@ public:
 		double fill;
 		int32_t vapour;               // the gas most unlike the room's air, −1: none
 		double haze;
+		uint32_t flame = 0;           // the colour of what's burning fastest in it, 0: no flame
 	};
 	std::vector<Awake> awake(Pos min, Pos max) const;
 	// One block, awake or asleep (asleep: what its kind is, at the weather's
@@ -193,6 +194,7 @@ private:
 		uint32_t sky = 0;    // which air it's in (sprint 96)
 		double quiet = 0;    // s settled
 		double activity = 0; // W
+		uint32_t flame = 0;  // this step's, as Awake's
 		// this step's (sprint 79: worked out once, not per neighbour): W/(m·K),
 		// J/K, and whether it's mostly solid or liquid
 		double k = 0, capacity = 0;

@@ -28,6 +28,8 @@ public:
 	void testEveryMove();
 	void testEveryVehicle();
 	void testFineWater();
+	void testPourColour();
+	void testPlume();
 	void testRiverPatch();
 };
 
@@ -38,6 +40,8 @@ void TestMoves::runTests(IGameDef *gamedef)
 	TEST(testEveryMove);
 	TEST(testEveryVehicle);
 	TEST(testFineWater);
+	TEST(testPourColour);
+	TEST(testPlume);
 	TEST(testRiverPatch);
 }
 
@@ -178,6 +182,94 @@ void TestMoves::testFineWater()
 	std::cout << "fine water: most different tops " << most_kinds << ", holds " << fine.volume() << " of " << fine.target() << std::endl;
 	UASSERT(most_kinds >= 8);
 	UASSERT(std::fabs(fine.volume() - fine.target()) < 1.0f);
+}
+
+// Copper running ahead of the matter is copper, and nothing of it hangs solid in the air on its way down.
+void TestMoves::testPourColour()
+{
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	std::ifstream in(game + "palette.json");
+	Json::Value palette;
+	in >> palette;
+	const std::vector<sandbox::StageBlock> blocks = sandbox::Stage::read(palette["scene"]);
+	const matter::Matter table = matter::Matter::load(porting::path_share + DIR_DELIM "matter");
+	sandbox::Stage stage(sandbox::Stage::Opts{ table, blocks, 5, 5, 5, 293, 101325, 9.81, { { "nitrogen", 0.79 }, { "oxygen", 0.21 } } });
+	for (int x = 0; x < 5; x++)
+		for (int z = 0; z < 5; z++) {
+			stage.place({ x, 0, z }, "tf_world:stone");
+			if (x == 0 || z == 0 || x == 4 || z == 4)
+				stage.place({ x, 1, z }, "tf_world:stone_bricks");
+		}
+	stage.pour({ 2, 4, 2 }, "copper", 8000, 1500, 15);
+	shell::FineWater fine;
+	int wet = 0, blue = 0, hanging = 0;
+	for (int frame = 0; frame < 60 * 30; frame++) {
+		if (frame % 6 == 0) {
+			stage.step(0.1);
+			const std::vector<sandbox::Stage::Cell> cells = stage.view();
+			fine.sync(5, 5, 5, cells, blocks);
+			for (int y = 2; y < 5; y++)
+				for (int i = 0; i < 25; i++) {
+					const sandbox::Stage::Cell &c = cells[y * 25 + i];
+					hanging += c.main >= 0 && c.filled > 0.005 && c.state == matter::State::Solid;
+				}
+		}
+		fine.step(1 / 60.f, 1);
+		for (int c = 0; c < fine.width() * fine.depth(); c++)
+			if (fine.shown(c) != shell::FineWater::NONE) {
+				wet++;
+				blue += fine.colourAt(c) == 0x3f76e4;
+			}
+	}
+	std::cout << "copper pour: " << wet << " wet columns seen, blue " << blue << ", solid in the air " << hanging << std::endl;
+	UASSERT(wet > 0);
+	UASSERTEQ(int, blue, 0);
+	UASSERTEQ(int, hanging, 0);
+}
+
+// Gas shows where the matter has it and only there, in its own colour; a flame only where something burns.
+void TestMoves::testPlume()
+{
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	std::ifstream in(game + "palette.json");
+	Json::Value palette;
+	in >> palette;
+	const std::vector<sandbox::StageBlock> blocks = sandbox::Stage::read(palette["scene"]);
+	const std::vector<video::SColor> colours = { video::SColor(255, 58, 127, 196), video::SColor(255, 232, 238, 242) };
+	const std::vector<bool> water = { true, false };
+	std::vector<sandbox::Stage::Cell> cells(27);
+	shell::Plume plume;
+	plume.sync(3, 3, 3, cells, blocks, colours, water);
+	plume.step(0.5f);
+	UASSERT(plume.puffs().empty());
+	cells[13].vapour = 0; // steam in the middle: white, not water's blue
+	cells[13].haze = 1;
+	cells[13].temperature = 500;
+	cells[4].flame = 0x4a6cff; // and a blue flame under it
+	cells[4].activity = 2000;
+	cells[4].temperature = 900;
+	plume.sync(3, 3, 3, cells, blocks, colours, water);
+	int gas = 0, flames = 0;
+	for (int i = 0; i < 60; i++)
+		plume.step(1 / 60.f);
+	for (const shell::Plume::Puff &p : plume.puffs()) {
+		if (p.flame()) {
+			flames++;
+			UASSERT(p.colour().getBlue() > p.colour().getRed());
+		} else {
+			gas++;
+			UASSERT(p.colour().getBlue() > 200 && p.colour().getRed() > 200);
+		}
+	}
+	UASSERT(gas > 0 && flames > 0);
+	cells[13].vapour = -1;
+	cells[13].haze = 0;
+	cells[4].flame = 0;
+	cells[4].activity = 0;
+	plume.sync(3, 3, 3, cells, blocks, colours, water);
+	for (int i = 0; i < 60 * 8; i++)
+		plume.step(1 / 60.f);
+	UASSERT(plume.puffs().empty());
 }
 
 // The Worlds time-lapse says what its pages say: rounds of a real river, sediment gathering, heavy grains

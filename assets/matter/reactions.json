@@ -3,6 +3,7 @@
   {
    "id": "methane_burns",
    "name": "Methane burns",
+   "flame": "#5f9dff",
    "reactants": {
     "methane": 1,
     "oxygen": 2
@@ -18,6 +19,7 @@
   {
    "id": "carbon_monoxide_burns",
    "name": "Carbon monoxide burns",
+   "flame": "#6f8fff",
    "reactants": {
     "carbon_monoxide": 2,
     "oxygen": 1
@@ -32,6 +34,7 @@
   {
    "id": "hydrogen_burns",
    "name": "Hydrogen burns",
+   "flame": "#a8c8ff",
    "reactants": {
     "hydrogen": 2,
     "oxygen": 1
@@ -46,6 +49,7 @@
   {
    "id": "charcoal_burns",
    "name": "Charcoal burns",
+   "flame": "#ff8a2a",
    "reactants": {
     "carbon": 1,
     "oxygen": 1
@@ -301,6 +305,7 @@
   {
    "id": "sulfur_burns",
    "name": "Sulfur burns",
+   "flame": "#4a6cff",
    "reactants": {
     "sulfur": 1,
     "oxygen": 1
@@ -418,6 +423,7 @@
   {
    "id": "wood_burns",
    "name": "Wood burns",
+   "flame": "#ffb02e",
    "reactants": {
     "wood": 1,
     "oxygen": 6
@@ -562,6 +568,7 @@
   {
    "id": "sodium_in_water",
    "name": "Sodium in water",
+   "flame": "#ffd23c",
    "reactants": {
     "sodium": 2,
     "water": 2
@@ -583,6 +590,7 @@
   {
    "id": "potassium_in_water",
    "name": "Potassium in water",
+   "flame": "#c49cff",
    "reactants": {
     "potassium": 2,
     "water": 2
@@ -684,6 +692,7 @@
   {
    "id": "thermite",
    "name": "Thermite",
+   "flame": "#fff0c0",
    "reactants": {
     "aluminium": 2,
     "hematite": 1
@@ -699,6 +708,7 @@
   {
    "id": "magnesium_burns",
    "name": "Magnesium burns",
+   "flame": "#fff6e8",
    "reactants": {
     "magnesium": 2,
     "oxygen": 1
@@ -713,6 +723,7 @@
   {
    "id": "zinc_burns",
    "name": "Zinc burns",
+   "flame": "#c8f0d8",
    "reactants": {
     "zinc": 2,
     "oxygen": 1
@@ -727,6 +738,7 @@
   {
    "id": "propane_burns",
    "name": "Propane burns",
+   "flame": "#5f9dff",
    "reactants": {
     "propane": 1,
     "oxygen": 5
@@ -742,6 +754,7 @@
   {
    "id": "ethanol_burns",
    "name": "Alcohol burns",
+   "flame": "#6fa4ff",
    "reactants": {
     "ethanol": 1,
     "oxygen": 3
@@ -757,6 +770,7 @@
   {
    "id": "octane_burns",
    "name": "Petrol burns",
+   "flame": "#ffb83a",
    "reactants": {
     "octane": 2,
     "oxygen": 25
@@ -772,6 +786,7 @@
   {
    "id": "gunpowder",
    "name": "Gunpowder",
+   "flame": "#ffc060",
    "reactants": {
     "potassium_nitrate": 2,
     "sulfur": 1,

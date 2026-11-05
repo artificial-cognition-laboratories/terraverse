@@ -70,6 +70,7 @@ public:
 		double filled = 0;   // its share
 		int32_t vapour = -1;
 		double haze = 0;
+		uint32_t flame = 0;  // what's burning in it, 0xrrggbb; 0: nothing
 	};
 	std::vector<Cell> view() const; // x fastest, then z, then y (bottom layer first)
 	double time() const { return m_time; }

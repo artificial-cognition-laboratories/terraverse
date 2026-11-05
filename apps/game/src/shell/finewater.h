@@ -30,7 +30,7 @@ public:
 	int depth() const { return m_d; }
 	int32_t shown(int c) const { return m_shown[c]; }  // its top, sixteenths over the stage's floor, or NONE
 	int32_t floorAt(int c) const { return m_floor[c]; }
-	uint32_t colourAt(int c) const { return m_colour[nodeOf(c)]; }
+	uint32_t colourAt(int c) const { return m_colour[c]; }
 	float volume() const;   // nodes³ it holds
 	float target() const;   // nodes³ the matter has
 	int nodeOf(int c) const { return (c / m_w / 16) * m_nx + (c % m_w) / 16; }
@@ -44,7 +44,7 @@ private:
 	bool m_began = false, m_quiet = false;
 	std::vector<int32_t> m_floor, m_shown, m_pool;
 	std::vector<float> m_depth, m_targets; // by column; by node
-	std::vector<uint32_t> m_colour;        // by node
+	std::vector<uint32_t> m_colour;        // by column: its node's liquid, or what ran into it
 	std::vector<std::array<float, 4>> m_out;
 	float m_pools_in = 0, m_behind = 0, m_still = 0;
 };

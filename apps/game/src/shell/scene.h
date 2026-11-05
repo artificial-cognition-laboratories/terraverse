@@ -7,6 +7,7 @@
 #include "physics/skeleton.h"
 #include "physics/world.h"
 #include "finewater.h"
+#include "plume.h"
 #include "sandbox/stage.h"
 #include <IEventReceiver.h>
 #include <S3DVertex.h>
@@ -133,12 +134,12 @@ private:
 	std::vector<bool> m_water; // by substance: draws as the game's water
 	std::vector<Batch> m_batches;
 	std::map<std::string, video::ITexture *> m_textures; // the driver's; kept for it
-	struct Flame { v3f at; float strength; };
-	std::vector<Flame> m_flames;
 	video::IVideoDriver *m_driver = nullptr;
 	int32_t m_sizedX = 0, m_sizedY = 0, m_sizedZ = 0;
 	std::optional<Figure> m_figure;
 	void drawFine(video::IVideoDriver *driver, float dt);
+	void drawPlume(video::IVideoDriver *driver, float dt);
+	Plume m_plume;
 	FineWater m_fine;
 	bool m_fine_on = false;
 	double m_fine_time = -1;

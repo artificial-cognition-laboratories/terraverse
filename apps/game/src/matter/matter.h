@@ -134,6 +134,7 @@ struct Reaction
 	double activation; // kJ/mol
 	double factor;     // per second
 	Energy energy;
+	uint32_t flame = 0; // what colour it burns (0xrrggbb), 0: it has no flame
 	std::vector<Requirement> needs;
 };
 

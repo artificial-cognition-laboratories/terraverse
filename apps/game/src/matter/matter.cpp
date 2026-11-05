@@ -274,6 +274,12 @@ Matter Matter::load(const std::string &dir)
 		x.name = field(r, "name", where).asString();
 		x.activation = number(r, "activation", where);
 		x.factor = number(r, "factor", where);
+		if (r.isMember("flame")) {
+			const std::string flame = r["flame"].asString();
+			if (flame.size() != 7 || flame[0] != '#' || flame.find_first_not_of("0123456789abcdefABCDEF", 1) != std::string::npos)
+				throw MatterError(where + ": flame is #rrggbb");
+			x.flame = (uint32_t)std::stoul(flame.substr(1), nullptr, 16);
+		}
 		if (x.activation < 0 || x.factor <= 0)
 			throw MatterError(where + ": activation must be ≥ 0 and factor positive");
 		std::string energy = r["energy"].isNull() ? "" : r["energy"].asString();

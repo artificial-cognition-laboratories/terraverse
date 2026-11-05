@@ -7,6 +7,7 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/community.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/course.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/finewater.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/plume.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/relief.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/ime.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/input.cpp

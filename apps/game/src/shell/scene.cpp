@@ -79,6 +79,7 @@ void Scene::hide()
 	m_fine_time = -1;
 	m_fine_pace = 1;
 	m_fine = FineWater();
+	m_plume = Plume();
 	m_drops.clear();
 	m_figure.reset();
 	m_ground.reset();
@@ -97,6 +98,7 @@ void Scene::frame(Frame frame)
 	m_fine_on = frame.time >= 0 && m_blocks;
 	if (m_fine_on) {
 		m_fine.sync(frame.x, frame.y, frame.z, frame.cells, *m_blocks);
+		m_plume.sync(frame.x, frame.y, frame.z, frame.cells, *m_blocks, m_substances, m_water);
 		if (m_fine_time >= 0 && frame.time > m_fine_time) {
 			const u64 now = porting::getTimeMs();
 			if (now > m_fine_at)
@@ -199,7 +201,6 @@ void Scene::addPlain(video::ITexture *tex, bool clear, v3f m, v3f s, video::SCol
 void Scene::rebuild()
 {
 	m_batches.clear();
-	m_flames.clear();
 	if (!m_frame || !m_blocks)
 		return;
 	const Frame &f = *m_frame;
@@ -241,20 +242,15 @@ void Scene::rebuild()
 					addPlain(texture(water ? "tf_goodvibes_water_still" : "tf_matter_liquid"), true, corner + v3f(0.5f, deep / 2, 0.5f), v3f(1, deep, 1), glowing(colour, c.temperature));
 				}
 				// what's loose in a vessel or in the air: a pile on its floor
-				else if (air && c.main >= 0 && c.filled > 0.005 && (size_t)c.main < m_substances.size()) {
+				// (not a liquid on its way down or lying open, as a slab: drawFine has those)
+				else if (air && c.main >= 0 && c.filled > 0.005 && (size_t)c.main < m_substances.size()
+						&& !(m_fine_on && !m_heat && c.state == matter::State::Liquid && !block->spec.vessel)) {
 					const float inner = block->spec.vessel ? 0.64f : 1.f, floor = block->spec.vessel ? 0.1f : 0.f;
 					const float deep = std::max(1 / 16.f, sixteenth(std::min(1.0, c.filled)));
 					const video::SColor colour = m_heat ? light : glowing(m_substances[c.main], c.temperature);
 					addPlain(texture(c.state == matter::State::Liquid ? "tf_matter_liquid" : "tf_matter_substance"), c.state == matter::State::Liquid,
 							corner + v3f(0.5f, floor + deep * 0.5f, 0.5f), v3f(inner, deep, inner), colour);
 				}
-				if (c.vapour >= 0 && c.haze > 0.02 && (size_t)c.vapour < m_substances.size() && !m_heat) {
-					video::SColor colour = m_substances[c.vapour];
-					colour.setAlpha((u32)(255 * std::min(0.35, c.haze * 0.4)));
-					addPlain(nullptr, true, corner + v3f(0.5f), v3f(0.98f), colour);
-				}
-				if (c.activity > 0.5 && c.temperature > 600)
-					m_flames.push_back({ corner + v3f(0.5f), std::min(1.0f, (float)(c.activity / 2000)) });
 			}
 }
 
@@ -445,6 +441,44 @@ void Scene::drawFine(video::IVideoDriver *driver, float dt)
 	flush();
 }
 
+// Gas and flames: sixteenth-sized cubes, as the water and its drops are. Oldest first, so a flame's bright
+// young middle is over its tips.
+void Scene::drawPlume(video::IVideoDriver *driver, float dt)
+{
+	if (!m_fine_on)
+		return;
+	m_plume.step(dt);
+	if (m_heat || m_plume.puffs().empty())
+		return;
+	constexpr float C = 1.f / 16;
+	const float ox = -m_sizedX / 2.0f, oz = -m_sizedZ / 2.0f;
+	std::vector<video::S3DVertex> &vs = m_fine_vertices;
+	std::vector<u16> &is = m_fine_indices;
+	const auto flush = [&] {
+		if (vs.empty())
+			return;
+		video::SMaterial mat;
+		mat.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
+		mat.FogEnable = false;
+		mat.ZWriteEnable = video::EZW_OFF;
+		mat.ColorMask = video::ECP_RGB;
+		driver->setMaterial(mat);
+		driver->drawVertexPrimitiveList(vs.data(), (u32)vs.size(), is.data(), (u32)is.size() / 3, video::EVT_STANDARD, scene::EPT_TRIANGLES, video::EIT_16BIT);
+		vs.clear();
+		is.clear();
+	};
+	for (const Plume::Puff &p : m_plume.puffs()) {
+		const video::SColor colour = p.colour();
+		const float h = std::max(1.f, std::round(p.size() * 16)) * C / 2;
+		const v3f at(ox + std::round(p.at.X * 16) * C, std::round(p.at.Y * 16) * C, oz + std::round(p.at.Z * 16) * C);
+		if (vs.size() + 24 > 60000)
+			flush();
+		for (const Face &f : FACES)
+			quad(vs, is, at + f.normal * h, f.u * h, f.v * h, f.normal, lit(colour, 0.7f + 0.3f * f.light), v2f(), v2f(), 1);
+	}
+	flush();
+}
+
 void Scene::follow(v3f at)
 {
 	// the camera eases after it, so a stumble isn't the whole view's
@@ -594,43 +628,10 @@ void Scene::draw(video::IVideoDriver *driver)
 		const u64 now = porting::getTimeMs();
 		static u64 last = now;
 		drawFine(driver, std::clamp((now - last) / 1000.f, 0.001f, 0.05f));
+		// paused (no new frames, its clock stopped): the smoke and flames hold still with it
+		const bool running = now < m_fine_at + 500;
+		drawPlume(driver, running ? std::clamp((now - last) / 1000.f, 0.001f, 0.05f) * std::clamp(m_fine_pace, 1.f, 4.f) : 0);
 		last = now;
-	}
-	if (!m_flames.empty()) {
-		// square sparks, stepped: each hops every few frames, not every one, as the page's motion does
-		m_ticks++;
-		const u32 hop = m_ticks / 4;
-		const v3f right(look[0], look[4], look[8]), up(look[1], look[5], look[9]);
-		std::vector<video::S3DVertex> v;
-		std::vector<u16> ix;
-		u32 seed = 1;
-		const auto next = [&seed]() { seed = seed * 1664525u + 1013904223u; return (seed >> 8) / 16777216.0f; };
-		for (const Flame &f : m_flames) {
-			const int sparks = 4 + (int)(f.strength * 20);
-			for (int k = 0; k < sparks && v.size() + 4 < 60000; k++) {
-				seed = seed + hop * 2654435761u + k * 40503u;
-				const v3f at = f.at + v3f(next() - 0.5f, next() * 0.9f - 0.45f, next() - 0.5f) * 0.85f;
-				const float rise = next();
-				const float s = 0.035f + 0.05f * (1 - rise);
-				const video::SColor c(255, 255, (u32)(120 + 110 * (1 - rise)), (u32)(30 + 40 * (1 - rise)));
-				const u16 first = (u16)v.size();
-				v.emplace_back(at - right * s - up * s, v3f(), c, v2f());
-				v.emplace_back(at + right * s - up * s, v3f(), c, v2f());
-				v.emplace_back(at + right * s + up * s, v3f(), c, v2f());
-				v.emplace_back(at - right * s + up * s, v3f(), c, v2f());
-				for (u16 n : { 0, 1, 2, 0, 2, 3 })
-					ix.push_back(first + n);
-			}
-		}
-		video::SMaterial mat;
-		mat.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
-		mat.FogEnable = false;
-		mat.BackfaceCulling = false;
-		mat.ZWriteEnable = video::EZW_OFF;
-		mat.ColorMask = video::ECP_RGB;
-		driver->setMaterial(mat);
-		driver->drawVertexPrimitiveList(v.data(), (u32)v.size(), ix.data(), (u32)ix.size() / 3,
-				video::EVT_STANDARD, scene::EPT_TRIANGLES, video::EIT_16BIT);
 	}
 	driver->setViewPort(core::recti(0, 0, window.Width, window.Height));
 }

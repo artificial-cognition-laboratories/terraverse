@@ -248,8 +248,23 @@ std::vector<Stage::Cell> Stage::view() const
 					c.filled = a->fill;
 					c.vapour = a->vapour;
 					c.haze = a->haze;
+					c.flame = a->flame;
 				}
 			}
+	// a solid fuel's fire is lit by its soot, whatever gas is burning over it
+	uint32_t sooty = 0;
+	for (const auto &[fuel, burns] : { std::pair<const char *, const char *>{ "wood", "wood_burns" }, { "carbon", "charcoal_burns" } }) {
+		const int32_t id = (int32_t)m_matter.index(fuel);
+		for (const Cell &c : out)
+			if (!sooty && c.main == id && c.state == matter::State::Solid && c.filled > 0.005)
+				for (const matter::Reaction &r : m_matter.reactions())
+					if (r.id == burns)
+						sooty = r.flame;
+	}
+	if (sooty)
+		for (Cell &c : out)
+			if (c.flame)
+				c.flame = sooty;
 	return out;
 }
 

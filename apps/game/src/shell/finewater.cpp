@@ -27,10 +27,11 @@ void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox:
 		m_depth.assign(n, 0);
 		m_out.assign(n, {});
 		m_targets.assign((size_t)x * z, 0);
-		m_colour.assign((size_t)x * z, 0x3f76e4);
+		m_colour.assign(n, 0x3f76e4);
 		m_began = false;
 	}
 	std::vector<int32_t> floors((size_t)x * z, 0);
+	std::vector<uint32_t> colours((size_t)x * z, 0);
 	for (int nz = 0; nz < z; nz++)
 		for (int nx = 0; nx < x; nx++) {
 			const size_t node = (size_t)nz * x + nx;
@@ -43,11 +44,11 @@ void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox:
 					continue; // what's in a crucible is the crucible's to draw
 				if (c.fill.substance >= 0 && c.fill.share > 0.005) {
 					water += (float)c.fill.share;
-					m_colour[node] = c.fill_colour;
+					colours[node] = c.fill_colour;
 				}
 				if (b && b->spec.state == matter::State::Liquid && b->spec.matter != "air") {
 					water += b->spec.leveled ? (float)c.level : 1;
-					m_colour[node] = b->spec.matter == "water" ? 0x3f76e4 : c.fill_colour ? c.fill_colour : m_colour[node];
+					colours[node] = b->spec.matter == "water" ? 0x3f76e4 : c.fill_colour ? c.fill_colour : colours[node];
 					continue;
 				}
 				if (b && b->spec.matter != "air") {
@@ -69,6 +70,8 @@ void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox:
 		for (int cx = 0; cx < m_w; cx++) {
 			const int c = cz * m_w + cx;
 			const int32_t f = floors[(size_t)(cz / 16) * x + cx / 16];
+			if (const uint32_t colour = colours[(size_t)(cz / 16) * x + cx / 16])
+				m_colour[c] = colour;
 			if (f != m_floor[c]) {
 				m_floor[c] = f;
 				m_quiet = false;
@@ -183,6 +186,8 @@ void FineWater::flow(float dt)
 			if (o <= 0)
 				continue;
 			const float amount = o * dt / L;
+			if (m_depth[c + STEPS[s]] <= 0)
+				m_colour[c + STEPS[s]] = m_colour[c]; // ahead of the matter: it's still what it was
 			m_depth[c] -= amount;
 			m_depth[c + STEPS[s]] += amount;
 			moved = std::max(moved, amount);

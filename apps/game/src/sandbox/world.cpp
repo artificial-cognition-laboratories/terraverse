@@ -620,11 +620,18 @@ void WorldMatter::step(double seconds)
 			c.activity = sky(c).physics.react(c.mix, run, &rates);
 			std::vector<bool> &seen = m_seen[id];
 			seen.resize(reactions, false);
-			for (size_t j = 0; j < reactions; j++)
+			double fastest = NOTICED;
+			c.flame = 0;
+			for (size_t j = 0; j < reactions; j++) {
 				if (rates[j] > NOTICED && !seen[j]) {
 					seen[j] = true;
 					m_happened.push_back({ c.pos, j });
 				}
+				if (rates[j] > fastest && m_matter.reactions()[j].flame) {
+					fastest = rates[j];
+					c.flame = m_matter.reactions()[j].flame;
+				}
+			}
 		}
 		// awake neighbours with each other (each pair once), then with the asleep
 		for (int64_t id : ids) {
@@ -761,7 +768,7 @@ std::vector<WorldMatter::Awake> WorldMatter::awake(Pos lo, Pos hi) const
 		if (p.x < lo.x || p.y < lo.y || p.z < lo.z || p.x > hi.x || p.y > hi.y || p.z > hi.z)
 			continue;
 		Physics::Main m = sky(c).physics.main(c.mix);
-		Awake a{ p, c.mix.temperature, c.activity, m.substance, m.state, m.fill, -1, 0 };
+		Awake a{ p, c.mix.temperature, c.activity, m.substance, m.state, m.fill, -1, 0, c.flame };
 		double gas = sky(c).physics.gasMoles(c.mix), unlike = 0;
 		if (gas > 0)
 			for (size_t s = 0; s < sky(c).air.size(); s++) {
