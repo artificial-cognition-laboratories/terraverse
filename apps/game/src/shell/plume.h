@@ -42,7 +42,7 @@ private:
 	struct Source
 	{
 		v3f corner;
-		float low, high, wide; // what it comes off, in its block
+		v3f lo, hi;            // where in its block it comes off
 		float want;            // gas: puffs wanted; flame: a second
 		float rise;
 		u32 tint;

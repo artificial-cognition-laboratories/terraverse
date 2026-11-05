@@ -80,6 +80,8 @@ void Scene::hide()
 	m_fine_pace = 1;
 	m_fine = FineWater();
 	m_plume = Plume();
+	m_powder = FinePowder();
+	m_powder_batches.clear();
 	m_drops.clear();
 	m_figure.reset();
 	m_ground.reset();
@@ -98,6 +100,7 @@ void Scene::frame(Frame frame)
 	m_fine_on = frame.time >= 0 && m_blocks;
 	if (m_fine_on) {
 		m_fine.sync(frame.x, frame.y, frame.z, frame.cells, *m_blocks);
+		m_powder.sync(frame.x, frame.y, frame.z, frame.cells, *m_blocks);
 		m_plume.sync(frame.x, frame.y, frame.z, frame.cells, *m_blocks, m_substances, m_water);
 		if (m_fine_time >= 0 && frame.time > m_fine_time) {
 			const u64 now = porting::getTimeMs();
@@ -217,6 +220,8 @@ void Scene::rebuild()
 				const bool air = block && block->spec.matter == "air";
 				if (block && !air) {
 					const bool liquid = block->spec.state == matter::State::Liquid;
+					if (m_fine_on && !m_heat && FinePowder::isPowder(*block))
+						continue; // drawn in sixteenths (drawPowder)
 					if (liquid && m_fine_on && !m_heat)
 						continue; // drawn in sixteenths (drawFine)
 					video::SColor lc = light;
@@ -242,9 +247,9 @@ void Scene::rebuild()
 					addPlain(texture(water ? "tf_goodvibes_water_still" : "tf_matter_liquid"), true, corner + v3f(0.5f, deep / 2, 0.5f), v3f(1, deep, 1), glowing(colour, c.temperature));
 				}
 				// what's loose in a vessel or in the air: a pile on its floor
-				// (not a liquid on its way down or lying open, as a slab: drawFine has those)
+				// (not out in the open, as a slab: drawFine and drawPowder have those)
 				else if (air && c.main >= 0 && c.filled > 0.005 && (size_t)c.main < m_substances.size()
-						&& !(m_fine_on && !m_heat && c.state == matter::State::Liquid && !block->spec.vessel)) {
+						&& !(m_fine_on && !m_heat && !block->spec.vessel)) {
 					const float inner = block->spec.vessel ? 0.64f : 1.f, floor = block->spec.vessel ? 0.1f : 0.f;
 					const float deep = std::max(1 / 16.f, sixteenth(std::min(1.0, c.filled)));
 					const video::SColor colour = m_heat ? light : glowing(m_substances[c.main], c.temperature);
@@ -397,6 +402,7 @@ void Scene::drawFine(video::IVideoDriver *driver, float dt)
 			const float y = h * C, x0 = ox + x * C, x1 = ox + end * C, z0 = oz + z * C;
 			put(v3f((x0 + x1) / 2, y, z0 + C / 2), v3f((x1 - x0) / 2, 0, 0), v3f(0, 0, C / 2), v3f(0, 1, 0), tinted(colour, 0.95f, true, 235));
 			const auto side = [&](const Face &f, v3f at, float half, s32 other) {
+				other = std::max(other, m_fine.floorAt(c));
 				if (other >= h)
 					return;
 				const float tall = (h - other) * C;
@@ -411,8 +417,24 @@ void Scene::drawFine(video::IVideoDriver *driver, float dt)
 			side(FACES[3], v3f(x0, y, z0 + C / 2), C / 2, beside(x - 1, z));
 			x = end;
 		}
+	// what's gone over an edge falls from its lip
+	for (const FineWater::Spill &s : m_fine.takeSpills()) {
+		if (m_drops.size() >= 800)
+			break;
+		const int cx = s.column % w, cz = s.column / w;
+		const v3f way(s.side == 0 ? 1.f : s.side == 1 ? -1.f : 0.f, 0, s.side == 2 ? 1.f : s.side == 3 ? -1.f : 0.f);
+		const u32 v = m_fine.colourAt(s.column);
+		const v3f lip(ox + (cx + 0.5f) * C + way.X * C, m_fine.floorAt(s.column) * C, oz + (cz + 0.5f) * C + way.Z * C);
+		m_drops.push_back({ lip, way * 0.4f, video::SColor(255, (v >> 16) & 255, (v >> 8) & 255, v & 255) });
+	}
 	// what's being poured: sixteenth cubes falling, each throwing a little out where it lands
 	if (m_frame) {
+		// and a powder coming down, from wherever it's fallen off
+		for (const FinePowder::Falling &f : m_powder.falling())
+			if (m_drops.size() < 400 && (size_t)f.substance < m_substances.size()) {
+				const float dx = (rand() % 1000) / 1000.f, dy = (rand() % 1000) / 1000.f, dz = (rand() % 1000) / 1000.f;
+				m_drops.push_back({ v3f(ox + f.at.x + 0.3f + dx * 0.4f, f.at.y + dy, oz + f.at.z + 0.3f + dz * 0.4f), v3f(0, -1, 0), m_substances[f.substance] });
+			}
 		for (const auto &[at, substance] : m_frame->pouring)
 			for (int k = 0; k < 3 && m_drops.size() < 400; k++) {
 				const float a = (rand() % 1000) / 1000.f * 6.283f, r = (rand() % 1000) / 1000.f * 0.12f;
@@ -439,6 +461,47 @@ void Scene::drawFine(video::IVideoDriver *driver, float dt)
 		i++;
 	}
 	flush();
+}
+
+// A sixteenth-wide top for each column, in the powder's colour, each grain a little different.
+void Scene::drawPowder(video::IVideoDriver *driver, float dt)
+{
+	if (!m_fine_on || m_heat)
+		return;
+	if (m_powder.step(dt, m_fine_pace)) {
+		constexpr float C = 1.f / 16;
+		const float ox = -m_sizedX / 2.0f, oz = -m_sizedZ / 2.0f;
+		std::map<std::array<int, 3>, int32_t> tops;
+		for (const FinePowder::Column &c : m_powder.columns())
+			tops[{ c.x, c.z, c.base }] = c.top;
+		std::vector<Batch> kept;
+		kept.swap(m_batches);
+		for (const FinePowder::Column &c : m_powder.columns()) {
+			if ((size_t)c.substance >= m_substances.size())
+				continue;
+			const u32 grain = ((u32)(c.x * 73856093) ^ (u32)(c.z * 19349663)) >> 7;
+			const video::SColor colour = glowing(lit(m_substances[c.substance], 0.88f + (grain % 13) / 100.f), c.temperature);
+			const float x = ox + (c.x + 0.5f) * C, z = oz + (c.z + 0.5f) * C, y = c.top * C;
+			Batch &to = batch(nullptr, false);
+			quad(to.vertices, to.indices, v3f(x, y, z), v3f(C / 2, 0, 0), v3f(0, 0, C / 2), FACES[0].normal, colour, v2f(), v2f(), 1);
+			const auto side = [&](const Face &f, int dx, int dz) {
+				const auto next = tops.find({ c.x + dx, c.z + dz, c.base });
+				const int32_t other = next == tops.end() ? c.base : next->second;
+				if (other >= c.top)
+					return;
+				const float tall = (c.top - other) * C;
+				Batch &b = batch(nullptr, false);
+				quad(b.vertices, b.indices, v3f(x + dx * C / 2, y - tall / 2, z + dz * C / 2), f.u * (C / 2), f.v * (tall / 2), f.normal, lit(colour, f.light), v2f(), v2f(), 1);
+			};
+			side(FACES[2], 1, 0);
+			side(FACES[3], -1, 0);
+			side(FACES[4], 0, 1);
+			side(FACES[5], 0, -1);
+		}
+		m_powder_batches.swap(m_batches);
+		m_batches.swap(kept);
+	}
+	drawBatches(driver, m_powder_batches, false);
 }
 
 // Gas and flames: sixteenth-sized cubes, as the water and its drops are. Oldest first, so a flame's bright
@@ -623,9 +686,12 @@ void Scene::draw(video::IVideoDriver *driver)
 		driver->setMaterial(mat);
 		driver->drawVertexPrimitiveList(v, 4, ix, 4, video::EVT_STANDARD, scene::EPT_LINES, video::EIT_16BIT);
 	}
+	const u64 now = porting::getTimeMs();
+	static u64 powdered = now;
+	drawPowder(driver, now < m_fine_at + 500 ? std::clamp((now - powdered) / 1000.f, 0.001f, 0.05f) : 0);
+	powdered = now;
 	drawBatches(driver, m_batches, true);
 	{
-		const u64 now = porting::getTimeMs();
 		static u64 last = now;
 		drawFine(driver, std::clamp((now - last) / 1000.f, 0.001f, 0.05f));
 		// paused (no new frames, its clock stopped): the smoke and flames hold still with it

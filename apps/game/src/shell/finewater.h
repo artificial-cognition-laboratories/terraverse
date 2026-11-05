@@ -31,6 +31,9 @@ public:
 	int32_t shown(int c) const { return m_shown[c]; }  // its top, sixteenths over the stage's floor, or NONE
 	int32_t floorAt(int c) const { return m_floor[c]; }
 	uint32_t colourAt(int c) const { return m_colour[c]; }
+	// What's gone over an edge since the last call: a column, and which way (x+, x−, z+, z−).
+	struct Spill { int column, side; };
+	std::vector<Spill> takeSpills();
 	float volume() const;   // nodes³ it holds
 	float target() const;   // nodes³ the matter has
 	int nodeOf(int c) const { return (c / m_w / 16) * m_nx + (c % m_w) / 16; }
@@ -46,6 +49,8 @@ private:
 	std::vector<float> m_depth, m_targets; // by column; by node
 	std::vector<uint32_t> m_colour;        // by column: its node's liquid, or what ran into it
 	std::vector<std::array<float, 4>> m_out;
+	std::vector<std::array<float, 4>> m_over; // by column and side: what's gone over a drop, towards the next spill
+	std::vector<Spill> m_spills;
 	float m_pools_in = 0, m_behind = 0, m_still = 0;
 };
 

@@ -6,6 +6,7 @@
 #include "irrlichttypes_bloated.h"
 #include "physics/skeleton.h"
 #include "physics/world.h"
+#include "finepowder.h"
 #include "finewater.h"
 #include "plume.h"
 #include "sandbox/stage.h"
@@ -140,6 +141,9 @@ private:
 	void drawFine(video::IVideoDriver *driver, float dt);
 	void drawPlume(video::IVideoDriver *driver, float dt);
 	Plume m_plume;
+	void drawPowder(video::IVideoDriver *driver, float dt);
+	FinePowder m_powder;
+	std::vector<Batch> m_powder_batches;
 	FineWater m_fine;
 	bool m_fine_on = false;
 	double m_fine_time = -1;

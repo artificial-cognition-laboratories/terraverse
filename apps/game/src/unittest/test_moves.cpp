@@ -7,6 +7,7 @@
 #include "porting.h"
 #include "matter/matter.h"
 #include "shell/course.h"
+#include "shell/finepowder.h"
 #include "shell/finewater.h"
 #include "shell/relief.h"
 #include <algorithm>
@@ -30,6 +31,8 @@ public:
 	void testFineWater();
 	void testPourColour();
 	void testPlume();
+	void testFinePowder();
+	void testSteps();
 	void testRiverPatch();
 };
 
@@ -42,6 +45,8 @@ void TestMoves::runTests(IGameDef *gamedef)
 	TEST(testFineWater);
 	TEST(testPourColour);
 	TEST(testPlume);
+	TEST(testFinePowder);
+	TEST(testSteps);
 	TEST(testRiverPatch);
 }
 
@@ -270,6 +275,91 @@ void TestMoves::testPlume()
 	for (int i = 0; i < 60 * 8; i++)
 		plume.step(1 / 60.f);
 	UASSERT(plume.puffs().empty());
+}
+
+// A heap is a slope of many heights, on the ground, holding about what the matter has, and what's falling isn't in it.
+void TestMoves::testFinePowder()
+{
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	std::ifstream in(game + "palette.json");
+	Json::Value palette;
+	in >> palette;
+	const std::vector<sandbox::StageBlock> blocks = sandbox::Stage::read(palette["scene"]);
+	const matter::Matter table = matter::Matter::load(porting::path_share + DIR_DELIM "matter");
+	sandbox::Stage stage(sandbox::Stage::Opts{ table, blocks, 11, 7, 11, 293, 101325, 9.81, { { "nitrogen", 0.79 }, { "oxygen", 0.21 } } });
+	for (int x = 0; x < 11; x++)
+		for (int z = 0; z < 11; z++)
+			stage.place({ x, 0, z }, "tf_world:stone");
+	stage.pour({ 5, 6, 5 }, "salt", 12000, 293, 90);
+	shell::FinePowder fine;
+	size_t most_falling = 0;
+	for (int s = 0; s < 40; s++) {
+		stage.step(1);
+		fine.sync(11, 7, 11, stage.view(), blocks);
+		most_falling = std::max(most_falling, fine.falling().size());
+		fine.step(1, 10);
+	}
+	std::set<int> tops;
+	float held = 0, has = 0;
+	for (const shell::FinePowder::Column &c : fine.columns()) {
+		UASSERTEQ(int, c.base, 16);
+		UASSERT(c.top > c.base);
+		tops.insert(c.top);
+		held += (c.top - c.base) / 4096.f;
+	}
+	for (const sandbox::Stage::Cell &c : stage.view())
+		if (c.main >= 0 && c.state == matter::State::Solid && c.block >= 0 && shell::FinePowder::isPowder(blocks[c.block]))
+			has += (float)c.level;
+	std::cout << "salt heap: " << tops.size() << " heights, holds " << held << " of " << has << ", most falling blocks " << most_falling << std::endl;
+	UASSERT(tops.size() >= 8);
+	UASSERT(most_falling >= 1);
+	UASSERT(std::fabs(held - has) < has * 0.35f);
+}
+
+// Water down a flight of steps at speed stays water: no column stands far over what's beside it.
+void TestMoves::testSteps()
+{
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	std::ifstream in(game + "palette.json");
+	Json::Value palette;
+	in >> palette;
+	const std::vector<sandbox::StageBlock> blocks = sandbox::Stage::read(palette["scene"]);
+	const matter::Matter table = matter::Matter::load(porting::path_share + DIR_DELIM "matter");
+	sandbox::Stage stage(sandbox::Stage::Opts{ table, blocks, 5, 7, 14, 293, 101325, 9.81, { { "nitrogen", 0.79 }, { "oxygen", 0.21 } } });
+	for (int x = 0; x < 5; x++)
+		for (int z = 0; z < 14; z++) {
+			stage.place({ x, 0, z }, "tf_world:stone");
+			const int high = z <= 5 ? 3 : z <= 8 ? 2 : z <= 11 ? 1 : 0;
+			for (int y = 1; y <= high; y++)
+				stage.place({ x, y, z }, "tf_world:stone");
+			if (z == 0 || (z <= 5 && (x == 0 || x == 4)))
+				stage.place({ x, 4, z }, "tf_world:stone_bricks");
+		}
+	stage.pour({ 2, 6, 2 }, "water", 55500 * 0.6, 293, 120);
+	shell::FineWater fine;
+	int roughest = 0, spills = 0, lip_wet = 0, lip_seen = 0;
+	for (int frame = 0; frame < 60 * 60; frame++) {
+		if (frame % 6 == 0) {
+			stage.step(1);
+			fine.sync(5, 7, 14, stage.view(), blocks);
+		}
+		fine.step(1 / 60.f, 10);
+		spills += (int)fine.takeSpills().size();
+		if (frame > 60 * 10 && frame < 60 * 12) { // spilling: the top step's last row, just before its edge
+			lip_seen++;
+			lip_wet += fine.shown(9 * 16 * fine.width() - 40) != shell::FineWater::NONE;
+		}
+		if (frame % 30 == 0)
+			for (int c = 0; c + 1 < fine.width() * fine.depth(); c++) {
+				const int a = fine.shown(c), b = fine.shown(c + 1);
+				if (a != shell::FineWater::NONE && b != shell::FineWater::NONE && (c + 1) % fine.width() && fine.floorAt(c) == fine.floorAt(c + 1))
+					roughest = std::max(roughest, std::abs(a - b));
+			}
+	}
+	std::cout << "steps: roughest neighbours " << roughest << " sixteenths, holds " << fine.volume() << " of " << fine.target() << ", spills " << spills << ", lip wet " << lip_wet << " of " << lip_seen << std::endl;
+	UASSERT(roughest <= 8);
+	UASSERT(spills > 0);
+	UASSERT(lip_wet > lip_seen / 2);
 }
 
 // The Worlds time-lapse says what its pages say: rounds of a real river, sediment gathering, heavy grains

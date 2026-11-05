@@ -24,7 +24,7 @@ constexpr float FRICTION = 1.5f; // per s, over a sixteenth's depth: the ground 
 inline void flowOut(std::array<float, 4> &out, float d, float dt, float L, const bool open[4], const float higher[4])
 {
 	const float slowed = std::max(0.0f, 1 - DAMP * dt - dt * FRICTION / std::max(d * 16, 0.25f));
-	const float speed = std::min(d, 1.0f);
+	const float speed = std::min(d, 0.5f); // (past this, deep water's waves outrun the grid and it stands in spikes)
 	float sum = 0;
 	for (int s = 0; s < 4; s++) {
 		out[s] = open[s] ? std::max(0.0f, out[s] * slowed + dt * G * speed * higher[s] / L) : 0;

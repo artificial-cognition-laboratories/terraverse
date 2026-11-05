@@ -11,6 +11,7 @@ static constexpr float PUFFS = 10;       // in a block of nothing but a gas you 
 static constexpr size_t MOST_GAS = 2500, MOST_FLAMES = 1500;
 static constexpr float CLEAR = 0.3f;     // how much of a colourless gas shows
 static constexpr float FLAME_WATTS = 2000; // a block's flame is at its fullest
+static constexpr float CLEARANCE = 0.2f; // a flame's biggest cube, half across
 static constexpr u32 STEAM = 0xe8eef2;
 
 float Plume::Puff::size() const
@@ -83,16 +84,36 @@ void Plume::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox::Sta
 					const float want = (float)c.haze * shows * PUFFS;
 					if (want >= 0.5f) {
 						m_wanted[i] = want;
-						m_gas.push_back({ corner, 0, 1, 1, want, m_rise[i], steam ? STEAM : own.color & 0xffffff, 0.14f + 0.14f * shows });
+						m_gas.push_back({ corner, v3f(0), v3f(1), want, m_rise[i], steam ? STEAM : own.color & 0xffffff, 0.14f + 0.14f * shows });
 					}
 				}
-				if (c.flame && c.activity > 0.5) {
-					// off what's burning if something's lying there, else through the gas
-					const bool lying = c.main >= 0 && c.filled > 0.005;
-					const float floor = vessel ? 0.1f : 0, top = lying ? floor + std::min(1.f, (float)c.filled) * (vessel ? 0.8f : 1.f) : 0.f;
-					const float strength = std::min(1.f, (float)(c.activity / FLAME_WATTS));
-					m_flames.push_back({ corner, top, lying ? top : 0.7f, vessel ? 0.6f : 0.9f, 25 + strength * 90, 1.1f + 0.7f * strength, c.flame, 1 });
-				}
+			}
+	// (once every block's closed-or-not is known)
+	i = 0;
+	for (int ny = 0; ny < y; ny++)
+		for (int nz = 0; nz < z; nz++)
+			for (int nx = 0; nx < x; nx++, i++) {
+				const sandbox::Stage::Cell &c = cells[i];
+				if (!c.flame || c.activity <= 0.5)
+					continue;
+				const sandbox::StageBlock *b = c.block >= 0 && (size_t)c.block < blocks.size() ? &blocks[c.block] : nullptr;
+				const bool vessel = b && b->spec.vessel;
+				// a whole block burns off its top; else off what's lying there; else through the gas
+				const bool lying = c.main >= 0 && c.filled > 0.005;
+				const float floor = vessel ? 0.1f : 0, top = m_closed[i] ? 1.f : lying ? floor + std::min(1.f, (float)c.filled) * (vessel ? 0.8f : 1.f) : 0.f;
+				const float inset = vessel ? 0.2f : m_closed[i] ? 0.2f : 0.05f;
+				v3f lo(inset, top, inset), hi(1 - inset, lying || m_closed[i] ? top : 0.7f, 1 - inset);
+				// and a flame's cube never starts inside what's beside it
+				const auto shut = [&](int dx, int dz) {
+					const int ax = nx + dx, az = nz + dz;
+					return ax >= 0 && az >= 0 && ax < x && az < z && m_closed[((size_t)ny * z + az) * x + ax];
+				};
+				if (shut(-1, 0)) lo.X = std::max(lo.X, CLEARANCE);
+				if (shut(1, 0)) hi.X = std::min(hi.X, 1 - CLEARANCE);
+				if (shut(0, -1)) lo.Z = std::max(lo.Z, CLEARANCE);
+				if (shut(0, 1)) hi.Z = std::min(hi.Z, 1 - CLEARANCE);
+				const float strength = std::min(1.f, (float)(c.activity / FLAME_WATTS));
+				m_flames.push_back({ v3f((float)nx, (float)ny, (float)nz), lo, hi, 25 + strength * 90, 1.1f + 0.7f * strength, c.flame, 1 });
 			}
 }
 
@@ -144,8 +165,7 @@ void Plume::step(float dt)
 	for (const Source &s : m_flames) {
 		float due = s.want * dt + random();
 		for (; due >= 1 && flames < MOST_FLAMES; due -= 1, flames++) {
-			const float a = (1 - s.wide) / 2;
-			const v3f at = s.corner + v3f(a + random() * s.wide, s.low + random() * (s.high - s.low), a + random() * s.wide);
+			const v3f at = s.corner + s.lo + v3f(random() * (s.hi.X - s.lo.X), random() * (s.hi.Y - s.lo.Y), random() * (s.hi.Z - s.lo.Z));
 			m_puffs.push_back({ at, 0, 0.3f + random() * 0.4f, (3 + random() * 3) / 16 * (0.6f + s.rise * 0.4f), random() * 6.28f, 1, s.tint, true });
 		}
 	}

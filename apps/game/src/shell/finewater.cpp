@@ -3,6 +3,7 @@
 
 #include "finewater.h"
 #include "client/shallow.h"
+#include "finepowder.h"
 #include <algorithm>
 #include <cmath>
 
@@ -11,7 +12,7 @@ namespace shell {
 // As liquids::Layer's fine grid.
 static constexpr float STEP = 1 / 100.0f, L = 1 / 16.0f, AREA = L * L;
 static constexpr int MOST_STEPS = 3; // in a frame; past it the water runs slow rather than the frame
-static constexpr float FILM = 1 / 32.0f, HOLD = 3, HOLD_MOST = 0.25f, SLACK = 1 / 128.0f, POOLS = 0.25f, SPLASH = 0.03f, STILL = 1e-5f, SLEEP = 1;
+static constexpr float FILM = 1 / 32.0f, HOLD = 3, HOLD_MOST = 0.25f, SLACK = 1 / 128.0f, POOLS = 0.25f, SPLASH = 0.03f, STILL = 1e-5f, SLEEP = 1, SPILL = 1 / 128.0f;
 
 void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox::Stage::Cell> &cells, const std::vector<sandbox::StageBlock> &blocks)
 {
@@ -26,12 +27,23 @@ void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox:
 		m_pool.assign(n, 0);
 		m_depth.assign(n, 0);
 		m_out.assign(n, {});
+		m_over.assign(n, {});
 		m_targets.assign((size_t)x * z, 0);
 		m_colour.assign(n, 0x3f76e4);
 		m_began = false;
 	}
 	std::vector<int32_t> floors((size_t)x * z, 0);
 	std::vector<uint32_t> colours((size_t)x * z, 0);
+	// (a powder on its way down isn't ground)
+	const auto restsOn = [&](int nx, int ny, int nz) {
+		if (ny == 0)
+			return true;
+		const sandbox::Stage::Cell &under = cells[((size_t)(ny - 1) * z + nz) * x + nx];
+		const sandbox::StageBlock *b = under.block >= 0 ? &blocks[under.block] : nullptr;
+		if (b && FinePowder::isPowder(*b))
+			return under.level >= 0.9;
+		return (b && b->spec.matter != "air" && b->spec.state != matter::State::Liquid) || (under.state == matter::State::Solid && under.main >= 0 && under.filled >= 0.9);
+	};
 	for (int nz = 0; nz < z; nz++)
 		for (int nx = 0; nx < x; nx++) {
 			const size_t node = (size_t)nz * x + nx;
@@ -51,12 +63,14 @@ void FineWater::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox:
 					colours[node] = b->spec.matter == "water" ? 0x3f76e4 : c.fill_colour ? c.fill_colour : colours[node];
 					continue;
 				}
+				if (b && FinePowder::isPowder(*b) && !restsOn(nx, ny, nz))
+					continue; // on its way down
 				if (b && b->spec.matter != "air") {
 					floor = (int32_t)std::lround((ny + (b->spec.leveled ? c.level : 1.0)) * 16);
 					break;
 				}
 				// something loose lying in the air: as a heap, what the rest stands on
-				if (c.main >= 0 && c.filled > 0.005 && c.state == matter::State::Solid) {
+				if (c.main >= 0 && c.filled > 0.005 && c.state == matter::State::Solid && restsOn(nx, ny, nz)) {
 					floor = (int32_t)std::lround((ny + std::min(1.0, c.filled)) * 16);
 					break;
 				}
@@ -175,8 +189,13 @@ void FineWater::flow(float dt)
 		const bool open[4] = { cx + 1 < m_w, cx > 0, cz + 1 < m_d, cz > 0 };
 		float higher[4] = {};
 		for (int s = 0; s < 4; s++)
-			if (open[s])
-				higher[s] = (m_floor[c] - m_floor[around[s]]) / 16.0f + (d - m_depth[around[s]]);
+			if (open[s]) {
+				const float drop = (m_floor[c] - m_floor[around[s]]) / 16.0f;
+				higher[s] = drop + (d - m_depth[around[s]]);
+				// over an edge with nothing up to it: only what's at the lip pushes, not the height of the fall
+				if (drop > 0 && m_depth[around[s]] < drop)
+					higher[s] = d;
+			}
 		liquids::shallow::flowOut(m_out[c], d, dt, L, open, higher);
 	}
 	const int STEPS[4] = { 1, -1, m_w, -m_w };
@@ -188,6 +207,14 @@ void FineWater::flow(float dt)
 			const float amount = o * dt / L;
 			if (m_depth[c + STEPS[s]] <= 0)
 				m_colour[c + STEPS[s]] = m_colour[c]; // ahead of the matter: it's still what it was
+			if (m_floor[c] - m_floor[c + STEPS[s]] > 1 && m_depth[c + STEPS[s]] * 16 < m_floor[c] - m_floor[c + STEPS[s]]) {
+				m_over[c][s] += amount;
+				if (m_over[c][s] > SPILL) {
+					m_over[c][s] = 0;
+					if (m_spills.size() < 256)
+						m_spills.push_back({ c, s });
+				}
+			}
 			m_depth[c] -= amount;
 			m_depth[c + STEPS[s]] += amount;
 			moved = std::max(moved, amount);
@@ -228,6 +255,13 @@ void FineWater::splash(float x, float z, float speed)
 		o += SPLASH * speed;
 	m_quiet = false;
 	m_still = 0;
+}
+
+std::vector<FineWater::Spill> FineWater::takeSpills()
+{
+	std::vector<Spill> out;
+	out.swap(m_spills);
+	return out;
 }
 
 float FineWater::volume() const
