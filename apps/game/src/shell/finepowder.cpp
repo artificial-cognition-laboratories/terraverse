@@ -10,6 +10,7 @@ namespace shell {
 static constexpr double FULL = 0.9;   // a block this full carries what's over it; less, and that's still falling
 static constexpr float SETTLES = 24;  // sixteenths of a block a second that land or leave
 static constexpr float REPOSE = 0.7f; // sixteenths of height a column: about 35°
+static constexpr float DRAINS = 2 * 4096; // sixteenths³ (2/16 of a block): how far the picture runs ahead of the matter at a hole
 static constexpr float STIRRED = 0.01f;
 static constexpr int SLIDES = 6;      // passes a frame: a slide runs a column a pass
 static constexpr int LANDS_ON = 2;    // columns round the top it lands on
@@ -39,6 +40,7 @@ void FinePowder::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox
 			l.want.assign((size_t)x * z, 0);
 			l.has.assign((size_t)x * z, 0);
 			l.open.assign((size_t)x * z, false);
+			l.hole.assign((size_t)x * z, false);
 		}
 		return l;
 	};
@@ -84,7 +86,10 @@ void FinePowder::sync(int32_t x, int32_t y, int32_t z, const std::vector<sandbox
 		const int ny = base / 16;
 		for (int nz = 0; nz < z; nz++)
 			for (int nx = 0; nx < x; nx++)
+			{
 				l.open[(size_t)nz * x + nx] = ny < y && !closed(nx, ny, nz) && (ny == 0 || closed(nx, ny - 1, nz));
+				l.hole[(size_t)nz * x + nx] = ny < y && ny > 0 && !closed(nx, ny, nz) && !closed(nx, ny - 1, nz);
+			}
 	}
 }
 
@@ -129,6 +134,10 @@ void FinePowder::lift(Layer &l, int nx, int nz, float sixteenths)
 {
 	const int w = m_x * 16;
 	float volume = sixteenths * 256, there = 0;
+	// (what the picture's already let down a hole)
+	const float owed = std::min(volume, l.drained);
+	l.drained -= owed;
+	volume -= owed;
 	for (int cz = nz * 16; cz < (nz + 1) * 16; cz++)
 		for (int cx = nx * 16; cx < (nx + 1) * 16; cx++)
 			there += l.height[(size_t)cz * w + cx];
@@ -181,6 +190,26 @@ bool FinePowder::slide(Layer &l) const
 				b += move;
 				moved = moved || std::fabs(move) > STIRRED;
 			}
+		}
+	// The edge of a hole has nothing to lean on: it runs in, as far ahead of the matter as DRAINS
+	for (int cz = std::max(0, z0); cz <= std::min(d - 1, z1) && l.drained < DRAINS; cz++)
+		for (int cx = std::max(0, x0); cx <= std::min(w - 1, x1); cx++) {
+			float &a = l.height[(size_t)cz * w + cx];
+			if (a <= REPOSE || !open(cx, cz))
+				continue;
+			bool edge = false;
+			for (int dz = -1; dz <= 1 && !edge; dz++)
+				for (int dx = -1; dx <= 1; dx++) {
+					const int ax = cx + dx, az = cz + dz;
+					if (ax >= 0 && az >= 0 && ax < w && az < d && l.hole[(size_t)(az / 16) * m_x + ax / 16])
+						edge = true;
+				}
+			if (!edge)
+				continue;
+			const float move = (a - REPOSE) * 0.2f;
+			a -= move;
+			l.drained += move;
+			moved = moved || move > STIRRED;
 		}
 	return moved;
 }

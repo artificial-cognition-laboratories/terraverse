@@ -183,6 +183,39 @@ void TestMoves::testDrivenDrawnSmoothly()
 
 // A block of ice over a burner goes from the outside in: its water runs out as it's made, what's
 // left stands on the floor and is the matter's solid to within a cut, and no water's lost.
+// A heap round a hole in a ledge: what's at its edge runs in, and doesn't stand there as a wall.
+static void testGapRunsIn(const std::vector<sandbox::StageBlock> &blocks)
+{
+	int stone = -1;
+	for (size_t i = 0; i < blocks.size(); i++)
+		if (blocks[i].spec.node == "tf_world:stone")
+			stone = (int)i;
+	UASSERT(stone >= 0);
+	std::vector<sandbox::Stage::Cell> cells(27);
+	const auto at = [](int x, int y, int z) { return ((size_t)y * 3 + z) * 3 + x; };
+	for (int z = 0; z < 3; z++)
+		for (int x = 0; x < 3; x++) {
+			cells[at(x, 0, z)].block = stone;
+			if (x != 1 || z != 1) {
+				cells[at(x, 1, z)].block = stone;
+				sandbox::Stage::Cell &c = cells[at(x, 2, z)];
+				c.main = 0;
+				c.state = matter::State::Solid;
+				c.filled = 0.5;
+			}
+		}
+	shell::FinePowder powder;
+	powder.sync(3, 3, 3, cells, blocks);
+	for (int i = 0; i < 200; i++)
+		powder.step(0.1f, 1);
+	int edge = 0;
+	for (const shell::FinePowder::Column &col : powder.columns())
+		if (col.base == 32 && col.x >= 8 && col.x < 40 && col.z >= 8 && col.z < 40 && (col.x == 15 || col.x == 32 || col.z == 15 || col.z == 32))
+			edge = std::max(edge, (int)(col.top - col.base));
+	std::cout << "gap: tallest next to the hole " << edge << " sixteenths" << std::endl;
+	UASSERT(edge <= 4);
+}
+
 void TestMoves::testIceMeltsInwards()
 {
 	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
@@ -287,6 +320,7 @@ void TestMoves::testIceMeltsInwards()
 		powder.step(0.1, 1);
 	}
 	UASSERT(powder.columns().empty());
+	testGapRunsIn(blocks);
 }
 
 void TestMoves::testEveryVehicle()

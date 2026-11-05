@@ -46,6 +46,8 @@ private:
 		std::vector<float> height;       // by column: sixteenths over its floor
 		std::vector<float> want, has;    // by node: sixteenths of a whole block
 		std::vector<bool> open;          // by node: it has this floor, and room over it
+		std::vector<bool> hole;          // by node: no floor at this height, and room to fall
+		float drained = 0;               // sixteenths³ gone down a hole ahead of the matter saying so
 		int substance = -1;
 		double temperature = 0;
 	};
