@@ -4,6 +4,7 @@
 #include "actor.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 namespace physics {
 
@@ -53,7 +54,13 @@ Actor::Actor(Boxes boxes, const v3d &foot, std::vector<Cue> cues) : m_boxes(std:
 	m_doing = stanceName(Stance::STAND);
 	pose(STEP, 0);
 	m_was_posed = m_bones = m_posed;
-	m_parts = partsOf(m_posed, foot, m_yaw);
+	m_parts = m_parts_was = partsOf(m_posed, foot, m_yaw);
+	m_shakes.resize(m_parts.size());
+	// TF_TRACE=file.csv: each step, where its hips, head and feet are, to plot
+	if (const char *path = std::getenv("TF_TRACE")) {
+		m_trace = std::make_unique<std::ofstream>(path, std::ios::app); // (each body after the last: a scene begun again is a new one)
+		*m_trace << "t,stance,pace,stride,planted0,planted1,hips_x,hips_y,hips_z,head_x,head_y,head_z,head_shake,foot0_x,foot0_y,foot0_z,foot1_x,foot1_y,foot1_z\n";
+	}
 }
 
 Actor::~Actor() { m_limbs.reset(); }
@@ -209,8 +216,11 @@ void Actor::update(float dt)
 			for (size_t i = 0; i < parts.size(); i++)
 				m_pop = std::max(m_pop, (v3f::from(parts[i].position - m_parts[i].position) - body).getLength() / (float)STEP);
 		}
+		shake(parts, foot);
+		m_parts_was = std::move(m_parts);
 		m_parts = std::move(parts);
 		const Felt felt = feltOf(m_parts);
+		trace(felt);
 		m_mover->feel(felt);
 		// a foot down on the ground slides by how much it moves along it (it should hardly)
 		for (int side : { 0, 1 }) {
@@ -240,6 +250,42 @@ void Actor::update(float dt)
 		const float w = std::clamp((m_mover->risingAt() - TAKES_OVER) / (1 - TAKES_OVER), 0.f, 1.f);
 		m_bones = blend(m_limbs->drawn(drawn, m_yaw, t), m_bones, w * w * (3 - 2 * w));
 	}
+}
+
+void Actor::shake(const std::vector<Pose> &parts, const v3d &foot)
+{
+	// How sharply each part changed how it's going, over how the whole of it did: that's the game's.
+	if (m_steps_seen >= 2 && !m_limbs) {
+		constexpr int HEAD = 2; // (Limbs' part)
+		const v3d body = foot - m_foot_at[0] * 2. + m_foot_at[1];
+		for (size_t i = 0; i < parts.size(); i++) {
+			const v3d change = parts[i].position - m_parts[i].position * 2. + m_parts_was[i].position - body;
+			const float a = v3f::from(change).getLength() / (float)(STEP * STEP);
+			if (a > m_shakes[i].most)
+				m_shakes[i] = { a, m_time, m_doing + "/" + stanceName(m_mover->stance()) };
+			// striding, against a person's head at that pace
+			if (i == HEAD && m_posing.strideShare() > 0.99f && pace() > 1) { // (still, a person's head hardly moves at all)
+				m_head_now = a / Strides::headShake(pace());
+				if (m_head_now > m_head_shake.most)
+					m_head_shake = { m_head_now, m_time, m_doing + "/" + stanceName(m_mover->stance()) };
+			}
+		}
+	}
+	m_foot_at[1] = m_foot_at[0];
+	m_foot_at[0] = foot;
+	m_steps_seen = m_limbs ? 0 : m_steps_seen + 1; // (down, it's the physics': nothing drawn to measure)
+}
+
+void Actor::trace(const Felt &felt)
+{
+	if (!m_trace)
+		return;
+	const v3f head = v3f::from(m_parts[2].position), hips = v3f::from(m_parts[0].position);
+	*m_trace << m_time << ',' << stanceName(m_mover->stance()) << ',' << pace() << ',' << m_posing.strideShare() << ','
+			 << m_posing.planted(0) << ',' << m_posing.planted(1) << ',' << hips.X << ',' << hips.Y << ',' << hips.Z << ','
+			 << head.X << ',' << head.Y << ',' << head.Z << ',' << m_head_now << ',';
+	for (int side : { 0, 1 })
+		*m_trace << felt.foot[side].X << ',' << felt.foot[side].Y << ',' << felt.foot[side].Z << (side ? '\n' : ',');
 }
 
 void Actor::pose(float dt, float turned)

@@ -34,13 +34,18 @@ public:
 	static constexpr float LONGEST = 2; // × the recorded stride at most: past that it steps quicker
 	// The recorded stride at this pace, in nodes, as it's lengthened: what goes by under a foot each stride.
 	static float strideAt(float pace);
+	// The most a person's head accelerates going at this pace, over how the body's going (nodes/s²): its bob
+	// and sway as recorded, played as quickly as the stride is. What's drawn shouldn't shake it more.
+	static float headShake(float pace);
 
 private:
 	float m_phase = 0;
 	float m_share = 0;
 	bool m_planted[2]{};
 	bool m_locked[2]{};
-	float m_held[2]{}; // how much it's still where it was put: 1 down, going to 0 as it comes up
+	float m_held[2]{};
+	float m_height = 0; // where its hips are, less their bob: what its legs reach to the ground from
+	bool m_height_known = false; // how much it's still where it was put: 1 down, going to 0 as it comes up
 	v3f m_lock[2]; // where a foot that's down was put, in the figure's frame as it's moved since
 };
 

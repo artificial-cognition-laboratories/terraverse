@@ -6,6 +6,7 @@
 #include "physics/limbs.h"
 #include "physics/mover.h"
 #include "physics/skeleton.h"
+#include <fstream>
 #include <functional>
 #include <map>
 #include <memory>
@@ -53,6 +54,17 @@ public:
 	float takePop() { const float p = m_pop; m_pop = 0; return p; }
 	// How fast a foot that's down slides along the ground, on average (nodes/s): a planted foot shouldn't.
 	float skate() const { return m_planted_steps ? m_skate / (m_planted_steps * (float)STEP) : 0; }
+	// The sharpest each part (Limbs' parts) changed how it was going, over how the whole body did (nodes/s²):
+	// a jerk's a step far past what a person's does. And its head's, striding, against a person's at that pace
+	// (Strides::headShake): past 1, it's shaking more than one does.
+	struct Shake
+	{
+		float most = 0;
+		double at = 0;
+		std::string doing;
+	};
+	const std::vector<Shake> &shakes() const { return m_shakes; }
+	const Shake &headShake() const { return m_head_shake; }
 	int holdingSteps() const { return m_holding_steps; }
 	int gaveUp() const { return m_mover->gaveUp(); }
 	float inItself() const { return physics::inItself(m_parts); }
@@ -68,6 +80,8 @@ private:
 	bool solid(v3s16 n) const;
 	void note(const std::string &what);
 	void pose(float dt, float turned);
+	void shake(const std::vector<Pose> &parts, const v3d &foot);
+	void trace(const Felt &felt);
 	float groundAt(v3f at) const;
 	v3f clearOf(v3f at, float r) const;
 
@@ -79,7 +93,13 @@ private:
 	std::unique_ptr<Limbs> m_limbs; // only while it's down
 	Posing m_posing;
 	Bones m_posed, m_was_posed; // what the pose has it doing, this step and the last
-	std::vector<Pose> m_parts;  // where its parts are now, in the world
+	std::vector<Pose> m_parts, m_parts_was; // where its parts are now, in the world, and a step ago
+	v3d m_foot_at[2];                       // where the mover had it a step ago, and two
+	int m_steps_seen = 0;
+	std::vector<Shake> m_shakes;
+	Shake m_head_shake;
+	float m_head_now = 0;
+	std::unique_ptr<std::ofstream> m_trace;
 	float m_rush = 0, m_pop = 0;
 	bool m_foot_was_down[2]{};
 	v3f m_foot_was[2];

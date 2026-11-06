@@ -221,6 +221,9 @@ Bones Skeleton::place(float dt, const Joints &j, float tilt, const Grip *grip, v
 		posed.transformVect(free);
 		// a hand's on top of what it holds: its wrist a forearm's thickness over (sprint 105: as the body did)
 		v3f wanted = m_grip_at[side] + v3f(0, BONE_NARROW / 2 * S, 0);
+		// on its way, it comes over the top of what it's taking, not through its edge
+		constexpr float OVER = 0.09f; // nodes, halfway there
+		wanted.Y += OVER * 4 * (1 - w); // (the wrist goes w of the way: OVER at most, at half)
 		from_chest.transformVect(wanted);
 		v3f wrist = free + (wanted - free) * w;
 		// planted, it stays planted however the body goes; going to or from, it's an arm with a top speed

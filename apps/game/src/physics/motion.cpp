@@ -30,6 +30,22 @@ int rightAhead(const Cycle &c)
 	return best;
 }
 
+// The hips' height, as recorded, at a phase (legs); and over the whole stride.
+float hipsAt(const Cycle &c, int ahead, float phase)
+{
+	const float f = std::fmod(ahead + phase * PHASES, (float)PHASES);
+	const int a = (int)f, b = (a + 1) % PHASES;
+	return c.at[a][HIPS][1] + (c.at[b][HIPS][1] - c.at[a][HIPS][1]) * (f - a);
+}
+
+float meanHips(const Cycle &c)
+{
+	float sum = 0;
+	for (int p = 0; p < PHASES; p++)
+		sum += c.at[p][HIPS][1];
+	return sum / PHASES;
+}
+
 v3f sample(const Cycle &c, int ahead, float phase, int joint)
 {
 	const float f = std::fmod(ahead + phase * PHASES, (float)PHASES);
@@ -162,6 +178,30 @@ float Strides::strideAt(float pace)
 	return recorded_stride * std::clamp(pace / std::max(recorded_pace, 0.01f), 1.f, LONGEST);
 }
 
+float Strides::headShake(float pace)
+{
+	const auto most = [](const Cycle &c) {
+		const float dt = c.period / PHASES;
+		const auto head = [&](int p) {
+			p = (p + PHASES) % PHASES;
+			v3f h;
+			for (int k = 0; k < 3; k++)
+				(&h.X)[k] = c.at[p][HIPS][k] + (c.at[p][HEAD][k] + c.at[p][HEAD_END][k]) / 2;
+			return h;
+		};
+		float a = 0;
+		for (int p = 0; p < PHASES; p++)
+			a = std::max(a, (head(p + 1) - head(p) * 2.f + head(p - 1)).getLength() / (dt * dt));
+		return a * LEG;
+	};
+	static const float walk = most(WALK), run_most = most(RUN);
+	const float run = runShare(pace);
+	const float recorded = WALK.period + (RUN.period - WALK.period) * run;
+	const float played = strideAt(pace) / std::max(pace, 0.05f);
+	const float quicker = recorded / std::max(played, 0.05f);
+	return (walk + (run_most - walk) * run) * quicker * quicker;
+}
+
 Bones Strides::step(float dt, const Bones &asked, v3f moving, float turned, float twist, bool on)
 {
 	const float pace = std::hypot(moving.X, moving.Z);
@@ -172,6 +212,7 @@ Bones Strides::step(float dt, const Bones &asked, v3f moving, float turned, floa
 		m_share = 0;
 		m_planted[0] = m_planted[1] = m_locked[0] = m_locked[1] = false;
 		m_held[0] = m_held[1] = 0;
+		m_height_known = false;
 		return asked;
 	}
 	const float run = runShare(pace);
@@ -205,13 +246,11 @@ Bones Strides::step(float dt, const Bones &asked, v3f moving, float turned, floa
 		upper[side] = aim(arm, elbow);
 		fore[side] = aim(forearm, elbow);
 	}
-	// a foot's down as long as it's within a little of as low as that foot goes
+	// a foot's down when the recording's is: low and still, heel to toe
 	for (int side : { 0, 1 }) {
 		const Cycle &c = run > 0.5f ? RUN : WALK;
-		float low = 1e3f;
-		for (int p = 0; p < PHASES; p++)
-			low = std::min(low, c.at[p][ANKLE[side]][1]);
-		m_planted[side] = at(ANKLE[side]).Y < low + 0.04f;
+		const int ahead = run > 0.5f ? run_ahead : walk_ahead;
+		m_planted[side] = c.down[(int)std::lround(ahead + m_phase * PHASES) % PHASES][side];
 	}
 	// toward where it's going, as the pose turns its hips
 	core::matrix4 turn;
@@ -240,7 +279,16 @@ Bones Strides::step(float dt, const Bones &asked, v3f moving, float turned, floa
 		(l * b.thigh[side].matrix() * b.shin[side].matrix()).transformVect(foot);
 		lowest = std::min(lowest, foot.Y);
 	}
-	b.lower.at.Y -= lowest;
+	// The hips bob as the recording's do, about the height that puts its feet on the ground at this stride's
+	// length, taken over a stride or so. Not stood each moment on its lower foot: a run's in the air between
+	// steps, and the lower foot changing over dropped the hips at once (sprint 105: a jolt each step).
+	static const float walk_hips = meanHips(WALK), run_hips = meanHips(RUN);
+	const float bob = ((hipsAt(WALK, walk_ahead, m_phase) - walk_hips) * (1 - run) + (hipsAt(RUN, run_ahead, m_phase) - run_hips) * run) * LEG;
+	const float stood = b.lower.at.Y - lowest - bob; // where it'd be, stood on its lower foot, less its bob
+	const float stride_time = strideAt(pace) / std::max(pace, 0.05f);
+	m_height = m_height_known ? m_height + (stood - m_height) * std::min(1.f, dt / stride_time) : stood;
+	m_height_known = true;
+	b.lower.at.Y = m_height + bob;
 
 	// A foot that's down stays where it was put: the body's going on over it, so it goes back as fast in the
 	// figure's frame, turned as the body turns. The leg's solved to it, its knee where the recording's points.

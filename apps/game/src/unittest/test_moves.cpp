@@ -165,6 +165,17 @@ void TestMoves::testBonesStayOut()
 				<< deep_frames << "/" << frames << " frames past 0.05, in itself " << in_itself << ", head within " << apart << ", contacts missed " << course.actor().gaveUp() << ", holding " << course.actor().holdingSteps() << ", skate " << course.actor().skate() << ", fallen while footed " << fallen_frames << "/" << footed_frames << ", body at most " << rush << " at " << rush_at << " s (" << rush_doing << "), a part " << pop << " at " << pop_at << " s";
 		if (was_down)
 			std::cout << ", up again head at " << tallest_after_down;
+		{
+			static const char *const PARTS[] = { "hips", "chest", "head", "thigh", "thigh", "shin", "shin", "upper arm", "upper arm", "forearm", "forearm" };
+			const std::vector<physics::Actor::Shake> &shakes = course.actor().shakes();
+			size_t worst = 0;
+			for (size_t i = 1; i < shakes.size(); i++)
+				if (shakes[i].most > shakes[worst].most)
+					worst = i;
+			const physics::Actor::Shake &head = course.actor().headShake();
+			std::cout << ", sharpest " << PARTS[worst] << " " << shakes[worst].most << " at " << shakes[worst].at << " s (" << shakes[worst].doing
+					  << "), head " << shakes[2].most << " at " << shakes[2].at << " s (" << shakes[2].doing << "), striding " << head.most << "x a person's at " << head.at << " s";
+		}
 		std::cout << std::endl;
 		// (vaults are parked till they're redesigned for what can really be vaulted: reported, not held to it)
 		const std::string id = move["id"].asString();
@@ -176,6 +187,8 @@ void TestMoves::testBonesStayOut()
 		UASSERT(in_itself < 0.02f); // and out of itself
 		UASSERT(rush < 16 && pop < 18); // and nothing of it jumped: no step goes faster than a body can
 		UASSERT(!was_down || tallest_after_down > 1.2f); // and got up
+		if (id == "walk" || id == "run") // (going steadily: its head no shakier than a person's, give or take)
+			UASSERT(course.actor().headShake().most < 1.5f);
 	}
 }
 
