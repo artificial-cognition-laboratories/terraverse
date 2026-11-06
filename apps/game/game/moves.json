@@ -151,6 +151,132 @@
    }
   },
   {
+   "id": "back",
+   "group": "On foot",
+   "title": "Walking backwards",
+   "keys": "S",
+   "note": "Back the way it came, still facing ahead: a person's steps backward, not its forward ones run in reverse.",
+   "size": [
+    5,
+    6,
+    16
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      15
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    14.5
+   ],
+   "end": 3,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": -1
+    }
+   ],
+   "expect": []
+  },
+  {
+   "id": "sidestep",
+   "group": "On foot",
+   "title": "Sidestepping",
+   "keys": "A / D",
+   "note": "Across, facing ahead: its feet step out and in, as a person's do, one way and then the other.",
+   "size": [
+    21,
+    6,
+    5
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      20,
+      0,
+      4
+     ]
+    }
+   ],
+   "start": [
+    10,
+    0.5,
+    2
+   ],
+   "end": 4,
+   "cues": [
+    {
+     "at": 0,
+     "right": 1
+    },
+    {
+     "at": 2,
+     "right": -1
+    }
+   ],
+   "expect": []
+  },
+  {
+   "id": "diagonal",
+   "group": "On foot",
+   "title": "Running on the diagonal",
+   "keys": "Shift + W + D",
+   "note": "Ahead and to one side at once: between a run and a sidestep, facing where it's looking.",
+   "size": [
+    24,
+    6,
+    24
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      23,
+      0,
+      23
+     ]
+    }
+   ],
+   "start": [
+    12,
+    0.5,
+    2
+   ],
+   "end": 3,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1,
+     "right": 1,
+     "run": true
+    }
+   ],
+   "expect": []
+  },
+  {
    "id": "prone",
    "group": "On foot",
    "title": "Lying down",
@@ -1199,6 +1325,469 @@
    ],
    "expect": [
     "wall kick"
+   ]
+  },
+  {
+   "id": "punch",
+   "group": "Fighting",
+   "title": "Punching",
+   "keys": "Left click",
+   "note": "Left, right, left: each from the shoulders and the hips, as a person throws it, through to where it lands and back.",
+   "size": [
+    5,
+    6,
+    5
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      4
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    2
+   ],
+   "end": 3,
+   "cues": [
+    {
+     "at": 0.3,
+     "punch": true
+    },
+    {
+     "at": 0.4
+    },
+    {
+     "at": 0.9,
+     "punch": true
+    },
+    {
+     "at": 1.0
+    },
+    {
+     "at": 1.5,
+     "punch": true
+    },
+    {
+     "at": 1.6
+    },
+    {
+     "at": 2.1,
+     "punch": true
+    },
+    {
+     "at": 2.2
+    }
+   ],
+   "expect": [
+    "punch hit"
+   ]
+  },
+  {
+   "id": "punch_run",
+   "group": "Fighting",
+   "title": "Punching on the move",
+   "keys": "W + Left click",
+   "note": "Thrown going: its arms and shoulders punch, its legs go on as they were.",
+   "size": [
+    5,
+    6,
+    20
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      19
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 3.5,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1
+    },
+    {
+     "at": 1.0,
+     "punch": true,
+     "ahead": 1
+    },
+    {
+     "at": 1.1,
+     "ahead": 1
+    },
+    {
+     "at": 1.6,
+     "punch": true,
+     "ahead": 1
+    },
+    {
+     "at": 1.7000000000000002,
+     "ahead": 1
+    },
+    {
+     "at": 2.2,
+     "punch": true,
+     "ahead": 1
+    },
+    {
+     "at": 2.3000000000000003,
+     "ahead": 1
+    }
+   ],
+   "expect": [
+    "punch hit"
+   ]
+  },
+  {
+   "id": "front_kick",
+   "group": "Fighting",
+   "title": "Kicking",
+   "keys": "Right click",
+   "note": "A front kick, the whole body behind it, one leg and then the other.",
+   "size": [
+    5,
+    6,
+    5
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      4
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    2
+   ],
+   "end": 3,
+   "cues": [
+    {
+     "at": 0.3,
+     "kick": true
+    },
+    {
+     "at": 0.4
+    },
+    {
+     "at": 1.5,
+     "kick": true
+    },
+    {
+     "at": 1.6
+    }
+   ],
+   "expect": [
+    "kick hit"
+   ]
+  },
+  {
+   "id": "flurry",
+   "group": "Fighting",
+   "title": "A flurry",
+   "keys": "Left click, quickly",
+   "note": "Clicked faster than it can punch: each goes through to where it lands, and the next follows on from it.",
+   "size": [
+    5,
+    6,
+    5
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      4
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    2
+   ],
+   "end": 3,
+   "cues": [
+    {
+     "at": 0.3,
+     "punch": true
+    },
+    {
+     "at": 0.35
+    },
+    {
+     "at": 0.44999999999999996,
+     "punch": true
+    },
+    {
+     "at": 0.49999999999999994
+    },
+    {
+     "at": 0.6,
+     "punch": true
+    },
+    {
+     "at": 0.65
+    },
+    {
+     "at": 0.75,
+     "punch": true
+    },
+    {
+     "at": 0.8
+    },
+    {
+     "at": 0.8999999999999999,
+     "punch": true
+    },
+    {
+     "at": 0.95
+    },
+    {
+     "at": 1.05,
+     "punch": true
+    },
+    {
+     "at": 1.1
+    },
+    {
+     "at": 1.2,
+     "punch": true
+    },
+    {
+     "at": 1.25
+    },
+    {
+     "at": 1.35,
+     "punch": true
+    },
+    {
+     "at": 1.4000000000000001
+    },
+    {
+     "at": 1.5,
+     "punch": true
+    },
+    {
+     "at": 1.55
+    },
+    {
+     "at": 1.65,
+     "punch": true
+    },
+    {
+     "at": 1.7
+    },
+    {
+     "at": 1.8,
+     "punch": true
+    },
+    {
+     "at": 1.85
+    },
+    {
+     "at": 1.95,
+     "punch": true
+    },
+    {
+     "at": 2.0
+    }
+   ],
+   "expect": [
+    "punch hit"
+   ]
+  },
+  {
+   "id": "punch_go",
+   "group": "Fighting",
+   "title": "Punching, then off",
+   "keys": "Left click, then W",
+   "note": "Thrown stood still, then off mid-punch: its legs go as soon as it does.",
+   "size": [
+    5,
+    6,
+    14
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      13
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 2.5,
+   "cues": [
+    {
+     "at": 0.3,
+     "punch": true
+    },
+    {
+     "at": 0.35
+    },
+    {
+     "at": 0.5,
+     "ahead": 1
+    }
+   ],
+   "expect": [
+    "punch hit"
+   ]
+  },
+  {
+   "id": "kick_walk",
+   "group": "Fighting",
+   "title": "Kicking on the move",
+   "keys": "W + Right click",
+   "note": "Walking, a kick plants it: it stops for it, and goes on after.",
+   "size": [
+    5,
+    6,
+    16
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      15
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 3,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1
+    },
+    {
+     "at": 1.0,
+     "ahead": 1,
+     "kick": true
+    },
+    {
+     "at": 1.05,
+     "ahead": 1
+    }
+   ],
+   "expect": [
+    "kick hit"
+   ]
+  },
+  {
+   "id": "flying_kick",
+   "group": "Fighting",
+   "title": "A flying kick",
+   "keys": "Shift + W + Right click",
+   "note": "At a run, a kick's thrown off the ground: up off one foot, the kick lands in the air, and down running.",
+   "size": [
+    5,
+    6,
+    30
+   ],
+   "blocks": [
+    {
+     "node": "tf_world:stone_bricks",
+     "from": [
+      0,
+      0,
+      0
+     ],
+     "to": [
+      4,
+      0,
+      29
+     ]
+    }
+   ],
+   "start": [
+    2,
+    0.5,
+    1.5
+   ],
+   "end": 4,
+   "cues": [
+    {
+     "at": 0,
+     "ahead": 1,
+     "run": true
+    },
+    {
+     "at": 2.0,
+     "ahead": 1,
+     "run": true,
+     "kick": true
+    },
+    {
+     "at": 2.05,
+     "ahead": 1,
+     "run": true
+    }
+   ],
+   "expect": [
+    "kick hit"
    ]
   }
  ]

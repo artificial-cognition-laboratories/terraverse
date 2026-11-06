@@ -380,6 +380,10 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 	in.run = o.speed;
 	in.jump_height = JUMP * o.jump;
 	in.thrust = [this, &p](v3f velocity, const physics::Here &h, float dt) { return thrust(p, velocity, h, dt); };
+	// the other click's a kick (Figure throws it): planted it stops for it, at a run it hops (sprint 105)
+	if (c.place && !m_was_place)
+		m_mover->pressKick();
+	m_was_place = c.place;
 
 	m_behind += dtime;
 	while (m_behind >= physics::STEP) {

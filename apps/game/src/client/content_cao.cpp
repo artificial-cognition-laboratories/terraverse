@@ -1571,6 +1571,15 @@ void GenericCAO::step(float dtime, ClientEnvironment *env)
 				contacts.stagger = body.stagger();
 				contacts.throw_side = body.thrownSide();
 				contacts.throw_back = body.thrownBack();
+				// a click's a punch, the other a kick, each press one (till building's a mode of its own, it digs
+				// and places too)
+				const PlayerControl &held = env->getLocalPlayer()->control;
+				if (held.dig && !m_was_dig)
+					contacts.strike = 1;
+				else if (held.place && !m_was_place)
+					contacts.strike = 2;
+				m_was_dig = held.dig;
+				m_was_place = held.place;
 			}
 			m_figure->pose(dtime, moving, pitch, airborne, stance, turned, face, tilt, contacts, [&](v3f foot) {
 				v3f at = foot * BS;

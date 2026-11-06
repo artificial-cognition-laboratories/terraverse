@@ -30,8 +30,8 @@ v3f turnedAbout(v3f v, v3f axis, float angle)
 
 // An arm through its own chest or hips, or into what's beside it, swung away at its shoulder till it's clear:
 // what the body's parts did of themselves when they were bodies (sprint 105). Most often a key pose's arms
-// passing through on their way to another. A hand that's holding something is where it's meant to be.
-void keepArmsOut(Bones &b, const std::function<v3f(v3f, float)> &clear, const Grip *grip)
+// passing through on their way to another. A hand that's on what it holds is where it's meant to be.
+void keepArmsOut(Bones &b, const std::function<v3f(v3f, float)> &clear, const Grip *grip, const float (&on)[2])
 {
 	constexpr float S = FIGURE_SCALE, STEP = 0.03f; // radians at a time: no further than it must
 	constexpr int MOST = 40;
@@ -46,35 +46,50 @@ void keepArmsOut(Bones &b, const std::function<v3f(v3f, float)> &clear, const Gr
 		return std::min({ half.X + r - std::fabs(d.X), half.Y + r - std::fabs(d.Y), half.Z + r - std::fabs(d.Z) });
 	};
 	for (int side : { 0, 1 }) {
-		if (grip && grip->held[side])
+		if (grip && grip->held[side] && on[side] > 0.95f) // (still on its way there, it goes round what's in the way)
 			continue;
+		bool was_world = false; // the last turn was out of the world
+		v3f before;
 		for (int i = 0; i < MOST; i++) {
-			// the elbow, the forearm's middle and the wrist, in the chest's frame
+			// the elbow, the forearm's middle, the wrist and the fingers' ends, in the chest's frame
 			const core::matrix4 upper = b.upper[side].matrix(), fore = upper * b.fore[side].matrix();
-			v3f points[3] = { v3f(0), v3f(0, -FOREARM / 2 * S, 0), v3f(0, -FOREARM * S, 0) };
-			float deepest = 0;
-			v3f worst, away;
-			for (v3f &p : points) {
-				fore.transformVect(p);
+			v3f points[4] = { v3f(0), v3f(0, -FOREARM / 2 * S, 0), v3f(0, -FOREARM * S, 0), v3f(0, -HAND_LONG * S, 0) };
+			(fore * b.hand[side].matrix()).transformVect(points[3]);
+			float deepest = 0, in_body = 0, in_world = 0;
+			v3f worst, away, body_worst, body_away, world_worst, world_away;
+			for (int k = 0; k < 4; k++) {
+				v3f &p = points[k];
+				if (k < 3)
+					fore.transformVect(p);
 				v3f in_hips = p, in_figure = p;
 				into_hips.transformVect(in_hips);
 				chest.transformVect(in_figure);
 				// out of itself the shortest way, away from its middle; out of the world as the world has it
 				const float body = std::max(depth(p, chest_mid, chest_half), depth(in_hips, hips_mid, hips_half));
 				const v3f world = from_figure.rotateAndScaleVect(clear(in_figure, r));
-				if (body > deepest) {
-					deepest = body;
-					worst = p;
-					away = v3f(p.X, 0, p.Z).getLengthSQ() > 1e-6f ? v3f(p.X, 0, p.Z) : v3f(side ? -1.f : 1.f, 0, 0);
+				if (body > in_body) {
+					in_body = body;
+					body_worst = p;
+					body_away = v3f(p.X, 0, p.Z).getLengthSQ() > 1e-6f ? v3f(p.X, 0, p.Z) : v3f(side ? -1.f : 1.f, 0, 0);
 				}
-				if (world.getLength() > deepest) {
-					deepest = world.getLength();
-					worst = p;
-					away = world;
+				if (world.getLength() > in_world) {
+					in_world = world.getLength();
+					world_worst = p;
+					world_away = world;
 				}
 			}
+			// out of itself first, always; out of what's beside it only so far as that keeps it out of itself
+			if (in_body > 0 && was_world) {
+				b.upper[side].turn = before;
+				break;
+			}
+			was_world = in_body <= 0;
+			deepest = in_body > 0 ? in_body : in_world;
+			worst = in_body > 0 ? body_worst : world_worst;
+			away = in_body > 0 ? body_away : world_away;
 			if (deepest <= 0)
 				break;
+			before = b.upper[side].turn;
 			v3f axis = (worst - b.upper[side].at).crossProduct(away.normalize());
 			if (axis.getLengthSQ() < 1e-6f)
 				break; // (straight out that way already: turning won't help)
@@ -145,11 +160,7 @@ Bones Skeleton::place(float dt, const Joints &j, float tilt, const Grip *grip, v
 	b.chest.at = v3f(0, HIPS_TALL * S, 0);
 	// the chest stays mostly with the hips; the head does the turning
 	b.chest.turn = v3f(j.waist * 0.7f * DEG, j.chest_twist * DEG, 0);
-	{
-		core::matrix4 under = b.lower.matrix() * b.hips.matrix(), undo_under;
-		under.getInverse(undo_under);
-		b.chest.at += undo_under.rotateAndScaleVect(clear);
-	}
+	(void)clear; // (kept off what it's beside by leaning: Posing, once what it strides or plays has its chest)
 	// The head's own turn is what's left between its parents and the view. Summing angles
 	// isn't enough: on a bent body they don't add, and it rolled over sideways.
 	const core::matrix4 chest = b.lower.matrix() * b.hips.matrix() * b.chest.matrix();
@@ -221,13 +232,15 @@ Bones Skeleton::place(float dt, const Joints &j, float tilt, const Grip *grip, v
 		posed.transformVect(free);
 		// a hand's on top of what it holds: its wrist a forearm's thickness over (sprint 105: as the body did)
 		v3f wanted = m_grip_at[side] + v3f(0, BONE_NARROW / 2 * S, 0);
-		// on its way, it comes over the top of what it's taking, not through its edge
+		// on its way, it comes out from and over the top of what it's taking, not up through its face
 		constexpr float OVER = 0.09f; // nodes, halfway there
 		wanted.Y += OVER * 4 * (1 - w); // (the wrist goes w of the way: OVER at most, at half)
+		if (m_grip_over.Y < 0.5f)
+			wanted -= v3f(m_grip_over.X, 0, m_grip_over.Z) * (OVER * 4 * (1 - w));
 		from_chest.transformVect(wanted);
 		v3f wrist = free + (wanted - free) * w;
 		// planted, it stays planted however the body goes; going to or from, it's an arm with a top speed
-		constexpr float MOST_HAND_SPEED = 9; // nodes/s
+		constexpr float MOST_HAND_SPEED = 14; // nodes/s: a quick arm's (sprint 105: at 9, caught at a run, it lagged under the edge)
 		if (m_wrist_known[side] && !(holds && w > 0.9f)) {
 			const v3f move = wrist - m_wrist[side];
 			const float most = MOST_HAND_SPEED * dt;
@@ -249,6 +262,12 @@ Bones Skeleton::place(float dt, const Joints &j, float tilt, const Grip *grip, v
 		// (hooked over it, not laid flat on it: a wrist only bends so far)
 		constexpr float HOOKS = 0.55f;
 		v3f finger = down + (over - down) * (w * HOOKS);
+		// pushing down on top of what it holds, the hand's flat on it: its fingers don't go into it (sprint 105)
+		if (m_grip_over.Y < 0.5f) {
+			const v3f top = from_chest.rotateAndScaleVect(v3f(0, 1, 0));
+			if (const float into = finger.dotProduct(top); into < 0)
+				finger -= top * into;
+		}
 		finger.normalize();
 		const v3f y = finger * -1.f;
 		v3f across = fore.rotateAndScaleVect(v3f(1, 0, 0));
@@ -299,12 +318,68 @@ Bones Posing::pose(float dtime, v3f velocity, float pitch, bool airborne, Stance
 	const Joints j = m_poser.step(dtime, in);
 
 	Bones b = m_skeleton.place(dtime, j, tilt, grip, m_clear);
-	// On its feet and going, it strides as a person does: the recording's, at its own pace.
+	// On its feet and going, stood or crouched, it strides as a person does: the recording's, at its own pace.
 	{
-		const bool on = stance == Stance::STAND && !airborne && !face && !(grip && (grip->held[0] || grip->held[1])) && contacts.stagger < 0.3f;
-		b = m_strides.step(dtime, b, velocity, turned, j.twist, on);
+		// (in the air, only from a run: a leap, a stride of it; Strides says)
+		const bool on = (stance == Stance::STAND || stance == Stance::CROUCH) && !face && !(grip && (grip->held[0] || grip->held[1])) &&
+				contacts.stagger < 0.3f &&
+				contacts.push.getLengthSQ() < 0.01f;
+		// (off its feet, rolling, sliding, down, climbing, it lets go at once: what that is is the stance's, and the
+		// change is eased from below)
+		if (stance != Stance::STAND && stance != Stance::CROUCH)
+			m_strides.drop();
+		b = m_strides.step(dtime, b, velocity, turned, on, stance == Stance::CROUCH, airborne, velocity.Y,
+				airborne ? std::max(0.f, -ground(v3f(0))) : 0.f);
 		for (int side : { 0, 1 })
 			m_planted[side] = !airborne && (m_strides.share() > 0.5f ? m_strides.planted(side) : j.planted[side]);
+	}
+	// A jump's a person's jump, as recorded (Moves): off the ground on its feet, not off a wall, and not once
+	// there's something its hands are going for: that's a climb's
+	m_let_go = false;
+	{
+		const bool jumps = stance == Stance::STAND && !face && !grip && contacts.push.getLengthSQ() < 0.01f;
+		const bool striking = m_moves.striking() && (stance == Stance::STAND || stance == Stance::CROUCH) && !face &&
+				!(grip && (grip->held[0] || grip->held[1]));
+		if (!jumps && !striking)
+			m_let_go = m_moves.stop();
+		else if (airborne && !m_was_airborne && velocity.Y > 1 && !m_strides.leaping() && !m_moves.playing()) // (from a run it leaps: Strides)
+			m_moves.jump();
+		m_was_airborne = airborne;
+		// a punch or a kick, on its feet or in the air (not hanging off something, or lying down)
+		const bool can_strike = (stance == Stance::STAND || stance == Stance::CROUCH) && !face && !(grip && (grip->held[0] || grip->held[1]));
+		if (contacts.strike == 2 && can_strike && !airborne && std::hypot(velocity.X, velocity.Z) >= FLYING_KICK_FROM)
+			m_moves.flyingKick(); // (the mover hops it)
+		else if (contacts.strike && can_strike)
+			m_moves.strike(contacts.strike == 2 ? Strike::KICK : Strike::PUNCH);
+		b = m_moves.step(dtime, b, airborne, velocity.Y, airborne ? std::max(0.f, -ground(v3f(0))) : 0.f,
+				airborne || m_strides.share() > 0.3f);
+		m_hit = m_moves.takeHit();
+		m_let_go = m_let_go || m_moves.followedOn();
+	}
+	// It looks where it's looking, as it does stood: the recordings' heads were looking at their own ground. A
+	// little of how they went is kept, so it isn't a camera on a stick (sprint 105)
+	{
+		// (upright only: a rolling head's the roll's, and turned to a view it'd go the long way round)
+		const bool footed = stance == Stance::STAND || stance == Stance::CROUCH;
+		const float recorded = std::max(m_strides.share(), m_moves.share());
+		if (footed && recorded > 0) {
+			constexpr float LOOKS = 0.85f;
+			core::matrix4 parents = b.lower.matrix() * b.hips.matrix() * b.chest.matrix(), undo, view;
+			parents.setTranslation(v3f(0));
+			parents.getInverse(undo);
+			view.setRotationDegrees(v3f(j.head * DEG, 0, 0));
+			// as far round as a neck turns, and no further: off a wall the body may be well round from where it looks
+			constexpr float NECK = 1.4f; // radians
+			const core::matrix4 wanted = undo * view;
+			const v3f ahead = wanted.rotateAndScaleVect(v3f(0, 0, 1));
+			const float round = std::acos(std::clamp(ahead.Z, -1.f, 1.f));
+			Bones square = b, looking = b;
+			square.head.turn = v3f(0);
+			looking.head.turn = wanted.getRotationDegrees();
+			if (round > NECK)
+				looking = blend(square, looking, NECK / round);
+			b = blend(b, looking, LOOKS * recorded);
+		}
 	}
 	// Down, it's the shape it holds that's asked: legs out, a little bent, not under it.
 	if (stance == Stance::DOWN && contacts.rising <= 0)
@@ -328,28 +403,30 @@ Bones Posing::pose(float dtime, v3f velocity, float pitch, bool airborne, Stance
 		});
 		b.lower.at.Y += under;
 	}
-	// Its head and shoulders go round what they meet. Asked where they'd be without the last
-	// answer, so being moved clear doesn't read as there being nothing to clear.
-	const bool upright = stance != Stance::ROLL && stance != Stance::PRONE && stance != Stance::SLIDE && stance != Stance::DOWN;
-	v3f wanted;
-	if (upright) {
-		const core::matrix4 chest = b.lower.matrix() * b.hips.matrix() * b.chest.matrix();
-		const auto ball = [&](const core::matrix4 &m, v3f at, float r) {
-			m.transformVect(at);
-			const v3f by = clear(at - m_clear, r);
-			if (by.getLengthSQ() > wanted.getLengthSQ())
-				wanted = by;
-		};
-		ball(chest * b.head.matrix(), v3f(0, HEAD_SIZE / 2, 0) * FIGURE_SCALE, 0.27f);
-		for (int side : { 0, 1 })
-			ball(chest, b.upper[side].at, 0.14f);
+	// Its head and shoulders kept off what's beside them by leaning away from it at the waist, as far as a back
+	// bends, not slid off its hips (sprint 105: by a wall its torso came away from its legs)
+	if (m_clear.getLengthSQ() > 1e-8f) {
+		constexpr float MOST_LEAN = 0.45f; // radians
+		core::matrix4 under = b.lower.matrix() * b.hips.matrix(), undo_under;
+		under.setTranslation(v3f(0));
+		under.getInverse(undo_under);
+		v3f away = undo_under.rotateAndScaleVect(m_clear); // in the hips' frame
+		away.Y = 0;
+		const float far = away.getLength();
+		if (far > 1e-4f) {
+			const float lever = (CHEST_TALL + HEAD_SIZE / 2) * FIGURE_SCALE; // (from the waist to the middle of its head)
+			const float angle = std::min(std::atan2(far, lever), MOST_LEAN);
+			const v3f axis = v3f(0, 1, 0).crossProduct(away / far);
+			const core::matrix4 chest = b.chest.matrix();
+			const auto leaned = [&](v3f v) { return turnedAbout(chest.rotateAndScaleVect(v), axis, angle); };
+			b.chest.turn = axes(leaned(v3f(1, 0, 0)), leaned(v3f(0, 1, 0)), leaned(v3f(0, 0, 1))).getRotationDegrees();
+		}
 	}
-	if (wanted.getLength() > 0.3f)
-		wanted = wanted / wanted.getLength() * 0.3f;
-	m_clear += (wanted - m_clear) * std::min(1.f, 18 * dtime);
-	// A new stance eases in from where the last one left it, rather than snapping to its own (sprint 105)
+	// A new stance, striding the other way at once, a move let go of for a climb, or one strike into the next,
+	// eases in from where the last left it, rather than snapping to its own (sprint 105). Before its head's kept
+	// out of what it's beside: what it's eased from may have been somewhere else
 	constexpr float CHANGES = 0.15f; // s
-	if (m_posed && stance != m_stance) {
+	if (m_posed && (stance != m_stance || m_strides.turnedRound() || m_let_go)) {
 		m_from = m_last;
 		m_since = 0;
 	}
@@ -359,7 +436,34 @@ Bones Posing::pose(float dtime, v3f velocity, float pitch, bool airborne, Stance
 		const float t = m_since / CHANGES;
 		b = blend(m_from, b, t * t * (3 - 2 * t));
 	}
-	keepArmsOut(b, clear, grip);
+	// Its head and shoulders go round what they meet. Asked where they'd be without the last
+	// answer, so being moved clear doesn't read as there being nothing to clear.
+	const bool upright = stance != Stance::ROLL && stance != Stance::PRONE && stance != Stance::SLIDE && stance != Stance::DOWN;
+	v3f wanted;
+	float head_in = 0; // how far its head's into something
+	if (upright) {
+		const core::matrix4 chest = b.lower.matrix() * b.hips.matrix() * b.chest.matrix();
+		const auto ball = [&](const core::matrix4 &m, v3f at, float r) {
+			m.transformVect(at);
+			const v3f by = clear(at - m_clear, r);
+			if (by.getLengthSQ() > wanted.getLengthSQ())
+				wanted = by;
+			return by.getLength();
+		};
+		head_in = ball(chest * b.head.matrix(), v3f(0, HEAD_SIZE / 2, 0) * FIGURE_SCALE, 0.27f);
+		for (int side : { 0, 1 })
+			ball(chest, b.upper[side].at, 0.14f);
+	}
+	if (wanted.getLength() > 0.3f)
+		wanted = wanted / wanted.getLength() * 0.3f;
+	// Over a stride or so, not each swing of its shoulders: beside a wall it keeps a little off it, and doesn't
+	// bob away each step (sprint 105: a sprint's shoulders swing wide, and its head shook with them). But a head
+	// that's gone into something comes out of it at once (only its head: a shoulder brushing past isn't that)
+	constexpr float KEEPS_OFF = 5, GETS_OUT = 18, DEEP = 0.08f; // /s, /s, nodes
+	const float rate = head_in > DEEP ? GETS_OUT : KEEPS_OFF;
+	m_clear += (wanted - m_clear) * std::min(1.f, rate * dtime);
+	const float on[2] = { m_skeleton.gripping(0), m_skeleton.gripping(1) };
+	keepArmsOut(b, clear, grip, on);
 	m_last = b;
 	m_posed = true;
 	return b;

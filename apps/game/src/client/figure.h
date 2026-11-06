@@ -50,6 +50,9 @@ public:
 	void hideHead(bool hide);
 	// Where the head is, in the scene.
 	v3f headAt() const;
+	// A punch or kick that landed this pose: which, with which side, and where (the figure's frame, nodes). What
+	// hit detection will go by.
+	const std::optional<physics::Hit> &hit() const { return m_posing.hit(); }
 
 private:
 	struct Limb

@@ -32,6 +32,7 @@ public:
 		float ahead = 0, right = 0;
 		float yaw = 0;      // radians, Luanti's: 0 goes +z, + turns toward -x
 		bool run = false, jump = false, crouch = false, prone = false;
+		bool punch = false, kick = false; // (each press throws one)
 	};
 	// A node's boxes, about its centre (nodes). None: it's air.
 	using Boxes = std::function<void(v3s16, std::vector<aabb3f> &)>;
@@ -108,6 +109,7 @@ private:
 	int m_holding_steps = 0;
 	Bones m_bones;
 	Cue m_on;
+	int m_strike = 0; // thrown since the last pose: Contacts::strike
 	double m_time = 0, m_behind = 0;
 	v3f m_drawn;
 	float m_yaw = 0;

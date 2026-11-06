@@ -57,7 +57,8 @@ mod and map registry. Nothing is built for that yet.
 | UI | Menus, HUD, inventory, wiki with native scenes, Lab, planetarium |
 
 **Not there yet:** trees (being rewritten as species), creatures, boats, aircraft, swimming
-by the body, breaking and structural strength, electricity and networks, and a survival loop
+by the body, breaking and structural strength, electricity and networks, crafting by operations,
+carrying and routes (see Making and moving), and a survival loop
 threading these together. Known gaps belong in `TODO.md`.
 
 ## Repo map
@@ -141,6 +142,36 @@ balance checked on load, rates by Arrhenius, heats from thermo data). Blocks dec
 and heat and state do the rest. The same primitive serves a crucible, a room and a sea. Native
 never knows "coal" or "bronze". **Not doing:** per-block gas dynamics, finite-element stress,
 molecular chemistry, subdividing the whole world.
+
+**Making and moving** (the direction for crafting and logistics; none of it is built yet):
+- **A thing is material, shape and condition, never a type.** An axe is a bronze wedge lashed
+  to ash; its edge, swing and grip come from what it is. "Axe" is a name the UI gives a pattern
+  it recognises, never a type the code checks. A tool is a small machine of pieces and joints.
+- **Operations, not recipes.** A small set of verbs (split, cut, carve, shape, join, mix, heat,
+  spin, weave, pour) acts on what's in reach. Each verb's preconditions come from material
+  properties and the tools at hand, so a refusal explains itself ("won't split across the
+  grain", "too cold to work"). The UI offers the verbs that apply and predicts their result from
+  the simulation, never from a table.
+- **Magic sits below the decision.** World scale (1 m) is building; bench scale (1/16) is where
+  shape is the design, sculpted in the world; below 1/16 (teeth, threads, weave) is a parametric
+  feature: pick the numbers that matter and pay in time and tools. Abstract the labour, never
+  the knowledge.
+- **Workplaces collapse labour; distance stays real.** A bench is a physical place: press F,
+  the camera frames it, and what's on and around it is what you work with. Tools hung on it make
+  their verbs quick; the same verbs work in the field, slower. A construction site does the same
+  at world scale: within it, material moves from a stockpile to a planned build for time, not
+  trips. Between workplaces everything is carried.
+- **Carrying is honest.** A body carries about 50 kg, with a rucksack from the start for food,
+  water and small things. Placed blocks keep real mass, so bulk comes from near the site and
+  hauling is built: sled, handcart, animals in harness (a pulling force with stamina, on a
+  joint), boats, rails. The first cart must come early. Each era is a jump in what you can move,
+  and big geological deposits make a route worth engineering.
+- **Do it once, then hand it over.** Automation is two primitives: a *pattern* (operations
+  recorded at a workplace) and a *route* (a journey recorded between workplaces). Whoever runs
+  them, a worker, a machine or the player, is policy in Lua. Away from players a route runs
+  Scheduled, conserving cargo and time, and fails honestly. The economy is sites joined by routes.
+- **First slice:** one bench, stone-age verbs, a 50 kg back and a handcart from pieces: fell, split,
+  build the cart, haul stone, build a wall from a stockpile. Prove that loop before creatures or rails.
 
 **Every primitive has four parts:** properties on definitions, sparse state the engine owns,
 Lua verbs (query, inject, subscribe; Lua never polls blocks), and native couplings to other

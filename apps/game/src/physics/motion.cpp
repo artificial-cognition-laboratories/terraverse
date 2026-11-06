@@ -4,8 +4,11 @@
 #include "physics/motion.h"
 #include "physics/skeleton.h"
 #include "physics/motion_cycles.h"
+#include "physics/motion_clips.h"
 #include <algorithm>
 #include <cmath>
+#include <iterator>
+#include <vector>
 #include <cstdio>
 #include <cstdlib>
 
@@ -17,25 +20,99 @@ using namespace cycles;
 constexpr float S = FIGURE_SCALE;
 constexpr float LEG = (THIGH + SHIN) * S; // nodes: ours, what a recorded leg's length is made
 
-// The run's, not the walk's, from a stroll up: a person going at the pace we call walking is jogging.
-float runShare(float pace) { return std::clamp((pace - 0.8f) / 1.5f, 0.f, 1.f); }
-
-// Where in its stride a cycle puts the right foot furthest ahead: our stride's phase 0.
-int rightAhead(const Cycle &c)
+// The recorded strides a body's going between, and how much of each: by its pace (each is all there is at its own,
+// nodes/s, and the two either side shared out between), and by which way it's going against the way it faces
+// (ahead, to a side, back: the two either side of it). A jog from a stroll up: a person going at the pace we call
+// walking is jogging; faster, a run, then a sprint, each off the ground longer and further each step, not just
+// quicker (sprint 105: one jog played faster was nine steps a second). Every stride's cut where its right foot
+// comes down, so any two are at the same point at the same phase.
+struct Mix
 {
-	int best = 0;
-	for (int p = 1; p < PHASES; p++)
-		if (c.at[p][RIGHTANKLE][2] > c.at[best][RIGHTANKLE][2])
-			best = p;
-	return best;
+	const Cycle *c[8];
+	float w[8];
+	int n = 0;
+	void add(const Cycle *k, float weight)
+	{
+		if (weight <= 1e-4f)
+			return;
+		for (int i = 0; i < n; i++)
+			if (c[i] == k) {
+				w[i] += weight;
+				return;
+			}
+		c[n] = k;
+		w[n++] = weight;
+	}
+	template <typename F> float of(F f) const
+	{
+		float sum = 0;
+		for (int i = 0; i < n; i++)
+			sum += w[i] * f(*c[i]);
+		return sum;
+	}
+	const Cycle &most() const
+	{
+		int best = 0;
+		for (int i = 1; i < n; i++)
+			if (w[i] > w[best])
+				best = i;
+		return *c[best];
+	}
+};
+
+struct Key
+{
+	const Cycle *c;
+	float at; // nodes/s
+};
+struct Ways
+{
+	std::vector<Key> ahead, right, back, left;
+};
+const Ways &waysFor(bool crouched)
+{
+	static const Ways STOOD{ { { &WALK, 0.8f }, { &JOG, 2.3f }, { &JOG, 3.5f }, { &RUN, 4.6f }, { &SPRINT, 5.8f } },
+		{ { &WALK_RIGHT, 0.8f }, { &JOG_RIGHT, 2.3f } }, { { &WALK_BACK, 0.8f }, { &JOG_BACK, 2.3f } },
+		{ { &WALK_LEFT, 0.8f }, { &JOG_LEFT, 2.3f } } };
+	static const Ways CROUCHED{ { { &CROUCH, 0.5f }, { &CROUCH_RUN, 1.5f } }, { { &CROUCH_RIGHT, 0.5f } }, { { &CROUCH_BACK, 0.5f } },
+		{ { &CROUCH_LEFT, 0.5f } } };
+	return crouched ? CROUCHED : STOOD;
+}
+
+void addPaced(Mix &m, const std::vector<Key> &keys, float pace, float weight)
+{
+	size_t k = 0;
+	while (k + 2 < keys.size() && pace > keys[k + 1].at)
+		k++;
+	if (keys.size() == 1) {
+		m.add(keys[0].c, weight);
+		return;
+	}
+	const float t = std::clamp((pace - keys[k].at) / (keys[k + 1].at - keys[k].at), 0.f, 1.f);
+	m.add(keys[k].c, weight * (1 - t));
+	m.add(keys[k + 1].c, weight * t);
+}
+
+// `way`: radians it's going, against how it faces (0 ahead, + to its right).
+Mix mixAt(float pace, float way, bool crouched)
+{
+	const Ways &ways = waysFor(crouched);
+	const std::vector<Key> *round[4] = { &ways.ahead, &ways.right, &ways.back, &ways.left };
+	const float quarter = std::fmod(way / (core::PI / 2) + 4, 4.f);
+	const int i = (int)quarter % 4;
+	const float t = quarter - std::floor(quarter);
+	Mix m;
+	addPaced(m, *round[i], pace, 1 - t);
+	addPaced(m, *round[(i + 1) % 4], pace, t);
+	return m;
 }
 
 // The hips' height, as recorded, at a phase (legs); and over the whole stride.
-float hipsAt(const Cycle &c, int ahead, float phase)
+v3f sample(const Cycle &c, float phase, int joint);
+
+float hipsAt(const Cycle &c, float phase)
 {
-	const float f = std::fmod(ahead + phase * PHASES, (float)PHASES);
-	const int a = (int)f, b = (a + 1) % PHASES;
-	return c.at[a][HIPS][1] + (c.at[b][HIPS][1] - c.at[a][HIPS][1]) * (f - a);
+	return sample(c, phase, HIPS).Y;
 }
 
 float meanHips(const Cycle &c)
@@ -46,14 +123,22 @@ float meanHips(const Cycle &c)
 	return sum / PHASES;
 }
 
-v3f sample(const Cycle &c, int ahead, float phase, int joint)
+// A smooth curve through the recorded phases (Catmull-Rom), not straight between them: straight, it changed how
+// it was going all at once at each one, and played quickly that's a jolt (sprint 105).
+float through(float a, float b, float c, float d, float t)
 {
-	const float f = std::fmod(ahead + phase * PHASES, (float)PHASES);
-	const int a = (int)f, b = (a + 1) % PHASES;
-	const float t = f - a;
+	return b + 0.5f * t * (c - a + t * (2 * a - 5 * b + 4 * c - d + t * (3 * (b - c) + d - a)));
+}
+
+v3f sample(const Cycle &c, float phase, int joint)
+{
+	const float f = std::fmod(phase * PHASES, (float)PHASES);
+	const int i = (int)f;
+	const float t = f - i;
+	const auto at = [&](int k) { return c.at[(k + PHASES) % PHASES][joint]; };
 	v3f out;
 	for (int k = 0; k < 3; k++)
-		(&out.X)[k] = c.at[a][joint][k] + (c.at[b][joint][k] - c.at[a][joint][k]) * t;
+		(&out.X)[k] = through(at(i - 1)[k], at(i)[k], at(i + 1)[k], at(i + 2)[k], t);
 	return out;
 }
 
@@ -151,6 +236,48 @@ BonePlace blend(const BonePlace &a, const BonePlace &b, float t)
 	return { a.at + (b.at - a.at) * t, fromQ(q).getRotationDegrees() };
 }
 
+// A body as recorded joints have it (`at`: each joint against the hips, figure-frame axes, in our nodes), turned
+// by `turn`: each bone pointed as the recorded one points, so it doesn't matter that the two skeletons stand
+// differently at rest. Its hips at their height stood straight; the rest's `asked`'s.
+template <typename At> Bones pointed(const At &at, const Bones &asked, const core::matrix4 &turn)
+{
+	const v3f hips(0, 0, 0);
+	const v3f pelvis_x = at(RIGHTHIP) - at(LEFTHIP), chest_x = at(RIGHTSHOULDER) - at(LEFTSHOULDER);
+	const core::matrix4 pelvis = aim(hips - at(CHEST), pelvis_x);
+	const core::matrix4 chest = aim(at(CHEST) - at(NECK), chest_x);
+	const core::matrix4 head = aim(at(NECK) - at(HEAD_END), chest_x);
+	core::matrix4 thigh[2], shin[2], upper[2], fore[2];
+	const int HIP[2] = { RIGHTHIP, LEFTHIP }, KNEE[2] = { RIGHTKNEE, LEFTKNEE }, ANKLE[2] = { RIGHTANKLE, LEFTANKLE };
+	const int SHOULDER[2] = { RIGHTSHOULDER, LEFTSHOULDER }, ELBOW[2] = { RIGHTELBOW, LEFTELBOW }, WRIST[2] = { RIGHTWRIST, LEFTWRIST };
+	for (int side : { 0, 1 }) {
+		const v3f up = at(KNEE[side]) - at(HIP[side]), down = at(ANKLE[side]) - at(KNEE[side]);
+		const v3f knee = bendAxis(up, down, pelvis_x);
+		thigh[side] = aim(up, knee);
+		shin[side] = aim(down, knee);
+		const v3f arm = at(ELBOW[side]) - at(SHOULDER[side]), forearm = at(WRIST[side]) - at(ELBOW[side]);
+		const v3f elbow = bendAxis(arm, forearm, chest_x);
+		upper[side] = aim(arm, elbow);
+		fore[side] = aim(forearm, elbow);
+	}
+	const core::matrix4 lower = turn * pelvis;
+	Bones b = asked;
+	const float hip_y = HIP_HEIGHT * S;
+	b.hips = { v3f(0, hip_y, 0), v3f(0) };
+	b.lower.turn = lower.getRotationDegrees();
+	b.lower.at = v3f(0) - lower.rotateAndScaleVect(v3f(0, hip_y, 0));
+	b.chest.turn = against(lower, turn * chest).getRotationDegrees();
+	b.head.turn = against(turn * chest, turn * head).getRotationDegrees();
+	for (int side : { 0, 1 }) {
+		const float x = side ? -1.f : 1.f;
+		b.thigh[side] = { v3f(HIP_WIDE * x, HIP_HEIGHT, 0) * S, against(lower, turn * thigh[side]).getRotationDegrees() };
+		b.shin[side].turn = against(thigh[side], shin[side]).getRotationDegrees();
+		b.upper[side].turn = against(turn * chest, turn * upper[side]).getRotationDegrees();
+		b.fore[side].turn = against(upper[side], fore[side]).getRotationDegrees();
+		b.hand[side].turn = v3f(0);
+	}
+	return b;
+}
+
 } // namespace
 
 Bones blend(const Bones &a, const Bones &b, float t)
@@ -170,15 +297,38 @@ Bones blend(const Bones &a, const Bones &b, float t)
 	return out;
 }
 
-float Strides::strideAt(float pace)
+namespace {
+
+// The recorded stride at this pace, in nodes, as it's lengthened: what goes by under a foot each stride.
+float strideOf(const Mix &m, float pace)
 {
-	const float run = runShare(pace);
-	const float recorded_pace = (WALK.pace + (RUN.pace - WALK.pace) * run) * LEG;
-	const float recorded_stride = (WALK.pace * WALK.period + (RUN.pace * RUN.period - WALK.pace * WALK.period) * run) * LEG;
-	return recorded_stride * std::clamp(pace / std::max(recorded_pace, 0.01f), 1.f, LONGEST);
+	const float recorded_pace = m.of([](const Cycle &c) { return c.pace; }) * LEG;
+	const float recorded_stride = m.of([](const Cycle &c) { return c.pace * c.period; }) * LEG;
+	return recorded_stride * std::clamp(pace / std::max(recorded_pace, 0.01f), 1.f, Strides::LONGEST);
 }
 
-float Strides::headShake(float pace)
+} // namespace
+
+void Strides::leap()
+{
+	// From where it is in its stride to the next foot coming down after it's off the ground: the flight that's
+	// stretched to however long it's in the air
+	const Mix g = mixAt(m_pace, m_way - m_body, m_crouched);
+	const Cycle &c = g.most();
+	const int now = (int)std::lround(m_phase * PHASES);
+	const auto none = [&](int p) { return !c.down[p % PHASES][0] && !c.down[p % PHASES][1]; };
+	int p = now;
+	while (p < now + PHASES && !none(p)) // (to its toes leaving the ground...)
+		p++;
+	while (p < now + 2 * PHASES && none(p)) // (...and the other foot down)
+		p++;
+	m_leaping = true;
+	m_leap_air = 0;
+	m_leap_from = m_phase;
+	m_leap_to = m_phase + (float)(p - now) / PHASES;
+}
+
+float Strides::headShake() const
 {
 	const auto most = [](const Cycle &c) {
 		const float dt = c.period / PHASES;
@@ -194,17 +344,24 @@ float Strides::headShake(float pace)
 			a = std::max(a, (head(p + 1) - head(p) * 2.f + head(p - 1)).getLength() / (dt * dt));
 		return a * LEG;
 	};
-	static const float walk = most(WALK), run_most = most(RUN);
-	const float run = runShare(pace);
-	const float recorded = WALK.period + (RUN.period - WALK.period) * run;
-	const float played = strideAt(pace) / std::max(pace, 0.05f);
+	const Mix m = mixAt(m_pace, m_way, m_crouched);
+	const float recorded = m.of([](const Cycle &c) { return c.period; });
+	const float played = strideOf(m, m_pace) / std::max(m_pace, 0.05f);
 	const float quicker = recorded / std::max(played, 0.05f);
-	return (walk + (run_most - walk) * run) * quicker * quicker;
+	return m.of(most) * quicker * quicker;
 }
 
-Bones Strides::step(float dt, const Bones &asked, v3f moving, float turned, float twist, bool on)
+Bones Strides::step(float dt, const Bones &asked, v3f moving, float turned, bool on, bool crouched, bool airborne, float up, float above)
 {
 	const float pace = std::hypot(moving.X, moving.Z);
+	// Off the ground going at a run, it leaps: a stride of its run, its flight as long as it's in the air
+	// (sprint 105: a jump as recorded from a run was a long jump's, its arms swung once it was already up)
+	// (jumped: rising. Run off an edge, it's falling, and its legs come under it for the ground)
+	if (airborne && !m_leaping && on && !crouched && m_share > 0.5f && pace > LEAPS_FROM && up > 1)
+		leap();
+	if (!airborne || crouched) // (tucked in the air, for a roll: that's the roll's, not a stride's)
+		m_leaping = false;
+	on = on && (!airborne || m_leaping);
 	constexpr float COMES_IN = 5; // /s: it takes over, and lets go, over a fifth of a second
 	const float going = std::clamp(pace / 0.6f, 0.f, 1.f);
 	m_share += ((on ? going : 0.f) - m_share) * std::min(1.f, COMES_IN * dt);
@@ -213,64 +370,62 @@ Bones Strides::step(float dt, const Bones &asked, v3f moving, float turned, floa
 		m_planted[0] = m_planted[1] = m_locked[0] = m_locked[1] = false;
 		m_held[0] = m_held[1] = 0;
 		m_height_known = false;
+		m_body = 0;
+		m_turned_round = false;
+		m_leaping = false;
 		return asked;
 	}
-	const float run = runShare(pace);
-	const float recorded_pace = (WALK.pace + (RUN.pace - WALK.pace) * run) * LEG;
-	const float longer = std::clamp(pace / std::max(recorded_pace, 0.01f), 1.f, LONGEST);
-	m_phase = std::fmod(m_phase + dt * pace / std::max(strideAt(pace), 0.05f), 1.f);
+	// which way it's going, against how it faces: held while it's slowing to a stop, not swung about
+	const float was_way = m_way;
+	if (pace > 0.3f)
+		m_way = std::atan2(moving.X, moving.Z);
+	// A person steps to a side slowly; faster, they turn and go, its hips toward where it's going as far as
+	// they turn, looking where it was (Posing's look) (sprint 105: a sidestep stretched to a run slid its feet)
+	constexpr float TURNS_FROM = 2.5f, TURNS_BY = 4.5f, HIPS_TURN = 1.2f; // nodes/s, nodes/s, radians
+	const float turns = std::fabs(m_way) < 2.f ? std::clamp((pace - TURNS_FROM) / (TURNS_BY - TURNS_FROM), 0.f, 1.f) : 0.f;
+	m_body += (std::clamp(m_way, -HIPS_TURN, HIPS_TURN) * turns - m_body) * std::min(1.f, 6 * dt);
+	const float way = m_way - m_body; // against the way its hips face
+	m_pace = pace;
+	m_crouched = crouched;
+	// gone the other way at once (a sidestep the other way): Posing eases it from how it was
+	m_turned_round = std::fabs(std::remainder(m_way - was_way, 2 * core::PI)) > 1.f;
+	const Mix g = mixAt(pace, way, crouched);
+	const float recorded_pace = g.of([](const Cycle &c) { return c.pace; }) * LEG;
+	const float stride = strideOf(g, pace);
+	// a leap's legs split wider than a stride's, most at the top of it
+	constexpr float SPLITS = 1.35f;
+	float longer = std::clamp(pace / std::max(recorded_pace, 0.01f), 1.f, LONGEST);
+	if (m_leaping) {
+		// as far through the stride's flight as it is through its time in the air, by when it'll be down
+		constexpr float GRAVITY = 9.81f;
+		m_leap_air += dt;
+		const float left = (up + std::sqrt(std::max(0.f, up * up + 2 * GRAVITY * above))) / GRAVITY;
+		const float through = std::min(m_leap_air / std::max(m_leap_air + left, 1e-3f), 0.98f);
+		m_phase = std::fmod(m_leap_from + (m_leap_to - m_leap_from) * through, 1.f);
+		longer *= 1 + (SPLITS - 1) * std::sin(core::PI * through);
+	} else {
+		m_phase = std::fmod(m_phase + dt * pace / std::max(stride, 0.05f), 1.f);
+	}
 
-	static const int walk_ahead = rightAhead(WALK), run_ahead = rightAhead(RUN);
+	const v3f along(std::sin(way), 0, std::cos(way));
 	const auto at = [&](int joint) {
-		v3f p = sample(WALK, walk_ahead, m_phase, joint) * (1 - run) + sample(RUN, run_ahead, m_phase, joint) * run;
-		// a longer stride: the legs reach further ahead and behind, not quicker
+		v3f p(0);
+		for (int i = 0; i < g.n; i++)
+			p += sample(*g.c[i], m_phase, joint) * g.w[i];
+		// a longer stride: the legs reach further the way it goes, and back, not quicker
 		if (joint == RIGHTKNEE || joint == RIGHTANKLE || joint == RIGHTTOE || joint == LEFTKNEE || joint == LEFTANKLE || joint == LEFTTOE)
-			p.Z *= longer;
+			p += along * (p.dotProduct(along) * (longer - 1));
 		return p;
 	};
-	const v3f hips(0, 0, 0);
-	const v3f pelvis_x = at(RIGHTHIP) - at(LEFTHIP), chest_x = at(RIGHTSHOULDER) - at(LEFTSHOULDER);
-	const core::matrix4 pelvis = aim(hips - at(CHEST), pelvis_x);
-	const core::matrix4 chest = aim(at(CHEST) - at(NECK), chest_x);
-	const core::matrix4 head = aim(at(NECK) - at(HEAD_END), chest_x);
-	core::matrix4 thigh[2], shin[2], upper[2], fore[2];
-	const int HIP[2] = { RIGHTHIP, LEFTHIP }, KNEE[2] = { RIGHTKNEE, LEFTKNEE }, ANKLE[2] = { RIGHTANKLE, LEFTANKLE };
-	const int SHOULDER[2] = { RIGHTSHOULDER, LEFTSHOULDER }, ELBOW[2] = { RIGHTELBOW, LEFTELBOW }, WRIST[2] = { RIGHTWRIST, LEFTWRIST };
+	// a foot's down when the recording's is: low and still, heel to toe (and not in the air)
 	for (int side : { 0, 1 }) {
-		const v3f up = at(KNEE[side]) - at(HIP[side]), down = at(ANKLE[side]) - at(KNEE[side]);
-		const v3f knee = bendAxis(up, down, pelvis_x);
-		thigh[side] = aim(up, knee);
-		shin[side] = aim(down, knee);
-		const v3f arm = at(ELBOW[side]) - at(SHOULDER[side]), forearm = at(WRIST[side]) - at(ELBOW[side]);
-		const v3f elbow = bendAxis(arm, forearm, chest_x);
-		upper[side] = aim(arm, elbow);
-		fore[side] = aim(forearm, elbow);
+		m_planted[side] = !airborne && g.most().down[(int)std::lround(m_phase * PHASES) % PHASES][side];
 	}
-	// a foot's down when the recording's is: low and still, heel to toe
-	for (int side : { 0, 1 }) {
-		const Cycle &c = run > 0.5f ? RUN : WALK;
-		const int ahead = run > 0.5f ? run_ahead : walk_ahead;
-		m_planted[side] = c.down[(int)std::lround(ahead + m_phase * PHASES) % PHASES][side];
-	}
-	// toward where it's going, as the pose turns its hips
+	// its hips as far toward where it goes as it's turned them; going to a side, or back, is the recording's
+	// (the head looks where it's looking, after: Posing)
 	core::matrix4 turn;
-	turn.setRotationRadians(v3f(0, twist, 0));
-	const core::matrix4 lower = turn * pelvis;
-	Bones b = asked;
-	const float hip_y = HIP_HEIGHT * S;
-	b.hips = { v3f(0, hip_y, 0), v3f(0) };
-	b.lower.turn = lower.getRotationDegrees();
-	b.lower.at = v3f(0) - lower.rotateAndScaleVect(v3f(0, hip_y, 0));
-	b.chest.turn = against(lower, turn * chest).getRotationDegrees();
-	b.head.turn = against(turn * chest, turn * head).getRotationDegrees();
-	for (int side : { 0, 1 }) {
-		const float x = side ? -1.f : 1.f;
-		b.thigh[side] = { v3f(HIP_WIDE * x, HIP_HEIGHT, 0) * S, against(lower, turn * thigh[side]).getRotationDegrees() };
-		b.shin[side].turn = against(thigh[side], shin[side]).getRotationDegrees();
-		b.upper[side].turn = against(turn * chest, turn * upper[side]).getRotationDegrees();
-		b.fore[side].turn = against(upper[side], fore[side]).getRotationDegrees();
-		b.hand[side].turn = v3f(0);
-	}
+	turn.setRotationRadians(v3f(0, m_body, 0));
+	Bones b = pointed(at, asked, turn);
 	// stood on its lower foot: whatever height that leaves the hips at
 	float lowest = 1e3f;
 	const core::matrix4 l = b.lower.matrix();
@@ -282,11 +437,11 @@ Bones Strides::step(float dt, const Bones &asked, v3f moving, float turned, floa
 	// The hips bob as the recording's do, about the height that puts its feet on the ground at this stride's
 	// length, taken over a stride or so. Not stood each moment on its lower foot: a run's in the air between
 	// steps, and the lower foot changing over dropped the hips at once (sprint 105: a jolt each step).
-	static const float walk_hips = meanHips(WALK), run_hips = meanHips(RUN);
-	const float bob = ((hipsAt(WALK, walk_ahead, m_phase) - walk_hips) * (1 - run) + (hipsAt(RUN, run_ahead, m_phase) - run_hips) * run) * LEG;
+	const float bob = g.of([&](const Cycle &c) { return hipsAt(c, m_phase) - meanHips(c); }) * LEG;
 	const float stood = b.lower.at.Y - lowest - bob; // where it'd be, stood on its lower foot, less its bob
-	const float stride_time = strideAt(pace) / std::max(pace, 0.05f);
-	m_height = m_height_known ? m_height + (stood - m_height) * std::min(1.f, dt / stride_time) : stood;
+	const float stride_time = stride / std::max(pace, 0.05f);
+	if (!airborne) // (in the air its legs reach for nothing: the hips stay where they were)
+		m_height = m_height_known ? m_height + (stood - m_height) * std::min(1.f, dt / stride_time) : stood;
 	m_height_known = true;
 	b.lower.at.Y = m_height + bob;
 
@@ -336,6 +491,185 @@ Bones Strides::step(float dt, const Bones &asked, v3f moving, float turned, floa
 		out.upper[side] = blend(asked.upper[side], b.upper[side], m_share);
 		out.fore[side] = blend(asked.fore[side], b.fore[side], m_share);
 		out.hand[side] = blend(asked.hand[side], b.hand[side], m_share);
+	}
+	return out;
+}
+
+namespace {
+
+// A clip's joint at a frame, on a smooth curve through its frames (held at its ends).
+v3f sampleClip(const Clip &c, float frame, int joint)
+{
+	const float f = std::clamp(frame, 0.f, (float)(c.frames - 1));
+	const int i = std::min((int)f, c.frames - 2);
+	const float t = f - i;
+	const auto at = [&](int k) { return c.at[std::clamp(k, 0, c.frames - 1)][joint]; };
+	v3f out;
+	for (int k = 0; k < 3; k++)
+		(&out.X)[k] = through(at(i - 1)[k], at(i)[k], at(i + 1)[k], at(i + 2)[k], t);
+	return out;
+}
+
+} // namespace
+
+void Moves::jump()
+{
+	constexpr float LEAD_IN = 0.05f; // s of it before it leaves the ground: the push that's already happening
+	m_clip = &JUMP;
+	m_part = Part::LEAD;
+	m_been_up = true; // (it's already off the ground)
+	m_frame = m_clip->off - LEAD_IN * m_clip->fps;
+	m_air = 0;
+	m_until = m_clip->frames - 1;
+}
+
+void Moves::strike(Strike which)
+{
+	// one being thrown: this one's next (only the one: a flurry of clicks is a flurry, not a queue of them)
+	if (m_part == Part::STRIKE) {
+		m_queued = which;
+		return;
+	}
+	start(which);
+}
+
+void Moves::start(Strike which)
+{
+	const int k = which == Strike::KICK;
+	m_side = m_next[k];
+	m_next[k] = 1 - m_side;
+	static const Clip *const CLIPS[2][2] = { { &PUNCH_RIGHT, &PUNCH_LEFT }, { &KICK_RIGHT, &KICK_LEFT } };
+	m_clip = CLIPS[k][m_side];
+	m_strike = which;
+	m_part = Part::STRIKE;
+	m_frame = 0;
+	m_until = m_clip->frames - 1;
+	m_queued.reset();
+}
+
+void Moves::flyingKick()
+{
+	constexpr float LEAD_IN = 0.05f; // s
+	m_clip = &FLYING_KICK;
+	m_strike = Strike::KICK;
+	m_side = 0; // (off its right foot, and its right kicks)
+	m_part = Part::LEAD;
+	m_been_up = false;
+	m_frame = m_clip->off - LEAD_IN * m_clip->fps;
+	m_air = 0;
+	m_until = m_clip->frames - 1;
+	m_queued.reset();
+}
+
+bool Moves::stop()
+{
+	// at once: something else has the body (a climb, a wall), and Posing eases it from how it was
+	const bool was = m_share > 0;
+	m_part = Part::NONE;
+	m_share = 0;
+	m_clip = nullptr;
+	return was;
+}
+
+Bones Moves::step(float dt, const Bones &asked, bool airborne, float up, float above, bool going)
+{
+	m_followed = false;
+	constexpr float COMES_IN = 14, LETS_GO = 8; // /s
+	constexpr float GRAVITY = 9.81f, FADES = 0.15f; // nodes/s²; s before the end it's let go over
+	if (!m_clip)
+		return asked;
+	const Clip &c = *m_clip;
+	const float was = m_frame;
+	switch (m_part) {
+	case Part::LEAD:
+		// (thrown from the ground, it waits at the push for the mover to have it up)
+		m_frame = std::min(m_frame + dt * c.fps, (float)c.off);
+		m_been_up = m_been_up || airborne;
+		if (!airborne && m_been_up)
+			m_part = Part::LANDING;
+		else if (airborne && m_frame >= c.off)
+			m_part = Part::FLIGHT;
+		break;
+	case Part::FLIGHT:
+		if (!airborne) {
+			m_part = Part::LANDING;
+			m_frame = c.back;
+			break;
+		}
+		{
+			// as far through its flight as it is through its time in the air, by when it'll be down
+			m_air += dt;
+			const float left = (up + std::sqrt(std::max(0.f, up * up + 2 * GRAVITY * above))) / GRAVITY;
+			const float through = m_air / std::max(m_air + left, 1e-3f);
+			m_frame = c.off + std::min(through, 0.98f) * (c.back - c.off);
+		}
+		break;
+	case Part::LANDING:
+		m_frame += dt * c.fps;
+		if (m_frame >= m_until)
+			m_part = Part::NONE;
+		break;
+	case Part::STRIKE: {
+		// the next, if there's one, from this far back from this one's hit: a fist's coming back as the other goes
+		constexpr float FOLLOWS = 0.4f; // of the way from its hit to its end
+		m_frame += dt * c.fps;
+		if (m_queued && m_frame >= c.hit + FOLLOWS * (c.frames - 1 - c.hit)) {
+			const Strike next = *m_queued;
+			m_queued.reset();
+			start(next);
+			m_followed = true;
+		} else if (m_frame >= m_until) {
+			m_part = Part::NONE;
+		}
+		break;
+	}
+	case Part::NONE:
+		break;
+	}
+	// a strike, flying or stood, lands as its clip goes past where it did (where: from what's drawn, below)
+	if (m_clip == &c && c.hit >= 0 && was < c.hit && m_frame >= c.hit)
+		m_landing = true;
+	const bool letting_go = m_part == Part::NONE || (m_part == Part::LANDING && m_frame > m_until - FADES * c.fps);
+	m_share += ((letting_go ? 0.f : 1.f) - m_share) * std::min(1.f, (letting_go ? LETS_GO : COMES_IN) * dt);
+	if (m_share < 0.005f) {
+		m_share = 0;
+		if (m_part == Part::NONE)
+			m_clip = nullptr;
+		return asked;
+	}
+	const auto at = [&](int joint) { return sampleClip(c, m_frame, joint); };
+	Bones b = pointed(at, asked, core::matrix4());
+	// Its hips stood straight over its feet, as they leave the ground and come back to it; before and after, down
+	// as far as the recording's go, crouching into it and taking the landing. In the air they're where the mover
+	// has them: the jump's own rise is its, not the recording's again. A strike's, from as they stood to throw it
+	const auto hips = [&](float f) { return sampleClip(c, f, HIPS).Y; };
+	const float from = c.hit >= 0 ? hips(0) : m_frame < c.off ? hips(c.off) : m_frame > c.back ? hips(c.back) : hips(m_frame);
+	b.lower.at.Y += HIP_HEIGHT * S + (hips(m_frame) - from) * LEG;
+	Bones out = blend(asked, b, m_share);
+	// a punch going about: its legs, and the hips they turn under it, as they're going, from whenever it goes
+	constexpr float LEGS_FOLLOW = 8; // /s
+	const float legs = m_strike == Strike::PUNCH && m_part == Part::STRIKE && going ? 0.f : 1.f;
+	m_legs += (legs - m_legs) * std::min(1.f, LEGS_FOLLOW * dt);
+	if (m_part == Part::STRIKE || m_legs < 1) {
+		out.lower = blend(asked.lower, out.lower, m_legs);
+		out.hips = blend(asked.hips, out.hips, m_legs);
+		for (int side : { 0, 1 }) {
+			out.thigh[side] = blend(asked.thigh[side], out.thigh[side], m_legs);
+			out.shin[side] = blend(asked.shin[side], out.shin[side], m_legs);
+		}
+	}
+	if (m_landing) {
+		m_landing = false;
+		const core::matrix4 lower = out.lower.matrix();
+		v3f end;
+		if (m_strike == Strike::PUNCH) {
+			end = v3f(0, -FOREARM * S, 0);
+			(lower * out.hips.matrix() * out.chest.matrix() * out.upper[m_side].matrix() * out.fore[m_side].matrix()).transformVect(end);
+		} else {
+			end = v3f(0, -SHIN * S, 0);
+			(lower * out.thigh[m_side].matrix() * out.shin[m_side].matrix()).transformVect(end);
+		}
+		m_hit = Hit{ m_strike, m_side, end };
 	}
 	return out;
 }

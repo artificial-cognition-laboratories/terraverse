@@ -66,6 +66,8 @@ Course::Course(const Json::Value &move, const std::vector<sandbox::StageBlock> &
 		cue.jump = c["jump"].asBool();
 		cue.crouch = c["crouch"].asBool();
 		cue.prone = c["prone"].asBool();
+		cue.punch = c["punch"].asBool();
+		cue.kick = c["kick"].asBool();
 		m_cues.push_back(cue);
 	}
 	m_px = m_x;
@@ -92,6 +94,8 @@ Course::Course(const Json::Value &move, const std::vector<sandbox::StageBlock> &
 			step.keys.jump = c["jump"].asBool();
 			step.keys.crouch = c["crouch"].asBool();
 			step.keys.prone = c["prone"].asBool();
+			step.keys.punch = c["punch"].asBool();
+			step.keys.kick = c["kick"].asBool();
 			endless.steps.push_back(step);
 		}
 		m_endless = std::move(endless);

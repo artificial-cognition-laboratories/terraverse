@@ -113,6 +113,9 @@ struct Gait
 	v3f gravity{ 0, -9.81f, 0 }; // nodes/s²
 };
 
+// A kick thrown slower than this plants it: it stops for it. Faster, it's a flying kick, off the ground (sprint 105).
+constexpr float FLYING_KICK_FROM = 4.5f; // nodes/s
+
 struct Intent
 {
 	float forward = 0, right = 0; // −1..1 each (a stick's: it's capped at 1 together)

@@ -68,6 +68,7 @@ struct Contacts
 	float fallen = 0, rising = 0;
 	float stagger = 0;
 	float throw_side = 0, throw_back = 0;
+	int strike = 0; // thrown this step: 1 a punch, 2 a kick (Moves)
 };
 
 // Two hands along an edge, moved one at a time: each stays where it's put till the body's

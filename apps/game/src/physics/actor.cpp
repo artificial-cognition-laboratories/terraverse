@@ -59,7 +59,7 @@ Actor::Actor(Boxes boxes, const v3d &foot, std::vector<Cue> cues) : m_boxes(std:
 	// TF_TRACE=file.csv: each step, where its hips, head and feet are, to plot
 	if (const char *path = std::getenv("TF_TRACE")) {
 		m_trace = std::make_unique<std::ofstream>(path, std::ios::app); // (each body after the last: a scene begun again is a new one)
-		*m_trace << "t,stance,pace,stride,planted0,planted1,hips_x,hips_y,hips_z,head_x,head_y,head_z,head_shake,foot0_x,foot0_y,foot0_z,foot1_x,foot1_y,foot1_z\n";
+		*m_trace << "t,stance,pace,stride,planted0,planted1,hips_x,hips_y,hips_z,head_x,head_y,head_z,head_shake,mover_y,foot0_x,foot0_y,foot0_z,foot1_x,foot1_y,foot1_z\n";
 	}
 }
 
@@ -167,6 +167,12 @@ void Actor::press(const Cue &next)
 		m_mover->pressJump();
 	if (next.crouch && !m_on.crouch)
 		m_mover->pressCrouch();
+	if (next.punch && !m_on.punch)
+		m_strike = 1;
+	if (next.kick && !m_on.kick) {
+		m_strike = 2;
+		m_mover->pressKick();
+	}
 	m_on = next;
 }
 
@@ -265,7 +271,7 @@ void Actor::shake(const std::vector<Pose> &parts, const v3d &foot)
 				m_shakes[i] = { a, m_time, m_doing + "/" + stanceName(m_mover->stance()) };
 			// striding, against a person's head at that pace
 			if (i == HEAD && m_posing.strideShare() > 0.99f && pace() > 1) { // (still, a person's head hardly moves at all)
-				m_head_now = a / Strides::headShake(pace());
+				m_head_now = a / m_posing.headShake();
 				if (m_head_now > m_head_shake.most)
 					m_head_shake = { m_head_now, m_time, m_doing + "/" + stanceName(m_mover->stance()) };
 			}
@@ -283,7 +289,7 @@ void Actor::trace(const Felt &felt)
 	const v3f head = v3f::from(m_parts[2].position), hips = v3f::from(m_parts[0].position);
 	*m_trace << m_time << ',' << stanceName(m_mover->stance()) << ',' << pace() << ',' << m_posing.strideShare() << ','
 			 << m_posing.planted(0) << ',' << m_posing.planted(1) << ',' << hips.X << ',' << hips.Y << ',' << hips.Z << ','
-			 << head.X << ',' << head.Y << ',' << head.Z << ',' << m_head_now << ',';
+			 << head.X << ',' << head.Y << ',' << head.Z << ',' << m_head_now << ',' << m_foot_at[0].Y << ',';
 	for (int side : { 0, 1 })
 		*m_trace << felt.foot[side].X << ',' << felt.foot[side].Y << ',' << felt.foot[side].Z << (side ? '\n' : ',');
 }
@@ -325,10 +331,14 @@ void Actor::pose(float dt, float turned)
 	contacts.stagger = m_mover->stagger();
 	contacts.throw_side = m_mover->thrownSide();
 	contacts.throw_back = m_mover->thrownBack();
+	contacts.strike = m_strike;
+	m_strike = 0;
 	m_was_posed = m_posed;
 	m_posed = m_posing.pose(dt, toFigure(moving), 0, !now.on_ground, m_mover->stance(), turned, face, m_mover->wallLean(m_yaw), contacts,
 			[&](v3f f) { return groundAt(at + toWorld(f)) - at.Y; },
 			[&](v3f p, float r) { return toFigure(clearOf(at + toWorld(p), r)); });
+	if (const std::optional<Hit> &hit = m_posing.hit())
+		note(hit->strike == Strike::KICK ? "kick hit" : "punch hit");
 	// Down, the body's its own: it goes over as it was going, limp, and holds itself again as it gets up.
 	if (m_mover->stance() != Stance::DOWN) {
 		m_limbs.reset();

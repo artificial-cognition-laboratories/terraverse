@@ -127,6 +127,7 @@ private:
 	float groundUnder(v3f at) const;
 	physics::Stance m_figure_stance = physics::Stance::STAND; // others'; yours is your body's
 	float m_figure_yaw = 0;  // degrees: the view's, last frame
+	bool m_was_dig = false, m_was_place = false; // yours: clicks held last frame (each press throws a strike)
 	// Terra Firma (sprint 57): its rigid groups but the first, each drawn on
 	// its own (a wheel turns), and where each is in the first's (BS; x y z w)
 	std::vector<scene::IMeshSceneNode *> m_group_nodes;

@@ -514,10 +514,32 @@ Mover::Stepped Mover::step(const Input &in)
 	Gait gait;
 	gait.walk = in.walk * held.speed;
 	gait.run = low ? 1 : in.run;
-	gait.flow = in.run > 1 ? 1.1f : 1; // only a run builds (to a sprint about 6 nodes/s: a person's, sprint 105)
+	// Only a run builds, and only on a clean line: from a run of 5.6 nodes/s to about 8 in four seconds or so,
+	// lost to turns and hard landings. A free run's, not a jogger's (sprint 105: it stopped at 6.2, at once)
+	constexpr float FLOWS_TO = 1.45f, FLOW_ON = 0.6f; // × a run; nodes/s²
+	gait.flow = in.run > 1 ? FLOWS_TO : 1;
+	gait.flow_on = FLOW_ON;
 	gait.jump = in.jump_height;
-	const Intent intent{ in.ahead,
-		in.right, in.yaw, (in.jump || m_jump_press > 0) && held.jumps && !m_jump_used && m_trip_left <= 0 };
+	// A kick: planted, it stops for it; at a run, it's thrown off the ground in a hop, a flying kick
+	constexpr float KICK_HOLDS = 0.55f, KICK_HOP = 0.45f; // s; nodes high
+	bool kick_hop = false;
+	if (m_kick_press && m_stance == Stance::STAND && was.on_ground && !climbing) {
+		const float pace = std::hypot(was.velocity.X - was.ground_velocity.X, was.velocity.Z - was.ground_velocity.Z);
+		if (pace >= FLYING_KICK_FROM) {
+			kick_hop = true;
+			m_flying_kick = true;
+			gait.jump = KICK_HOP;
+		} else {
+			m_kick_hold = KICK_HOLDS;
+		}
+	}
+	m_kick_press = false;
+	if (was.on_ground && !kick_hop)
+		m_flying_kick = false;
+	const bool held_still = m_kick_hold > 0;
+	m_kick_hold = std::max(0.f, m_kick_hold - (float)STEP);
+	const Intent intent{ held_still ? 0.f : in.ahead, held_still ? 0.f : in.right, in.yaw,
+		kick_hop || ((in.jump || m_jump_press > 0) && held.jumps && !m_jump_used && m_trip_left <= 0) };
 	// in the air, its motion carried to where it is now (the grid's axes turn)
 	const v3f v = was.on_ground ? was.velocity : m_opts.carry(m_measured, was.foot, was.velocity);
 	m_measured = was.foot;

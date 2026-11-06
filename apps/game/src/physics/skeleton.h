@@ -45,6 +45,7 @@ class Skeleton
 public:
 	// `grip`: hands on something, in the figure's frame (nodes). `tilt`: leaned sideways (radians, + left). `clear`: moved this far (figure's frame) to keep its upper body out of what it's beside.
 	Bones place(float dt, const Joints &j, float tilt, const Grip *grip, v3f clear = v3f(0));
+	float gripping(int side) const { return m_gripping[side]; } // 0..1: how far a hand's come onto what it holds
 
 private:
 	float m_gripping[2]{};    // 0..1: how far a hand has gone from where the pose holds it to what it has hold of
@@ -61,6 +62,9 @@ public:
 	using Ground = std::function<float(v3f)>;     // the ground under a place (figure's frame), against its feet
 	using Clear = std::function<v3f(v3f, float)>; // how far a ball there has to go to be out of what's solid
 	float strideShare() const { return m_strides.share(); }
+	float headShake() const { return m_strides.headShake(); } // Strides::headShake
+	// A punch or kick that landed this pose (Contacts::strike threw it): where its fist or foot was.
+	const std::optional<Hit> &hit() const { return m_hit; }
 	// Which feet are down and carrying it, as it's posed now.
 	bool planted(int side) const { return m_planted[side]; }
 	Bones pose(float dtime, v3f velocity, float pitch, bool airborne, Stance stance, float turned, std::optional<float> face,
@@ -70,6 +74,10 @@ private:
 	Poser m_poser;
 	Skeleton m_skeleton;
 	Strides m_strides; // a person's stride, recorded, for going about on its feet
+	Moves m_moves;     // and a person's jump, played once
+	bool m_was_airborne = false;
+	bool m_let_go = false; // a move was let go of this step
+	std::optional<Hit> m_hit;
 	bool m_planted[2]{};
 	v3f m_clear; // how far the upper body is moved out of what it's beside
 	bool m_posed = false;

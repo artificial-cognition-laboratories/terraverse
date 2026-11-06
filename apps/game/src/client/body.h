@@ -187,6 +187,7 @@ private:
 	std::unique_ptr<physics::Mover> m_mover; // the player as a character, once walked
 	LocalPlayer *m_player = nullptr; // this move()'s: a seam turns its view
 	double m_behind = 0;   // s not yet stepped
+	bool m_was_place = false; // right click held last step: each press is a kick
 	v3f m_set{ 0 };        // where it last put the player (BS): moved since, they were put elsewhere
 	std::map<u16, Mirror> m_mirrors;
 	std::map<u16, size_t> m_unweighed; // machines it can't weigh (its text's hash): said once

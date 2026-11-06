@@ -73,6 +73,9 @@ public:
 
 	Stance stance() const { return m_stance; }
 	void pressJump() { m_jump_press = JUMP_MEMORY; m_jump_used = false; }
+	// A kick: slower than FLYING_KICK_FROM it stops for it, planted; faster it's thrown off the ground at a hop.
+	void pressKick() { m_kick_press = true; }
+	bool flyingKick() const { return m_flying_kick; } // off the ground in one now
 	void pressCrouch() { m_crouch_press = true; }
 	std::optional<float> wallFace(float yaw) const;
 	float wallLean(float yaw) const;
@@ -169,6 +172,8 @@ private:
 	bool m_said_stuck = false; // a refused stance is logged once
 	bool m_grab_wait = false;
 	float m_jump_press = 0;
+	bool m_kick_press = false, m_flying_kick = false;
+	float m_kick_hold = 0; // s it's still stopped for a kick
 	bool m_crouch_press = false;
 	bool m_jump_used = false; // Space went to a climb: it isn't a jump as well until let go
 	float m_base = 0;         // y it left the ground at
