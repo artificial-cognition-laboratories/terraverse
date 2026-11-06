@@ -119,7 +119,6 @@ void TestMoves::testBonesStayOut()
 		std::string rush_doing;
 		const physics::Actor *last_actor = nullptr;
 		course.update(1 / 60.f);
-		UASSERTEQ(int, course.actor().motors(), 10); // every joint's muscles working (they once weren't, silently)
 		float deepest = 0, when = 0, in_itself = 0, rush = 0, rush_at = 0, pop = 0, pop_at = 0, apart = 0, tallest_after_down = 0;
 		bool was_down = false;
 		int fallen_frames = 0, footed_frames = 0, low_for = 0; // on its feet by its stance, and its head not over them (a while: not just getting up)
@@ -163,7 +162,7 @@ void TestMoves::testBonesStayOut()
 			}
 		}
 		std::cout << "sunk " << move["id"].asString() << ": " << deepest << " at " << when << " s, "
-				<< deep_frames << "/" << frames << " frames past 0.05, in itself " << in_itself << ", head within " << apart << ", contacts missed " << course.actor().gaveUp() << ", holding " << course.actor().holdingSteps() << ", stood " << course.actor().standing() << " legs " << course.actor().legsMean() << ", skate " << course.actor().skate() << ", fell " << course.actor().fell() << ", fallen while footed " << fallen_frames << "/" << footed_frames << ", guide most " << course.actor().guidedMost() << " mean " << course.actor().guidedMean() << ", body at most " << rush << " at " << rush_at << " s (" << rush_doing << "), a part " << pop << " at " << pop_at << " s";
+				<< deep_frames << "/" << frames << " frames past 0.05, in itself " << in_itself << ", head within " << apart << ", contacts missed " << course.actor().gaveUp() << ", holding " << course.actor().holdingSteps() << ", skate " << course.actor().skate() << ", fallen while footed " << fallen_frames << "/" << footed_frames << ", body at most " << rush << " at " << rush_at << " s (" << rush_doing << "), a part " << pop << " at " << pop_at << " s";
 		if (was_down)
 			std::cout << ", up again head at " << tallest_after_down;
 		std::cout << std::endl;

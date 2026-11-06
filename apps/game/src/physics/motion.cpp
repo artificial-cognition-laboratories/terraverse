@@ -137,6 +137,23 @@ BonePlace blend(const BonePlace &a, const BonePlace &b, float t)
 
 } // namespace
 
+Bones blend(const Bones &a, const Bones &b, float t)
+{
+	Bones out;
+	out.lower = blend(a.lower, b.lower, t);
+	out.hips = blend(a.hips, b.hips, t);
+	out.chest = blend(a.chest, b.chest, t);
+	out.head = blend(a.head, b.head, t);
+	for (int side : { 0, 1 }) {
+		out.thigh[side] = blend(a.thigh[side], b.thigh[side], t);
+		out.shin[side] = blend(a.shin[side], b.shin[side], t);
+		out.upper[side] = blend(a.upper[side], b.upper[side], t);
+		out.fore[side] = blend(a.fore[side], b.fore[side], t);
+		out.hand[side] = blend(a.hand[side], b.hand[side], t);
+	}
+	return out;
+}
+
 float Strides::strideAt(float pace)
 {
 	const float run = runShare(pace);
@@ -154,6 +171,7 @@ Bones Strides::step(float dt, const Bones &asked, v3f moving, float turned, floa
 	if (m_share < 0.005f) {
 		m_share = 0;
 		m_planted[0] = m_planted[1] = m_locked[0] = m_locked[1] = false;
+		m_held[0] = m_held[1] = 0;
 		return asked;
 	}
 	const float run = runShare(pace);
@@ -226,6 +244,8 @@ Bones Strides::step(float dt, const Bones &asked, v3f moving, float turned, floa
 
 	// A foot that's down stays where it was put: the body's going on over it, so it goes back as fast in the
 	// figure's frame, turned as the body turns. The leg's solved to it, its knee where the recording's points.
+	// Coming up, it comes away from there over a moment, not all at once (sprint 105: drawn as posed, it snapped).
+	constexpr float LETS_GO = 0.12f; // s
 	core::matrix4 turned_by;
 	turned_by.setRotationRadians(v3f(0, -turned, 0));
 	const core::matrix4 l2 = b.lower.matrix();
@@ -235,28 +255,26 @@ Bones Strides::step(float dt, const Bones &asked, v3f moving, float turned, floa
 		const core::matrix4 leg = l2 * b.thigh[side].matrix();
 		leg.transformVect(knee = v3f(0, -THIGH * S, 0));
 		(leg * b.shin[side].matrix()).transformVect(foot);
-		if (!m_planted[side] || m_share < 0.5f) {
-			m_locked[side] = false;
-			continue;
-		}
-		if (!m_locked[side]) {
+		const bool down = m_planted[side] && m_share >= 0.5f;
+		if (down && !m_locked[side] && m_held[side] <= 0) {
 			m_locked[side] = true;
 			m_lock[side] = v3f(foot.X, 0, foot.Z);
-		} else {
+		} else if (m_locked[side] || m_held[side] > 0) {
 			m_lock[side] = turned_by.rotateAndScaleVect(m_lock[side]) - v3f(moving.X, 0, moving.Z) * dt;
 		}
 		// past what the leg reaches, the foot comes up early: it's left behind, not dragged
 		const v3f to = m_lock[side] - hip;
-		if (to.getLength() > (THIGH + SHIN) * S * 1.1f) { // (a planted leg's about straight: the solve holds it so)
+		if (!down || to.getLength() > (THIGH + SHIN) * S * 1.1f) // (a planted leg's about straight: the solve holds it so)
 			m_locked[side] = false;
+		m_held[side] = m_locked[side] ? 1 : std::max(0.f, m_held[side] - dt / LETS_GO);
+		if (m_held[side] <= 0)
 			continue;
-		}
 		const v3f pole = (knee - hip) - (to / to.getLength()) * (knee - hip).dotProduct(to / to.getLength());
 		const ArmTo solved = armTo(to / S, pole.getLengthSQ() > 1e-6f ? pole : v3f(0, 0, 1), THIGH, SHIN);
 		// (armTo's axes are an arm's: its x is across the other way for a knee bending forward)
 		const core::matrix4 thigh_now = axes(solved.x * -1.f, solved.y, solved.z * -1.f);
-		b.thigh[side].turn = against(l2, thigh_now).getRotationDegrees();
-		b.shin[side].turn = v3f(-solved.elbow * core::RADTODEG, 0, 0);
+		b.thigh[side] = blend(b.thigh[side], { b.thigh[side].at, against(l2, thigh_now).getRotationDegrees() }, m_held[side]);
+		b.shin[side] = blend(b.shin[side], { b.shin[side].at, v3f(-solved.elbow * core::RADTODEG, 0, 0) }, m_held[side]);
 	}
 
 	Bones out = asked;

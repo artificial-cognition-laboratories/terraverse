@@ -40,6 +40,7 @@ private:
 	float m_share = 0;
 	bool m_planted[2]{};
 	bool m_locked[2]{};
+	float m_held[2]{}; // how much it's still where it was put: 1 down, going to 0 as it comes up
 	v3f m_lock[2]; // where a foot that's down was put, in the figure's frame as it's moved since
 };
 

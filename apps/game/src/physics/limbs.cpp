@@ -119,17 +119,6 @@ Quat between(const Quat &a, Quat b, float t)
 	return { q.x / l, q.y / l, q.z / l, q.w / l };
 }
 
-std::vector<Pose> inWorld(const Bones &b, const v3d &foot, float yaw)
-{
-	const core::matrix4 turn = frame(yaw);
-	std::vector<Pose> out;
-	for (const core::matrix4 &m : placed(b)) {
-		const core::matrix4 w = turn * m;
-		out.push_back({ foot + v3d::from(w.getTranslation()), toQuat(w) });
-	}
-	return out;
-}
-
 std::vector<LimbSpec> specs()
 {
 	const auto limb = [](float wide, float length, float mass, int parent, v3f joint) {
@@ -207,10 +196,21 @@ core::matrix4 fromPose(const Pose &p, const v3d &foot, const core::matrix4 &untu
 
 } // namespace
 
+std::vector<Pose> partsOf(const Bones &b, const v3d &foot, float yaw)
+{
+	const core::matrix4 turn = frame(yaw);
+	std::vector<Pose> out;
+	for (const core::matrix4 &m : placed(b)) {
+		const core::matrix4 w = turn * m;
+		out.push_back({ foot + v3d::from(w.getTranslation()), toQuat(w) });
+	}
+	return out;
+}
+
 Limbs::Limbs(World &world, const Bones &bones, const v3d &foot, float yaw, v3f velocity) : m_world(world), m_asked(bones)
 {
-	m_now = m_was = inWorld(bones, foot, yaw);
-	m_id = m_world.addLimbs(specs(), inWorld(standing(), v3d(0, -1000, 0), 0), m_now, velocity);
+	m_now = m_was = partsOf(bones, foot, yaw);
+	m_id = m_world.addLimbs(specs(), partsOf(standing(), v3d(0, -1000, 0), 0), m_now, velocity);
 }
 
 Limbs::~Limbs() { m_world.removeLimbs(m_id); }
@@ -218,7 +218,7 @@ Limbs::~Limbs() { m_world.removeLimbs(m_id); }
 void Limbs::drive(const Bones &bones, const v3d &foot, float yaw, float stiff, float tone)
 {
 	m_asked = bones;
-	m_world.driveLimbs(m_id, inWorld(bones, foot, yaw), stiff, tone);
+	m_world.driveLimbs(m_id, partsOf(bones, foot, yaw), stiff, tone);
 }
 
 void Limbs::read()
@@ -227,82 +227,37 @@ void Limbs::read()
 	m_now = m_world.limbs(m_id);
 }
 
-void Limbs::hold(const std::optional<v3f> (&hands)[2], v3f over)
-{
-	const std::array<v3f, PARTS> c = middles();
-	for (int side : { 0, 1 })
-		m_world.reachWith(m_id, P_FORE + side, v3f(0, -FOREARM * S, 0) - c[P_FORE + side],
-				hands[side] ? std::optional<v3d>(v3d::from(*hands[side] + v3f(0, FOREARM_THICK, 0))) : std::nullopt, over);
-}
-
-void Limbs::standOn(const bool (&feet)[2])
-{
-	// A foot stood on stays where it was put till it's lifted, held there as a hand on a hold is: by the ground.
-	// Left further behind or ahead than a leg reaches, it comes up whatever the stride says.
-	constexpr float REACHES = 0.62f; // (nearly a leg)
-	const std::array<v3f, PARTS> c = middles();
-	const Felt f = felt();
-	const v3f hips = v3f::from(m_now[P_HIPS].position);
-	std::vector<size_t> parts;
-	for (int side : { 0, 1 }) {
-		const auto from_hips = [&](v3f p) { return std::hypot(p.X - hips.X, p.Z - hips.Z); };
-		if (!feet[side] || (m_stood_at[side] && from_hips(*m_stood_at[side]) > REACHES))
-			m_stood_at[side].reset();
-		else if (!m_stood_at[side] && from_hips(f.foot[side]) < REACHES * 0.8f)
-			m_stood_at[side] = f.foot[side];
-		if (m_stood_at[side])
-			parts.push_back(P_SHIN + side);
-		m_world.reachWith(m_id, P_SHIN + side, v3f(0, -physics::SHIN * S, 0) - c[P_SHIN + side],
-				m_stood_at[side] ? std::optional<v3d>(v3d::from(*m_stood_at[side])) : std::nullopt);
-	}
-	m_world.standsOn(m_id, parts);
-}
-
-bool Limbs::holding(int side) const { return m_world.holding(m_id, P_FORE + side); }
-
-Felt Limbs::felt() const
+Felt feltOf(const std::vector<Pose> &parts)
 {
 	const std::array<v3f, PARTS> c = middles();
 	const auto end = [&](int part, float length) {
-		const v3f off = fromQuat(m_now[part].rotation).rotateAndScaleVect(v3f(0, -length * S, 0) - c[part]);
-		return v3f::from(m_now[part].position) + off;
+		const v3f off = fromQuat(parts[part].rotation).rotateAndScaleVect(v3f(0, -length * S, 0) - c[part]);
+		return v3f::from(parts[part].position) + off;
 	};
 	Felt f;
 	for (int side : { 0, 1 }) {
 		f.wrist[side] = end(P_FORE + side, FOREARM);
 		f.foot[side] = end(P_SHIN + side, physics::SHIN);
 	}
-	f.shoulders = v3f::from(m_now[P_CHEST].position) + fromQuat(m_now[P_CHEST].rotation).rotateAndScaleVect(v3f(0, CHEST_TALL / 2 * S, 0));
+	f.shoulders = v3f::from(parts[P_CHEST].position) + fromQuat(parts[P_CHEST].rotation).rotateAndScaleVect(v3f(0, CHEST_TALL / 2 * S, 0));
 	return f;
 }
 
-std::vector<v3f> Limbs::parts() const
+float inItself(const std::vector<Pose> &parts)
 {
-	std::vector<v3f> out;
-	for (const Pose &p : m_now)
-		out.push_back(v3f::from(p.position));
-	return out;
-}
-
-float Limbs::upright() const { return fromQuat(m_now[P_CHEST].rotation).rotateAndScaleVect(v3f(0, 1, 0)).Y; }
-
-v3d Limbs::hips() const { return m_now[P_HIPS].position; }
-
-float Limbs::inItself() const
-{
-	const std::vector<LimbSpec> parts = specs();
+	const std::vector<LimbSpec> spec = specs();
 	float deepest = 0;
-	const v3d at = m_now[P_HIPS].position;
+	const v3d at = parts[P_HIPS].position;
 	const auto box = [&](int part, int limb) {
-		core::matrix4 place = fromQuat(m_now[part].rotation), un;
-		place.setTranslation(v3f::from(m_now[part].position - at));
+		core::matrix4 place = fromQuat(parts[part].rotation), un;
+		place.setTranslation(v3f::from(parts[part].position - at));
 		place.getInverse(un);
-		core::matrix4 turn = fromQuat(m_now[limb].rotation);
-		turn.setTranslation(v3f::from(m_now[limb].position - at));
+		core::matrix4 turn = fromQuat(parts[limb].rotation);
+		turn.setTranslation(v3f::from(parts[limb].position - at));
 		for (const float along : { -1.f, 0.f, 1.f }) {
-			v3f p = turn.transformVect(v3f(0, parts[limb].half.Y * along, 0));
+			v3f p = turn.transformVect(v3f(0, spec[limb].half.Y * along, 0));
 			un.transformVect(p);
-			const v3f h = parts[part].half;
+			const v3f h = spec[part].half;
 			deepest = std::max(deepest, std::min({ h.X - std::fabs(p.X), h.Y - std::fabs(p.Y), h.Z - std::fabs(p.Z) }));
 		}
 	};
@@ -349,9 +304,7 @@ Bones Limbs::drawn(const v3d &foot, float yaw, float t) const
 		out.shin[side] = against(bone(P_THIGH + side), bone(P_SHIN + side));
 		out.upper[side] = against(chest, bone(P_UPPER + side));
 		out.fore[side] = against(bone(P_UPPER + side), bone(P_FORE + side));
-		// (a hand's not a part of its own: only one that's holding is turned over onto what it holds)
-		if (!holding(side))
-			out.hand[side].turn = v3f(0);
+		out.hand[side].turn = v3f(0); // (a hand's not a part of its own: down, it holds nothing)
 	}
 	return out;
 }

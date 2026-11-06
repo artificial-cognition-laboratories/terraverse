@@ -37,6 +37,9 @@ struct Bones
 	BonePlace thigh[2], shin[2], upper[2], fore[2], hand[2];
 };
 
+// `t` (0..1) of the way from one to the other, each bone turned the short way round.
+Bones blend(const Bones &a, const Bones &b, float t);
+
 class Skeleton
 {
 public:
@@ -69,6 +72,10 @@ private:
 	Strides m_strides; // a person's stride, recorded, for going about on its feet
 	bool m_planted[2]{};
 	v3f m_clear; // how far the upper body is moved out of what it's beside
+	bool m_posed = false;
+	Stance m_stance = Stance::STAND;
+	Bones m_last, m_from; // what it was last, and as it was when the stance changed
+	float m_since = 1e3f; // s since then
 };
 
 // The boxes it's made of, as client/figure builds them.

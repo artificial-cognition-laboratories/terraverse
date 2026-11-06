@@ -22,6 +22,69 @@ core::matrix4 axes(v3f x, v3f y, v3f z)
 	return m;
 }
 
+v3f turnedAbout(v3f v, v3f axis, float angle)
+{
+	const float c = std::cos(angle), s = std::sin(angle);
+	return v * c + axis.crossProduct(v) * s + axis * (axis.dotProduct(v) * (1 - c));
+}
+
+// An arm through its own chest or hips, or into what's beside it, swung away at its shoulder till it's clear:
+// what the body's parts did of themselves when they were bodies (sprint 105). Most often a key pose's arms
+// passing through on their way to another. A hand that's holding something is where it's meant to be.
+void keepArmsOut(Bones &b, const std::function<v3f(v3f, float)> &clear, const Grip *grip)
+{
+	constexpr float S = FIGURE_SCALE, STEP = 0.03f; // radians at a time: no further than it must
+	constexpr int MOST = 40;
+	const float r = BONE_NARROW / 2 * S;
+	const core::matrix4 into_hips = b.chest.matrix(), chest = b.lower.matrix() * b.hips.matrix() * b.chest.matrix();
+	core::matrix4 from_figure;
+	chest.getInverse(from_figure);
+	const v3f chest_mid(0, CHEST_TALL / 2 * S, 0), chest_half = v3f(0.5f, CHEST_TALL + 0.02f, BONE_WIDE) * (S / 2);
+	const v3f hips_mid(0, HIPS_TALL / 2 * S, 0), hips_half = v3f(0.48f, HIPS_TALL, 0.23f) * (S / 2);
+	const auto depth = [&](v3f p, v3f mid, v3f half) {
+		const v3f d = p - mid;
+		return std::min({ half.X + r - std::fabs(d.X), half.Y + r - std::fabs(d.Y), half.Z + r - std::fabs(d.Z) });
+	};
+	for (int side : { 0, 1 }) {
+		if (grip && grip->held[side])
+			continue;
+		for (int i = 0; i < MOST; i++) {
+			// the elbow, the forearm's middle and the wrist, in the chest's frame
+			const core::matrix4 upper = b.upper[side].matrix(), fore = upper * b.fore[side].matrix();
+			v3f points[3] = { v3f(0), v3f(0, -FOREARM / 2 * S, 0), v3f(0, -FOREARM * S, 0) };
+			float deepest = 0;
+			v3f worst, away;
+			for (v3f &p : points) {
+				fore.transformVect(p);
+				v3f in_hips = p, in_figure = p;
+				into_hips.transformVect(in_hips);
+				chest.transformVect(in_figure);
+				// out of itself the shortest way, away from its middle; out of the world as the world has it
+				const float body = std::max(depth(p, chest_mid, chest_half), depth(in_hips, hips_mid, hips_half));
+				const v3f world = from_figure.rotateAndScaleVect(clear(in_figure, r));
+				if (body > deepest) {
+					deepest = body;
+					worst = p;
+					away = v3f(p.X, 0, p.Z).getLengthSQ() > 1e-6f ? v3f(p.X, 0, p.Z) : v3f(side ? -1.f : 1.f, 0, 0);
+				}
+				if (world.getLength() > deepest) {
+					deepest = world.getLength();
+					worst = p;
+					away = world;
+				}
+			}
+			if (deepest <= 0)
+				break;
+			v3f axis = (worst - b.upper[side].at).crossProduct(away.normalize());
+			if (axis.getLengthSQ() < 1e-6f)
+				break; // (straight out that way already: turning won't help)
+			axis.normalize();
+			const auto turned = [&](v3f v) { return turnedAbout(upper.rotateAndScaleVect(v), axis, STEP); };
+			b.upper[side].turn = axes(turned(v3f(1, 0, 0)), turned(v3f(0, 1, 0)), turned(v3f(0, 0, 1))).getRotationDegrees();
+		}
+	}
+}
+
 } // namespace
 
 core::matrix4 BonePlace::matrix() const
@@ -156,7 +219,8 @@ Bones Skeleton::place(float dt, const Joints &j, float tilt, const Grip *grip, v
 		const core::matrix4 posed = b.upper[side].matrix() * b.fore[side].matrix();
 		v3f free(0, -FOREARM * S, 0);
 		posed.transformVect(free);
-		v3f wanted = m_grip_at[side];
+		// a hand's on top of what it holds: its wrist a forearm's thickness over (sprint 105: as the body did)
+		v3f wanted = m_grip_at[side] + v3f(0, BONE_NARROW / 2 * S, 0);
 		from_chest.transformVect(wanted);
 		v3f wrist = free + (wanted - free) * w;
 		// planted, it stays planted however the body goes; going to or from, it's an arm with a top speed
@@ -280,6 +344,21 @@ Bones Posing::pose(float dtime, v3f velocity, float pitch, bool airborne, Stance
 	if (wanted.getLength() > 0.3f)
 		wanted = wanted / wanted.getLength() * 0.3f;
 	m_clear += (wanted - m_clear) * std::min(1.f, 18 * dtime);
+	// A new stance eases in from where the last one left it, rather than snapping to its own (sprint 105)
+	constexpr float CHANGES = 0.15f; // s
+	if (m_posed && stance != m_stance) {
+		m_from = m_last;
+		m_since = 0;
+	}
+	m_stance = stance;
+	m_since += dtime;
+	if (m_posed && m_since < CHANGES) {
+		const float t = m_since / CHANGES;
+		b = blend(m_from, b, t * t * (3 - 2 * t));
+	}
+	keepArmsOut(b, clear, grip);
+	m_last = b;
+	m_posed = true;
 	return b;
 }
 

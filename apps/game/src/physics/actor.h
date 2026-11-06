@@ -51,19 +51,11 @@ public:
 	// The fastest the body went since last asked, and any part against it (nodes/s): a jump's a pop.
 	float takeRush() { const float r = m_rush; m_rush = 0; return r; }
 	float takePop() { const float p = m_pop; m_pop = 0; return p; }
-	// How hard the hips' guide worked: its most (past 1 it couldn't keep up), and on average.
-	float guidedMost() const { return m_guided; }
-	float guidedMean() const { return m_guided_steps ? m_guided_sum / m_guided_steps : 0; }
 	// How fast a foot that's down slides along the ground, on average (nodes/s): a planted foot shouldn't.
 	float skate() const { return m_planted_steps ? m_skate / (m_planted_steps * (float)STEP) : 0; }
-	// How much of the time it stood on its legs, and how hard they worked then.
-	float legsMean() const { return m_legs_steps ? m_legs_sum / m_legs_steps : 0; }
-	float standing() const { return m_guided_steps ? m_legs_steps / (float)m_guided_steps : 0; }
-	int motors() const { return m_limbs->motors(); }
-	int fell() const { return m_fell; } // times its body went over by itself
 	int holdingSteps() const { return m_holding_steps; }
 	int gaveUp() const { return m_mover->gaveUp(); }
-	float inItself() const { return m_limbs->inItself(); }
+	float inItself() const { return physics::inItself(m_parts); }
 	v3f head() const; // its head's place against its feet, as drawn
 	Stance stance() const { return m_mover->stance(); }
 	float pace() const;
@@ -75,7 +67,7 @@ public:
 private:
 	bool solid(v3s16 n) const;
 	void note(const std::string &what);
-	void poseAndDrive(float dt, float turned);
+	void pose(float dt, float turned);
 	float groundAt(v3f at) const;
 	v3f clearOf(v3f at, float r) const;
 
@@ -84,19 +76,16 @@ private:
 	size_t m_cue = 0;
 	std::unique_ptr<World> m_world;
 	std::unique_ptr<Mover> m_mover;
-	std::unique_ptr<Limbs> m_limbs;
-	float m_stiff = 1;
+	std::unique_ptr<Limbs> m_limbs; // only while it's down
+	Posing m_posing;
+	Bones m_posed, m_was_posed; // what the pose has it doing, this step and the last
+	std::vector<Pose> m_parts;  // where its parts are now, in the world
 	float m_rush = 0, m_pop = 0;
-	float m_over_for = 0;
 	bool m_foot_was_down[2]{};
 	v3f m_foot_was[2];
 	float m_skate = 0;
 	int m_planted_steps = 0;
-	int m_fell = 0;
-	float m_guided = 0, m_guided_sum = 0, m_legs_sum = 0;
-	int m_legs_steps = 0;
-	int m_guided_steps = 0, m_holding_steps = 0;
-	Posing m_posing;
+	int m_holding_steps = 0;
 	Bones m_bones;
 	Cue m_on;
 	double m_time = 0, m_behind = 0;

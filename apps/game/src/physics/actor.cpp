@@ -51,8 +51,9 @@ Actor::Actor(Boxes boxes, const v3d &foot, std::vector<Cue> cues) : m_boxes(std:
 	m_mover = std::make_unique<Mover>(std::move(mover), RADIUS, HEIGHT, foot);
 	m_drawn = v3f::from(foot);
 	m_doing = stanceName(Stance::STAND);
-	poseAndDrive(STEP, 0);
-	m_bones = m_limbs->drawn(foot, m_yaw, 1);
+	pose(STEP, 0);
+	m_was_posed = m_bones = m_posed;
+	m_parts = partsOf(m_posed, foot, m_yaw);
 }
 
 Actor::~Actor() { m_limbs.reset(); }
@@ -181,8 +182,8 @@ void Actor::update(float dt)
 		}
 		const float was_yaw = m_yaw;
 		m_yaw = m_on.yaw;
-		// what's asked of the body for this step, from where it stands now
-		poseAndDrive(STEP, -std::remainder(m_yaw - was_yaw, 2 * core::PI));
+		// what the body's doing this step, from where it stands now
+		pose(STEP, -std::remainder(m_yaw - was_yaw, 2 * core::PI));
 		Mover::Input in;
 		in.ahead = m_on.ahead;
 		in.right = m_on.right;
@@ -191,55 +192,36 @@ void Actor::update(float dt)
 		in.asked = m_on.prone ? Stance::PRONE : m_on.crouch ? Stance::CROUCH : Stance::STAND;
 		in.run = m_on.run ? SPRINT : 1;
 		const Stance before = m_mover->stance();
-		const World::CharacterState was = m_world->character(m_mover->id());
 		m_mover->step(in);
-		// A jump's the legs throwing the body up: it goes as the player does, it isn't hauled up after them.
-		if (const World::CharacterState now_c = m_world->character(m_mover->id()); was.on_ground && !now_c.on_ground && now_c.velocity.Y > 1)
-			m_limbs->launch(v3f(0, now_c.velocity.Y - std::max(was.velocity.Y, 0.f), 0));
-		// and a landing's them taking it: most of the fall's stopped there, the rest's a dip (sprint 105: till legs carry it)
-		else if (!was.on_ground && now_c.on_ground && was.velocity.Y < -1)
-			m_limbs->launch(v3f(0, -0.7f * was.velocity.Y, 0));
-		const std::vector<v3f> was_parts = m_limbs->parts();
-		const v3d was_hips = m_limbs->hips();
-		m_limbs->read();
+		// Where its parts are now: the pose, where the mover's put it; or, down, wherever they've fallen.
+		const v3d foot = m_mover->now() - v3d(0, m_mover->lift(), 0);
+		std::vector<Pose> parts;
+		if (m_limbs) {
+			m_limbs->read();
+			parts = m_limbs->parts();
+		} else {
+			parts = partsOf(m_posed, foot, m_yaw);
+		}
+		m_mover->bodyAt(parts[0].position); // (its hips)
 		{
-			const std::vector<v3f> now_parts = m_limbs->parts();
-			const v3f body = v3f::from(m_limbs->hips() - was_hips);
+			const v3f body = v3f::from(parts[0].position - m_parts[0].position); // (its hips)
 			m_rush = std::max(m_rush, body.getLength() / (float)STEP);
-			for (size_t i = 0; i < now_parts.size(); i++)
-				m_pop = std::max(m_pop, (now_parts[i] - was_parts[i] - body).getLength() / (float)STEP);
+			for (size_t i = 0; i < parts.size(); i++)
+				m_pop = std::max(m_pop, (v3f::from(parts[i].position - m_parts[i].position) - body).getLength() / (float)STEP);
 		}
-		m_mover->bodyAt(m_limbs->hips());
-		// Gone over past what it can come back from, it's down, whatever it was doing: the body says so, not the move.
-		constexpr float OVER = 0.45f, FOR = 0.15f; // its chest's up, s
-		const bool on_feet = m_mover->stance() == Stance::STAND || m_mover->stance() == Stance::CROUCH;
-		m_over_for = on_feet && m_limbs->upright() < OVER ? m_over_for + (float)STEP : 0;
-		if (m_over_for >= FOR) {
-			const v3f v = m_world->character(m_mover->id()).velocity;
-			m_mover->knockDown(std::clamp(std::hypot(v.X, v.Z) / 8, 0.2f, 1.f), v);
-			m_over_for = 0;
-			m_fell++;
-		}
-		m_guided = std::max(m_guided, m_limbs->guided());
-		m_guided_sum += std::min(m_limbs->guided(), 1.f);
-		m_guided_steps++;
-		m_legs_sum += std::min(m_limbs->legsUsed(), 1.f);
-		m_legs_steps += m_limbs->legsUsed() > 0;
-		m_holding_steps += m_limbs->holding(0) || m_limbs->holding(1);
-		m_mover->feel(m_limbs->felt());
+		m_parts = std::move(parts);
+		const Felt felt = feltOf(m_parts);
+		m_mover->feel(felt);
 		// a foot down on the ground slides by how much it moves along it (it should hardly)
-		{
-			const Felt felt = m_limbs->felt();
-			for (int side : { 0, 1 }) {
-				const v3f f = felt.foot[side];
-				const bool down = m_posing.planted(side) && f.Y - groundAt(f) < 0.13f; // (meant to be down, and is: its shin's round end is 0.08 up, touching)
-				if (down && m_foot_was_down[side]) {
-					m_skate += std::hypot(f.X - m_foot_was[side].X, f.Z - m_foot_was[side].Z);
-					m_planted_steps++;
-				}
-				m_foot_was_down[side] = down;
-				m_foot_was[side] = f;
+		for (int side : { 0, 1 }) {
+			const v3f f = felt.foot[side];
+			const bool down = m_posing.planted(side) && f.Y - groundAt(f) < 0.13f; // (meant to be down, and is: its shin's round end is 0.08 up, touching)
+			if (down && m_foot_was_down[side]) {
+				m_skate += std::hypot(f.X - m_foot_was[side].X, f.Z - m_foot_was[side].Z);
+				m_planted_steps++;
 			}
+			m_foot_was_down[side] = down;
+			m_foot_was[side] = f;
 		}
 		const Stance after = m_mover->stance();
 		if (after != before)
@@ -247,13 +229,20 @@ void Actor::update(float dt)
 		if (m_did.empty() && pace() > 0.1f)
 			m_doing = "moving";
 	}
-	const v3d drawn = m_mover->was() + (m_mover->now() - m_mover->was()) * (m_behind / STEP) - v3d(0, m_mover->lift(), 0);
+	const float t = (float)(m_behind / STEP);
+	const v3d drawn = m_mover->was() + (m_mover->now() - m_mover->was()) * t - v3d(0, m_mover->lift(), 0);
 	m_drawn = v3f::from(drawn);
-	if (m_limbs)
-		m_bones = m_limbs->drawn(drawn, m_yaw, (float)(m_behind / STEP));
+	m_bones = blend(m_was_posed, m_posed, t);
+	// Down, it's where it fell. Getting up, it's held more and more to the pose, and as it's there it's the
+	// pose that's drawn: halfway between where each has it isn't out of the floor as both are.
+	if (m_limbs) {
+		constexpr float TAKES_OVER = 0.7f; // of the way up
+		const float w = std::clamp((m_mover->risingAt() - TAKES_OVER) / (1 - TAKES_OVER), 0.f, 1.f);
+		m_bones = blend(m_limbs->drawn(drawn, m_yaw, t), m_bones, w * w * (3 - 2 * w));
+	}
 }
 
-void Actor::poseAndDrive(float dt, float turned)
+void Actor::pose(float dt, float turned)
 {
 	const v3d foot = m_mover->now() - v3d(0, m_mover->lift(), 0);
 	const v3f at = v3f::from(foot);
@@ -272,14 +261,8 @@ void Actor::poseAndDrive(float dt, float turned)
 		if (grip->moving >= 0)
 			grip->moving = 1 - grip->moving;
 	}
-	std::optional<v3f> hands[2];
-	v3f over(0);
-	if (grip && m_mover->gripping() && grip->over.Y < 0.5f) // (on top of an edge; a wall or the floor's met straight)
-		over = grip->over;
 	if (grip && m_mover->gripping())
-		for (const int side : { 0, 1 })
-			if (grip->held[side] && grip->moving != side)
-				hands[side] = grip->wrist[side];
+		m_holding_steps += (grip->held[0] && grip->moving != 0) || (grip->held[1] && grip->moving != 1);
 	if (grip) {
 		for (const int side : { 0, 1 })
 			grip->wrist[side] = toFigure(grip->wrist[side] - at);
@@ -296,35 +279,19 @@ void Actor::poseAndDrive(float dt, float turned)
 	contacts.stagger = m_mover->stagger();
 	contacts.throw_side = m_mover->thrownSide();
 	contacts.throw_back = m_mover->thrownBack();
-	const Bones asked = m_posing.pose(dt, toFigure(moving), 0, !now.on_ground, m_mover->stance(), turned, face, m_mover->wallLean(m_yaw), contacts,
+	m_was_posed = m_posed;
+	m_posed = m_posing.pose(dt, toFigure(moving), 0, !now.on_ground, m_mover->stance(), turned, face, m_mover->wallLean(m_yaw), contacts,
 			[&](v3f f) { return groundAt(at + toWorld(f)) - at.Y; },
 			[&](v3f p, float r) { return toFigure(clearOf(at + toWorld(p), r)); });
-	// Down it lets go of where the pose is, keeping only its shape, and takes hold again as it gets up.
-	constexpr float HELD = 1, TONE = 0.9f, LIMP = 0.3f;
-	// (a climb's still a path its hands are held to, till each is a plan of contacts: it has more help)
-	const Stance st = m_mover->stance();
-	const float CLIMB = 1.5f;
-	const float held = st == Stance::VAULT || st == Stance::MANTLE || st == Stance::HANG || st == Stance::WALL_RUN ? CLIMB : HELD;
-	float wanted = st != Stance::DOWN ? held : HELD * contacts.rising * contacts.rising; // (its arms first)
-	// hung by both hands, its hands carry it: the guide only keeps it from wandering off
-	constexpr float HUNG = 0.25f;
-	if (st == Stance::HANG && m_limbs && m_limbs->holding(0) && m_limbs->holding(1))
-		wanted = HUNG;
-	m_stiff = wanted < m_stiff ? wanted : std::min(wanted, m_stiff + dt * 8);
-	if (!m_limbs) {
-		m_limbs = std::make_unique<Limbs>(*m_world, asked, foot, m_yaw, now.velocity);
-		m_limbs->read();
+	// Down, the body's its own: it goes over as it was going, limp, and holds itself again as it gets up.
+	if (m_mover->stance() != Stance::DOWN) {
+		m_limbs.reset();
+		return;
 	}
-	m_limbs->hold(hands, over);
-	// its feet that are down, by the pose and by where they really are: what it stands on
-	bool feet[2]{};
-	if ((st == Stance::STAND || st == Stance::CROUCH) && now.on_ground) { // (off the ground, a foot's let go at once)
-		const Felt felt = m_limbs->felt();
-		for (int side : { 0, 1 })
-			feet[side] = m_posing.planted(side) && felt.foot[side].Y - groundAt(felt.foot[side]) < 0.13f; // (its shin's round end: 0.08 up, touching)
-	}
-	m_limbs->standOn(feet);
-	m_limbs->drive(asked, foot, m_yaw, m_stiff, m_mover->stance() == Stance::DOWN && contacts.rising <= 0 ? LIMP : TONE);
+	if (!m_limbs)
+		m_limbs = std::make_unique<Limbs>(*m_world, m_was_posed, foot, m_yaw, now.velocity); // (as it was, going over)
+	constexpr float TONE = 0.9f, LIMP = 0.3f;
+	m_limbs->drive(m_posed, foot, m_yaw, contacts.rising * contacts.rising, contacts.rising > 0 ? TONE : LIMP); // (its arms first)
 }
 
 } // namespace physics

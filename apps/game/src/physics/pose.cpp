@@ -349,7 +349,8 @@ Joints Poser::step(float dt, const PoseIn &in)
 		}
 		// a foot on the ground goes where it must; one in the air has only so much speed. Without
 		// this a change of target (leaving the floor, landing, a new move) is a leg snapped across.
-		if ((stance && air < 0.02f && !in.airborne)) {
+		// (a foot put up on something is going there, not on the ground yet: sprint 105, drawn as posed, it jumped)
+		if (stance && air < 0.02f && !in.airborne && !(takes && in.steps)) {
 			m_foot[side] = foot_to;
 		} else {
 			const v3f move = foot_to - m_foot[side];
