@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import type { SlotRef, Stack } from "../../bridge/index.ts"
+import { Meter } from "../../kit/index.ts"
+import { formatMass } from "../mass.ts"
 import { useStore } from "../store.ts"
 import type { CarryHandle } from "./carry.ts"
 import Slot from "./Slot.vue"
@@ -13,6 +15,13 @@ const store = useStore()
 const lists = computed(() => props.carry.lists.value)
 const row = computed(() => store.state.hotbar?.size ?? 9)
 const preview = computed(() => lists.value?.craftpreview?.stacks[0] ?? null)
+// what it all weighs and what that does to the pace (tf_craft carry.lua)
+const load = computed(() => {
+    const c = store.ui.carrying
+    if (!c) return null
+    const how = c.kg <= c.easy ? "light" : c.kg < c.crawl ? `slowed to ${Math.round(c.pace * 100)}%` : "crawling"
+    return { ...c, label: `Carrying ${formatMass(c.kg, true)} · ${how}`, tone: c.kg <= c.easy ? "ok" as const : c.kg < c.heavy ? "warn" as const : "danger" as const }
+})
 </script>
 
 <template>
@@ -33,6 +42,7 @@ const preview = computed(() => lists.value?.craftpreview?.stacks[0] ?? null)
                 </div>
             </div>
         </section>
+        <Meter v-if="load" :value="load.kg" :max="load.crawl" :marks="[load.easy, load.heavy]" :label="load.label" :tone="load.tone" />
         <SlotGrid list="main" :stacks="lists.main.stacks" :columns="row" :start="row" :held="carry.held.value"
             @press="carry.slot" @hover="emit('hover', $event)" />
         <SlotGrid list="main" :stacks="lists.main.stacks" :columns="row" :start="0" :end="row" :held="carry.held.value"

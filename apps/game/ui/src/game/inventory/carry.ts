@@ -15,14 +15,18 @@
 // the server's answer when it comes, so nothing flickers while it's in flight.
 
 import { computed, ref, shallowRef, watch } from "vue"
-import { BridgeError, type BridgeHandle, type CreativeItem, type SlotRef, type Stack } from "../../bridge"
+import { BridgeError, type BridgeHandle, type CreativeItem, type NodePos, type SlotRef, type Stack } from "../../bridge"
 import type { GameStoreHandle } from "../store"
 import { click, outside, type Held, type Outgoing, type Step } from "./hand"
 
 const DRAG = 6 // px the mouse must move, button down, for a press to be a drag
 
-export function Carry(opts: { bridge: BridgeHandle; store: GameStoreHandle }) {
+/** Lists beside the player's own, each in a node's inventory (a station's worktop). */
+export type NodeLists = Record<string, { width: number; stacks: (Stack | null)[]; at: NodePos }>
+
+export function Carry(opts: { bridge: BridgeHandle; store: GameStoreHandle; nodes?: () => NodeLists | null }) {
     const { bridge, store } = opts
+    const nodes = () => opts.nodes?.() ?? null
     const held = ref<Held | null>(null)                                   // a stack from a slot
     const given = ref<{ item: CreativeItem; count: number } | null>(null) // a stack from the catalogue
     const cursor = ref({ x: 0, y: 0 })
@@ -32,8 +36,15 @@ export function Carry(opts: { bridge: BridgeHandle; store: GameStoreHandle }) {
     type Lists = NonNullable<typeof store.state.inventory>
     const predicted = shallowRef<Lists | null>(null)
     // the server's next word on the inventory replaces any prediction
-    watch(() => store.state.inventory, () => { predicted.value = null })
-    const lists = computed<Lists | null>(() => predicted.value ?? store.state.inventory)
+    watch([() => store.state.inventory, nodes], () => { predicted.value = null })
+    const lists = computed<Lists | null>(() => {
+        if (predicted.value) return predicted.value
+        const own = store.state.inventory, more = nodes()
+        if (!own || !more) return own
+        const all: Lists = { ...own }
+        for (const [name, list] of Object.entries(more)) all[name] = { width: list.width, stacks: list.stacks }
+        return all
+    })
 
     // A move as the server will make it: into an empty slot, onto the same
     // item, or swapped with what's there when the whole stack goes.
@@ -83,11 +94,16 @@ export function Carry(opts: { bridge: BridgeHandle; store: GameStoreHandle }) {
         problem.value = err instanceof Error ? err.message : String(err)
     }
 
+    // a slot in a node's list says where the node is, for the engine
+    function placed<T extends { list: string }>(slot: T): T {
+        const at = nodes()?.[slot.list]?.at
+        return at ? { ...slot, at: at } : slot
+    }
     function send(intent: Outgoing) {
         switch (intent.kind) {
-            case "inventory.move": return bridge.send(intent.kind, intent.request)
+            case "inventory.move": return bridge.send(intent.kind, { ...intent.request, from: placed(intent.request.from), to: placed(intent.request.to) })
             case "inventory.craft": return bridge.send(intent.kind, intent.request)
-            case "inventory.drop": return bridge.send(intent.kind, intent.request)
+            case "inventory.drop": return bridge.send(intent.kind, { ...intent.request, from: placed(intent.request.from) })
         }
     }
 

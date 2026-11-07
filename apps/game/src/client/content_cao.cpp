@@ -5,7 +5,6 @@
 #include "content_cao.h"
 #include "porting.h"
 #include "profiler.h"
-#include "workshop/knap.h"
 #include <array>
 #include "piece/frame.h" // Terra Firma
 #include "piece/machine.h" // Terra Firma
@@ -930,39 +929,7 @@ void GenericCAO::addToScene(ITextureSource *tsrc, scene::ISceneManager *smgr)
 					: hovered || m_look.lit ? std::optional<video::SColor>(video::SColor(255, 200, 235, 255)) : std::nullopt;
 			std::vector<MeshAnimationInfo> animation;
 			const u32 base = mesh->getMeshBufferCount();
-			// a small thing looked at shows its edge (sprint 130), lit apart from the rest of it
-			std::vector<v3s32> edge;
-			if (m_machine->scale() < 1 && (m_look.lit || hovered))
-				edge = workshop::edgeCells(part.object.built());
-			if (edge.empty()) {
-				append(generatePieceMesh(m_client, part.object.built(), dim, tint, animation), at);
-			} else {
-				piece::Piece rest(m_client), lit(m_client);
-				rest.read(part.object.built().write());
-				std::map<v3s16, shape::Shape> edges;
-				for (const v3s32 &c : edge)
-					edges[v3s16(c.X / shape::STEPS, c.Y / shape::STEPS, c.Z / shape::STEPS)].set(
-							v3s16(c.X % shape::STEPS, c.Y % shape::STEPS, c.Z % shape::STEPS), true);
-				for (auto &[n, cells] : edges) {
-					const MapNode node = rest.node(n);
-					const shape::Shape *had = rest.shape(n);
-					shape::Shape left = had ? *had : shape::Shape::whole();
-					for (s16 x = 0; x < shape::STEPS; x++)
-						for (s16 y = 0; y < shape::STEPS; y++)
-							for (s16 z = 0; z < shape::STEPS; z++)
-								if (cells.has({ x, y, z }))
-									left.set({ x, y, z }, false);
-					if (left.empty())
-						rest.map().setNode(n, MapNode(CONTENT_AIR));
-					else
-						rest.map().setShape(n, left);
-					lit.map().setNode(n, node);
-					lit.map().setShape(n, cells);
-				}
-				append(generatePieceMesh(m_client, rest, dim, tint, animation), at);
-				std::vector<MeshAnimationInfo> none;
-				append(generatePieceMesh(m_client, lit, false, video::SColor(255, 255, 255, 190), none), at);
-			}
+			append(generatePieceMesh(m_client, part.object.built(), dim, tint, animation), at);
 			for (MeshAnimationInfo &a : animation) {
 				a.i += base;
 				m_meshnode_animation.push_back(a);

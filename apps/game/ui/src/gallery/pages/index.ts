@@ -5,6 +5,7 @@ import Create from "./Create.vue"
 import Creative from "./Creative.vue"
 import Hud from "./Hud.vue"
 import Inventory from "./Inventory.vue"
+import Making from "./Making.vue"
 import Panels from "./Panels.vue"
 import Screens from "./Screens.vue"
 import World from "./World.vue"
@@ -15,6 +16,7 @@ export const PAGES = [
     { id: "panels", label: "Panels", component: Panels },
     { id: "hud", label: "HUD", component: Hud },
     { id: "inventory", label: "Inventory", component: Inventory },
+    { id: "making", label: "Making", component: Making },
     { id: "creative", label: "Creative", component: Creative },
     { id: "world", label: "World", component: World },
     { id: "create", label: "Create", component: Create },

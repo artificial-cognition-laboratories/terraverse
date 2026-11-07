@@ -1,8 +1,8 @@
 import { FailureCode, type EngineMessage, type IntentKind, type Intents } from "./types"
 
-export type { Account, Friend, Invite, Player, Presence, Social, BodyCard, BodyCausesWire, BodyKind, CommunityCatalog, CommunityMod, CommunityTexture, CommunityWorld, CreativeItem, EngineMessage, FlightNear, FlightSpace, IntentKind, Intents, ItemInfo, LabControl, LabScenario, LabValue, ControlIcon, ControlItem, ControlPage, ControlValue, MatterElement, MatterMixture, MatterReaction, MatterRock, MatterState, MatterStructure, MatterSubstance, Mode, PlanetariumBody, PlanetariumCell, PlanetariumMarker,
+export type { Account, Friend, Invite, Player, Presence, Social, BodyCard, BodyCausesWire, BodyKind, CommunityCatalog, CommunityMod, CommunityTexture, CommunityWorld, CreativeItem, EngineMessage, FlightNear, FlightSpace, IntentKind, Intents, ItemInfo, LabControl, MakingOffer, LabScenario, LabValue, ControlIcon, ControlItem, ControlPage, ControlValue, MatterElement, MatterMixture, MatterReaction, MatterRock, MatterState, MatterStructure, MatterSubstance, Mode, PlanetariumBody, PlanetariumCell, PlanetariumMarker,
     PlanetariumFlight,
-    PlanetariumHover, BodyLandWire, SystemBodyWire, SystemWire, UpdateCheck, PlanetariumLayer, PlanetariumMessage, PlanetariumPlace, PlanetariumViewport, PublicServer, MoveScene, MoveState, ReliefState, SceneKind, SandboxBlock, SandboxFrame, SandboxSpec, SceneRect, ScreenName, ServerDirectory, SlotRef, Stack, StateSections, ToolId, BrushId, JointId, ActionId, Ask, UiEvent, UiEvents, UiValues, World } from "./types"
+    PlanetariumHover, BodyLandWire, SystemBodyWire, SystemWire, UpdateCheck, PlanetariumLayer, PlanetariumMessage, PlanetariumPlace, PlanetariumViewport, PublicServer, MoveScene, MoveState, ReliefState, SceneKind, SandboxBlock, SandboxFrame, SandboxSpec, SceneRect, ScreenName, ServerDirectory, NodePos, SlotRef, Stack, StateSections, ToolId, BrushId, JointId, ActionId, Ask, UiEvent, UiEvents, UiValues, World } from "./types"
 export { ACTION_IDS, BRUSH_IDS, FailureCode, RAIL_BRUSHES, TOOL_IDS } from "./types"
 
 type Listener = (message: EngineMessage) => void

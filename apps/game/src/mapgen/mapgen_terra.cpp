@@ -197,12 +197,12 @@ MapgenTerra::SurfaceCover MapgenTerra::surfaceCover(size_t index) const
 {
 	const terra::Column &c = m_column.at(index);
 	if (c.space)
-		return { 0, 0, 0, 0, false, 0, false };
+		return { 0, 0, 0, 0, false, false, 0, false };
 	const terragen::World &world = landAt(node_min.X + (s16)(index % csize.X), node_min.Z + (s16)(index / csize.X)).world;
 	const terragen::Cover cover = world.cover(c.at, c.ground);
 	const terragen::Column &g = c.ground.column;
 	const auto real = [](fix v) { return (double)v / ONE; };
-	return { real(cover.density), real(g.heat), real(g.wet), real(g.elevation), cover.bank, cover.roll, world.code().processes.life };
+	return { real(cover.density), real(g.heat), real(g.wet), real(g.elevation), cover.bank, cover.tree, cover.roll, world.code().processes.life };
 }
 
 s16 MapgenTerra::generateTerrain()

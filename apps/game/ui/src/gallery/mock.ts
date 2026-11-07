@@ -160,8 +160,8 @@ export function MockBridge() {
         keymap_pour: "SYSTEM_SCANCODE_27",
         keymap_dig: "MOUSE_BUTTON_1|GAMEPAD_AXIS_PLUS_5",
         keymap_place: "MOUSE_BUTTON_3|GAMEPAD_AXIS_PLUS_4",
-        keymap_inventory: "SYSTEM_SCANCODE_12|GAMEPAD_BUTTON_3",
-        keymap_drop: "SYSTEM_SCANCODE_42|GAMEPAD_BUTTON_12",
+        keymap_inventory: "SYSTEM_SCANCODE_8|GAMEPAD_BUTTON_3",
+        keymap_drop: "SYSTEM_SCANCODE_20|GAMEPAD_BUTTON_12",
         keymap_prone: "SYSTEM_SCANCODE_29",
         keymap_zoom: "SYSTEM_SCANCODE_19|GAMEPAD_BUTTON_11",
         keymap_chat: "SYSTEM_SCANCODE_23",
@@ -445,6 +445,15 @@ export function MockBridge() {
                 publish()
                 return null
             }
+            if (event.name === "making.hand") { emitAll({ kind: "ui", key: "making", value: cannedMaking() }); return null }
+            if (event.name === "making.leave") { emitAll({ kind: "ui", key: "making", value: null }); return null }
+            if (event.name === "making.make") {
+                const offer = cannedMaking().offers?.find((o) => o.id === event.payload.offer)
+                if (!offer?.ok) return null
+                emitAll({ kind: "ui", key: "making", value: { ...cannedMaking(), working: { id: offer.id, seconds: offer.seconds } } })
+                setTimeout(() => emitAll({ kind: "ui", key: "making", value: cannedMaking() }), offer.seconds * 1000)
+                return null
+            }
             if (!lab) return null
             switch (event.name) {
                 case "lab.control": if (event.payload.value !== null) lab.values[event.payload.id] = event.payload.value; break
@@ -568,11 +577,11 @@ export function MockBridge() {
         },
         "game.quit": () => null,
 		"creative.list": (): CreativeItem[] => [
-			{ item: "tf_world:grass", description: "Grass", icon: swatch("#5fa83a", "#6b4a2b"), stackMax: 64, category: "nature" },
-			{ item: "tf_world:dirt", description: "Dirt", icon: swatch("#7a5533", "#6b4a2b"), stackMax: 64, category: "nature" },
-			{ item: "tf_world:stone", description: "Stone", icon: swatch("#8a8a8a", "#6e6e6e"), stackMax: 64, category: "building" },
-			{ item: "tf_world:sand", description: "Sand", icon: swatch("#e3d39a", "#cdbb7e"), stackMax: 64, category: "nature" },
-			{ item: "tf_world:stone_bricks", description: "Stone Bricks", icon: swatch("#7a7a82", "#5d5d64"), stackMax: 64, category: "building" },
+			{ item: "tf_world:grass", description: "Grass", icon: swatch("#5fa83a", "#6b4a2b"), stackMax: 64, category: "nature", mass: 1.5 },
+			{ item: "tf_world:dirt", description: "Dirt", icon: swatch("#7a5533", "#6b4a2b"), stackMax: 64, category: "nature", mass: 1.5 },
+			{ item: "tf_world:stone", description: "Stone", icon: swatch("#8a8a8a", "#6e6e6e"), stackMax: 64, category: "building", mass: 1.5 },
+			{ item: "tf_world:sand", description: "Sand", icon: swatch("#e3d39a", "#cdbb7e"), stackMax: 64, category: "nature", mass: 1.5 },
+			{ item: "tf_world:stone_bricks", description: "Stone Bricks", icon: swatch("#7a7a82", "#5d5d64"), stackMax: 64, category: "building", mass: 1.5 },
 		],
         "inventory.move": ({ from, to, count }) => {
             const moving = take(from, count)
@@ -631,6 +640,26 @@ export function MockBridge() {
             for (const [i, s] of Object.entries(stacks)) lists.main!.stacks[Number(i)] = s
             publish()
         },
+    }
+}
+
+/** What tf_craft offers at a workbench with flint, granite, a stick and two fibres in reach. */
+export function cannedMaking(): UiValues["making"] {
+    return {
+        station: "Workbench",
+        at: { x: 10, y: 4, z: -3 },
+        worktop: { width: 3, stacks: [
+            { item: "tf_craft:stone_flint", count: 1, wear: 0 }, false, false,
+            { item: "tf_craft:stick_wood", count: 1, wear: 0 }, false, false,
+            { item: "tf_craft:fibre_fibre", count: 2, wear: 0 }, false, false,
+        ] },
+        offers: [
+            { id: "flake_flint", item: "tf_craft:flake_flint", label: "Flint flake", count: 2, process: "Knap", inputs: [{ label: "Flint", count: 1, have: 1 }], tool: "Stone", seconds: 2, ok: true },
+            { id: "axe_head_flint", item: "tf_craft:axe_head_flint", label: "Flint axe head", count: 1, process: "Knap", inputs: [{ label: "Flint", count: 1, have: 1 }], tool: "Stone", seconds: 2, ok: true },
+            { id: "axe_head_stone", label: "Stone axe head", count: 1, process: "Knap", inputs: [{ label: "Stone", count: 1, have: 1 }], seconds: 2, ok: false, reason: "Stone: only stone that breaks clean, like flint, knaps" },
+            { id: "handle_wood", item: "tf_craft:handle_wood", label: "Handle", count: 1, process: "Carve", inputs: [{ label: "Stick", count: 1, have: 1 }], seconds: 3, ok: false, reason: "needs a blade harder than wood" },
+            { id: "cord_fibre", item: "tf_craft:cord_fibre", label: "Cord", count: 1, process: "Twist", inputs: [{ label: "Plant fibre", count: 3, have: 2 }], seconds: 1.5, ok: false, reason: "needs 3 plant fibre, has 2" },
+        ],
     }
 }
 

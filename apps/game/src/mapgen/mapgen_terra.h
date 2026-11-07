@@ -63,6 +63,7 @@ public:
 	{
 		double density, heat, wet, elevation;
 		bool bank;
+		bool tree; // a tree stands here (terragen's spacing)
 		u32 roll;
 		bool alive; // on a body where life arose: nothing at all grows on the rest
 	};

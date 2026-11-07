@@ -661,7 +661,7 @@ static void pushTerraCover(lua_State *L, MapgenTerra &mg)
 			continue;
 		spots.push_back({ v3s16(x, y, z), vm.m_data[area.index(x, y, z)].getContent(), mg.surfaceCover(i) });
 	}
-	lua_createtable(L, 0, 11);
+	lua_createtable(L, 0, 12);
 	const auto list = [&](const char *name, auto &&push) {
 		lua_createtable(L, (int)spots.size(), 0);
 		for (size_t k = 0; k < spots.size(); k++) {
@@ -679,6 +679,7 @@ static void pushTerraCover(lua_State *L, MapgenTerra &mg)
 	list("wet", [&](const Spot &s) { lua_pushnumber(L, s.cover.wet); });
 	list("elevation", [&](const Spot &s) { lua_pushnumber(L, s.cover.elevation); });
 	list("bank", [&](const Spot &s) { lua_pushboolean(L, s.cover.bank); });
+	list("tree", [&](const Spot &s) { lua_pushboolean(L, s.cover.tree); });
 	list("roll", [&](const Spot &s) { lua_pushinteger(L, s.cover.roll); });
 	list("alive", [&](const Spot &s) { lua_pushboolean(L, s.cover.alive); });
 }

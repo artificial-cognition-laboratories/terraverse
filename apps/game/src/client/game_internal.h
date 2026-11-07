@@ -163,6 +163,8 @@ protected:
 	// Input related
 	void processUserInput(f32 dtime);
 	void processKeyInput();
+	// Terra Firma: the node looked at is a station (group `station`, tf_craft)
+	bool pointsAtStation();
 	void processItemSelection(u16 *new_playeritem);
 	bool shouldShowTouchControls();
 
@@ -427,7 +429,6 @@ private:
 	};
 	// the brush as it acts now: Shift pulls with Add or Cut (sprint 65)
 	const Hand::BrushKind &brushNow() const;
-	bool holdingSmall() const;
 	// what a stroke would begin on: a socket of the workpiece, creating
 	// (m_aimed_socket), else aimAt
 	std::optional<Aim> aimFor(const PointedThing &pointed);

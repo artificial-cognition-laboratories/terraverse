@@ -4,6 +4,7 @@ import type { CreativeItem, SlotRef, Stack } from "../../bridge/index.ts"
 import { useBridge } from "../../bridge/use.ts"
 import { Button, IconButton, Panel, SearchBox } from "../../kit/index.ts"
 import ItemSlot from "../ItemSlot.vue"
+import { formatMass } from "../mass.ts"
 import { useStore } from "../store.ts"
 import { Carry } from "./carry.ts"
 import CreativePanel from "./CreativePanel.vue"
@@ -13,8 +14,8 @@ import SurvivalPanel from "./SurvivalPanel.vue"
  * The inventory, laid out as Minecraft's: in survival, the player's own
  * inventory; in creative, the catalogue in tabs down its side, the search box
  * always there and always holding the keyboard, so typing searches. One frame
- * whose size never changes with the tab. Esc closes it, and so does I where
- * there's no search to type an I into. What's carried, and every click, is in
+ * whose size never changes with the tab. Esc closes it, and so does E where
+ * there's no search to type an E into. What's carried, and every click, is in
  * carry.ts; the engine owns every stack.
  */
 const bridge = useBridge()
@@ -49,7 +50,7 @@ watch(creative, async (on) => {
     if (!on || catalog.value) return
     try {
         catalog.value = await bridge.send("creative.list", {})
-        for (const item of catalog.value) store.items[item.item] = { description: item.description, icon: item.icon }
+        for (const item of catalog.value) store.items[item.item] = { description: item.description, icon: item.icon, mass: item.mass }
     } catch (err) {
         carry.problem.value = err instanceof Error ? err.message : String(err)
     }
@@ -65,12 +66,18 @@ function close() {
     bridge.send("screen.close", {})
 }
 
+// tf_craft answers with what can be made here, and the making screen takes this one's place
+function makeByHand() {
+    carry.drop()
+    bridge.send("ui.send", { name: "making.hand", payload: {} }).catch(console.error)
+}
+
 function keydown(e: KeyboardEvent) {
     if (e.key === "Escape") { e.preventDefault(); close(); return }
     // a digit over a slot puts that item on the hotbar; anywhere else in a search it's typed
     if (/^[1-9]$/.test(e.key) && (!searching.value || over.value)) { e.preventDefault(); carry.key(Number(e.key), over.value && "part" in over.value ? null : over.value); return }
     if (searching.value) return
-    if (e.key === "i" || e.key === "I") { e.preventDefault(); close() }
+    if (e.key === "e" || e.key === "E") { e.preventDefault(); close() }
 }
 // the engine only sends the page keys while an input has focus: nothing here may take it from the search
 function keepFocus(e: MouseEvent) {
@@ -107,7 +114,10 @@ const tooltip = computed(() => {
     if ("item" in over.value) return over.value.item.description
     if ("part" in over.value) return `${over.value.part} · click to carry it`
     const s = over.value.stack
-    return s ? store.items[s.item]?.description ?? s.item : null
+    if (!s) return null
+    const info = store.items[s.item]
+    const name = info?.description ?? s.item
+    return info?.mass != null ? `${name} · ${s.count} × ${formatMass(info.mass, true)}` : name
 })
 </script>
 
@@ -132,6 +142,7 @@ const tooltip = computed(() => {
 
             <Panel :title="!creative || tab === 'inventory' ? 'Inventory' : query ? 'Search' : tab === 'parts' ? 'Parts' : tabs.find((t) => t.id === tab)?.label ?? ''">
                 <template #actions>
+                    <Button size="sm" @click="makeByHand">Make by hand</Button>
                     <Button size="sm" @click="close">Close</Button>
                 </template>
                 <div class="content">

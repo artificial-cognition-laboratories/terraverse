@@ -11,7 +11,7 @@ end
 local metal = "tf_matter_substance.png"
 
 local MATERIALS = {
-	-- flint breaks clean (tf_tools' knapping): a hard, brittle silica
+	-- flint: a hard, brittle silica, that breaks clean
 	{ id = "flint", tension = 5e7, compression = 5e8, toughness = 50, name = "Flint", matter = "silica", share = 1, groups = { cracky = 2 },
 		tiles = { look(metal, "#4a4640") } },
 	{ id = "timber", tension = 4e7, compression = 3e7, toughness = 1e4, name = "Timber", matter = "wood", share = 0.4, groups = { choppy = 2 },

@@ -155,7 +155,9 @@ local SPECIES = {
 -- The engine chooses among them (core.terra.species: of the species that
 -- fit, one by the column's roll; banks favour willows), so the far view
 -- grows the same trees the world does.
+local BY_NAME = {}
 for _, s in ipairs(SPECIES) do
+	BY_NAME[s.name] = s
 	core.terra.register_species({
 		name = s.name, heat = s.heat, wet = s.wet, season = s.season, bank = s.bank, shore = s.shore,
 		on = s.on, trunk = s.trunk, leaves = s.leaves, shape = SHAPES[s.name],
@@ -228,8 +230,19 @@ core.register_on_generated(function()
 	end
 	local any = false
 	for i = 1, #c.y do
-		local plant = ground_plant(c, i, core.get_name_from_content_id(c.ground[i]))
-		if plant then
+		local ground = core.get_name_from_content_id(c.ground[i])
+		local at = { x = c.x[i], y = c.y[i] + 1, z = c.z[i] }
+		-- where terragen stands a tree, the species the engine picks (as the far view draws it)
+		local species = c.alive[i] and c.tree[i] and core.terra.species(at, ground)
+		local plant = not species and ground_plant(c, i, ground)
+		if species then
+			vm = vm or core.get_mapgen_object("voxelmanip")
+			any = true
+			local s = BY_NAME[species]
+			local def = table.copy(SHAPES[species])
+			def.trunk, def.leaves, def.seed = s.trunk, s.leaves, c.roll[i] % 65536
+			core.spawn_tree_on_vmanip(vm, at, def)
+		elseif plant then
 			vm = vm or core.get_mapgen_object("voxelmanip")
 			any = true
 			if plant == "cactus" then

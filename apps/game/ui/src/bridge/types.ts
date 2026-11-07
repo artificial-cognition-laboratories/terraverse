@@ -10,10 +10,11 @@ import type { StarId } from "../worldgen/config"
 export type Mode = "menu" | "game"
 
 /** In-game screens the engine can open (src/shell/screens.cpp: SCREENS). */
-export type ScreenName = "pause" | "inventory" | "lab" | "wiki" | "map"
+export type ScreenName = "pause" | "inventory" | "lab" | "wiki" | "map" | "making"
 
-/** A slot in the local player's inventory. */
-export type SlotRef = { list: string; index: number }
+/** A slot in the local player's inventory, or with `at` a node's (a station's worktop). */
+export type NodePos = { x: number; y: number; z: number }
+export type SlotRef = { list: string; index: number; at?: NodePos }
 
 /** This build, and the latest signed release: null if it couldn't be asked, or on a development build. */
 export type UpdateCheck = { current: string; latest: string | null; available: boolean }
@@ -45,7 +46,8 @@ export type CommunityCatalog = {
 }
 
 /** How to show an item; icon is null when it has nothing to draw. */
-export type ItemInfo = { description: string; icon: string | null }
+/** `mass`: kg each, as the game weighs it; null for what it doesn't weigh. */
+export type ItemInfo = { description: string; icon: string | null; mass: number | null }
 export type CreativeItem = ItemInfo & { item: string; stackMax: number; category: "building" | "nature" | "functional" | "tools" | "items" }
 
 export type Stack = { item: string; count: number; wear: number }
@@ -331,6 +333,18 @@ export type UiValues = {
         activity?: number; vapour?: string; haze?: number; awake?: boolean
         /** how it looks, from what's in it (#rrggbb), and what's in it, most first (sprint 79) */
         colour?: string; contents?: { substance: string; moles: number; state: string }[] }
+    /** tf_craft: making, at a station (its name) or by hand (no station); what's under way, if anything */
+    making: {
+        station?: string
+        /** where the station stands, and what's on its worktop (absent: by hand); false an empty slot, as Lua can't list a nil */
+        at?: NodePos
+        worktop?: { width: number; stacks: (Stack | false)[] }
+        /** null: nothing in reach to work (an empty Lua table is sent as null) */
+        offers: MakingOffer[] | null
+        working?: { id: string; seconds: number }
+    }
+    /** tf_craft: what the player carries, kg, against the loads that slow them (walking pace by `heavy`, a crawl by `crawl`); `pace` the speed it leaves */
+    carrying: { kg: number; easy: number; heavy: number; crawl: number; pace: number }
     /** tf_flight: riding the pack over the blocks, or in space (core.orbit) */
     flight: FlightNear | FlightSpace
     /** tf_player: the body the player is on (an atlas world's; `home` the world's own) */
@@ -372,6 +386,24 @@ export type FlightSpace = FlightCommon & {
     buildable: boolean     // blocks can go here (the orbit stays above the boundary)
 }
 
+/** One thing tf_craft offers to make here, from what's in reach (tf_craft/offers.lua). */
+export type MakingOffer = {
+    id: string
+    /** What it makes; absent when it can't be made of this material at all. */
+    item?: string
+    label: string
+    count: number
+    /** The process, as named (Knap, Carve…). */
+    process: string
+    inputs: { label: string; count: number; have: number }[]
+    /** What it's done with, when the process uses something held. */
+    tool?: string
+    seconds: number
+    ok: boolean
+    /** Why it can't be made yet: shown, so there's no recipe to learn. */
+    reason?: string
+}
+
 export type UiMessage = {
     [K in keyof UiValues]: { kind: "ui"; key: K; value: UiValues[K] | null }
 }[keyof UiValues]
@@ -394,6 +426,11 @@ export type UiEvents = {
     "lab.browse": {}
     /** The Lab view closed: the camera is the player's again, by the scenario. */
     "lab.step_in": {}
+    /** Make by hand: tf_craft offers what can be made without a station. */
+    "making.hand": {}
+    "making.make": { offer: string }
+    /** The making screen closed. */
+    "making.leave": {}
 }
 
 export type UiEvent = { [E in keyof UiEvents]: { name: E; payload: UiEvents[E] } }[keyof UiEvents]
@@ -630,7 +667,7 @@ export type Intents = {
     "game.quit": { request: {}; response: null }
 	"creative.list": { request: {}; response: CreativeItem[] }
     /** No `to.index`: the first slot in the list that fits. */
-    "inventory.move": { request: { from: SlotRef; to: { list: string; index?: number }; count: number }; response: null }
+    "inventory.move": { request: { from: SlotRef; to: { list: string; index?: number; at?: NodePos }; count: number }; response: null }
     /** Craft from the grid into craftresult; `collect` moves the result straight into main. */
     "inventory.craft": { request: { count: number; collect: boolean }; response: null }
     "inventory.drop": { request: { from: SlotRef; count: number }; response: null }

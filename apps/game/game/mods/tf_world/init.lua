@@ -9,7 +9,7 @@ core.register_item(":", {
 		max_drop_level = 0,
 		groupcaps = {
 			crumbly = { times = { [1] = 3.0, [2] = 1.5, [3] = 0.6 }, uses = 0 },
-			choppy = { times = { [1] = 4.0, [2] = 2.5, [3] = 1.2 }, uses = 0 },
+			choppy = { times = { [2] = 6, [3] = 1.2 }, uses = 0 }, -- a trunk by hand, slowly; an axe is the way
 			cracky = { times = { [3] = 6.0 }, uses = 0 },
 			snappy = { times = { [3] = 0.4 }, uses = 0 },
 		},
@@ -145,3 +145,5 @@ dofile(core.get_modpath("tf_world") .. "/lab.lua")
 dofile(core.get_modpath("tf_world") .. "/pieces.lua")
 dofile(core.get_modpath("tf_world") .. "/materials.lua")
 dofile(core.get_modpath("tf_world") .. "/ground.lua")
+dofile(core.get_modpath("tf_world") .. "/drops.lua")
+dofile(core.get_modpath("tf_world") .. "/felling.lua")

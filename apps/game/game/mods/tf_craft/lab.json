@@ -1,0 +1,10 @@
+{
+	"scenarios": [
+		{
+			"id": "making.axe",
+			"title": "An axe from sticks and stones",
+			"description": "A workbench, and what's lying about: flint, a granite stone, a stick and some plant fibre. Knap the flint with the granite, carve the stick with a flake, twist the fibre into cord and haft the head. Granite won't knap: it doesn't break clean. Stand at the bench and press F.",
+			"size": { "x": 5, "y": 3, "z": 5 }
+		}
+	]
+}

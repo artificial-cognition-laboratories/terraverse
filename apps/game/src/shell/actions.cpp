@@ -17,22 +17,36 @@ static InventoryLocation player()
 	return loc;
 }
 
+// The player's own inventory, or with `at` a node's; the server checks it's in reach
+static InventoryLocation where(const Json::Value &s)
+{
+	const Json::Value &at = s["at"];
+	if (at.isNull())
+		return player();
+	if (!at.isObject() || !at["x"].isInt() || !at["y"].isInt() || !at["z"].isInt())
+		throw Refused("'at' needs whole x, y and z");
+	InventoryLocation loc;
+	loc.setNodeMeta(v3s16(at["x"].asInt(), at["y"].asInt(), at["z"].asInt()));
+	return loc;
+}
+
 Actions::Slot Actions::slot(const Json::Value &value, const char *field, bool any_index) const
 {
 	const Json::Value &s = value[field];
 	if (!s.isObject() || !s["list"].isString())
 		throw Refused(std::string("'") + field + "' needs a list");
 
-	LocalPlayer *p = m_client->getEnv().getLocalPlayer();
-	const InventoryList *list = p->inventory.getList(s["list"].asString());
+	const InventoryLocation inv = where(s);
+	Inventory *inventory = m_client->getInventory(inv);
+	const InventoryList *list = inventory ? inventory->getList(s["list"].asString()) : nullptr;
 	if (!list)
-		throw Refused("no inventory list '" + s["list"].asString() + "'");
+		throw Refused("no inventory list '" + s["list"].asString() + "'" + (inventory ? "" : " there"));
 
 	if (any_index && s["index"].isNull())
-		return { list->getName(), -1 };
+		return { inv, list->getName(), -1 };
 	if (!s["index"].isInt() || s["index"].asInt() < 0 || (u32)s["index"].asInt() >= list->getSize())
 		throw Refused("slot " + s["index"].toStyledString() + " is outside '" + list->getName() + "'");
-	return { list->getName(), (s16)s["index"].asInt() };
+	return { inv, list->getName(), (s16)s["index"].asInt() };
 }
 
 u16 Actions::count(const Json::Value &intent) const
@@ -50,10 +64,10 @@ void Actions::move(const Json::Value &intent) const
 
 	IMoveAction *a = new IMoveAction();
 	a->count = count(intent);
-	a->from_inv = player();
+	a->from_inv = from.inv;
 	a->from_list = from.list;
 	a->from_i = from.index;
-	a->to_inv = player();
+	a->to_inv = to.inv;
 	a->to_list = to.list;
 	a->to_i = to.index;
 	a->move_somewhere = to.index < 0;
@@ -86,7 +100,7 @@ void Actions::drop(const Json::Value &intent) const
 	Slot from = slot(intent, "from", false);
 	IDropAction *a = new IDropAction();
 	a->count = count(intent);
-	a->from_inv = player();
+	a->from_inv = from.inv;
 	a->from_list = from.list;
 	a->from_i = from.index;
 	m_client->inventoryAction(a);

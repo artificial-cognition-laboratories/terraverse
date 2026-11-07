@@ -155,12 +155,12 @@ void set_default_settings()
 	settings->setDefault("keymap_sneak", "SYSTEM_SCANCODE_224|GAMEPAD_BUTTON_1"); // KEY_LCONTROL|Gamepad East (Terra Firma: crouch)
 	settings->setDefault("keymap_dig", "MOUSE_BUTTON_1|GAMEPAD_AXIS_PLUS_5"); // LMB|Gamepad RT
 	settings->setDefault("keymap_place", "MOUSE_BUTTON_3|GAMEPAD_AXIS_PLUS_4"); // RMB|Gamepad LT
-	settings->setDefault("keymap_drop", "SYSTEM_SCANCODE_42|GAMEPAD_BUTTON_12"); // KEY_BACK|D-Pad Down (Terra Firma: Q turns what's carried)
+	settings->setDefault("keymap_drop", "SYSTEM_SCANCODE_20|GAMEPAD_BUTTON_12"); // KEY_KEY_Q|D-Pad Down
 	settings->setDefault("keymap_prone", "SYSTEM_SCANCODE_29"); // KEY_KEY_Z (Terra Firma: lie down)
 	settings->setDefault("keymap_zoom", "SYSTEM_SCANCODE_19|GAMEPAD_BUTTON_11"); // KEY_KEY_P|D-Pad Up
-	settings->setDefault("keymap_inventory", "SYSTEM_SCANCODE_12|GAMEPAD_BUTTON_3"); // KEY_KEY_I|Gamepad North (Terra Firma: E turns what's carried)
-	settings->setDefault("keymap_turn_left", "SYSTEM_SCANCODE_20"); // KEY_KEY_Q (Terra Firma: what's carried turned, sprint 64)
-	settings->setDefault("keymap_turn_right", "SYSTEM_SCANCODE_8"); // KEY_KEY_E
+	settings->setDefault("keymap_inventory", "SYSTEM_SCANCODE_8|GAMEPAD_BUTTON_3"); // KEY_KEY_E|Gamepad North
+	settings->setDefault("keymap_turn_left", "SYSTEM_SCANCODE_47"); // KEY_OEM_4 [ (Terra Firma: what's carried turned, sprint 64; E is the inventory)
+	settings->setDefault("keymap_turn_right", "SYSTEM_SCANCODE_48"); // KEY_OEM_6 ]
 	settings->setDefault("keymap_lab", "SYSTEM_SCANCODE_15"); // KEY_KEY_L (Terra Firma: the Lab panel)
 	settings->setDefault("keymap_planetarium", "SYSTEM_SCANCODE_64"); // KEY_F7 (Terra Firma: the planet viewer)
 	settings->setDefault("keymap_wiki", "SYSTEM_SCANCODE_10"); // KEY_KEY_G (Terra Firma: the wiki)

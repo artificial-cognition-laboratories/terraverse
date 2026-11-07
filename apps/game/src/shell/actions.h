@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "inventorymanager.h"
 #include "irrlichttypes.h"
 #include <json/json.h>
 #include <string>
@@ -22,7 +23,8 @@ class Actions
 public:
 	explicit Actions(Client *client) : m_client(client) {}
 
-	// { from: {list, index}, to: {list, index?}, count } — no index: first slot that fits
+	// { from: {list, index, at?}, to: {list, index?, at?}, count } — no index: first slot that
+	// fits; at {x, y, z}: that node's inventory, not the player's
 	void move(const Json::Value &intent) const;
 	// { count, collect } — collect: move the result straight into "main"
 	void craft(const Json::Value &intent) const;
@@ -32,6 +34,7 @@ public:
 private:
 	struct Slot
 	{
+		InventoryLocation inv; // the player's, or a node's (`at`: a station's worktop)
 		std::string list;
 		s16 index; // -1: anywhere in the list
 	};

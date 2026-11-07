@@ -8,8 +8,6 @@
 #include "nodedef.h"
 #include "server.h"
 #include "server/serveractiveobject.h"
-#include "workshop/knap.h"
-#include "workshop/small.h"
 #include "workshop/workshop.h"
 #include <stdexcept>
 
@@ -148,98 +146,6 @@ int ModApiPhysics::l_blast(lua_State *L)
 	return 1;
 }
 
-// A small thing's text (sprint 130), to be an entity's: what it's made of, its size, a seed.
-static content_t smallMaterial(lua_State *L, const char *name)
-{
-	const NodeDefManager *ndef = ModApiBase::getServer(L)->ndef();
-	content_t id;
-	if (!ndef->getId(name, id))
-		throw LuaError(std::string("core.physics: no block ") + name);
-	return id;
-}
-
-int ModApiPhysics::l_small_stone(lua_State *L)
-{
-	const content_t material = smallMaterial(L, luaL_checkstring(L, 1));
-	const v3s16 half = read_v3s16(L, 2);
-	try {
-		const std::string text = workshop::stone(getServer(L), material, half, (u32)luaL_checkinteger(L, 3)).write();
-		lua_pushlstring(L, text.data(), text.size());
-	} catch (const std::invalid_argument &e) {
-		throw LuaError(std::string("core.physics.small_stone: ") + e.what());
-	}
-	return 1;
-}
-
-int ModApiPhysics::l_small_stick(lua_State *L)
-{
-	const content_t material = smallMaterial(L, luaL_checkstring(L, 1));
-	try {
-		const std::string text = workshop::stick(getServer(L), material, (s16)luaL_checkinteger(L, 2),
-				(s16)luaL_checkinteger(L, 3), (u32)luaL_checkinteger(L, 4)).write();
-		lua_pushlstring(L, text.data(), text.size());
-	} catch (const std::invalid_argument &e) {
-		throw LuaError(std::string("core.physics.small_stick: ") + e.what());
-	}
-	return 1;
-}
-
-static piece::Machine readSmall(lua_State *L, int index)
-{
-	size_t length;
-	const char *text = luaL_checklstring(L, index, &length);
-	piece::Machine m(ModApiBase::getServer(L));
-	try {
-		m.read(std::string(text, length));
-	} catch (const SerializationError &e) {
-		throw LuaError(std::string("core.physics: not a thing: ") + e.what());
-	}
-	return m;
-}
-
-// knap(text, cell, direction, striker_kg, clean, seed): how much came off, and
-// the texts of what's left, the biggest first.
-int ModApiPhysics::l_knap(lua_State *L)
-{
-	const piece::Machine m = readSmall(L, 1);
-	const v3s16 cell = read_v3s16(L, 2);
-	const v3f in = check_v3f(L, 3);
-	try {
-		const workshop::Struck s = workshop::strike(m, v3s32(cell.X, cell.Y, cell.Z), in, luaL_checknumber(L, 4),
-				luaL_checknumber(L, 5), (u32)luaL_checkinteger(L, 6), getServer(L));
-		lua_newtable(L);
-		lua_pushinteger(L, s.removed);
-		lua_setfield(L, -2, "removed");
-		lua_newtable(L);
-		for (size_t i = 0; i < s.left.size(); i++) {
-			const std::string text = s.left[i].write();
-			lua_pushlstring(L, text.data(), text.size());
-			lua_rawseti(L, -2, i + 1);
-		}
-		lua_setfield(L, -2, "left");
-	} catch (const std::invalid_argument &e) {
-		throw LuaError(std::string("core.physics.knap: ") + e.what());
-	}
-	return 1;
-}
-
-// How good its edge is (0 none, 1 rough, 2 fine), and what it's made of.
-int ModApiPhysics::l_edge(lua_State *L)
-{
-	const piece::Machine m = readSmall(L, 1);
-	try {
-		lua_pushinteger(L, workshop::edgeOf(m));
-	} catch (const std::invalid_argument &e) {
-		throw LuaError(std::string("core.physics.edge: ") + e.what());
-	}
-	std::string name;
-	m.parts().at(0).object.built().each([&](v3s16, MapNode n, const shape::Shape *) {
-		name = getServer(L)->ndef()->get(n).name;
-	});
-	lua_pushstring(L, name.c_str());
-	return 2;
-}
-
 void ModApiPhysics::Initialize(lua_State *L, int top)
 {
 	lua_newtable(L);
@@ -250,10 +156,6 @@ void ModApiPhysics::Initialize(lua_State *L, int top)
 		{ "mass", l_mass },
 		{ "impulse", l_impulse },
 		{ "blast", l_blast },
-		{ "small_stone", l_small_stone },
-		{ "small_stick", l_small_stick },
-		{ "knap", l_knap },
-		{ "edge", l_edge },
 	};
 	for (const luaL_Reg &f : functions) {
 		lua_pushcfunction(L, f.func);

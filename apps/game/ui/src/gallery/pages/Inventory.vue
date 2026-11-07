@@ -9,9 +9,10 @@ const mock = useMock()
 onMounted(() => {
     mock.emit({ kind: "mode", mode: "game" })
     mock.emit({ kind: "state", section: "hotbar", value: { size: 9, selected: 0 } })
+    mock.emit({ kind: "ui", key: "carrying", value: { kg: 37.4, easy: 25, heavy: 50, crawl: 150, pace: 0.85 } })
     mock.stock({
-        0: { item: "tf_world:grass", count: 64, wear: 0 },
-        1: { item: "tf_world:dirt", count: 40, wear: 0 },
+        0: { item: "tf_world:grass", count: 8, wear: 0 },
+        1: { item: "tf_world:dirt", count: 3, wear: 0 },
         2: { item: "tf_world:stone", count: 64, wear: 0 },
         3: { item: "tf_world:sand", count: 64, wear: 0 },
         5: { item: "tf_tools:pick", count: 1, wear: 21000 },

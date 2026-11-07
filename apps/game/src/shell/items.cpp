@@ -49,6 +49,9 @@ const Json::Value &Items::describe(const std::string &name)
 	const ItemDefinition &def = m_opts.client->idef()->get(name);
 	Json::Value info;
 	info["description"] = def.description.empty() ? name : def.description;
+	// kg each, as the game weighs it (tf_craft carry.lua: group mass_g, grams); null if unweighed
+	const auto grams = def.groups.find("mass_g");
+	info["mass"] = grams == def.groups.end() ? Json::Value() : Json::Value(grams->second / 1000.0);
 
 	std::string texture = iconTexture(def);
 	if (texture.empty()) {

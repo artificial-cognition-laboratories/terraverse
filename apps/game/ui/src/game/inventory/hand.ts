@@ -24,7 +24,7 @@ export type Outgoing =
 const same = (a: SlotRef, b: SlotRef) => a.list === b.list && a.index === b.index
 
 /** Lists whose shift-click sends the stack into the main inventory. */
-const SHIFT_TO_MAIN = new Set(["craft", "craftresult"])
+const SHIFT_TO_MAIN = new Set(["craft", "craftresult", "worktop"])
 
 export function click(held: Held | null, c: Click, liveCount: (slot: SlotRef) => number): Step {
     // The craft result is a button, not a slot: clicking it crafts.

@@ -11,13 +11,13 @@ const store = GameStore({ bridge: bridge })
 bridge.emit({
     kind: "items",
     items: {
-        "tf_world:grass": { description: "Grass", icon: swatch("#5fa83a", "#6b4a2b") },
-        "tf_world:dirt": { description: "Dirt", icon: swatch("#7a5533", "#6b4a2b") },
-        "tf_world:stone": { description: "Stone", icon: swatch("#8a8a8a", "#6e6e6e") },
-        "tf_world:sand": { description: "Sand", icon: swatch("#e3d39a", "#cdbb7e") },
-        "tf_tools:pick": { description: "Iron Pickaxe", icon: swatch("#c9c9c9", "#7b5a36") },
-        "tf_world:sandstone": { description: "Sandstone", icon: swatch("#d8c48a", "#bba56b") },
-        "tf_world:stone_bricks": { description: "Stone Bricks", icon: swatch("#7a7a82", "#5d5d64") },
+        "tf_world:grass": { description: "Grass", icon: swatch("#5fa83a", "#6b4a2b"), mass: 1.5 },
+        "tf_world:dirt": { description: "Dirt", icon: swatch("#7a5533", "#6b4a2b"), mass: 1.5 },
+        "tf_world:stone": { description: "Stone", icon: swatch("#8a8a8a", "#6e6e6e"), mass: 2.7 },
+        "tf_world:sand": { description: "Sand", icon: swatch("#e3d39a", "#cdbb7e"), mass: 1.6 },
+        "tf_tools:pick": { description: "Iron Pickaxe", icon: swatch("#c9c9c9", "#7b5a36"), mass: null },
+        "tf_world:sandstone": { description: "Sandstone", icon: swatch("#d8c48a", "#bba56b"), mass: 2.3 },
+        "tf_world:stone_bricks": { description: "Stone Bricks", icon: swatch("#7a7a82", "#5d5d64"), mass: 2.5 },
     },
 })
 
