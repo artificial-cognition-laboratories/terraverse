@@ -22,7 +22,8 @@ local function column(p)
 		local name = core.get_node({ x = p.x, y = y, z = p.z }).name
 		if WATER[name] then
 			if water == -9999 then water = y end
-		elseif name ~= "air" and name ~= "ignore" and core.get_item_group(name, "plant") == 0 and name ~= "tf_world:cactus" then
+		elseif name ~= "air" and name ~= "ignore" and core.get_item_group(name, "plant") == 0 and name ~= "tf_world:cactus"
+				and core.get_item_group(name, "lying") == 0 then -- (sticks and stones lying about: the game's, not terragen's)
 			return y, name, water
 		end
 	end

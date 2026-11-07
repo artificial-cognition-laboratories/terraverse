@@ -141,7 +141,8 @@ public:
 
 private:
 	// The tile's mesh put on the planet (Tiling::place); its height over
-	// the sea (blocks) in the first texture coordinate, for the haze.
+	// the sea (blocks) in the first texture coordinate, for the haze (and the
+	// Planetarium's contours).
 	Mesh onPlanet(const Tile &tile) const
 	{
 		Mesh m = far::mesh(tile, m_palette);

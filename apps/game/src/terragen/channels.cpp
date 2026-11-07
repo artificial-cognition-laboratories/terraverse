@@ -18,13 +18,19 @@ using plates::unit;
 
 namespace {
 
-enum ChannelStream : uint32_t { NODE = 353, WANDER = 359 };
+enum ChannelStream : uint32_t { NODE = 353, BEND = 379 }; // (359 was the levels' wander)
+// how far a level's channels bend either way: its lattice over this
+const int64_t BEND_SHARE = 4;
 
 // The finest level's points are this far apart (blocks): below it, noise
 const int64_t FINEST_BLOCKS = 48;
 // Rain a level needs to run with water (the grid's rain: 1 is average): the
 // wetter the land, the further up its network the water reaches
 const fix WET[Channels::STREAM_LEVELS] = { ratio(30, 100), ratio(70, 100), ratio(120, 100) };
+// A level's stream's width (blocks, fixed), and how wide its valley is, of
+// its lattice
+const int64_t STREAM_WIDTH[Channels::STREAM_LEVELS] = { 5 * ONE, 3 * ONE, 2 * ONE };
+const fix VALLEY_WIDTH = ratio(55, 100);
 // Each level's share of the relief, falling as real land's roughness does
 const fix FALL = 37641; // 2^−0.8
 // How much further a join across folded beds counts, squared
@@ -78,8 +84,8 @@ constexpr size_t SLOTS = 1 << 13;
 
 } // namespace
 
-Channels::Channels(const WorldCode &code, const Grid &grid, int64_t radius, int64_t cell_blocks) :
-	m_grid(&grid), m_seed(code.seed_hash + NODE), m_owner(((uint64_t)code.seed_hash << 32 | (uint32_t)code.size) + 1),
+Channels::Channels(const WorldCode &code, const Grid &grid, const World &world, int64_t radius, int64_t cell_blocks) :
+	m_grid(&grid), m_world(&world), m_seed(code.seed_hash + NODE), m_owner(((uint64_t)code.seed_hash << 32 | (uint32_t)code.size) + 1),
 	m_radius(radius), m_water(code.processes.water)
 {
 	m_lattice[0] = (int64_t)gridSphere().spacing() << (PLACE_FRAC - FRAC);
@@ -155,7 +161,10 @@ Channels::Node Channels::build(int level, int32_t i, int32_t j, int32_t l) const
 	const fix folded = field(g.tectonics.fold, spot), front = field(g.tectonics.front, spot);
 
 	int64_t best = INT64_MAX;
-	const auto consider = [&](const Place &p, const Place &q, const std::array<int32_t, 3> &above) {
+	bool below_wet = false; // what the best runs into carries water
+	int32_t link = -1;      // the best's grid cell, on the first level
+	fix link_t = 0;         // and how far along its run it joins
+	const auto consider = [&](const Place &p, const Place &q, const std::array<int32_t, 3> &above, bool wet, int32_t cell) {
 		const Near near = nearest(n.at, p, q);
 		if (near.dist2 >= best)
 			return;
@@ -174,6 +183,9 @@ Channels::Node Channels::build(int level, int32_t i, int32_t j, int32_t l) const
 		best = cost;
 		n.join = join;
 		n.parent = above;
+		below_wet = wet;
+		link = cell;
+		link_t = near.t;
 	};
 	if (level == 1) {
 		// the grid's tree: the links of the cells round here
@@ -181,7 +193,7 @@ Channels::Node Channels::build(int level, int32_t i, int32_t j, int32_t l) const
 			const int32_t r = g.receiver[c];
 			if (r < 0 || g.base[c] < 0)
 				return;
-			consider(Place(sphere.centre(c)), Place(sphere.centre(r)), { c, 0, 0 });
+			consider(Place(sphere.centre(c)), Place(sphere.centre(r)), { c, 0, 0 }, m_world->drawn(c), c);
 		};
 		for (int32_t c : spot.cells) {
 			link(c);
@@ -198,26 +210,20 @@ Channels::Node Channels::build(int level, int32_t i, int32_t j, int32_t l) const
 				for (int32_t r = l0; r <= l1; r++) {
 					const Node parent = node(level - 1, p, q, r); // (a copy: asking again can overwrite its slot)
 					if (parent.exists)
-						consider(parent.join, parent.at, { p, q, r });
+						consider(parent.join, parent.at, { p, q, r }, parent.wet, -1);
 				}
 	}
 	if (best == INT64_MAX)
 		return n; // nothing downhill near: no channel
+	// a first level's foot on the grid's water where it's drawn, which curves
+	// off the straight run between centres: the stream ends in it, not beside it
+	// (nearest() measured from the run's upstream end: t along it from there)
+	if (link >= 0 && below_wet)
+		n.join = m_world->onRun(link, link_t);
 	n.exists = true;
 	n.rain = g.rain(spot.cells[0]);
+	n.wet = m_water && level <= STREAM_LEVELS && below_wet && n.rain >= WET[level - 1];
 	return n;
-}
-
-std::array<int64_t, 3> Channels::wander(const Place &at, int64_t least) const
-{
-	std::array<int64_t, 3> w{ 0, 0, 0 };
-	// the finer levels' own wiggle, a sixth of a wavelength: the same for every
-	// level, so tributaries still meet what they join
-	// (every other level: one octave in two is hardly seen, and it's a cost per column)
-	for (int k = 1; k <= m_levels && m_lattice[k] >= least; k += 2)
-		for (int c = 0; c < 3; c++)
-			w[c] += (int64_t)noise(at, m_seed + WANDER + (uint32_t)(k * 3 + c), m_waves[k]) * m_lattice[k] >> (FRAC + 1);
-	return w;
 }
 
 Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
@@ -231,6 +237,7 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 	{
 		Place join, at;
 		bool wet;
+		fix rain;
 	};
 	struct List
 	{
@@ -243,6 +250,7 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 	int64_t closest2 = INT64_MAX, stream2 = INT64_MAX;
 	int64_t sum = 0, norm = 0;
 	fix weight = ONE, above = ONE;
+	int64_t bent[3] = { 0, 0, 0 }; // the coarser levels' bends, summed (place units)
 	for (int k = 0; k <= m_levels && (k == 0 || m_lattice[k] >= least); k++) {
 		const int64_t L = m_lattice[k];
 		const int32_t i = floorBy(p.x, L), j = floorBy(p.y, L), l = floorBy(p.z, L);
@@ -263,7 +271,7 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 				const auto link = [&](int32_t c) {
 					const int32_t r = g.receiver[c];
 					if (r >= 0 && g.base[c] >= 0)
-						add({ Place(sphere.centre(r)), Place(sphere.centre(c)), false });
+						add({ Place(sphere.centre(r)), Place(sphere.centre(c)), false, 0 });
 				};
 				const Place middle = placeOf(((int64_t)i * 2 + 1) * L / 2, ((int64_t)j * 2 + 1) * L / 2, ((int64_t)l * 2 + 1) * L / 2);
 				for (int32_t c : sphere.spot(middle.dir()).cells) {
@@ -272,23 +280,55 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 						link(*q);
 				}
 			} else {
-				const bool wet = m_water && k <= STREAM_LEVELS;
 				for (int32_t a = i - 2; a <= i + 2; a++)
 					for (int32_t b = j - 2; b <= j + 2; b++)
 						for (int32_t c = l - 2; c <= l + 2; c++) {
 							const Node &n = node(k, a, b, c);
 							if (n.exists)
-								add({ n.join, n.at, wet && n.rain >= WET[k - 1] });
+								add({ n.join, n.at, n.wet, n.rain });
 						}
 			}
 		}
+		// read a little way off, by noise a few times finer than the level's
+		// segments: its channels bend, and their valleys with them (alone each
+		// is a straight run from node to node). Each level is read where the
+		// coarser are, bent by their bends too, so a channel and what it joins
+		// bend together; its own bend fades out toward its foot, so it ends
+		// where it joins (on the first level, on the grid's water)
+		int64_t bend[3] = { 0, 0, 0 };
+		if (k > 0)
+			for (int c = 0; c < 3; c++)
+				bend[c] = (int64_t)noise(p, m_seed + BEND + (uint32_t)(k * 3 + c), m_waves[k] * 4) * L / BEND_SHARE >> FRAC;
+		const int64_t bx = (int64_t)p.x + bent[0], by = (int64_t)p.y + bent[1], bz = (int64_t)p.z + bent[2];
+		const int64_t fade = std::max<int64_t>(1, L / 2);
 		for (int s = 0; s < list.count; s++) {
 			const Segment &seg = list.segments[s];
-			const Near near = nearest(p, seg.join, seg.at);
+			Place pk = placeOf(bx, by, bz);
+			if (k > 0) {
+				const int64_t dx = bx - seg.join.x, dy = by - seg.join.y, dz = bz - seg.join.z;
+				const int64_t foot = (int64_t)isqrt((uint64_t)(dx * dx + dy * dy + dz * dz));
+				const fix own = smooth((fix)std::min<int64_t>(ONE, (foot << FRAC) / fade));
+				pk = placeOf(bx + mulShift(bend[0], own, FRAC), by + mulShift(bend[1], own, FRAC), bz + mulShift(bend[2], own, FRAC));
+			}
+			const Near near = nearest(pk, seg.join, seg.at);
 			closest2 = std::min(closest2, near.dist2);
 			if (seg.wet && near.dist2 < stream2) {
 				stream2 = near.dist2;
 				out.stream_from = k;
+				out.stream_width = STREAM_WIDTH[k - 1];
+			}
+			// the valley it's worn: as deep as its flow (√ of its rain), a V
+			// VALLEY_WIDTH of its lattice across with a flat floor its stream's
+			// width; a coarser level's deeper, as Horton's laws have it
+			if (k > 0) {
+				const int64_t half = L * VALLEY_WIDTH >> FRAC;
+				const int64_t d = (int64_t)isqrt((uint64_t)near.dist2);
+				if (d < half) {
+					const fix x = (fix)((d << FRAC) / std::max<int64_t>(1, half));
+					const fix deep = mul(weight, clamp(sqrt(clamp(div(seg.rain, WET[0]), 0, toFix(4))) / 2, 0, ONE));
+					// (smooth across: a broad floor and shoulders, no groove down its middle)
+					out.cut = std::max(out.cut, mul(deep, ONE - smooth(x)));
+				}
 			}
 		}
 		// across the hillside, valley 0 to divide 1: three quarters of the
@@ -306,6 +346,8 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 		norm += w;
 		weight = mul(weight, FALL);
 		above = x;
+		for (int c = 0; c < 3; c++)
+			bent[c] += bend[c];
 	}
 	// centred on the land the grid gave (sharp divides sit lower: measured), and
 	// as wide as the noise it replaces, so a range stays as high as it was

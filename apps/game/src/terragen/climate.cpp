@@ -89,14 +89,16 @@ const int AVERAGED = 8;         // the last passes, averaged
 const fix STEP = TWO_PI / 128;
 // tuned against the fluid layer on an ocean world (wet ITCZ, dry 30°, a storm track)
 const fix MONSOON = toFix(12);  // wind per unit of heat difference a step across, westerly units
-const fix THERMAL = toFix(5);   // rising per unit of warmth above the latitude's mean, lift units
+const fix THERMAL = toFix(12);  // rising per unit of warmth above the latitude's mean, lift units (strong enough that a summer continent breaks the dry belt: monsoons, wet east coasts)
 const fix STABLE = toFix(8);    // sinking per unit of chill from a cold current, lift units
 const fix SLOPE = toFix(18);    // rising per unit of elevation climbed a step, lift units
 const fix RECYCLE = ratio(12, 10);   // land gives back up to this much of its rain (plants draw on the soil it filled)
 const fix EVAPORATE = ratio(8, 100); // of the air's shortfall from saturation over water, made up per pass
-const fix DRIZZLE = ratio(5, 1000);  // of the vapour, what falls per pass anyway
+const fix DRIZZLE = ratio(15, 1000);  // of the vapour, what falls per pass anyway
 const fix CONVERGE = ratio(15, 100); // rising air draws in this share of its vapour per pass, per unit of lift
 const fix RAINOUT = ratio(5, 10);   // of the vapour above what the air holds, what falls per pass
+const fix EDDIES = ratio(40, 100);  // of the vapour mixed per pass over EDDY_REACH degrees (storms, fronts)
+const int32_t EDDY_REACH = 8;
 
 // The energy balance (Budyko 1969, Sellers 1969, North 1975), in W/m² and °C.
 const int32_t BANDS = 90;              // equal-area latitude bands (even in sin latitude)
@@ -542,13 +544,12 @@ Climate climate(const WorldCode &code, const std::vector<fix> &elevation)
 				next[i] = carried - fall;
 				rain[i] = fall;
 			});
-			// a little mixing with the cells round: the eddies the mean wind leaves out
-			parallelFor(g.n, [&](int32_t i) {
-				int64_t round = 0;
-				for (const int32_t *p = g.sphere.neighboursBegin(i); p != g.sphere.neighboursEnd(i); p++)
-					round += next[*p];
-				q[i] = mul(next[i], ratio(8, 10)) + mul((fix)(round / g.sphere.neighbourCount(i)), ratio(2, 10));
-			});
+			// the eddies the mean wind leaves out (storms, fronts): vapour mixed
+			// over hundreds of km, across the bands' edges and inland
+			{
+				const std::vector<fix> spread = blur(next, degrees(EDDY_REACH));
+				parallelFor(g.n, [&](int32_t i) { q[i] = next[i] + mul(spread[i] - next[i], EDDIES); });
+			}
 			if (pass >= SWEEPS - AVERAGED)
 				for (int32_t i = 0; i < g.n; i++)
 					total[i] += rain[i] / AVERAGED;

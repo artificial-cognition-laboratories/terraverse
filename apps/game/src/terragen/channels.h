@@ -22,6 +22,7 @@
 namespace terragen {
 
 struct Grid;
+class World;
 
 class Channels
 {
@@ -36,6 +37,9 @@ public:
 		fix rain = 0;
 		std::array<int32_t, 3> parent{}; // the node it joins (none on the first level: the grid's)
 		bool exists = false;
+		// it carries water: wet enough, and so is what it runs into, down to
+		// a drawn run of the grid's (World::drawn), so every stream reaches one
+		bool wet = false;
 	};
 
 	struct Read
@@ -45,9 +49,13 @@ public:
 		// the nearest level that can hold water here, if any
 		int64_t stream_gap = INT64_MAX; // blocks, fixed
 		int stream_from = 0;   // which level (1: the largest)
+		// the valleys the channels cut by their flow: 0 (none) .. 1 (the floor of
+		// the deepest a level-1 channel cuts), and how wide the floor's water is
+		fix cut = 0;
+		int64_t stream_width = 0; // blocks, fixed
 	};
 
-	Channels(const WorldCode &code, const Grid &grid, int64_t radius, int64_t cell_blocks);
+	Channels(const WorldCode &code, const Grid &grid, const World &world, int64_t radius, int64_t cell_blocks);
 
 	bool active() const { return m_levels > 0; }
 	int levels() const { return m_levels; }
@@ -56,8 +64,6 @@ public:
 	// `least`: no level with a lattice finer than this (place units): what a
 	// far tile's cells are too wide to show, and a whole search per cell to find
 	Read read(const Place &warped, fix range, int64_t least = 0) const;
-	// the fine wander that's added to the rivers' warp, place units
-	std::array<int64_t, 3> wander(const Place &at, int64_t least = 0) const;
 	// a node, or one that doesn't exist (level 1..levels())
 	const Node &node(int level, int32_t i, int32_t j, int32_t l) const;
 	int32_t latticeOf(int level, int32_t c) const;
@@ -66,6 +72,7 @@ private:
 	Node build(int level, int32_t i, int32_t j, int32_t l) const;
 
 	const Grid *m_grid;
+	const World *m_world;
 	uint32_t m_seed;
 	uint64_t m_owner;
 	int64_t m_radius;

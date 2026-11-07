@@ -50,10 +50,11 @@ struct Grid
 	std::vector<int32_t> receiver; // the cell this one drains into; −1 = the sea (or a polar wall)
 	std::vector<int64_t> drained;  // rain-weighted area draining through, in fixed cell units
 	std::vector<uint8_t> lake;     // 1 where water pools at least a block deep
+	std::vector<uint8_t> pan;      // 1 on a closed basin's dry floor: salt, where its water dried
 	// On lake cells, the lake's one surface: its outlet, the lowest filled
 	// level in the basin. (The fill's jitter leaves the rest a hair higher,
 	// which in blocks would be steps that spill across the lake.)
-	std::vector<fix> lake_level;
+	std::vector<fix> lake_level; // (a pan's too: where its water stood)
 	// the climate (climate.h), per cell: rain relative to the land's median in
 	// each season ([0] the north's summer, [1] the south's), and how fertile
 	// the ground is (0..1: what rock and rivers supply, less what rain washes out)
@@ -129,6 +130,6 @@ constexpr fix VEIN_CORE = ratio(1, 2);
 inline fix alluvium(fix sediment) { return clamp(sediment * 16, 0, ONE); }
 
 // Distinct noise streams, so the fields are independent.
-enum Stream : uint32_t { CONTINENT = 0, COAST = 3, RIDGE = 7, HEAT = 13, DETAIL = 41, SOIL_NOISE = 53, BLEND = 59, MEANDER = 71, SHORE = 79, SCOURED = 83 };
+enum Stream : uint32_t { CONTINENT = 0, COAST = 3, RIDGE = 7, HEAT = 13, DETAIL = 41, SOIL_NOISE = 53, BLEND = 59, MEANDER = 71, SHORE = 79, SCOURED = 83, GULLIES = 89, BASINS = 97, RIFTS = 419, ALPINE = 431 };
 
 } // namespace terragen

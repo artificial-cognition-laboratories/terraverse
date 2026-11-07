@@ -11,6 +11,7 @@
 #include "world.h"
 #include <algorithm>
 #include <map>
+#include <queue>
 #include <mutex>
 #include <queue>
 
@@ -72,14 +73,21 @@ const fix LAKE_DEPTH = ratio(1, 160);
 const fix SCOUR = ratio(24, 160);
 const fix SCOUR_BELOW = toFix(4);
 // …if its basin is big and deep enough; smaller hollows fill with sediment,
-// and so do basins wider than this share of the land (they'd be inland seas).
+// and so do basins wider than this share of the land (an inland sea's the most).
 // (On the sphere's cells, about two thirds of the flat map's in area, hollows
-// come out shallower: 15 cells and 4 blocks deep keep about as many lakes.)
+// come out shallower; a broad one 2 blocks deep is a lake, as Chad's is.)
 const int32_t LAKE_MIN_CELLS = 15;
-const fix LAKE_MIN_DEEPEST = ratio(4, 160);
+const fix LAKE_MIN_DEEPEST = ratio(2, 160);
 const int32_t TARN_MIN_CELLS = 6;
 const fix TARN_MIN_DEEPEST = ratio(8, 160);
-const fix LAKE_MAX_SHARE = ratio(3, 100);
+const fix LAKE_MAX_SHARE = ratio(8, 100);
+// a closed basin's salt pan: its floor up to this over its lake (or its lowest)
+const fix PAN_RISE = ratio(3, 160);
+// Sinking basins (see build): this many cells in from the sea at the least,
+// in noise this many waves round, where it's over BASIN_RARITY (of an fbm's
+// typical swing, 1), sagging up to BASIN_DEPTH once BASIN_RISE over it
+const int32_t BASIN_INLAND = 3, BASIN_WAVES = 9;
+const fix BASIN_RARITY = ratio(40, 100), BASIN_RISE = ratio(35, 100), BASIN_DEPTH = ratio(30, 160);
 // Steepness toward a neighbour is drop ÷ distance; compared as drop · SPAN ÷
 // distance (fixed, unit sphere) so a one-unit drop never rounds away.
 const int64_t SPAN = (int64_t)1 << 24;
@@ -213,11 +221,19 @@ std::vector<int64_t> accumulate(const std::vector<int32_t> &receiver, const std:
 
 namespace {
 
+// Open water's evaporation a year, in rain's units, by the yearly heat:
+// little where it's cold, several times the mean rain in a hot desert
+fix evaporation(fix heat)
+{
+	const fix celsius = heat * 37 + toFix(11);
+	return clamp(ratio(30, 100) + mul(celsius, ratio(7, 100)), ratio(15, 100), ratio(250, 100));
+}
+
 /*
 	Water standing over the eroded land, grouped into basins (by neighbours). A basin becomes a lake only if it is big and deep
 	enough; smaller hollows fill with sediment — the land rises to the water.
 */
-void keepRealLakes(Grid &g)
+void keepRealLakes(Grid &g, const std::vector<fix> &rain)
 {
 	const Sphere &sphere = gridSphere();
 	size_t n = g.filled.size();
@@ -229,6 +245,9 @@ void keepRealLakes(Grid &g)
 	for (size_t i = 0; i < n; i++)
 		wet[i] = g.filled[i] >= 0 && g.filled[i] - g.eroded[i] >= LAKE_DEPTH;
 
+	// what reaches each cell, the land filled: a basin's inflow is its spill's
+	const std::vector<int32_t> spill = receivers(g.filled);
+	const std::vector<int64_t> drained = accumulate(spill, upstreamOrder(spill), rain);
 	std::vector<int32_t> basin;
 	for (int32_t start = 0; start < (int32_t)n; start++) {
 		if (!wet[start] || seen[start])
@@ -246,6 +265,94 @@ void keepRealLakes(Grid &g)
 					seen[nb] = 1;
 					basin.push_back(nb);
 				}
+			}
+		}
+		// What comes in against what its water gives back to the air: a basin
+		// whose rain (its own and what drains to it) the open water would
+		// evaporate before it filled holds a smaller lake at its lowest, and
+		// keeps it (the Caspian, the Dead Sea, Lake Eyre: everything drains in,
+		// nothing out). One that fills spills, as below.
+		int64_t inflow = 0;
+		for (int32_t c : basin)
+			inflow = std::max(inflow, drained[c]);
+		{
+			int32_t lowest = basin[0];
+			for (int32_t c : basin)
+				lowest = g.eroded[c] < g.eroded[lowest] ? c : lowest;
+			std::vector<int32_t> lake;
+			std::map<int32_t, uint8_t> member;
+			for (int32_t c : basin)
+				member[c] = 0;
+			// flooding up from the lowest, the lowest shore cell next, till it gives back what comes in
+			using Shore = std::pair<fix, int32_t>;
+			std::priority_queue<Shore, std::vector<Shore>, std::greater<Shore>> shore;
+			shore.push({ g.eroded[lowest], lowest });
+			member[lowest] = 1;
+			int64_t gives = 0;
+			fix level = g.eroded[lowest];
+			while (!shore.empty() && gives < inflow) {
+				const auto [h, c] = shore.top();
+				shore.pop();
+				lake.push_back(c);
+				level = h;
+				gives += mul(evaporation(g.heat[c] - mul(std::max<fix>(0, g.eroded[c]), LAPSE)), sphere.area(c));
+				for (const int32_t *p = sphere.neighboursBegin(c); p != sphere.neighboursEnd(c); p++) {
+					auto m = member.find(*p);
+					if (m != member.end() && !m->second) {
+						m->second = 1;
+						shore.push({ g.eroded[*p], *p });
+					}
+				}
+			}
+			// (a lake that would stand over the basin's rim isn't closed: it spills)
+			fix rim = g.filled[start];
+			for (int32_t c : basin)
+				rim = std::min(rim, g.filled[c]);
+			if (gives >= inflow && lake.size() < basin.size() && level <= rim) {
+				// closed: the lake to the level it balances at (the next shore
+				// cell's ground), the rest of the basin dry and draining to it
+				// (none at all when too little reaches it: a salt pan, dry)
+				const fix top = shore.empty() ? level : std::max(level, std::min(shore.top().first, g.filled[start]));
+				const bool held = (int32_t)lake.size() >= TARN_MIN_CELLS;
+				for (int32_t c : basin) {
+					g.filled[c] = g.eroded[c];
+					// the floor round it, flat and not far over it, is where its
+					// water stood and dried: a salt pan
+					g.pan[c] = g.eroded[c] <= top + PAN_RISE;
+					// (a pan's level: as high as its water stood, whose shore the salt follows)
+					if (g.pan[c])
+						g.lake_level[c] = top + PAN_RISE;
+				}
+				if (held)
+					for (int32_t c : lake) {
+						g.lake[c] = 1;
+						g.lake_level[c] = top;
+						g.filled[c] = top;
+						g.pan[c] = 0;
+					}
+				// and every hollow in its floor filled to drain on down to it (out
+				// from the lake, or the lowest, each cell at least a hair over the
+				// one it drains to), so nothing pools short of it
+				std::priority_queue<Shore, std::vector<Shore>, std::greater<Shore>> out;
+				for (auto &m : member)
+					m.second = 0;
+				for (int32_t c : held ? lake : std::vector<int32_t>{ lowest }) {
+					member[c] = 1;
+					out.push({ g.filled[c], c });
+				}
+				while (!out.empty()) {
+					const auto [h, c] = out.top();
+					out.pop();
+					for (const int32_t *p = sphere.neighboursBegin(c); p != sphere.neighboursEnd(c); p++) {
+						auto m = member.find(*p);
+						if (m != member.end() && !m->second) {
+							m->second = 1;
+							g.filled[*p] = std::max<fix>(g.eroded[*p], h + 1);
+							out.push({ g.filled[*p], *p });
+						}
+					}
+				}
+				continue;
 			}
 		}
 		// a broad basin, or a small deep one (a tarn, a scoured glacial lake)
@@ -403,9 +510,37 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 			under += sphere.area(by[k++]);
 		g->sea_offset = raw[by[k]];
 	}
+	// A continent is a platform, not a dome: its crust rises from the coast
+	// and levels off inland (the shields and plains are most of it, low and
+	// flat; Earth's land is mostly under 500 m): above P, the median of
+	// what's above the sea, it rises PLATFORM_RISE as fast. The ranges stand
+	// on it (relief).
+	static const fix PLATFORM_RISE = ratio(35, 100);
+	// Shields (Tectonics::stable) worn to SHIELD_M, SHIELD_WORN of the rest gone
+	static const int32_t SHIELD_M = 300;
+	static const fix SHIELD_WORN = ratio(55, 100);
+	fix platform = 0;
+	if (code.processes.water) {
+		std::vector<fix> above;
+		for (size_t i = 0; i < n; i++)
+			if (raw[i] > g->sea_offset)
+				above.push_back(raw[i] - g->sea_offset);
+		if (!above.empty()) {
+			std::nth_element(above.begin(), above.begin() + (ptrdiff_t)(above.size() / 2), above.end());
+			platform = above[above.size() / 2];
+		}
+	}
 	g->base.resize(n);
 	parallelFor((int32_t)n, [&](int32_t i) {
-		const fix land = raw[i] - g->sea_offset, relief = g->tectonics.relief[i];
+		fix land = raw[i] - g->sea_offset;
+		const fix relief = g->tectonics.relief[i];
+		if (land > 0 && platform > 0)
+			land = land > platform ? platform + mul(land - platform, PLATFORM_RISE) : land;
+		// a shield's been worn for longer than the history runs: what stands
+		// over SHIELD_M is mostly gone (an old belt on it is low and rounded)
+		const fix shield = SHIELD_M * ONE / 5000;
+		if (land > shield)
+			land = shield + mul(land - shield, ONE - mul(SHIELD_WORN, g->tectonics.stable[i]));
 		// trenches and abyssal hills shape the sea floor, never above the sea;
 		// rifts sink the land, never below it
 		// (on a dry body there's no waterline to hold to: the land just goes on down)
@@ -523,7 +658,8 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 		if (cold <= 0)
 			continue;
 		const fix patches = clamp(fbm(sphere.centre((int32_t)i), code.seed_hash + SCOURED, 30, 3, HALF) * 2, 0, ONE);
-		const fix depth = mul(mul(SCOUR, patches), std::min<fix>(ONE, cold * 4));
+		// (on a worn-flat shield a hollow as deep would join its neighbours into one inland sea)
+		const fix depth = mul(mul(mul(SCOUR, patches), std::min<fix>(ONE, cold * 4)), ONE - g->tectonics.stable[i] * 2 / 3);
 		g->base[i] = std::max<fix>(g->base[i] - depth, ratio(1, 160));
 	}
 
@@ -597,7 +733,7 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 				keep = (surface[c] - h[c]) / 8;  // a lake: silts up a little each round (a half compounded over the rounds filled all but the deepest)
 			else
 				keep = load[c] / a > power[c] ? (fix)(load[c] / a - power[c]) : 0; // past what it can carry
-			keep = std::min(keep, lowest_donor[c] - 1 - h[c]);
+			keep = (fix)std::min<int64_t>(keep, (int64_t)lowest_donor[c] - 1 - h[c]); // (64 bits: with no donor that's INT32_MAX less a depth)
 			if (keep > 0) {
 				const fix laid = (fix)std::min<int64_t>(keep, load[c] / a);
 				// heavy grains drop out HEAVY times as readily as the rest
@@ -646,6 +782,49 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 	for (fix &v : h)
 		v += old_sea;
 	g->eroded = h;
+	// Sinking basins: away from the coasts and the rising ranges, some of a
+	// continent's interior sags (the crust stretched or loaded beside a range:
+	// the Great Basin, the Caspian's, the Tarim, Lake Eyre's), so it's a closed
+	// hollow, not a plain. What fills it is left to the water's balance
+	// (keepRealLakes): an inland sea where rain is plenty, a salt lake or a
+	// dry pan where it isn't. It sinks still, faster than the rivers fill it:
+	// so after the erosion (sunk before it, it was filled level or cut open).
+	if (code.processes.water) {
+		// rings of cells in from the sea
+		std::vector<int32_t> inland(n, INT32_MAX);
+		std::vector<int32_t> ring;
+		for (size_t i = 0; i < n; i++)
+			if (g->base[i] < 0) {
+				inland[i] = 0;
+				ring.push_back((int32_t)i);
+			}
+		for (size_t head = 0; head < ring.size(); head++) {
+			const int32_t c = ring[head];
+			for (const int32_t *p = sphere.neighboursBegin(c); p != sphere.neighboursEnd(c); p++)
+				if (inland[*p] == INT32_MAX) {
+					inland[*p] = inland[c] + 1;
+					ring.push_back(*p);
+				}
+		}
+		for (size_t i = 0; i < n; i++) {
+			if (g->base[i] <= 0 || inland[i] < BASIN_INLAND)
+				continue;
+			const fix where = fbm(sphere.centre((int32_t)i), code.seed_hash + BASINS, BASIN_WAVES, 3, HALF) * 3 - BASIN_RARITY;
+			if (where <= 0)
+				continue;
+			// (none in a rising range; deepest well in from the coast)
+			// (a shield's slower rise isn't more sinking: read against a young land's)
+			const fix away = ONE - clamp(std::max<fix>(g->tectonics.belt[i], ratio(18, 100)) * 2, 0, ONE);
+			const fix in = clamp((fix)((int64_t)(inland[i] - BASIN_INLAND + 1) * ONE / BASIN_INLAND), 0, ONE);
+			const fix sag = mul(mul(mul(smooth(clamp(div(where, BASIN_RISE), 0, ONE)), away), in), BASIN_DEPTH);
+			const fix was = g->eroded[i];
+			g->eroded[i] = std::max<fix>(g->eroded[i] - sag, ratio(1, 160));
+			// (sinking is the crust's doing, not the rivers': uplift's opposite, so
+			// the sediment's balance still holds)
+			g->uplifted -= (int64_t)(was - g->eroded[i]) * sphere.area((int32_t)i);
+		}
+	}
+
 	g->worn.resize(n);
 	for (size_t i = 0; i < n; i++)
 		g->worn[i] = g->base[i] >= 0 ? g->eroded[i] - g->base[i] : 0;
@@ -659,32 +838,27 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 	// The final water: fill, keep the basins that make real lakes, drain, accumulate.
 	g->filled = fill(g->eroded);
 	g->lake.resize(n);
+	g->pan.assign(n, 0);
 	g->lake_level.resize(n);
 	if (code.processes.water)
-		keepRealLakes(*g);
+		keepRealLakes(*g, rain);
 	else
 		g->filled = g->eroded; // (basins stand dry)
 	g->receiver = receivers(g->filled);
 	g->drained = accumulate(g->receiver, upstreamOrder(g->receiver), rain);
 
-	// Rivers: the Rivers setting picks what share of the land carries one
-	// (0.4% to 4%), so every world gets its proportion, whatever its shape.
-	std::vector<int64_t> land_drained;
-	for (size_t i = 0; i < n; i++)
-		if (g->base[i] >= 0)
-			land_drained.push_back(g->drained[i]);
-	std::sort(land_drained.begin(), land_drained.end());
-	fix share = ratio(4, 1000) + mul(code.rivers, ratio(36, 1000));
-	// (streams: four times the share, the land between the rivers drained too)
-	const auto threshold = [&](fix part, int32_t least) {
-		if (land_drained.empty() || !code.processes.water)
-			return INT64_MAX;
-		size_t at = land_drained.size() - 1 - std::min(land_drained.size() - 1, (size_t)(((int64_t)land_drained.size() * part) >> FRAC));
-		return std::max<int64_t>(land_drained[at], toFix(least));
-	};
-	// (a river drains at least eight cells, a stream two)
-	g->river_threshold = threshold(share, 8);
-	g->stream_threshold = std::min(g->river_threshold, threshold(share * 4, 2));
+	// Rivers: where enough rain has gathered, so a wet land has many and a
+	// desert few (drained counts cells of rain, a cell of average rain one).
+	// The Rivers setting says how much makes one: from RIVER_FROM cells' rain
+	// down to RIVER_TO. (Streams are rivers for now: what's smaller is a dry
+	// valley till water can follow the fine ground.)
+	static const fix RIVER_FROM = toFix(24), RIVER_TO = toFix(4);
+	if (code.processes.water) {
+		g->river_threshold = (int64_t)(RIVER_FROM + mul(RIVER_TO - RIVER_FROM, code.rivers));
+		g->stream_threshold = g->river_threshold;
+	} else {
+		g->river_threshold = g->stream_threshold = INT64_MAX;
+	}
 
 	// geology on the finished land: volcanoes, which cells their slopes
 	// reach, then provinces (lava fields need the volcanoes)

@@ -63,8 +63,8 @@ enum FieldIndex { CONTINENTS, LAND, COAST, MOUNTAINS, ROUGHNESS, TEMPERATURE, HU
 static_assert(ORES + 1 == LAND_FIELDS);
 
 static const Field FIELDS[FIELD_COUNT] = {
-	{ 1, 8, 109 },   // continents 4
-	{ 0, 1, 102 },   // land 0.4
+	{ 1, 8, 219 },   // continents 7
+	{ 0, 1, 64 },    // land 0.25
 	{ 0, 1, 128 },   // coast 0.5
 	{ 0, 1, 128 },   // mountains 0.5
 	{ 0, 1, 128 },   // roughness 0.5
@@ -191,10 +191,10 @@ WorldCode WorldCode::decode(const std::string &code)
 	if (first == std::string::npos)
 		throw CodeError("This isn't a world code.");
 	std::string version = code.substr(0, first);
-	if (version == "TF15" || version == "TF14" || version == "TF13" || version == "TF12" || version == "TF11" || version == "TF10" || version == "TF9" || version == "TF1" || version == "TF2" || version == "TF3" || version == "TF4" || version == "TF5" || version == "TF6" || version == "TF7" || version == "TF8")
+	if (version == "TF17" || version == "TF16" || version == "TF15" || version == "TF14" || version == "TF13" || version == "TF12" || version == "TF11" || version == "TF10" || version == "TF9" || version == "TF1" || version == "TF2" || version == "TF3" || version == "TF4" || version == "TF5" || version == "TF6" || version == "TF7" || version == "TF8")
 		throw CodeError("This world code is from an older build of Terraverse (" + version + "); its worlds can't be generated any more.");
-	if (version != "TF16")
-		throw CodeError("This isn't a world code this game reads (TF16).");
+	if (version != "TF18")
+		throw CodeError("This isn't a world code this game reads (TF18).");
 	size_t second = code.find('.', first + 1);
 	std::string seed_part = code.substr(first + 1, second == std::string::npos ? std::string::npos : second - first - 1);
 	if (seed_part.empty())

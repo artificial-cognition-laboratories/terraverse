@@ -12,7 +12,7 @@
 namespace terragen::plates {
 
 // Noise streams for the plates (offsets from the world's seed hash; geology.cpp's others).
-enum : uint32_t { PLATE = 101, PLATE_WARP = 103 };
+enum : uint32_t { PLATE = 101, PLATE_WARP = 103, HISTORY_WARP = 421 };
 
 inline uint32_t mix(uint32_t a, uint32_t b, uint32_t seed)
 {

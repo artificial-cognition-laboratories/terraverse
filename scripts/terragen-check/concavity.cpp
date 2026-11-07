@@ -3,7 +3,7 @@
 // m/n = 0.5) channel slope falls as drained area^−0.5; this fits the exponent
 // over every stream cell. Checked in sprint 89 (plates with history):
 //   g++ -std=c++17 -O2 -I apps/game/src apps/game/src/terragen/*.cpp scripts/terragen-check/concavity.cpp -o concavity
-//   ./concavity TF16.dGVycmE
+//   ./concavity TF18.dGVycmE
 #include "terragen/world.h"
 #include "terragen/grid.h"
 #include <cstdio>

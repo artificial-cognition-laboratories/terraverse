@@ -32,8 +32,10 @@ public:
 	}
 
 	// with each corner lit to its own level (0..1), as smooth lighting does
-	void quad(const v3f (&corner)[4], Face face, const float (&lit)[4], video::SColorf colour)
+	void quad(const v3f (&corner)[4], Face face, const float (&lit)[4], video::SColorf colour, v3f normal = {})
 	{
+		if (normal == v3f())
+			normal = NORMAL[face];
 		if (mesh.parts.empty() || mesh.parts.back().vertices.size() + 4 > 65536)
 			mesh.parts.emplace_back();
 		Mesh::Part &p = mesh.parts.back();
@@ -41,16 +43,18 @@ public:
 		for (int k = 0; k < 4; k++) {
 			float s = SHADE[face] * lit[k];
 			video::SColor c = video::SColorf(colour.r * s, colour.g * s, colour.b * s, 1).toSColor();
-			p.vertices.emplace_back(corner[k] * BS, NORMAL[face], c, v2f(0, 0));
+			p.vertices.emplace_back(corner[k] * BS, normal, c, v2f(0, 0));
 		}
 		p.indices.insert(p.indices.end(), { base, (u16)(base + 1), (u16)(base + 2), base, (u16)(base + 2), (u16)(base + 3) });
 	}
 
 	// the horizontal face at height y over [x0, x1] × [z0, z1]
-	void flat(float x0, float x1, float z0, float z1, float y, Face face, video::SColorf colour)
+	// `normal`: the land's way up where it slopes (none: the face's own)
+	void flat(float x0, float x1, float z0, float z1, float y, Face face, video::SColorf colour, v3f normal = {})
 	{
+		static const float LIT[4] = { 1, 1, 1, 1 };
 		if (face == UP)
-			quad({ { x0, y, z0 }, { x0, y, z1 }, { x1, y, z1 }, { x1, y, z0 } }, face, colour);
+			quad({ { x0, y, z0 }, { x0, y, z1 }, { x1, y, z1 }, { x1, y, z0 } }, face, LIT, colour, normal);
 		else
 			quad({ { x0, y, z0 }, { x1, y, z0 }, { x1, y, z1 }, { x0, y, z1 } }, face, colour);
 	}
@@ -147,7 +151,15 @@ Mesh mesh(const Tile &tile, const Palette &palette)
 			const float x0 = tile.at(i - 1, j).space ? cx0 - reach : cx0, x1 = tile.at(i + 1, j).space ? cx1 + reach : cx1;
 			const float z0 = tile.at(i, j - 1).space ? cz0 - reach : cz0, z1 = tile.at(i, j + 1).space ? cz1 + reach : cz1;
 			if (!wet) {
-				b.flat(x0, x1, z0, z1, top(c.ground), UP, palette.face(c.top, UP));
+				// its top faces the way the land slopes across it, so a view that
+				// shades relief (the Planetarium's) can; the far view's shader
+				// doesn't read normals
+				const auto height = [&](s32 di, s32 dj) {
+					const Cell &n = tile.at(i + di, j + dj);
+					return (float)(n.space ? c.ground : n.ground);
+				};
+				const float gx = (height(1, 0) - height(-1, 0)) / (2.0f * cell), gz = (height(0, 1) - height(0, -1)) / (2.0f * cell);
+				b.flat(x0, x1, z0, z1, top(c.ground), UP, palette.face(c.top, UP), v3f(-gx, 1, -gz).normalize());
 			} else {
 				// the liquid, seen through as the near world's is
 				const float lit = lightAt(top(c.ground), c.water);

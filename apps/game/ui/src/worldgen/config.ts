@@ -54,8 +54,8 @@ export const NEW_WORLD_STYLE: SystemStyle = "sunlike"
 
 export const DEFAULTS: Omit<WorldConfig, "seed"> = {
     size: 16384, // blocks round the planet's equator: an atlas of radius size / 2π
-    continents: 4,
-    land: 0.4,
+    continents: 7,
+    land: 0.25,
     coast: 0.5,
     mountains: 0.5,
     roughness: 0.5,
@@ -78,7 +78,7 @@ export const DEFAULTS: Omit<WorldConfig, "seed"> = {
 
 /** One-click starting points for the land. Anything not listed stays as it is. */
 export const WORLD_PRESETS = [
-    { id: "continents", label: "Continents", note: "a few big landmasses, open seas", values: { continents: 4, land: 0.4, coast: 0.5, mountains: 0.5 } },
+    { id: "continents", label: "Continents", note: "several landmasses, open seas", values: { continents: 7, land: 0.25, coast: 0.5, mountains: 0.5 } },
     { id: "archipelago", label: "Archipelago", note: "scattered islands, warm water", values: { continents: 8, land: 0.25, coast: 0.85, mountains: 0.3, temperature: 0.3 } },
     { id: "pangaea", label: "Pangaea", note: "one supercontinent", values: { continents: 1, land: 0.65, coast: 0.35, mountains: 0.6 } },
     { id: "highlands", label: "Highlands", note: "rugged peaks, cold valleys", values: { continents: 3, land: 0.6, coast: 0.6, mountains: 0.95, roughness: 0.75, temperature: -0.4 } },
@@ -126,7 +126,7 @@ export function randomSeed() {
  *            per field (fixed order, quantized); omitted when all default
  * The version prefix means a code never silently changes meaning.
  */
-const VERSION = "TF16"
+const VERSION = "TF18"
 
 type Field = { key: Exclude<keyof WorldConfig, "seed" | "size" | "star" | "starMass" | "metallicity" | "age" | "wind" | "companion" | "style" | "bodies">; min: number; max: number }
 const FIELDS: Field[] = [

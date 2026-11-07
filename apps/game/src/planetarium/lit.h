@@ -13,7 +13,9 @@ class IShaderSource;
 	A body's land lit by its star: the side toward it day, the far side night,
 	by the same curve as the spheres far bodies are drawn as (SystemLayer::sphere),
 	so one becoming the other doesn't jump. Each pixel's way up is from the body's
-	centre, so it's the ball that's lit; the land's relief keeps its own shading.
+	centre, so it's the ball that's lit. The land's relief is shaded on top, by
+	its tiles' slopes (far/mesh.cpp), from the star and from a fixed light in
+	the north-west, as a map's hillshade, so it reads from straight above.
 */
 namespace planetarium {
 
@@ -35,6 +37,7 @@ public:
 		// radius 0 for none. Eclipses, worked out as spheres per pixel.
 		float occluders[OCCLUDERS][4];
 		float penumbra; // the star's angular radius, radians
+		float contour;  // blocks between contour lines on the land; 0 for none
 	};
 	// The material to draw land with, for this body. Set again per body.
 	const video::SMaterial &material(const Light &light);

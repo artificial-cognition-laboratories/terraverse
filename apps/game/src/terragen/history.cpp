@@ -53,6 +53,11 @@ const int32_t ABYSS_AGE = 16;
 // Ocean floor that arcs have built up this close under the sea becomes
 // continent (island arcs grow into land).
 const fix SHALLOW = ratio(4, 100);
+// How far the finished history's lines are bent (cells, at most about), and
+// how many bends a radian: no deeper than a bend's length over 2π, or the warp
+// folds over itself and scatters each plate's cells into its neighbours'.
+const fix WANDER = toFix(5);
+const int32_t WANDER_FREQUENCY = 2;
 // How fast recent uplift fades from `rate`, per step.
 const fix FADE = ratio(3, 4);
 // The rivers between steps (as the finished land's: grid.cpp).
@@ -405,6 +410,23 @@ History history(const WorldCode &c)
 		for (size_t i = 0; i < n; i++)
 			if (cells[i].continental)
 				cells[i].height = h[i] + sea;
+	}
+	// Plates turn rigidly and are read back a cell at a time, so over the
+	// steps their shapes smear into streaks along their motion, and coasts,
+	// rifts and sutures run in ruler lines a thousand km long. Real ones
+	// wander (rifts follow old weaknesses, transforms offset ridges): the
+	// whole history read through a warp a few cells deep, every line bent,
+	// what's either side of it kept.
+	{
+		const fix deep = mul(WANDER, sphere.spacing());
+		const std::vector<History::Cell> was = out.cells;
+		parallelFor((int32_t)n, [&](int32_t i) {
+			const Dir &d = sphere.centre(i);
+			const Dir w = normalise((int64_t)d.x + mul(fbm(d, c.seed_hash + HISTORY_WARP, WANDER_FREQUENCY, 4, ratio(45, 100)), deep),
+					(int64_t)d.y + mul(fbm(d, c.seed_hash + HISTORY_WARP + 1, WANDER_FREQUENCY, 4, ratio(45, 100)), deep),
+					(int64_t)d.z + mul(fbm(d, c.seed_hash + HISTORY_WARP + 2, WANDER_FREQUENCY, 4, ratio(45, 100)), deep));
+			out.cells[i] = was[sphere.cell(w)];
+		});
 	}
 	for (size_t i = 0; i < n; i++)
 		if (out.cells[i].continental)

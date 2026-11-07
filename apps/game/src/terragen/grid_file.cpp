@@ -22,7 +22,7 @@ namespace fs = std::filesystem;
 
 namespace {
 
-constexpr size_t GRID_SIZE = 1136;
+constexpr size_t GRID_SIZE = 1184;
 
 std::mutex g_lock;
 std::string g_dir, g_build;
@@ -81,7 +81,7 @@ void fields(IO &io, G &g)
 {
 	static_assert(sizeof(Grid) == GRID_SIZE, "Grid changed: list the new field here, then set GRID_SIZE");
 	field(io, g.sea_offset); field(io, g.base); field(io, g.eroded); field(io, g.worn); field(io, g.sediment);
-	field(io, g.placer); field(io, g.to_deep); field(io, g.uplifted); field(io, g.hollows); field(io, g.filled);
+	field(io, g.placer); field(io, g.to_deep); field(io, g.uplifted); field(io, g.hollows); field(io, g.filled); field(io, g.pan);
 	field(io, g.receiver); field(io, g.drained); field(io, g.lake); field(io, g.lake_level);
 	field(io, g.rain_season[0]); field(io, g.rain_season[1]); field(io, g.sea_heat); field(io, g.heat);
 	field(io, g.heat_gain); field(io, g.ice); field(io, g.fertility); field(io, g.river_threshold);
@@ -89,7 +89,7 @@ void fields(IO &io, G &g)
 	auto &t = g.tectonics;
 	field(io, t.plates); field(io, t.plate); field(io, t.boundary); field(io, t.distance); field(io, t.side);
 	field(io, t.belt); field(io, t.relief); field(io, t.formed); field(io, t.age); field(io, t.fold);
-	field(io, t.plateau); field(io, t.oldness); field(io, t.front);
+	field(io, t.plateau); field(io, t.oldness); field(io, t.front); field(io, t.stable);
 	field(io, g.history); field(io, g.province); field(io, g.volcanoes); field(io, g.rise); field(io, g.canyons);
 	field(io, g.volcano_start); field(io, g.volcano_list); field(io, g.craters); field(io, g.crater_stamp);
 	field(io, g.crater_young); field(io, g.crater_start); field(io, g.crater_list); field(io, g.crater_from);

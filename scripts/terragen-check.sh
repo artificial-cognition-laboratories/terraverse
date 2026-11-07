@@ -10,7 +10,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 cmake --build "$root/.output/build" -j > /dev/null # the engine must match the source the predictor is built from
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-code="TF16.dGVycmE"
+code="TF18.dGVycmE"
 
 g++ -std=c++17 -O1 -I"$root/apps/game/src" "$root"/apps/game/src/terragen/*.cpp "$root/scripts/terragen-check/predict.cpp" -o "$work/predict"
 world="$work/world"
@@ -18,7 +18,7 @@ mkdir -p "$world/worldmods"
 "$work/predict" "$code" "$world/points.txt"
 cp -r "$root/scripts/terragen-check/probe" "$world/worldmods/probe"
 printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\nauth_backend = sqlite3\n' > "$world/world.mt"
-# TF16.dGVycmE: the default size, 16384 round: an atlas of radius 8192 / 2π, the standard layout
+# TF18.dGVycmE: the default size, 16384 round: an atlas of radius 8192 / 2π, the standard layout
 atlas="atlas-v2 radius=2607.5945876176133 segments=24 capLatitude=85 core=651.8986469044033 rounding=0.95 height=256"
 printf 'mg_name = terra\nmgterra_code = %s\nseed = 1\nchunksize = 1\nplanet_atlas = %s\n[end_of_params]\n' "$code" "$atlas" > "$world/map_meta.txt"
 
@@ -41,7 +41,8 @@ predicted, probed = table("predicted.txt"), table("probed.txt")
 TOP = {"deep": "gravel", "ocean": "sand", "seaice": "gravel", "beach": "sand", "desert": "sand",
        "savanna": "dry_grass", "grassland": "grass", "forest": "grass", "jungle": "grass",
        "taiga": "grass", "tundra": "tundra", "rock": "stone", "snow": "snow",
-       "monsoon": "grass", "mediterranean": "dry_grass"}
+       "monsoon": "grass", "mediterranean": "dry_grass",
+       "saltflat": "salt_crust", "marsh": "mud", "floodplain": "grass"}
 BED = {"rock": "gravel", "snow": "gravel"}
 bad, kinds = [], {}
 for key, (terrain, water, kind, biome, deep) in predicted.items():

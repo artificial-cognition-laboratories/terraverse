@@ -174,6 +174,12 @@ std::shared_ptr<const far::Tiles::Tint> Planetarium::tintFor(int body)
 	});
 }
 
+// Contour lines on the elevation overlay: blocks between them (every fifth bold)
+float Planetarium::contour() const
+{
+	return m_layer && !m_layer->image && m_layer->overlay == Overlay::Elevation ? 50.f : 0.f;
+}
+
 double Planetarium::spinOf(size_t index) const
 {
 	return m_system.system().turning(index, m_day);
@@ -200,7 +206,7 @@ bool Planetarium::drawBaked(video::IVideoDriver *driver, const core::matrix4 &lo
 		return false; // its sphere till its coarse land is there
 	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, m_shift, m_fov));
 	driver->setTransform(video::ETS_VIEW, look);
-	driver->setMaterial(m_system.lit(index, m_day, v3f((f32)at.x, (f32)at.y, (f32)at.z) * BS, 0, !m_layer));
+	driver->setMaterial(m_system.lit(index, m_day, v3f((f32)at.x, (f32)at.y, (f32)at.z) * BS, 0, !m_layer, contour()));
 	// where it is, turned on its axis, at the scene's scale; a tile from its middle
 	core::matrix4 place, turn, scale;
 	place.setTranslation(v3f((f32)at.x, (f32)at.y, (f32)at.z) * BS);
@@ -641,7 +647,7 @@ void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 		}
 		driver->setTransform(video::ETS_VIEW, spun);
 		// (an overlay is there to be read, on the night side too)
-		driver->setMaterial(m_system.lit(m_tiled, m_day, v3f((float)-ground.x, (float)-ground.y, (float)-ground.z) * BS, m_spin, !m_layer));
+		driver->setMaterial(m_system.lit(m_tiled, m_day, v3f((float)-ground.x, (float)-ground.y, (float)-ground.z) * BS, m_spin, !m_layer, contour()));
 		for (const far::Tiles::Drawn &tile : m_tiles.drawn()) {
 			core::matrix4 world;
 			world.setTranslation(v3f((float)(tile.middle.x - ground.x), (float)(tile.middle.y - ground.y),

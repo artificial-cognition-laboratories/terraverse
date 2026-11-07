@@ -2,7 +2,7 @@
 // shaded relief, lakes, rivers by flow — and prints how long the grid took and
 // what share is land. For tuning generation by eye:
 //   g++ -std=c++17 -O2 -I src src/terragen/*.cpp scripts/terragen-check/render.cpp -o render
-//   ./render TF16.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents|sediment]
+//   ./render TF18.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents|sediment]
 #include "terragen/world.h"
 #include "terragen/worlds.h"
 #include "terragen/sphere.h"
@@ -99,6 +99,14 @@ int main(int argc, char **argv)
 		lakes += g->lake[i];
 		rivers += g->river(i);
 	}
+	// hypsometry: how much of the land stands under 500 m and over 2 km (a unit is 5 km)
+	double low = 0, high = 0;
+	for (int i = 0; i < g->size(); i++)
+		if (g->eroded[i] >= 0) {
+			low += g->eroded[i] < ONE / 10 ? sphere.area(i) : 0;
+			high += g->eroded[i] > ONE * 2 / 5 ? sphere.area(i) : 0;
+		}
+	std::printf("land under 500 m %.0f%%, over 2 km %.0f%%\n", 100.0 * low / std::max(1.0, land), 100.0 * high / std::max(1.0, land));
 	std::printf("grid %.0f ms · land %.1f%% (asked %.0f%%) · lakes %d cells · rivers %d cells\n",
 		ms, 100.0 * land / all, 100.0 * code.land / ONE, lakes, rivers);
 
@@ -155,7 +163,8 @@ int main(int argc, char **argv)
 			} else if (mode == "biomes") {
 				static const unsigned char BC[(int)Biome::Count][3] = { { 18, 52, 96 }, { 30, 84, 140 }, { 200, 220, 235 },
 					{ 214, 200, 140 }, { 222, 190, 118 }, { 176, 170, 84 }, { 104, 160, 72 }, { 52, 116, 56 }, { 28, 120, 60 },
-					{ 60, 100, 80 }, { 150, 160, 140 }, { 120, 116, 110 }, { 236, 240, 244 }, { 96, 140, 40 }, { 160, 150, 96 } };
+					{ 60, 100, 80 }, { 150, 160, 140 }, { 120, 116, 110 }, { 236, 240, 244 }, { 96, 140, 40 }, { 160, 150, 96 },
+					{ 168, 166, 160 }, { 84, 84, 88 }, { 164, 83, 44 }, { 216, 194, 60 }, { 232, 226, 214 }, { 74, 110, 84 }, { 132, 170, 70 } };
 				const unsigned char *bc = BC[(int)world.column(at, world.sunlight(at, std::nullopt)).biome];
 				r = bc[0] * shade; gg = bc[1] * shade; b = bc[2] * shade;
 			} else if (mode == "currents") {
@@ -174,6 +183,10 @@ int main(int argc, char **argv)
 				// placers (gold, tin) in red, by how rich
 				const double pl = g->placer[i] / 65536.0;
 				if (pl > 0) { r = 160 + 95 * pl; gg = 40; b = 40; }
+			} else if (mode == "age") {
+				// how long the crust has stood still: shields deep violet, young belts and rifts orange
+				const double st = g->tectonics.stable[i] / 65536.0;
+				if (e >= 0) { r = (230 - 150 * st) * shade; gg = (140 - 80 * st) * shade; b = (60 + 120 * st) * shade; }
 			} else if (mode == "fertility") {
 				double f = g->fertility[i] / 65536.0;
 				if (e >= 0) { r = (90 + 80 * (1 - f)) * shade; gg = (70 + 120 * f) * shade; b = 50 * shade; }

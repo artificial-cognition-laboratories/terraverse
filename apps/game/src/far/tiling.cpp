@@ -94,13 +94,19 @@ void Tiling::place(Mesh &mesh, const TileKey &key) const
 		const Vec a = point(key, half + dx, -0.5 + dy, half + dz), b = point(key, half - dx, -0.5 - dy, half - dz);
 		return v3f(a.x - b.x, a.y - b.y, a.z - b.z).normalize();
 	};
-	const v3f ex = axis(0.5, 0, 0), ey = axis(0, 0.5, 0), ez = axis(0, 0, 0.5);
+	const v3f ex = axis(0.5, 0, 0), ez = axis(0, 0, 0.5);
 	for (Mesh::Part &part : mesh.parts)
 		for (video::S3DVertex &v : part.vertices) {
 			const v3f t = v.Pos / BS;
 			const Vec p = point(key, t.X, t.Y, t.Z);
 			v.Pos = v3f(p.x - mid.x, p.y - mid.y, p.z - mid.z) * BS;
-			v.Normal = (ex * v.Normal.X + ey * v.Normal.Y + ez * v.Normal.Z).normalize();
+			// up is the planet's at the vertex, not the tile's middle: else a
+			// flat top leans more toward the tile's edge, and shading by the
+			// normal draws every tile's outline (east and north kept square to it)
+			const v3f up = v3f(p.x, p.y, p.z).normalize();
+			const v3f east = (ex - up * ex.dotProduct(up)).normalize();
+			const v3f north = up.crossProduct(east) * (up.crossProduct(east).dotProduct(ez) < 0 ? -1.f : 1.f);
+			v.Normal = (east * v.Normal.X + up * v.Normal.Y + north * v.Normal.Z).normalize();
 		}
 }
 

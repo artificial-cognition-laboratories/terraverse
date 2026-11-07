@@ -207,6 +207,7 @@ private:
 	// the land's colours under a layer, from that body's world model (an atlas body's)
 	// (none while its world's still being built: then it's tinted when it is)
 	std::shared_ptr<const far::Tiles::Tint> tintFor(int body);
+	float contour() const;
 	void tint(int body); // that body's tiles, as the layer has them
 	// an atlas body's world model, once built (on another thread: seconds, the first time)
 	std::shared_ptr<const terragen::World> worldOf(int body);

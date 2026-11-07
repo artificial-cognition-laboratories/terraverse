@@ -286,7 +286,7 @@ void SystemLayer::shaders(IShaderSource *ssrc)
 	m_galaxy = std::make_unique<Galaxy>(ssrc, m_sphere.get());
 }
 
-const video::SMaterial &SystemLayer::lit(size_t body, double day, const v3f &centre_at, double turn, bool on)
+const video::SMaterial &SystemLayer::lit(size_t body, double day, const v3f &centre_at, double turn, bool on, float contour)
 {
 	if (!m_lit)
 		throw BaseException("planetarium: bodies drawn before SystemLayer::shaders");
@@ -296,6 +296,7 @@ const video::SMaterial &SystemLayer::lit(size_t body, double day, const v3f &cen
 	Lit::Light light{};
 	light.centre = centre_at;
 	light.on = on;
+	light.contour = contour;
 	const V way = toStar(body, day);
 	light.sun = v3(inFrame(way));
 	if (s.hasCompanion()) {

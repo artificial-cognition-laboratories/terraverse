@@ -122,6 +122,9 @@ export const BIOME_COLORS: Record<string, readonly [number, number, number]> = {
     dust: [164, 83, 44],
     sulfur: [216, 194, 60],
     mare: [84, 84, 88],
+    saltflat: [232, 226, 214],
+    marsh: [74, 110, 84],
+    floodplain: [132, 170, 70],
 }
 
 /** What the map and globe colour by. */

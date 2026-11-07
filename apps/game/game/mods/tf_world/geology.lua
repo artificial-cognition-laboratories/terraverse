@@ -75,12 +75,14 @@ local ORES = {
 	{ "sulfur", "Sulfur", "sulfur_ore", "sulfur", 3 },
 	{ "ilmenite", "Ilmenite (iron and titanium)", "ilmenite_ore", "ilmenite", 2 },
 	{ "kreep", "KREEP (thorium and rare earths)", "kreep_ore", "apatite", 2 },
+	-- (drawn for now as the coal's nodules, chalk-pale)
+	{ "flint", "Flint nodules in chalk", "coal_ore", "silica", 3, "^[colorize:#e4e0d4:110" },
 }
 for _, o in ipairs(ORES) do
 	local id, label, texture, matter, hardness = o[1], o[2], o[3], o[4], o[5]
 	core.register_node("tf_world:ore_" .. id, {
 		description = label,
-		tiles = { tex(texture) },
+		tiles = { tex(texture) .. (o[6] or "") },
 		groups = { cracky = hardness, ore = 1 },
 		_matter = { matter = matter, share = 0.6 }, -- the ore mineral, in rock pores and veins
 	})

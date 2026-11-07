@@ -22,6 +22,9 @@ namespace terragen {
 enum class Biome : uint8_t {
 	Deep, Ocean, SeaIce, Beach, Desert, Savanna, Grassland, Forest, Jungle,
 	Taiga, Tundra, Rock, Snow, Monsoon, Mediterranean, Regolith, Mare, Dust, Sulfur,
+	// landforms: where water left the ground (a closed basin's dried floor, low
+	// wet ground that silt built, a big river's plain)
+	SaltFlat, Marsh, Floodplain,
 	Count
 };
 
@@ -91,6 +94,9 @@ class World
 {
 public:
 	explicit World(const WorldCode &code);
+	// (the channels below the grid keep a pointer to it: never copied)
+	World(const World &) = delete;
+	World &operator=(const World &) = delete;
 
 	const WorldCode &code() const { return m_code; }
 	const Grid &grid() const { return *m_grid; }
@@ -141,6 +147,20 @@ public:
 	static int64_t blocksOf(fix unit, int64_t radius) { return ((int64_t)unit * radius) >> FRAC; }
 	// The angle (radians) `blocks` of ground spans.
 	fix angle(int32_t blocks) const { return (fix)(((int64_t)blocks << (2 * FRAC)) / m_radius); }
+	// Whether a grid cell's run to its receiver is drawn as water: a river,
+	// or a creek with a share of a river's flow (sprint 107)
+	bool drawn(int32_t c) const;
+	// The place a drawn run's line passes at `t` (0 at the cell, 1 at its
+	// receiver), as ground() draws it: in the rivers' warp, bowed and swung.
+	// Where a stream below the grid ends on it, so it meets the water.
+	Place onRun(int32_t c, fix t) const;
+	// The place whose warped reading (the rivers') lands about here: where on
+	// the ground a place on a run's line is
+	Place unwarped(const Place &warped) const;
+	// A drawn run's water level (blocks) at PROFILE + 1 points along it, from
+	// the cell to its receiver (none: nullptr)
+	static constexpr int PROFILE = 8;
+	const int32_t *profile(int32_t c) const { return m_profile.empty() || m_runs[c].run == 0 ? nullptr : &m_profile[(size_t)c * (PROFILE + 1)]; }
 	// The coarse grid's mean spacing between cell centres, in blocks (fixed, 64 bits).
 	int64_t cellBlocks() const { return m_cell_blocks; }
 	static int64_t cellBlocksOf(const WorldCode &code);
@@ -195,6 +215,46 @@ private:
 	fix m_height;          // blocks per unit of elevation (heightScale)
 	fix m_metre;           // blocks per metre (blocksPerMetre)
 	std::vector<Crater> m_rayed; // the young craters still bright with rays (sprint 96)
+	// Deltas: where a big river meets the sea, the fan its silt builds out
+	// into it, split among distributaries (sprint 106)
+	struct Delta
+	{
+		Place apex;            // the river's last cell on land
+		fix sea[3], side[3];   // unit: seaward, and across (to its left)
+		int64_t radius;        // the fan's reach, blocks, fixed
+		int64_t width;         // the river's width there, blocks, fixed
+		uint32_t hash;
+		int arms;              // its distributaries
+	};
+	std::vector<int32_t> m_upstream; // each drawn cell's main stem in: the one draining most into it (−1 none)
+	// A drawn run's shape, the same for every column that reads it
+	struct RunShape
+	{
+		int64_t width = 0;  // blocks, fixed
+		int64_t run = 0;    // its length, blocks, fixed (0: not drawn)
+		int64_t loops = 1;  // meander loops along it
+		int64_t swing = 0, reach_side = 0; // how far they swing (signed), and at most (blocks, fixed)
+		fix m0 = 0, m1 = 0; // its slopes across the run at each end (Hermite's)
+		// the line's offset across the run at t (blocks, fixed), the meander's
+		// part of it, and its rate (per unit t)
+		void line(fix t, int64_t &side, int64_t &off, int64_t &rate) const;
+	};
+	std::vector<RunShape> m_runs;
+	void shapeRuns();
+	// Each drawn run's water level (blocks) at PROFILE + 1 points from its
+	// cell to its receiver: falling downstream, under the ground beside it
+	// (the water's cut into the land, never banked up over it)
+	std::vector<int32_t> m_profile;
+	void profileRuns();
+	// the ground at a place before volcanoes and water, as ground() starts it
+	int32_t landAt(const Place &at) const;
+
+	std::vector<Delta> m_deltas;
+	std::vector<int16_t> m_delta_at; // each cell's delta, if one reaches it (−1 none)
+	void deltas();
+	// a delta's fan in a column, if one's here (before the rivers, which run
+	// on over it), or its distributaries and marsh (after)
+	void delta(const Place &at, Ground &out, bool arms) const;
 	fix m_detail;          // the detail's amplitude at a cell's wavelength, blocks, where ruggedness is 1
 	int m_detail_octaves;  // from a cell's wavelength down to 16 blocks
 	std::optional<Channels> m_channels; // the drainage below the grid, where water ever ran
@@ -218,6 +278,8 @@ private:
 	// How hard the coast's rock is, 0 (soft or buried in sediment: beaches)
 	// to 1 (a shield, a range's core: cliffs), between the cells (sprint 97)
 	fix hardness(const Dir &d) const;
+	// Whether the sea is within a cell or so of a place (its cells or theirs)
+	bool bySea(const Dir &d) const;
 	// one age of craters at a place, exactly (blocks, fixed): the grid's wide
 	// ones and the column's own
 	fix craters(const Place &at, Age age) const;
@@ -232,6 +294,9 @@ private:
 		std::array<fix, 3> warp{}; // the rivers' warp there, in cells
 	};
 	const ChannelsAt &channelsAt(const Place &at) const;
+	// Gullies: the drainage finer than the grid, as erosion leaves it on a
+	// slope (blocks, fixed, about 0); `strength` 0..1 how deeply it's cut
+	fix gullies(const Place &at, fix strength) const;
 	// fold ridges at a place (planning/sprint-101-ranges.md)
 	struct Folds
 	{

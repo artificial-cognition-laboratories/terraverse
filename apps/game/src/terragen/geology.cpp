@@ -19,7 +19,7 @@ const char *const ROCK_NAMES[(int)Rock::Count] = {
 	"granite", "gneiss", "slate", "basalt", "andesite", "tuff", "obsidian", "sandstone", "shale", "limestone", "anorthosite", "breccia", "ice",
 };
 const char *const ORE_NAMES[(int)Ore::Count] = {
-	"none", "copper", "tin", "lead", "gold", "iron", "magnetite", "coal", "salt", "sulfur", "ilmenite", "kreep", "ice",
+	"none", "copper", "tin", "lead", "gold", "iron", "magnetite", "coal", "salt", "sulfur", "ilmenite", "kreep", "ice", "flint",
 };
 
 using namespace plates;
@@ -30,12 +30,30 @@ namespace {
 enum GeoStream : uint32_t {
 	VOLCANO = 107, HOTSPOT = 109, SEDIMENT = 113, FOLD = 127,
 	PLUTON = 131, VEIN = 137, METAL = 139, MAGNETITE = 149, BANDED = 151, CAVE_A = 157, CAVE_B = 163,
-	TUBE = 167, CAVERN = 173, SULFUR = 179, PHASE = 181, INLAND_BASIN = 191, ILMENITE = 193, KREEP = 197,
+	TUBE = 167, CAVERN = 173, SULFUR = 179, PHASE = 181, INLAND_BASIN = 191, ILMENITE = 193, KREEP = 197, FLINT = 433,
 };
 
 const int GIANT_SHIELDS = 5, PATERAE = 200;
 
 } // namespace
+
+// f averaged with its neighbours, `passes` times
+static std::vector<fix> smoothed(std::vector<fix> f, int passes)
+{
+	const Sphere &sphere = gridSphere();
+	const int32_t n = sphere.size();
+	for (int pass = 0; pass < passes; pass++) {
+		const std::vector<fix> was = f;
+		for (int32_t i = 0; i < n; i++) {
+			int64_t sum = was[i];
+			int32_t count = 1;
+			for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++, count++)
+				sum += was[*p];
+			f[i] = (fix)(sum / count);
+		}
+	}
+	return f;
+}
 
 // Each range's parts, from what its crust went through. Crust is handed over
 // cell by cell, so what it carries is smoothed before it's read
@@ -43,19 +61,6 @@ static void styles(const History &h, Tectonics &t)
 {
 	const Sphere &sphere = gridSphere();
 	const int32_t n = sphere.size();
-	const auto smoothed = [&](std::vector<fix> f, int passes) {
-		for (int pass = 0; pass < passes; pass++) {
-			const std::vector<fix> was = f;
-			for (int32_t i = 0; i < n; i++) {
-				int64_t sum = was[i];
-				int32_t count = 1;
-				for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++, count++)
-					sum += was[*p];
-				f[i] = (fix)(sum / count);
-			}
-		}
-		return f;
-	};
 	std::vector<fix> over(n), under(n);
 	for (int32_t i = 0; i < n; i++) {
 		over[i] = h.cells[i].over;
@@ -66,6 +71,8 @@ static void styles(const History &h, Tectonics &t)
 
 	// how far in from the belt's edge, by true distances along the cells
 	const fix EDGE = ratio(3, 100);
+	// how many cells in from the edge fold trains reach
+	const fix FOLD_FRINGE = toFix(6);
 	t.front.assign(n, 0);
 	std::vector<fix> far(n, INT32_MAX);
 	using Open = std::pair<fix, int32_t>;
@@ -109,13 +116,26 @@ static void styles(const History &h, Tectonics &t)
 		// mostly ahead of the front, less behind it; none in the crystalline core
 		const fix ahead = div(under[i], all);
 		t.fold[i] = mul(mul(clamp(div(all - EDGE, ratio(12, 100)), 0, ONE), ratio(25, 100) + mul(ahead, ratio(75, 100))), ONE - core);
-		t.plateau[i] = clamp(div(over[i] - ratio(20, 100), ratio(25, 100)), 0, ONE);
+		// a fringe of the belt, its outer FOLD_FRINGE cells (the Jura, the
+		// Valley and Ridge): further in, the crust is thrust and stacked, not
+		// folded in trains; and an old belt's are mostly worn away
+		t.fold[i] = mul(t.fold[i], ONE - smooth(clamp(div(t.front[i] - FOLD_FRINGE / 2, FOLD_FRINGE / 2), 0, ONE)));
+		t.fold[i] = mul(t.fold[i], ONE - mul(ratio(h.cells[i].age, 16) > ONE ? ONE : ratio(h.cells[i].age, 16), ratio(60, 100)));
+		// (only the most thickened: a Tibet or an Altiplano is rare, most ranges stand in crests)
+		t.plateau[i] = clamp(div(over[i] - ratio(35, 100), ratio(30, 100)), 0, ONE);
 		t.oldness[i] = clamp(ratio(h.cells[i].age, 16), 0, ONE);
 	}
 	t.plateau = smoothed(std::move(t.plateau), 4);
 	for (int32_t i = 0; i < n; i++)
 		t.fold[i] = mul(t.fold[i], ONE - t.plateau[i]);
 }
+
+// Crust stands still (Tectonics::stable) from STILL_FROM steps after it last
+// rose, fully STILL_STEPS later, and from STILL_EDGE cells off an active edge
+// to three times that.
+const int32_t STILL_FROM = 6, STILL_STEPS = 22, STILL_EDGE = 4;
+// How fast a shield still rises, against a young land's 0.18 (Tectonics::belt)
+const fix STILL_RISE = ratio(3, 100);
 
 Tectonics tectonics(const WorldCode &c, const History &h)
 {
@@ -229,13 +249,40 @@ Tectonics tectonics(const WorldCode &c, const History &h)
 	for (size_t i = 0; i < n; i++) {
 		int32_t d = t.distance[i];
 		bool sea = !h.cells[i].continental;
-		t.belt[i] = std::max<fix>(ratio(18, 100), h.cells[i].rate);
+		t.belt[i] = h.cells[i].rate;
 		if (t.boundary[i] == Boundary::Convergent && t.side[i] == Side::Subducting && sea && d < 2)
 			t.relief[i] = -mul(ratio(22, 100), falloff(d, 2));
-		else if (t.boundary[i] == Boundary::Divergent && !sea)
-			t.relief[i] = -mul(ratio(5, 100), falloff(d, 3));
+		else if (t.boundary[i] == Boundary::Divergent && !sea) {
+			// A continental rift isn't a trough the boundary's length: it opens
+			// in basins strung along it, each deepest at its middle and closed
+			// at its ends by a step of higher ground (the East African lakes,
+			// the Rhine graben's), and its width wanders. Noise along it
+			// decides where (a few basins a boundary), and how far each reaches.
+			const Dir at = sphere.centre((int32_t)i);
+			const fix basins = clamp(fbm(at, c.seed_hash + RIFTS, 24, 2, HALF) * 3 + ratio(20, 100), 0, ONE);
+			const fix reach = toFix(2) + fbm(at, c.seed_hash + RIFTS + 1, 48, 2, HALF) * 3; // cells, about 1 to 3
+			const fix fade = d * ONE >= reach ? 0 : smooth(ONE - div(toFix(d), std::max<fix>(reach, ONE)));
+			t.relief[i] = -mul(mul(ratio(5, 100), smooth(basins)), fade);
+		}
 	}
 	styles(h, t);
+	// Shields and platforms: crust that last rose long ago, isn't being
+	// pushed up now, and is far from an edge that's doing anything
+	t.stable.assign(n, 0);
+	for (size_t i = 0; i < n; i++) {
+		if (!h.cells[i].continental)
+			continue;
+		const fix old = smooth(clamp(ratio(t.age[i] - STILL_FROM, STILL_STEPS), 0, ONE));
+		const fix quiet = ONE - clamp(h.cells[i].rate * 3, 0, ONE);
+		const fix away = t.boundary[i] == Boundary::Transform || t.boundary[i] == Boundary::None ? ONE
+				: smooth(clamp(ratio(t.distance[i] - STILL_EDGE, STILL_EDGE * 2), 0, ONE));
+		t.stable[i] = mul(mul(old, quiet), away);
+	}
+	t.stable = smoothed(std::move(t.stable), 10);
+	// (the slow rise everywhere that keeps land from wearing flat is the
+	// young crust's: a shield barely rises, so it's worn to a plain)
+	for (size_t i = 0; i < n; i++)
+		t.belt[i] = std::max(t.belt[i], STILL_RISE + mul(ratio(18, 100) - STILL_RISE, ONE - t.stable[i]));
 	return t;
 }
 
@@ -604,6 +651,11 @@ Ore World::ore(const Strata &s, Rock rock, int32_t depth, int32_t y) const
 		// salt: seas that dried in arid basins
 		if (s.arid && s.province == Province::Basin && b >= 4 && b < 7)
 			return Ore::Salt;
+		// flint: silica gathered into nodules in the chalk, along its beds
+		// (a stone age's tools where the limestone comes up)
+		if (rock == Rock::Limestone && b >= 9 && b < 11 &&
+				value3(p[0], p[1], p[2], m_code.seed_hash + FLINT, 3) > ONE - mul(ratio(30, 100), scale))
+			return Ore::Flint;
 	}
 	return Ore::None;
 }

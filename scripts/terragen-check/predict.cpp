@@ -103,6 +103,9 @@ static int soil(Biome b, bool bed)
 	case Biome::Tundra: case Biome::Mediterranean: return bed ? 4 : 3;
 	case Biome::Rock: return bed ? 2 : 0;
 	case Biome::Snow: return bed ? 2 : 1;
+	case Biome::SaltFlat: return bed ? 6 : 5;
+	case Biome::Marsh: return 5;
+	case Biome::Floodplain: return bed ? 8 : 7;
 	default: return bed ? 5 : 4;
 	}
 }

@@ -79,6 +79,22 @@ for _, r in ipairs({ { "rust_dust", "Rust dust", "#a4532c", "hematite" }, { "sul
 	})
 end
 
+-- Where water left the ground (landforms): a closed basin's floor where its
+-- water dried (salt over the silt), and the wet silt of marshes. Tinted from
+-- sand and dirt until they've art.
+core.register_node("tf_world:salt_crust", {
+	description = "Salt Crust",
+	tiles = { "tf_goodvibes_sand.png^[colorize:#f2ede2:200" },
+	groups = { loose = 1, crumbly = 3, pile_repose = 1, pile_yield = 8, pile_bearing = 40, pile_give = 3 },
+	_matter = { matter = "salt", share = 0.6 },
+})
+core.register_node("tf_world:mud", {
+	description = "Mud",
+	tiles = { "tf_goodvibes_dirt.png^[colorize:#3b3326:120" },
+	groups = { loose = 1, crumbly = 3, pile_repose = 1, pile_yield = 16, pile_bearing = 10, pile_give = 6 },
+	_matter = { matter = "silica", share = 0.5 }, -- TEMP(2026-11-06): silt as quartz, wet, until soils are modelled
+})
+
 -- the sea floor
 biome("deep", { node_top = "tf_world:gravel", depth_top = 1, node_filler = "tf_world:gravel", depth_filler = 2, heat_point = 50, humidity_point = 50 })
 biome("ocean", { node_top = "tf_world:sand", depth_top = 1, node_filler = "tf_world:sand", depth_filler = 3, heat_point = 50, humidity_point = 50 })
@@ -108,5 +124,12 @@ for _, r in ipairs({ { "dust", "rust_dust" }, { "sulfur", "sulfur_crust" } }) do
 	biome(r[1], { node_top = "tf_world:" .. r[2], depth_top = 2, node_filler = "tf_world:" .. r[2], depth_filler = 0,
 		node_riverbed = "tf_world:" .. r[2], heat_point = 30, humidity_point = 0 })
 end
+biome("saltflat", { node_top = "tf_world:salt_crust", depth_top = 1, node_filler = "tf_world:sand", depth_filler = 4,
+	node_riverbed = "tf_world:salt_crust", heat_point = 80, humidity_point = 5 })
+biome("marsh", { node_top = "tf_world:mud", depth_top = 2, node_filler = "tf_world:clay", depth_filler = 3,
+	node_riverbed = "tf_world:mud", heat_point = 55, humidity_point = 95 })
+-- (a marsh's mud lies on the clay it settled; a river's banks over its plain are clay to dig)
+biome("floodplain", { node_top = "tf_world:grass", depth_top = 1, node_filler = "tf_world:soil", depth_filler = 6,
+	node_riverbed = "tf_world:clay", heat_point = 60, humidity_point = 70 })
 biome("snow", { node_top = "tf_world:snow", depth_top = 1, node_filler = "tf_world:stone", depth_filler = 0,
 	node_riverbed = "tf_world:gravel", heat_point = 0, humidity_point = 40 })

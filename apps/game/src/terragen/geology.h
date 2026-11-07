@@ -36,7 +36,7 @@ enum class Rock : uint8_t {
 };
 extern const char *const ROCK_NAMES[(int)Rock::Count];
 
-enum class Ore : uint8_t { None, Copper, Tin, Lead, Gold, Iron, Magnetite, Coal, Salt, Sulfur, Ilmenite, Kreep, Ice, Count };
+enum class Ore : uint8_t { None, Copper, Tin, Lead, Gold, Iron, Magnetite, Coal, Salt, Sulfur, Ilmenite, Kreep, Ice, Flint, Count };
 extern const char *const ORE_NAMES[(int)Ore::Count];
 
 struct Plate
@@ -130,6 +130,10 @@ struct Tectonics
 	std::vector<fix> plateau;      // how much is crust thickened into a high plain
 	std::vector<fix> oldness;      // how long since it last rose
 	std::vector<fix> front;        // cells in from the belt's outer edge: fold ridges are its contours
+	// How long the crust has stood still (0..1): 1 on a shield or a platform
+	// (old, nothing rising, far from an active edge), 0 in a young belt, a
+	// rift or ocean floor. Old land is worn low and smooth (sprint 107).
+	std::vector<fix> stable;
 };
 
 Tectonics tectonics(const WorldCode &code, const History &h);

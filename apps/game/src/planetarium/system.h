@@ -70,7 +70,7 @@ public:
 	// The material for a body's land: `centre` where it's put (BS), `turn` how far the frame
 	// it's drawn in has turned from the scene's (the tiled body's spin; else 0). Its star
 	// and second star, and what of its neighbours could eclipse it, in that frame.
-	const video::SMaterial &lit(size_t body, double day, const v3f &centre, double turn, bool on);
+	const video::SMaterial &lit(size_t body, double day, const v3f &centre, double turn, bool on, float contour = 0);
 	using Surface = std::function<bool(size_t body, const terragen::System::Vec &at, double pixels, float near, float far)>;
 	void draw(video::IVideoDriver *driver, const Camera &camera, double day,
 			const std::function<void(float near, float far)> &focused, const Surface &surface = nullptr);
