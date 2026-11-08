@@ -40,6 +40,28 @@ public:
 		// it carries water: wet enough, and so is what it runs into, down to
 		// a drawn run of the grid's (World::drawn), so every stream reaches one
 		bool wet = false;
+		fix t = 0;        // how far along what it joins (the level above's segment, from its foot; the grid's run, from its cell)
+		int32_t link = -1; // on the first level, the grid cell whose run it joins
+		// (the prototype's land) its foot's and head's heights before the flow's
+		// known (blocks, fixed): what a finer node joins by, as Shape's need it
+		int64_t rough_low = 0, rough_high = 0;
+	};
+
+	// A node's shape as the drainage wears it (sprint 108): the area it drains
+	// (blocks²), the slope stream power gives its flow, its foot's and head's
+	// heights (blocks, fixed), and how steeply the ground rises from it
+	struct Shape
+	{
+		int64_t area = 0;
+		fix slope = 0, hill = 0;
+		int64_t low = 0, high = 0;
+		// a pond on it (none: pond_r 0): centred pond_t along it (0 its foot),
+		// its radius and depth, and its level, at its downstream rim (blocks, fixed)
+		fix pond_t = 0;
+		int64_t pond_r = 0, pond_depth = 0, pond_level = 0;
+		// a fan at its mouth (none: 0): its radius (blocks, fixed)
+		int64_t fan_r = 0;
+		fix ice = 0; // how much ice worked it (World::glacial at its head)
 	};
 
 	struct Read
@@ -53,9 +75,21 @@ public:
 		// the deepest a level-1 channel cuts), and how wide the floor's water is
 		fix cut = 0;
 		int64_t stream_width = 0; // blocks, fixed
+		// the ground as the drainage shapes it (blocks, fixed; INT64_MAX none):
+		// the lowest of each channel near's height plus its hillside
+		int64_t land = INT64_MAX;
+		// the water there, from the channel whose valley it is (the land's
+		// lowest): its level (blocks, fixed), how far off its line, how wide
+		int64_t water = INT64_MIN, water_gap = INT64_MAX, water_width = 0;
+		bool pond = false; // the water's a pond's, standing still
+		fix slope = 0;     // how steep the land is here: its hillside's, or on a floor its channel's
+		int64_t bed = INT64_MAX; // the height of the channel whose valley it is, here (blocks, fixed)
+		bool wash = false;       // on a dry channel's floor: sand, water only in floods
+		fix ice = 0;             // how much ice worked that valley (0..1)
 	};
 
-	Channels(const WorldCode &code, const Grid &grid, const World &world, int64_t radius, int64_t cell_blocks);
+	// `land`: shape the ground from the drainage (Read::land; sprint 108's prototype)
+	Channels(const WorldCode &code, const Grid &grid, const World &world, int64_t radius, int64_t cell_blocks, bool land);
 
 	bool active() const { return m_levels > 0; }
 	int levels() const { return m_levels; }
@@ -66,10 +100,20 @@ public:
 	Read read(const Place &warped, fix range, int64_t least = 0) const;
 	// a node, or one that doesn't exist (level 1..levels())
 	const Node &node(int level, int32_t i, int32_t j, int32_t l) const;
+	// its shape (a node that exists)
+	const Shape &shape(int level, int32_t i, int32_t j, int32_t l) const;
 	int32_t latticeOf(int level, int32_t c) const;
 
 private:
 	Node build(int level, int32_t i, int32_t j, int32_t l) const;
+	Shape wear(int level, int32_t i, int32_t j, int32_t l) const;
+	// everything upstream of a node: its own cell and its children's, each
+	// as much as a child of its level drains on average (blocks², cached;
+	// heights not needed, so no cycle with wear)
+	int64_t drains(int level, int32_t i, int32_t j, int32_t l) const;
+	int64_t steepness(int32_t c) const;
+	fix slopeFor(int32_t c, int64_t flow, fix most) const;
+	void beds(const Place &p, Read &out) const;
 
 	const Grid *m_grid;
 	const World *m_world;
@@ -77,6 +121,7 @@ private:
 	uint64_t m_owner;
 	int64_t m_radius;
 	bool m_water;
+	bool m_land;
 	int m_levels = 0;
 	std::array<int64_t, MOST_LEVELS + 1> m_lattice{}; // [0]: the grid's spacing
 	std::array<int32_t, MOST_LEVELS + 1> m_waves{};

@@ -12,7 +12,7 @@ rm -f "$out"/*
 list=""
 for pair in terra:dGVycmE nova:bm92YQ ember:ZW1iZXI hearth:aGVhcnRo arclabs:YXJjbGFicw abc:YWJj; do
 	name=${pair%%:*}
-	code=TF18.${pair#*:}
+	code=TF19.${pair#*:}
 	stats=$("$tmp/bake" "$code" "$tmp/$name.ppm")
 	magick "$tmp/$name.ppm" -define webp:lossless=true "$out/$name.webp"
 	list+="${list:+,}{\"name\":\"$name\",\"code\":\"$code\",\"stats\":$stats}"

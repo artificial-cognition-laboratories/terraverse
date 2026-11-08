@@ -10,6 +10,7 @@
 #include "terragen/world.h"
 #include "terragen/sphere.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -156,6 +157,8 @@ int main(int argc, char **argv)
 		else if (where == "mouth") // the biggest river into the sea
 			score = g->river(i) && !g->lake[i] && g->receiver[i] >= 0 && g->base[g->receiver[i]] < 0 && !g->lake[g->receiver[i]] ? (double)g->drained[i] : -1e18;
 		else if (where == "river") score = g->river(i) && !g->lake[i] && g->base[i] > ratio(2, 100) ? (double)g->drained[i] : -1e18; // the biggest river, off the coast
+		else if (where == "dry") score = g->base[i] > ratio(5, 100) && g->rain(i) < ratio(30, 100) ? real(g->tectonics.belt[i]) : -1; // a range in dry country: fans
+		else if (where == "bedded") score = (g->province[i] == terragen::Province::Basin || g->province[i] == terragen::Province::Rift) && g->base[i] > ratio(5, 100) ? real(g->tectonics.belt[i]) * (1 - real(g->tectonics.fold[i])) : -1; // flat beds rising: mesas
 		else if (where == "plain") score = real(g->tectonics.distance[i]) - 4 * real(g->tectonics.belt[i]) - b * 10;
 		if (score > best) { best = score; pick = i; }
 	}
@@ -188,6 +191,7 @@ int main(int argc, char **argv)
 	std::unique_ptr<World::Coarse> coarse;
 	if (std::getenv("COARSE"))
 		coarse = std::make_unique<World::Coarse>(world, (int64_t)step);
+	const auto started = std::chrono::steady_clock::now();
 	for (int y = 0; y < N; y++)
 		for (int x = 0; x < N; x++) {
 			const double dv = (y - N / 2) * step / (M_PI * R), du = (x - N / 2) * step / (2 * M_PI * R * std::max(0.05, std::cos(lat)));
@@ -202,6 +206,8 @@ int main(int argc, char **argv)
 			kind[(size_t)y * N + x] = (uint8_t)gr.kind;
 			wet[(size_t)y * N + x] = gr.kind != Water::None && gr.water > gr.terrain ? gr.water : -1e9;
 		}
+	std::printf("columns: %.1f µs each (one thread, the region's %d²)\n",
+		std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - started).count() / ((double)N * N), N);
 	hypsometry("region, blocks", h);
 	// slopes: how steep the region is, in degrees between lattice points
 	{

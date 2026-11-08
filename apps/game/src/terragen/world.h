@@ -157,10 +157,16 @@ public:
 	// The place whose warped reading (the rivers') lands about here: where on
 	// the ground a place on a run's line is
 	Place unwarped(const Place &warped) const;
+	// The grid's water surface along a cell's run to its receiver at `t` (0 at
+	// the cell), blocks over the sea, fixed: what the channels below it join
+	int64_t linkHeight(int32_t c, fix t) const;
+	// How much the ice ages' glaciers worked a cell's ground at this height
+	// (blocks, fixed): 0 never .. 1 (cold enough now, so colder then)
+	fix glacial(int32_t c, int64_t height) const;
 	// A drawn run's water level (blocks) at PROFILE + 1 points along it, from
 	// the cell to its receiver (none: nullptr)
 	static constexpr int PROFILE = 8;
-	const int32_t *profile(int32_t c) const { return m_profile.empty() || m_runs[c].run == 0 ? nullptr : &m_profile[(size_t)c * (PROFILE + 1)]; }
+	const int32_t *profile(int32_t c) const { return m_profile.empty() || m_runs[c].run == 0 || !drawn(c) ? nullptr : &m_profile[(size_t)c * (PROFILE + 1)]; }
 	// The coarse grid's mean spacing between cell centres, in blocks (fixed, 64 bits).
 	int64_t cellBlocks() const { return m_cell_blocks; }
 	static int64_t cellBlocksOf(const WorldCode &code);
@@ -258,6 +264,7 @@ private:
 	fix m_detail;          // the detail's amplitude at a cell's wavelength, blocks, where ruggedness is 1
 	int m_detail_octaves;  // from a cell's wavelength down to 16 blocks
 	std::optional<Channels> m_channels; // the drainage below the grid, where water ever ran
+	bool m_land = false; // the land from the drainage (sprint 108; TERRAGEN_LAND=noise: the old)
 	Craters m_craters;     // impacts: the grid holds the wide ones, a column finds the rest
 	// the ground at a place before volcanoes and water (blocks): the land
 	// and its detail, the old craters, the maria's lava over them, the young

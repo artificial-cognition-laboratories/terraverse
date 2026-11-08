@@ -58,7 +58,7 @@ namespace {
 
 using planet::Atlas;
 
-const terragen::WorldCode HOME_CODE = terragen::WorldCode::decode("TF18.dGVycmE");
+const terragen::WorldCode HOME_CODE = terragen::WorldCode::decode("TF19.dGVycmE");
 
 std::vector<terragen::BodyWorld> worldsAt(double radius)
 {
@@ -288,7 +288,7 @@ void TestBodies::testABodysLandIsItsKind()
 		}
 		UASSERT(seen[0] > 0 && seen[1] > 0);
 	}
-	terragen::WorldCode hundred = terragen::WorldCode::decode("TF18.dGVycmE");
+	terragen::WorldCode hundred = terragen::WorldCode::decode("TF19.dGVycmE");
 	hundred.size = 628320;
 	// a body never warm enough for volcanism floods none
 	for (const terragen::BodyWorld &b : w)

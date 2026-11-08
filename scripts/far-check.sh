@@ -39,15 +39,15 @@ PY
 rm -rf "$work"
 }
 
-# TF18.dGVycmE: the default size, 16384 round: an atlas of radius 8192 / 2π, the standard layout
-check TF18.dGVycmE "atlas-v2 radius=2607.5945876176133 segments=24 capLatitude=85 core=651.8986469044033 rounding=0.95 height=256"
+# TF19.dGVycmE: the default size, 16384 round: an atlas of radius 8192 / 2π, the standard layout
+check TF19.dGVycmE "atlas-v2 radius=2607.5945876176133 segments=24 capLatitude=85 core=651.8986469044033 rounding=0.95 height=256"
 # size 157088, large enough for the Moon to be stood on: the far view on another body
-check TF18.dGVycmE.AgKAqoCAAG1mgICAgICAgICCVQ "atlas-v2 radius=25001.331700419654 segments=24 capLatitude=85 core=6250.3329251049136 rounding=0.94999999999999996 height=256" moon
+check TF19.dGVycmE.AgKAqoCAAG1mgICAgICAgICCVQ "atlas-v2 radius=25001.331700419654 segments=24 capLatitude=85 core=6250.3329251049136 rounding=0.94999999999999996 height=256" moon
 # a world facing its star, its Moon held to it: the climate round the star's point, the far view and the clock
-check TF18.dGVycmE.AQKAqoCAAG1mgICAgICAgICCVQ.AgVlYXJ0aAVFYXJ0aICAgP8TAAAAACIrBFmZgAAABG1vb24ETW9vboCAgAAIkTdQxAJYBFkNgAAA "atlas-v2 radius=10000.023384349968 segments=24 capLatitude=85 core=2500.005846087492 rounding=0.95 height=256"
+check TF19.dGVycmE.AQKAqoCAAG1mgICAgICAgICCVQ.AgVlYXJ0aAVFYXJ0aICAgP8TAAAAACIrBFmZgAAABG1vb24ETW9vboCAgAAIkTdQxAJYBFkNgAAA "atlas-v2 radius=10000.023384349968 segments=24 capLatitude=85 core=2500.005846087492 rounding=0.95 height=256"
 # a double planet, on its other half: as much a world as the one you start on
-check TF18.dGVycmE.AQKAqoCABG1mgICAgICAgICCVQ "atlas-v2 radius=10000.023384349968 segments=24 capLatitude=85 core=2500.005846087492 rounding=0.95 height=256" b7
+check TF19.dGVycmE.AQKAqoCABG1mgICAgICAgICCVQ "atlas-v2 radius=10000.023384349968 segments=24 capLatitude=85 core=2500.005846087492 rounding=0.95 height=256" b7
 # two suns, the seed's: the world their combined light warms
-check TF18.dGVycmE.AQKAqoCAA21mgICAgICAgICCVQ "atlas-v2 radius=10000.023384349968 segments=24 capLatitude=85 core=2500.005846087492 rounding=0.95 height=256"
+check TF19.dGVycmE.AQKAqoCAA21mgICAgICAgICCVQ "atlas-v2 radius=10000.023384349968 segments=24 capLatitude=85 core=2500.005846087492 rounding=0.95 height=256"
 # and a close pair the code chooses, round the home system: Earth under both
-check TF18.dGVycmE.AQKAqoCAAG1mgICAgICAgICCVQEBgGk "atlas-v2 radius=10000.023384349968 segments=24 capLatitude=85 core=2500.005846087492 rounding=0.95 height=256"
+check TF19.dGVycmE.AQKAqoCAAG1mgICAgICAgICCVQEBgGk "atlas-v2 radius=10000.023384349968 segments=24 capLatitude=85 core=2500.005846087492 rounding=0.95 height=256"

@@ -55,7 +55,7 @@ void TestFar::runTests(IGameDef *gamedef)
 static Horizon horizon()
 {
 	Horizon h;
-	h.code = "TF18.dGVycmE";
+	h.code = "TF19.dGVycmE";
 	h.water_level = 1;
 	terra::Blocks &b = h.content.blocks;
 	content_t next = 100;
