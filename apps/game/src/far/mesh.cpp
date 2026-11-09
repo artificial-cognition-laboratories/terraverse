@@ -17,11 +17,12 @@ static const v3f NORMAL[6] = { { 0, 1, 0 }, { 0, -1, 0 }, { 1, 0, 0 }, { -1, 0, 
 
 namespace {
 
-// Collects quads into parts of at most 65536 vertices.
+// Collects quads into parts of at most 65536 vertices, one quarter's each.
 class Builder
 {
 public:
 	Mesh mesh;
+	u8 quarter = 0; // the quarter the cell being built lies in
 
 	// a quad from four corners (in blocks), wound to face `face`. A liquid's
 	// faces carry alpha 0: the shader drops them where the near world draws
@@ -36,9 +37,12 @@ public:
 	{
 		if (normal == v3f())
 			normal = NORMAL[face];
-		if (mesh.parts.empty() || mesh.parts.back().vertices.size() + 4 > 65536)
-			mesh.parts.emplace_back();
-		Mesh::Part &p = mesh.parts.back();
+		int &at = m_last[quarter];
+		if (at < 0 || mesh.parts[at].vertices.size() + 4 > 65536) {
+			at = (int)mesh.parts.size();
+			mesh.parts.emplace_back().quarter = quarter;
+		}
+		Mesh::Part &p = mesh.parts[at];
 		u16 base = p.vertices.size();
 		for (int k = 0; k < 4; k++) {
 			float s = SHADE[face] * lit[k];
@@ -75,6 +79,9 @@ public:
 		default: break;
 		}
 	}
+
+private:
+	int m_last[4] = { -1, -1, -1, -1 }; // each quarter's part being filled
 };
 
 // How far a tile's skirt hangs below its edge cells' ground, in its cells.
@@ -141,6 +148,7 @@ Mesh mesh(const Tile &tile, const Palette &palette)
 			const Cell &c = tile.at(i, j);
 			if (c.space)
 				continue;
+			b.quarter = (u8)((i >= TILE / 2) | (j >= TILE / 2) << 1);
 			const float cx0 = (float)(i * cell) - 0.5f, cx1 = cx0 + (float)cell;
 			const bool wet = c.water > c.ground;
 			// A cell beside one the atlas has none of reaches half a cell into

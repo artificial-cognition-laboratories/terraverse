@@ -724,6 +724,15 @@ int ModApiTerra::l_place(lua_State *L)
 	return 1;
 }
 
+// core.terra.seam(pos) → whether a position is seam: on no column of the
+// planet, so it has no place (core.terra.place refuses it)
+int ModApiTerra::l_seam(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+	lua_pushboolean(L, !placeOf(getServer(L), check_v3f(L, 1)).has_value());
+	return 1;
+}
+
 void ModApiTerra::Initialize(lua_State *L, int top)
 {
 	lua_newtable(L);
@@ -745,6 +754,7 @@ void ModApiTerra::Initialize(lua_State *L, int top)
 		{ "weather", l_weather },
 		{ "soil_points", l_soil_points },
 		{ "place", l_place },
+		{ "seam", l_seam },
 		{ "land", l_land },
 	};
 	for (const luaL_Reg &f : functions) {

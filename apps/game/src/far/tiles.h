@@ -8,6 +8,7 @@
 #include "irr_ptr.h"
 #include "planet/atlas.h"
 #include <CMeshBuffer.h>
+#include <array>
 #include <functional>
 #include <map>
 #include <memory>
@@ -76,7 +77,11 @@ public:
 	};
 	// What update() chose, ready to draw.
 	std::vector<Drawn> drawn() const;
-	// With Eye::keep_fine: coarser tiles filling holes, to draw behind everything else.
+	// How much of based() is there: the share of the roots built (0..1).
+	float basedShare() const;
+	// With Eye::keep_fine: coarser tiles filling holes, to draw behind everything else:
+	// each only the quarter over its child that isn't there (all of it stood
+	// above or below the finer land round the hole: its own heights, coarser).
 	std::vector<Drawn> behind() const;
 	// How many tiles update() wanted that aren't built yet: 0 once the eye's
 	// view is complete.
@@ -111,6 +116,7 @@ private:
 	struct Entry
 	{
 		std::vector<irr_ptr<scene::SMeshBuffer>> parts;
+		std::array<std::vector<irr_ptr<scene::SMeshBuffer>>, 4> quarters; // the same parts, by the child they lie in
 		std::vector<std::vector<video::SColor>> own; // each part's vertices' own colours (under a tint)
 		u32 painted = 0; // the tint it's coloured by (Tiles::m_tints)
 		bool ready = false;
@@ -133,7 +139,8 @@ private:
 	const Tiling m_tiling;
 	std::unique_ptr<Workers> m_workers;
 	std::map<Key, Entry> m_tiles;
-	std::vector<Key> m_draw, m_behind;
+	std::vector<Key> m_draw;
+	std::vector<std::pair<Key, s32>> m_behind; // a tile, and the child of it it stands in for
 	u32 m_frame = 0;
 	size_t m_pending = 0;
 	std::shared_ptr<const Tint> m_tint;

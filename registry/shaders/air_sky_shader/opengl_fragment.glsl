@@ -42,8 +42,11 @@ void main(void)
 		sky.a = min(sky.a, other.a);
 	}
 	vec3 colour = sky.rgb;
-	// the discs, too small for the pictures, in what the air's left of their light
-	if (ray.y > -0.02) {
+	// the discs, too small for the pictures, in what the air's left of their light;
+	// down to the drawn planet's horizon, which dips as the eye climbs (the land
+	// drawn over them hides the rest: a level cut sliced the sun at a horizon
+	// that wasn't there)
+	if (asin(clamp(ray.y, -1.0, 1.0)) > -airDips.x - 0.02) {
 		float soft = 0.00002;
 		colour += airSun0 * smoothstep(airDiscs.x - soft, airDiscs.x + soft, dot(ray, airWay0));
 		colour += airSun1 * smoothstep(airDiscs.y - soft, airDiscs.y + soft, dot(ray, airWay1));

@@ -11,6 +11,9 @@
 #include "parallel.h"
 #include <algorithm>
 #include <cmath>
+#include <future>
+#include <mutex>
+#include <stdexcept>
 
 namespace terragen {
 
@@ -119,6 +122,40 @@ World::World(const WorldCode &code) :
 		if (c.young && c.complex && plates::mix((uint32_t)k, RAY, m_code.seed_hash) % 3 == 0)
 			m_rayed.push_back(c);
 	}
+}
+
+std::shared_ptr<const World> worldFor(const WorldCode &code)
+{
+	using Built = std::shared_future<std::shared_ptr<const World>>;
+	static std::mutex lock;
+	static std::vector<std::pair<std::string, Built>> recent; // by the code's text, latest first
+	std::promise<std::shared_ptr<const World>> building;
+	Built built;
+	bool mine = false; // this call builds it; else whoever is, waited for outside the lock
+	{
+		std::lock_guard<std::mutex> guard(lock);
+		for (auto &entry : recent)
+			if (entry.first == code.text)
+				built = entry.second;
+		if (!built.valid()) {
+			mine = true;
+			built = building.get_future().share();
+			recent.insert(recent.begin(), { code.text, built });
+			if (recent.size() > 4)
+				recent.pop_back();
+		}
+	}
+	if (mine) {
+		try {
+			building.set_value(std::make_shared<const World>(code));
+		} catch (...) {
+			building.set_exception(std::current_exception());
+			std::lock_guard<std::mutex> guard(lock);
+			// asked again, tried again
+			recent.erase(std::remove_if(recent.begin(), recent.end(), [&](const auto &entry) { return entry.first == code.text; }), recent.end());
+		}
+	}
+	return built.get(); // (rethrows what building it threw)
 }
 
 fix blocksPerMetre(const WorldCode &code)
@@ -1139,14 +1176,28 @@ void World::profileRuns()
 	const Grid &g = *m_grid;
 	const int32_t n = g.size();
 	constexpr int P = PROFILE;
-	// the ground along each drawn run's line (the line's in the warp: the
-	// ground's read where that lands)
-	std::vector<int32_t> ground((size_t)n * (P + 1), INT32_MAX);
+	m_profile.assign((size_t)n * (P + 1), 0);
+	m_profiled = std::make_unique<std::once_flag[]>(n);
+	// kept from before (a read of the ground somewhere new is milliseconds
+	// on a large planet: a world's thousands of runs were seconds each boot)
+	const std::string key = m_code.grid_key + (m_land ? "" : "/noise");
+	if (const std::optional<std::vector<int32_t>> kept = loadRunLevels(key)) {
+		if (kept->size() != (size_t)n * 2)
+			throw std::runtime_error("terragen: kept river levels are for another grid");
+		for (int32_t c = 0; c < n; c++) {
+			m_profile[(size_t)c * (P + 1)] = (*kept)[(size_t)c * 2];
+			m_profile[(size_t)c * (P + 1) + P] = (*kept)[(size_t)c * 2 + 1];
+		}
+		return;
+	}
+	// the ground at each drawn run's start (the line's in the warp: the
+	// ground's read where that lands): what holds the network's levels; the
+	// rest along it is read as the run's asked for (profileRun)
+	std::vector<int32_t> ground(n, INT32_MAX);
 	parallelFor(n, [&](int32_t c) {
 		if (m_runs[c].run == 0 || !drawn(c))
 			return;
-		for (int j = 0; j <= P; j++)
-			ground[(size_t)c * (P + 1) + j] = landAt(unwarped(onRun(c, ratio(j, P))));
+		ground[c] = landAt(unwarped(onRun(c, 0)));
 	});
 	// each node's level: a block under its ground, no higher than any drawn
 	// run into it (upstream first: more drains through a cell than into it
@@ -1166,7 +1217,7 @@ void World::profileRuns()
 	std::sort(order.begin(), order.end(), [&](int32_t a, int32_t b) { return g.drained[a] != g.drained[b] ? g.drained[a] < g.drained[b] : a < b; });
 	for (int32_t c : order) {
 		const std::optional<int32_t> f = fixed(c);
-		level[c] = f ? *f : std::max(0, std::min(level[c], ground[(size_t)c * (P + 1)] - 1)); // (never under the sea's level)
+		level[c] = f ? *f : std::max(0, std::min(level[c], ground[c] - 1)); // (never under the sea's level)
 		const int32_t r = g.receiver[c];
 		if (!fixed(r))
 			level[r] = std::min(level[r], level[c]);
@@ -1178,18 +1229,39 @@ void World::profileRuns()
 		const std::optional<int32_t> fr = fixed(r);
 		level[c] = std::max(level[c], fr ? *fr : level[r]);
 	}
-	// along each run: falling, a block under the ground, never below where it ends
-	m_profile.assign((size_t)n * (P + 1), 0);
+	// each run's ends; the points between, profileRun
+	std::vector<int32_t> ends((size_t)n * 2, 0);
 	for (int32_t c : order) {
 		const int32_t r = g.receiver[c];
 		const std::optional<int32_t> fr = fixed(r);
 		const int32_t end = fr ? *fr : level[r];
 		int32_t *out = &m_profile[(size_t)c * (P + 1)];
-		out[0] = std::max(level[c], end);
-		for (int j = 1; j < P; j++)
-			out[j] = std::max(end, std::min(out[j - 1], ground[(size_t)c * (P + 1) + j] - 1));
-		out[P] = end;
+		out[0] = ends[(size_t)c * 2] = std::max(level[c], end);
+		out[P] = ends[(size_t)c * 2 + 1] = end;
 	}
+	saveRunLevels(key, ends);
+}
+
+// Along a run: falling, a block under the ground, never below where it ends
+void World::profileRun(int32_t c) const
+{
+	constexpr int P = PROFILE;
+	int32_t *out = &m_profile[(size_t)c * (P + 1)];
+	// at full detail, whoever asks (a far tile's thread leaves the fine channels
+	// out: its profile would differ from a block's)
+	const int64_t least = t_least;
+	t_least = 0;
+	for (int j = 1; j < P; j++)
+		out[j] = std::max(out[P], std::min(out[j - 1], landAt(unwarped(onRun(c, ratio(j, P)))) - 1));
+	t_least = least;
+}
+
+const int32_t *World::profile(int32_t c) const
+{
+	if (m_profile.empty() || m_runs[c].run == 0 || !drawn(c))
+		return nullptr;
+	std::call_once(m_profiled[c], [&] { profileRun(c); });
+	return &m_profile[(size_t)c * (PROFILE + 1)];
 }
 
 int64_t World::linkHeight(int32_t c, fix t) const
@@ -1564,7 +1636,7 @@ Ground World::ground(const Place &at, fix sun) const
 			best_bar = bar;
 			best_bend = bend;
 			// the run's profile (profileRuns), between its points
-			const int32_t *profile = &m_profile[(size_t)i * (PROFILE + 1)];
+			const int32_t *profile = World::profile(i);
 			const int64_t along_points = (int64_t)t * PROFILE;
 			const int j = (int)std::min<int64_t>(PROFILE - 1, along_points >> FRAC);
 			const fix within = (fix)(along_points - ((int64_t)j << FRAC));
@@ -1639,7 +1711,13 @@ Ground World::ground(const Place &at, fix sun) const
 		const Channels::Read &stream = channelsAt(at).read;
 		// the prototype's: the water of the channel whose valley this is, at its own level
 		if (m_land) {
-			const int64_t within = tile == 0 ? stream.water_width / 2 : std::max(stream.water_width / 2, tile * 40 / 100);
+			// (on a far tile, as the noise land's: only a level whose runs are long
+			// next to the tile is widened to it; finer streams, each a band a tile
+			// wide, would cover a far view of a wet country in water. A pond's
+			// drawn where it is.)
+			const bool long_enough = stream.pond ||
+					(stream.water_from > 0 && blocksFine(m_channels->spacing(stream.water_from)) >= tile * STREAM_TILES);
+			const int64_t within = tile == 0 ? stream.water_width / 2 : long_enough ? std::max(stream.water_width / 2, tile * 40 / 100) : 0;
 			if (stream.water != INT64_MIN && stream.water_gap < within && (tile == 0 || stream.water_width >= toFix(4))) {
 				out.water = std::max(1, (int32_t)(stream.water >> FRAC));
 				out.terrain = std::min(out.terrain, out.water - 1);

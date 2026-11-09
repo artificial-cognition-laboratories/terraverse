@@ -61,7 +61,10 @@ struct Particles
 	double height;   // m, in the air's heights
 	double g;
 };
-const Particles SEA_HAZE = { 0.1, { 0.9, 0.9, 0.9 }, 0.14, 0.8 };        // Earth's aerosols
+// (g 0.95: real haze sends most of its forward light within a few degrees of
+// the star, so its disc stays sharp in a small halo; 0.8's one wide lobe
+// whitened a third of the sky round it)
+const Particles SEA_HAZE = { 0.1, { 0.9, 0.9, 0.9 }, 0.14, 0.95 };        // Earth's aerosols
 const Particles DRY_DUST = { 0.5, { 0.97, 0.85, 0.55 }, 1.0, 0.65 };     // iron-stained, as Mars' is
 const Particles DUSTY_AIR = { 0.2, { 0.95, 0.88, 0.7 }, 0.3, 0.7 };      // dry land under thicker air
 const Particles ORGANIC = { 3.0, { 0.95, 0.72, 0.35 }, 1.5, 0.6 };       // sunlit methane's tholins, as Titan's

@@ -10,6 +10,7 @@ uniform vec3 dayLight;
 uniform lowp vec4 fogColor;
 uniform float fogDistance;
 uniform float fogShadingParameter;
+uniform float nearCut; // Terra Firma: past this the far view draws the land (0: none)
 
 // The cameraOffset is the current center of the visible world.
 uniform highp vec3 cameraOffset;
@@ -437,6 +438,9 @@ vec2 uv_repeat(vec2 v)
 
 void main(void)
 {
+	// (a block reaching past the near range is the far view's there: drawn by both, its coarser land stood up through)
+	if (nearCut > 0.0 && length(eyeVec) > nearCut)
+		discard;
 	vec2 uv = varTexCoord.st;
 
 #ifdef USE_ARRAY_TEXTURE

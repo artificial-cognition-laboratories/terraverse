@@ -92,6 +92,7 @@ static const Option OPTIONS[] = {
 	{ "ground_detail_far", Kind::Number, 0, 128 },
 	{ "far_view_detail", Kind::Number, 1, 4 },
 	{ "far_view_max", Kind::Number, 2000, 64000 },
+	{ "far_view_debug_levels", Kind::Flag, 0, 0 },
 	{ "widget_map", Kind::Flag, 0, 0 },
 	{ "widget_map_corner", Kind::Number, 0, 3 },
 	{ "widget_map_scale", Kind::Number, 1, 3 },

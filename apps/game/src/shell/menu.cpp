@@ -37,12 +37,6 @@
 
 namespace shell {
 
-static const char *const VERBS[] = {
-	"worlds.list", "worlds.create", "worlds.delete", "worlds.pin", "worlds.rename", "play", "quit", "worldgen.preview", "system.preview", "system.home", "system.world", "weather.preview",
-	"social.join", "community.list", "community.mod.set", "community.texture.set",
-	"servers.list", "servers.join", "servers.favorite.set",
-};
-
 // The world the menu's universe is when none has been visited yet.
 
 static Json::Value worldJson(const Worlds &worlds, const WorldSpec &world)
@@ -140,7 +134,7 @@ static std::string stringField(const Json::Value &intent, const char *field)
 }
 
 Menu::Menu(const Opts &opts) :
-	m_shell(opts.shell), m_engine(opts.engine), m_worlds(opts.worlds), m_lab(opts.lab),
+	m_shell(opts.shell), m_intents(opts.shell), m_engine(opts.engine), m_worlds(opts.worlds), m_lab(opts.lab),
 	m_community(opts.worlds, g_settings->get("game_id")),
 	m_receiver(opts.receiver),
 	m_planetarium(opts.shell.planetarium())
@@ -151,23 +145,23 @@ Menu::Menu(const Opts &opts) :
 	universe["code"] = planetarium::HOME_SHOT.code;
 	m_planetarium.serve([this](const Json::Value &b) { return body(b); }, universe);
 	m_planetarium.opening();
-	m_shell.onAsync("community.list", [this](const Json::Value &) {
+	m_intents.onAsync("community.list", [this](const Json::Value &) {
 		return m_community.list();
 	});
-	m_shell.on("community.mod.set", [this](const Json::Value &intent) {
+	m_intents.on("community.mod.set", [this](const Json::Value &intent) {
 		if (!intent["enabled"].isBool())
 			throw Refused("community.mod.set needs enabled");
 		m_community.setMod(stringField(intent, "id"), stringField(intent, "world"), intent["enabled"].asBool());
 		return Json::Value();
 	});
-	m_shell.on("community.texture.set", [this](const Json::Value &intent) {
+	m_intents.on("community.texture.set", [this](const Json::Value &intent) {
 		m_community.setTexture(stringField(intent, "id"));
 		return Json::Value();
 	});
 	// (they read every world's files: on the worker, or opening the page freezes it)
 	// Asks the backend, on the worker. Failing is quiet for the player, who can
 	// still play: the menu shows the running version and no notice.
-	m_shell.onAsync("update.check", [](const Json::Value &) {
+	m_intents.onAsync("update.check", [](const Json::Value &) {
 		Json::Value out;
 		out["current"] = g_version_hash;
 		out["latest"] = Json::Value();
@@ -192,43 +186,43 @@ Menu::Menu(const Opts &opts) :
 		out["available"] = *release::parse(*latest) > *ours;
 		return out;
 	});
-	m_shell.onAsync("worlds.list", [this](const Json::Value &) {
+	m_intents.onAsync("worlds.list", [this](const Json::Value &) {
 		Json::Value out(Json::arrayValue);
 		for (const auto &world : m_worlds.list())
 			out.append(worldJson(m_worlds, world));
 		return out;
 	});
-	m_shell.on("worlds.create", [this](const Json::Value &intent) {
+	m_intents.on("worlds.create", [this](const Json::Value &intent) {
 		return worldJson(m_worlds, m_worlds.create(stringField(intent, "name"), stringField(intent, "code"),
 				intent["settings"]));
 	});
-	m_shell.on("worlds.delete", [this](const Json::Value &intent) {
+	m_intents.on("worlds.delete", [this](const Json::Value &intent) {
 		m_worlds.remove(stringField(intent, "path"));
 		return Json::Value();
 	});
-	m_shell.on("worlds.pin", [this](const Json::Value &intent) {
+	m_intents.on("worlds.pin", [this](const Json::Value &intent) {
 		if (!intent["pinned"].isBool())
 			throw Refused("worlds.pin needs pinned");
 		m_worlds.pin(stringField(intent, "path"), intent["pinned"].asBool());
 		return Json::Value();
 	});
-	m_shell.on("worlds.rename", [this](const Json::Value &intent) {
+	m_intents.on("worlds.rename", [this](const Json::Value &intent) {
 		m_worlds.rename(stringField(intent, "path"), stringField(intent, "name"));
 		return Json::Value();
 	});
-	m_shell.on("servers.list", [](const Json::Value &) {
+	m_intents.on("servers.list", [](const Json::Value &) {
 		Json::Value out(Json::objectValue);
 		out["status"] = "unavailable";
 		out["servers"] = Json::Value(Json::arrayValue);
 		return out;
 	});
-	m_shell.on("servers.join", [](const Json::Value &) -> Json::Value {
+	m_intents.on("servers.join", [](const Json::Value &) -> Json::Value {
 		throw Refused("Public server discovery is not connected yet.");
 	});
-	m_shell.on("servers.favorite.set", [](const Json::Value &) -> Json::Value {
+	m_intents.on("servers.favorite.set", [](const Json::Value &) -> Json::Value {
 		throw Refused("Public server discovery is not connected yet.");
 	});
-	m_shell.on("play", [this](const Json::Value &intent) {
+	m_intents.on("play", [this](const Json::Value &intent) {
 		WorldSpec world = m_worlds.find(stringField(intent, "path"));
 		m_worlds.select(world);
 		m_shell.social().enter(world.name, true);
@@ -237,11 +231,11 @@ Menu::Menu(const Opts &opts) :
 	});
 	// ~150 ms when the land changes (the water simulation): off the main
 	// thread, so the menu keeps drawing while a slider is dragged.
-	m_shell.onAsync("worldgen.preview", [](const Json::Value &intent) {
+	m_intents.onAsync("worldgen.preview", [](const Json::Value &intent) {
 		return previewJson(intent);
 	});
 	// about a second: a year of weather to settle, then a year to sample
-	m_shell.onAsync("weather.preview", [](const Json::Value &intent) {
+	m_intents.onAsync("weather.preview", [](const Json::Value &intent) {
 		try {
 			return weatherJson(intent);
 		} catch (const fluid::FluidError &e) {
@@ -249,23 +243,23 @@ Menu::Menu(const Opts &opts) :
 		}
 	});
 	// microseconds: a few hundred fixed-point steps per body
-	m_shell.on("system.preview", [](const Json::Value &intent) {
+	m_intents.on("system.preview", [](const Json::Value &intent) {
 		return systemPreview(intent);
 	});
 	// the system a new world's draft starts from
-	m_shell.on("system.world", [](const Json::Value &intent) {
+	m_intents.on("system.world", [](const Json::Value &intent) {
 		return worldSystem(intent);
 	});
-	m_shell.on("system.home", [](const Json::Value &) {
+	m_intents.on("system.home", [](const Json::Value &) {
 		return systemJson(terragen::SystemSpec::home());
 	});
-	m_shell.on("quit", [this](const Json::Value &) {
+	m_intents.on("quit", [this](const Json::Value &) {
 		m_quit = true;
 		return Json::Value();
 	});
 	// A few seconds of STUN and ArcLabs: off the main thread. The menu
 	// leaves for the friend's world on its next frame.
-	m_shell.onAsync("social.join", [this](const Json::Value &intent) {
+	m_intents.onAsync("social.join", [this](const Json::Value &intent) {
 		online::JoinPlan plan = m_shell.social().join(stringField(intent, "id"), stringField(intent, "name"));
 		std::lock_guard<std::mutex> lock(m_join_lock);
 		m_join = std::move(plan);
@@ -276,8 +270,7 @@ Menu::Menu(const Opts &opts) :
 
 Menu::~Menu()
 {
-	for (const char *verb : VERBS)
-		m_shell.off(verb);
+	m_intents.clear();
 	m_shell.drain(); // a verb on the worker may be using this menu
 	m_planetarium.serve(nullptr); // its bodies were this menu's
 }

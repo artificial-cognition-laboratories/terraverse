@@ -6,6 +6,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 struct SEvent;
 namespace video { class IVideoDriver; }
@@ -87,6 +88,42 @@ public:
 private:
 	struct Impl;
 	std::unique_ptr<Impl> m;
+};
+
+/*
+	The intents a screen answers, registered through this and removed together
+	(clear(), or when it goes, a screen that failed partway through being made
+	too): a list kept by hand beside them missed one, and the next screen to
+	register it threw.
+*/
+class Intents
+{
+public:
+	explicit Intents(Shell &shell) : m_shell(shell) {}
+	~Intents() { clear(); }
+	Intents(const Intents &) = delete;
+	Intents &operator=(const Intents &) = delete;
+
+	void on(const std::string &kind, Verb verb)
+	{
+		m_shell.on(kind, std::move(verb));
+		m_kinds.push_back(kind);
+	}
+	void onAsync(const std::string &kind, Verb verb)
+	{
+		m_shell.onAsync(kind, std::move(verb));
+		m_kinds.push_back(kind);
+	}
+	void clear()
+	{
+		for (const std::string &kind : m_kinds)
+			m_shell.off(kind);
+		m_kinds.clear();
+	}
+
+private:
+	Shell &m_shell;
+	std::vector<std::string> m_kinds;
 };
 
 } // namespace shell

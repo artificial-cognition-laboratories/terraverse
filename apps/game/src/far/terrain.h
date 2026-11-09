@@ -108,6 +108,8 @@ public:
 
 	// The top solid block of an atlas cell's column, or the liquid's surface if that's higher.
 	s32 surfaceAt(const planet::Atlas::Cell &cell) const;
+	// The top solid block of an atlas cell's column, under any liquid.
+	s32 groundAt(const planet::Atlas::Cell &cell) const;
 
 	// The storage column at (x, z) (throws for seam).
 	Cell column(s32 x, s32 z) const;
@@ -116,7 +118,7 @@ public:
 
 private:
 	Horizon m_horizon;
-	std::unique_ptr<terragen::World> m_world;
+	std::shared_ptr<const terragen::World> m_world; // (terragen::worldFor: the game's own, in one process)
 	planet::Atlas m_atlas;
 	int m_body; // the atlas's body drawn
 	std::unique_ptr<Tiling> m_tiling;

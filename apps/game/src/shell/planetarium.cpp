@@ -219,6 +219,23 @@ void Planetarium::tick(double seconds)
 	}
 }
 
+// The page is told how far a body asked for is from replacing the one shown
+// (its land laid out, then its coarse tiles built: most of the wait), as it
+// moves by a hundredth, and once when it's there (null)
+void Planetarium::tellMaking()
+{
+	const bool making = m_wanted.has_value() || (m_making.valid() && m_makingWanted) || m_next != nullptr;
+	const int now = !making ? -1 : m_next ? (int)(m_next->readiness() * 100) : 0;
+	if (now == m_told)
+		return;
+	m_told = now;
+	Json::Value message;
+	message["kind"] = "planetarium";
+	message["event"] = "making";
+	message["progress"] = now < 0 ? Json::Value() : Json::Value(now / 100.0);
+	m_opts.shell.send(message);
+}
+
 Json::Value Planetarium::time(const Json::Value &intent)
 {
 	if (!intent.isObject())
@@ -553,6 +570,7 @@ void Planetarium::draw(video::IVideoDriver *driver)
 		if (!m_current || (m_next->update(v2u32(screen.Width, screen.Height)), m_next->ready()))
 			m_current = std::move(m_next);
 	}
+	tellMaking();
 	if (!m_current)
 		return;
 	core::recti view(0, 0, screen.Width, screen.Height);

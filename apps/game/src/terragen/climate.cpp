@@ -67,9 +67,12 @@ Flow flow(const Circulation &c, fix lat, fix itcz)
 	if (c.jets == 0) // the cells reach the poles: only the polar cap, sinking
 		return { 0, 0, -ONE };
 	// beyond: westerly bands (rising at their poleward front), then easterly ones
-	fix pole = lat > 0 ? ONE : -ONE;
-	fix edge = pole > 0 ? north : -south;
-	fix x = div(fabsx(lat) - edge, HALF_PI - edge) * (2 * c.jets);
+	// (on the side of the cells it's on, not of the equator: with the ITCZ far
+	// off it, a latitude short of it is beyond the cells' nearer edge, and
+	// measured from the far one, which can be the pole, it divided by nothing)
+	const bool poleward = lat > north;
+	fix pole = poleward ? ONE : -ONE;
+	fix x = (poleward ? div(lat - north, HALF_PI - north) : div(south - lat, south + HALF_PI)) * (2 * c.jets);
 	int32_t band = std::min(floorInt(x), 2 * c.jets - 1);
 	fix f = x - toFix(band);
 	fix s = sin(mul(PI, f));

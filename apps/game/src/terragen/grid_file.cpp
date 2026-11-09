@@ -6,6 +6,7 @@
 #include <fstream>
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <stdexcept>
 #include <thread>
 #include <type_traits>
@@ -96,9 +97,45 @@ void fields(IO &io, G &g)
 	field(io, g.mare); field(io, g.mare_level); field(io, g.titanium); field(io, g.thin);
 }
 
-fs::path fileOf(const std::string &code)
+fs::path fileOf(const std::string &code, const char *kind = ".grid")
 {
-	return fs::path(g_dir) / (g_build + "-" + std::to_string(std::hash<std::string>{}(code)) + ".grid");
+	return fs::path(g_dir) / (g_build + "-" + std::to_string(std::hash<std::string>{}(code)) + kind);
+}
+
+// A file named for `key`, its fields written whole and moved into place
+template <typename Write>
+void keep(const std::string &key, const char *kind, const Write &write)
+{
+	const fs::path file = fileOf(key, kind);
+	fs::path part = file;
+	part += "." + std::to_string(std::hash<std::thread::id>{}(std::this_thread::get_id()));
+	{
+		std::ofstream out(part, std::ios::binary);
+		Writer io{ out };
+		const uint64_t n = key.size();
+		field(io, n);
+		io.raw(key.data(), n);
+		write(io);
+		if (!out)
+			throw std::runtime_error(std::string("terragen: couldn't write a kept ") + kind + " to " + part.string());
+	}
+	fs::rename(part, file);
+}
+
+// The file for `key`, open after its name, or none (not kept, or another key with its hash)
+std::optional<std::ifstream> kept(const std::string &key, const char *kind)
+{
+	std::ifstream in(fileOf(key, kind), std::ios::binary);
+	if (!in)
+		return std::nullopt;
+	Reader io{ in };
+	uint64_t n;
+	field(io, n);
+	std::string named(n, 0);
+	io.raw(named.data(), n);
+	if (named != key)
+		return std::nullopt; // another key with this hash: it's made again, and takes the file
+	return in;
 }
 
 } // namespace
@@ -119,16 +156,10 @@ std::shared_ptr<const Grid> loadGrid(const std::string &code)
 	std::lock_guard<std::mutex> hold(g_lock);
 	if (g_dir.empty())
 		return nullptr;
-	std::ifstream in(fileOf(code), std::ios::binary);
+	std::optional<std::ifstream> in = kept(code, ".grid");
 	if (!in)
 		return nullptr;
-	Reader io{ in };
-	uint64_t n;
-	field(io, n);
-	std::string named(n, 0);
-	io.raw(named.data(), n);
-	if (named != code)
-		return nullptr; // another code with this hash: it's rebuilt, and takes the file
+	Reader io{ *in };
 	auto g = std::make_shared<Grid>();
 	fields(io, *g);
 	return g;
@@ -139,20 +170,29 @@ void saveGrid(const std::string &code, const Grid &grid)
 	std::lock_guard<std::mutex> hold(g_lock);
 	if (g_dir.empty())
 		return;
-	const fs::path file = fileOf(code);
-	fs::path part = file;
-	part += "." + std::to_string(std::hash<std::thread::id>{}(std::this_thread::get_id()));
-	{
-		std::ofstream out(part, std::ios::binary);
-		Writer io{ out };
-		const uint64_t n = code.size();
-		field(io, n);
-		io.raw(code.data(), n);
-		fields(io, grid);
-		if (!out)
-			throw std::runtime_error("terragen: couldn't write a grid to " + part.string());
-	}
-	fs::rename(part, file);
+	keep(code, ".grid", [&](Writer &io) { fields(io, grid); });
+}
+
+std::optional<std::vector<int32_t>> loadRunLevels(const std::string &key)
+{
+	std::lock_guard<std::mutex> hold(g_lock);
+	if (g_dir.empty())
+		return std::nullopt;
+	std::optional<std::ifstream> in = kept(key, ".runs");
+	if (!in)
+		return std::nullopt;
+	Reader io{ *in };
+	std::vector<int32_t> levels;
+	field(io, levels);
+	return levels;
+}
+
+void saveRunLevels(const std::string &key, const std::vector<int32_t> &levels)
+{
+	std::lock_guard<std::mutex> hold(g_lock);
+	if (g_dir.empty())
+		return;
+	keep(key, ".runs", [&](Writer &io) { field(io, levels); });
 }
 
 } // namespace terragen

@@ -306,12 +306,22 @@ double realElevation(double e, double drawn_dip, double real_dip)
 	return -real_dip + (e + drawn_dip) / (right - drawn_dip) * (right - real_dip);
 }
 
+// (Reinhard's v / (1 + v): 1 − e^−v reached white within 20° of the star at
+// noon, its disc lost in it; this keeps a gradient right in to the disc)
 static double shown(double v)
 {
-	v = 1 - std::exp(-v);
+	v = v / (1 + v);
 	v = v <= 0.0031308 ? 12.92 * v : 1.055 * std::pow(v, 1 / 2.4) - 0.055;
 	return std::clamp(v, 0.0, 1.0);
 }
+
+// The sky short of white, so the star's disc (white) has an edge against the
+// halo round it: there the sky's tens of times its zenith, all of it white
+static constexpr double SKY_TOP = 0.9;
+// The disc's light against the sky's: thousands of times as bright beside it
+// really, even low and reddened; as bright as the sky at sunrise, it was lost
+// in its own halo. Enough to stand over the halo and keep its colour.
+static constexpr double DISC = 20;
 
 SkyImage skyImage(const Tables &tables, double height, double elevation, double light, const Rgb &tint)
 {
@@ -333,7 +343,7 @@ SkyImage skyImage(const Tables &tables, double height, double elevation, double 
 			unsigned char *p = &image.rgba[((size_t)y * SkyImage::W + x) * 4];
 			Rgb out;
 			for (int c = 0; c < 3; c++) {
-				out[c] = shown(sky[c] * light * tint[c]);
+				out[c] = SKY_TOP * shown(sky[c] * light * tint[c]);
 				p[c] = (unsigned char)std::lround(out[c] * 255);
 			}
 			if (y == horizon_row)
@@ -348,7 +358,7 @@ SkyImage skyImage(const Tables &tables, double height, double elevation, double 
 	const Rgb lit = tables.transmittance(height, sun.y);
 	const Rgb &star = tables.medium().star;
 	for (int c = 0; c < 3; c++)
-		image.sun[c] = shown(lit[c] * star[c] * tint[c] * light); // (very bright, unless the air's taken it)
+		image.sun[c] = shown(DISC * lit[c] * star[c] * tint[c] * light); // (very bright, unless the air's taken it)
 	return image;
 }
 

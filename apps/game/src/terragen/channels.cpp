@@ -820,9 +820,11 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 						out.water = seg.low + mulShift(seg.high - seg.low, near.t, FRAC);
 						out.water_gap = gap;
 						out.water_width = std::min<int64_t>(toFix(STREAM_WIDEST), toFix(1) + (int64_t)isqrt((uint64_t)(seg.flow / STREAM_FLOW)) * ONE / 2);
+						out.water_from = k;
 					} else {
 						out.water = INT64_MIN;
 						out.water_gap = INT64_MAX;
+						out.water_from = 0;
 					}
 				} else
 					second = std::min(second, h);

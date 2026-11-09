@@ -78,6 +78,9 @@ local function map_at(player)
 	if not terra then return end
 	local name = player:get_player_name()
 	local state = maps[name]
+	-- in seam there's no column to place them by: as they were till they're
+	-- out of it (one who joined in it is moved out: tf_planet)
+	if core.terra.seam(player:get_pos()) then return end
 	-- the body they're on (none in seam between tiles: as they were)
 	local body = home and core.planet.body_at(player:get_pos()) or state.body
 	if body ~= state.body then

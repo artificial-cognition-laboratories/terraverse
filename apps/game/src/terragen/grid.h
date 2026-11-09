@@ -13,6 +13,7 @@
 #include "sphere.h"
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -114,6 +115,11 @@ std::shared_ptr<const Grid> watchErosion(const WorldCode &code, const std::funct
 // (a code means the same world, but a changed build may not reach it the same
 // way), the others are removed. Not called: nothing is kept (tools, tests of terragen alone).
 void keepGridsIn(const std::string &dir, const std::string &build);
+// The world model's river levels (World::profileRuns: each drawn run's ends,
+// two to a cell), kept beside the grids by a key of what decides them; none
+// if not kept (or nothing's kept)
+std::optional<std::vector<int32_t>> loadRunLevels(const std::string &key);
+void saveRunLevels(const std::string &key, const std::vector<int32_t> &levels);
 
 // Every cell, lowest first (level with level: lower index first).
 std::vector<int32_t> lowestFirst(const std::vector<fix> &height);

@@ -6,6 +6,17 @@
 // first texture coordinate is the vertex's height over the sea, in blocks.
 uniform mat4 mWorld;
 uniform vec3 dayLight;
+uniform float farCut;  // the near world's range from the eye (scene units)
+uniform float farCell; // the tile's cells (blocks)
+
+const float BS = 10.0;
+// Beside the near world, a tile's land sinks under the true ground: a cell is
+// its middle's height across its width, as much as a cell or more off the
+// blocks beside it (most while coarse stand-ins fill in), and higher, its
+// edge stood as a wall over them. Sunk by this many of its cells, easing out
+// over a tile's width past the cut.
+const float SINK = 1.5;
+const float BAND = 32.0; // cells: a tile's
 
 VARYING_ lowp vec4 varColor;
 VARYING_ highp vec3 eyeVec;
@@ -15,11 +26,17 @@ VARYING_ highp float varSeen;     // how far off it's seen, scene units
 
 void main(void)
 {
-	vec3 world = (mWorld * inVertexPosition).xyz;
+	vec4 pos = inVertexPosition;
+	float seen = length((mWorldView * pos).xyz);
+	float sink = farCut > 0.0 ? SINK * farCell * BS * (1.0 - smoothstep(farCut, farCut + BAND * max(farCell, 1.0) * BS, seen)) : 0.0; // (none without a near world)
+	// down in the scene (the eye's up near it), in the tile's own frame: the
+	// world matrix is a rotation, so its transpose takes it back
+	vec3 down = -normalize(vec3(mWorld[0][1], mWorld[1][1], mWorld[2][1]));
+	pos.xyz += down * sink;
 	varAltitude = inTexCoord0.x;
 	varDay = dayLight;
-	gl_Position = mWorldViewProj * inVertexPosition;
-	eyeVec = -(mWorldView * inVertexPosition).xyz;
+	gl_Position = mWorldViewProj * pos;
+	eyeVec = -(mWorldView * pos).xyz;
 	varSeen = length(eyeVec);
 
 	// as nodes_shader lights a block in full sun

@@ -1,12 +1,18 @@
 uniform lowp vec4 fogColor;
 uniform float fogDistance;
-uniform float fogShadingParameter;
 uniform float farBehind;     // 1: the backdrop pass, whose depth is cleared after it
 uniform float farCut;        // the near world's range from the eye (scene units): nearer, its blocks are the land
-uniform float farHaze;       // the distance past the cut the haze builds over, near the ground
 uniform float farShare;      // 0 in the air's haze .. 1 above the air, seeing the planet
 uniform highp vec4 farPlace; // the eye: map x, z (blocks), altitude (m), unused
 uniform float farAir;        // m: the air's scale height
+uniform float farLevel;      // far_view_debug_levels: the tile's level, to tint it by; −1 none
+
+// a hue a level, round the wheel, so neighbouring levels differ
+vec3 levelTint(float level)
+{
+	vec3 k = mod(vec3(0.0, 2.0, 4.0) + level * 1.7, 6.0);
+	return clamp(abs(k - 3.0) - 1.0, 0.0, 1.0);
+}
 
 VARYING_ lowp vec4 varColor;
 VARYING_ highp float varSeen;  // how far off it's seen, scene units
@@ -38,22 +44,25 @@ void main(void)
 		discard;
 
 	vec4 col = vec4(varColor.rgb, 1.0);
+	// (a stand-in, behind the rest: darker)
+	if (farLevel >= 0.0)
+		col.rgb = mix(col.rgb, levelTint(farLevel), 0.6) * (farBehind > 0.5 ? 0.45 : 1.0);
 	float dist = length(eyeVec);
 
-	// the near world's fog, so the two match at the seam (high up there's
-	// no seam, and the near world's fog would black out the planet) ...
-	float clarity = clamp(fogShadingParameter
-		- fogShadingParameter * dist / fogDistance, 0.0, 1.0);
+	// the fog only over the last of the view's reach, so it ends in the sky's
+	// colour, not a line (high up there's no edge: the planet's all there).
+	// The near world's fog, all of the reach from 40% of it, hid land a few
+	// kilometres off.
+	float clarity = 1.0 - smoothstep(0.75, 1.0, dist / fogDistance);
 	clarity = mix(clarity, 1.0, farShare);
-	// ... and the air beyond it: haze through the air the sight line
-	// crosses, so kilometres read as kilometres and the air thins as you
-	// climb. Near the ground it builds over the far view's reach, as it
-	// always has; up the air, as through real air.
-	// how far off it's seen
+	// ... and the air: haze through the air the sight line crosses, as
+	// through real clear air at every height, so kilometres read as
+	// kilometres (tens of them seen on a clear day) and the air thins as you
+	// climb. (It once built over the far view's reach near the ground: half
+	// gone 4 km off.)
 	float past = max(varSeen - farCut, 0.0) / BS;
 	float through = mix(past, dist / BS, farShare);
-	float thick = mix(2.2 * BS / farHaze, CLEAR, farShare);
-	float haze = exp(-thick * through * airmass(farPlace.z, max(varAltitude, 0.0)));
+	float haze = exp(-CLEAR * through * airmass(farPlace.z, max(varAltitude, 0.0)));
 
 	// near the ground the haze is the sky's fog; from above, lit air
 	float fogColorMax = max(max(fogColor.r, fogColor.g), fogColor.b);

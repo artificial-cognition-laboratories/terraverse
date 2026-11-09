@@ -88,6 +88,8 @@ public:
 
 	// Whether the whole body is drawn, if coarsely (its coarse tiles built).
 	bool ready() const { return m_tiles.based(); }
+	// How far it is to ready() (0..1): what a page shows while a body's made.
+	float readiness() const { return m_tiles.basedShare(); }
 	// Whether all the camera's own tiles are built (the detail it wants, not just the coarse whole).
 	bool settled() const { return m_tiles.based() && m_tiles.pending() == 0; }
 

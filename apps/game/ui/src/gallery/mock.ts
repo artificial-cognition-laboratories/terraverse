@@ -349,10 +349,21 @@ export function MockBridge() {
         return rest
     }
 
+    let making: ReturnType<typeof setInterval> | undefined // the create screen's body being made
     const handlers: Handlers = {
         ready: () => null,
         // no native planet in the gallery: the page around it is what's shown
-        "planetarium.show": () => null,
+        // (a body made over a few seconds, as the engine tells it: the create screen's bar)
+        "planetarium.show": () => {
+            clearInterval(making)
+            let done = 0
+            making = setInterval(() => {
+                done = Math.min(1, done + 0.1)
+                emitAll({ kind: "planetarium", event: "making", progress: done < 1 ? done : null })
+                if (done >= 1) clearInterval(making)
+            }, 300)
+            return null
+        },
         "planetarium.scene": () => null,
         "planetarium.orbits": () => null,
         "planetarium.hide": () => null,

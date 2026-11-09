@@ -80,5 +80,15 @@ local function spawn(player)
 end
 core.register_on_newplayer(spawn)
 core.register_on_respawnplayer(spawn)
+-- One who joins standing in seam (saved there: on no column of the planet,
+-- nowhere to stand or be shown on the map) starts again at the spawn
+core.register_on_joinplayer(function(player)
+	local pos = player:get_pos()
+	if core.terra.seam(pos) then
+		core.log("warning", "tf_planet: " .. player:get_player_name() .. " joined in seam at " ..
+			core.pos_to_string(pos) .. ": moved to the spawn")
+		spawn(player)
+	end
+end)
 
 dofile(core.get_modpath("tf_planet") .. "/travel.lua")

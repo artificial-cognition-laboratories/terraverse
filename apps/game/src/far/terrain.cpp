@@ -29,7 +29,7 @@ static WorldCode codeOf(const Horizon &horizon, const planet::Atlas &atlas, int 
 
 Generator::Generator(const Horizon &horizon, const planet::Atlas &atlas, int body) :
 	m_horizon(horizon),
-	m_world(std::make_unique<World>(codeOf(horizon, atlas, body))),
+	m_world(terragen::worldFor(codeOf(horizon, atlas, body))),
 	m_atlas(atlas),
 	m_body(body),
 	m_tiling(std::make_unique<Tiling>(atlas.body(body))),
@@ -73,6 +73,11 @@ s32 Generator::surfaceAt(const planet::Atlas::Cell &cell) const
 {
 	const Cell c = cellOf(*m_columns, m_columns->atPlace(m_atlas.place(cell)));
 	return std::max(c.ground, c.water);
+}
+
+s32 Generator::groundAt(const planet::Atlas::Cell &cell) const
+{
+	return cellOf(*m_columns, m_columns->atPlace(m_atlas.place(cell))).ground;
 }
 
 Cell Generator::column(s32 x, s32 z) const

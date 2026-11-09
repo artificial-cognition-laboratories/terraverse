@@ -81,6 +81,7 @@ public:
 		// the water there, from the channel whose valley it is (the land's
 		// lowest): its level (blocks, fixed), how far off its line, how wide
 		int64_t water = INT64_MIN, water_gap = INT64_MAX, water_width = 0;
+		int water_from = 0; // the level whose stream it is (1: the largest)
 		bool pond = false; // the water's a pond's, standing still
 		fix slope = 0;     // how steep the land is here: its hillside's, or on a floor its channel's
 		int64_t bed = INT64_MAX; // the height of the channel whose valley it is, here (blocks, fixed)

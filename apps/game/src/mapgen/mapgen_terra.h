@@ -79,7 +79,7 @@ private:
 	// The finished column at storage column (x, z), or false for seam.
 	bool groundAt(s16 x, s16 z, terragen::Ground &ground) const;
 
-	terragen::World m_world;
+	terragen::WorldCode m_code;
 	planet::Atlas m_atlas;                  // the world's (planet_atlas)
 	content_t c_seam = CONTENT_IGNORE;      // an atlas's storage that is no cell
 	MapNode atlasNode(s16 x, s16 y, s16 z);
@@ -99,13 +99,14 @@ private:
 	// reading of them. Built when a chunk first needs them.
 	struct BodyLand
 	{
-		terragen::World world;
+		std::shared_ptr<const terragen::World> shared; // (terragen::worldFor: one for every generator)
+		const terragen::World &world;
 		terra::Columns columns;
 		terra::AtlasLand land;
 		terra::AtlasLand::Reader reader;
 		BodyLand(const terragen::WorldCode &code, const terra::Blocks &blocks, s16 water_level,
 				const planet::Atlas &atlas, int body) :
-			world(code), columns(world, blocks, water_level, atlas, body), land(columns, atlas), reader(land)
+			shared(terragen::worldFor(code)), world(*shared), columns(world, blocks, water_level, atlas, body), land(columns, atlas), reader(land)
 		{
 		}
 	};

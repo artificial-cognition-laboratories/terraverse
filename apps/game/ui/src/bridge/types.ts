@@ -518,6 +518,8 @@ export type PlanetariumMessage =
     | { kind: "planetarium"; event: "hovered"; body: PlanetariumHover | null }
     /** A double click flew the camera to a body (the star: out to the whole system). */
     | { kind: "planetarium"; event: "chosen"; body: string }
+    /** A body asked for is being made (its land laid out, its coarse tiles built): how far, 0..1; null once it's shown. */
+    | { kind: "planetarium"; event: "making"; progress: number | null }
 
 /** Engine → UI */
 export type EngineMessage =

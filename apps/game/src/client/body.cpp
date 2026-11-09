@@ -49,6 +49,81 @@ Body::~Body()
 {
 	if (m_sky_answer.valid())
 		m_sky_answer.wait();
+	waitStandIns();
+}
+
+void Body::waitStandIns()
+{
+	for (auto &[block, ground] : m_standins)
+		ground.wait();
+	m_standins.clear();
+}
+
+const far::Generator &Body::land(int body)
+{
+	std::lock_guard<std::mutex> hold(m_lands_lock);
+	std::unique_ptr<far::Generator> &land = m_lands[body];
+	if (!land)
+		land = std::make_unique<far::Generator>(*m_client->getHorizon(), *m_atlas, body);
+	return *land;
+}
+
+// Before the map has a block, its ground as generated: unloaded, it held a
+// fast body dead at its edge till it came (the server's generation behind the
+// flight); now it's moved on through. It's the land as made, not as changed:
+// what's been built or dug there is felt when the block comes (and the
+// server's word on where the player is puts that right).
+bool Body::standIn(v3s16 block, std::vector<aabb3f> &boxes)
+{
+	if (!m_atlas || !m_client->getHorizon())
+		return false; // not a planet: nothing to make it from
+	auto it = m_standins.find(block);
+	if (it == m_standins.end()) {
+		if (m_standins.size() > 4096) // a bound: the made ones let go, the rest still coming
+			for (auto i = m_standins.begin(); i != m_standins.end();)
+				i = i->second.wait_for(std::chrono::seconds(0)) == std::future_status::ready ? m_standins.erase(i) : std::next(i);
+		m_standins.emplace(block, std::async(std::launch::async, [this, block] { return buildStandIn(block); }).share());
+		return false;
+	}
+	if (it->second.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+		return false;
+	boxes = it->second.get();
+	return true;
+}
+
+std::vector<aabb3f> Body::buildStandIn(v3s16 block)
+{
+	// each node solid at or under its column's ground; a seam is solid (nothing passes it)
+	const v3s16 base = block * MAP_BLOCKSIZE;
+	std::map<std::tuple<int, int, int, int64_t, int64_t>, s32> grounds; // by column
+	bool solid[MAP_BLOCKSIZE][MAP_BLOCKSIZE][MAP_BLOCKSIZE];
+	for (s16 z = 0; z < MAP_BLOCKSIZE; z++)
+		for (s16 y = 0; y < MAP_BLOCKSIZE; y++)
+			for (s16 x = 0; x < MAP_BLOCKSIZE; x++) {
+				const v3s16 p = base + v3s16(x, y, z);
+				const std::optional<planet::Atlas::Cell> c = m_atlas->cell(planet::Atlas::moverNode(p.X, p.Y, p.Z));
+				if (!c) {
+					solid[z][y][x] = true;
+					continue;
+				}
+				const auto key = std::make_tuple(c->body, (int)c->region, c->index, c->i, c->j);
+				auto g = grounds.find(key);
+				if (g == grounds.end())
+					g = grounds.emplace(key, land(c->body).groundAt(*c)).first;
+				solid[z][y][x] = c->k <= g->second;
+			}
+	// only what can be touched: a node with open air beside it, or at the block's edge
+	std::vector<aabb3f> boxes;
+	const auto open = [&](int x, int y, int z) {
+		return x < 0 || y < 0 || z < 0 || x >= MAP_BLOCKSIZE || y >= MAP_BLOCKSIZE || z >= MAP_BLOCKSIZE || !solid[z][y][x];
+	};
+	for (int z = 0; z < MAP_BLOCKSIZE; z++)
+		for (int y = 0; y < MAP_BLOCKSIZE; y++)
+			for (int x = 0; x < MAP_BLOCKSIZE; x++)
+				if (solid[z][y][x] && (open(x - 1, y, z) || open(x + 1, y, z) || open(x, y - 1, z) || open(x, y + 1, z) ||
+						open(x, y, z - 1) || open(x, y, z + 1)))
+					boxes.emplace_back(v3f(x - 0.5f, y - 0.5f, z - 0.5f), v3f(x + 0.5f, y + 0.5f, z + 0.5f));
+	return boxes;
 }
 
 bool Body::moves(LocalPlayer &p)
@@ -94,11 +169,11 @@ physics::Here Body::here(const v3d &foot, v3f velocity) const
 bool Body::ensureWorld()
 {
 	const planet::Atlas *atlas = m_client->getAtlas();
+	const std::optional<far::Horizon> &horizon = m_client->getHorizon();
 	if (m_world && atlas == m_atlas)
 		return true;
 	// each body's pull and air come from the world code's system, which the
 	// horizon carries (sent just after the atlas)
-	const std::optional<far::Horizon> &horizon = m_client->getHorizon();
 	if (atlas && !horizon)
 		return false;
 	// a new planet (or the first): a new field, a new world
@@ -117,12 +192,21 @@ bool Body::ensureWorld()
 	m_mirrors.clear();
 	if (m_sky_answer.valid())
 		m_sky_answer.wait(); // (it reads what's replaced here)
+	waitStandIns();
 	m_lands.clear();
 	Client *client = m_client;
 	m_world = std::make_unique<physics::World>(physics::World::Opts{
 			[this](const v3d &at, const v3f &velocity) { return here(at, velocity); },
-			[client](v3s16 block, std::vector<aabb3f> &boxes) {
-				return workshop::groundBoxes(client->getEnv().getMap(), client->ndef(), block, boxes);
+			[this, client](v3s16 block, std::vector<aabb3f> &boxes) {
+				if (workshop::groundBoxes(client->getEnv().getMap(), client->ndef(), block, boxes)) {
+					// the block's own now: its stand-in's let go (one still being
+					// made is left to finish: let go, its future waits for it)
+					if (auto it = m_standins.find(block); it != m_standins.end() &&
+							it->second.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+						m_standins.erase(it);
+					return true;
+				}
+				return standIn(block, boxes);
 			},
 			[client](const v3d &at) { return workshop::surfaceGrip(client->getEnv().getMap(), client->ndef(), client->getMaterials(), at); } });
 	if (m_carrying)
@@ -277,15 +361,11 @@ float Body::landBelow(const v3f &at, const v3f &velocity)
 	constexpr float NO_LAND = 1e9f; // a seam, or over the atlas's top
 	if (!m_atlas)
 		return NO_LAND;
-	const std::optional<far::Horizon> &horizon = m_client->getHorizon();
 	const auto below = [&](const v3f &there) {
 		const std::optional<planet::Atlas::Cell> c = m_atlas->cell(planet::Atlas::moverNode(there.X, there.Y, there.Z));
 		if (!c)
 			return NO_LAND;
-		std::unique_ptr<far::Generator> &land = m_lands[c->body];
-		if (!land)
-			land = std::make_unique<far::Generator>(*horizon, *m_atlas, c->body);
-		return (float)(c->k - land->surfaceAt(planet::Atlas::Cell(*c)));
+		return (float)(c->k - land(c->body).surfaceAt(planet::Atlas::Cell(*c)));
 	};
 	// (a place in another grid isn't charted from this one's numbers: it's asked again from there)
 	return std::min(below(at), below(at + velocity * LOOK_AHEAD));

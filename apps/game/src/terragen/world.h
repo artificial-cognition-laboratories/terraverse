@@ -11,6 +11,7 @@
 #include "sphere.h"
 #include <array>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 
@@ -164,9 +165,9 @@ public:
 	// (blocks, fixed): 0 never .. 1 (cold enough now, so colder then)
 	fix glacial(int32_t c, int64_t height) const;
 	// A drawn run's water level (blocks) at PROFILE + 1 points along it, from
-	// the cell to its receiver (none: nullptr)
+	// the cell to its receiver (none: nullptr). Worked out the first time it's asked for.
 	static constexpr int PROFILE = 8;
-	const int32_t *profile(int32_t c) const { return m_profile.empty() || m_runs[c].run == 0 || !drawn(c) ? nullptr : &m_profile[(size_t)c * (PROFILE + 1)]; }
+	const int32_t *profile(int32_t c) const;
 	// The coarse grid's mean spacing between cell centres, in blocks (fixed, 64 bits).
 	int64_t cellBlocks() const { return m_cell_blocks; }
 	static int64_t cellBlocksOf(const WorldCode &code);
@@ -249,9 +250,17 @@ private:
 	void shapeRuns();
 	// Each drawn run's water level (blocks) at PROFILE + 1 points from its
 	// cell to its receiver: falling downstream, under the ground beside it
-	// (the water's cut into the land, never banked up over it)
-	std::vector<int32_t> m_profile;
+	// (the water's cut into the land, never banked up over it). Its ends are
+	// the network's (profileRuns, for every run: each is held by those up and
+	// down it); the points between are its own, the ground read along it,
+	// filled in the first time it's asked for (profileRun). Read at full detail
+	// whoever asks, so the same either way; on a large planet each read is
+	// somewhere new, its channels built from nothing: read for every run as
+	// the world was made, boot took 20 s.
+	mutable std::vector<int32_t> m_profile;
+	std::unique_ptr<std::once_flag[]> m_profiled; // a run's points between filled in
 	void profileRuns();
+	void profileRun(int32_t c) const;
 	// the ground at a place before volcanoes and water, as ground() starts it
 	int32_t landAt(const Place &at) const;
 
@@ -328,6 +337,11 @@ private:
 constexpr int32_t METRES_PER_UNIT = 5000;
 constexpr int64_t EARTH_RADIUS_M = 6371000;
 fix blocksPerMetre(const WorldCode &code);
+
+// The world a code makes, shared: the server's generators, the far view and
+// the menu's planet all read one, built once (a big one takes seconds). A few
+// recent kept; asked for while it's being built, the asker waits for that build.
+std::shared_ptr<const World> worldFor(const WorldCode &code);
 // Blocks per unit of elevation, land and sea alike.
 inline fix heightScale(const WorldCode &code) { return mul(blocksPerMetre(code), toFix(METRES_PER_UNIT)); }
 

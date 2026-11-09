@@ -18,6 +18,7 @@
 #include "settings.h"
 #include "terragen/planet.h"
 #include <ICameraSceneNode.h>
+#include <SViewFrustum.h>
 #include <ISceneManager.h>
 #include <IVideoDriver.h>
 #include <algorithm>
@@ -35,12 +36,13 @@ static constexpr double AIR_DEPTH = 8;
 struct DrawState
 {
 	float cut = 0;
-	float haze = 1;     // distance past the cut over which the air's haze builds, near the ground
 	float share = 0;    // 0 down in the air's haze .. 1 above the air, seeing the planet
 	float sea = 0;      // the scene y of the sea
 	float place[4] = {}; // the eye: map x, z (blocks), altitude (m), unused
 	float air = 1;      // m: the air's scale height
 	float behind = 0;   // 1: a stand-in, behind everything
+	float level = -1;   // with far_view_debug_levels: the tile being drawn's level, to tint it by (−1: none)
+	float cell = 1;     // the tile being drawn's cells, blocks: how far off the true ground its land may be
 };
 
 class Uniforms : public IShaderUniformSetterRC
@@ -52,34 +54,43 @@ public:
 	{
 		m_cut_vertex.set(&m_state->cut, services);
 		m_cut_pixel.set(&m_state->cut, services);
-		m_haze.set(&m_state->haze, services);
 		m_share.set(&m_state->share, services);
 		m_sea.set(&m_state->sea, services);
 		m_place_vertex.set(m_state->place, services);
 		m_place_pixel.set(m_state->place, services);
 		m_air.set(&m_state->air, services);
 		m_behind.set(&m_state->behind, services);
+		m_level.set(&m_state->level, services);
+		m_cell.set(&m_state->cell, services);
 	}
 
 private:
 	std::shared_ptr<const DrawState> m_state;
 	CachedVertexShaderSetting<float> m_cut_vertex{"farCut"};
 	CachedPixelShaderSetting<float> m_cut_pixel{"farCut"};
-	CachedPixelShaderSetting<float> m_haze{"farHaze"};
 	CachedPixelShaderSetting<float> m_share{"farShare"};
 	CachedVertexShaderSetting<float> m_sea{"farSea"};
 	CachedVertexShaderSetting<float, 4> m_place_vertex{"farPlace"};
 	CachedPixelShaderSetting<float, 4> m_place_pixel{"farPlace"};
 	CachedPixelShaderSetting<float> m_air{"farAir"};
 	CachedPixelShaderSetting<float> m_behind{"farBehind"};
+	CachedPixelShaderSetting<float> m_level{"farLevel"};
+	CachedVertexShaderSetting<float> m_cell{"farCell"};
 };
+
+static float g_near_cut = 0; // (main thread: set in update, read as the frame's drawn)
+
+float nearCut()
+{
+	return g_near_cut;
+}
 
 static void settingChanged(const std::string &, void *data)
 {
 	static_cast<View *>(data)->readSettings();
 }
 
-static const char *const SETTINGS[] = { "far_view", "far_view_detail", "far_view_max" };
+static const char *const SETTINGS[] = { "far_view", "far_view_detail", "far_view_max", "far_view_debug_levels" };
 
 View::View(scene::ISceneManager *smgr, IShaderSource *ssrc, ITextureSource *tsrc,
 		const NodeDefManager *ndef, const Horizon &horizon, const planet::Atlas &atlas, int body) :
@@ -120,6 +131,7 @@ void View::readSettings()
 	int detail = std::clamp((int)std::lround(g_settings->getFloat("far_view_detail")), 1, 4);
 	m_split = SPLIT[detail - 1];
 	m_max = g_settings->getFloat("far_view_max");
+	m_debug_levels = g_settings->getBool("far_view_debug_levels");
 }
 
 void View::update(const Camera &camera, ClientMap &map, float near_range, bool range_all,
@@ -129,6 +141,7 @@ void View::update(const Camera &camera, ClientMap &map, float near_range, bool r
 	m_view = map.atlasView();
 	const std::optional<planet::Atlas::Frame> frame = m_view ? m_view->eye() : std::nullopt;
 	m_showing = false;
+	g_near_cut = 0;
 	if (!frame)
 		return; // the eye has no grid this frame (seam): nothing is drawn from it
 
@@ -157,6 +170,7 @@ void View::update(const Camera &camera, ClientMap &map, float near_range, bool r
 	m_showing = m_enabled && !range_all && range > m_cut;
 	if (!m_showing)
 		return;
+	g_near_cut = m_cut * BS;
 
 	// a block is a metre: the height counts toward a tile's distance as is
 	const Eye at{ { o.x / centre * sea, o.y / centre * sea, o.z / centre * sea }, m_altitude, m_cut, range, m_split, true };
@@ -171,7 +185,6 @@ void View::update(const Camera &camera, ClientMap &map, float near_range, bool r
 	ScopeProfiler timed(g_profiler, "Far view update [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
 	m_tiles->update(moving);
 	m_eye = eye;
-	m_culled = camera.getFrustumCuller();
 }
 
 void View::OnRegisterSceneNode()
@@ -189,9 +202,21 @@ void View::render()
 		return;
 
 	const v3f origin = camera->getAbsolutePosition() - m_eye * BS; // the scene position of map node (0, 0, 0)
-	const v3f offset = m_eye * BS - camera->getAbsolutePosition(); // a scene position plus this is a map position
+	// The camera's frustum as it draws this frame (its sides; the near and far
+	// planes aren't the far view's). Not Camera::getFrustumCuller's, taken in
+	// update(): the node's frustum is made as it renders, so that was the last
+	// frame's, against this frame's camera offset. Flying, as the offset stepped,
+	// it was a step off for a frame and culled tiles in plain sight: holes, the
+	// neighbours' skirts standing round them.
+	const scene::SViewFrustum &frustum = *camera->getViewFrustum();
+	const auto culled = [&](const v3f &centre, f32 radius) {
+		for (int p : { scene::SViewFrustum::VF_LEFT_PLANE, scene::SViewFrustum::VF_RIGHT_PLANE,
+					 scene::SViewFrustum::VF_BOTTOM_PLANE, scene::SViewFrustum::VF_TOP_PLANE })
+			if (frustum.planes[p].getDistanceTo(centre) > radius)
+				return true;
+		return false;
+	};
 	m_state->cut = m_cut * BS;
-	m_state->haze = std::max(m_max - m_cut, 1.0f) * BS;
 	m_state->share = m_share;
 	m_state->sea = origin.Y + m_water_level * BS;
 	m_state->place[0] = m_eye.X;
@@ -199,15 +224,12 @@ void View::render()
 	m_state->place[2] = m_altitude;
 	m_state->air = (float)terragen::sphere(m_radius).scale_height;
 
-	// Share the camera's depth projection with near blocks and clouds. The
-	// latter draw later and must be tested against the actual far terrain.
 	const auto draw = [&](const std::vector<Tiles::Drawn> &tiles, bool only_near) {
 		for (const Tiles::Drawn &tile : tiles) {
 			const std::optional<core::matrix4> world = m_view->place(tile.middle);
 			if (!world)
 				continue;
-			// a tile out of the camera's sight isn't drawn (the scene is the
-			// camera's offset from the map: the culler takes map positions)
+			// a tile out of the camera's sight isn't drawn (in the scene, as the frustum is)
 			aabb3f box(world->getTranslation());
 			for (const auto &part : tile.parts) {
 				aabb3f b = part->getBoundingBox();
@@ -215,11 +237,13 @@ void View::render()
 				box.addInternalBox(b);
 			}
 			const float reach = box.getExtent().getLength() / 2;
-			if (m_culled(box.getCenter() + offset, reach))
+			if (culled(box.getCenter(), reach))
 				continue;
 			if (only_near && box.getCenter().getDistanceFrom(camera->getAbsolutePosition()) - reach > m_state->cut)
 				continue;
 			driver->setTransform(video::ETS_WORLD, *world);
+			m_state->level = m_debug_levels ? (float)tile.key.level : -1; // (the shader's told at each draw)
+			m_state->cell = (float)tile.key.cell();
 			for (const auto &part : tile.parts)
 				driver->drawMeshBuffer(part.get());
 		}
@@ -232,8 +256,27 @@ void View::render()
 	draw(m_tiles->behind(), false);
 	draw(m_tiles->drawn(), true);
 	driver->clearBuffers(video::ECBF_DEPTH);
+	// The land past the cut, with its own depth: the camera's near plane is a
+	// tenth of a block (blocks at the eye), and against it the depth buffer
+	// kilometres off can't tell surfaces blocks apart: a tile's walls behind
+	// the ground in front came through it, flickering as the eye moved. Here
+	// the near plane is half the cut (nothing nearer is drawn), and the depth
+	// is dropped after: the near world is all nearer than the cut (nodes_shader's
+	// nearCut), so nothing after needs to be tested against it (clouds draw over it).
+	const core::matrix4 projection = driver->getTransform(video::ETS_PROJECTION);
+	core::matrix4 own;
+	own.buildProjectionMatrixPerspectiveFovLH(camera->getFOV(), camera->getAspectRatio(),
+			std::max(m_state->cut * 0.5f, 0.1f * BS), std::max(camera->getFarValue(), m_reach));
+	driver->setTransform(video::ETS_PROJECTION, own);
 	m_state->behind = 0; // (the shader's told at each draw)
+	// the stand-ins again, in this depth: a finer tile's skirt beside one hangs
+	// under its ground and must be hidden by it (drawn over its dropped depth,
+	// it stood as a wall over the land while the finer ones came in). Only
+	// over their holes (Tiles::behind), so they cover nothing that's there.
+	draw(m_tiles->behind(), false);
 	draw(m_tiles->drawn(), false);
+	driver->setTransform(video::ETS_PROJECTION, projection);
+	driver->clearBuffers(video::ECBF_DEPTH);
 }
 
 } // namespace far

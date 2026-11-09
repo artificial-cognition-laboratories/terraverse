@@ -51,6 +51,7 @@ export const CATEGORIES: Category[] = [
     { key: "far_view", label: "Distant terrain", note: "Draw land beyond loaded blocks.", kind: "toggle", terms: "horizon far lod" },
     { key: "far_view_detail", label: "Distant terrain detail", note: "How soon distant tiles split into finer ones.", kind: "slider", min: 1, max: 4, step: 1, format: detail, terms: "lod horizon", requires: yes("far_view") },
     { key: "far_view_max", label: "Furthest view", note: "How far peaks show past the horizon.", kind: "slider", min: 2000, max: 64000, step: 1000, format: blocks, requires: yes("far_view") },
+    { key: "far_view_debug_levels", label: "Show distant tile levels", note: "Debug: tint each distant tile by its detail level; stand-ins darker.", kind: "toggle", terms: "lod debug", requires: yes("far_view") },
   ] },
   { id: "terrain", title: "Terrain detail", group: "World", note: "How far cut and smoothed ground keeps its fine shape before it's drawn coarser.", options: [
     { key: "ground_detail_near", label: "Sixteenth detail", note: "Ground is drawn in sixteenths of a block within this distance.", kind: "slider", min: 0, max: 64, step: 4, format: blocks, terms: "lod", applies: "rejoin" },

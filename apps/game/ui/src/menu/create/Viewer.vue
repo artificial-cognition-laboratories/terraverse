@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, toRef, watch } from "vue"
 import PixelIcon from "../../game/PixelIcon.vue"
-import { IconTile, Slider } from "../../kit/index.ts"
+import { IconTile, Progress, Slider } from "../../kit/index.ts"
 import { body as bodyOf, STAR, type Body } from "../../system/model.ts"
 import { useSystemPreview } from "../../system/preview.ts"
 import { paint, type OverlayId } from "../../worldgen/fields.ts"
@@ -151,6 +151,10 @@ const kindNote = computed(() => chosenCard.value ? `${chosenCard.value.kind} · 
                 <PixelIcon :rows="VIEW_ICONS.inside.rows" :palette="VIEW_ICONS.inside.palette" style="--u: 2px" />
             </IconTile>
         </LayerRail>
+        <div v-if="store.making !== null" class="making" role="status">
+            <span class="spinner" aria-hidden="true" />
+            <Progress :value="store.making" :label="`Making the world · ${Math.round(store.making * 100)}%`" class="making-bar" />
+        </div>
         <div class="notes">
             <div v-if="chosen && !playable" class="concept-note">{{ kindNote }}</div>
             <div v-if="planet.problem.value" class="concept-note">{{ planet.problem.value }}</div>
@@ -177,6 +181,11 @@ const kindNote = computed(() => chosenCard.value ? `${chosenCard.value.kind} · 
 .viewer { position: relative; height: 100%; min-height: 0; }
 .overlays { position: absolute; top: 0; right: 0; max-height: calc(100% - 140px); overflow-y: auto; }
 .pending { color: var(--ink-faint); font: 12px var(--font-display); }
+/* over the date, as wide: clear of the system's bodies along the top. The old world stays drawn till the new one's ready */
+.making { position: absolute; left: 0; bottom: 96px; display: flex; gap: 10px; align-items: center; width: min(420px, 45%); padding: 8px 10px; border: var(--b) solid var(--edge); background: rgb(12 14 16 / 0.85); }
+.making-bar { flex: 1; min-width: 0; }
+.spinner { flex: none; width: 12px; height: 12px; background: var(--accent); animation: turn 0.8s steps(4) infinite; }
+@keyframes turn { to { transform: rotate(360deg); } }
 .notes { position: absolute; right: 0; bottom: 64px; display: grid; gap: 6px; justify-items: end; }
 .concept-note { max-width: 240px; padding: 6px 8px; border: var(--b) solid var(--edge); background: rgb(12 14 16 / 0.85); color: var(--ink-dim); font-size: 10px; }
 .foot { position: absolute; left: 0; bottom: 0; display: grid; gap: 8px; width: min(420px, 45%); }

@@ -14,6 +14,8 @@
 #include <future>
 #include <map>
 #include <memory>
+#include <mutex>
+#include <unordered_map>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -153,8 +155,19 @@ public:
 
 private:
 	float landBelow(const v3f &at, const v3f &velocity); // nodes, the least of here and a second on
+	// A body's land as generated (made the first time it's asked for; from
+	// the main thread and workers alike)
+	const far::Generator &land(int body);
+	std::mutex m_lands_lock;
 	std::map<int, std::unique_ptr<far::Generator>> m_lands; // the land under a flight, by body
 	std::future<float> m_sky_answer;
+	// Ground for a block the map hasn't got yet, as the world's generated:
+	// what's moved through meanwhile, not waited for. Built on a worker; false
+	// till it's there. The block's own, when it comes, replaces it (Client: groundChanged).
+	bool standIn(v3s16 block, std::vector<aabb3f> &boxes);
+	std::vector<aabb3f> buildStandIn(v3s16 block);
+	void waitStandIns(); // before what they read goes
+	std::unordered_map<v3s16, std::shared_future<std::vector<aabb3f>>> m_standins;
 	float m_above_land = 0;
 	int m_tier = 0; // physics::FLIGHT_TIERS, from 1
 	float m_sky_check = 0;

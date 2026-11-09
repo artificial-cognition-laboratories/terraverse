@@ -7,6 +7,7 @@
 #include "community.h"
 #include "online/join.h"
 #include "planetarium.h"
+#include "shell.h"
 #include "planet/atlas.h"
 #include "far/baked.h"
 #include <map>
@@ -55,6 +56,7 @@ public:
 
 private:
 	Shell &m_shell;
+	Intents m_intents; // what the menu answers, removed as it goes
 	RenderingEngine *m_engine;
 	const Worlds &m_worlds;
 	const Lab &m_lab;

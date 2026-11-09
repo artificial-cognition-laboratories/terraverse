@@ -86,11 +86,11 @@ static planet::Atlas sharedAtlas(const MapgenParams &params)
 
 MapgenTerra::MapgenTerra(MapgenTerraParams *params, EmergeParams *emerge) :
 	MapgenBasic(MAPGEN_TERRA, params, emerge),
-	m_world(decodeOrFail(params->code)),
+	m_code(decodeOrFail(params->code)),
 	m_atlas(sharedAtlas(*params)),
 	m_blocks(terraBlocks(m_bmgr, ndef))
 {
-	m_bodyWorlds = terragen::bodyWorlds(m_world.code(), terragen::Atlas::parse(params->planet_atlas));
+	m_bodyWorlds = terragen::bodyWorlds(m_code, terragen::Atlas::parse(params->planet_atlas));
 	if ((int)m_bodyWorlds.size() != m_atlas.bodies())
 		throw BaseException("mapgen terra: the server's atlas holds " + std::to_string(m_atlas.bodies()) +
 				" bodies, the world code's system " + std::to_string(m_bodyWorlds.size()));

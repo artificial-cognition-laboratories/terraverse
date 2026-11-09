@@ -24,6 +24,14 @@ namespace planet { class Atlas; }
 
 namespace far {
 
+// The near world's edge this frame (scene units, from the eye; 0: no far view,
+// none): the far view draws past it and the near world's blocks only short
+// of it (nodes_shader's nearCut), so the two never overlap. Blocks past the
+// near range were drawn whole for a few frames (the draw list isn't remade
+// every frame, nor cut finer than a block), and the far land's coarser banks
+// and cliffs stood up through them.
+float nearCut();
+
 class Palette;
 class Tiles;
 struct DrawState;
@@ -82,6 +90,7 @@ private:
 	// settings
 	bool m_enabled = true;
 	float m_split = 2; // a tile splits while nearer than this many of its spans past the cut
+	bool m_debug_levels = false; // far_view_debug_levels: each tile tinted by its level
 	float m_max = 0; // past the eye's own horizon, it draws no farther than this
 
 	float m_cut = 0;      // blocks
@@ -90,7 +99,6 @@ private:
 	float m_altitude = 0; // m above the sea
 	float m_share = 0;    // 0 in the air's haze .. 1 above the air
 	AtlasView *m_view = nullptr; // where it draws the planet, this frame
-	std::function<bool(v3f, f32)> m_culled; // the camera's frustum, this frame (Camera::getFrustumCuller)
 	v3f m_eye;                   // where it's drawn from then, in blocks
 };
 

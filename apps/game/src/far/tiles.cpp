@@ -252,6 +252,17 @@ void Tiles::update(const Eye &eye)
 		evict();
 }
 
+float Tiles::basedShare() const
+{
+	const auto &roots = m_tiling.roots();
+	size_t built = 0;
+	for (const TileKey &root : roots) {
+		auto it = m_tiles.find(Key(root));
+		built += it != m_tiles.end() && it->second.ready;
+	}
+	return roots.empty() ? 1.0f : (float)built / roots.size();
+}
+
 bool Tiles::based() const
 {
 	for (const TileKey &root : m_tiling.roots()) {
@@ -266,8 +277,8 @@ std::vector<Tiles::Drawn> Tiles::behind() const
 {
 	std::vector<Drawn> out;
 	out.reserve(m_behind.size());
-	for (const Key &key : m_behind)
-		out.push_back({ key.tile(), m_tiling.middle(key.tile()), m_tiles.at(key).parts });
+	for (const auto &[key, child] : m_behind)
+		out.push_back({ key.tile(), m_tiling.middle(key.tile()), m_tiles.at(key).quarters[child] });
 	return out;
 }
 
@@ -336,40 +347,48 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 		}
 		// meanwhile, finer tiles from before, if all of them are there
 		size_t mark = draw.size();
+		// (standing in behind them, a coarser tile needn't have all of them:
+		// what's there is kept, and it shows only through the rest)
 		std::function<bool(const Key &)> finer = [&](const Key &k) {
 			if (k.level == 0)
 				return false;
-			for (s32 c = 0; c < 4; c++) {
+			bool all = true;
+			for (s32 c = 0; c < 4 && (all || eye.keep_fine); c++) {
 				const Key child = k.child(c);
 				auto it = m_tiles.find(child);
 				if (it != m_tiles.end() && it->second.ready) {
 					it->second.used = m_frame;
 					draw.push_back(child);
 				} else if (!finer(child)) {
-					return false;
+					all = false;
 				}
 			}
-			return true;
+			return all;
 		};
 		if (finer(key))
 			return true;
-		draw.resize(mark);
+		if (!eye.keep_fine)
+			draw.resize(mark);
 		return false;
 	}
 
 	size_t mark = draw.size();
-	bool all = true;
+	bool all = true, there[4];
 	for (s32 c = 0; c < 4; c++)
-		all &= choose(key.child(c), eye, draw, want);
+		all &= there[c] = choose(key.child(c), eye, draw, want);
 	if (all)
 		return true;
 	// a finer tile isn't there yet: this one stands in for all four
 	auto it = m_tiles.find(key);
 	if (it != m_tiles.end() && it->second.ready && eye.keep_fine) {
 		// behind the finer ones that are there, so only the hole shows it: swapped
-		// for them, a whole view flashed coarse for each new tile
+		// for them, a whole view flashed coarse for each new tile. Only its
+		// quarters over the holes: the rest of it, at its own coarser heights,
+		// showed past the finer land's edge, a block of it above or below the ground
 		it->second.used = m_frame;
-		m_behind.push_back(key);
+		for (s32 c = 0; c < 4; c++)
+			if (!there[c])
+				m_behind.emplace_back(key, c);
 		return true;
 	}
 	if (it != m_tiles.end() && it->second.ready) {
@@ -390,6 +409,8 @@ void Tiles::install()
 			return;
 		Entry &e = m_tiles[Key(result->key)];
 		e.parts.clear();
+		for (auto &q : e.quarters)
+			q.clear();
 		e.own.clear();
 		for (Mesh::Part &part : result->mesh.parts) {
 			auto buffer = make_irr<scene::SMeshBuffer>();
@@ -402,6 +423,7 @@ void Tiles::install()
 			buffer->Indices->Data = std::move(part.indices);
 			buffer->recalculateBoundingBox();
 			buffer->setHardwareMappingHint(scene::EHM_STATIC);
+			e.quarters[part.quarter].push_back(buffer);
 			e.parts.push_back(std::move(buffer));
 		}
 		if (m_tint)

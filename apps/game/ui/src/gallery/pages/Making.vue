@@ -17,8 +17,9 @@ onMounted(() => {
 
 <template>
     <div class="page">
-        <Specimen name="Progress" note="fills over its seconds, one transition">
+        <Specimen name="Progress" note="fills over its seconds, one transition; or as far as measured">
             <Progress :seconds="4" label="Knap: flint flake" class="bar" />
+            <Progress :value="0.42" label="Making the world · 42%" class="bar" />
         </Specimen>
         <Specimen name="Meter" note="an amount against marks: what's carried, toned past them">
             <div class="meters">

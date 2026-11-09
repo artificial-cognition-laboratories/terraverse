@@ -144,6 +144,10 @@ private:
 		double reported = 0; // seconds since the page was last told
 	};
 	Clock m_clock;
+	// what was last told the page of a body being made: its readiness in
+	// hundredths, −1 none being made
+	int m_told = -1;
+	void tellMaking();
 	// the page's composed view (planetarium.scene), and how far the frame's
 	// eased toward it (0..1)
 	struct Scene

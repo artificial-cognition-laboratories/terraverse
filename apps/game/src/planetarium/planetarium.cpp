@@ -138,7 +138,7 @@ std::shared_ptr<const terragen::World> Planetarium::worldOf(int body)
 		found = m_worlds.emplace(body, built.get_future().share()).first;
 		std::thread([code, built = std::move(built)]() mutable {
 			try {
-				built.set_value(std::make_shared<const terragen::World>(code));
+				built.set_value(terragen::worldFor(code));
 			} catch (...) {
 				built.set_exception(std::current_exception());
 			}

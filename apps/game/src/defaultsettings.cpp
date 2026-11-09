@@ -96,6 +96,7 @@ void set_default_settings()
 	settings->setDefault("far_view", "true");
 	settings->setDefault("far_view_detail", "2");
 	settings->setDefault("far_view_max", "16000");
+	settings->setDefault("far_view_debug_levels", "false"); // Terra Firma: each far tile tinted by its level
 	settings->setDefault("remote_port", "30000");
 #if defined(__unix__) && !defined(__APPLE__) && !defined (__ANDROID__)
 	// On Linux+X11 (not Linux+Wayland or Linux+XWayland), I've encountered a bug
