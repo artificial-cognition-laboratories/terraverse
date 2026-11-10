@@ -57,12 +57,17 @@ jobs:
         with:
           arch: x64
 
+      # The runner's own LLVM, not the older clang-cl bundled with Visual
+      # Studio: that one leaves std::variant's destructors undefined at link.
       - name: Configure
         run: |
+          LLVM="C:/Program Files/LLVM/bin"
+          "$LLVM/clang-cl.exe" --version
           mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
           cmake -S . -B .output/build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl \
+            -DCMAKE_C_COMPILER="$LLVM/clang-cl.exe" -DCMAKE_CXX_COMPILER="$LLVM/clang-cl.exe" \
+            -DCMAKE_LINKER="$LLVM/lld-link.exe" \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_TARGET_TRIPLET=x64-windows \
             -DRUN_IN_PLACE=TRUE \
