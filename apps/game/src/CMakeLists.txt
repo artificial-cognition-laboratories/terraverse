@@ -1052,6 +1052,9 @@ if(MSVC)
 
 		# Disable pragma-pack warning
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wno-pragma-pack")
+		# Terra Firma: clang-cl under /EHa leaves std::variant's inline destructors
+		# undefined at link; C++ exceptions only (a segfault isn't caught as one).
+		string(REPLACE "/EHa" "/EHsc" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 	else()
 		add_compile_options(/MP)
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /TP /FD /GL")
