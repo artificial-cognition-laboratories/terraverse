@@ -454,6 +454,60 @@ add_subdirectory(content)
 add_subdirectory(database)
 add_subdirectory(mapgen)
 add_subdirectory(terragen)
+
+# The hash of what terragen's grids are built from: kept grids are named by it
+# (sorted: a list's order mustn't change the hash)
+list(SORT terragen_grid_SRCS)
+file(WRITE "${PROJECT_BINARY_DIR}/terragen_grid_sources.txt" "${terragen_grid_SRCS}") # (a list in -D would split the command)
+add_custom_command(
+	OUTPUT "${PROJECT_BINARY_DIR}/terragen_grid_sources.cpp"
+	COMMAND ${CMAKE_COMMAND}
+	-D "PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+	-D "PROJECT_BINARY_DIR=${PROJECT_BINARY_DIR}"
+	-D "GRID_SRCS_FILE=${PROJECT_BINARY_DIR}/terragen_grid_sources.txt"
+	-D "TEMPLATE=${PROJECT_SOURCE_DIR}/terragen/grid_sources.cpp.in"
+	-D "OUTPUT=${PROJECT_BINARY_DIR}/terragen_grid_sources.cpp"
+	-P "${CMAKE_SOURCE_DIR}/cmake/Modules/HashGridSources.cmake"
+	DEPENDS
+		${terragen_grid_SRCS}
+		"${PROJECT_SOURCE_DIR}/terragen/grid_sources.cpp.in"
+		"${CMAKE_SOURCE_DIR}/cmake/Modules/HashGridSources.cmake")
+# And of all terragen: what a world model's kept river levels and atlas
+# layouts are named by (anything outside it may change and keep them)
+file(GLOB terragen_all_SRCS "${PROJECT_SOURCE_DIR}/terragen/*.cpp" "${PROJECT_SOURCE_DIR}/terragen/*.h")
+list(SORT terragen_all_SRCS)
+file(WRITE "${PROJECT_BINARY_DIR}/terragen_sources.txt" "${terragen_all_SRCS}")
+add_custom_command(
+	OUTPUT "${PROJECT_BINARY_DIR}/terragen_sources.cpp"
+	COMMAND ${CMAKE_COMMAND}
+	-D "GRID_SRCS_FILE=${PROJECT_BINARY_DIR}/terragen_sources.txt"
+	-D "TEMPLATE=${PROJECT_SOURCE_DIR}/terragen/terragen_sources.cpp.in"
+	-D "OUTPUT=${PROJECT_BINARY_DIR}/terragen_sources.cpp"
+	-P "${CMAKE_SOURCE_DIR}/cmake/Modules/HashGridSources.cmake"
+	DEPENDS
+		${terragen_all_SRCS}
+		"${PROJECT_SOURCE_DIR}/terragen/terragen_sources.cpp.in"
+		"${CMAKE_SOURCE_DIR}/cmake/Modules/HashGridSources.cmake")
+# And of what a far tile's built from (all of terragen, the terra generator's
+# columns, the atlas, the far view's land): kept far tiles are named by it
+file(GLOB far_tile_SRCS
+	"${PROJECT_SOURCE_DIR}/terragen/*.cpp" "${PROJECT_SOURCE_DIR}/terragen/*.h"
+	"${PROJECT_SOURCE_DIR}/mapgen/terra_*.cpp" "${PROJECT_SOURCE_DIR}/mapgen/terra_*.h"
+	"${PROJECT_SOURCE_DIR}/mapgen/atlas_land.*" "${PROJECT_SOURCE_DIR}/planet/atlas.*"
+	"${PROJECT_SOURCE_DIR}/far/terrain.*" "${PROJECT_SOURCE_DIR}/far/tiling.*" "${PROJECT_SOURCE_DIR}/far/tilecache.*")
+list(SORT far_tile_SRCS)
+file(WRITE "${PROJECT_BINARY_DIR}/far_sources.txt" "${far_tile_SRCS}")
+add_custom_command(
+	OUTPUT "${PROJECT_BINARY_DIR}/far_sources.cpp"
+	COMMAND ${CMAKE_COMMAND}
+	-D "GRID_SRCS_FILE=${PROJECT_BINARY_DIR}/far_sources.txt"
+	-D "TEMPLATE=${PROJECT_SOURCE_DIR}/far/far_sources.cpp.in"
+	-D "OUTPUT=${PROJECT_BINARY_DIR}/far_sources.cpp"
+	-P "${CMAKE_SOURCE_DIR}/cmake/Modules/HashGridSources.cmake"
+	DEPENDS
+		${far_tile_SRCS}
+		"${PROJECT_SOURCE_DIR}/far/far_sources.cpp.in"
+		"${CMAKE_SOURCE_DIR}/cmake/Modules/HashGridSources.cmake")
 add_subdirectory(release)
 add_subdirectory(planet)
 add_subdirectory(far)
@@ -524,6 +578,9 @@ set(independent_SRCS
 	tileanimation.cpp
 	tool.cpp
 	${PROJECT_BINARY_DIR}/builtin_files.cpp
+	${PROJECT_BINARY_DIR}/terragen_grid_sources.cpp
+	${PROJECT_BINARY_DIR}/far_sources.cpp
+	${PROJECT_BINARY_DIR}/terragen_sources.cpp
 	${common_network_SRCS}
 	${content_SRCS}
 	${database_SRCS}

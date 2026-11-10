@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, toRef, watch } from "vue"
 import PixelIcon from "../../game/PixelIcon.vue"
-import { IconTile, Progress, Slider } from "../../kit/index.ts"
+import { IconTile, Progress, Slider, Stages } from "../../kit/index.ts"
 import { body as bodyOf, STAR, type Body } from "../../system/model.ts"
 import { useSystemPreview } from "../../system/preview.ts"
 import { paint, type OverlayId } from "../../worldgen/fields.ts"
@@ -20,6 +20,13 @@ import { useStore } from "../../game/store.ts"
 const props = defineProps<{ draft: WorldDraftHandle; frame: { left: number; right: number } }>()
 const cards = useSystemPreview()
 const store = useStore()
+// the bar names the stage under way, else the world as a whole
+const makingLabel = computed(() => {
+    const loading = store.making
+    if (!loading) return ""
+    const running = loading.stages.find(stage => stage.state === "running")
+    return `${running?.label ?? "Making the world"} · ${Math.round(loading.share * 100)}%`
+})
 const looks = useLooks()
 const previewer = looks.terrain
 const date = looks.date
@@ -152,8 +159,11 @@ const kindNote = computed(() => chosenCard.value ? `${chosenCard.value.kind} · 
             </IconTile>
         </LayerRail>
         <div v-if="store.making !== null" class="making" role="status">
-            <span class="spinner" aria-hidden="true" />
-            <Progress :value="store.making" :label="`Making the world · ${Math.round(store.making * 100)}%`" class="making-bar" />
+            <div class="making-head">
+                <span class="spinner" aria-hidden="true" />
+                <Progress :value="store.making.share" :label="makingLabel" class="making-bar" />
+            </div>
+            <Stages :stages="store.making.stages" />
         </div>
         <div class="notes">
             <div v-if="chosen && !playable" class="concept-note">{{ kindNote }}</div>
@@ -182,7 +192,8 @@ const kindNote = computed(() => chosenCard.value ? `${chosenCard.value.kind} · 
 .overlays { position: absolute; top: 0; right: 0; max-height: calc(100% - 140px); overflow-y: auto; }
 .pending { color: var(--ink-faint); font: 12px var(--font-display); }
 /* over the date, as wide: clear of the system's bodies along the top. The old world stays drawn till the new one's ready */
-.making { position: absolute; left: 0; bottom: 96px; display: flex; gap: 10px; align-items: center; width: min(420px, 45%); padding: 8px 10px; border: var(--b) solid var(--edge); background: rgb(12 14 16 / 0.85); }
+.making { position: absolute; left: 0; bottom: 96px; display: grid; gap: 8px; width: min(420px, 45%); padding: 8px 10px; border: var(--b) solid var(--edge); background: rgb(12 14 16 / 0.85); }
+.making-head { display: flex; gap: 10px; align-items: center; min-width: 0; }
 .making-bar { flex: 1; min-width: 0; }
 .spinner { flex: none; width: 12px; height: 12px; background: var(--accent); animation: turn 0.8s steps(4) infinite; }
 @keyframes turn { to { transform: rotate(360deg); } }

@@ -19,6 +19,7 @@ set(terragen_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/parallel.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/planet.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/preview.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/progress.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/soil.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/sphere.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/sun.cpp
@@ -27,3 +28,18 @@ set(terragen_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/world.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/worlds.cpp
 	PARENT_SCOPE)
+
+# What a grid is built from: every source but those only a column's read runs
+# (the drainage land, soil, cover, the preview, the atlas). A kept grid is
+# named by their hash, so a change to how columns are read keeps the planets
+# already worked out (grid_file.cpp); anything else here works them out again.
+set(terragen_sampling channels.cpp soil.cpp vegetation.cpp preview.cpp atlas.cpp progress.cpp)
+file(GLOB terragen_headers "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
+set(terragen_grid_SRCS ${terragen_headers})
+foreach(src ${terragen_SRCS})
+	get_filename_component(name ${src} NAME)
+	if(NOT name IN_LIST terragen_sampling)
+		list(APPEND terragen_grid_SRCS ${src})
+	endif()
+endforeach()
+set(terragen_grid_SRCS ${terragen_grid_SRCS} PARENT_SCOPE)

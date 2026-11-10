@@ -1,7 +1,7 @@
 // Standalone terragen: a region of the land at block scale scored as a
 // landscape (sprint 108), so a change to how it's shaped is measured against
 // real land, not only looked at:
-//   g++ -std=c++17 -O2 -pthread -I apps/game/src apps/game/src/terragen/*.cpp scripts/terragen-check/landscape.cpp -o /tmp/landscape
+//   scripts/terragen-tool.sh /tmp/landscape scripts/terragen-check/landscape.cpp
 //   [SIZE=628320] /tmp/landscape <code> [u,v | peak | belt | plain | shield | river] [span km] [samples]
 // What it reports, and what real land shows:
 //   relief and slopes: local relief over an eighth of the region; slopes, and

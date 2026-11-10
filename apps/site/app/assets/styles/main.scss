@@ -1,0 +1,58 @@
+@use "./docs.scss";
+
+@font-face {
+    font-family: "JetBrains Mono";
+    src: url("~/assets/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+    font-weight: 400;
+    font-display: swap;
+}
+@font-face {
+    font-family: "JetBrains Mono";
+    src: url("~/assets/fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2");
+    font-weight: 700;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Silkscreen";
+    src: url("~/assets/fonts/silkscreen-latin-400-normal.woff2") format("woff2");
+    font-weight: 400;
+    font-display: swap;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: $bg-primary;
+    color: $text-primary;
+    font-family: $font-mono;
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+html {
+    @include desktop-up {
+        scrollbar-gutter: stable;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+}
+
+button {
+    font-family: inherit;
+}
+
+// The sidebar teleports into the drawer below tablet, but only once hydrated.
+// Hide its in-page position at those widths so the prerendered HTML never
+// paints the tree above the article first.
+@include tablet {
+    .docs-sidebar-block:not(#mobile-page-nav *) {
+        display: none;
+    }
+}

@@ -2,7 +2,7 @@
 // builds its columns (World::ground), hillshaded from the north-west with
 // contours, and the land's hypsometry (how much of it stands how high), whole
 // planet and region. For tuning the shape of the land by eye:
-//   g++ -std=c++17 -O2 -I apps/game/src apps/game/src/terragen/*.cpp scripts/terragen-check/region.cpp -o /tmp/region
+//   scripts/terragen-tool.sh /tmp/region scripts/terragen-check/region.cpp
 //   [SIZE=628320] [BIOMES=1 | KINDS=1 | SEABED=1] [COARSE=1] /tmp/region <code> out.png [u,v | peak | belt | plain | lake | pan | mouth | fjord | river] [span km] [pixels]
 // u, v: the region's middle (0..1 round, north to south); span: across it.
 // peak: the highest land; belt: the most-rising range; plain: the lowest
@@ -259,7 +259,7 @@ int main(int argc, char **argv)
 				r = 110 + 120 * t; gg = 150 + 50 * t - 40 * t * t; b = 90 + 110 * t * t;
 			}
 			r *= shade; gg *= shade; b *= shade;
-			const bool line = std::floor(at(x + 1, y) / contour) != std::floor(e / contour) || std::floor(at(x, y + 1) / contour) != std::floor(e / contour);
+			const bool line = !std::getenv("NOCONTOURS") && (std::floor(at(x + 1, y) / contour) != std::floor(e / contour) || std::floor(at(x, y + 1) / contour) != std::floor(e / contour));
 			const bool bold = std::floor(at(x + 1, y) / (contour * 5)) != std::floor(e / (contour * 5)) || std::floor(at(x, y + 1) / (contour * 5)) != std::floor(e / (contour * 5));
 			if (e >= 0 && line) { const double k = bold ? 0.45 : 0.75; r *= k; gg *= k; b *= k; }
 			unsigned char *p = &rgb[((size_t)y * N + x) * 3];

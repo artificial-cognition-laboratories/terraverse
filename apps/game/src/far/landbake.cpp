@@ -27,7 +27,7 @@ static V unit(V a) { const double l = std::sqrt(dot(a, a)); return { a.x / l, a.
 
 Json::Value bakeRiverPatch()
 {
-	const WorldCode code = WorldCode::decode("TF19.dGVycmE");
+	const WorldCode code = WorldCode::decode("TF21.dGVycmE");
 	std::vector<std::vector<fix>> land, sediment;
 	std::vector<std::vector<int64_t>> flow;
 	const std::shared_ptr<const Grid> built = watchErosion(code, [&](const ErosionRound &r) {

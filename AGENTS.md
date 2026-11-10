@@ -244,12 +244,14 @@ cd apps/game/ui && bun run typecheck
 ./.output/bin/luanti --server --gameid terrafirma --world <tmp dir> --port <n>   # headless boot: catches Lua errors
 ./.output/bin/luanti --test-module TestTerragen                                  # one test module; --run-unittests for all
 
+bun check:land          # after a generation change: check:terragen, its unit tests and check:far side by side (~1 min); --quick: probe and default world only (~25 s)
 bun check:terragen      # probed world == standalone terragen, plus unit tests
 bun check:lab           # every Lab scenario headless, each `expect` checked
 bun check:wiki          # every wiki scene in the engine sandbox
 bun check:moves         # every Movement, Vehicles and Flow scene through the real code
 bun check:matter        # a real fire on a live server
 bun check:far           # far view against generated chunks
+bun perf:gen            # where making a world spends its time, by step, cold and warm at 50k and 100k (SIZES=, CODE=)
 bun palette             # re-bake palette.json after changing blocks, textures or species
 bun check:palette       # fails if palette.json is stale
 bun pose-sheet          # the figure's moves as PNGs
@@ -261,7 +263,7 @@ bun package:linux <version>   # the portable Linux package from the current buil
 ```
 
 To tune by eye, render a code's grid to a PNG:
-`g++ -std=c++17 -O2 -Iapps/game/src apps/game/src/terragen/*.cpp scripts/terragen-check/render.cpp -o /tmp/render && /tmp/render TF9.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents|sediment]`
+`scripts/terragen-tool.sh /tmp/render scripts/terragen-check/render.cpp && /tmp/render TF9.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents|sediment]`
 (`<code>@<body>` draws another body.)
 
 **How agents verify:** build the engine, typecheck and build the UI, boot headless for Lua errors,

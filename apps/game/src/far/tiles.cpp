@@ -3,8 +3,12 @@
 
 #include "far/tiles.h"
 #include "far/mesh.h"
+#include "far/tilecache.h"
+#include "porting.h"
 #include "constants.h"
 #include "exceptions.h"
+#include "log.h"
+#include "terragen/progress.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -46,7 +50,8 @@ public:
 	};
 
 	Crew(const planet::Atlas &atlas, int body, const Horizon &horizon, const Palette &palette, const Tiling &tiling) :
-		m_atlas(atlas), m_body(body), m_horizon(horizon), m_palette(palette), m_tiling(tiling)
+		m_atlas(atlas), m_body(body), m_horizon(horizon), m_palette(palette), m_tiling(tiling),
+		m_cache(porting::path_cache, horizon, atlas, body)
 	{
 	}
 
@@ -91,30 +96,9 @@ private:
 public:
 	void run()
 	{
-		{
-			// the first worker in builds the generator (the world model: a
-			// moment), outside the lock: the main thread asks and takes meanwhile
-			std::unique_lock lock(m_mutex);
-			if (!m_generator && !m_building && m_error.empty()) {
-				m_building = true;
-				lock.unlock();
-				std::unique_ptr<Generator> made;
-				std::string error;
-				try {
-					made = std::make_unique<Generator>(m_horizon, m_atlas, m_body);
-				} catch (const std::exception &e) {
-					error = std::string("the world can't be built from the server's data: ") + e.what();
-				}
-				lock.lock();
-				m_generator = std::move(made);
-				m_error = error;
-				m_building = false;
-			}
-		}
-		m_wake.notify_all();
 		std::unique_lock lock(m_mutex);
 		while (true) {
-			m_wake.wait(lock, [this] { return m_stop || !m_error.empty() || (!m_queue.empty() && m_generator); });
+			m_wake.wait(lock, [this] { return m_stop || !m_error.empty() || !m_queue.empty(); });
 			if (!m_error.empty())
 				return; // take() reports it
 			if (m_stop)
@@ -127,10 +111,18 @@ public:
 			Result r{ key, {} };
 			try {
 				const ScopeProfiler timed(g_profiler, "Far view: tile built [ms]", SPT_AVG);
-				r.mesh = onPlanet(m_generator->build(key));
+				// kept from before if it can be: the world model's only made
+				// once a tile isn't
+				std::optional<Tile> tile = m_cache.load(key);
+				if (!tile) {
+					tile = generator().build(key);
+					m_cache.save(*tile);
+				}
+				r.mesh = onPlanet(*tile);
 			} catch (const std::exception &e) {
 				lock.lock();
 				m_error = e.what();
+				m_wake.notify_all();
 				return;
 			}
 
@@ -158,8 +150,23 @@ private:
 	const Horizon m_horizon;
 	const Palette m_palette;
 	const Tiling m_tiling;
+	const TileCache m_cache;
+	// the world model, made by the first worker a tile isn't kept for (the
+	// others missing one wait for it); none made if every tile was kept
+	std::once_flag m_made;
 	std::unique_ptr<Generator> m_generator;
-	bool m_building = false; // a worker is making m_generator
+
+	const Generator &generator()
+	{
+		std::call_once(m_made, [&] {
+			try {
+				m_generator = std::make_unique<Generator>(m_horizon, m_atlas, m_body);
+			} catch (const std::exception &e) {
+				throw BaseException(std::string("the world can't be built from the server's data: ") + e.what());
+			}
+		});
+		return *m_generator;
+	}
 
 	std::mutex m_mutex;
 	std::condition_variable m_wake;
@@ -210,7 +217,8 @@ Tiles::Tiles(const planet::Atlas &atlas, int body, const Horizon &horizon, const
 	m_atlas(atlas),
 	m_horizon(horizon),
 	m_tiling(atlas.body(body)),
-	m_workers(std::make_unique<Workers>(m_atlas, body, m_horizon, palette, m_tiling, threads))
+	m_workers(std::make_unique<Workers>(m_atlas, body, m_horizon, palette, m_tiling, threads)),
+	m_coarse(std::make_unique<terragen::Step>(horizon.code, "coarse planet", (int64_t)m_tiling.roots().size()))
 {
 }
 
@@ -247,6 +255,10 @@ void Tiles::update(const Eye &eye)
 	m_workers->want(keys);
 
 	install();
+	if (m_coarse && based()) {
+		m_coarse.reset();
+		actionstream << "far: " << m_horizon.code << " coarse planet there; " << terragen::breakdown(terragen::making(m_horizon.code)) << std::endl;
+	}
 	repaint();
 	if (m_frame % 60 == 0)
 		evict();
@@ -429,6 +441,8 @@ void Tiles::install()
 		if (m_tint)
 			paint(Key(result->key), e);
 		e.painted = m_tints;
+		if (m_coarse && !e.ready && result->key.level == m_tiling.roots().front().level)
+			m_coarse->advance();
 		e.ready = true;
 	}
 }

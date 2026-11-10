@@ -111,15 +111,20 @@ struct ErosionRound
 };
 std::shared_ptr<const Grid> watchErosion(const WorldCode &code, const std::function<void(const ErosionRound &)> &watch);
 // Keep built grids in `dir` as well, so a world opened before needn't be
-// worked out again. `build` names the generator: only its own files are read
-// (a code means the same world, but a changed build may not reach it the same
-// way), the others are removed. Not called: nothing is kept (tools, tests of terragen alone).
-void keepGridsIn(const std::string &dir, const std::string &build);
-// The world model's river levels (World::profileRuns: each drawn run's ends,
-// two to a cell), kept beside the grids by a key of what decides them; none
-// if not kept (or nothing's kept)
-std::optional<std::vector<int32_t>> loadRunLevels(const std::string &key);
-void saveRunLevels(const std::string &key, const std::vector<int32_t> &levels);
+// worked out again. `build` names the world model (TERRAGEN_SOURCES): only its
+// own river levels and atlas layouts are read (a code means the same world,
+// but changed sources may not reach it the same way), the others are removed. Grids go by `grid_build` instead, what they're
+// built from (GRID_SOURCES), so changing how a column's read keeps them. Not
+// called: nothing is kept (tools, tests of terragen alone).
+void keepGridsIn(const std::string &dir, const std::string &build, const std::string &grid_build);
+// The hash of the sources grids are built from (generated: terragen/CMakeLists.txt)
+extern const char GRID_SOURCES[];
+// The hash of all terragen's sources (generated: src/CMakeLists.txt)
+extern const char TERRAGEN_SOURCES[];
+// An atlas's regions' extents (Atlas::Atlas: thousands of the projection's
+// probes a region), kept beside the grids by its code; none if not kept
+std::optional<std::vector<int64_t>> loadAtlasExtents(const std::string &code);
+void saveAtlasExtents(const std::string &code, const std::vector<int64_t> &extents);
 
 // Every cell, lowest first (level with level: lower index first).
 std::vector<int32_t> lowestFirst(const std::vector<fix> &height);

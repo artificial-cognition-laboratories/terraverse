@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "atlas.h"
+#include "grid.h"
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <limits>
 #include <map>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
 
@@ -109,12 +111,47 @@ Atlas::Atlas(const Params &params) : m_params(params)
 	if (!(p.radius > 0) || p.segments < 3 || !(p.capLatitude > 0 && p.capLatitude < 90) || !(p.core >= 0) ||
 			p.core >= p.radius || !(p.rounding >= 0 && p.rounding <= 1) || p.height < 1)
 		throw std::invalid_argument("atlas: no such layout (" + code() + ")");
+	// Each region's extent is thousands of the projection's probes (a 100k
+	// system's sixteen bodies were 0.7 s): worked out once a layout, kept for
+	// the process and beside the grids (sprint 110)
+	static std::mutex lock;
+	static std::map<std::string, std::vector<Grid>> known;
+	const std::string key = code();
+	{
+		std::lock_guard<std::mutex> hold(lock);
+		auto it = known.find(key);
+		if (it != known.end()) {
+			m_grids = it->second;
+			return;
+		}
+	}
+	std::vector<std::pair<Region, int>> regions;
 	for (int s = 0; s < p.segments; s++)
-		m_grids.push_back(extent(Region::Segment, s));
+		regions.emplace_back(Region::Segment, s);
 	for (int c : { 1, -1 })
-		m_grids.push_back(extent(Region::Cap, c));
+		regions.emplace_back(Region::Cap, c);
 	if (p.core > 0)
-		m_grids.push_back(extent(Region::Core, 0));
+		regions.emplace_back(Region::Core, 0);
+	constexpr size_t FIELDS = 8; // a grid's: region, index, low, high
+	const std::optional<std::vector<int64_t>> kept = loadAtlasExtents(key);
+	if (kept && kept->size() == regions.size() * FIELDS) {
+		for (size_t r = 0; r < regions.size(); r++) {
+			const int64_t *f = &(*kept)[r * FIELDS];
+			if (f[0] != (int64_t)regions[r].first || f[1] != regions[r].second)
+				throw std::runtime_error("atlas: kept extents are another layout's (" + key + ")");
+			m_grids.push_back({ regions[r].first, regions[r].second, { f[2], f[3], f[4] }, { f[5], f[6], f[7] } });
+		}
+	} else {
+		std::vector<int64_t> extents;
+		for (const auto &[region, index] : regions) {
+			const Grid g = extent(region, index);
+			m_grids.push_back(g);
+			extents.insert(extents.end(), { (int64_t)region, index, g.low[0], g.low[1], g.low[2], g.high[0], g.high[1], g.high[2] });
+		}
+		saveAtlasExtents(key, extents);
+	}
+	std::lock_guard<std::mutex> hold(lock);
+	known.emplace(key, m_grids);
 }
 
 Atlas::Frame Atlas::frame(Region region, int index) const

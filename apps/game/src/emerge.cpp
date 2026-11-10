@@ -252,10 +252,13 @@ void EmergeManager::startThreads()
 	if (m_threads_active)
 		return;
 
+	// Terra Firma: active before any starts. A started thread can generate a
+	// queued block while the rest start, and its on_generated callbacks find
+	// their mapgen by this (getCurrentMapgen): set after, they found none
+	m_threads_active = true;
+
 	for (u32 i = 0; i != m_threads.size(); i++)
 		m_threads[i]->start();
-
-	m_threads_active = true;
 }
 
 

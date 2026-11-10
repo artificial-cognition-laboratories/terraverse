@@ -5,11 +5,14 @@
 #include "exceptions.h"
 #include "terragen/worlds.h"
 
+#include <chrono>
 #include <cmath>
+#include <filesystem>
 #include <map>
 #include <set>
 
 #include "far/horizon.h"
+#include "far/tilecache.h"
 #include "far/mesh.h"
 #include "far/palette.h"
 #include "light.h"
@@ -32,6 +35,8 @@ public:
 	const char *getName() { return "TestFar"; }
 
 	void runTests(IGameDef *gamedef);
+	void testKeptTileIsTheTile();
+	void testKeptTilesAreBounded();
 
 	void testPacketRoundTrip();
 	void testTilingIsTheAtlas();
@@ -49,13 +54,15 @@ void TestFar::runTests(IGameDef *gamedef)
 	TEST(testTileIsTheAtlasLand);
 	TEST(testABodysOwnLand);
 	TEST(testNoHolesFromAbove);
+	TEST(testKeptTileIsTheTile);
+	TEST(testKeptTilesAreBounded);
 }
 
 // A horizon with made-up block ids: the far view only compares them.
 static Horizon horizon()
 {
 	Horizon h;
-	h.code = "TF19.dGVycmE";
+	h.code = "TF21.dGVycmE";
 	h.water_level = 1;
 	terra::Blocks &b = h.content.blocks;
 	content_t next = 100;
@@ -377,3 +384,80 @@ void TestFar::testNoHolesFromAbove()
 		UTEST(holesFromAbove(params, drop) == 0, "radius %.0f, %d levels down: rays from above find holes",
 				params.radius, drop);
 }
+
+static bool same(const MapNode &a, const MapNode &b) { return a.param0 == b.param0 && a.param1 == b.param1 && a.param2 == b.param2; }
+static bool same(const Run &a, const Run &b) { return a.low == b.low && a.high == b.high && same(a.node, b.node); }
+
+// Sprint 110: a far tile kept on disk reads back as the tile built, cell for
+// cell; a world with another horizon keeps its own (and reads none of these)
+void TestFar::testKeptTileIsTheTile()
+{
+	Horizon h = horizon();
+	const planet::Atlas atlas = planet::Atlas::resident(ATLAS);
+	const Generator gen(h, atlas, planet::Atlas::HOME);
+	const Tiling tiling(atlas.body(planet::Atlas::HOME));
+	const std::string root = getTestTempDirectory();
+	const TileCache cache(root, h, atlas, planet::Atlas::HOME);
+	const TileKey key = tiling.roots()[0];
+	UASSERT(!cache.load(key));
+	const Tile built = gen.build(key);
+	cache.save(built);
+	const std::optional<Tile> kept = cache.load(key);
+	UASSERT(kept && kept->cells.size() == built.cells.size());
+	for (size_t i = 0; i < built.cells.size(); i++) {
+		const Cell &a = built.cells[i], &b = kept->cells[i];
+		UASSERT(a.space == b.space && a.ground == b.ground && same(a.top, b.top) && a.top_end == b.top_end &&
+				a.filler_end == b.filler_end && same(a.filler, b.filler) && same(a.rock, b.rock) && a.water == b.water &&
+				same(a.liquid, b.liquid) && same(a.trunk, b.trunk) && same(a.canopy, b.canopy));
+	}
+	Horizon other = h;
+	other.water_level++;
+	const TileCache elsewhere(root, other, atlas, planet::Atlas::HOME);
+	UASSERT(!elsewhere.load(key));
+	UASSERT(cache.load(key)); // (and making it kept these)
+}
+
+// Sprint 110: kept tiles are swept under their cap, the least recently used
+// first, a read counting as a use
+void TestFar::testKeptTilesAreBounded()
+{
+	namespace fs = std::filesystem;
+	Horizon h = horizon();
+	const planet::Atlas atlas = planet::Atlas::resident(ATLAS);
+	const Generator gen(h, atlas, planet::Atlas::HOME);
+	const Tiling tiling(atlas.body(planet::Atlas::HOME));
+	const std::string root = getTestTempDirectory() + DIR_DELIM + "bounded";
+	const std::vector<TileKey> &roots = tiling.roots();
+	UASSERT(roots.size() >= 3);
+	std::vector<Tile> tiles;
+	for (int k = 0; k < 3; k++)
+		tiles.push_back(gen.build(roots[k]));
+	const auto fileOf = [&](int i) {
+		const std::string name = std::to_string(roots[i].level) + "_" + std::to_string(roots[i].face) + "_" +
+				std::to_string(roots[i].x) + "_" + std::to_string(roots[i].z) + ".tile";
+		for (const auto &e : fs::recursive_directory_iterator(root))
+			if (e.path().filename().string() == name)
+				return e.path();
+		return fs::path();
+	};
+	uintmax_t bytes[3];
+	{
+		const TileCache sizing(root, h, atlas, planet::Atlas::HOME);
+		for (int k = 0; k < 3; k++) {
+			sizing.save(tiles[k]);
+			bytes[k] = fs::file_size(fileOf(k));
+		}
+	}
+	// swept to nine tenths of the cap: room for the first and third, not all three
+	const TileCache cache(root, h, atlas, planet::Atlas::HOME, (bytes[0] + bytes[2]) * 10 / 9 + 10);
+	// used an hour apart, the first longest ago; then the first read: used now
+	const auto now = fs::file_time_type::clock::now();
+	for (int k = 0; k < 3; k++)
+		fs::last_write_time(fileOf(k), now - std::chrono::hours(3 - k));
+	UASSERT(cache.load(roots[0]));
+	cache.sweep();
+	UASSERT(cache.load(roots[0]));
+	UASSERT(!cache.load(roots[1])); // the least recently used, gone
+	UASSERT(cache.load(roots[2]));
+}
+

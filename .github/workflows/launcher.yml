@@ -1,14 +1,15 @@
 # Launcher releases (apps/launcher). A pushed tag launcher-v* builds the
-# AppImage and deb, signs the AppImage for the launcher's updater, and
-# publishes them on that tag's release. The rolling release `launcher` carries
+# AppImage and deb on Linux and the NSIS installer on Windows, signs both for
+# the launcher's updater, and publishes them on that tag's release. The rolling release `launcher` carries
 # what always points at the newest launcher, under names that never change:
 #
 #   latest.json                  installed launchers read it to update themselves
 #                                (apps/launcher/src-tauri/tauri.conf.json: plugins.updater)
 #   launcher.json(.sig)          install.sh reads it: the AppImage and icon, by hash,
 #                                signed with the key the game trusts (update-key.pub)
-#   terraverse-launcher-x86_64.AppImage, terraverse-launcher_amd64.deb
-#                                for the download page's buttons
+#   terraverse-launcher-x86_64.AppImage, terraverse-launcher_amd64.deb,
+#   terraverse-launcher-setup.exe
+#                                for the download page's buttons (apps/site/app/config/downloads.ts)
 #
 # Neither release is ever GitHub's "latest": that's the game's.
 name: launcher
@@ -26,7 +27,58 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Built first and handed to the linux job, which publishes everything: one
+  # place writes latest.json, so it always names both platforms or neither.
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/launcher/src-tauri
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Install packages
+        run: |
+          (cd apps/game/ui && bun install --frozen-lockfile)
+          (cd apps/launcher && bun install --frozen-lockfile)
+
+      - name: Test the backend
+        working-directory: apps/launcher/src-tauri
+        run: cargo test
+
+      - name: Build
+        working-directory: apps/launcher
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bunx tauri build --bundles nsis
+
+      - name: Gather the build
+        run: |
+          version=$(jq -r .version apps/launcher/src-tauri/tauri.conf.json)
+          bundle=apps/launcher/src-tauri/target/release/bundle/nsis
+          out=.output/launcher-windows
+          mkdir -p "$out"
+          cp "$(ls "$bundle"/*-setup.exe)" "$out/terraverse-launcher-$version-x64-setup.exe"
+          cp "$(ls "$bundle"/*-setup.exe.sig)" "$out/terraverse-launcher-$version-x64-setup.exe.sig"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: launcher-windows
+          path: .output/launcher-windows/
+
   linux:
+    needs: windows
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
@@ -72,6 +124,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: bunx tauri build --bundles appimage,deb
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: launcher-windows
+          path: .output/launcher
+
       # The files, under names that say what they are; then what points at them.
       - name: Gather the builds
         run: |
@@ -85,16 +142,22 @@ jobs:
           cp "$out/terraverse-launcher-$version-x86_64.AppImage" "$out/rolling/terraverse-launcher-x86_64.AppImage"
           cp "$out/terraverse-launcher_${version}_amd64.deb" "$out/rolling/terraverse-launcher_amd64.deb"
           cp apps/launcher/src-tauri/icons/128x128.png "$out/rolling/terraverse.png"
+          cp "$out/terraverse-launcher-$version-x64-setup.exe" "$out/rolling/terraverse-launcher-setup.exe"
           echo "VERSION=$version" >> "$GITHUB_ENV"
 
-      # What an installed launcher reads to find this one: the AppImage and its updater signature.
+      # What an installed launcher reads to find this one: each platform's build and its updater signature.
       - name: Write latest.json
         run: |
           out=.output/launcher
-          name="terraverse-launcher-$VERSION-x86_64.AppImage"
-          jq -n --arg v "$VERSION" --arg sig "$(cat "$out/$name.sig")" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/launcher-v$VERSION/$name" \
-            '{version: $v, notes: "", pub_date: $date, platforms: {"linux-x86_64": {signature: $sig, url: $url}}}' \
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/launcher-v$VERSION"
+          linux="terraverse-launcher-$VERSION-x86_64.AppImage"
+          windows="terraverse-launcher-$VERSION-x64-setup.exe"
+          jq -n --arg v "$VERSION" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg lsig "$(cat "$out/$linux.sig")" --arg lurl "$base/$linux" \
+            --arg wsig "$(cat "$out/$windows.sig")" --arg wurl "$base/$windows" \
+            '{version: $v, notes: "", pub_date: $date, platforms: {
+              "linux-x86_64": {signature: $lsig, url: $lurl},
+              "windows-x86_64": {signature: $wsig, url: $wurl}}}' \
             > "$out/rolling/latest.json"
           cat "$out/rolling/latest.json"
 

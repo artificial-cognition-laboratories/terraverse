@@ -39,11 +39,12 @@ const uint32_t ARC_CONES = 197;
 // more than half a cell, or the nearest cell would hand a cell its own crust back.
 const fix STEP_CELLS = ratio(3, 2);
 // What a step of collision or subduction pushes the land up by, at its
-// peak (× the Mountains setting, 0.5..1.5), and how far into the
-// overriding plate it reaches, in cells (an arc's peak a few cells in).
+// peak (× the Mountains setting, 0.5..1.5), and how far it reaches, in
+// cells: into the plate on top (the Himalaya with Tibet behind), less far
+// into the one going under (the foreland), an arc's peak a few cells in.
 const fix COLLIDE = ratio(7, 100);
 const fix ARC = ratio(9, 100); // (at a cone's peak; between cones, nothing)
-const int32_t COLLIDE_REACH = 9, ARC_PEAK = 3, ARC_REACH = 7;
+const int32_t COLLIDE_REACH = 9, UNDER_REACH = 5, ARC_PEAK = 3, ARC_REACH = 7;
 // The highest crust stands: a plateau as thick as crust gets.
 const fix TOP = ratio(18, 10);
 // Ocean floor: shallow at the ridge where it forms, sinking as it cools
@@ -363,7 +364,7 @@ History history(const WorldCode &c)
 		std::atomic<int64_t> made{ 0 };
 		parallelFor((int32_t)n, [&](int32_t i) {
 			History::Cell &cell = cells[i];
-			const fix folded = mul(COLLIDE, falloff(to_collision[i], COLLIDE_REACH));
+			const fix folded = mul(COLLIDE, falloff(to_collision[i], behind[i] <= COLLIDE_REACH ? COLLIDE_REACH : UNDER_REACH));
 			// an arc is built by its volcanoes, each a cone a cell or two across
 			// carried with the crust (drawn where the crust formed), so it rises
 			// as a chain of islands that only merges where they crowd
@@ -372,7 +373,10 @@ History history(const WorldCode &c)
 			// ridges along the range, sharp where their noise crosses zero
 			const fix ridge = ONE - fabsx(fbm(sphere.centre((int32_t)i), c.seed_hash + RIDGE, c.continents * 4, 3, HALF));
 			const fix up = mul(mul(folded + arc, lift), HALF + ridge / 2);
-			cell.rate = std::min<fix>(ONE, mul(cell.rate, FADE) + div(up, COLLIDE));
+			// (a push held step after step settles at itself, not 1/(1 − FADE)
+			// of it: summed raw it filled the cap across the whole reach, and a
+			// belt was peaks from edge to edge with no foothills)
+			cell.rate = std::min<fix>(ONE, mul(cell.rate, FADE) + mul(div(up, COLLIDE), ONE - FADE));
 			if (cell.continental) {
 				(behind[i] <= COLLIDE_REACH ? cell.over : cell.under) += mul(folded, lift);
 				// inland of an arc on a continent the crust is squeezed too (the Subandes)

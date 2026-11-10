@@ -20,6 +20,7 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/scheme.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/screens.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/session.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/loading.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/planetarium.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/shell.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/social.cpp

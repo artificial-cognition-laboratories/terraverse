@@ -4,7 +4,7 @@
 import { inject, type InjectionKey } from "vue"
 import { BridgeError } from "../bridge"
 import { FailureCode } from "../bridge/types"
-import type { Account, Player, Social, SandboxFrame, BodyCard, BodyKind, SystemWire, CommunityCatalog, CreativeItem, EngineMessage, MatterElement, MatterSubstance, IntentKind, Intents, LabScenario, LabValue, PublicServer, ServerDirectory, SlotRef, Stack, StateSections, UiValues, World } from "../bridge"
+import type { Account, Player, Social, SandboxFrame, BodyCard, BodyKind, SystemWire, CommunityCatalog, CreativeItem, EngineMessage, MatterElement, MatterSubstance, IntentKind, Intents, LabScenario, LabValue, Loading, LoadingStage, PublicServer, ServerDirectory, SlotRef, Stack, StateSections, UiValues, World } from "../bridge"
 import { DEFAULTS, decodeWorldCode, encodeWorldCode } from "../worldgen/config"
 import { mockPreview, mockWeather } from "./mockWorld"
 import { bindingScancode } from "../settings/bindings"
@@ -353,14 +353,15 @@ export function MockBridge() {
     const handlers: Handlers = {
         ready: () => null,
         // no native planet in the gallery: the page around it is what's shown
-        // (a body made over a few seconds, as the engine tells it: the create screen's bar)
+        // (a body made over a few seconds, stage by stage, as the engine tells it: the create screen's bar)
         "planetarium.show": () => {
             clearInterval(making)
-            let done = 0
+            let at = 0
             making = setInterval(() => {
-                done = Math.min(1, done + 0.1)
-                emitAll({ kind: "planetarium", event: "making", progress: done < 1 ? done : null })
-                if (done >= 1) clearInterval(making)
+                at += 0.3
+                const loading = cannedLoading(at)
+                emitAll({ kind: "planetarium", event: "making", loading })
+                if (!loading) clearInterval(making)
             }, 300)
             return null
         },
@@ -718,4 +719,24 @@ export function useMock() {
     const mock = inject(MOCK)
     if (!mock) throw new Error("useMock() outside the gallery")
     return mock
+}
+
+/** A world being made `at` seconds in, as shell/loading.cpp tells it (layout kept); null once it's shown. */
+export function cannedLoading(at: number): Loading | null {
+    const STAGES: [id: string, label: string, seconds: number][] = [
+        ["layout", "Laying out the system", 0], ["plates", "Moving the plates", 0.5], ["climate", "Setting the climate", 0.4],
+        ["erosion", "Wearing the land", 0.2], ["rivers", "Tracing the rivers", 2.4], ["planet", "Seeing it from orbit", 1.5],
+    ]
+    const total = STAGES.reduce((sum, [, , seconds]) => sum + seconds, 0)
+    if (at >= total) return null
+    let begun = 0
+    const stages = STAGES.map(([id, label, seconds]): LoadingStage => {
+        const into = at - begun
+        begun += seconds
+        if (seconds === 0) return { id, label, state: "kept", seconds: 0, share: null }
+        if (into >= seconds) return { id, label, state: "done", seconds, share: null }
+        if (into < 0) return { id, label, state: "waiting", seconds: 0, share: null }
+        return { id, label, state: "running", seconds: Math.round(into * 10) / 10, share: id === "rivers" ? Math.round(into / seconds * 100) / 100 : null }
+    })
+    return { share: Math.round(at / total * 100) / 100, stages }
 }

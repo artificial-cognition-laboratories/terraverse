@@ -9,6 +9,7 @@
 #include "noise.h"
 #include "sun.h"
 #include "parallel.h"
+#include "progress.h"
 #include <algorithm>
 #include <cmath>
 #include <future>
@@ -105,11 +106,15 @@ World::World(const WorldCode &code) :
 			if (r >= 0 && (drawn(c) || (m_land && g.base[c] >= 0)) && (m_upstream[r] < 0 || g.drained[c] > g.drained[m_upstream[r]]))
 				m_upstream[r] = c;
 		}
+		Step step(code.text, "rivers' runs");
 		shapeRuns();
 		deltas();
 	}
 	// (after the runs: its streams end on their lines)
-	m_channels.emplace(code, *m_grid, *this, m_radius, m_cell_blocks, m_land);
+	{
+		Step step(code.text, "channels");
+		m_channels.emplace(code, *m_grid, *this, m_radius, m_cell_blocks, m_land);
+	}
 	if (!m_channels->active())
 		m_channels.reset();
 	// (after the channels: the ground along the runs is cut by their valleys)
@@ -146,9 +151,12 @@ std::shared_ptr<const World> worldFor(const WorldCode &code)
 		}
 	}
 	if (mine) {
+		beginMaking(code.text);
 		try {
 			building.set_value(std::make_shared<const World>(code));
+			endMaking(code.text);
 		} catch (...) {
+			endMaking(code.text);
 			building.set_exception(std::current_exception());
 			std::lock_guard<std::mutex> guard(lock);
 			// asked again, tried again
@@ -809,7 +817,9 @@ int32_t World::surface(fix e, const Place &d) const
 					seaward += spot.weights[k];
 			}
 			const fix coast = mul(smooth(seaward), ONE - smooth(clamp(div(base, mul(toFix(DROWN_BAND_M), m_metre)), 0, ONE)));
-			if (m_code.processes.water && coast > 0 && read.bed != INT64_MAX) {
+			// (a trunk's valley: a finer one's inlet is narrower than a far
+			// tile's cells, which would draw it land where the sea's come in)
+			if (m_code.processes.water && coast > 0 && read.bed != INT64_MAX && read.bed_level == 0) {
 				const int64_t deep = mul(toFix(DROWN_M) + mul(toFix(FJORD_M - DROWN_M), read.ice), m_metre);
 				const fix valley = ONE - clamp((fix)(((read.land - read.bed) << FRAC) / std::max<int64_t>(1, deep)), 0, ONE);
 				const int64_t drop = mulShift(mulShift(deep, coast, FRAC), valley, FRAC);
@@ -1032,6 +1042,11 @@ static const uint32_t DELTAS = 409;
 static const int64_t CREEK_SHARE = 4;
 // The narrowest a run's meanders are sized for (blocks)
 static const int32_t LOOP_WIDTH_LEAST = 8;
+// A valley with no river drawn in it (the drainage land's trunk) swings
+// round its spurs in one to three broad bends, up to VALLEY_SWING of its run
+// either side: straight from centre to centre, the grid's runs lay their
+// valleys, and the ridges between, in its three directions across a range
+static const fix VALLEY_SWING = ratio(14, 100);
 // Far tiles: a run's drawn once it drains this many cells of rain per (tile
 // in cells)², and a channel below the grid once its runs are this many tiles long
 static const fix SHOWN = toFix(16);
@@ -1120,7 +1135,13 @@ void World::shapeRuns()
 		hash ^= hash >> 15;
 		hash *= 0x85ebca77u;
 		hash ^= hash >> 13;
-		shape.swing = (shape.reach_side * (int64_t)(32768 + (hash & 32767)) >> 16) * ((hash >> 16) & 1 ? 1 : -1);
+		if (m_land && !drawn(i)) {
+			shape.loops = 1 + (int64_t)((hash >> 17) % 3);
+			shape.reach_side = mulShift(shape.run, VALLEY_SWING, FRAC) / shape.loops;
+			// (as little as a third of it: bends all one size swung in step)
+			shape.swing = (shape.reach_side * (int64_t)(22000 + (hash & 0xFFFF) * 43536 / 65536) >> 16) * ((hash >> 16) & 1 ? 1 : -1);
+		} else
+			shape.swing = (shape.reach_side * (int64_t)(32768 + (hash & 32767)) >> 16) * ((hash >> 16) & 1 ? 1 : -1);
 		// The run bowed so it leaves and arrives along the way the river
 		// runs through each end (halfway between the run before and this,
 		// this and the next): runs share their direction where they meet,
@@ -1178,28 +1199,18 @@ void World::profileRuns()
 	constexpr int P = PROFILE;
 	m_profile.assign((size_t)n * (P + 1), 0);
 	m_profiled = std::make_unique<std::once_flag[]>(n);
-	// kept from before (a read of the ground somewhere new is milliseconds
-	// on a large planet: a world's thousands of runs were seconds each boot)
-	const std::string key = m_code.grid_key + (m_land ? "" : "/noise");
-	if (const std::optional<std::vector<int32_t>> kept = loadRunLevels(key)) {
-		if (kept->size() != (size_t)n * 2)
-			throw std::runtime_error("terragen: kept river levels are for another grid");
-		for (int32_t c = 0; c < n; c++) {
-			m_profile[(size_t)c * (P + 1)] = (*kept)[(size_t)c * 2];
-			m_profile[(size_t)c * (P + 1) + P] = (*kept)[(size_t)c * 2 + 1];
-		}
-		return;
-	}
-	// the ground at each drawn run's start (the line's in the warp: the
-	// ground's read where that lands): what holds the network's levels; the
-	// rest along it is read as the run's asked for (profileRun)
-	std::vector<int32_t> ground(n, INT32_MAX);
-	parallelFor(n, [&](int32_t c) {
-		if (m_runs[c].run == 0 || !drawn(c))
-			return;
-		ground[c] = landAt(unwarped(onRun(c, 0)));
-	});
-	// each node's level: a block under its ground, no higher than any drawn
+	// Each drawn run's level is a block under the network's own bed at its
+	// start (linkHeight: the grid's heights, which the land is carved to: the
+	// river cuts its way, ground()), never the finished land read there: that
+	// was a full read of the ground at every run, most of making a world, and
+	// matched the bed within a block or two at nine runs in ten (sprint 110)
+	Step step(m_code.text, "river levels", n);
+	std::vector<int32_t> bed(n, INT32_MAX);
+	for (int32_t c = 0; c < n; c++)
+		if (m_runs[c].run != 0 && drawn(c))
+			bed[c] = (int32_t)(linkHeight(c, 0) >> FRAC);
+	step.advance(n);
+	// each node's level: a block under its bed, no higher than any drawn
 	// run into it (upstream first: more drains through a cell than into it
 	// from any one donor); a lake's is its water, the sea's 0
 	const auto fixed = [&](int32_t c) -> std::optional<int32_t> {
@@ -1217,7 +1228,7 @@ void World::profileRuns()
 	std::sort(order.begin(), order.end(), [&](int32_t a, int32_t b) { return g.drained[a] != g.drained[b] ? g.drained[a] < g.drained[b] : a < b; });
 	for (int32_t c : order) {
 		const std::optional<int32_t> f = fixed(c);
-		level[c] = f ? *f : std::max(0, std::min(level[c], ground[c] - 1)); // (never under the sea's level)
+		level[c] = f ? *f : std::max(0, std::min(level[c], bed[c] - 1)); // (never under the sea's level)
 		const int32_t r = g.receiver[c];
 		if (!fixed(r))
 			level[r] = std::min(level[r], level[c]);
@@ -1230,16 +1241,14 @@ void World::profileRuns()
 		level[c] = std::max(level[c], fr ? *fr : level[r]);
 	}
 	// each run's ends; the points between, profileRun
-	std::vector<int32_t> ends((size_t)n * 2, 0);
 	for (int32_t c : order) {
 		const int32_t r = g.receiver[c];
 		const std::optional<int32_t> fr = fixed(r);
 		const int32_t end = fr ? *fr : level[r];
 		int32_t *out = &m_profile[(size_t)c * (P + 1)];
-		out[0] = ends[(size_t)c * 2] = std::max(level[c], end);
-		out[P] = ends[(size_t)c * 2 + 1] = end;
+		out[0] = std::max(level[c], end);
+		out[P] = end;
 	}
-	saveRunLevels(key, ends);
 }
 
 // Along a run: falling, a block under the ground, never below where it ends
@@ -1275,6 +1284,11 @@ int64_t World::linkHeight(int32_t c, fix t) const
 	};
 	const int64_t a = height(c), b = r < 0 ? a : height(r);
 	return a + mulShift(b - a, t, FRAC);
+}
+
+int64_t World::gridHeight(const Place &p) const
+{
+	return (int64_t)std::max<fix>(0, between(m_grid->filled, p)) * m_height >> FRAC;
 }
 
 fix World::glacial(int32_t c, int64_t height) const
@@ -1467,7 +1481,16 @@ Ground World::ground(const Place &at, fix sun) const
 	// that, and the lift fades where the rock softens: no steps)
 	if (out.terrain >= 1) {
 		const int32_t cliff = std::max(CLIFF_MIN, floorInt(mul(toFix(CLIFF_M), m_metre)));
-		const fix hard = clamp(div(hardness(at.dir()) - ratio(40, 100), ratio(40, 100)), 0, ONE);
+		fix hard = clamp(div(hardness(at.dir()) - ratio(40, 100), ratio(40, 100)), 0, ONE);
+		// (the prototype's: lifted only as the land rises a cliff over its
+		// channel's bed, which isn't lifted: the water's set on the bed after
+		// this, and every stream in hard rock ran in a slot a cliff deep;
+		// sprint 109 P4)
+		if (m_land && m_channels && hard > 0) {
+			const Channels::Read &read = channelsAt(at).read;
+			if (read.land != INT64_MAX && read.clear != INT64_MAX)
+				hard = mul(hard, smooth((fix)std::clamp<int64_t>(read.clear / cliff, 0, ONE)));
+		}
 		out.terrain += floorInt(hard * std::min(out.terrain * 3, cliff));
 	}
 	// the beach is the strand: a coastal plain past a few blocks over the

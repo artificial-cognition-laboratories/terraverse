@@ -27,7 +27,7 @@ class World;
 class Channels
 {
 public:
-	static constexpr int MOST_LEVELS = 6;
+	static constexpr int MOST_LEVELS = 7;
 	static constexpr int STREAM_LEVELS = 3; // the levels that can carry water
 
 	// A channel node: runs from `at` (head) to `join` (foot, on the level above)
@@ -85,6 +85,11 @@ public:
 		bool pond = false; // the water's a pond's, standing still
 		fix slope = 0;     // how steep the land is here: its hillside's, or on a floor its channel's
 		int64_t bed = INT64_MAX; // the height of the channel whose valley it is, here (blocks, fixed)
+		int bed_level = -1;      // and its level (0: the trunk)
+		// how far the land stands over its channel's bed (blocks, fixed), and
+		// continuous where which channel's valley it is changes (the bed jumps
+		// there): the least of each one's hillside here and its rise over its bed
+		int64_t clear = INT64_MAX;
 		bool wash = false;       // on a dry channel's floor: sand, water only in floods
 		fix ice = 0;             // how much ice worked that valley (0..1)
 	};
@@ -114,6 +119,10 @@ private:
 	int64_t drains(int level, int32_t i, int32_t j, int32_t l) const;
 	int64_t steepness(int32_t c) const;
 	fix slopeFor(int32_t c, int64_t flow, fix most) const;
+	// how hard the rock is at a place, 0..1: its province's, varying between
+	// beds and joints (the land's texture: sprint 109 P3)
+	fix hardness(const Place &p) const;
+	void toGrid(const Place &p, Read &out) const;
 	void beds(const Place &p, Read &out) const;
 
 	const Grid *m_grid;
@@ -124,8 +133,16 @@ private:
 	bool m_water;
 	bool m_land;
 	int m_levels = 0;
+	int m_area_levels = 0; // the levels what a channel drains is counted over (the finer are side valleys)
 	std::array<int64_t, MOST_LEVELS + 1> m_lattice{}; // [0]: the grid's spacing
 	std::array<int32_t, MOST_LEVELS + 1> m_waves{};
+	// (the land's) how far round a trunk window's middle its runs are
+	// gathered (place units): every run within its reach of any place in it
+	int64_t m_trunk_ball = 0;
+	int32_t m_roll_waves = 8; // the gentle land's swells, round the world
+	int m_tarn_level = 0;     // the level whose channels are a cirque's size (none: 0)
+	// a level's lattice spacing (whole blocks)
+	int64_t blocksOf(int level) const { return mulShift(m_lattice[level], m_radius, PLACE_FRAC) >> FRAC; }
 };
 
 } // namespace terragen

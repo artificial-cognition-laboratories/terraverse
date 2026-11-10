@@ -511,6 +511,10 @@ export type PlanetariumBody = null | { code: string; body?: string }
 export type PlanetariumViewport = { whole: true } | { x: number; y: number; width: number; height: number }
 /** A body under the mouse: who it is, and its disc on screen (page pixels). */
 export type PlanetariumHover = { id: string; name: string; kind: string; x: number; y: number; radius: number }
+/** One stage of making a world: kept (read from what was kept), so far in seconds; `share` 0..1 while running, if it counts. */
+export type LoadingStage = { id: string; label: string; state: "waiting" | "running" | "done" | "kept"; seconds: number; share: number | null }
+/** A world being made: how far as a whole (0..1, weighed by each stage's usual time), and its stages in order. */
+export type Loading = { share: number; stages: LoadingStage[] }
 export type PlanetariumMessage =
     | { kind: "planetarium"; event: "picked"; latitude: number; longitude: number; cell: PlanetariumCell }
     /** The block under the mouse in a scene (index into its frame), −1 for none. */
@@ -521,8 +525,8 @@ export type PlanetariumMessage =
     | { kind: "planetarium"; event: "hovered"; body: PlanetariumHover | null }
     /** A double click flew the camera to a body (the star: out to the whole system). */
     | { kind: "planetarium"; event: "chosen"; body: string }
-    /** A body asked for is being made (its land laid out, its coarse tiles built): how far, 0..1; null once it's shown. */
-    | { kind: "planetarium"; event: "making"; progress: number | null }
+    /** A body asked for is being made: how far, by stage (shell/loading.h); null once it's shown. */
+    | { kind: "planetarium"; event: "making"; loading: Loading | null }
 
 /** Engine → UI */
 export type EngineMessage =

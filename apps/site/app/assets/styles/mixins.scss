@@ -1,0 +1,318 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Dashboard mixins — the style ABI. Every repeated visual idiom lives here
+// exactly once; components compose these and add only their own layout.
+// Injected globally (nuxt.config additionalData) alongside variables.scss.
+//
+// The rule: if a visual pattern is about to appear in a second component,
+// it becomes a mixin here FIRST, then both components include it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+@use "./variables.scss" as *;
+
+// ── Responsive ───────────────────────────────────────────────────────────────
+//
+// The only way to write a breakpoint in this codebase. Mobile-first is NOT
+// the convention here — the desktop layout is the base and these narrow it,
+// because that is how every existing component is already written and a
+// half-converted codebase is worse than a consistent one.
+//
+//   .thing {
+//       display: grid;
+//       grid-template-columns: 1fr 1fr;
+//       @include tablet { grid-template-columns: 1fr; }
+//   }
+//
+// `- 0.02px` keeps the ranges disjoint: a viewport at exactly 640px must
+// match `mobile` and nothing that claims to start above it. Sub-pixel
+// viewport widths are real (browser zoom, scaled displays), so the gap has
+// to be smaller than one pixel rather than a whole one.
+
+/// Phones. Single column, drawer nav.
+@mixin mobile {
+    @media (max-width: $bp-mobile) {
+        @content;
+    }
+}
+
+/// Tablets and below — includes every phone. Sidebars fold away here.
+@mixin tablet {
+    @media (max-width: $bp-tablet) {
+        @content;
+    }
+}
+
+/// Below full desktop — includes tablets and phones. Wide grids narrow here.
+@mixin desktop-down {
+    @media (max-width: $bp-desktop) {
+        @content;
+    }
+}
+
+/// Tablet band only, phones excluded — for the rare rule that must not also
+/// apply to mobile (a two-column grid that goes to one column, then to a
+/// stack). Reach for `tablet` first; this is the exception.
+@mixin tablet-only {
+    @media (min-width: $bp-mobile + 0.02px) and (max-width: $bp-tablet) {
+        @content;
+    }
+}
+
+/// Desktop and up — the additive direction, for the few rules that should
+/// only ever apply on a wide screen (hover-reveal chrome, multi-pane views).
+@mixin desktop-up {
+    @media (min-width: $bp-tablet + 0.02px) {
+        @content;
+    }
+}
+
+/// Coarse pointers (touch). Use for hit-target sizing and to suppress
+/// hover-only affordances — NOT as a proxy for "small screen": a touch
+/// laptop is coarse and wide, a phone in desktop mode is fine and narrow.
+@mixin touch {
+    @media (hover: none) and (pointer: coarse) {
+        @content;
+    }
+}
+
+// ── Surfaces ─────────────────────────────────────────────────────────────────
+
+/// The raised card — top-level visual weight (charts, stats, panels).
+@mixin surface-raised {
+    background: $surface;
+    border: 1px solid rgba($primary, 0.12);
+    border-radius: $radius-lg;
+
+    &:hover {
+        border-color: rgba($primary, 0.25);
+    }
+}
+
+/// An interactive control surface (buttons, inputs, selects, pills).
+/// Matches the segmented/tab track exactly — every control sits on the
+/// same near-black surface with the same hairline border. One family.
+@mixin surface-control {
+    background: $surface-deep;
+    border: 1px solid $border-soft;
+    border-radius: $radius-md;
+}
+
+/// The recessed track that segmented controls / tab bars sit in.
+@mixin surface-track {
+    background: $surface-deep;
+    border: 1px solid $border-soft;
+    padding: 2px;
+}
+
+// ── Terminal window chrome ───────────────────────────────────────────────────
+//
+// The dark panel with three dots top-right, shared by every embedded artifact in
+// prose: code blocks (`pre`), videos (`.readme-video`), and screenshots
+// (`.readme-figure`). They were three hand-copied implementations with a comment
+// saying they "must stay in step" — which is a rule a mixin can enforce and a
+// comment cannot. Adding a fourth by hand is what turned that note into these.
+
+/// The corner every panel and card in rendered markdown shares.
+///
+/// One token because the three panels drifted the moment the value was written
+/// three times — the figure went to 16px and the code block and video stayed at
+/// 8px, which is exactly what the mixins above were extracted to prevent. Any new
+/// box in prose reads this rather than picking its own.
+///
+/// Deliberately larger than $radius-lg (6px, for app cards): a prose panel is a
+/// big block of content in a reading column, and the softer corner is what makes
+/// it read as an embedded artifact rather than a UI element.
+$prose-radius: 16px;
+
+/// The panel itself: dark ground, shared radius, room at the top for the dots.
+@mixin window-panel {
+    position: relative;
+    margin: 2rem 0;
+    padding: 2.75rem 1rem 1rem;
+    background: #111111;
+    border-radius: $prose-radius;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/// The three dots, top-right. One dot plus two box-shadow copies — cheaper than
+/// three elements and it needs no markup of its own.
+@mixin window-dots {
+    content: "";
+    position: absolute;
+    top: 0.75rem;
+    right: 1rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: $primary;
+    box-shadow:
+        -16px 0 0 $primary,
+        -32px 0 0 $primary;
+}
+
+/// The small mono label top-left — a code block's language, a figure's caption.
+@mixin window-label {
+    position: absolute;
+    top: 0.65rem;
+    left: 1rem;
+    font-family: $font-mono;
+    font-size: 0.7rem;
+    color: rgba($primary, 0.6);
+    letter-spacing: 0.5px;
+}
+
+// ── Typography ───────────────────────────────────────────────────────────────
+
+/// Uppercase section/card label ("REQUESTS / 24H").
+@mixin label-mono {
+    font-family: $font-mono;
+    font-size: $text-label;
+    color: $text-tertiary;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+/// Headline number on cards and stats.
+@mixin value-mono {
+    font-family: $font-mono;
+    font-size: $text-value;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: $text-primary;
+    line-height: 1;
+}
+
+/// Base text for controls — mono, small, secondary.
+@mixin control-mono($size: $text-control) {
+    font-family: $font-mono;
+    font-size: $size;
+    color: $text-secondary;
+}
+
+// ── Interactive states ───────────────────────────────────────────────────────
+
+/// Focus treatment for inputs/selects — border steps up, no outline ring.
+@mixin focus-border {
+    outline: none;
+
+    &:focus,
+    &:focus-within {
+        border-color: rgba($primary, 0.4);
+    }
+}
+
+/// The resting→hover→active text progression every nav/tab/pill follows.
+@mixin option-states {
+    color: $text-tertiary;
+    cursor: pointer;
+
+    &:hover {
+        color: $text-secondary;
+    }
+
+    &.active {
+        color: $primary;
+    }
+}
+
+// ── Fragments ────────────────────────────────────────────────────────────────
+
+/// The small rounded count chip inside tabs/segments/badges.
+@mixin count-chip {
+    background: rgba($primary, 0.08);
+    border-radius: 8px;
+    padding: 0.05rem 0.3rem;
+    font-size: $text-micro;
+}
+
+/// Status/count badge coloring for a given tone color.
+@mixin badge-tone($color) {
+    color: $color;
+    background: rgba($color, 0.08);
+    border-color: rgba($color, 0.25);
+}
+
+/// Loading skeleton shimmer block.
+@mixin skeleton-shimmer {
+    border-radius: $radius-sm;
+    background: linear-gradient(90deg, rgba($primary, 0.04) 25%, rgba($primary, 0.1) 50%, rgba($primary, 0.04) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+
+    @at-root {
+        @keyframes shimmer {
+            0%   { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+    }
+}
+
+/// The pulsing "revalidating" dot.
+@mixin pulse-dot {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba($primary, 0.55);
+    animation: reval-pulse 1.5s ease-in-out infinite;
+
+    @at-root {
+        @keyframes reval-pulse {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50%      { opacity: 1;   transform: scale(1.2); }
+        }
+    }
+}
+
+/// Hide scrollbars on a horizontally scrolling strip.
+@mixin scroll-strip {
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/// A product shot that overflows its column on desktop and fits on a phone.
+///
+/// The landing page shows three of these (the hero terminal, the Fleet trace,
+/// the cognet demo video). On a wide screen they sit beside a text column and
+/// use a HEIGHT-LEADS rule: the frame matches the copy's height and takes
+/// whatever width the ratio then demands, running past the column's right edge
+/// and off the viewport. That overrun is the effect — a contained screenshot
+/// reads as a figure in a document, one that breaks its container reads as a
+/// product.
+///
+/// None of that survives the grid collapsing. With no copy column beside it
+/// there is no height to match, so the frame kept its 460px floor and its
+/// ratio resolved to a width of 834–934px inside a 390px viewport — better
+/// than half of every shot hanging off-frame, hidden by `overflow-x: clip`.
+///
+/// Below `tablet` the rule INVERTS to width-leads: the frame fills the column
+/// and the ratio decides the height. Both halves live here because the
+/// desktop rule is meaningless without the mobile one that releases it — they
+/// drifted apart once already, when `tablet` cleared the negative margin and
+/// left the height floor behind.
+///
+/// $ratio     — the media's true aspect ratio. Must match the encoded file:
+///              a declared ratio the picture does not share letterboxes it
+///              inside its own border.
+/// $min-height — the desktop height floor, matched to the copy beside it.
+/// $bleed      — how far past the column the frame runs on desktop.
+@mixin media-frame($ratio, $min-height: 460px, $bleed: 7vw) {
+    min-width: 0;
+    margin: 0;
+    margin-right: -$bleed;
+    aspect-ratio: $ratio;
+    min-height: $min-height;
+
+    @include tablet {
+        // The overflow only reads as intentional beside a text column; stacked
+        // it just clips the shot. Height floor goes with it — the ratio sizes
+        // the frame from the column's width instead.
+        margin-right: 0;
+        min-height: 0;
+        width: 100%;
+    }
+}

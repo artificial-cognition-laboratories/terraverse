@@ -1,0 +1,605 @@
+@use "./variables.scss" as *;
+@use "./mixins.scss" as *;
+// Prose styling for markdown content in docs
+.prose {
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-word;
+
+    // Nuxt Content injects wrapper divs — lock them to container width.
+    //
+    // `min-width: 0` rather than `overflow-x: clip`. These wrappers are flex/
+    // grid children whose automatic minimum size is their content's intrinsic
+    // width, so a wide code block widened the wrapper and the wrapper widened
+    // the page. Clipping hid that by cutting the content off; releasing the
+    // minimum lets the wrapper shrink and hands scrolling to `pre`, which
+    // already has `overflow-x: auto` — so wide code scrolls in its own box
+    // and stays readable instead of being silently truncated.
+    > div, [data-content-id] {
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    // Headings
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: $font-mono;
+        font-weight: 700;
+        color: $text-primary;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+        max-width: 100%;
+        overflow-wrap: break-word;
+
+        &:first-child {
+            margin-top: 0;
+        }
+    }
+
+    h1 {
+        font-size: 2.25rem;
+        color: $text-primary;
+        margin-top: 0;
+        margin-bottom: 2rem;
+        letter-spacing: -0.03em;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+        color: $text-primary;
+        margin-top: 3rem;
+        margin-bottom: 1.25rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid rgba($primary, 0.1);
+
+        &:first-of-type {
+            border-top: none;
+            padding-top: 0;
+            margin-top: 2rem;
+        }
+    }
+
+    h3 {
+        font-size: 1.125rem;
+        color: $text-primary;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    h4 {
+        font-size: 1rem;
+        color: $text-secondary;
+        margin-top: 1.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    // Paragraphs
+    p {
+        margin: 1.25rem 0;
+        color: $text-secondary;
+        line-height: 1.75;
+        font-size: 0.875rem;
+        overflow-wrap: break-word;
+
+        // A 70ch measure is right for TEXT and wrong for a figure. Images and
+        // videos are emitted as inline tokens, so they land inside a paragraph
+        // and inherit its measure — which left a screenshot at 590px beside a
+        // code block running the full 936px column. A paragraph that contains
+        // one of these is a figure wrapper, not prose, so it gives up the limit.
+        &:has(> .readme-figure),
+        &:has(> .readme-video),
+        &:has(> .readme-video-mount) {
+            max-width: 100%;
+        }
+    }
+
+    // Links — persistently underlined so they read as links without a hover.
+    // The muted default border becomes solid on hover for the affordance.
+    a {
+        color: $primary;
+        text-decoration: none;
+        border-bottom: 1px solid rgba($primary, 0.4);
+
+        &:hover {
+            border-bottom-color: $primary;
+        }
+    }
+
+    // Lists
+    ul,
+    ol {
+        margin: 1.25rem 0;
+        padding-left: 0;
+        list-style: none;
+        color: $text-secondary;
+
+        li {
+            margin: 0.75rem 0;
+            line-height: 1.75;
+            padding-left: 1.75rem;
+            position: relative;
+            font-size: 0.875rem;
+
+            &::before {
+                content: "→";
+                position: absolute;
+                left: 0;
+                color: $primary;
+                font-weight: 600;
+            }
+        }
+    }
+
+    ol {
+        counter-reset: list-counter;
+
+        li {
+            counter-increment: list-counter;
+
+            &::before {
+                content: counter(list-counter) ".";
+            }
+        }
+    }
+
+    // Inline code
+    :not(pre) > code {
+        font-family: $font-mono;
+        font-size: 0.875em;
+        background: rgba($primary, 0.07);
+        color: $primary;
+        padding: 0.07em 0.7em;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+
+    // Code blocks
+    pre {
+        margin: 2rem 0;
+        padding: 2.75rem 1.5rem 1.5rem;
+        background: #111111;
+        border-radius: $prose-radius;
+        overflow-x: auto;
+        max-width: 100%;
+        position: relative;
+
+        // Window controls (3 dots) — shared with .readme-video and
+        // .readme-figure via the mixin, so the three cannot drift apart.
+        &::before {
+            @include window-dots;
+        }
+
+        // Language label (top left) - only show if data-language exists
+        &[data-language]::after {
+            @include window-label;
+            content: attr(data-language);
+            text-transform: lowercase;
+        }
+
+        // Specific language extraction from pre element class (language-bash, language-typescript, etc.)
+        &.language-typescript::after {
+            content: "typescript";
+        }
+        &.language-javascript::after {
+            content: "javascript";
+        }
+        &.language-bash::after {
+            content: "bash";
+        }
+        &.language-sh::after {
+            content: "shell";
+        }
+        &.language-json::after {
+            content: "json";
+        }
+        &.language-html::after {
+            content: "html";
+        }
+        &.language-css::after {
+            content: "css";
+        }
+        &.language-scss::after {
+            content: "scss";
+        }
+        &.language-vue::after {
+            content: "vue";
+        }
+        &.language-python::after {
+            content: "python";
+        }
+        &.language-rust::after {
+            content: "rust";
+        }
+        &.language-go::after {
+            content: "go";
+        }
+        &.language-sql::after {
+            content: "sql";
+        }
+        &.language-yaml::after {
+            content: "yaml";
+        }
+        &.language-markdown::after {
+            content: "markdown";
+        }
+        &.language-ts::after {
+            content: "typescript";
+        }
+        &.language-js::after {
+            content: "javascript";
+        }
+        &.language-text::after {
+            content: "text";
+        }
+
+        // Common positioning for language labels
+        &.language-typescript::after,
+        &.language-javascript::after,
+        &.language-bash::after,
+        &.language-sh::after,
+        &.language-json::after,
+        &.language-html::after,
+        &.language-css::after,
+        &.language-scss::after,
+        &.language-vue::after,
+        &.language-python::after,
+        &.language-rust::after,
+        &.language-go::after,
+        &.language-sql::after,
+        &.language-yaml::after,
+        &.language-markdown::after,
+        &.language-ts::after,
+        &.language-js::after,
+        &.language-text::after {
+            position: absolute;
+            top: 0.65rem;
+            left: 1rem;
+            font-family: $font-mono;
+            font-size: 0.7rem;
+            color: rgba($primary, 0.6);
+            text-transform: lowercase;
+            letter-spacing: 0.5px;
+        }
+
+        // Override Shiki's inline background-color style attribute
+        &.shiki {
+            background: #0e0e0e !important;
+        }
+
+        code {
+            background: transparent;
+            padding: 0;
+            font-size: 0.8125rem;
+            line-height: 1.7;
+            font-weight: 400;
+            color: $text-primary;
+
+            // Shiki output: each line is a <span class="line"> separated by \n.
+            // The \n between spans renders as a gap at the code element's line-height.
+            // Collapse it to 0 at code level; restore it on the .line spans themselves.
+            &:has(.line) {
+                line-height: 0;
+
+                .line {
+                    display: block;
+                    line-height: 1.6;
+                }
+            }
+        }
+
+        // Custom scrollbar for code blocks
+        scrollbar-width: thin;
+        scrollbar-color: rgba($primary, 0.3) transparent;
+
+        &::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        &::-webkit-scrollbar-track {
+            background: rgba($primary, 0.05);
+            border-radius: 3px;
+        }
+
+        &::-webkit-scrollbar-thumb {
+            background: rgba($primary, 0.3);
+            border-radius: 3px;
+
+            &:hover {
+                background: rgba($primary, 0.4);
+            }
+        }
+    }
+
+    // Blockquotes
+    blockquote {
+        margin: 1.5rem 0;
+        padding: 1rem 1.5rem;
+        border-left: 4px solid $primary;
+        // A tinted box like the panels, so it takes the same corner. It had none
+        // at all, which read as an unfinished edge next to a rounded code block.
+        // The left rule stays square — it is a marker, not part of the card.
+        border-radius: 0 $prose-radius $prose-radius 0;
+        background: rgba($primary, 0.05);
+        color: $text-secondary;
+        font-style: italic;
+
+        p {
+            margin: 0.5rem 0;
+        }
+    }
+
+    // Tables
+    table {
+        width: 100%;
+        margin: 1.5rem 0;
+        border-collapse: collapse;
+        font-size: 0.8125rem;
+
+        thead {
+            th {
+                padding: 0.4rem 1rem 0.4rem 0;
+                text-align: left;
+                font-weight: 600;
+                color: $text-tertiary;
+                font-size: 0.72rem;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                border-bottom: 1px solid rgba($primary, 0.15);
+            }
+        }
+
+        tbody {
+            tr {
+                border-bottom: 1px solid rgba($primary, 0.07);
+
+                &:last-child {
+                    border-bottom: none;
+                }
+            }
+
+            td {
+                padding: 0.55rem 1rem 0.55rem 0;
+                color: $text-secondary;
+            }
+        }
+    }
+
+    // Horizontal rule
+    hr {
+        margin: 2rem 0;
+        border: none;
+        border-top: 1px solid rgba($primary, 0.1);
+    }
+
+    // ── Images ──────────────────────────────────────────────────────────────
+    //
+    // A bare <img> in prose (a badge, a diagram hosted elsewhere) keeps the
+    // plain treatment. A README figure gets the terminal window chrome below —
+    // the markdown renderer wraps those in `.readme-figure`.
+    img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 4px;
+        border: 1px solid rgba($primary, 0.1);
+        margin: 1.5rem 0;
+    }
+
+    // ── README figure ───────────────────────────────────────────────────────
+    //
+    // A screenshot in its own terminal window: same panel, radius and dots as a
+    // code block, with the author's alt text as the label. Emitted by
+    // `renderer.image` (registry/markdown.ts) as spans, because an image is an
+    // inline token and a block element inside the surrounding <p> would split
+    // the paragraph.
+    // The image fills the panel edge to edge — NO padding. Unlike a code block,
+    // whose text needs a gutter and a clear header band, a screenshot is the
+    // content: insetting it would frame the image inside a frame. So the chrome
+    // FLOATS on top of the picture instead of reserving space above it.
+    .readme-figure {
+        display: block;
+        position: relative;
+        margin: 2rem 0;
+        background: #111111;
+        border-radius: $prose-radius;
+        // Clips the image's corners to the panel's radius, so the picture
+        // itself needs no radius of its own.
+        overflow: hidden;
+        // Full column width, matching the code blocks it sits between. An
+        // earlier `width: fit-content` sized the panel to the image's natural
+        // width, which left a 953px screenshot floating at 590px in a 936px
+        // column while the `pre` above it ran edge to edge.
+        width: 100%;
+        box-sizing: border-box;
+
+        &::before {
+            @include window-dots;
+            // Above the image, and above its own stacking context.
+            z-index: 2;
+        }
+
+        img {
+            display: block;
+            // Fills the panel, which fills the column — a screenshot should read
+            // at the same width as the code blocks around it, not float small in
+            // the middle of the page.
+            //
+            // `max-width: none` overrides the generic `img { max-width: 100% }`
+            // above, which resolves against the image's own natural width and so
+            // capped a 953px screenshot at 953 CSS px inside a 936px column.
+            // The panel's own `max-width: 100%` is what keeps this inside the
+            // page; without releasing it here the image could never fill.
+            width: 100%;
+            max-width: none;
+            height: auto;
+            margin: 0;
+            border: none;
+            // Same curve as the panel it fills, so the picture's own corners
+            // follow the frame instead of squaring off inside it.
+            border-radius: inherit;
+        }
+    }
+
+    .readme-figure-frame {
+        display: block;
+        position: relative;
+        width: 100%;
+        background: #000;
+        // Inherits the panel's radius so the image's corners are rounded to the
+        // same curve, not clipped square inside it. `overflow: hidden` on the
+        // panel alone is not enough: this frame paints its own background, which
+        // would square off the corners.
+        border-radius: inherit;
+        overflow: hidden;
+    }
+
+    // ── Embedded video ──────────────────────────────────────────────────────
+    //
+    // Emitted by the markdown renderer when a README contains a bare video URL
+    // (see registry/video.ts). Same window chrome as `pre` and `.readme-figure`
+    // — now shared through the `window-*` mixins rather than hand-copied, so a
+    // demo video, a code block and a screenshot cannot drift apart.
+    // The video fills the panel edge to edge — NO padding, matching
+    // `.readme-figure`. A code block needs a gutter and a header band because its
+    // content is text; a video IS the content, so insetting it frames a frame.
+    // The dots and the control bar FLOAT on the picture instead.
+    .readme-video {
+        // Emitted as a <span> because it replaces an inline link token and
+        // must be valid inside the <p> that contains it; `display: block`
+        // gives it the layout it would have had as a <div>.
+        display: block;
+        position: relative;
+        margin: 2rem 0;
+        background: #111111;
+        border-radius: $prose-radius;
+        // Clips the video's corners to the panel's radius, so the media needs no
+        // radius of its own.
+        overflow: hidden;
+        width: 100%;
+        box-sizing: border-box;
+
+        // The dots sit ON the picture, with no scrim behind them.
+        //
+        // A scrim was tried and removed: these videos are screen recordings of
+        // dark editors, so the strip under the dots is already near-black and
+        // darkening it further separates nothing — it only dims the footage while
+        // the overlap stays. Nothing a gradient can do fixes dark-on-dark.
+        //
+        // So the dots are simply chrome on top, the same as `.readme-figure`. On a
+        // recording of an editor they may land near that editor's own window
+        // buttons, which is visible only on a paused first frame and reads as
+        // intentional more often than not.
+        &::before {
+            @include window-dots;
+            z-index: 3;
+        }
+    }
+
+    // 16:9 via aspect-ratio rather than the padding-top hack: an iframe has no
+    // intrinsic size, so without a ratio box it collapses to the HTML default
+    // of 150px regardless of width.
+    //
+    // This is the PROVIDER EMBED case only. A direct video file is a component
+    // now (.readme-video-mount) and carries its own intrinsic dimensions, so it
+    // never wants a ratio box imposed on it.
+    .readme-video-frame {
+        display: block;
+        position: relative;
+        aspect-ratio: 16 / 9;
+        width: 100%;
+        border-radius: inherit;
+        overflow: hidden;
+        background: #000;
+
+        iframe {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            display: block;
+        }
+    }
+
+    // The player's own chrome lives in components/registry/video/player.vue —
+    // it is a real component now, mounted into the placeholder the markdown
+    // renderer emits, so its styles are scoped there rather than duplicated
+    // here. What remains below is only the layout of the SLOT it drops into.
+    .readme-video-mount {
+        // Emitted as a <span> because it replaces an inline link token and must
+        // be valid inside the <p> that contains it; `display: block` gives it
+        // the layout it would have had as a <div>. The panel itself (radius,
+        // background, window dots) belongs to the component that mounts here.
+        display: block;
+        width: 100%;
+        margin: 2rem 0;
+    }
+
+    // Strong/Bold
+    strong {
+        color: $text-primary;
+        font-weight: 700;
+    }
+
+    // Emphasis/Italic
+    em {
+        color: $text-secondary;
+        font-style: italic;
+    }
+
+    // First paragraph special styling
+    > p:first-of-type {
+        font-size: 1rem;
+        color: $text-primary;
+        margin-top: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    // Spacing adjustments
+    > * + * {
+        margin-top: 1.25rem;
+    }
+
+    > h2 + *,
+    > h3 + *,
+    > h4 + * {
+        margin-top: 1rem;
+    }
+
+    @include tablet {
+        h1 {
+            font-size: 1.75rem;
+        }
+        h2 {
+            font-size: 1.25rem;
+        }
+
+        pre {
+            font-size: 0.75rem;
+            padding: 2.5rem 1rem 1rem;
+        }
+
+        p {
+            max-width: 100%;
+        }
+    }
+}
+
+// Global: force #111111 on all Shiki-rendered code blocks regardless of context
+pre.shiki {
+    background: #0e0e0e !important;
+    max-width: 100%;
+
+    // Shiki puts \n between each .line span — collapse at code level, restore per-line
+    code {
+        line-height: 0;
+
+        .line {
+            display: block;
+            line-height: 1.6;
+        }
+    }
+}

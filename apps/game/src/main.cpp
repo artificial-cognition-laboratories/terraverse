@@ -139,18 +139,17 @@ static OptionList allowed_options;
 
 #if USE_SHELL
 #include "terragen/grid.h"
+#include "terragen/progress.h"
 #include <filesystem>
-// Terra Firma: built planet grids kept between runs, for this build of the
-// engine alone (its size and time name it: any rebuild starts afresh)
+// Terra Firma: built planet grids kept between runs, named by what they're
+// built from; the river levels and atlas layouts by all terragen's sources
 static void keepTerrainGrids()
 {
-	char path[1024];
-	if (!porting::getCurrentExecPath(path, sizeof(path)))
-		throw BaseException("can't find this program, to name its kept grids");
-	const std::filesystem::path exe(path);
-	terragen::keepGridsIn(porting::path_cache + DIR_DELIM + "grids",
-			std::to_string(std::filesystem::file_size(exe)) + "_" +
-			std::to_string(std::filesystem::last_write_time(exe).time_since_epoch().count()));
+	terragen::keepGridsIn(porting::path_cache + DIR_DELIM + "grids", terragen::TERRAGEN_SOURCES, terragen::GRID_SOURCES);
+	// where a world's making spent its time, a line in the log
+	terragen::setMakingReport([](const std::string &code, const terragen::Making &m) {
+		actionstream << "terragen: " << code << " " << terragen::breakdown(m) << std::endl;
+	});
 }
 #endif
 
@@ -305,7 +304,7 @@ int main(int argc, char *argv[])
 		const std::string code = cmd_args.get("planetarium");
 		const std::optional<double> bench = cmd_args.exists("planetarium-bench")
 				? std::optional<double>(cmd_args.getFloat("planetarium-bench")) : std::nullopt;
-		planetarium::runStandalone(code.empty() ? "TF19.dGVycmE" : code, bench);
+		planetarium::runStandalone(code.empty() ? "TF21.dGVycmE" : code, bench);
 		return 0;
 	}
 #endif

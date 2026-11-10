@@ -161,6 +161,9 @@ public:
 	// The grid's water surface along a cell's run to its receiver at `t` (0 at
 	// the cell), blocks over the sea, fixed: what the channels below it join
 	int64_t linkHeight(int32_t c, fix t) const;
+	// The grid's ground at a place, between cell centres (blocks over the sea,
+	// fixed): what the land there stands at on average
+	int64_t gridHeight(const Place &p) const;
 	// How much the ice ages' glaciers worked a cell's ground at this height
 	// (blocks, fixed): 0 never .. 1 (cold enough now, so colder then)
 	fix glacial(int32_t c, int64_t height) const;

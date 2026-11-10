@@ -18,12 +18,16 @@ using plates::unit;
 
 namespace {
 
-enum ChannelStream : uint32_t { NODE = 353, BEND = 379, CLUMPS = 439, PONDS = 443, BEDS = 449 }; // (359 was the levels' wander)
+enum ChannelStream : uint32_t { NODE = 353, BEND = 379, CLUMPS = 439, PONDS = 443, BEDS = 449, SLOPES = 457, ROCK = 461, ROLLS = 463 }; // (359 was the levels' wander)
 // how far a level's channels bend either way: its lattice over this
 const int64_t BEND_SHARE = 4;
 
-// The finest level's points are this far apart (blocks): below it, noise
-const int64_t FINEST_BLOCKS = 48;
+// The finest level's points are at least this far apart (blocks). What a
+// channel drains is counted over the levels AREA_FINEST_BLOCKS apart or more:
+// the finer are side valleys, each draining its own cell, so how fine the
+// network goes never moves the coarser channels (sprint 109 P5: a level of
+// side valleys down to 24, where the hillsides were planes under 48)
+const int64_t FINEST_BLOCKS = 24, AREA_FINEST_BLOCKS = 48;
 // Rain a level needs to run with water (the grid's rain: 1 is average): the
 // wetter the land, the further up its network the water reaches
 const fix WET[Channels::STREAM_LEVELS] = { ratio(30, 100), ratio(70, 100), ratio(120, 100) };
@@ -49,6 +53,30 @@ const fix HILL_LEAST = ratio(1, 100), CRITICAL_RANGE = ratio(55, 100);
 const fix ROUNDING = ratio(1, 2);
 // A grid run's trunk valley follows its line (World::onRun) in this many pieces
 const int TRUNK_PIECES = 12;
+// A run draining less than this (cells of average rain) isn't a trunk
+// valley: it's a hollow in a hillside, and the finer levels shape it. As
+// valleys every run on a range's flank cut its own, a cell apart, and the
+// flank was a comb of parallel spurs
+const int64_t TRUNK_LEAST = 3 * ONE;
+// The land is seamless: what a place reads is gathered per window, so each
+// channel's hillside rises away before any window could leave it out, and the
+// lowest never jumps where windows meet. A trunk run's by its distance, over
+// TRUNK_REACH_FROM..TRUNK_REACH of the grid's spacing; a finer channel's by
+// its head's, over REACH_FROM..REACH of its lattice, its window WINDOW
+// lattices each way (its own bend, up to a BEND_SHARE of one, kept inside).
+// Over the band it rises as its square, up to FADE_SLOPE blocks a block at
+// its end, and by FADE_TO only in its last FADE_STEEP: rising by FADE_TO all
+// the way, a gentle valley's channel still the lowest past its reach (its
+// neighbours steep) climbed the band's first blocks as a cliff, tens of
+// blocks high (P4); steeper ramps stood as walls round the channels' heads.
+// The ramp's at least FADE_LEAST high: a fine level's band is a few blocks
+// wide, too little to climb to its neighbours before FADE_TO (P5)
+const fix TRUNK_REACH_FROM = toFix(1), TRUNK_REACH = ratio(160, 100);
+const fix REACH_FROM = toFix(2), REACH = toFix(5) / 2;
+const int32_t WINDOW = 3;
+const int64_t FADE_TO = (int64_t)1 << 32; // blocks, fixed: over any land
+const fix FADE_SLOPE = toFix(1), FADE_STEEP = ratio(10, 100);
+const int64_t FADE_LEAST = toFix(32); // blocks, fixed
 // A channel carries a stream once this much drains to it (blocks² of average
 // rain: a few hundred blocks square), no wider than STREAM_WIDEST blocks
 // (wider is the grid's rivers')
@@ -72,7 +100,34 @@ const fix STRENGTH[(int)Province::Count] = {
 	ratio(80, 100), // highland
 	ratio(60, 100), // mare
 };
+// The grid's heights are the land's on average; valleys climbing freely from
+// the trunk stood a range's ground a quarter over them (sprint 109 P6). Ground
+// over the grid's surface by e stands e·OVER_GRID/(OVER_GRID + e) over it:
+// a ridge a little over barely changes, a summit far over comes most of the
+// way down; one rising map for land and water, as BEDDED's
+const int64_t OVER_GRID = 300; // blocks
 const fix STANDS_SOFT = ratio(70, 100), STANDS_SPAN = ratio(60, 100);
+// The ground decides the land's texture (sprint 109 P3). Within a province
+// rock varies by ROCK_VARY either way, over a few of the first level's
+// lattices (harder and softer beds, jointing). Drainage is denser on soft
+// ground and where it's wet (more of a level's points are channel heads:
+// up to DENSE_SOFT and DENSE_WET more, as much less on hard dry ground), so
+// valleys crowd on shale and stand apart on granite; hillsides stand steeper
+// on harder rock, so its valleys are deeper; and a channel would rather run
+// through softer rock: a join's cost rises by DEFLECT of how hard the ground
+// is where it joins (its province's: the rock's own variation is too dear
+// to read for every candidate)
+const fix ROCK_VARY = ratio(30, 100);
+const fix DENSE_SOFT = ratio(45, 100), DENSE_WET = ratio(20, 100);
+const fix DEFLECT = ratio(60, 100);
+// Gentle land rolls (P4): swells and hollows ROLL_HIGH blocks either way,
+// ROLL_WAVE blocks across (two octaves), under hillsides gentler than
+// ROLL_SLOPE (steeper ones are all the drainage's); clear of channels' floors
+// and banks (fading in over ROLL_CLEAR blocks above the bed, never sinking
+// more than half way to it), so the water and its floodplains are as they were
+const int64_t ROLL_HIGH = toFix(5), ROLL_CLEAR = toFix(6);
+const int64_t ROLL_WAVE = 600; // blocks
+const fix ROLL_SLOPE = ratio(25, 100);
 // Flat-lying beds (P3): how much of each province's surface is layered
 // sediment, hard beds over soft, each BED_LEAST..BED_MOST blocks thick by
 // noise; where hillsides cut through them, the soft wears back under the
@@ -123,20 +178,34 @@ const fix BED_SLOPE = ratio(6, 100), BED_SLOPE_FULL = ratio(20, 100);
 const int64_t ROUGH_CELLS = 2;
 // The prototype's density of a level's points: never under DENSE_LEAST of them
 const fix DENSE_LEAST = ratio(30, 100);
+// Hillsides aren't planes: how steep they stand wanders by place, VARY of
+// it either way over a few of the grid's cells (a convex spur, a slope eased
+// by an old slump), so a valley's walls curve rather than stand as facets
+const fix VARY = ratio(30, 100);
 // A channel's floor: where it runs gentler than FLOOR_GRADE it lays its load
 // down, a flat floor FLOOR_WIDTHS × √flow wide (a floodplain), none steeper
 const fix FLOOR_GRADE = ratio(2, 100);
 const int64_t FLOOR_WIDTHS = 4;
 const int32_t FLOOR_MOST = 40;
 const int32_t STREAM_WIDEST = 6;
+// A stream where the land stands this many blocks over its water runs under it
+const int32_t STREAM_SINKS = 2;
 // Ponds, where something held the water up (a sill across the channel, and
 // a hollow worn or left behind it): tarns where the ice worked a channel's
-// head (a cirque's floor scoured out, its lip of rock or moraine), on up to
-// TARN_SHARE of them where it worked hardest; pools on gentle floors (oxbows,
-// sinks, a beaver's dam) on POOL_SHARE of the channels gentler than
-// FLOOR_GRADE. A pond's sill rises round it for half its radius more.
-const fix TARN_SHARE = ratio(30, 100), POOL_SHARE = ratio(12, 100);
+// head (a cirque's floor scoured out, its lip of rock or moraine), only on the
+// level whose channels are a cirque's size (nearest CIRQUE blocks apart), up
+// to TARNS a km² of its lattice where it worked hardest; pools on floodplains
+// (oxbows, sinks, a beaver's dam), POOLS a km² of a level's lattice where its
+// channel has a floor. By area, not a share of channels: a share rolled on
+// every level stacked them, 19 tarns a km² over high ground and 5 pools a km²
+// on hillsides (sprint 109 P4; a glaciated range holds well under one). A
+// pond's sill rises round it for half its radius more.
+const int64_t CIRQUE = 600; // blocks
+const fix TARNS = toFix(1), POOLS = toFix(1);
 const int64_t TARN_LEAST = 12, TARN_MOST = 70, POOL_LEAST = 8, POOL_MOST = 60; // radius, blocks
+// A pond is its own valley's: it fades out as its channel's ground stands
+// over the lowest by up to POND_OWN (blocks, fixed)
+const int64_t POND_OWN = toFix(8);
 
 struct Near
 {
@@ -174,15 +243,57 @@ int32_t floorBy(int64_t v, int64_t d)
 
 fix lerpFix(fix a, fix b, fix t) { return a + mul(b - a, t); }
 
-// A cache per thread, per level, direct-mapped: the generator's threads and
-// the far view ask for the same few nodes over and over
-struct Slot
-{
-	uint64_t owner = 0;
-	int32_t i = 0, j = 0, l = 0;
-	Channels::Node node;
-};
+// A cache per thread, per level (Ways): the generator's threads and the far
+// view ask for the same few nodes over and over
 constexpr size_t SLOTS = 1 << 13;
+
+// One thread's cache of something per node, two ways a set: a node's in
+// either of its pair of slots, the less recently used replaced (direct-mapped,
+// nodes near each other evicted each other: a world's river levels read
+// 5.8 → 4.8 s from this alone)
+template <typename T>
+class Ways
+{
+public:
+	struct Entry
+	{
+		uint64_t owner = 0;
+		int32_t i = 0, j = 0, l = 0;
+		T value;
+	};
+
+	Ways() : m_entries(new Entry[SLOTS * (Channels::MOST_LEVELS + 1)]), m_newer(new uint8_t[SLOTS / 2 * (Channels::MOST_LEVELS + 1)]()) {}
+
+	// what's kept for the node, or none
+	T *find(uint64_t owner, int level, int32_t i, int32_t j, int32_t l, uint32_t h)
+	{
+		const size_t set = setOf(level, h);
+		for (size_t w = 0; w < 2; w++) {
+			Entry &e = m_entries[set * 2 + w];
+			if (e.owner == owner && e.i == i && e.j == j && e.l == l) {
+				m_newer[set] = (uint8_t)w;
+				return &e.value;
+			}
+		}
+		return nullptr;
+	}
+
+	// kept in place of the less recently used of its set
+	T &put(uint64_t owner, int level, int32_t i, int32_t j, int32_t l, uint32_t h, T value)
+	{
+		const size_t set = setOf(level, h), w = m_newer[set] ^ 1;
+		Entry &e = m_entries[set * 2 + w];
+		m_newer[set] = (uint8_t)w;
+		e = { owner, i, j, l, std::move(value) };
+		return e.value;
+	}
+
+private:
+	static size_t setOf(int level, uint32_t h) { return (size_t)level * (SLOTS / 2) + (h & (SLOTS / 2 - 1)); }
+
+	std::unique_ptr<Entry[]> m_entries;
+	std::unique_ptr<uint8_t[]> m_newer;
+};
 
 } // namespace
 
@@ -199,10 +310,40 @@ Channels::Channels(const WorldCode &code, const Grid &grid, const World &world, 
 		blocks /= 2;
 		m_lattice[k] = m_lattice[k - 1] / 2;
 		m_levels = k;
+		if (blocks >= AREA_FINEST_BLOCKS)
+			m_area_levels = k;
 	}
 	const int32_t cell_waves = (int32_t)(((int64_t)TWO_PI << FRAC) / gridSphere().spacing() >> FRAC);
 	for (int k = 0; k <= m_levels; k++)
 		m_waves[k] = std::max(8, (cell_waves << k) / 2);
+	m_roll_waves = (int32_t)std::max<int64_t>(8, code.size / ROLL_WAVE);
+	int64_t nearest = INT64_MAX;
+	for (int k = 2; k <= m_levels; k++) {
+		const int64_t apart = std::abs(blocksOf(k) - CIRQUE);
+		if (apart < nearest) {
+			nearest = apart;
+			m_tarn_level = k;
+		}
+	}
+	if (m_land) {
+		// a trunk window gathers every run that comes within its reach of a
+		// place in it: a place is within half its diagonal of its middle, and
+		// a run within its furthest wander of its cell's centre
+		const Sphere &sphere = gridSphere();
+		int64_t wander = 0;
+		for (int32_t c = 0; c < grid.size(); c++) {
+			if (grid.receiver[c] < 0 || grid.base[c] < 0)
+				continue;
+			const Place a(sphere.centre(c));
+			for (int piece = 0; piece <= TRUNK_PIECES; piece++) {
+				const Place q = world.onRun(c, ratio(piece, TRUNK_PIECES));
+				const int64_t dx = (int64_t)q.x - a.x, dy = (int64_t)q.y - a.y, dz = (int64_t)q.z - a.z;
+				wander = std::max<int64_t>(wander, (int64_t)isqrt((uint64_t)(dx * dx + dy * dy + dz * dz)));
+			}
+		}
+		const int64_t L = m_lattice[0];
+		m_trunk_ball = mulShift(L, TRUNK_REACH, FRAC) + wander + L * 7 / 8 + L / 8;
+	}
 }
 
 int32_t Channels::latticeOf(int level, int32_t c) const
@@ -212,26 +353,28 @@ int32_t Channels::latticeOf(int level, int32_t c) const
 
 const Channels::Node &Channels::node(int level, int32_t i, int32_t j, int32_t l) const
 {
-	thread_local std::unique_ptr<Slot[]> slots(new Slot[SLOTS * (MOST_LEVELS + 1)]);
+	thread_local Ways<Node> kept;
 	const uint32_t h = mix(mix((uint32_t)i, (uint32_t)j, (uint32_t)level), (uint32_t)l, 0x51ed270bu);
-	Slot &s = slots[(size_t)level * SLOTS + (h & (SLOTS - 1))];
-	if (s.owner != m_owner || s.i != i || s.j != j || s.l != l) {
-		// (built first: building asks for nodes itself, which may land in this slot)
-		Node built = build(level, i, j, l);
-		Slot &t = slots[(size_t)level * SLOTS + (h & (SLOTS - 1))];
-		t.owner = m_owner;
-		t.i = i;
-		t.j = j;
-		t.l = l;
-		t.node = built;
-		return t.node;
-	}
-	return s.node;
+	if (const Node *n = kept.find(m_owner, level, i, j, l, h))
+		return *n;
+	// (built first: building asks for nodes itself, which may land in this set)
+	Node built = build(level, i, j, l);
+	return kept.put(m_owner, level, i, j, l, h, built);
 }
 
 static fix stands(const Grid &g, int32_t c)
 {
 	return STANDS_SOFT + mul(STANDS_SPAN, STRENGTH[(int)g.province[c]]);
+}
+
+fix Channels::hardness(const Place &p) const
+{
+	const Sphere::Spot spot = gridSphere().spot(p.dir());
+	int64_t sum = 0;
+	for (int k = 0; k < 3; k++)
+		sum += (int64_t)STRENGTH[(int)m_grid->province[spot.cells[k]]] * spot.weights[k];
+	const fix varies = clamp(fbm(p, m_seed + ROCK, m_waves[1], 2, HALF) * 2, -ONE, ONE);
+	return clamp((fix)(sum >> FRAC) + mul(varies, ROCK_VARY), 0, ONE);
 }
 
 // How steep hillsides stand at a place: as steep as the ground holds
@@ -295,8 +438,11 @@ Channels::Node Channels::build(int level, int32_t i, int32_t j, int32_t l) const
 	// (the prototype's: drainage clumps, as rock, slope and rain vary: some of
 	// a level's points are left out where noise a few lattices wide says the
 	// ground drains less densely, so valleys aren't evenly spaced)
-	if (m_land && level > 1) {
-		const fix dense = clamp(HALF + fbm(n.at, m_seed + CLUMPS + (uint32_t)level, m_waves[level] / 3, 2, HALF) * 2, DENSE_LEAST, ONE);
+	if (m_land && level >= 1) {
+		// (and by the ground: soft and wet, denser)
+		const fix soft = HALF - hardness(n.at), wet = clamp(m_grid->rain(gridSphere().spot(n.at.dir()).cells[0]) - ONE, -ONE, ONE);
+		const fix dense = clamp(HALF + fbm(n.at, m_seed + CLUMPS + (uint32_t)level, m_waves[level] / 3, 2, HALF) * 2
+				+ mul(soft * 2, DENSE_SOFT) + mul(wet, DENSE_WET), DENSE_LEAST, ONE);
 		if ((fix)(mix(h, 3, m_seed) & 0xFFFF) > dense)
 			return n;
 	}
@@ -360,8 +506,15 @@ Channels::Node Channels::build(int level, int32_t i, int32_t j, int32_t l) const
 			cost += (across * across >> FRAC) * mul(folded, TRELLIS);
 		}
 		const int64_t height = low + mulShift(high - low, near.t, FRAC);
-		if (m_land)
-			cost = height + mulShift(blocks((int64_t)isqrt((uint64_t)cost)), hill, FRAC);
+		if (m_land) {
+			// (through harder rock, dearer: the rock where it joins, its
+			// province's there, the cells already found)
+			int64_t hard = 0;
+			for (int k = 0; k < 3; k++)
+				hard += (int64_t)STRENGTH[(int)g.province[there.cells[k]]] * there.weights[k];
+			const fix through = ONE + mul(DEFLECT, (fix)(hard >> FRAC));
+			cost = height + mulShift(mulShift(blocks((int64_t)isqrt((uint64_t)cost)), hill, FRAC), through, FRAC);
+		}
 		if (cost >= best)
 			return;
 		best = cost;
@@ -428,55 +581,33 @@ Channels::Node Channels::build(int level, int32_t i, int32_t j, int32_t l) const
 
 const Channels::Shape &Channels::shape(int level, int32_t i, int32_t j, int32_t l) const
 {
-	struct Kept
-	{
-		uint64_t owner = 0;
-		int32_t i = 0, j = 0, l = 0;
-		Shape shape;
-	};
-	thread_local std::unique_ptr<Kept[]> kept(new Kept[SLOTS * (MOST_LEVELS + 1)]);
+	thread_local Ways<Shape> kept;
 	const uint32_t h = mix(mix((uint32_t)i, (uint32_t)j, (uint32_t)level), (uint32_t)l, 0x2545f491u);
-	Kept *k = &kept[(size_t)level * SLOTS + (h & (SLOTS - 1))];
-	if (k->owner != m_owner || k->i != i || k->j != j || k->l != l) {
-		const Shape worn = wear(level, i, j, l); // (asks for its parent's: may land in this slot)
-		k = &kept[(size_t)level * SLOTS + (h & (SLOTS - 1))];
-		k->owner = m_owner;
-		k->i = i;
-		k->j = j;
-		k->l = l;
-		k->shape = worn;
-	}
-	return k->shape;
+	if (const Shape *k = kept.find(m_owner, level, i, j, l, h))
+		return *k;
+	const Shape worn = wear(level, i, j, l); // (asks for its parent's: may land in this set)
+	return kept.put(m_owner, level, i, j, l, h, worn);
 }
 
 int64_t Channels::drains(int level, int32_t i, int32_t j, int32_t l) const
 {
-	struct Kept
-	{
-		uint64_t owner = 0;
-		int32_t i = 0, j = 0, l = 0;
-		int64_t area = 0;
-	};
-	thread_local std::unique_ptr<Kept[]> kept(new Kept[SLOTS * (MOST_LEVELS + 1)]);
+	thread_local Ways<int64_t> kept;
 	const uint32_t h = mix(mix((uint32_t)i, (uint32_t)j, (uint32_t)level), (uint32_t)l, 0x6a09e667u);
-	{
-		const Kept &k = kept[(size_t)level * SLOTS + (h & (SLOTS - 1))];
-		if (k.owner == m_owner && k.i == i && k.j == j && k.l == l)
-			return k.area;
-	}
+	if (const int64_t *area = kept.find(m_owner, level, i, j, l, h))
+		return *area;
 	// its own lattice cell's hillsides, and all its children's (the next
 	// level's nodes that join it: they lie within a lattice or two of it)
 	const Node n = node(level, i, j, l);
-	const int64_t own = mulShift(m_lattice[std::min(level + 1, m_levels)], m_radius, PLACE_FRAC) >> FRAC;
+	const int64_t own = mulShift(m_lattice[level < m_area_levels ? level + 1 : level], m_radius, PLACE_FRAC) >> FRAC;
 	int64_t area = own * own;
-	if (n.exists && level < m_levels) {
+	if (n.exists && level < m_area_levels) {
 		// its children found, each counted as what a child of that level
 		// drains on average: its own cell's and each finer level's again (a
 		// level's cells cover the ground once). Counted down every level, the
 		// first column in a place built the whole network under a coarse
 		// node: a far tile, which reads only the coarse levels, 1 s a column
-		const int64_t child_own = mulShift(m_lattice[std::min(level + 2, m_levels)], m_radius, PLACE_FRAC) >> FRAC;
-		const int64_t below = child_own * child_own * (m_levels - level);
+		const int64_t child_own = mulShift(m_lattice[std::min(level + 2, m_area_levels)], m_radius, PLACE_FRAC) >> FRAC;
+		const int64_t below = child_own * child_own * (m_area_levels - level);
 		const int64_t B = m_lattice[level + 1], reach = m_lattice[level] * 2;
 		const int64_t lo[3] = { std::min<int64_t>(n.join.x, n.at.x) - reach, std::min<int64_t>(n.join.y, n.at.y) - reach, std::min<int64_t>(n.join.z, n.at.z) - reach };
 		const int64_t hi[3] = { std::max<int64_t>(n.join.x, n.at.x) + reach, std::max<int64_t>(n.join.y, n.at.y) + reach, std::max<int64_t>(n.join.z, n.at.z) + reach };
@@ -493,13 +624,7 @@ int64_t Channels::drains(int level, int32_t i, int32_t j, int32_t l) const
 						area += below;
 				}
 	}
-	Kept &k = kept[(size_t)level * SLOTS + (h & (SLOTS - 1))];
-	k.owner = m_owner;
-	k.i = i;
-	k.j = j;
-	k.l = l;
-	k.area = area;
-	return area;
+	return kept.put(m_owner, level, i, j, l, h, area);
 }
 
 // A channel's flat floor, half its width (blocks, fixed): FLOOR_WIDTHS of its
@@ -563,13 +688,16 @@ Channels::Shape Channels::wear(int level, int32_t i, int32_t j, int32_t l) const
 		const uint32_t h = mix(mix((uint32_t)i, (uint32_t)j, (uint32_t)level), (uint32_t)l, m_seed + PONDS);
 		const fix roll = (fix)(h & 0xFFFF), where = (fix)(h >> 16 & 0xFFFF);
 		const fix ice = out.ice;
+		const int64_t L = blocksOf(level);
+		const fix km2 = (fix)std::min<int64_t>(ONE, (L * L << FRAC) / 1000000); // a lattice cell's
+		const int64_t floor = floorOf(flow, out.slope);
 		int64_t radius = 0;
-		if (ice > 0 && roll < mul(ice, TARN_SHARE)) {
+		if (level == m_tarn_level && ice > 0 && roll < mul(mul(ice, TARNS), km2)) {
 			radius = std::clamp<int64_t>(length / 5, toFix(TARN_LEAST), toFix(TARN_MOST));
 			out.pond_t = ratio(80, 100) + mul(where, ratio(10, 100));
 			out.pond_depth = radius / 3;
-		} else if (out.slope < FLOOR_GRADE && roll < POOL_SHARE) {
-			radius = std::clamp<int64_t>(floorOf(flow, out.slope) * 2, toFix(POOL_LEAST), toFix(POOL_MOST));
+		} else if (floor > 0 && roll < mul(POOLS, km2)) {
+			radius = std::clamp<int64_t>(floor * 2, toFix(POOL_LEAST), toFix(POOL_MOST));
 			out.pond_t = ratio(25, 100) + mul(where, ratio(50, 100));
 			out.pond_depth = std::max<int64_t>(toFix(1), radius / 6);
 		}
@@ -612,9 +740,10 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 	struct List
 	{
 		uint64_t owner = 0;
+		bool hollows = false; // (the trunk's) its runs that drain little, as valleys
 		int32_t i = 0, j = 0, l = 0;
 		int count = 0;
-		std::array<Segment, 512> segments;
+		std::array<Segment, 1024> segments;
 	};
 	thread_local std::unique_ptr<std::array<List, MOST_LEVELS + 1>> lists(new std::array<List, MOST_LEVELS + 1>());
 	// a valley as the climate shapes it: a trough where ice worked it, a wash
@@ -646,6 +775,19 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 	// the land: the lowest channel-and-hillside, the next, and how much the
 	// divide between them is rounded (blocks, fixed)
 	int64_t lowest = INT64_MAX, second = INT64_MAX, round = 0;
+	int64_t deepest = INT64_MAX; // the least of each channel's height here and over its bed (Read::clear)
+	// (a field of the place, not of a channel: the land stays seamless)
+	fix vary = m_land ? ONE + mul(clamp(fbm(p, m_seed + SLOPES, m_waves[0] * 2, 2, HALF) * 2, -ONE, ONE), VARY) : ONE;
+	// (and by the rock here against its province's, which the channels'
+	// slopes already stand at)
+	if (m_land) {
+		const Sphere::Spot spot = gridSphere().spot(p.dir());
+		int64_t province = 0;
+		for (int k = 0; k < 3; k++)
+			province += (int64_t)STRENGTH[(int)m_grid->province[spot.cells[k]]] * spot.weights[k];
+		const fix here = STANDS_SOFT + mul(STANDS_SPAN, hardness(p)), usual = STANDS_SOFT + mul(STANDS_SPAN, (fix)(province >> FRAC));
+		vary = mul(vary, div(here, usual));
+	}
 	const int64_t finest = mulShift(m_lattice[m_levels], m_radius, PLACE_FRAC);
 	// the pond nearest, by its radius: how far off (blocks, fixed) and which
 	int64_t pond_d = 0;
@@ -653,13 +795,21 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 	int64_t fan_top = INT64_MIN;
 	const Segment *fan = nullptr, *owner = nullptr;
 	const Segment *pond = nullptr;
+	int64_t pond_h = INT64_MAX; // its channel's ground here
 	fix pond_by = toFix(2);
 	for (int k = 0; k <= m_levels && (k == 0 || m_lattice[k] >= least); k++) {
 		const int64_t L = m_lattice[k];
-		const int32_t i = floorBy(p.x, L), j = floorBy(p.y, L), l = floorBy(p.z, L);
+		// (the land's: round where the coarser levels' bends put the place, as
+		// its channels are measured from there)
+		const int64_t wx = m_land ? (int64_t)p.x + bent[0] : p.x, wy = m_land ? (int64_t)p.y + bent[1] : p.y, wz = m_land ? (int64_t)p.z + bent[2] : p.z;
+		const int32_t i = floorBy(wx, L), j = floorBy(wy, L), l = floorBy(wz, L);
 		List &list = (*lists)[k];
-		if (list.owner != m_owner || list.i != i || list.j != j || list.l != l) {
+		// (read no finer than the trunk, a far tile's land, nothing finer
+		// shapes what drains little: its runs are valleys there too)
+		const bool hollows = k == 0 && (m_levels == 0 || m_lattice[1] < least);
+		if (list.owner != m_owner || list.hollows != hollows || list.i != i || list.j != j || list.l != l) {
 			list.owner = m_owner;
+			list.hollows = hollows;
 			list.i = i;
 			list.j = j;
 			list.l = l;
@@ -679,6 +829,8 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 						add({ Place(sphere.centre(r)), Place(sphere.centre(c)), false, 0 });
 						return;
 					}
+					if (g.drained[c] < TRUNK_LEAST && !m_world->drawn(c) && !hollows)
+						return;
 					// the prototype's: the run's line, in pieces, at the grid's heights along it
 					const fix hill = critical(g, c);
 					// (what it drains, in blocks²; a drawn run's water is the rivers', drawn apart)
@@ -704,17 +856,28 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 					}
 				};
 				const Place middle = placeOf(((int64_t)i * 2 + 1) * L / 2, ((int64_t)j * 2 + 1) * L / 2, ((int64_t)l * 2 + 1) * L / 2);
-				// (the land's: two rings, as a run's hillside can reach that far
-				// and still be the lowest: one ring, and the ground jumped along
-				// the lattice's planes where a list lost it)
 				std::vector<int32_t> cells;
-				for (int32_t c : sphere.spot(middle.dir()).cells) {
-					cells.push_back(c);
-					for (const int32_t *q = sphere.neighboursBegin(c); q != sphere.neighboursEnd(c); q++) {
-						cells.push_back(*q);
-						if (m_land)
-							for (const int32_t *w = sphere.neighboursBegin(*q); w != sphere.neighboursEnd(*q); w++)
-								cells.push_back(*w);
+				if (m_land) {
+					// (the land's: every run within reach of a place here, by
+					// distance; rings by count left some out, and the ground
+					// jumped along the lattice's planes where a window lost one)
+					const Place centre(middle.dir());
+					const auto near = [&](int32_t c) {
+						const Place q(sphere.centre(c));
+						const int64_t dx = (int64_t)q.x - centre.x, dy = (int64_t)q.y - centre.y, dz = (int64_t)q.z - centre.z;
+						return (int64_t)isqrt((uint64_t)(dx * dx + dy * dy + dz * dz)) <= m_trunk_ball;
+					};
+					for (int32_t c : sphere.spot(middle.dir()).cells)
+						cells.push_back(c);
+					for (size_t at = 0; at < cells.size(); at++)
+						for (const int32_t *q = sphere.neighboursBegin(cells[at]); q != sphere.neighboursEnd(cells[at]); q++)
+							if (std::find(cells.begin(), cells.end(), *q) == cells.end() && near(*q))
+								cells.push_back(*q);
+				} else {
+					for (int32_t c : sphere.spot(middle.dir()).cells) {
+						cells.push_back(c);
+						for (const int32_t *q = sphere.neighboursBegin(c); q != sphere.neighboursEnd(c); q++)
+							cells.push_back(*q);
 					}
 				}
 				std::sort(cells.begin(), cells.end());
@@ -722,9 +885,10 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 				for (int32_t c : cells)
 					link(c);
 			} else {
-				for (int32_t a = i - 2; a <= i + 2; a++)
-					for (int32_t b = j - 2; b <= j + 2; b++)
-						for (int32_t c = l - 2; c <= l + 2; c++) {
+				const int32_t w = m_land ? WINDOW : 2;
+				for (int32_t a = i - w; a <= i + w; a++)
+					for (int32_t b = j - w; b <= j + w; b++)
+						for (int32_t c = l - w; c <= l + w; c++) {
 							const Node n = node(k, a, b, c); // (a copy: its shape asks for more)
 							if (!n.exists)
 								continue;
@@ -779,12 +943,33 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 			}
 			const Near near = nearest(pk, seg.join, seg.at);
 			closest2 = std::min(closest2, near.dist2);
+			// (the land's) how far its hillside has risen away: 0 in reach .. ONE
+			// past it, where its window may have left it out
+			fix gone = 0;
+			int64_t rise = 0; // (blocks, fixed)
+			if (m_land) {
+				int64_t d, from, to;
+				if (k == 0) {
+					d = (int64_t)isqrt((uint64_t)near.dist2);
+					from = mulShift(L, TRUNK_REACH_FROM, FRAC);
+					to = mulShift(L, TRUNK_REACH, FRAC);
+				} else {
+					const int64_t dx = (int64_t)pk.x - seg.at.x, dy = (int64_t)pk.y - seg.at.y, dz = (int64_t)pk.z - seg.at.z;
+					d = (int64_t)isqrt((uint64_t)(dx * dx + dy * dy + dz * dz));
+					from = mulShift(L, REACH_FROM, FRAC);
+					to = mulShift(L, REACH, FRAC);
+				}
+				const fix x = d <= from ? 0 : d >= to ? ONE : (fix)(((d - from) << FRAC) / (to - from));
+				gone = smooth(x);
+				const fix steep = smooth(clamp(div(x - (ONE - FADE_STEEP), FADE_STEEP), 0, ONE));
+				rise = mulShift(std::max(FADE_LEAST, mulShift(to - from, m_radius, PLACE_FRAC)), mul(mul(x, x), FADE_SLOPE / 2), FRAC) + mulShift(FADE_TO, steep, FRAC);
+			}
 			// a fan's cone, its edge at its foot's height
 			if (seg.fan_r > 0) {
 				const int64_t dx = (int64_t)pk.x - seg.fan.x, dy = (int64_t)pk.y - seg.fan.y, dz = (int64_t)pk.z - seg.fan.z;
 				const int64_t d = mulShift((int64_t)isqrt((uint64_t)(dx * dx + dy * dy + dz * dz)), m_radius, PLACE_FRAC);
-				if (d < seg.fan_r) {
-					const int64_t top = seg.low + mulShift(seg.fan_r - d, mul(seg.grade, FAN_GRADE), FRAC);
+				if (d < seg.fan_r && gone < ONE) {
+					const int64_t top = seg.low + mulShift(mulShift(seg.fan_r - d, mul(seg.grade, FAN_GRADE), FRAC), ONE - gone, FRAC);
 					if (top > fan_top) {
 						fan_top = top;
 						fan = &seg;
@@ -794,7 +979,7 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 			if (seg.pond_r > 0) {
 				const int64_t dx = (int64_t)pk.x - seg.pond.x, dy = (int64_t)pk.y - seg.pond.y, dz = (int64_t)pk.z - seg.pond.z;
 				const int64_t d = mulShift((int64_t)isqrt((uint64_t)(dx * dx + dy * dy + dz * dz)), m_radius, PLACE_FRAC);
-				const fix by = (fix)std::min<int64_t>(toFix(2), (d << FRAC) / seg.pond_r);
+				const fix by = (fix)std::min<int64_t>(toFix(2), (d << FRAC) / seg.pond_r + gone * 2);
 				if (by < pond_by) {
 					pond_by = by;
 					pond_d = d;
@@ -802,19 +987,25 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 				}
 			}
 			// the ground: this channel's height here and its side rising to the place
-			if (m_land) {
+			if (m_land && gone < ONE) {
 				const int64_t gap = mulShift((int64_t)isqrt((uint64_t)near.dist2), m_radius, PLACE_FRAC);
 				const int64_t off = std::max<int64_t>(0, gap - seg.floor), up = std::min(off, seg.wall_run);
-				const int64_t h = seg.low + mulShift(seg.high - seg.low, near.t, FRAC) + mulShift(up, seg.wall, FRAC) + mulShift(off - up, seg.hill, FRAC);
+				const fix hill = mul(seg.hill, vary);
+				const int64_t h = seg.low + mulShift(seg.high - seg.low, near.t, FRAC) + mulShift(up, seg.wall, FRAC) + mulShift(off - up, hill, FRAC)
+						+ rise;
+				deepest = std::min(deepest, h * 2 - (seg.low + mulShift(seg.high - seg.low, near.t, FRAC)));
+				if (pond == &seg)
+					pond_h = h;
 				if (h < lowest) {
 					second = lowest;
 					lowest = h;
-					round = mulShift(mulShift(finest, ROUNDING, FRAC), seg.hill, FRAC);
+					round = mulShift(mulShift(finest, ROUNDING, FRAC), hill, FRAC);
 					owner = &seg;
 					out.bed = seg.low + mulShift(seg.high - seg.low, near.t, FRAC);
+					out.bed_level = k;
 					out.wash = seg.wash && gap <= seg.floor;
 					out.ice = seg.ice;
-					out.slope = gap <= seg.floor ? seg.grade : off <= seg.wall_run ? seg.wall : seg.hill;
+					out.slope = gap <= seg.floor ? seg.grade : off <= seg.wall_run ? seg.wall : hill;
 					// its water: a stream once enough drains to it, wider as √ of the flow
 					if (m_water && seg.flow >= STREAM_FLOW) {
 						out.water = seg.low + mulShift(seg.high - seg.low, near.t, FRAC);
@@ -875,6 +1066,7 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 		const int64_t gap = second == INT64_MAX ? round : second - lowest;
 		const int64_t over = std::max<int64_t>(0, round - gap);
 		out.land = lowest - (round > 0 ? over * over / round / 4 : 0);
+		out.clear = deepest - lowest;
 		// a fan buries the ground under its cone; its own stream runs on it
 		// (under it, it cut a slot as deep as the fan's thick)
 		if (fan != nullptr && fan_top > out.land) {
@@ -886,31 +1078,78 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 		// a pond: a bowl under its level, its water standing in it; round
 		// it a sill holds the ground at its level at least (where its channel
 		// runs out, the stream cuts back through), easing to the land outside.
-		// (Where a lower valley crosses, the sill dams it: a pond only where
-		// the land's lower, and the bowl's a dry ring round a hollow.)
-		if (pond != nullptr && pond_by < ONE + HALF) {
+		// (In its own valley only: where another's lower floor is the land,
+		// a bowl stood perched over it, and its rim walled that valley off.
+		// Fading by how far over the lowest its channel's ground is, as which
+		// is lowest changes from column to column.)
+		const fix own = pond != nullptr && pond_h != INT64_MAX
+				? ONE - smooth((fix)std::min<int64_t>(ONE, ((pond_h - lowest) << FRAC) / POND_OWN)) : 0;
+		if (pond != nullptr && pond_by < ONE + HALF && own > 0) {
 			const int64_t level = pond->pond_level;
 			if (pond_by < ONE) {
-				out.land = level - mulShift(pond->pond_depth, ONE - mul(pond_by, pond_by), FRAC);
-				out.water = level;
-				out.water_gap = 0;
-				out.water_width = toFix(1 << 12);
-				out.pond = true;
+				const int64_t bowl = level - mulShift(pond->pond_depth, ONE - mul(pond_by, pond_by), FRAC);
+				out.land += mulShift(bowl - out.land, own, FRAC);
+				if (own >= HALF) {
+					out.water = level;
+					out.water_gap = 0;
+					out.water_width = toFix(1 << 12);
+					out.pond = true;
+				}
 			} else {
 				const int64_t cone = level + mulShift(pond_d - pond->pond_r, pond->hill, FRAC);
 				const int64_t held = std::clamp(out.land, level, std::max(level, cone));
 				const fix out_by = smooth((pond_by - ONE) * 2);
-				out.land = held + mulShift(out.land - held, out_by, FRAC);
+				const int64_t rim = held + mulShift(out.land - held, out_by, FRAC);
+				out.land += mulShift(rim - out.land, own, FRAC);
+			}
+		}
+		// a stream across another's fan or a pond's sill, which stood the land
+		// over its own bed, sinks into it (a slot cut down to its bed was a
+		// wall either side, P4); it comes up where the land's down to it again
+		if (out.water != INT64_MIN && !out.pond && out.land - out.water > toFix(STREAM_SINKS)) {
+			out.water = INT64_MIN;
+			out.water_gap = INT64_MAX;
+			out.water_width = 0;
+			out.water_from = 0;
+		}
+		// the land rolls where it's gentle, clear of the water
+		if (m_land && !out.pond && out.bed != INT64_MAX) {
+			const fix gentle = ONE - smooth(clamp(div(out.slope, ROLL_SLOPE), 0, ONE));
+			const int64_t clear = out.clear;
+			const fix away = smooth((fix)std::clamp<int64_t>((clear << FRAC) / ROLL_CLEAR, 0, ONE));
+			if (gentle > 0 && away > 0) {
+				const fix swell = clamp(fbm(p, m_seed + ROLLS, m_roll_waves, 2, HALF) * 2, -ONE, ONE);
+				const int64_t by = mulShift(mulShift(mulShift(ROLL_HIGH, swell, FRAC), mul(gentle, away), FRAC), ONE - own, FRAC);
+				out.land += std::max(by, -clear / 2);
 			}
 		}
 	}
-	if (out.land != INT64_MAX && m_land)
+	if (out.land != INT64_MAX && m_land) {
+		toGrid(p, out);
 		beds(p, out);
+	}
 	if (out.stream_from > 0)
 		out.stream_gap = mulShift((int64_t)isqrt((uint64_t)stream2), m_radius, PLACE_FRAC);
 	return out;
 }
 
+
+// Ground over the grid's surface brought towards it (OVER_GRID)
+void Channels::toGrid(const Place &p, Read &out) const
+{
+	const int64_t g = m_world->gridHeight(p), E = toFix(OVER_GRID);
+	const auto keep = [&](int64_t h) { return h <= g ? h : g + (h - g) * E / (E + h - g); };
+	if (out.land > g) {
+		// (its steepness by the map's: (E / (E + e))²)
+		const fix by = (fix)((E << FRAC) / (E + out.land - g));
+		out.slope = mul(out.slope, mul(by, by));
+	}
+	out.land = keep(out.land);
+	if (out.bed != INT64_MAX)
+		out.bed = keep(out.bed);
+	if (out.water != INT64_MIN)
+		out.water = keep(out.water);
+}
 
 // Flat-lying beds step the land (BEDDED): every height is mapped through one
 // bed's profile, the soft part gentle, the hard cap steep; one rising map of

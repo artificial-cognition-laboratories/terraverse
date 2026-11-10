@@ -15,6 +15,7 @@
 #include "light.h"
 #include "mapgen/mapgen.h"
 #include "terragen/code.h"
+#include "terragen/progress.h"
 #include "bridge.h"
 #include "shell.h"
 #include "worlds.h"
@@ -340,6 +341,7 @@ Planetarium::Making Menu::body(const Json::Value &body)
 	}
 	// on the worker, one at a time: m_baked and m_atlases are only touched here
 	return [this, code, world]() -> planetarium::Planetarium::Opts {
+	terragen::Step step(code, "system laid out"); // (shell/loading.h)
 	if (!m_baked)
 		m_baked = far::Baked::load(g_settings->get("game_id"));
 	// every body of its system, as the server lays them out (server.cpp), so

@@ -15,6 +15,8 @@
 #include <tuple>
 #include <vector>
 
+namespace terragen { class Step; }
+
 namespace far {
 
 class Palette;
@@ -143,6 +145,7 @@ private:
 	std::vector<std::pair<Key, s32>> m_behind; // a tile, and the child of it it stands in for
 	u32 m_frame = 0;
 	size_t m_pending = 0;
+	std::unique_ptr<terragen::Step> m_coarse; // the roots as they're built, till the coarse planet's all there (terragen/progress.h)
 	std::shared_ptr<const Tint> m_tint;
 	u32 m_tints = 0; // tints set so far: a tile painted by this one is up to date
 };

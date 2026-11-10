@@ -13,9 +13,11 @@
 #include <map>
 #include <queue>
 #include <mutex>
+#include <optional>
 #include <queue>
 
 #include "parallel.h"
+#include "progress.h"
 
 namespace terragen {
 
@@ -477,10 +479,15 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 	// The plates' history makes the land (history.cpp); the coasts are
 	// broken up by finer noise (the Coast setting), the sea placed by
 	// quantile so exactly the Land share of the planet's area is above it
+	// (each part timed and counted for whoever's waiting: progress.h)
+	std::optional<Step> step;
+	step.emplace(code.text, "plates");
 	const std::shared_ptr<const History> kept_past = historyKept(code);
 	const History &past = *kept_past;
 	g->tectonics = tectonics(code, past);
 	g->history = past.events;
+	step.reset();
+	step.emplace(code.text, "crust and climate");
 	std::vector<fix> raw(n);
 	parallelFor((int32_t)n, [&](int32_t i) {
 		raw[i] = past.cells[i].height + mul(fbm(sphere.centre(i), code.seed_hash + COAST, code.continents * 7, 3, HALF),
@@ -689,7 +696,11 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 	}
 	if (watch)
 		(*watch)({ h, g->sediment, accumulate(receivers(fill(h)), upstreamOrder(receivers(fill(h))), rain) });
+	step.reset();
+	step.emplace(code.text, "erosion", rounds);
 	for (int round = 0; round < rounds; round++) {
+		if (round > 0)
+			step->advance();
 		for (size_t i = 0; i < n && code.processes.water; i++)
 			if (h[i] >= 0) {
 				// (a plateau stands as high as thick crust floats: it has stopped rising)
@@ -782,6 +793,8 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 	for (fix &v : h)
 		v += old_sea;
 	g->eroded = h;
+	step.reset();
+	step.emplace(code.text, "lakes and rivers");
 	// Sinking basins: away from the coasts and the rising ranges, some of a
 	// continent's interior sags (the crust stretched or loaded beside a range:
 	// the Great Basin, the Caspian's, the Tarim, Lake Eyre's), so it's a closed
@@ -862,6 +875,8 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 
 	// geology on the finished land: volcanoes, which cells their slopes
 	// reach, then provinces (lava fields need the volcanoes)
+	step.reset();
+	step.emplace(code.text, "geology");
 	g->volcanoes = volcanoes(code, *g);
 	{
 		const int64_t radius = World::radiusOf(code), cell = World::cellBlocksOf(code);
@@ -908,7 +923,13 @@ std::shared_ptr<const Grid> gridFor(const WorldCode &code)
 			if (entry.first == code.grid_key)
 				return entry.second;
 	}
-	std::shared_ptr<const Grid> built = loadGrid(code.grid_key);
+	std::shared_ptr<const Grid> built;
+	{
+		Step step(code.text, "grid kept");
+		built = loadGrid(code.grid_key);
+		if (built)
+			step.kept();
+	}
 	if (!built) {
 		built = build(code);
 		saveGrid(code.grid_key, *built);

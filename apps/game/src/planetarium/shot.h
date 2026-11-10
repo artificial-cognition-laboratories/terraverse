@@ -25,6 +25,6 @@ struct Shot
 };
 
 // The main menu's. Tuned by eye: `luanti --planetarium-shot <png>` renders it.
-inline constexpr Shot HOME_SHOT{ "TF19.dGVycmE", 0.25, 1.13, { -0.55f, -0.75f }, { 0.62f, 0.55f }, 0, 0.7f, 0.58f };
+inline constexpr Shot HOME_SHOT{ "TF21.dGVycmE", 0.25, 1.13, { -0.55f, -0.75f }, { 0.62f, 0.55f }, 0, 0.7f, 0.58f };
 
 } // namespace planetarium

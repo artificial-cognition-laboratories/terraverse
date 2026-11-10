@@ -1,0 +1,6 @@
+{
+    // Nuxt generates the concrete app/server/shared configurations in .nuxt.
+    // Extending its entry config keeps Vite's Vue transformer and TypeScript
+    // on the same resolution path after Nuxt upgrades.
+    "extends": "./.nuxt/tsconfig.json"
+}

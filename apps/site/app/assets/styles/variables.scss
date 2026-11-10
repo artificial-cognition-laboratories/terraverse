@@ -1,0 +1,153 @@
+@use "sass:color";
+
+// Terminal Theme Colors
+// Background colors
+$bg-primary: #161616;
+$bg-secondary: $bg-primary;
+$bg-tertiary: $bg-primary;
+$bg-header: color.scale($bg-primary, $lightness: 0%);
+
+// Terminal green (primary accent)
+//
+// Contrast, not taste. At rgb(0, 110, 157) this scored 2.71:1 against
+// $bg-primary — links, buttons, active tabs, kickers and badges all failed
+// WCAG AA (4.5:1), and the site uses this colour at 10-13px for kickers and
+// labels where legibility matters most. Same hue (~199deg), raised lightness.
+//
+// 5.31:1 against the page. The extra headroom over a bare 4.5 is deliberate:
+// this colour is also used ON faint tints of ITSELF (badges, active nav rows,
+// `rgba($primary, 0.08-0.12)` chips), and the effective background there is
+// lighter than the page — at 4.81:1 those composited cases landed at 4.24 and
+// still failed. Measured against the worst tint in use, this clears 4.63:1.
+//
+// Every derived token below (borders, glows, gradients) inherits the fix,
+// which is why this is one line and not thirty.
+$primary: rgb(0, 148, 210);
+$terminal-cyan: $primary;
+
+// Text colors
+$text-primary: #c9d1d9;
+$text-secondary: #8b949e;
+// 2.71:1 at #545d68 — captions, counts and metadata all failed AA. This is
+// 5.03:1 against the page and 4.65:1 over the tinted chips it also sits on,
+// while staying the faintest of the three text tokens: the hierarchy against
+// $text-primary (11.9:1) and $text-secondary (6.4:1) is unchanged.
+$text-tertiary: #7e8895;
+$text-muted: #30363d;
+
+// Border colors
+$border-primary: $primary;
+$border-secondary: color.adjust($primary, $lightness: -15%);
+$border-tertiary: color.adjust($primary, $lightness: -10%);
+
+// Terminal button colors
+$terminal-red: #ff5f56;
+$terminal-yellow: #ffbd2e;
+$terminal-button-green: $primary;
+
+// Gradient
+$gradient-primary: linear-gradient(135deg, $primary 0%, $primary 100%);
+
+// Shadows and glows
+$glow-terminal: 0 0 50px $primary;
+$glow-hover: 0 0 30px $primary;
+$glow-button: 0 0 20px $primary;
+
+// Grid pattern overlay
+$grid-pattern:
+    linear-gradient(90deg, rgba(0, 255, 65, 0) 1px, transparent 1px),
+    linear-gradient(rgba(0, 255, 65, 0) 1px, transparent 1px);
+
+// Line separator
+$line-separator: linear-gradient(90deg, transparent, $primary, transparent);
+
+// Transitions
+$transition-standard: all 0.15s;
+$transition-fast: all 0.1s;
+
+// Font
+/**
+ * The site's content measure.
+ *
+ * ONE token because the nav and every page container must agree: they were
+ * seven separate `1064px` literals, and widening any one of them made the logo
+ * jump horizontally on navigation between sections.
+ *
+ * Docs are unaffected in the part that matters — `.docs-content` caps prose at
+ * 750px inside this container, so a wider site widens the sidebar gutter, not
+ * the reading measure.
+ */
+$site-width: 1200px;
+
+$font-mono: "JetBrains Mono", monospace;
+/**
+ * The text face — prose and display headings.
+ *
+ * Mono is reserved for things that ARE literal: code, commands, filenames,
+ * versions, metric values, small uppercase labels. Body copy set in mono reads
+ * as a terminal transcript, which is right for docs and wrong for a page whose
+ * job is to persuade.
+ */
+$font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+// Status colors — the ONE set. Trend arrows, health dots, error text all
+// derive from these; never hardcode a green/red/yellow in a component.
+$status-good: #4adec5;
+$status-warn: #d29922;
+$status-bad: #f85149;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dashboard design tokens — every raw value a component is allowed to use.
+// Components never contain literal colors, radii, or font sizes: they use
+// these tokens (directly or through the mixins in _mixins.scss).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Surfaces — the raised-card blacks
+$surface: rgba(0, 0, 0, 0.2); // cards, controls, inputs
+// Opaque card ground. The landing page's ambience layers sit behind the
+// sections, so a translucent card there samples whatever bloom happens to be
+// underneath — every card ends up a slightly different colour.
+//
+// #111111 is measured from the TUI screenshots' own background: the frame
+// padding has to be the same colour as the image it wraps, or there is a
+// visible seam around every screenshot on the page.
+$surface-solid: #111111;
+$surface-deep: rgba(0, 0, 0, 0.3); // tracks, active pills — one step darker
+$surface-tooltip: rgba(0, 0, 0, 0.75);
+
+// Border ladder — primary-tinted alphas, three named steps
+$border-soft: rgba($primary, 0.1); // resting chrome (tracks, dividers)
+$border-mid: rgba($primary, 0.15); // resting interactive (inputs, buttons)
+$border-strong: rgba($primary, 0.35); // hover / focus / active
+
+// Radii
+$radius-sm: 3px; // pills, inner segments
+$radius-md: 4px; // buttons, inputs, tab bars
+$radius-lg: 6px; // cards
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Breakpoints — the ONE responsive scale.
+//
+// Three widths, no more. Components had accumulated sixteen ad-hoc values
+// (480…1024) across 47 files, which meant neighbouring elements collapsed at
+// different widths and layouts broke in the bands between them.
+//
+// Use the mixins in mixins.scss (`@include mobile { … }`), never these
+// variables directly — a bare `@media (max-width: $bp-mobile)` reintroduces
+// the off-by-one overlap the mixins exist to prevent.
+// ─────────────────────────────────────────────────────────────────────────────
+
+$bp-mobile: 640px; // phones — single column, nav collapses to a drawer
+$bp-tablet: 900px; // small tablets / split screens — sidebars fold away
+$bp-desktop: 1200px; // below full desktop — wide grids narrow
+
+// Type scale (all $font-mono)
+$text-micro: 0.6rem; // badges, chip counts, group labels
+$text-label: 0.68rem; // uppercase card/stat labels
+$text-control: 0.65rem; // control text (selects, pills, small buttons)
+$text-body: 0.70rem; // buttons, nav items
+$text-value: 1.5rem; // headline numbers
+// Terraverse: the pixel face for the wordmark and display headings
+$font-display: "Silkscreen", $font-mono;
+// The sky the planet hangs in (planet.js draws the same colour)
+$bg-space: #03060a;

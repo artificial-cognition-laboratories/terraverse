@@ -5,6 +5,8 @@
 #include "log.h"
 #include "bridge.h"
 #include "shell.h"
+#include "loading.h"
+#include "terragen/progress.h"
 #include "terragen/body.h"
 #include "util/base64.h"
 #include <IVideoDriver.h>
@@ -118,6 +120,12 @@ void Planetarium::ask(const Json::Value &body)
 	m_wanted = m_body(body);
 	m_makingWanted = false; // whatever's on the worker now is out of date
 	m_asked = body;
+	// (a world code's steps are recorded from the moment it's asked for; a
+	// body asked for otherwise, once it's laid out: show())
+	if (body.isObject() && body["code"].isString()) {
+		m_makingCode = body["code"].asString();
+		m_makingSince = terragen::clock();
+	}
 	start();
 }
 
@@ -176,6 +184,10 @@ void Planetarium::show(View::Opts body)
 		apply(*m_current);
 		return;
 	}
+	if (body.horizon.code != m_makingCode) {
+		m_makingCode = body.horizon.code;
+		m_makingSince = terragen::clock();
+	}
 	auto next = std::make_unique<View>(std::move(body));
 	if (const View *was = m_current ? m_current.get() : m_next.get())
 		next->keep(*was); // the same view of the new body
@@ -219,20 +231,37 @@ void Planetarium::tick(double seconds)
 	}
 }
 
-// The page is told how far a body asked for is from replacing the one shown
-// (its land laid out, then its coarse tiles built: most of the wait), as it
-// moves by a hundredth, and once when it's there (null)
+// The page is told how far a body asked for is from replacing the one shown,
+// by stage (shell/loading.h): at once when a stage starts or ends, else at most
+// ten times a second; and once when it's there (null)
 void Planetarium::tellMaking()
 {
 	const bool making = m_wanted.has_value() || (m_making.valid() && m_makingWanted) || m_next != nullptr;
-	const int now = !making ? -1 : m_next ? (int)(m_next->readiness() * 100) : 0;
-	if (now == m_told)
+	Json::Value loading;
+	if (making && !m_makingCode.empty())
+		loading = loadingOf(m_makingCode, m_makingSince);
+	else if (making) {
+		// (a body laid out before its code's known)
+		loading["share"] = 0;
+		loading["stages"] = Json::Value(Json::arrayValue);
+	}
+	if (loading == m_told)
 		return;
-	m_told = now;
+	const auto states = [](const Json::Value &l) {
+		std::string out;
+		for (const Json::Value &stage : l["stages"])
+			out += stage["state"].asString() + ",";
+		return out;
+	};
+	const double now = terragen::clock();
+	if (!loading.isNull() && !m_told.isNull() && states(loading) == states(m_told) && now - m_toldAt < 0.1)
+		return;
+	m_told = loading;
+	m_toldAt = now;
 	Json::Value message;
 	message["kind"] = "planetarium";
 	message["event"] = "making";
-	message["progress"] = now < 0 ? Json::Value() : Json::Value(now / 100.0);
+	message["loading"] = loading;
 	m_opts.shell.send(message);
 }
 

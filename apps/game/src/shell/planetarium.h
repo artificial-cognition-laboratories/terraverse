@@ -144,9 +144,13 @@ private:
 		double reported = 0; // seconds since the page was last told
 	};
 	Clock m_clock;
-	// what was last told the page of a body being made: its readiness in
-	// hundredths, −1 none being made
-	int m_told = -1;
+	// the world being made for the page (its code, as its steps are
+	// recorded: terragen/progress.h), since when (terragen::clock()), and
+	// what the page was last told of it (null: nothing being made), when
+	std::string m_makingCode;
+	double m_makingSince = 0;
+	Json::Value m_told;
+	double m_toldAt = 0;
 	void tellMaking();
 	// the page's composed view (planetarium.scene), and how far the frame's
 	// eased toward it (0..1)

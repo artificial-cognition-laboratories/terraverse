@@ -7,6 +7,7 @@
 #include <functional>
 #include <mutex>
 #include <optional>
+#include <random>
 #include <stdexcept>
 #include <thread>
 #include <type_traits>
@@ -26,7 +27,7 @@ namespace {
 constexpr size_t GRID_SIZE = 1184;
 
 std::mutex g_lock;
-std::string g_dir, g_build;
+std::string g_dir, g_build, g_grid_build;
 
 struct Writer
 {
@@ -97,9 +98,11 @@ void fields(IO &io, G &g)
 	field(io, g.mare); field(io, g.mare_level); field(io, g.titanium); field(io, g.thin);
 }
 
+// (a grid by what grids are built from; anything else by the whole build)
 fs::path fileOf(const std::string &code, const char *kind = ".grid")
 {
-	return fs::path(g_dir) / (g_build + "-" + std::to_string(std::hash<std::string>{}(code)) + kind);
+	const std::string &build = std::string(kind) == ".grid" ? g_grid_build : g_build;
+	return fs::path(g_dir) / (build + "-" + std::to_string(std::hash<std::string>{}(code)) + kind);
 }
 
 // A file named for `key`, its fields written whole and moved into place
@@ -108,7 +111,10 @@ void keep(const std::string &key, const char *kind, const Write &write)
 {
 	const fs::path file = fileOf(key, kind);
 	fs::path part = file;
-	part += "." + std::to_string(std::hash<std::thread::id>{}(std::this_thread::get_id()));
+	// (named for this writer alone: processes share the directory, and a
+	// thread's id can be another process's too)
+	static const unsigned process = std::random_device{}();
+	part += "." + std::to_string(process) + "." + std::to_string(std::hash<std::thread::id>{}(std::this_thread::get_id()));
 	{
 		std::ofstream out(part, std::ios::binary);
 		Writer io{ out };
@@ -140,15 +146,18 @@ std::optional<std::ifstream> kept(const std::string &key, const char *kind)
 
 } // namespace
 
-void keepGridsIn(const std::string &dir, const std::string &build)
+void keepGridsIn(const std::string &dir, const std::string &build, const std::string &grid_build)
 {
 	std::lock_guard<std::mutex> hold(g_lock);
 	g_dir = dir;
 	g_build = build;
+	g_grid_build = "g" + grid_build; // (never a build's name)
 	fs::create_directories(dir);
-	for (const fs::directory_entry &e : fs::directory_iterator(dir))
-		if (e.path().filename().string().rfind(build + "-", 0) != 0)
+	for (const fs::directory_entry &e : fs::directory_iterator(dir)) {
+		const std::string name = e.path().filename().string();
+		if (name.rfind(g_build + "-", 0) != 0 && name.rfind(g_grid_build + "-", 0) != 0)
 			fs::remove(e.path()); // another build's (a dev tree makes one per compile)
+	}
 }
 
 std::shared_ptr<const Grid> loadGrid(const std::string &code)
@@ -173,26 +182,26 @@ void saveGrid(const std::string &code, const Grid &grid)
 	keep(code, ".grid", [&](Writer &io) { fields(io, grid); });
 }
 
-std::optional<std::vector<int32_t>> loadRunLevels(const std::string &key)
+std::optional<std::vector<int64_t>> loadAtlasExtents(const std::string &code)
 {
 	std::lock_guard<std::mutex> hold(g_lock);
 	if (g_dir.empty())
 		return std::nullopt;
-	std::optional<std::ifstream> in = kept(key, ".runs");
+	std::optional<std::ifstream> in = kept(code, ".atlas");
 	if (!in)
 		return std::nullopt;
 	Reader io{ *in };
-	std::vector<int32_t> levels;
-	field(io, levels);
-	return levels;
+	std::vector<int64_t> extents;
+	field(io, extents);
+	return extents;
 }
 
-void saveRunLevels(const std::string &key, const std::vector<int32_t> &levels)
+void saveAtlasExtents(const std::string &code, const std::vector<int64_t> &extents)
 {
 	std::lock_guard<std::mutex> hold(g_lock);
 	if (g_dir.empty())
 		return;
-	keep(key, ".runs", [&](Writer &io) { field(io, levels); });
+	keep(code, ".atlas", [&](Writer &io) { field(io, extents); });
 }
 
 } // namespace terragen

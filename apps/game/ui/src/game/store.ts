@@ -1,5 +1,5 @@
 import { inject, reactive, type InjectionKey } from "vue"
-import type { Account, BridgeHandle, Social, ItemInfo, Mode, PlanetariumHover, PlanetariumMessage, ScreenName, StateSections, UiValues } from "../bridge"
+import type { Account, BridgeHandle, Social, ItemInfo, Loading, Mode, PlanetariumHover, PlanetariumMessage, ScreenName, StateSections, UiValues } from "../bridge"
 
 type Sections = { [S in keyof StateSections]: StateSections[S] | null }
 type Ui = { [K in keyof UiValues]: UiValues[K] | null }
@@ -28,7 +28,7 @@ export function GameStore(opts: { bridge: BridgeHandle }) {
         sceneHover: null as number | null,
         picked: null as Omit<Extract<PlanetariumMessage, { event: "picked" }>, "kind" | "event"> | null,
         clock: null as { date: number; running: boolean } | null, // the planet viewer's clock, while it runs
-        making: null as number | null, // a body the planet viewer is making: how far (0..1), till it's shown
+        making: null as Loading | null, // a body the planet viewer is making: how far, by stage, till it's shown
         /** The body under the mouse on the Planetarium, while it's shown. */
         hover: null as PlanetariumHover | null,
         /** The last body a double click on the Planetarium flew to (its id; "star"), once: a page takes it. */
@@ -67,7 +67,7 @@ export function GameStore(opts: { bridge: BridgeHandle }) {
                     case "time": store.clock = { date: message.date, running: message.running }; break
                     case "hovered": store.hover = message.body; break
                     case "chosen": store.chosen = message.body; break
-                    case "making": store.making = message.progress; break
+                    case "making": store.making = message.loading; break
                 }
                 break
             case "account":

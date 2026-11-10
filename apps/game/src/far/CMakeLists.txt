@@ -15,6 +15,7 @@ set(far_client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/landbake.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/mesh.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/palette_live.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/tilecache.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/tiles.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/view.cpp
 	PARENT_SCOPE)

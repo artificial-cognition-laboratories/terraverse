@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { onMounted } from "vue"
-import { Meter, Progress } from "../../kit/index.ts"
+import { Meter, Progress, Stages } from "../../kit/index.ts"
 import MakingScreen from "../../game/making/MakingScreen.vue"
-import { useMock } from "../mock.ts"
+import { cannedLoading, useMock } from "../mock.ts"
 import Specimen from "../Specimen.vue"
 
 /** The real making screen against canned tf_craft offers and worktop: Make runs the bar and comes back. */
 const mock = useMock()
+// a world partway through its rivers
+const loading = cannedLoading(3)
+if (!loading) throw new Error("the canned world is made by 3 s")
 onMounted(() => {
     mock.emit({ kind: "mode", mode: "game" })
     mock.emit({ kind: "state", section: "hotbar", value: { size: 9, selected: 0 } })
@@ -20,6 +23,9 @@ onMounted(() => {
         <Specimen name="Progress" note="fills over its seconds, one transition; or as far as measured">
             <Progress :seconds="4" label="Knap: flint flake" class="bar" />
             <Progress :value="0.42" label="Making the world · 42%" class="bar" />
+        </Specimen>
+        <Specimen name="Stages" note="work in stages: under way, done in its time, or kept and never run">
+            <Stages :stages="loading.stages" class="bar" />
         </Specimen>
         <Specimen name="Meter" note="an amount against marks: what's carried, toned past them">
             <div class="meters">
