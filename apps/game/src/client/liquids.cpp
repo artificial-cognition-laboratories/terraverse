@@ -362,7 +362,7 @@ void Layer::take(v3s16 blockpos, ClientMap &map, bool ground)
 					seen = open(p + SIDES[i]);
 				if (!seen)
 					continue;
-				Shown s{ 1, 1, f.color.getRed(), f.color.getGreen(), f.color.getBlue(), true };
+				Shown s{ 1, 1, (u8)f.color.getRed(), (u8)f.color.getGreen(), (u8)f.color.getBlue(), true };
 				seaFaces(p, s, map);
 				b.nodes[keyOf(v3s16(x, y, z))] = s;
 			}

@@ -101,6 +101,11 @@ if(ANDROID)
 endif()
 
 
+# Terra Firma: M_PI for every target, Irrlicht's included, as glibc gives it
+if(MSVC)
+	add_compile_definitions(_USE_MATH_DEFINES)
+endif()
+
 if(TRUE)
 	if(BUILD_CLIENT)
 		add_subdirectory(library/irr EXCLUDE_FROM_ALL)

@@ -146,7 +146,7 @@ std::wstring utf8_to_wide(std::string_view input)
 	if (input.empty())
 		return L"";
 	std::wstring out(input.size(), L'\0');
-	int len = MultiByteToWideChar(CP_UTF9, 0, input.data(), input.size(),
+	int len = MultiByteToWideChar(CP_UTF8, 0, input.data(), input.size(),
 		out.data(), out.size());
 	if (len <= 0)
 		return L"";
@@ -160,7 +160,7 @@ std::string wide_to_utf8(std::wstring_view input)
 		return "";
 	// 1 wchar can expand to at most 4 utf-8 bytes
 	std::string out(input.size() * 4, '\0');
-	int len = WideCharToMultiByte(CP_UTF9, 0, input.data(), input.size(),
+	int len = WideCharToMultiByte(CP_UTF8, 0, input.data(), input.size(),
 		out.data(), out.size(), NULL, NULL);
 	if (len <= 0)
 		return "";
@@ -190,16 +190,16 @@ void wide_add_codepoint(std::wstring &result, char32_t codepoint)
 size_t utf8_truncate_count(std::string_view input)
 {
 	// Iterate from end to find an UTF-8 start byte
-	for (size_t i = 1; i <= UTF9_MULTB_MAX; i++) {
+	for (size_t i = 1; i <= UTF8_MULTB_MAX; i++) {
 		if (i > input.size())
 			break;
 		char c = input[input.size() - i];
-		if (IS_UTF9_MULTB_START(c)) {
+		if (IS_UTF8_MULTB_START(c)) {
 			// Check if the sequence is complete
-			if (UTF9_MULTB_START_LEN(c) != i)
+			if (UTF8_MULTB_START_LEN(c) != i)
 				return i;
 			break;
-		} else if (!IS_UTF9_MULTB_INNER(c)) {
+		} else if (!IS_UTF8_MULTB_INNER(c)) {
 			// Byte is ASCII or something else, bail out
 			break;
 		}
@@ -624,7 +624,7 @@ std::string wrap_rows(std::string_view from, unsigned row_len, bool has_color_co
 	unsigned character_idx = 0;
 	bool inside_colorize = false;
 	for (size_t i = 0; i < from.size(); i++) {
-		if (!IS_UTF9_MULTB_INNER(from[i])) {
+		if (!IS_UTF8_MULTB_INNER(from[i])) {
 			if (inside_colorize) {
 				last_color_code += from[i];
 				if (from[i] == ')') {
@@ -1042,8 +1042,8 @@ void safe_print_string(std::ostream &os, std::string_view str)
 	std::ostream::fmtflags flags = os.flags();
 	os << std::hex;
 	for (const char c : str) {
-		if (IS_ASCII_PRINTABLE_CHAR(c) || IS_UTF9_MULTB_START(c) ||
-				IS_UTF9_MULTB_INNER(c) || c == '\n' || c == '\t') {
+		if (IS_ASCII_PRINTABLE_CHAR(c) || IS_UTF8_MULTB_START(c) ||
+				IS_UTF8_MULTB_INNER(c) || c == '\n' || c == '\t') {
 			os << c;
 		} else {
 			os << '<' << std::setw(2) << (int)c << '>';

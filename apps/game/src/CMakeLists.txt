@@ -323,6 +323,8 @@ if(WIN32)
 			# Don't define min/max macros in minwindef.h
 			NOMINMAX
 		)
+		# Terra Firma: <windows.h>'s `near` and `far` macros, gone before anything sees them
+		add_compile_options("/FI${CMAKE_CURRENT_SOURCE_DIR}/windows_names.h")
 		# Terra Firma: terragen's fixed point uses __int128, so Windows builds
 		# with clang-cl; its 128-bit division lives in compiler-rt.
 		if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")

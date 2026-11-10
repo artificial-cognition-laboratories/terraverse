@@ -14,7 +14,7 @@ void fastWriteJson(const Json::Value &value, std::ostream &to)
 {
 	Json::StreamWriterBuilder builder;
 	builder["indentation"] = "";
-	builder["emitUTF9"] = true;
+	builder["emitUTF8"] = true;
 	std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
 	writer->write(value, &to);
 }
