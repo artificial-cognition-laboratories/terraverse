@@ -21,6 +21,7 @@ jobs:
     env:
       VERSION: ${{ inputs.version || 'dev' }}
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.output/vcpkg-cache
+      SCCACHE_GHA_ENABLED: "true"
     defaults:
       run:
         shell: bash
@@ -52,6 +53,9 @@ jobs:
           bun install --frozen-lockfile
           bun run build
 
+      # Compiled objects kept between runs: the engine is ~1000 files.
+      - uses: mozilla-actions/sccache-action@v0.0.9
+
       # clang-cl and the linker need Visual Studio's environment.
       - uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -67,6 +71,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER="$LLVM/clang-cl.exe" -DCMAKE_CXX_COMPILER="$LLVM/clang-cl.exe" \
             -DCMAKE_LINKER="$LLVM/lld-link.exe" \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_TARGET_TRIPLET=x64-windows \
             -DRUN_IN_PLACE=TRUE \
@@ -87,11 +92,14 @@ jobs:
       - name: Build the engine
         run: cmake --build .output/build -- -k 0 && bash scripts/stage-runtime.sh
 
+      # Through cmd: Git Bash refused to run luanti.exe directly.
       - name: Unit tests
         run: |
-          ./.output/bin/luanti.exe --test-module TestOnline
-          ./.output/bin/luanti.exe --test-module TestRelease
-          ./.output/bin/luanti.exe --test-module TestTerragen
+          ls -la .output/bin | head -40
+          cd .output/bin
+          for module in TestOnline TestRelease TestTerragen; do
+            cmd.exe //C "luanti.exe --test-module $module"
+          done
 
       - name: Keep as an artifact
         if: always()
