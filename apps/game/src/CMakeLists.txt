@@ -1116,6 +1116,8 @@ if(MSVC)
 		# Terra Firma: clang-cl under /EHa leaves std::variant's inline destructors
 		# undefined at link; C++ exceptions only (a segfault isn't caught as one).
 		string(REPLACE "/EHa" "/EHsc" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+		# Our manifest says asInvoker itself; the linker's own copy would be a duplicate.
+		string(APPEND CMAKE_EXE_LINKER_FLAGS_RELEASE " /MANIFESTUAC:NO")
 		# Debug info in each object (/Z7), not a shared PDB, so a compiler cache can keep them.
 		string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 	else()

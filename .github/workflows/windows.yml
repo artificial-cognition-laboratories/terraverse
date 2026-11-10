@@ -103,6 +103,15 @@ jobs:
             cmd.exe //C "luanti.exe --test-module $module"
           done
 
+      # Bring-up: why Windows won't start it, if it won't.
+      - name: Why it won't start
+        if: failure()
+        shell: pwsh
+        run: |
+          Get-WinEvent -LogName Application -MaxEvents 30 | Where-Object ProviderName -eq SideBySide | Select-Object -First 3 | Format-List TimeCreated, Message
+          mt.exe -nologo "-inputresource:.output\bin\luanti.exe;#1" -out:embedded.manifest
+          Get-Content embedded.manifest
+
       - name: Keep as an artifact
         if: always()
         uses: actions/upload-artifact@v4
