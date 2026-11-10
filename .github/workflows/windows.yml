@@ -87,6 +87,34 @@ jobs:
       - name: Build the engine
         run: cmake --build .output/build -- -k 0 && bash scripts/stage-runtime.sh
 
+      # Bring-up only: which flag leaves std::variant's destructor undefined.
+      # Recompiles one failing file with each suspect removed and asks whether
+      # the object still only references it (U) or now defines it.
+      - name: Diagnose the variant link error
+        if: failure()
+        run: |
+          cd .output/build
+          cmd=$(ninja -t commands luanti.exe | grep -m1 'content_cao.cpp.obj')
+          echo "$cmd" | tr ' ' '\n' | grep -E '^[-/]' | grep -vE '^(-I|/I|-imsvc|/external)' | sort -u | tr '\n' ' '; echo
+          sym='_Variant_storage_'
+          try() {
+            label=$1; shift
+            c="$cmd"
+            for drop in "$@"; do c=${c//"$drop"/}; done
+            c=$(echo "$c" | sed -E 's#/Fo[^ ]+#/Fo../probe.obj#; s#-o [^ ]+#-o ../probe.obj#')
+            if ! cmd.exe //C "$c" >/dev/null 2>../probe.err; then echo "$label: compile failed"; tail -3 ../probe.err; return; fi
+            defined=$("C:/Program Files/LLVM/bin/llvm-nm.exe" ../probe.obj | grep "$sym" | grep -v ' U ' | wc -l)
+            undefined=$("C:/Program Files/LLVM/bin/llvm-nm.exe" ../probe.obj | grep "$sym" | grep ' U ' | wc -l)
+            echo "$label: $defined defined, $undefined undefined"
+          }
+          try "as built"
+          try "without /EHa" "/EHa"
+          try "without the force-include" "/FI$(cygpath -m "$GITHUB_WORKSPACE")/apps/game/src/windows_names.h"
+          try "without /Ox" "/Ox"
+          try "without /GS-" "/GS-"
+          try "without /fp:except-" "/fp:except-"
+          try "without /Zi" "/Zi"
+
       - name: Unit tests
         run: |
           ./.output/bin/luanti.exe --test-module TestOnline
