@@ -161,6 +161,12 @@ int main(int argc, char *argv[])
 	if (int code = shell::runHelper(argc, argv); code >= 0)
 		return code;
 #endif
+#ifdef _WIN32
+	// Terra Firma: Windows has no wrapper script to name the player's data, as
+	// the Linux package's `terraverse` does; run directly, it goes to %APPDATA%.
+	if (const char *appdata = getenv("APPDATA"); appdata && *appdata && !getenv("TERRAVERSE_HOME"))
+		_putenv_s("TERRAVERSE_HOME", (std::string(appdata) + "\\Terraverse").c_str());
+#endif
 	int retval;
 	debug_set_exception_handler();
 
