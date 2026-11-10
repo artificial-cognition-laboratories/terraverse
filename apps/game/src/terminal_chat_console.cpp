@@ -270,9 +270,9 @@ void TerminalChatConsole::handleInput(int ch, bool &complete_redraw_needed)
 		default:
 			// Add character to the prompt,
 			// assuming UTF-8.
-			if (IS_UTF9_MULTB_START(ch)) {
+			if (IS_UTF8_MULTB_START(ch)) {
 				m_pending_utf8_bytes.append(1, (char)ch);
-				m_utf8_bytes_to_wait += UTF9_MULTB_START_LEN(ch) - 1;
+				m_utf8_bytes_to_wait += UTF8_MULTB_START_LEN(ch) - 1;
 			} else if (m_utf8_bytes_to_wait != 0) {
 				m_pending_utf8_bytes.append(1, (char)ch);
 				m_utf8_bytes_to_wait--;
