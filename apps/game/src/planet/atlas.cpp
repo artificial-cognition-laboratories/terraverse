@@ -1062,7 +1062,7 @@ std::optional<Atlas::Carried> Atlas::carry(double wasX, double wasY, double wasZ
 		column.j = (int32_t)std::floor(g[1]);
 		if (const std::optional<int> slot = slotOf(tileOf(column))) {
 			const Tile &r = *layout().slots[*slot];
-			const Node m{ (int32_t)(r.rect.x + column.i - r.i0), target.k, (int32_t)(r.rect.z + column.j - r.j0) };
+			const Node m{ (int32_t)(r.rect.x + column.i - r.i0), (int32_t)target.k, (int32_t)(r.rect.z + column.j - r.j0) };
 			if (const std::optional<Cell> back = cell(m); back && *back == column) {
 				const std::array<double, 3> d = unchart(column, there);
 				return Carried{ m.x + d[0], m.y + d[1] - UP, m.z + d[2], turning(c, column) };
