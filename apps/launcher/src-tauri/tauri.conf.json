@@ -41,7 +41,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ5MTEyQTI2NEMxRDk4NkMKUldSc21CMU1KaW9SMlNYRUlERGNaT0NVTHN4b2lneDN1VFlFUU9uZU5iZkFYQWN5cFRuV3BhR2EK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE5OTcyMTk3NkYxQjI1RDUKUldUVkpSdHZseUdYcVZkUUVqSjBGQm0xUDdTMWp2K0pBcHZNWVhDZjZaaGc5eHVIeDJkTTJKcDYK",
       "endpoints": [
         "https://github.com/artificial-cognition-laboratories/terraverse/releases/download/launcher/latest.json"
       ]
