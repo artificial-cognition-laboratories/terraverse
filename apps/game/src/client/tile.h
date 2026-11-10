@@ -57,8 +57,6 @@ static inline MaterialType material_type_with_alpha(MaterialType type)
 
 struct FrameSpec
 {
-	FrameSpec() = default;
-
 	u32 texture_id = 0;
 	video::ITexture *texture = nullptr;
 };
