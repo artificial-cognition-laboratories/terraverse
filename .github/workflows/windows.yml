@@ -61,7 +61,8 @@ jobs:
         with:
           arch: x64
 
-      # The runner's own LLVM, the newest clang-cl.
+      # The runner's own LLVM, the newest clang-cl. The Windows SDK's mt.exe
+      # embeds the manifest: llvm-mt's merge is one Windows refuses to start.
       - name: Configure
         run: |
           LLVM="C:/Program Files/LLVM/bin"
@@ -71,6 +72,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER="$LLVM/clang-cl.exe" -DCMAKE_CXX_COMPILER="$LLVM/clang-cl.exe" \
             -DCMAKE_LINKER="$LLVM/lld-link.exe" \
+            -DCMAKE_MT="$(cygpath -m "$(command -v mt.exe)")" \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_TARGET_TRIPLET=x64-windows \
