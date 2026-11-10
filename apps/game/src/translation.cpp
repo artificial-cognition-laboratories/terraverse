@@ -356,7 +356,7 @@ std::wstring Translations::unescapeC(const std::wstring &str)
 				continue;
 			}
 			default: {
-				errorstream << "Unknown escape sequence \"\\" << str[i] << "\", ignoring" << std::endl;
+				errorstream << "Unknown escape sequence \"\\" << wide_to_utf8(std::wstring(1, str[i])) << "\", ignoring" << std::endl;
 				break;
 			}
 		}
