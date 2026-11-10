@@ -11,8 +11,10 @@ set(CMAKE_CXX_STANDARD 17)
 # Terra Firma: the shell is C++20 (CEF's headers), and Microsoft's standard
 # library won't link C++17 and C++20 objects that share a std::variant. So on
 # Windows everything is C++20.
+# Luanti's u8"" strings are char, as before C++20.
 if(WIN32)
 	set(CMAKE_CXX_STANDARD 20)
+	add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/Zc:char8_t->)
 endif()
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(GCC_MINIMUM_VERSION "7.5")
