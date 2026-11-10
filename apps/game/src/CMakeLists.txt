@@ -1055,6 +1055,8 @@ if(MSVC)
 		# Terra Firma: clang-cl under /EHa leaves std::variant's inline destructors
 		# undefined at link; C++ exceptions only (a segfault isn't caught as one).
 		string(REPLACE "/EHa" "/EHsc" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+		# Debug info in each object (/Z7), not a shared PDB, so a compiler cache can keep them.
+		string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 	else()
 		add_compile_options(/MP)
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /TP /FD /GL")
