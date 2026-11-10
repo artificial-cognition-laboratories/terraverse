@@ -57,8 +57,7 @@ jobs:
         with:
           arch: x64
 
-      # The runner's own LLVM, the newest clang-cl. No LTO: with ThinLTO,
-      # lld-link drops std::variant's inline destructors before it needs them.
+      # The runner's own LLVM, the newest clang-cl.
       - name: Configure
         run: |
           LLVM="C:/Program Files/LLVM/bin"
