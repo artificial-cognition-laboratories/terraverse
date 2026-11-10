@@ -8,6 +8,12 @@ project(luanti)
 set(PROJECT_NAME_CAPITALIZED "Luanti")
 
 set(CMAKE_CXX_STANDARD 17)
+# Terra Firma: the shell is C++20 (CEF's headers), and Microsoft's standard
+# library won't link C++17 and C++20 objects that share a std::variant. So on
+# Windows everything is C++20.
+if(WIN32)
+	set(CMAKE_CXX_STANDARD 20)
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(GCC_MINIMUM_VERSION "7.5")
 set(CLANG_MINIMUM_VERSION "7.0.1")
