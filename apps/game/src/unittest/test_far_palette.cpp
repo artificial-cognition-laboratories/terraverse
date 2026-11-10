@@ -70,7 +70,7 @@ std::pair<Content, Palette> made()
 	b.ore[0] = CONTENT_IGNORE;
 	for (size_t i = 1; i < std::size(b.ore); i++)
 		b.ore[i] = next++;
-	terra::Species oak{ "oak", { { -0.123456789012345, 1 }, { -1, 1 }, true, { 0.25, 0.5 }, true, false }, {}, next, next + 1,
+	terra::Species oak{ "oak", { { -0.123456789012345, 1 }, { -1, 1 }, true, { 0.25, 0.5 }, true, false }, {}, next, (content_t)(next + 1),
 		{ "FFFFA", "[&&fff]", "", "", "", "single", 45, 1, 0, true } };
 	next += 2;
 	oak.on.push_back(b.biomes[0].top);

@@ -399,12 +399,12 @@ bool runsAlong(v3f velocity, v3f normal)
 v3f wallKick(v3f velocity, v3f normal, float up, v3f look)
 {
 	constexpr float KEPT = 0.85f;
-	const float OUT = tuning().kick_out, STEERED = tuning().kick_steer;
+	const float PUSHED = tuning().kick_out, STEERED = tuning().kick_steer;
 	const v3f across(velocity.X, 0, velocity.Z);
 	const v3f along = across - normal * across.dotProduct(normal);
 	// looking out, along it or away: its legs drive it that way. Into the wall there's nothing to steer by
 	const float out = look.dotProduct(normal);
-	return along * KEPT + (look - normal * out) * STEERED + normal * (OUT + std::max(out, 0.f) * 1.5f) + v3f(0, up, 0);
+	return along * KEPT + (look - normal * out) * STEERED + normal * (PUSHED + std::max(out, 0.f) * 1.5f) + v3f(0, up, 0);
 }
 
 WallPush::WallPush(v3f normal, v3f velocity, float up, v3f face, v3f look) : m_normal(normal)
