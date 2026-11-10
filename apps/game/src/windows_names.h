@@ -4,7 +4,8 @@
 // Force-included first in every Windows build of our sources (CMakeLists.txt).
 // <windows.h> defines words we use as names: `near` and `far` (as nothing, a
 // leftover from 16-bit pointers), and `NEAR` and `FAR` after them; we have the
-// far view's namespace and constants called NEAR and FAR. Every Windows header
+// far view's namespace and constants called NEAR and FAR; and `small`, as
+// char (rpcndr.h). Every Windows header
 // the engine includes is read here, then the words are given back, and their
 // include guards keep them from coming back. A new Windows header in the engine
 // goes on this list. zlib defines FAR itself when it's missing. GDI, which
@@ -28,3 +29,4 @@
 #undef far
 #undef NEAR
 #undef FAR
+#undef small
