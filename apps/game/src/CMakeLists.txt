@@ -323,6 +323,17 @@ if(WIN32)
 			# Don't define min/max macros in minwindef.h
 			NOMINMAX
 		)
+		# Terra Firma: terragen's fixed point uses __int128, so Windows builds
+		# with clang-cl; its 128-bit division lives in compiler-rt.
+		if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+			message(FATAL_ERROR "Windows builds need clang-cl (terragen uses __int128): -DCMAKE_CXX_COMPILER=clang-cl")
+		endif()
+		execute_process(COMMAND ${CMAKE_CXX_COMPILER} /clang:--rtlib=compiler-rt /clang:-print-libgcc-file-name
+			OUTPUT_VARIABLE clang_builtins OUTPUT_STRIP_TRAILING_WHITESPACE)
+		if(NOT EXISTS "${clang_builtins}")
+			message(FATAL_ERROR "clang-cl's compiler-rt builtins not found (asked: \"${clang_builtins}\")")
+		endif()
+		list(APPEND PLATFORM_LIBS "${clang_builtins}")
 	endif()
 	list(APPEND PLATFORM_LIBS ws2_32.lib version.lib shlwapi.lib winmm.lib)
 
@@ -812,12 +823,17 @@ if(BUILD_CLIENT)
 	if(USE_SHELL)
 		# CEF's headers require C++20; the rest of the engine stays on its own standard.
 		# (Source properties are directory-scoped, so they are set here, by the target.)
+		if(MSVC)
+			set(shell_std "/std:c++20")
+		else()
+			set(shell_std "-std=c++20")
+		endif()
 		set_source_files_properties(${shell_SRCS} PROPERTIES
-			COMPILE_OPTIONS "-std=c++20"
+			COMPILE_OPTIONS "${shell_std}"
 			SKIP_PRECOMPILE_HEADERS ON)
 		target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE "${CEF_ROOT}")
 		target_link_libraries(${PROJECT_NAME} libcef_dll_wrapper "${CEF_LIB_RELEASE}")
-		# libcef.so and its resources sit next to the executable.
+		# libcef and its resources sit next to the executable.
 		set_target_properties(${PROJECT_NAME} PROPERTIES BUILD_RPATH "$ORIGIN")
 		add_cef_runtime("${EXECUTABLE_OUTPUT_PATH}")
 		add_dependencies(${PROJECT_NAME} cef_runtime)

@@ -1,0 +1,91 @@
+# The engine on Windows, while it's being brought up: on each push to the
+# windows branch, or by hand, it builds
+# with clang-cl (terragen's fixed point needs __int128) against vcpkg, runs
+# the unit tests and keeps the build as an artifact. Folded into release.yml
+# once it packages.
+name: windows
+
+on:
+  push:
+    branches: [windows]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to stamp a test build with'
+        default: 'dev'
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 150
+    env:
+      VERSION: ${{ inputs.version || 'dev' }}
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.output/vcpkg-cache
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      # vcpkg builds every dependency from source: keep what it built.
+      - name: Cache vcpkg builds
+        uses: actions/cache@v4
+        with:
+          path: .output/vcpkg-cache
+          key: vcpkg-x64-windows-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-x64-windows-
+
+      - name: Cache CEF
+        uses: actions/cache@v4
+        with:
+          path: .output/build/_deps
+          key: cef-windows64-${{ hashFiles('cmake/Modules/CEF.cmake') }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Build the UI
+        working-directory: apps/game/ui
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+
+      # clang-cl and the linker need Visual Studio's environment.
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure
+        run: |
+          mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+          cmake -S . -B .output/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET=x64-windows \
+            -DRUN_IN_PLACE=TRUE \
+            -DENABLE_CURSES=OFF -DENABLE_POSTGRESQL=OFF -DENABLE_LEVELDB=OFF \
+            -DENABLE_REDIS=OFF -DENABLE_SPATIAL=OFF -DENABLE_PROMETHEUS=OFF \
+            -DENABLE_UPDATE_CHECKER=OFF \
+            -DTERRAFIRMA_VERSION="$VERSION"
+
+      # -k 0: one run reports every compile error, not just the first.
+      - name: Build the engine
+        run: cmake --build .output/build -- -k 0 && bash scripts/stage-runtime.sh
+
+      - name: Unit tests
+        run: |
+          ./.output/bin/luanti.exe --test-module TestOnline
+          ./.output/bin/luanti.exe --test-module TestRelease
+          ./.output/bin/luanti.exe --test-module TestTerragen
+
+      - name: Keep as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraverse-${{ env.VERSION }}-windows-x86_64-tree
+          path: |
+            .output/bin
+            .output/build/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: ignore

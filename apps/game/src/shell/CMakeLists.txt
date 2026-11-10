@@ -37,15 +37,19 @@ set(shell_SRCS
 set(shell_SRCS ${shell_SRCS} PARENT_SCOPE)
 
 # Chromium's runtime files next to the executable. libcef.so ships with debug
-# info (~1.5 GB); the copy is stripped.
+# info (~1.5 GB); the copy is stripped. libcef.dll keeps its symbols apart.
 function(add_cef_runtime dir)
-	set(cef_runtime_outputs "${dir}/libcef.so")
-	add_custom_command(
-		OUTPUT "${dir}/libcef.so"
-		COMMAND ${CMAKE_COMMAND} -E make_directory "${dir}"
-		COMMAND ${CMAKE_STRIP} --strip-unneeded -o "${dir}/libcef.so" "${CEF_BINARY_DIR}/libcef.so"
-		DEPENDS "${CEF_BINARY_DIR}/libcef.so"
-		COMMENT "Stripping libcef.so into ${dir}")
+	if(WIN32)
+		set(cef_runtime_outputs "")
+	else()
+		set(cef_runtime_outputs "${dir}/libcef.so")
+		add_custom_command(
+			OUTPUT "${dir}/libcef.so"
+			COMMAND ${CMAKE_COMMAND} -E make_directory "${dir}"
+			COMMAND ${CMAKE_STRIP} --strip-unneeded -o "${dir}/libcef.so" "${CEF_BINARY_DIR}/libcef.so"
+			DEPENDS "${CEF_BINARY_DIR}/libcef.so"
+			COMMENT "Stripping libcef.so into ${dir}")
+	endif()
 
 	foreach(file IN LISTS CEF_BINARY_FILES)
 		if(file STREQUAL "libcef.so" OR file STREQUAL "chrome-sandbox")
@@ -54,6 +58,7 @@ function(add_cef_runtime dir)
 		list(APPEND cef_runtime_outputs "${dir}/${file}")
 		add_custom_command(
 			OUTPUT "${dir}/${file}"
+			COMMAND ${CMAKE_COMMAND} -E make_directory "${dir}"
 			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CEF_BINARY_DIR}/${file}" "${dir}/${file}"
 			DEPENDS "${CEF_BINARY_DIR}/${file}")
 	endforeach()

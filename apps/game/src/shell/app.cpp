@@ -20,7 +20,12 @@ int runHelper(int argc, char *argv[])
 
 CefMainArgs mainArgs()
 {
+#ifdef _WIN32
+	// Windows' helpers read their switches from the process's own command line
+	return CefMainArgs(GetModuleHandle(nullptr));
+#else
 	return CefMainArgs(s_argc, s_argv);
+#endif
 }
 
 CefMessageRouterConfig routerConfig()
