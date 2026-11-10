@@ -9,6 +9,9 @@ cd "$root"
 # The key the game trusts must be the key CI signs with.
 grep -qF "$(sed -n 2p scripts/release/update-key.pub)" apps/game/src/release/release.cpp \
 	|| { echo "gate: release.cpp's UPDATE_KEY isn't scripts/release/update-key.pub" >&2; exit 1; }
+grep -qF "$(sed -n 2p scripts/release/update-key.pub)" scripts/release/install.sh \
+	|| { echo "gate: install.sh's PUBLIC_KEY isn't scripts/release/update-key.pub" >&2; exit 1; }
+bash scripts/release/install-check.sh
 
 cmake -S . -B .output/build -DRUN_IN_PLACE=TRUE
 cmake --build .output/build -j"$(nproc)"

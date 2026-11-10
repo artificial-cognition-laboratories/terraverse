@@ -166,6 +166,7 @@ Menu::Menu(const Opts &opts) :
 		out["current"] = g_version_hash;
 		out["latest"] = Json::Value();
 		out["available"] = false;
+		out["launcher"] = release::launched();
 		const auto ours = release::parse(g_version_hash);
 		if (!ours)
 			return out; // a development build has nothing to update to

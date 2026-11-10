@@ -1,0 +1,153 @@
+# Launcher releases (apps/launcher). A pushed tag launcher-v* builds the
+# AppImage and deb, signs the AppImage for the launcher's updater, and
+# publishes them on that tag's release. The rolling release `launcher` carries
+# what always points at the newest launcher, under names that never change:
+#
+#   latest.json                  installed launchers read it to update themselves
+#                                (apps/launcher/src-tauri/tauri.conf.json: plugins.updater)
+#   launcher.json(.sig)          install.sh reads it: the AppImage and icon, by hash,
+#                                signed with the key the game trusts (update-key.pub)
+#   terraverse-launcher-x86_64.AppImage, terraverse-launcher_amd64.deb
+#                                for the download page's buttons
+#
+# Neither release is ever GitHub's "latest": that's the game's.
+name: launcher
+
+on:
+  push:
+    tags: ['launcher-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: launcher-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/launcher/src-tauri
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
+      # The launcher wears the game's kit, theme and fonts: both need their packages.
+      - name: Install packages
+        run: |
+          (cd apps/game/ui && bun install --frozen-lockfile)
+          (cd apps/launcher && bun install --frozen-lockfile)
+
+      # The tag names the version the launcher already says it is.
+      - name: Check the version
+        if: github.ref_type == 'tag'
+        run: |
+          tagged="${GITHUB_REF_NAME#launcher-v}"
+          declared=$(jq -r .version apps/launcher/src-tauri/tauri.conf.json)
+          [ "$tagged" = "$declared" ] || { echo "tag says $tagged, tauri.conf.json says $declared" >&2; exit 1; }
+
+      - name: Test the backend
+        working-directory: apps/launcher/src-tauri
+        run: cargo test
+
+      - name: Build
+        working-directory: apps/launcher
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bunx tauri build --bundles appimage,deb
+
+      # The files, under names that say what they are; then what points at them.
+      - name: Gather the builds
+        run: |
+          version=$(jq -r .version apps/launcher/src-tauri/tauri.conf.json)
+          bundle=apps/launcher/src-tauri/target/release/bundle
+          out=.output/launcher
+          mkdir -p "$out/rolling"
+          cp "$(ls "$bundle"/appimage/*.AppImage)" "$out/terraverse-launcher-$version-x86_64.AppImage"
+          cp "$(ls "$bundle"/appimage/*.AppImage.sig)" "$out/terraverse-launcher-$version-x86_64.AppImage.sig"
+          cp "$(ls "$bundle"/deb/*.deb)" "$out/terraverse-launcher_${version}_amd64.deb"
+          cp "$out/terraverse-launcher-$version-x86_64.AppImage" "$out/rolling/terraverse-launcher-x86_64.AppImage"
+          cp "$out/terraverse-launcher_${version}_amd64.deb" "$out/rolling/terraverse-launcher_amd64.deb"
+          cp apps/launcher/src-tauri/icons/128x128.png "$out/rolling/terraverse.png"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      # What an installed launcher reads to find this one: the AppImage and its updater signature.
+      - name: Write latest.json
+        run: |
+          out=.output/launcher
+          name="terraverse-launcher-$VERSION-x86_64.AppImage"
+          jq -n --arg v "$VERSION" --arg sig "$(cat "$out/$name.sig")" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/launcher-v$VERSION/$name" \
+            '{version: $v, notes: "", pub_date: $date, platforms: {"linux-x86_64": {signature: $sig, url: $url}}}' \
+            > "$out/rolling/latest.json"
+          cat "$out/rolling/latest.json"
+
+      # What install.sh reads: this version's AppImage and the icon, by hash. The
+      # AppImage is named by version, so what was signed can't change under it.
+      - name: Write launcher.json
+        run: |
+          out=.output/launcher
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download"
+          image="$out/terraverse-launcher-$VERSION-x86_64.AppImage"
+          jq -n --arg v "$VERSION" \
+            --arg url "$base/launcher-v$VERSION/$(basename "$image")" --arg sum "$(sha256sum "$image" | cut -d' ' -f1)" \
+            --arg icon "$base/launcher/terraverse.png" --arg iconsum "$(sha256sum "$out/rolling/terraverse.png" | cut -d' ' -f1)" \
+            '{version: $v, appimage: {url: $url, sha256: $sum}, icon: {url: $icon, sha256: $iconsum}}' \
+            > "$out/rolling/launcher.json"
+          cat "$out/rolling/launcher.json"
+
+      # The game's key: install.sh trusts only what it signed (scripts/release/update-key.pub).
+      - name: Sign launcher.json
+        if: github.ref_type == 'tag'
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          key="$RUNNER_TEMP/update.key"
+          trap 'rm -f "$key"' EXIT
+          (umask 077; printf '%s\n' "$UPDATE_SIGNING_KEY" > "$key")
+          cd .output/launcher/rolling
+          openssl pkeyutl -sign -inkey "$key" -rawin -in launcher.json -out launcher.json.sig
+          openssl pkeyutl -verify -pubin -inkey "$GITHUB_WORKSPACE/scripts/release/update-key.pub" \
+            -rawin -in launcher.json -sigfile launcher.json.sig
+
+      - name: Attach to the release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            .output/launcher/terraverse-launcher-*
+          make_latest: false
+          generate_release_notes: true
+
+      # The rolling release installed launchers poll. Replaced, never accumulated.
+      - name: Point the updater at it
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view launcher >/dev/null 2>&1 || gh release create launcher --title "Launcher updates" \
+            --notes "What installed launchers read to update themselves. Not a game version." --latest=false --prerelease
+          gh release upload launcher .output/launcher/rolling/* --clobber
+
+      - name: Keep as an artifact
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: launcher-linux
+          path: .output/launcher/

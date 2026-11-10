@@ -1,0 +1,50 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Terraverse",
+  "version": "0.1.0",
+  "identifier": "net.arclabs.terraverse.launcher",
+  "build": {
+    "beforeDevCommand": "bun run ui",
+    "devUrl": "http://localhost:5175",
+    "beforeBuildCommand": "bun run ui:build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Terraverse",
+        "width": 960,
+        "height": 600,
+        "minWidth": 720,
+        "minHeight": 480
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "appimage",
+      "deb",
+      "nsis",
+      "msi"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ5MTEyQTI2NEMxRDk4NkMKUldSc21CMU1KaW9SMlNYRUlERGNaT0NVTHN4b2lneDN1VFlFUU9uZU5iZkFYQWN5cFRuV3BhR2EK",
+      "endpoints": [
+        "https://github.com/artificial-cognition-laboratories/terraverse/releases/download/launcher/latest.json"
+      ]
+    }
+  }
+}

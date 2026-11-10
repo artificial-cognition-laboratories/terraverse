@@ -46,6 +46,13 @@ void TestRelease::testParse()
 	UASSERT(parse("v0.1.10") > parse("v0.1.9"));
 	UASSERT(parse("0.2") > parse("0.1.9"));
 	UASSERT(parse("v0.1.1") == parse("0.1.1"));
+	UASSERT(parse("v0.3.0-beta.2") > parse("0.3.0-beta.1"));
+	UASSERT(parse("0.3.0-beta.10") > parse("0.3.0-beta.9"));
+	UASSERT(parse("0.3.0") > parse("0.3.0-beta.2"));
+	UASSERT(parse("0.3.0-rc.1") > parse("0.3.0-beta.9"));
+	UASSERT(parse("0.3.0-beta.1") > parse("0.2.9"));
+	UASSERT(parse("0.3.0-beta.1") == parse("v0.3.0-beta.1"));
+	UASSERT(!parse("0.3.0-"));
 	UASSERT(!parse("6ec085b4e"));
 	UASSERT(!parse("dev-test"));
 	UASSERT(!parse(""));

@@ -132,6 +132,15 @@ jobs:
           openssl pkeyutl -verify -pubin -inkey "$GITHUB_WORKSPACE/scripts/release/update-key.pub" \
             -rawin -in manifest.json -sigfile manifest.json.sig
 
+      # What the launcher shows for this version: scripts/release/notes/<tag>.md
+      # when written, with GitHub's list of changes after it either way.
+      - name: Release notes
+        if: github.ref_type == 'tag'
+        run: |
+          notes="scripts/release/notes/$VERSION.md"
+          if [ -f "$notes" ]; then cp "$notes" .output/releases/notes.md; else : > .output/releases/notes.md; fi
+
+      # A tag with a suffix (v0.3.0-beta.1) is a pre-release: the launcher's beta channel.
       - name: Attach to the release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
@@ -140,7 +149,9 @@ jobs:
             .output/releases/terraverse-${{ env.VERSION }}-linux-x86_64.tar.zst
             .output/releases/manifest.json
             .output/releases/manifest.json.sig
+          body_path: .output/releases/notes.md
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
 
       - name: Keep as an artifact
         if: github.ref_type != 'tag'

@@ -110,7 +110,11 @@ const CREDITS_ICON = {
                 </nav>
                 <footer>
                     <span v-if="update">{{ update.current }} · </span>built on luanti
-                    <p v-if="update?.available" class="update"><span>»</span> v{{ update.latest }} is out. Run <code>terraverse update</code></p>
+                    <p v-if="update?.available" class="update">
+                        <span>»</span> v{{ update.latest }} is out.
+                        <template v-if="update.launcher">Choose it in the launcher.</template>
+                        <template v-else>Run <code>terraverse update</code></template>
+                    </p>
                 </footer>
             </div>
         </Transition>

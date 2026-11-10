@@ -16,8 +16,11 @@ export type ScreenName = "pause" | "inventory" | "lab" | "wiki" | "map" | "makin
 export type NodePos = { x: number; y: number; z: number }
 export type SlotRef = { list: string; index: number; at?: NodePos }
 
-/** This build, and the latest signed release: null if it couldn't be asked, or on a development build. */
-export type UpdateCheck = { current: string; latest: string | null; available: boolean }
+/**
+ * This build, and the latest signed release: null if it couldn't be asked, or on a development build.
+ * `launcher`: started by the launcher, which is where a newer version is chosen.
+ */
+export type UpdateCheck = { current: string; latest: string | null; available: boolean; launcher: boolean }
 
 export type World = {
     name: string; path: string; code: string | null

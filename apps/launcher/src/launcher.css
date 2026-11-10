@@ -1,0 +1,2 @@
+/* The launcher is a window of its own: unlike the game's overlay, it paints its ground. */
+html, body { background: var(--stone-0); }

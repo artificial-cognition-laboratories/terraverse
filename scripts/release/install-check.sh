@@ -1,92 +1,74 @@
 #!/usr/bin/env bash
-# Runs install.sh against fake signed releases in a temporary home: a first
-# install, an update, rollback, choosing versions, and refusing tampered downloads.
+# Runs install.sh against a fake signed launcher release in a temporary home:
+# a first install, a repair, an update, and refusing what wasn't signed or
+# doesn't match. The "AppImage" is a script that says which version it is.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-export HOME="$work/user" TERRAVERSE_HOME="$work/user/.terraverse" PATH="$PATH"
+export HOME="$work/user" TERRAVERSE_HOME="$work/user/.terraverse" TERRAVERSE_NO_LAUNCH=1
+export PATH="$HOME/.local/bin:$PATH"
 unset XDG_DATA_HOME
-mkdir -p "$HOME" "$work/site"
+mkdir -p "$HOME/.local/bin" "$work/site"
 
 openssl genpkey -algorithm ed25519 -out "$work/key" 2>/dev/null
 openssl pkey -in "$work/key" -pubout -out "$work/key.pub"
 
 # install.sh pointed at the fake site and trusting the throwaway key
 python3 - "$root/scripts/release/install.sh" "$work/key.pub" "$work/site" "$work/install.sh" <<'PY'
-import sys
+import re, sys
 src, pub, site, out = sys.argv[1:]
 s = open(src).read()
-s = s.replace("PUBLIC_KEY='NOT SET: paste scripts/release/update-key.pub here'", "PUBLIC_KEY='%s'" % open(pub).read().strip())
-s = s.replace("RELEASES=https://github.com/artificial-cognition-laboratories/terraverse/releases/latest/download", "RELEASES=file://" + site)
-assert "file://" in s and "BEGIN PUBLIC KEY" in s
+s, keys = re.subn(r"PUBLIC_KEY='-----BEGIN PUBLIC KEY-----\n[^\n]*\n-----END PUBLIC KEY-----'", "PUBLIC_KEY='%s'" % open(pub).read().strip(), s)
+s, sites = re.subn(r"RELEASES=https://\S+", "RELEASES=file://" + site, s)
+assert keys == 1 and sites == 1, "install.sh's key or site line moved"
 open(out, "w").write(s)
 PY
 
+# A launcher release, as .github/workflows/launcher.yml publishes it.
 publish() {
-	local v=$1 name="terraverse-v$1-linux-x86_64" dir="$work/pack/terraverse-v$1-linux-x86_64"
-	mkdir -p "$dir"
-	printf '#!/bin/sh\necho "game %s home=$TERRAVERSE_HOME args=$*"\n' "$v" > "$dir/terraverse"
-	chmod +x "$dir/terraverse"
-	tar -C "$work/pack" --zstd -cf "$work/site/$name.tar.zst" "$name"
-	cat > "$work/site/manifest.json" <<JSON
-{
-  "version": "$v",
-  "builds": {
-    "linux-x86_64": {
-      "url": "file://$work/site/$name.tar.zst",
-      "sha256": "$(sha256sum "$work/site/$name.tar.zst" | cut -d' ' -f1)",
-      "size": 1
-    }
-  }
-}
-JSON
-	openssl pkeyutl -sign -inkey "$work/key" -rawin -in "$work/site/manifest.json" -out "$work/site/manifest.json.sig"
+	local v=$1
+	printf '#!/bin/sh\necho "launcher %s"\n' "$v" > "$work/site/terraverse-launcher-$v-x86_64.AppImage"
+	printf 'PNG' > "$work/site/terraverse.png"
+	jq -n --arg v "$v" \
+		--arg url "file://$work/site/terraverse-launcher-$v-x86_64.AppImage" \
+		--arg sum "$(sha256sum "$work/site/terraverse-launcher-$v-x86_64.AppImage" | cut -d' ' -f1)" \
+		--arg icon "file://$work/site/terraverse.png" --arg iconsum "$(sha256sum "$work/site/terraverse.png" | cut -d' ' -f1)" \
+		'{version: $v, appimage: {url: $url, sha256: $sum}, icon: {url: $icon, sha256: $iconsum}}' > "$work/site/launcher.json"
+	openssl pkeyutl -sign -inkey "$work/key" -rawin -in "$work/site/launcher.json" -out "$work/site/launcher.json.sig"
 }
 expect() { [ "$2" = "$3" ] || { echo "install-check: $1: expected '$3', got '$2'" >&2; exit 1; }; echo "ok: $1"; }
 refused() { if sh "$work/install.sh" >"$work/out" 2>&1; then echo "install-check: $1: was installed" >&2; exit 1; fi; grep -q "$2" "$work/out" || { cat "$work/out"; exit 1; }; echo "ok: $1"; }
-tv="$TERRAVERSE_HOME/bin/terraverse"
+desktop="$HOME/.local/share/applications/terraverse.desktop"
 
-mkdir -p "$TERRAVERSE_HOME/worlds/mine"
-publish 1.0.0
-sh "$work/install.sh" >/dev/null
-expect "first install runs" "$("$tv" --go)" "game 1.0.0 home=$TERRAVERSE_HOME args=--go"
-sh "$work/install.sh" >"$work/out" 2>&1
-grep -q 'already installed' "$work/out" || { cat "$work/out"; exit 1; }
-echo "ok: running it again changes nothing"
+refused "nothing released yet is said plainly" "is there a launcher release yet"
 
-publish 1.1.0
-sh "$work/install.sh" >/dev/null
-expect "update runs the new version" "$("$tv")" "game 1.1.0 home=$TERRAVERSE_HOME args="
-"$tv" rollback >/dev/null
-expect "rollback runs the old version" "$("$tv")" "game 1.0.0 home=$TERRAVERSE_HOME args="
-"$tv" rollback >/dev/null
-expect "rolling back again returns" "$("$tv")" "game 1.1.0 home=$TERRAVERSE_HOME args="
+mkdir -p "$TERRAVERSE_HOME/worlds/mine" "$TERRAVERSE_HOME/versions/0.1.2"
+publish 0.1.0
+sh "$work/install.sh" >/dev/null 2>&1
+expect "the command runs the launcher" "$(terraverse)" "launcher 0.1.0"
+grep -q "^Exec=.*/.terraverse/launcher/Terraverse.AppImage" "$desktop" || { cat "$desktop"; exit 1; }
+grep -q "^Icon=$TERRAVERSE_HOME/launcher/terraverse.png" "$desktop" || { cat "$desktop"; exit 1; }
+echo "ok: a menu entry with its icon"
+[ -d "$TERRAVERSE_HOME/worlds/mine" ] && [ -d "$TERRAVERSE_HOME/versions/0.1.2" ] || { echo "install-check: the player's things were touched" >&2; exit 1; }
+echo "ok: worlds and game versions are left alone"
 
-publish 1.2.0
-sh "$work/install.sh" >/dev/null
-expect "every version stays installed" "$(cd "$TERRAVERSE_HOME/versions" && ls -A | sort | tr '\n' ' ')" "1.0.0 1.1.0 1.2.0 "
-expect "versions marks the current one" "$("$tv" versions | tr '\n' ' ')" "1.0.0 1.1.0 1.2.0 (current) "
-"$tv" use 1.0.0 >/dev/null
-expect "use runs an installed version" "$("$tv")" "game 1.0.0 home=$TERRAVERSE_HOME args="
-sh "$work/install.sh" >/dev/null
-expect "an update returns to the latest" "$("$tv")" "game 1.2.0 home=$TERRAVERSE_HOME args="
-if "$tv" remove 1.2.0 >/dev/null 2>&1; then echo "install-check: removed the current version" >&2; exit 1; fi
-"$tv" remove 1.0.0 >/dev/null
-expect "remove deletes a version" "$(cd "$TERRAVERSE_HOME/versions" && ls -A | sort | tr '\n' ' ')" "1.1.0 1.2.0 "
-if TERRAVERSE_VERSION=9.9.9 sh "$work/install.sh" >/dev/null 2>&1; then echo "install-check: installed the wrong version" >&2; exit 1; fi
-echo "ok: a manifest for another version is refused"
-[ -d "$TERRAVERSE_HOME/worlds/mine" ] || { echo "install-check: the player's worlds are gone" >&2; exit 1; }
-echo "ok: the player's worlds survive"
-grep -q "^Exec=\"$tv\"" "$HOME/.local/share/applications/terraverse.desktop" || { echo "install-check: bad desktop entry" >&2; exit 1; }
-echo "ok: desktop entry"
+rm "$TERRAVERSE_HOME/launcher/Terraverse.AppImage"
+sh "$work/install.sh" >/dev/null 2>&1
+expect "running it again repairs" "$(terraverse)" "launcher 0.1.0"
 
-publish 1.3.0
-sed -i 's/1\.3\.0/6.6.6/' "$work/site/manifest.json"
-refused "a changed manifest is refused" "signature is wrong"
-publish 1.3.0
-echo tampered >> "$work/site/terraverse-v1.3.0-linux-x86_64.tar.zst"
-refused "a changed download is refused" "doesn't match the manifest"
-expect "a refused update leaves the game alone" "$("$tv")" "game 1.2.0 home=$TERRAVERSE_HOME args="
-expect "a refused update leaves nothing behind" "$(cd "$TERRAVERSE_HOME/versions" && ls -A | sort | tr '\n' ' ')" "1.1.0 1.2.0 "
+publish 0.2.0
+sh "$work/install.sh" >/dev/null 2>&1
+expect "it updates" "$(terraverse)" "launcher 0.2.0"
+
+cp "$work/site/launcher.json" "$work/launcher.json.good"
+sed -i 's/0\.2\.0/6.6.6/' "$work/site/launcher.json"
+refused "a changed launcher.json is refused" "signature is wrong"
+cp "$work/launcher.json.good" "$work/site/launcher.json"
+echo 'evil' >> "$work/site/terraverse-launcher-0.2.0-x86_64.AppImage"
+refused "a changed AppImage is refused" "doesn't match launcher.json"
+expect "and the installed one is left working" "$(terraverse)" "launcher 0.2.0"
+[ -z "$(find "$TERRAVERSE_HOME/launcher" -name '.tmp-*')" ] || { echo "install-check: a refused install left files behind" >&2; exit 1; }
+echo "ok: nothing left behind"
+
 echo "install-check: ok"

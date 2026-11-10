@@ -1,0 +1,25 @@
+{
+  "name": "terraverse-launcher",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "dev:mock": "VITE_BACKEND=mock tauri dev",
+    "build": "tauri build",
+    "ui": "vite --port 5175 --strictPort",
+    "ui:build": "vue-tsc --noEmit && vite build",
+    "typecheck": "vue-tsc --noEmit",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "typescript": "^5",
+    "vite": "^8.3.5",
+    "vue-tsc": "^3.3.13"
+  }
+}

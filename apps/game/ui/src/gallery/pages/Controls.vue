@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue"
 import PixelIcon from "../../game/PixelIcon.vue"
-import { Button, Choice, Field, IconChoice, IconRail, IconTile, Notice, SearchBox, Section, Segmented, Slider, Tabs, Toggle } from "../../kit/index.ts"
+import { Button, Choice, Field, IconButton, IconChoice, IconRail, IconTile, Notice, SearchBox, Section, Segmented, Slider, Tabs, Toggle } from "../../kit/index.ts"
 import BodyIcon from "../../worldgen/BodyIcon.vue"
 import { OVERLAY_ICONS } from "../../worldgen/overlayIcons.ts"
 import Specimen from "../Specimen.vue"
@@ -53,12 +53,15 @@ const rail = ref("one")
             <SearchBox v-model="empty" label="Search settings" />
         </Specimen>
 
-        <Specimen name="IconRail" note="group navigation" wide>
-            <div style="height: 210px; width: 78px">
+        <Specimen name="IconRail" note="group navigation; `end` items and the foot slot sit at the bottom" wide>
+            <div style="height: 300px; width: 78px">
                 <IconRail v-model="rail" label="Example groups" :items="[
                     { id: 'one', label: 'Mods', rows: ['.AAA.', 'AAAAA', '.AAA.', '..A..', '.....'], palette: { A: '#40b8ec' } },
                     { id: 'two', label: 'Worlds', rows: ['..A..', '.AAA.', 'AAAAA', '.AAA.', '..A..'], palette: { A: '#c9d4dc' } },
-                ]" />
+                    { id: 'three', label: 'Settings', end: true, rows: ['A.A.A', '.AAA.', 'AA.AA', '.AAA.', 'A.A.A'], palette: { A: '#c9d4dc' } },
+                ]">
+                    <template #foot><IconButton label="Account"><span>C</span></IconButton></template>
+                </IconRail>
             </div>
         </Specimen>
 

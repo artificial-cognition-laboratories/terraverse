@@ -376,7 +376,7 @@ export function MockBridge() {
         "planetarium.time": () => null,
         "planetarium.seams": () => null,
         capture: () => null,
-        "update.check": () => ({ current: "v0.1.1", latest: "0.1.2", available: true }),
+        "update.check": () => ({ current: "v0.1.1", latest: "0.1.2", available: true, launcher: false }),
         "worlds.list": () => worlds,
         "worlds.create": ({ name, code, settings }) => {
             const world: World = { name: name, path: `/worlds/${name.toLowerCase().replace(/\W+/g, "_")}`,

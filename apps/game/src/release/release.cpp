@@ -9,6 +9,7 @@
 #include "settings.h"
 #include "util/base64.h"
 #include <json/json.h>
+#include <cstdlib>
 #include <memory>
 #include <sstream>
 #if USE_OPENSSL
@@ -23,22 +24,65 @@ MCowBQYDK2VwAyEATYuT3HsECn8T2zFIjLdBWF8O7kNFmAchF2nZLnY3EK4=
 -----END PUBLIC KEY-----
 )";
 
-std::optional<std::vector<int>> parse(const std::string &version)
+static bool numeric(const std::string &part)
+{
+	return !part.empty() && part.size() <= 6 && part.find_first_not_of("0123456789") == std::string::npos;
+}
+
+std::optional<Version> parse(const std::string &version)
 {
 	std::string text = version;
 	if (!text.empty() && text[0] == 'v')
 		text.erase(0, 1);
-	std::vector<int> out;
-	std::stringstream parts(text);
+	Version out;
+	const size_t dash = text.find('-');
+	std::stringstream core(text.substr(0, dash));
 	std::string part;
-	while (std::getline(parts, part, '.')) {
-		if (part.empty() || part.size() > 6 || part.find_first_not_of("0123456789") != std::string::npos)
+	while (std::getline(core, part, '.')) {
+		if (!numeric(part))
 			return std::nullopt;
-		out.push_back(std::stoi(part));
+		out.core.push_back(std::stoi(part));
 	}
-	if (out.empty())
+	if (out.core.empty())
 		return std::nullopt;
+	if (dash != std::string::npos) {
+		std::stringstream pre(text.substr(dash + 1));
+		while (std::getline(pre, part, '.')) {
+			if (part.empty() || part.find_first_not_of("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-") != std::string::npos)
+				return std::nullopt;
+			out.pre.push_back(part);
+		}
+		if (out.pre.empty())
+			return std::nullopt;
+	}
 	return out;
+}
+
+bool operator<(const Version &a, const Version &b)
+{
+	if (a.core != b.core)
+		return a.core < b.core;
+	// a pre-release comes before its release
+	if (a.pre.empty() || b.pre.empty())
+		return !a.pre.empty() && b.pre.empty();
+	for (size_t i = 0; i < a.pre.size() && i < b.pre.size(); ++i) {
+		const std::string &x = a.pre[i], &y = b.pre[i];
+		if (x == y)
+			continue;
+		const bool xn = numeric(x), yn = numeric(y);
+		if (xn && yn)
+			return std::stoi(x) < std::stoi(y);
+		if (xn != yn)
+			return xn; // a number sorts before a word
+		return x < y;
+	}
+	return a.pre.size() < b.pre.size();
+}
+
+bool launched()
+{
+	const char *flag = getenv("TERRAVERSE_LAUNCHER");
+	return flag && std::string(flag) == "1";
 }
 
 bool verify(const std::string &bytes, const std::string &signature, const std::string &key)
@@ -91,7 +135,8 @@ void openWorld(const std::string &world, const std::string &build, const std::st
 	const auto theirs = parse(saved);
 	if (theirs && *theirs > *ours)
 		throw BaseException("This world was last saved by Terraverse " + saved + ", which is newer than this "
-			"version (" + build + "). Run terraverse update to open it.");
+			"version (" + build + "). " + (launched() ? "Choose a newer version in the launcher to open it."
+				: "Run terraverse update to open it."));
 
 	// Nothing to lose in a world that has never been played.
 	if (fs::PathExists(world + DIR_DELIM "map.sqlite") || fs::PathExists(world + DIR_DELIM "env_meta.txt")) {
