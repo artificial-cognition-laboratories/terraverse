@@ -7,7 +7,10 @@
 #include <algorithm>
 #include <cstdio>
 
-#ifndef _WIN32
+#ifdef _WIN32
+#include <winsock2.h>
+#include <iphlpapi.h>
+#else
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <net/if.h>
@@ -74,7 +77,26 @@ std::vector<Address> lanAddresses(u16 port)
 {
 	std::vector<Address> out;
 #ifdef _WIN32
-	warningstream << "online: LAN addresses aren't read on Windows yet; friends on your network connect by your public address" << std::endl;
+	// The adapter list's size isn't known up front: ask, grow, ask again.
+	std::vector<unsigned char> buffer(16 * 1024);
+	ULONG size = (ULONG)buffer.size();
+	const ULONG flags = GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER;
+	ULONG result;
+	while ((result = GetAdaptersAddresses(AF_INET, flags, nullptr,
+			reinterpret_cast<IP_ADAPTER_ADDRESSES *>(buffer.data()), &size)) == ERROR_BUFFER_OVERFLOW)
+		buffer.resize(size);
+	if (result != NO_ERROR)
+		throw BaseException("online: couldn't list this machine's network interfaces");
+	for (auto *a = reinterpret_cast<IP_ADAPTER_ADDRESSES *>(buffer.data()); a; a = a->Next) {
+		if (a->OperStatus != IfOperStatusUp || a->IfType == IF_TYPE_SOFTWARE_LOOPBACK)
+			continue;
+		for (auto *u = a->FirstUnicastAddress; u; u = u->Next) {
+			if (u->Address.lpSockaddr->sa_family != AF_INET)
+				continue;
+			auto *in = reinterpret_cast<const struct sockaddr_in *>(u->Address.lpSockaddr);
+			out.emplace_back(ntohl(in->sin_addr.s_addr), port);
+		}
+	}
 #else
 	struct ifaddrs *list = nullptr;
 	if (getifaddrs(&list) != 0)
@@ -88,10 +110,10 @@ std::vector<Address> lanAddresses(u16 port)
 		out.emplace_back(ntohl(in->sin_addr.s_addr), port);
 	}
 	freeifaddrs(list);
+#endif
 	std::stable_sort(out.begin(), out.end(), [](const Address &a, const Address &b) { return rank(a) < rank(b); });
 	if (out.size() > 8) // ArcLabs keeps at most 8
 		out.resize(8);
-#endif
 	return out;
 }
 

@@ -28,12 +28,13 @@ jobs:
       - uses: actions/checkout@v4
 
       # vcpkg builds every dependency from source: keep what it built.
-      - name: Cache vcpkg builds
-        uses: actions/cache@v4
+      # Saved even when a later step fails (below): every run builds on the last.
+      - name: Restore vcpkg builds
+        uses: actions/cache/restore@v4
         with:
           path: .output/vcpkg-cache
-          key: vcpkg-x64-windows-${{ hashFiles('vcpkg.json') }}
-          restore-keys: vcpkg-x64-windows-
+          key: vcpkg-x64-windows-${{ hashFiles('vcpkg.json') }}-${{ github.run_id }}
+          restore-keys: vcpkg-x64-windows-${{ hashFiles('vcpkg.json') }}-
 
       - name: Cache CEF
         uses: actions/cache@v4
@@ -69,6 +70,13 @@ jobs:
             -DENABLE_REDIS=OFF -DENABLE_SPATIAL=OFF -DENABLE_PROMETHEUS=OFF \
             -DENABLE_UPDATE_CHECKER=OFF \
             -DTERRAFIRMA_VERSION="$VERSION"
+
+      - name: Save vcpkg builds
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .output/vcpkg-cache
+          key: vcpkg-x64-windows-${{ hashFiles('vcpkg.json') }}-${{ github.run_id }}
 
       # -k 0: one run reports every compile error, not just the first.
       - name: Build the engine

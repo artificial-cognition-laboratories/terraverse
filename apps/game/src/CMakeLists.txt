@@ -330,12 +330,13 @@ if(WIN32)
 		endif()
 		execute_process(COMMAND ${CMAKE_CXX_COMPILER} /clang:--rtlib=compiler-rt /clang:-print-libgcc-file-name
 			OUTPUT_VARIABLE clang_builtins OUTPUT_STRIP_TRAILING_WHITESPACE)
+		file(TO_CMAKE_PATH "${clang_builtins}" clang_builtins) # its backslashes are escapes to CMake
 		if(NOT EXISTS "${clang_builtins}")
 			message(FATAL_ERROR "clang-cl's compiler-rt builtins not found (asked: \"${clang_builtins}\")")
 		endif()
 		list(APPEND PLATFORM_LIBS "${clang_builtins}")
 	endif()
-	list(APPEND PLATFORM_LIBS ws2_32.lib version.lib shlwapi.lib winmm.lib)
+	list(APPEND PLATFORM_LIBS ws2_32.lib version.lib shlwapi.lib winmm.lib iphlpapi.lib)
 
 	set(EXTRA_DLL "" CACHE FILEPATH "Optional paths to additional DLLs that should be packaged")
 
