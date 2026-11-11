@@ -89,25 +89,48 @@ static int terra(const char *code, const char *probed)
 
 static const int water_level = 1; // the engine's default
 
-// soil under each biome (games/terrafirma/mods/tf_world/biomes.lua): top
-// (or riverbed under water) + filler, leaving out plain stone, which the
-// generator doesn't lay: there the bedrock shows
-static int soil(Biome b, bool bed)
+// soil under each biome (games/terrafirma/mods/tf_world/biomes.lua): its
+// top's depth (none if plain stone), its filler's (SOIL: the column's soil,
+// as deep as terragen says) and its riverbed's (SOIL: the column's soil, all
+// of it, no filler under it). Plain stone isn't laid: the bedrock shows.
+static const int SOIL = -1;
+struct Laid
+{
+	int top, filler, bed;
+};
+static Laid laid(Biome b)
 {
 	switch (b) {
-	case Biome::Deep: case Biome::SeaIce: return bed ? 4 : 3;
-	case Biome::Ocean: return bed ? 5 : 4;
-	case Biome::Beach: return 4;
-	case Biome::Desert: return 8;
-	case Biome::Jungle: case Biome::Monsoon: return bed ? 6 : 5;
-	case Biome::Tundra: case Biome::Mediterranean: return bed ? 4 : 3;
-	case Biome::Rock: return bed ? 2 : 0;
-	case Biome::Snow: return bed ? 2 : 1;
-	case Biome::SaltFlat: return bed ? 6 : 5;
-	case Biome::Marsh: return 5;
-	case Biome::Floodplain: return bed ? 8 : 7;
-	default: return bed ? 5 : 4;
+	case Biome::Deep: case Biome::SeaIce: return { 1, 2, SOIL };
+	case Biome::Ocean: return { 1, 3, SOIL };
+	case Biome::Beach: return { 2, 2, SOIL };
+	case Biome::Desert: return { 2, 6, SOIL };
+	case Biome::Rock: return { 0, 0, SOIL };
+	case Biome::Snow: return { 1, 0, SOIL };
+	case Biome::Regolith: case Biome::Mare: case Biome::Dust: case Biome::Sulfur: return { 2, 0, 2 };
+	case Biome::SaltFlat: return { 1, 4, 2 };
+	case Biome::Marsh: return { 2, 3, 2 };
+	default: return { 1, SOIL, SOIL }; // the living land: grass over the column's soil
 	}
+}
+
+// How deep the generator lays soil here, and (under water, on a bed of the
+// column's soil) the block its bed's top is (terra_column.cpp)
+static int soil(const World &w, const Place &at, const Ground &gr, bool bed, std::string &bed_top)
+{
+	const Laid l = laid(gr.column.biome);
+	const Soil s = w.soil(at, gr, w.strata(at, gr));
+	const int deep = std::max(1, s.depth);
+	const int filler = l.filler == SOIL ? deep : l.filler;
+	if (!bed)
+		return l.top + filler;
+	if (l.bed != SOIL)
+		return l.bed + filler;
+	const Soil top = soilLayer(s, 0);
+	const int stony = soilStony(top.stones);
+	bed_top = std::string("tf_world:soil_") + SOIL_PARENT_NAMES[(int)soilParent(top.parent)] +
+			(stony ? std::string("_") + SOIL_STONY_NAMES[stony] : "");
+	return deep;
 }
 
 // What the generator makes at a place: its surface, water and biome, and the
@@ -120,7 +143,8 @@ static void predictColumn(const World &w, int id, const Place &at)
 	int terrain = water_level + gr.terrain;
 	int water = gr.kind == Water::None ? -9999 : water_level + gr.water;
 	bool bed = (gr.kind == Water::River || gr.kind == Water::Lake) && gr.water > gr.terrain;
-	int depth = 20, below = depth - soil(gr.column.biome, bed);
+	std::string bed_top = "-";
+	int depth = 20, below = depth - soil(w, at, gr, bed, bed_top);
 	Strata st = w.strata(at, gr);
 	Rock rock = w.rock(st, below, terrain - depth);
 	Cave cave = w.cave(st, rock, depth, terrain - depth, gr.kind != Water::None && gr.kind != Water::Lava);
@@ -129,7 +153,8 @@ static void predictColumn(const World &w, int id, const Place &at)
 			: cave == Cave::Lava ? "tf_world:lava_source"
 			: ore != Ore::None ? std::string("tf_world:ore_") + ORE_NAMES[(int)ore]
 			: std::string("tf_world:") + ROCK_NAMES[(int)rock];
-	std::printf("PREDICT %d %d %d %s %s %s\n", id, terrain, water, kinds[(int)gr.kind], BIOME_NAMES[(int)gr.column.biome], deep.c_str());
+	std::printf("PREDICT %d %d %d %s %s %s %s\n", id, terrain, water, kinds[(int)gr.kind], BIOME_NAMES[(int)gr.column.biome], deep.c_str(),
+			bed_top.c_str());
 }
 
 int main(int argc, char **argv)

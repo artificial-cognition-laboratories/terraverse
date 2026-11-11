@@ -227,10 +227,40 @@ bool Planetarium::drawBaked(video::IVideoDriver *driver, const core::matrix4 &lo
 	return true;
 }
 
+void Planetarium::align(const Planetarium &was)
+{
+	// its ground's frame to space (turn by its spin), then into this one's
+	const OrbitCamera &c = was.m_flight ? was.m_flight->end : was.m_camera;
+	const auto across = [&](const OrbitCamera::Vec &v) { return OrbitCamera::turn(OrbitCamera::turn(v, was.m_spin), -m_spin); };
+	m_flight.reset();
+	m_target = m_tiled;
+	m_camera = cameraFor(m_tiled);
+	m_camera.place(across(c.up()), across(c.north()), c.altitude() / was.m_sea * m_sea);
+	m_aim = was.m_aim;
+	m_shift = was.m_shift;
+}
+
+bool Planetarium::warm(video::IVideoDriver *driver, double ms)
+{
+	const auto from = std::chrono::steady_clock::now();
+	for (const far::Tiles::Drawn &tile : m_tiles.drawn())
+		for (const auto &part : tile.parts) {
+			if (m_warmed.count(part.get()))
+				continue;
+			if (std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - from).count() > ms)
+				return false;
+			driver->updateHardwareBuffer(part->getVertexBuffer());
+			driver->updateHardwareBuffer(part->getIndexBuffer());
+			m_warmed.insert(part.get());
+		}
+	return true;
+}
+
 void Planetarium::keep(const Planetarium &was)
 {
 	m_day = was.m_day;
 	m_spin = was.m_spin;
+	m_aim = was.m_aim; // (a camera taken over turned as it was: framed in the same place)
 	if (was.heading() > star())
 		return;
 	// where it was round its body, in that body's radii: a body made bigger or
@@ -291,7 +321,44 @@ double Planetarium::litLongitude() const
 	return std::atan2(sun.z, sun.x) + 0.7; // (off to one side: a day side with its edge of night in view)
 }
 
-void Planetarium::compose(const Shot &shot, float aspect, double seconds)
+Framing Planetarium::framed() const
+{
+	using Vec = OrbitCamera::Vec;
+	const auto dot = [](const Vec &a, const Vec &b) { return a.x * b.x + a.y * b.y + a.z * b.z; };
+	const auto cross = [](const Vec &a, const Vec &b) {
+		return Vec{ a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x };
+	};
+	const auto unit = [&](const Vec &v) { const double l = std::sqrt(dot(v, v)); return Vec{ v.x / l, v.y / l, v.z / l }; };
+	// as compose builds it, read the other way
+	const OrbitCamera &camera = m_flight ? m_flight->end : m_camera;
+	const terragen::System::Vec way = m_system.toStar(m_tiled, m_day);
+	const Vec sun = unit(OrbitCamera::turn({ way.x, way.y, way.z }, -m_spin));
+	const Vec ahead{ -camera.up().x, -camera.up().y, -camera.up().z };
+	const double off = std::acos(std::clamp(dot(ahead, sun), -1.0, 1.0));
+	const Vec side = unit(cross(sun, std::abs(sun.y) < 0.9 ? Vec{ 0, 1, 0 } : Vec{ 1, 0, 0 }));
+	const Vec other = cross(sun, side);
+	const Vec toward = unit({ sun.x - ahead.x * std::cos(off), sun.y - ahead.y * std::cos(off), sun.z - ahead.z * std::cos(off) });
+	const Vec north = camera.north();
+	return Framing{ camera.altitude() / m_sea, m_aim, off, std::atan2(dot(north, toward), dot(north, cross(ahead, toward))),
+		std::atan2(dot(ahead, other), dot(ahead, side)), m_system.skyLevel() };
+}
+
+Framing Planetarium::framingOf(const Shot &shot, float aspect)
+{
+	// The body's centre and the star, each where the shot has it, in the
+	// camera's axes once it's aimed (aim(shot.centre)); then the star in the
+	// unaimed camera's, which looks at the centre: how far off it is, and which
+	// way across the screen
+	const double t = std::tan(OrbitCamera::FOV / 2);
+	const core::matrix4 aim = OrbitCamera::aimed(shot.centre, aspect);
+	core::vector3df s((f32)(shot.star.X * t * aspect), (f32)(shot.star.Y * t), 1);
+	s.normalize();
+	const core::vector3df r(aim[0], aim[1], aim[2]), u(aim[4], aim[5], aim[6]), f(aim[8], aim[9], aim[10]);
+	return Framing{ shot.altitude, shot.centre, std::acos(std::clamp((double)s.dotProduct(f), -1.0, 1.0)),
+		std::atan2((double)s.dotProduct(u), (double)s.dotProduct(r)), shot.around, shot.sky };
+}
+
+void Planetarium::compose(const Framing &framing, double seconds)
 {
 	using Vec = OrbitCamera::Vec;
 	const auto cross = [](const Vec &a, const Vec &b) {
@@ -305,18 +372,15 @@ void Planetarium::compose(const Shot &shot, float aspect, double seconds)
 	// the star in the camera's frame (the ground's)
 	const terragen::System::Vec way = m_system.toStar(m_tiled, m_day);
 	const Vec sun = unit(OrbitCamera::turn({ way.x, way.y, way.z }, -m_spin));
-	// how far the star must stand from the body's centre, and which way across the screen
-	const double t = std::tan(shot.fov / 2);
-	const double dx = (shot.star.X - shot.centre.X) * t * aspect, dy = (shot.star.Y - shot.centre.Y) * t;
-	const double across = std::hypot(dx, dy), off = std::atan(across);
+	const double off = framing.off, dx = std::cos(framing.roll), dy = std::sin(framing.roll);
 	const Vec side = unit(cross(sun, std::abs(sun.y) < 0.9 ? Vec{ 0, 1, 0 } : Vec{ 1, 0, 0 }));
 	const Vec other = cross(sun, side);
-	const Vec ahead = mix(sun, std::cos(off), mix(side, std::cos(shot.around), other, std::sin(shot.around)), std::sin(off));
+	const Vec ahead = mix(sun, std::cos(off), mix(side, std::cos(framing.around), other, std::sin(framing.around)), std::sin(off));
 	// the screen's up, so the star's on the way (dx, dy) from the centre
 	const Vec toward = unit(mix(sun, 1, ahead, -dot(sun, ahead)));
-	const Vec north = mix(toward, dy / across, cross(ahead, toward), dx / across);
+	const Vec north = mix(toward, dy, cross(ahead, toward), dx);
 	OrbitCamera camera = cameraFor(m_tiled);
-	camera.place({ -ahead.x, -ahead.y, -ahead.z }, north, shot.altitude * m_sea);
+	camera.place({ -ahead.x, -ahead.y, -ahead.z }, north, framing.altitude * m_sea);
 	fly({ m_tiled, std::nullopt, std::nullopt, std::nullopt, std::nullopt, seconds, camera });
 }
 
@@ -375,10 +439,15 @@ Planetarium::Pose Planetarium::pose() const
 	return { { look.x + d.x / dl * out, look.y + d.y / dl * out, look.z + d.z / dl * out }, look };
 }
 
+core::matrix4 Planetarium::aimed() const
+{
+	return OrbitCamera::aimed(m_aim, (float)m_screen.X / std::max(1u, m_screen.Y));
+}
+
 core::matrix4 Planetarium::view() const
 {
 	if (!m_flight)
-		return m_target == m_tiled ? OrbitCamera::turned(m_camera.view(), -m_spin) : m_camera.view();
+		return aimed() * (m_target == m_tiled ? OrbitCamera::turned(m_camera.view(), -m_spin) : m_camera.view());
 	const Pose p = pose();
 	core::vector3df ahead((f32)(p.look.x - p.at.x), (f32)(p.look.y - p.at.y), (f32)(p.look.z - p.at.z));
 	ahead.normalize();
@@ -393,7 +462,7 @@ core::matrix4 Planetarium::view() const
 	up.normalize();
 	core::matrix4 m;
 	m.buildCameraLookAtMatrixLH(core::vector3df(0), ahead, up);
-	return m;
+	return aimed() * m;
 }
 
 OrbitCamera::Vec Planetarium::endUp() const
@@ -488,7 +557,7 @@ std::optional<Planetarium::Pick> Planetarium::pick(double x, double y) const
 		return std::nullopt; // nothing to pick on another body (yet), nor mid-flight
 	// the ray from the camera through the pixel, onto the sea's sphere
 	const OrbitCamera::Vec o = m_camera.position(),
-			d = m_camera.ray(x - m_corner.X, y - m_corner.Y, m_screen.X, m_screen.Y, m_shift);
+			d = m_camera.ray(x - m_corner.X, y - m_corner.Y, m_screen.X, m_screen.Y, m_shift, aimed());
 	const double b = o.x * d.x + o.y * d.y + o.z * d.z;
 	const double c = o.x * o.x + o.y * o.y + o.z * o.z - m_sea * m_sea;
 	const double disc = b * b - c;

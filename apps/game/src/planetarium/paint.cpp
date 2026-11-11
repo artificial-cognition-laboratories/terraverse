@@ -50,6 +50,20 @@ Rgb currentColour(float current, bool sea)
 		base + 180 * std::max(0.f, -a) - 30 * std::max(0.f, a) };
 }
 
+// What the ground's made of (sprint 111): sand pale gold, silt grey-brown,
+// clay rust, organic matter darkening it toward peat, stones greying it.
+// The soil blocks' own palette is these (scripts/assets/palettes.py), and
+// the page's painter too (ui/src/worldgen/fields.ts `soilColor`).
+Rgb soilColour(float sand, float silt, float clay, float organic, float stones)
+{
+	static const Rgb SAND{ 222, 200, 150 }, SILT{ 150, 132, 108 }, CLAY{ 168, 108, 82 }, PEAT{ 52, 40, 30 }, STONE{ 128, 124, 120 };
+	const float dark = std::min(1.0f, organic * 1.8f), grey = stones * 0.8f;
+	Rgb out;
+	for (int k = 0; k < 3; k++)
+		out[k] = ((SAND[k] * sand + SILT[k] * silt + CLAY[k] * clay) * (1 - dark) + PEAT[k] * dark) * (1 - grey) + STONE[k] * grey;
+	return out;
+}
+
 Rgb seasonColour(float season, float wet)
 {
 	const float amount = std::clamp(0.6f + wet * 0.5f, 0.35f, 1.f);
@@ -78,7 +92,7 @@ std::optional<Overlay> overlayNamed(const std::string &name)
 {
 	static const std::pair<const char *, Overlay> NAMES[] = {
 		{ "biomes", Overlay::Biomes }, { "elevation", Overlay::Elevation }, { "temperature", Overlay::Temperature },
-		{ "moisture", Overlay::Moisture }, { "seasons", Overlay::Seasons }, { "fertility", Overlay::Fertility },
+		{ "moisture", Overlay::Moisture }, { "seasons", Overlay::Seasons }, { "fertility", Overlay::Fertility }, { "soil", Overlay::Soil },
 		{ "currents", Overlay::Currents }, { "plates", Overlay::Plates }, { "geology", Overlay::Geology },
 	};
 	for (const auto &[n, o] : NAMES)
@@ -111,7 +125,15 @@ const Painter::Sample &Painter::sample(fix u, fix v)
 	const std::optional<fix> date = m_opts.date ? std::optional<fix>((fix)(*m_opts.date * ONE)) : std::nullopt;
 	const Grid &g = w.grid();
 	const Place at = World::place(lu, lv);
-	Sample s{ w.column(at, w.sunlight(at, date)), w.between(g.fertility, at), w.between(g.sea_heat, at), w.cell(at) };
+	Sample s{ w.column(at, w.sunlight(at, date)), w.between(g.fertility, at), w.between(g.sea_heat, at), 0, 0, 0, 0, 0, w.cell(at) };
+	if (m_opts.overlay == Overlay::Soil) {
+		const World::RegionalSoil &r = w.regionalSoil();
+		s.sand = w.between(r.sand, at);
+		s.silt = w.between(r.silt, at);
+		s.clay = w.between(r.clay, at);
+		s.organic = w.between(r.organic, at);
+		s.stones = w.between(r.stones, at);
+	}
 	return m_samples.emplace(key, s).first->second;
 }
 
@@ -156,6 +178,9 @@ video::SColor Painter::colour(video::SColor own, const far::Tiling::Vec &at)
 	// red: rain in summer (monsoon), blue: in winter (Mediterranean), grey: all year
 	case Overlay::Seasons: colour = sea ? DRY_SEA : seasonColour(real(c.season), real(c.wet)); break;
 	case Overlay::Fertility: colour = sea ? DRY_SEA : ramp(FERTILE_RAMP, real(s.fertility)); break;
+	case Overlay::Soil:
+		colour = sea ? DRY_SEA : soilColour(real(s.sand), real(s.silt), real(s.clay), real(s.organic), real(s.stones));
+		break;
 	// red where the currents warm the sea and coast, blue where they chill it
 	case Overlay::Currents: colour = currentColour(real(s.current), sea); break;
 	case Overlay::Plates: {

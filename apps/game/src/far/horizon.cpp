@@ -42,6 +42,10 @@ void write(NetworkPacket &pkt, const Horizon &h)
 		pkt << bb.top << bb.filler << bb.riverbed << bb.water_top
 			<< bb.depth_top << bb.depth_filler << bb.depth_riverbed << bb.depth_water_top;
 	pkt << b.stone << b.water << b.lava << b.placer << b.soil;
+	pkt << (u8)terragen::SoilParent::Count << (u8)terragen::SOIL_STONY;
+	for (const auto &kinds : b.soils)
+		for (content_t c : kinds)
+			pkt << c;
 	pkt << (u8)terragen::Rock::Count;
 	for (content_t c : b.rock)
 		pkt << c;
@@ -76,6 +80,11 @@ Horizon read(NetworkPacket &pkt)
 		pkt >> bb.top >> bb.filler >> bb.riverbed >> bb.water_top
 			>> bb.depth_top >> bb.depth_filler >> bb.depth_riverbed >> bb.depth_water_top;
 	pkt >> b.stone >> b.water >> b.lava >> b.placer >> b.soil;
+	expect(pkt, (u8)terragen::SoilParent::Count, "soil parents");
+	expect(pkt, (u8)terragen::SOIL_STONY, "soil stony classes");
+	for (auto &kinds : b.soils)
+		for (content_t &c : kinds)
+			pkt >> c;
 	expect(pkt, (u8)terragen::Rock::Count, "rocks");
 	for (content_t &c : b.rock)
 		pkt >> c;

@@ -15,6 +15,7 @@
 #include "planetarium/system.h"
 #include <chrono>
 #include <future>
+#include <unordered_set>
 #include <map>
 #include <set>
 #include <memory>
@@ -88,6 +89,9 @@ public:
 
 	// Whether the whole body is drawn, if coarsely (its coarse tiles built).
 	bool ready() const { return m_tiles.based(); }
+	// Its land up to the GPU before its first frame, `ms` of it a call: drawn
+	// all at once, a whole planet's meshes are a hitch. Whether it's all there.
+	bool warm(video::IVideoDriver *driver, double ms);
 	// How far it is to ready() (0..1): what a page shows while a body's made.
 	float readiness() const { return m_tiles.basedShare(); }
 	// Whether all the camera's own tiles are built (the detail it wants, not just the coarse whole).
@@ -111,9 +115,15 @@ public:
 	void fly(const Flight &flight);
 	// Over the ground the star stands above now, a little past noon (radians of longitude).
 	double litLongitude() const;
-	// To a composed view of the tiled body, as the day stands (day first), on
-	// a screen this shape. The shot's centre is the host's to frame.
-	void compose(const Shot &shot, float aspect, double seconds);
+	// To a composed view of the tiled body, as the day stands (day first). The
+	// framing's centre is the host's to aim (aim()).
+	void compose(const Framing &framing, double seconds);
+	// A shot as its framing on a screen this shape (the star's place on it
+	// as the way to the star)
+	static Framing framingOf(const Shot &shot, float aspect);
+	// The framing the camera's at now (where a flight ends, mid-flight): compose's
+	// inverse, so a move to a shot can start from where the mouse left it.
+	Framing framed() const;
 	// Whether the bodies' orbits are drawn.
 	void orbits(bool shown) { m_system.orbits(shown); }
 	bool flying() const { return m_flight.has_value(); }
@@ -121,8 +131,9 @@ public:
 	// Where the view's middle is drawn (the free part of the screen: as
 	// OrbitCamera::perspective's shift).
 	void frame(v2f shift) { m_shift = shift; }
-	// The lens (radians, vertical): OrbitCamera::FOV unless a shot asks for another.
-	void fov(float fov) { m_fov = fov; }
+	// Where the body's centre is drawn, by turning the camera (OrbitCamera::aimed):
+	// a composed shot's place for it (Shot::centre).
+	void aim(v2f at) { m_aim = at; }
 	// How bright the galaxy behind it is drawn, 0..1.
 	void skyLevel(float level) { m_system.skyLevel(level); }
 
@@ -148,6 +159,13 @@ public:
 	// The same view as another's (a body swapped in for it): its camera, its
 	// moment, the body it's round.
 	void keep(const Planetarium &was);
+	// The camera as `was` has it, the same way in space (so the sky behind
+	// stays put), round this body at as many of its radii: its own ground
+	// and time of day under it. After day(): this body's spin is the turn.
+	void align(const Planetarium &was);
+	// How high the camera is, in the body's radii.
+	double radiiUp() const { return (m_flight ? m_flight->end : m_camera).altitude() / m_sea; }
+	v2f shift() const { return m_shift; }
 	// Goes to another body of the system (its index there): the camera in
 	// orbit round it, at its scale. The tiled body's the one picked on.
 	// (The star is a body too, to fly to and go round: index star().)
@@ -205,6 +223,9 @@ private:
 	double m_spin = 0; // radians: the tiled body turned, its ground to space
 	float m_fov = OrbitCamera::FOV;
 	v2f m_shift;       // where the view's middle is drawn (frame)
+	v2f m_aim;         // where the body's centre is drawn (aim)
+	std::unordered_set<const scene::SMeshBuffer *> m_warmed; // (warm)
+	core::matrix4 aimed() const; // the turn that puts it there, on this screen
 	std::optional<Layer> m_layer;
 	// the land's colours under a layer, from that body's world model (an atlas body's)
 	// (none while its world's still being built: then it's tinted when it is)

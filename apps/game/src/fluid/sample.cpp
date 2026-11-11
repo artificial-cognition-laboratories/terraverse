@@ -85,6 +85,7 @@ Sample Layer::sample(double u, double v, double height, double hour) const
 	s.wind_u = at(m_f.u);
 	s.wind_v = at(m_f.v);
 	s.ash = at(m_f.ash);
+	s.soil = g.water ? 1 : at(m_f.soil);
 	s.events = events(s, near);
 	return s;
 }

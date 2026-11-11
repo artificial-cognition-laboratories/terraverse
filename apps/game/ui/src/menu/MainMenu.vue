@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineAsyncComponent, ref } from "vue"
+import { defineAsyncComponent, onBeforeUnmount, ref, watch } from "vue"
 import Corner from "../account/Corner.vue"
 import { useBridge } from "../bridge/use.ts"
 import PixelIcon from "../game/PixelIcon.vue"
@@ -9,8 +9,8 @@ import CreateWorld from "./create/CreateWorld.vue"
 import Home from "./Home.vue"
 import Community from "./Community.vue"
 import Settings from "./Settings.vue"
-import type { Screen } from "./screens.ts"
-import type { SystemWire, UpdateCheck } from "../bridge"
+import { SHOT, type Screen } from "./screens.ts"
+import type { PlanetariumShot, SystemWire, UpdateCheck } from "../bridge"
 import WorldSelect from "./WorldSelect.vue"
 import { useMenuMusic } from "./music.ts"
 
@@ -24,6 +24,11 @@ useMenuMusic(props.playMusic)
 const screen = ref<Screen>("home")
 const seedCode = ref<string | null>(null)
 const bridge = useBridge()
+// the picture behind the menu (src/planetarium/shot.h), the screen's own (SHOT)
+const scene = (shot: PlanetariumShot | null) => bridge.send("planetarium.scene", { shot, seconds: 2.5 })
+    .catch((error) => console.error("planetarium.scene", error))
+watch(() => SHOT[screen.value], scene, { immediate: true })
+onBeforeUnmount(() => scene(null))
 // null until the engine answers; a failed check still names the running version
 const update = ref<UpdateCheck | null>(null)
 bridge.send("update.check", {}).then(answer => { update.value = answer })

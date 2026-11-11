@@ -41,6 +41,7 @@ public:
 	void testBudgetPicksBusiest();
 	void testPitFills();
 	void testPitOverflows();
+	void testSoilHoldsWater();
 };
 
 static TestSandbox g_test_instance;
@@ -92,6 +93,7 @@ void TestSandbox::runTests(IGameDef *gamedef)
 	TEST(testBudgetPicksBusiest);
 	TEST(testPitFills);
 	TEST(testPitOverflows);
+	TEST(testSoilHoldsWater);
 }
 
 void TestSandbox::testRejects()
@@ -213,6 +215,7 @@ struct Plot
 		return open ? sandbox::Room::open() : sandbox::Room::closed();
 	}
 	double ambient = 293.15;
+	double wet = 0; // how wet the ground is (sprint 111)
 	std::unique_ptr<WorldMatter> matter;
 	std::map<std::string, int32_t> kinds;
 
@@ -254,6 +257,7 @@ struct Plot
 					fills[{ p.x, p.y, p.z }] = sandbox::Liquid{ substance, std::round(share * 255) / 255 };
 			},
 		};
+		g.wetness = [this](Pos) { return wet; };
 		matter = std::make_unique<WorldMatter>(WorldMatter::Opts{ table(), airs, g });
 		using matter::State;
 		for (auto [node, id, share, state, form] : std::vector<std::tuple<const char *, const char *, double, State, bool>>{
@@ -273,6 +277,10 @@ struct Plot
 			spec.loose = loose;
 			kinds[node] = matter->kind(spec);
 		}
+		// sprint 111: a loam, its pores holding water by how wet the ground is
+		WorldMatter::Spec loam{ "loam", "", { { "kaolinite", 0.4 }, { "silica", 0.6 } }, 0.55, State::Solid };
+		loam.holds = 0.6;
+		kinds["loam"] = matter->kind(loam);
 	}
 	// a floor of granite under y = 0, from −r to r
 	void floor(int r)
@@ -706,4 +714,45 @@ void TestSandbox::testPitOverflows()
 	UASSERT(in != m.fills.end() && in->second.share > 0.95);
 	UASSERT(beyond > 0.1); // the rest ran out over the floor
 	UASSERT(std::fabs(m.held("water", 4, -1, 0) / (0.5 * WATER_PER_M3) - 1) < 0.01);
+}
+
+// Soil holds water in its pores (sprint 111): none where the ground's dry,
+// what its texture keeps where it's wet, all it can beside standing water.
+// It's still soil, not water; heat drives the water off.
+void TestSandbox::testSoilHoldsWater()
+{
+	Plot m;
+	m.floor(2);
+	m.nodes[{ 0, 0, 0 }] = "loam";
+	const size_t water = table().index("water");
+	auto in = [&](int x) {
+		const std::optional<matter::Mixture> mix = m.matter->mixture({ x, 0, 0 });
+		return mix ? mix->in(water, matter::State::Liquid) + mix->in(water, matter::State::Solid) : 0.0;
+	};
+	UASSERT(in(0) == 0);
+	m.wet = 1;
+	const double wet = in(0);
+	// 45% pores, 0.6 of them water, of a cubic metre: 270 kg
+	UTEST(std::fabs(wet * 0.018015 - 270) < 15, "a wet loam's pores hold %.0f kg of water", wet * 0.018015);
+	m.wet = 0.5;
+	UASSERT(std::fabs(in(0) - wet / 2) < wet * 0.01);
+	m.wet = 0;
+	m.nodes[{ 1, 0, 0 }] = "water";
+	UASSERT(std::fabs(in(0) - wet) < wet * 0.01); // soaked beside the water
+	m.nodes.erase({ 1, 0, 0 });
+	m.wet = 1;
+
+	// awake and wet, it's loam; heated, it dries (boiling 270 kg away takes
+	// some 610 MJ: two megawatts for ten minutes)
+	m.matter->touch({ 0, 0, 0 }, 293.15);
+	UASSERT(m.matter->inspect({ 0, 0, 0 })->state == matter::State::Solid);
+	for (int k = 0; k < 600; k++) {
+		m.matter->warm({ 0, 0, 0 }, 2e6);
+		m.matter->step(1);
+	}
+	const double dried = in(0);
+	infostream << "sandbox: a wet loam heated: " << wet * 0.018015 << " → " << dried * 0.018015 << " kg of water, at "
+			<< m.matter->temperature({ 0, 0, 0 }) << " K" << std::endl;
+	UASSERT(dried < wet * 0.5);
+	UASSERT(m.at(0, 0, 0) == "loam");
 }

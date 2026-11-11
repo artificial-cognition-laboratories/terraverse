@@ -38,6 +38,7 @@ struct ServerMatter
 	std::vector<int32_t> points_of;   // by content id: how many kinds its param2 picks between (1: a plain block)
 	std::vector<std::pair<content_t, u8>> node_of; // by kind: the node and param2 that are it
 	std::unordered_map<int64_t, double> ambient; // by 16-block cube
+	std::unordered_map<int64_t, double> wetness; // by 16-block cube (sprint 111): the ground's, 0..1
 	bool started = false;
 	std::vector<WorldMatter::Spec> plain; // the plain blocks registered, for the bake (ModApiMatter::baked)
 };
@@ -173,6 +174,11 @@ static ServerMatter &made(lua_State *L)
 			}
 			sm->server->getEnv().getMap().setFill(v3s16(p.x, p.y, p.z), f);
 		},
+	};
+	// how wet the ground is, as the weather says (sprint 111); dry where it hasn't
+	ground.wetness = [sm](Pos p) {
+		auto it = sm->wetness.find(cube(p));
+		return it != sm->wetness.end() ? it->second : 0.0;
 	};
 	// each body's own air, from its card (sprint 96): a fire on the Moon starves
 	ground.carve = [sm](Pos p, int cells, unsigned exposed, bool melting) {
@@ -431,6 +437,20 @@ int ModApiMatter::l_register_family(lua_State *L)
 		int count = (int)lua_objlen(L, -1);
 		if (count < 1 || count > 256)
 			throw LuaError("core.matter.register_family: " + node + " has 1..256 points (its param2)");
+		// sprint 111: how much of each point's pores water fills where the
+		// ground's wettest (soil, by its texture); none: its pores are air
+		std::vector<double> holds((size_t)count, 0);
+		lua_getfield(L, 2, "holds");
+		if (!lua_isnil(L, -1)) {
+			if (!lua_istable(L, -1) || (int)lua_objlen(L, -1) != count)
+				throw LuaError("core.matter.register_family: " + node + "'s holds are one a point");
+			for (int i = 1; i <= count; i++) {
+				lua_rawgeti(L, -1, i);
+				holds[i - 1] = luaL_checknumber(L, -1);
+				lua_pop(L, 1);
+			}
+		}
+		lua_pop(L, 1);
 		int32_t first = -1;
 		for (int i = 1; i <= count; i++) {
 			lua_rawgeti(L, -1, i);
@@ -444,8 +464,10 @@ int ModApiMatter::l_register_family(lua_State *L)
 			}
 			std::sort(parts.begin(), parts.end()); // pairs() has no order: the mix is the same either way
 			lua_pop(L, 1);
-			int32_t kind = m.world->kind({ node + "#" + std::to_string(i - 1), "", parts, share,
-				state == "solid" ? matter::State::Solid : matter::State::Liquid, form && i == 1, false });
+			WorldMatter::Spec spec{ node + "#" + std::to_string(i - 1), "", parts, share,
+				state == "solid" ? matter::State::Solid : matter::State::Liquid, form && i == 1, false };
+			spec.holds = holds[i - 1];
+			int32_t kind = m.world->kind(spec);
 			if (first < 0)
 				first = kind;
 			m.node_of.push_back({ c, (u8)(i - 1) });
@@ -623,6 +645,19 @@ int ModApiMatter::l_ambient(lua_State *L)
 	return 0;
 }
 
+// core.matter.wetness(pos, w): how wet the ground is round pos (its 16-block
+// cube), 0 dry .. 1 as wet as it gets (sprint 111): the pores of soil hold
+// that share of the water their texture can. From the weather, as ambient.
+int ModApiMatter::l_wetness(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+	double w = luaL_checknumber(L, 2);
+	if (!(w >= 0 && w <= 1))
+		throw LuaError("core.matter.wetness: 0..1");
+	made(L).wetness[cube(pos(L, 1))] = w;
+	return 0;
+}
+
 int ModApiMatter::l_temperature(lua_State *L)
 {
 	NO_MAP_LOCK_REQUIRED;
@@ -768,6 +803,7 @@ void ModApiMatter::Initialize(lua_State *L, int top)
 		{ "get_fill", l_get_fill },
 		{ "step", l_step },
 		{ "ambient", l_ambient },
+		{ "wetness", l_wetness },
 		{ "temperature", l_temperature },
 		{ "capacity", l_capacity },
 		{ "density", l_density },

@@ -65,6 +65,22 @@ const int64_t HEAVY = 2;
 // (times the belt, 0..1), against which rivers wear it: mountains stand
 // where the two balance, not as the noise made them.
 const fix UPLIFT = ratio(1, 200);
+// Ranges rise under rivers already running (sprint 112): each land cell's
+// height times its belt (RISING of it) is taken off the land erosion starts
+// on and given back over the first RISE_ROUNDS rounds. Built whole, ranges
+// were walls the drainage went round, and no big river crossed one.
+const fix RISING = ONE;
+const int RISE_ROUNDS = 8;
+// A river draining at least KEEPS_PACE cells of rain (three times a river's
+// least, by default) cuts as fast as the land rises under it: its cell
+// doesn't rise with the range round it, and what stands over it is the
+// gorge's walls (the Brahmaputra through the Himalaya, the Columbia through
+// the Cascades); smaller ones are turned aside. (The grid's rounds are too
+// coarse to cut a gorge by wearing alone: in a round a river wears a quarter
+// of its fall away, the range rises a tenth of its height, and it pooled and
+// spilled aside.) Rivers in the rising belts: +20–40%, the largest 4 → 11–16
+// times a river's least.
+const int64_t KEEPS_PACE = toFix(20);
 // Hillslopes creep: each round a land cell trades this share of its height
 // difference with each land neighbour (κ ∇²h, explicit; stable below 1/6),
 // which rounds ridges and fills the cells' sharpest notches.
@@ -83,8 +99,14 @@ const fix LAKE_MIN_DEEPEST = ratio(2, 160);
 const int32_t TARN_MIN_CELLS = 6;
 const fix TARN_MIN_DEEPEST = ratio(8, 160);
 const fix LAKE_MAX_SHARE = ratio(8, 100);
-// a closed basin's salt pan: its floor up to this over its lake (or its lowest)
-const fix PAN_RISE = ratio(3, 160);
+// a closed basin's salt pan: where its water stands in the wet years, when
+// this many times its mean inflow comes in (the floor its lake spreads over
+// and dries back from; Bonneville's flats were its ice-age lake's floor)
+const int64_t PAN_WET = 3;
+// Snow on ground whose yearly mean (°C, at its height) is under MELT_FROM
+// melts less of it each summer, and none under MELT_NONE: an ice sheet's,
+// which flows away as ice, not in rivers (Greenland's, Antarctica's)
+const fix MELT_FROM = -toFix(5), MELT_NONE = -toFix(15);
 // Sinking basins (see build): this many cells in from the sea at the least,
 // in noise this many waves round, where it's over BASIN_RARITY (of an fbm's
 // typical swing, 1), sagging up to BASIN_DEPTH once BASIN_RISE over it
@@ -155,23 +177,55 @@ std::vector<fix> fill(const std::vector<fix> &h)
 }
 
 // Where each cell drains: its steepest strictly-lower neighbour on `surface`;
-// −1 for the sea and (on an unfilled surface) pits.
-std::vector<int32_t> receivers(const std::vector<fix> &surface)
+// −1 for the sea and (on an unfilled surface) pits. With a `wander` seed, one
+// of its lower neighbours drawn by a hash of the cell and the seed, with odds
+// as the square of the slope to it. Always the steepest, every cell on an even
+// slope drained the same way and the rivers ran down it side by side for a
+// continent, never meeting; drawn, each wanders a little, and two that meet
+// are one from there on, so they gather into trees as real drainage does
+// (Scheidegger 1967's random walks). (A gentle swell to turn them instead
+// barely did: where they ran side by side the land fell steeply.) The
+// erosion doesn't wander: its valleys are steepest descent's, and wandering,
+// a plateau's water found its way off by every edge and cut its top up.
+std::vector<int32_t> receivers(const std::vector<fix> &surface, uint32_t wander)
 {
 	const Sphere &sphere = gridSphere();
 	std::vector<int32_t> out(surface.size(), -1);
 	parallelFor((int32_t)surface.size(), [&](int32_t i) {
 		if (surface[i] < 0)
 			return;
-		int64_t best = 0;
+		int64_t odds[8] = {}, steepest = 0, sum = 0;
+		int32_t to[8] = {};
+		int k = 0;
 		const fix *gap = sphere.distancesBegin(i);
-		for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++, gap++) {
-			int64_t steep = (int64_t)(surface[i] - surface[*p]) * SPAN / *gap;
-			if (steep > best) {
-				best = steep;
+		for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i) && k < 8; p++, gap++) {
+			const int64_t steep = (int64_t)(surface[i] - surface[*p]) * SPAN / *gap;
+			if (steep <= 0)
+				continue;
+			if (steep > steepest) {
+				steepest = steep;
 				out[i] = *p;
 			}
+			const int64_t s = std::min<int64_t>(steep, (int64_t)1 << 24);
+			odds[k] = s * s;
+			to[k++] = *p;
+			sum += s * s;
 		}
+		if (wander == 0 || k == 0)
+			return;
+		uint32_t h = ((uint32_t)i * 0x27d4eb2du) ^ wander;
+		h ^= h >> 15;
+		h *= 0x85ebca77u;
+		h ^= h >> 13;
+		int64_t pick = (int64_t)(((unsigned __int128)h * (uint64_t)sum) >> 32);
+		for (int m = 0; m < k; m++) {
+			if (pick < odds[m]) {
+				out[i] = to[m];
+				return;
+			}
+			pick -= odds[m];
+		}
+		out[i] = to[k - 1];
 	});
 	return out;
 }
@@ -235,7 +289,7 @@ fix evaporation(fix heat)
 	Water standing over the eroded land, grouped into basins (by neighbours). A basin becomes a lake only if it is big and deep
 	enough; smaller hollows fill with sediment — the land rises to the water.
 */
-void keepRealLakes(Grid &g, const std::vector<fix> &rain)
+void keepRealLakes(Grid &g, const std::vector<fix> &rain, uint32_t wander)
 {
 	const Sphere &sphere = gridSphere();
 	size_t n = g.filled.size();
@@ -248,7 +302,7 @@ void keepRealLakes(Grid &g, const std::vector<fix> &rain)
 		wet[i] = g.filled[i] >= 0 && g.filled[i] - g.eroded[i] >= LAKE_DEPTH;
 
 	// what reaches each cell, the land filled: a basin's inflow is its spill's
-	const std::vector<int32_t> spill = receivers(g.filled);
+	const std::vector<int32_t> spill = receivers(g.filled, wander);
 	const std::vector<int64_t> drained = accumulate(spill, upstreamOrder(spill), rain);
 	std::vector<int32_t> basin;
 	for (int32_t start = 0; start < (int32_t)n; start++) {
@@ -316,14 +370,34 @@ void keepRealLakes(Grid &g, const std::vector<fix> &rain)
 				// (none at all when too little reaches it: a salt pan, dry)
 				const fix top = shore.empty() ? level : std::max(level, std::min(shore.top().first, g.filled[start]));
 				const bool held = (int32_t)lake.size() >= TARN_MIN_CELLS;
-				for (int32_t c : basin) {
+				// where its water spreads in the wet years, and dries back from:
+				// the flood carried on to PAN_WET times what comes in (never past
+				// the rim); a desert's little inflow leaves a little pan
+				// (at the least its lowest floor, where what little comes in ends)
+				std::vector<int32_t> wet_years = held ? std::vector<int32_t>{} : lake;
+				if (!held && wet_years.empty())
+					wet_years.push_back(lowest);
+				fix stood = top;
+				while (!shore.empty() && gives < inflow * PAN_WET && shore.top().first <= rim) {
+					const auto [h, c] = shore.top();
+					shore.pop();
+					wet_years.push_back(c);
+					stood = std::max(stood, h);
+					gives += mul(evaporation(g.heat[c] - mul(std::max<fix>(0, g.eroded[c]), LAPSE)), sphere.area(c));
+					for (const int32_t *p = sphere.neighboursBegin(c); p != sphere.neighboursEnd(c); p++) {
+						auto m = member.find(*p);
+						if (m != member.end() && !m->second) {
+							m->second = 1;
+							shore.push({ g.eroded[*p], *p });
+						}
+					}
+				}
+				for (int32_t c : basin)
 					g.filled[c] = g.eroded[c];
-					// the floor round it, flat and not far over it, is where its
-					// water stood and dried: a salt pan
-					g.pan[c] = g.eroded[c] <= top + PAN_RISE;
-					// (a pan's level: as high as its water stood, whose shore the salt follows)
-					if (g.pan[c])
-						g.lake_level[c] = top + PAN_RISE;
+				// (a pan's level: as high as its water stood, whose shore the salt follows)
+				for (int32_t c : wet_years) {
+					g.pan[c] = 1;
+					g.lake_level[c] = stood;
 				}
 				if (held)
 					for (int32_t c : lake) {
@@ -462,6 +536,65 @@ std::shared_ptr<const History> historyKept(const WorldCode &c)
 			(int64_t)c.processes.regime, c.processes.water }, [&] { return history(c); });
 }
 
+// Waves on the coasts (sprint 112): a wave's height grows with the fetch,
+// the open water the wind blows over to reach the shore. A coast cell looks
+// upwind FETCH steps of a cell's spacing; each step over the sea adds to
+// its waves. Swell from far storms comes from every side: SWELL of a coast's
+// waves come from how open it is (its neighbours' sea), a bay's least. A
+// wind half the sea's median or less raises small waves.
+static const int32_t FETCH = 8;
+static const fix SWELL = ratio(35, 100);
+
+static fix windAt(const Grid &g, int32_t i)
+{
+	return sqrt(mul(g.wind[0][i], g.wind[0][i]) + mul(g.wind[1][i], g.wind[1][i]) + mul(g.wind[2][i], g.wind[2][i]));
+}
+
+static std::vector<fix> surf(const WorldCode &code, const Grid &g)
+{
+	const Sphere &sphere = gridSphere();
+	const int32_t n = (int32_t)g.base.size();
+	std::vector<fix> out(n, 0);
+	if (!code.processes.water)
+		return out;
+	std::vector<fix> strong;
+	for (int32_t i = 0; i < n; i++)
+		if (g.base[i] < 0)
+			strong.push_back(windAt(g, i));
+	if (strong.empty())
+		return out;
+	std::nth_element(strong.begin(), strong.begin() + strong.size() / 2, strong.end());
+	const fix median = std::max<fix>(1, strong[strong.size() / 2]);
+	parallelFor(n, [&](int32_t i) {
+		if (g.base[i] < 0)
+			return;
+		int32_t sea = 0, around = 0;
+		for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++, around++)
+			sea += g.base[*p] < 0;
+		if (sea == 0)
+			return;
+		const fix w = windAt(g, i);
+		int32_t open = 0;
+		if (w > 0) {
+			// upwind: against the wind, a spacing a step
+			const Dir &c = sphere.centre(i);
+			const int64_t step = sphere.spacing();
+			for (int32_t k = 1; k <= FETCH; k++) {
+				const int64_t back = step * k;
+				const Dir at = normalise((int64_t)c.x - (int64_t)div(g.wind[0][i], w) * back / ONE,
+						(int64_t)c.y - (int64_t)div(g.wind[1][i], w) * back / ONE,
+						(int64_t)c.z - (int64_t)div(g.wind[2][i], w) * back / ONE);
+				if (g.base[sphere.cell(at)] < 0)
+					open++;
+			}
+		}
+		const fix strength = clamp(div(w, median) - HALF, 0, ONE);
+		const fix fetch = mul((fix)(open * ONE / FETCH), strength);
+		out[i] = mul(ONE - SWELL, fetch) + mul(SWELL, (fix)(sea * ONE / around));
+	});
+	return out;
+}
+
 // (exactly what climate() reads: the land, and the sky's settings)
 std::shared_ptr<const Climate> climateKept(const WorldCode &c, const std::vector<fix> &land)
 {
@@ -596,6 +729,7 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 				g->base[i] += mul(std::max(level[i], PLATEAU) - g->base[i], g->tectonics.plateau[i]);
 	}
 
+
 	thinCrust(code, *g);
 	shapeLid(code, *g);
 
@@ -644,6 +778,8 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 		g->rain_season[0] = cl.rain[0];
 		g->rain_season[1] = cl.rain[1];
 		g->sea_heat = cl.sea;
+		for (int k = 0; k < 3; k++)
+			g->wind[k] = cl.wind[k];
 		g->heat = cl.heat;
 		g->heat_gain = cl.gain;
 		g->ice = cl.ice;
@@ -680,6 +816,18 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 	// lost but what goes out to the deep sea (Grid::sediment, testSediment).
 	std::vector<fix> h = g->base;
 	g->sediment.assign(n, 0);
+	// (what the ranges still have to rise, a share each round)
+	std::vector<fix> to_rise(n, 0);
+	std::vector<int64_t> ran; // the last round's drainage (none before the first: all rise)
+	if (code.processes.water)
+		for (size_t i = 0; i < n; i++)
+			if (h[i] > 0) {
+				// (not a plateau's: thick crust floats high, risen long since)
+				to_rise[i] = mul(mul(h[i], mul(clamp(g->tectonics.belt[i], 0, ONE), RISING)), ONE - g->tectonics.plateau[i]);
+				h[i] -= to_rise[i];
+				// (taken off now, given back as uplift: the sediment's balance holds)
+				g->uplifted -= (int64_t)to_rise[i] * sphere.area((int32_t)i);
+			}
 	std::vector<int64_t> heavy_laid(n, 0); // heavy grains laid, as sediment × area
 	std::vector<int64_t> crumbs(n, 0); // creep's remainders below a unit of height (× area), kept for the next round
 	// (no water, no erosion: the land stays as the history left it. Seas long
@@ -704,7 +852,9 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 		for (size_t i = 0; i < n && code.processes.water; i++)
 			if (h[i] >= 0) {
 				// (a plateau stands as high as thick crust floats: it has stopped rising)
-				const fix up = mul(mul(UPLIFT, g->tectonics.belt[i]), ONE - g->tectonics.plateau[i]);
+				fix up = mul(mul(UPLIFT, g->tectonics.belt[i]), ONE - g->tectonics.plateau[i]);
+				if (round < RISE_ROUNDS && !(round > 0 && ran[i] >= KEEPS_PACE))
+					up += to_rise[i] / RISE_ROUNDS + (round == RISE_ROUNDS - 1 ? to_rise[i] % RISE_ROUNDS : 0);
 				h[i] += up;
 				g->uplifted += (int64_t)up * sphere.area((int32_t)i);
 			}
@@ -712,6 +862,7 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 		std::vector<int32_t> down = receivers(surface);
 		std::vector<int32_t> order = upstreamOrder(down);
 		std::vector<int64_t> area = accumulate(down, order, rain);
+		ran = area;
 		std::vector<fix> before = h, power(n, 0);
 		for (int32_t c : order) {
 			int32_t r = down[c];
@@ -853,21 +1004,33 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 	g->lake.resize(n);
 	g->pan.assign(n, 0);
 	g->lake_level.resize(n);
+	// what runs off as water: the rain, less the snow that never melts (an
+	// ice sheet's, which feeds no river and fills no lake; Grid::runoff)
+	std::vector<fix> melted(n);
+	for (size_t i = 0; i < n; i++) {
+		const fix celsius = celsiusOf(g->heat[i] - mul(std::max<fix>(0, g->eroded[i]), LAPSE));
+		melted[i] = mul(rain[i], clamp(div(celsius - MELT_NONE, MELT_FROM - MELT_NONE), 0, ONE));
+	}
 	if (code.processes.water)
-		keepRealLakes(*g, rain);
+		keepRealLakes(*g, melted, code.seed_hash + RIVERS_WANDER);
 	else
 		g->filled = g->eroded; // (basins stand dry)
-	g->receiver = receivers(g->filled);
+	g->receiver = receivers(g->filled, code.seed_hash + RIVERS_WANDER);
 	g->drained = accumulate(g->receiver, upstreamOrder(g->receiver), rain);
+	g->runoff = accumulate(g->receiver, upstreamOrder(g->receiver), melted);
 
 	// Rivers: where enough rain has gathered, so a wet land has many and a
 	// desert few (drained counts cells of rain, a cell of average rain one).
 	// The Rivers setting says how much makes one: from RIVER_FROM cells' rain
-	// down to RIVER_TO. (Streams are rivers for now: what's smaller is a dry
-	// valley till water can follow the fine ground.)
+	// down to RIVER_TO, as the cube of what's left of the setting, so most of
+	// its range is the dense end (the default, half way, about 6.5 cells: a
+	// network that branches to every valley; the old line put it at 14, a few
+	// big rivers and little feeding them). (Streams are rivers for now: what's
+	// smaller is a dry valley till water can follow the fine ground.)
 	static const fix RIVER_FROM = toFix(24), RIVER_TO = toFix(4);
 	if (code.processes.water) {
-		g->river_threshold = (int64_t)(RIVER_FROM + mul(RIVER_TO - RIVER_FROM, code.rivers));
+		const fix left = ONE - code.rivers;
+		g->river_threshold = (int64_t)(RIVER_TO + mul(RIVER_FROM - RIVER_TO, mul(mul(left, left), left)));
 		g->stream_threshold = g->river_threshold;
 	} else {
 		g->river_threshold = g->stream_threshold = INT64_MAX;
@@ -884,7 +1047,7 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 		for (size_t k = 0; k < g->volcanoes.size(); k++) {
 			const Volcano &v = g->volcanoes[k];
 			// the cells within its slopes and two cells more, out from its vent's
-			const int64_t within = (int64_t)v.radius * (v.kind == VolcanoKind::Patera ? ONE * 3 / 2 : ONE) + 2 * cell; // (a patera's outline wanders out)
+			const int64_t within = (v.kind == VolcanoKind::Patera ? (int64_t)v.radius * ONE * 3 / 2 : floods(v) ? lavaReach(v) * ONE : (int64_t)v.radius * ONE) + 2 * cell; // (a patera's outline wanders out; a young shield's plains run far)
 			for (int32_t c : sphere.around(sphere.cell(v.at), [&](int32_t c) {
 					return World::blocksOf(chord(sphere.centre(c), v.at), radius) <= within; }))
 				reach[c].push_back((uint16_t)k);
@@ -895,6 +1058,7 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 			g->volcano_list.insert(g->volcano_list.end(), reach[i].begin(), reach[i].end());
 		}
 	}
+	g->surf = surf(code, *g);
 	g->province = provinces(code, *g);
 	g->fertility = fertility(code, *g);
 	return g;

@@ -599,7 +599,7 @@ int ModApiTerra::l_surface(lua_State *L)
 
 // core.terra.weather(pos) → { temperature (°C), humidity (0..1), cloud (0..1),
 // precipitation (mm/h), snow, wind = { x, z } (m/s, east and north),
-// pressure (hPa), ash (0..1), events = { name, … }, atmosphere }: the
+// pressure (hPa), ash (0..1), soil (how wet the ground is, 0..1), events = { name, … }, atmosphere }: the
 // weather now at a point. The world's atmosphere moves on its own
 // (src/fluid); this reads it. `atmosphere` false: the point is on a body
 // whose air isn't simulated (still, dry, its climate's temperature).
@@ -640,6 +640,7 @@ int ModApiTerra::l_weather(lua_State *L)
 	lua_setfield(L, -2, "wind");
 	setNumber(L, "pressure", s.pressure / 100);
 	setNumber(L, "ash", s.ash);
+	setNumber(L, "soil", s.soil);
 	lua_newtable(L);
 	int n = 1;
 	for (int e = 0; e < (int)fluid::Event::Count; e++)
@@ -667,6 +668,32 @@ int ModApiTerra::l_soil_points(lua_State *L)
 		setNumber(L, "organic", toDouble(s.organic));
 		lua_rawseti(L, -2, i + 1);
 	}
+	return 1;
+}
+
+// core.terra.soil_kinds() → { parents = { "granitic", … }, stony = { { name =
+// "" | "stony" | …, stones = share }, … } } (sprint 111): the soil blocks the
+// generator places, one per parent and stony class; the game registers each
+// as "tf_world:soil_<parent>[_<stony>]" with a mapgen alias of that name.
+int ModApiTerra::l_soil_kinds(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+	lua_createtable(L, 0, 2);
+	lua_createtable(L, (int)SoilParent::Count, 0);
+	for (int p = 0; p < (int)SoilParent::Count; p++) {
+		lua_pushstring(L, SOIL_PARENT_NAMES[p]);
+		lua_rawseti(L, -2, p + 1);
+	}
+	lua_setfield(L, -2, "parents");
+	lua_createtable(L, SOIL_STONY, 0);
+	for (int k = 0; k < SOIL_STONY; k++) {
+		lua_createtable(L, 0, 2);
+		lua_pushstring(L, SOIL_STONY_NAMES[k]);
+		lua_setfield(L, -2, "name");
+		setNumber(L, "stones", toDouble(soilStonesOf(k)));
+		lua_rawseti(L, -2, k + 1);
+	}
+	lua_setfield(L, -2, "stony");
 	return 1;
 }
 
@@ -753,6 +780,7 @@ void ModApiTerra::Initialize(lua_State *L, int top)
 		{ "surface", l_surface },
 		{ "weather", l_weather },
 		{ "soil_points", l_soil_points },
+		{ "soil_kinds", l_soil_kinds },
 		{ "place", l_place },
 		{ "seam", l_seam },
 		{ "land", l_land },

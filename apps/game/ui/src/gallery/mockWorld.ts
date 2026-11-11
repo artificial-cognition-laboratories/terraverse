@@ -27,7 +27,7 @@ export function mockPreview(config: WorldConfig, date: number | null, resolution
     const decl = declination(config.tilt, date ?? 0)
     const n = resolution * resolution
     const elevation = new Int16Array(n), heats = new Int8Array(n), wets = new Int8Array(n), biomes = new Uint8Array(n)
-    const seasons = new Int8Array(n), fertility = new Uint8Array(n)
+    const seasons = new Int8Array(n), fertility = new Uint8Array(n), soil = new Uint8Array(4 * n)
     const q = (v: number, s: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.trunc(v * s)))
 
     for (let y = 0; y < resolution; y++) {
@@ -57,6 +57,14 @@ export function mockPreview(config: WorldConfig, date: number | null, resolution
             const lat = Math.abs(latitude) * 180 / Math.PI
             seasons[i] = q(lat > 10 && lat < 25 ? 0.7 : lat > 30 && lat < 45 ? -0.5 : 0, 100, -127, 127)
             fertility[i] = e < 0 ? 0 : Math.round(Math.max(0, Math.min(1, 0.5 + torusFbm(u, v, seed + 51, 4, 3, 0.5))) * 255)
+            // the stand-in's soil: sandy to clayey across the land, a little stonier high up
+            if (e >= 0) {
+                const sand = Math.max(0, Math.min(0.8, 0.4 + torusFbm(u, v, seed + 57, 4, 3, 0.5)))
+                soil[i * 4] = Math.round(sand * 255)
+                soil[i * 4 + 1] = Math.round((0.8 - sand) * 0.5 * 255)
+                soil[i * 4 + 2] = 8
+                soil[i * 4 + 3] = Math.round(Math.min(1, Math.max(0, e)) * 200)
+            }
             biomes[i] = BIOMES.indexOf(polar ? (e < 0 ? "seaice" : "snow") : classify(e, heat, wet))
         }
     }
@@ -67,6 +75,7 @@ export function mockPreview(config: WorldConfig, date: number | null, resolution
         wet: b64(new Uint8Array(wets.buffer)),
         season: b64(new Uint8Array(seasons.buffer)),
         fertility: b64(fertility),
+        soil: b64(soil),
         current: b64(new Uint8Array(n)), // the stand-in has no ocean currents
         biome: b64(biomes),
         biomes: [...BIOMES],

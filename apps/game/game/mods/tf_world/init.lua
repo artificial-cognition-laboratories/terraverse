@@ -117,12 +117,21 @@ core.register_on_joinplayer(function(player)
 end)
 
 -- Placeholder crafts so the inventory's crafting grid has something to make.
+-- the rock, as the world's beds are: the sedimentary rocks' grain, sand-coloured
+-- (the Good Vibes sandstone is dressed masonry, so it's the bricks below)
 core.register_node("tf_world:sandstone", {
 	description = "Sandstone",
+	tiles = { "tf_goodvibes_limestone.png^[multiply:#f4d6a4" },
+	groups = { cracky = 3 },
+	_matter = { matter = "sandstone", share = 0.85 },
+})
+
+core.register_node("tf_world:sandstone_bricks", {
+	description = "Sandstone Bricks",
 	tiles = { "tf_goodvibes_sandstone_top.png", "tf_goodvibes_sandstone_bottom.png",
 		"tf_goodvibes_sandstone.png" },
 	groups = { cracky = 3 },
-	_matter = { matter = "sandstone", share = 0.85 },
+	_matter = { matter = "sandstone", share = 0.95 },
 })
 
 core.register_node("tf_world:stone_bricks", {
@@ -135,6 +144,11 @@ core.register_node("tf_world:stone_bricks", {
 core.register_craft({
 	output = "tf_world:sandstone",
 	recipe = { { "tf_world:sand", "tf_world:sand" }, { "tf_world:sand", "tf_world:sand" } },
+})
+
+core.register_craft({
+	output = "tf_world:sandstone_bricks 4",
+	recipe = { { "tf_world:sandstone", "tf_world:sandstone" }, { "tf_world:sandstone", "tf_world:sandstone" } },
 })
 
 core.register_craft({

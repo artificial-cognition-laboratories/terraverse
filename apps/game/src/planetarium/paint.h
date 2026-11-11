@@ -23,7 +23,7 @@
 namespace planetarium {
 
 // The overlays, as the page names them (OVERLAYS, less terrain and the weather).
-enum class Overlay : uint8_t { Biomes, Elevation, Temperature, Moisture, Seasons, Fertility, Currents, Plates, Geology };
+enum class Overlay : uint8_t { Biomes, Elevation, Temperature, Moisture, Seasons, Fertility, Soil, Currents, Plates, Geology };
 // By the page's name; none for a name that isn't one.
 std::optional<Overlay> overlayNamed(const std::string &name);
 
@@ -61,6 +61,7 @@ private:
 	{
 		terragen::Column column;
 		terragen::fix fertility, current;
+		terragen::fix sand, silt, clay, organic, stones; // the regional soil (World::regionalSoil), on land
 		int32_t cell;
 	};
 	const Sample &sample(terragen::fix u, terragen::fix v);

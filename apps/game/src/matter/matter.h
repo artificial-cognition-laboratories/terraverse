@@ -86,6 +86,23 @@ struct Substance
 		double heat; // kJ/mol given off going in (taken: negative), its heat of solution
 	};
 	std::optional<Dissolves> dissolves;
+	// How it weathers at the surface (sprint 111): `rate` against the others
+	// (Goldich's order: what crystallised hottest goes first, quartz never),
+	// leaving `into` (clay from feldspar, rust from pyrite), or nothing (it
+	// all goes into the water). `keep`: kg left a kg weathered, from the
+	// moles left a mole (`per`) and the molar masses, never given by hand;
+	// the rest is carried off dissolved.
+	struct Weathers
+	{
+		double rate;
+		std::optional<size_t> into;
+		double keep;
+	};
+	std::optional<Weathers> weathers; // none: it lasts (quartz, clay, gold)
+	// mm: the largest its crystals grow, if that's small (clay minerals:
+	// under 2 µm, whatever rock they're in); a rock falling apart frees
+	// them at this size
+	std::optional<double> grain;
 
 	State state(double t, double p) const;
 	double vapourPressure(double t) const;   // liquid–gas, triple..critical
@@ -151,6 +168,8 @@ struct RockKind
 	};
 	std::string id, name, origin; // origin: igneous, metamorphic, sedimentary, sediment, impact
 	std::vector<Part> minerals;
+	double grain;    // mm: its crystals' (or clasts') size, what weathering frees it into
+	double crumbles; // how fast it falls apart, against granite (shale 4: barely holds; obsidian 0.5)
 };
 
 /*
@@ -171,6 +190,7 @@ public:
 	size_t index(const std::string &substance_id) const; // throws MatterError
 	const Substance &substance(const std::string &id) const; // throws MatterError
 	const Element &element(const std::string &symbol) const; // throws MatterError
+	const RockKind &rock(const std::string &id) const; // throws MatterError
 
 	// The raw JSON of each, for whoever shows them (colours, structures, notes).
 	const Json::Value &raw() const { return m_raw; }

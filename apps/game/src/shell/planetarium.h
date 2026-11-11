@@ -83,6 +83,9 @@ public:
 
 	// The mouse where the page doesn't take it, while shown. Whether it was ours.
 	bool handle(const SEvent &event);
+	// Where the mouse is, anywhere on the window (pixels), a frame: the
+	// menu's picture leans after it (the page takes the events themselves).
+	void pointer(v2s32 at);
 	// A frame, while shown: the planet over the whole screen, the scene
 	// already begun; a click taken since is sent to the page.
 	void draw(video::IVideoDriver *driver);
@@ -116,6 +119,7 @@ private:
 	std::unique_ptr<planetarium::Planetarium> m_current; // on screen
 	std::unique_ptr<planetarium::Planetarium> m_next;    // being made ready to take its place
 	std::unique_ptr<planetarium::Planetarium> m_parked;  // hidden, kept to show again
+	std::unique_ptr<planetarium::Planetarium> m_retiring; // replaced, kept till its successor's drawn once
 	bool m_looked = false; // the parked one has been on screen: its camera's the player's now
 	std::optional<std::pair<double, double>> m_over; // where the parked camera's over (idle)
 	v2u32 m_screen{ 1280, 720 }; // the window, as last drawn (a parked body builds for it)
@@ -152,22 +156,42 @@ private:
 	Json::Value m_told;
 	double m_toldAt = 0;
 	void tellMaking();
-	// the page's composed view (planetarium.scene), and how far the frame's
-	// eased toward it (0..1)
+	// The page's composed view (planetarium.scene): which shot, if any, eased
+	// to from the framing it was at, a framing at a time (so any shot to any
+	// other is one smooth move); none: the camera's the page's and the mouse's.
+	enum class Shot { Home, Play };
 	struct Scene
 	{
-		bool shown = false;
-		double blend = 0, seconds = 1;
-		float aspect = 0; // the screen it was composed for
+		std::optional<Shot> shot;
+		std::optional<planetarium::Framing> from, now; // eased from; as last composed
+		double t = 0, seconds = 1;
+		double home = 0; // how far it's at the home shot, 0..1: the lean's share
 	};
+	// Play's camera taken by the mouse (dragged, wheeled): the view's own orbit
+	// controls from where the shot left it, no longer composed. The next shot
+	// eases from wherever it was left (Planetarium::framed).
+	bool m_held = false;
+	v2f m_heldCentre; // the shot's own centre when it was taken (mid-move: not yet the room's middle)
+	v2f room() const; // the middle of what the page leaves, from the window's (its half widths and heights)
 	Scene m_scene;
+	planetarium::Framing framingFor(Shot shot) const; // as it'd be now, on this screen
+	// The composed picture alive: the camera orbits a little after the mouse,
+	// eased (the planet still on screen, the sky passing behind, so the stars
+	// catch); with no mouse it wanders on its own; the planet turns.
+	struct Lean
+	{
+		v2f want{ 0, 0 }, now{ 0, 0 }; // −1..1 of the window, +y up
+		double since = 0;              // seconds, for the wander
+	};
+	Lean m_lean;
+	planetarium::Shot leaned() const; // HOME_SHOT, as the lean has it now (its share of it)
 	bool m_orbits = true; // the page's (planetarium.orbits)
 	Json::Value scene(const Json::Value &intent);
 public:
 	// The picture already there: no easing in (a menu opening on it).
 	void opening();
 private:
-	void compose(planetarium::Planetarium &p, double seconds);
+	void compose(planetarium::Planetarium &p); // to the scene's framing now
 	void apply(planetarium::Planetarium &p) const; // the clock and the page's view, onto a body
 	// what the page was last told is under the mouse; what's there now, told if it's changed
 	std::optional<planetarium::Planetarium::Hover> m_hovered;

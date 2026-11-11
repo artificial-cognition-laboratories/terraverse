@@ -286,6 +286,9 @@ Tectonics tectonics(const WorldCode &c, const History &h)
 	return t;
 }
 
+// the share (%) of arc volcanoes whose tops fell in (Crater Lake's, Santorini's)
+static const int32_t CALDERAS = 25;
+
 std::vector<Volcano> volcanoes(const WorldCode &c, const Grid &g)
 {
 	const Sphere &sphere = gridSphere();
@@ -311,20 +314,25 @@ std::vector<Volcano> volcanoes(const WorldCode &c, const Grid &g)
 		// the body's scale, and never wider than a few cells
 		int32_t metres, wide;
 		switch (kind) {
-		case VolcanoKind::Arc: // steep cones
-			metres = 1500 + (int32_t)(b % 2000);
+		case VolcanoKind::Arc: // andesite: sticky lava, steep stratocones that blow their tops
+			v.age = (uint8_t)((a >> 20) % VOLCANO_AGES);
+			metres = (1500 + (int32_t)(b % 2000)) * (8 - v.age) / 8;
 			wide = 4;
-			v.active = (a >> 12) % 100 < 40;
+			v.active = v.age == 0 && (a >> 12) % 100 < 60;
+			v.caldera = (a >> 4) % 100 < CALDERAS;
 			break;
-		case VolcanoKind::Rift: // low fissure cones
-			metres = 500 + (int32_t)(b % 800);
-			wide = 6;
-			v.active = (a >> 12) % 100 < 30;
+		case VolcanoKind::Rift: // basalt: low fissure cones and shields
+			v.age = (uint8_t)((a >> 20) % VOLCANO_AGES);
+			metres = (500 + (int32_t)(b % 800)) * (8 - v.age) / 8;
+			wide = 10;
+			v.active = v.age == 0 && (a >> 12) % 100 < 50;
 			break;
-		case VolcanoKind::Hotspot: // broad shields, older ones worn down
+		case VolcanoKind::Hotspot: // basalt: runny lava, broad shields; older ones worn down
+			v.age = (uint8_t)std::min(age, VOLCANO_AGES - 1);
 			metres = (2000 + (int32_t)(b % 4000)) * (5 - age) / 5;
-			wide = 12;
+			wide = 16;
 			v.active = age == 0;
+			v.caldera = age == 0; // a pit crater over its emptying chamber (Kīlauea's)
 			break;
 		default: throw std::logic_error("terragen::volcanoes: a lid's kind on plates");
 		}
@@ -333,8 +341,9 @@ std::vector<Volcano> volcanoes(const WorldCode &c, const Grid &g)
 		v.radius = std::max(v.radius, std::min(v.height * 2, cell * 3)); // (no steeper than a cone half as wide as high)
 		// (a cone's slopes are worked in fixed blocks: World::volcanic)
 		v.radius = std::min(v.radius, 16000);
-		v.crater = std::max(5, v.radius / 7);
-		v.depth = v.crater * 3 / 4;
+		v.crater = std::max(5, v.radius / (v.caldera && kind == VolcanoKind::Arc ? 3 : 7));
+		// (a caldera's floor is deep where it's fresh; age fills every crater)
+		v.depth = (v.caldera ? v.crater / 4 : v.crater * 3 / 4) * (VOLCANO_AGES - v.age) / VOLCANO_AGES;
 		fix e = g.eroded[sphere.cell(v.at)];
 		v.base = floorInt(mul(e, heightScale(c)));
 		out.push_back(v);
@@ -447,7 +456,7 @@ std::vector<Province> provinces(const WorldCode &c, const Grid &g)
 	// lava fields around every volcano
 	const int64_t radius = World::radiusOf(c);
 	for (const Volcano &v : g.volcanoes) {
-		const int64_t reach = (int64_t)v.radius * 3 / 2 * ONE;
+		const int64_t reach = lavaReach(v) * ONE;
 		for (int32_t cell : sphere.around(sphere.cell(v.at), [&](int32_t k) {
 				return World::blocksOf(chord(sphere.centre(k), v.at), radius) <= reach; }))
 			out[cell] = Province::Volcanic;
@@ -483,7 +492,14 @@ Strata World::strata(const Place &at, const Ground &ground) const
 	int32_t i = cell(at);
 	Strata s;
 	s.at = at;
-	s.province = g.province[i];
+	// a province's edge wanders: read it a little off this place (up to
+	// half a cell), so it isn't the grid's straight cell edges (sprint 111)
+	{
+		std::array<int64_t, 3> w;
+		for (int k = 0; k < 3; k++)
+			w[k] = (int64_t)fbm(at, m_code.seed_hash + PROVINCE_EDGES + (uint32_t)k, 160, 3, HALF) * gridSphere().spacing() >> (2 * FRAC - PLACE_FRAC + 1);
+		s.province = g.province[cell(placeOf((int64_t)at.x + w[0], (int64_t)at.y + w[1], (int64_t)at.z + w[2]))];
+	}
 	int32_t size = m_code.size;
 	fix lumpy = noise(at, m_code.seed_hash + SEDIMENT, size / 300); // −1..1
 	fix e = ground.column.elevation;
@@ -509,7 +525,12 @@ Strata World::strata(const Place &at, const Ground &ground) const
 		s.sediment = 0; // lava on lava
 	// beds rise and fall across the land: the folds, broad and gentle away from mountains
 	s.tilt = floorInt(mul(toFix(s.fold), noise(at, m_code.seed_hash + FOLD, std::max(8, size / 400))));
-	s.phase = (int32_t)((m_code.seed_hash >> 4) % 36) + floorInt(mul(toFix(10), noise(at, m_code.seed_hash + PHASE, 6)));
+	// the beds lie level: the ground's height says which one it cuts into
+	// (valleys into older beds, hills keep younger ones; sprint 111: before,
+	// one bed for the whole world's surface), and each basin sank and filled
+	// by its own amount, so regions stand at their own depth in the stack
+	s.phase = (int32_t)((m_code.seed_hash >> 4) % 36) + floorInt(mul(toFix(10), noise(at, m_code.seed_hash + PHASE, 6)))
+			+ floorInt(mul(toFix(36), noise(at, m_code.seed_hash + PHASE + 1, 40))) - ground.terrain;
 	s.pluton = (s.province == Province::Orogen || s.province == Province::Arc || s.province == Province::Shield) &&
 			noise(at, m_code.seed_hash + PLUTON, std::max(8, size / 700)) > ratio(35, 100);
 	// Fold ridges are their rock: thick folded sediment, hard sandstone cropping
@@ -524,6 +545,15 @@ Strata World::strata(const Place &at, const Ground &ground) const
 	}
 	s.humid = ground.column.wet > ratio(15, 100);
 	s.arid = ground.column.wet < -ratio(20, 100);
+	const fix dry = clamp(div(-ground.column.wet - ratio(5, 100), ratio(30, 100)), 0, ONE);
+	const fix lime = s.province == Province::OceanFloor ? ONE : clamp(div(ground.column.wet, ratio(30, 100)), 0, ONE);
+	s.sands = 8 + roundInt(6 * dry) - roundInt(2 * lime);
+	s.limes = 26 - roundInt(6 * lime);
+	// a limestone platform (World::karst): most of its beds are lime
+	if (karst(at, ground.column.wet) > HALF) {
+		s.sands = 2;
+		s.limes = 8;
+	}
 	s.placer = between(g.placer, at);
 	s.lava_province = s.province == Province::Volcanic || s.province == Province::Rift || s.province == Province::Arc;
 
@@ -568,12 +598,11 @@ Rock World::rock(const Strata &s, int32_t depth, int32_t y) const
 		d += floorInt(mul(toFix(6), value3(p[0], p[1], p[2], m_code.seed_hash + FOLD, 24)));
 	}
 	if (d < s.sediment) {
+		// mud is most of what settles (on Earth about 60% of sedimentary
+		// rock is shale and mudstone, a quarter sandstone, the rest lime;
+		// sprint 111, when soils began to weather from it)
 		int32_t b = bed(d, s.phase);
-		if (s.arid) // deserts lay down sand
-			return b < 18 ? Rock::Sandstone : b < 26 ? Rock::Shale : Rock::Limestone;
-		if (s.humid || s.province == Province::OceanFloor) // warm shallow seas lay down lime
-			return b < 8 ? Rock::Sandstone : b < 18 ? Rock::Shale : Rock::Limestone;
-		return b < 12 ? Rock::Sandstone : b < 22 ? Rock::Shale : Rock::Limestone;
+		return b < s.sands ? Rock::Sandstone : b < s.limes ? Rock::Shale : Rock::Limestone;
 	}
 	int32_t under = d - s.sediment;
 	if (s.province == Province::Highland || s.province == Province::Mare) {

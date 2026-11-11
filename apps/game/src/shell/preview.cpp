@@ -42,6 +42,7 @@ Json::Value previewJson(const Json::Value &intent, const std::optional<terragen:
 	out["wet"] = bytes(p.wet.data(), p.wet.size());
 	out["season"] = bytes(p.season.data(), p.season.size());
 	out["fertility"] = bytes(p.fertility.data(), p.fertility.size());
+	out["soil"] = bytes(p.soil.data(), p.soil.size());
 	out["current"] = bytes(p.current.data(), p.current.size());
 	out["biome"] = bytes(p.biome.data(), p.biome.size());
 	out["lake"] = bytes(p.lake.data(), p.lake.size());

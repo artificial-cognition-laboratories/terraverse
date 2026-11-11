@@ -1434,6 +1434,9 @@
      "O"
     ]
    },
+   "weathers": {
+    "rate": 1
+   },
    "note": "Limestone and chalk, laid down in seas. Burned in a kiln it gives quicklime and CO₂ (well before it could melt).",
    "kind": "compound",
    "colour": "#f2efe6"
@@ -1678,6 +1681,9 @@
      ]
     ]
    },
+   "weathers": {
+    "rate": 1
+   },
    "note": "Green mineral of the mantle and of basalt. The first to crystallise from cooling magma.",
    "approximate": true,
    "kind": "compound",
@@ -1771,6 +1777,9 @@
      ]
     ]
    },
+   "weathers": {
+    "rate": 0.6
+   },
    "note": "Dark chains of silica: much of basalt and the mantle.",
    "approximate": true,
    "kind": "compound",
@@ -1815,6 +1824,11 @@
      "K",
      "Si"
     ]
+   },
+   "weathers": {
+    "rate": 0.15,
+    "into": "kaolinite",
+    "per": 0.5
    },
    "note": "The commonest mineral of the crust: the pink and white grains of granite. Weathers into clay.",
    "approximate": true,
@@ -1861,6 +1875,11 @@
      "Si"
     ]
    },
+   "weathers": {
+    "rate": 0.4,
+    "into": "kaolinite",
+    "per": 0.5
+   },
    "note": "Sodium feldspar: the pale crystals in basalt and andesite.",
    "approximate": true,
    "kind": "compound",
@@ -1906,6 +1925,11 @@
      "Al"
     ]
    },
+   "weathers": {
+    "rate": 0.08,
+    "into": "kaolinite",
+    "per": 1.5
+   },
    "note": "Splits into thin glittering sheets. (It breaks down before it could melt.)",
    "approximate": true,
    "kind": "compound",
@@ -1950,6 +1974,7 @@
      "Al"
     ]
    },
+   "grain": 0.001,
    "note": "Clay: weathered feldspar. Wet, it shapes; fired in a kiln, it gives up its water and becomes pottery.",
    "approximate": true,
    "kind": "compound",
@@ -2035,6 +2060,11 @@
      "Fe",
      "O"
     ]
+   },
+   "weathers": {
+    "rate": 0.02,
+    "into": "hematite",
+    "per": 1.5
    },
    "note": "Black iron ore, and a natural magnet: lodestone. Smelts like hematite.",
    "approximate": true,
@@ -2125,6 +2155,9 @@
      "Ca",
      "P"
     ]
+   },
+   "weathers": {
+    "rate": 0.3
    },
    "note": "Phosphate crystals. On the Moon it carries KREEP's thorium and rare earths, the last of the magma ocean to freeze.",
    "approximate": true,
@@ -2341,6 +2374,11 @@
      "Fe",
      "S"
     ]
+   },
+   "weathers": {
+    "rate": 1,
+    "into": "hematite",
+    "per": 0.5
    },
    "note": "Fool's gold. Roasted it gives sulfur dioxide; it sparks against steel. (It breaks down long before it could melt.)",
    "approximate": true,

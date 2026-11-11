@@ -42,7 +42,9 @@ public:
 	double conductivity(const matter::Mixture &b) const;    // W/(m·K), its parts side by side
 	struct Main
 	{
-		int32_t substance;    // filling most of it (−1: only gas)
+		// filling most of it (−1: only gas): of the state that takes more of
+		// it, solid or liquid (wet sand is sand, its pores' water held; sprint 111)
+		int32_t substance;
 		matter::State state;
 		double fill;          // share of the volume that's solid or liquid
 	};

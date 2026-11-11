@@ -31,7 +31,12 @@ struct Blocks
 {
 	BiomeBlocks biomes[(int)terragen::Biome::Count];
 	content_t stone, water, lava, placer;
-	content_t soil; // soil as a composition: its param2 is the column's soil point
+	// the column's soil, where a biome's filler or riverbed names it (what
+	// "mapgen_soil" is): the generator puts the kind it is in its place
+	content_t soil;
+	// the kinds (sprint 111): by what the grains came from and how stony;
+	// each one's param2 is its fine earth (terragen::soilIndex)
+	content_t soils[(int)terragen::SoilParent::Count][terragen::SOIL_STONY];
 	content_t rock[(int)terragen::Rock::Count];
 	content_t ore[(int)terragen::Ore::Count]; // [None] is CONTENT_IGNORE
 };
@@ -48,7 +53,8 @@ struct Column
 	bool water_above; // under a sea, lake or river (not lava)
 	std::optional<terragen::Strata> strata; // not space
 	s32 soil;       // soil depth: rock begins this far under the surface
-	u8 soil_point;  // what the soil is made of here (terragen::soilPoint), for Blocks::soil's param2
+	terragen::Soil made_of; // what the column's soil is made of (terragen::World::soil)
+	s32 soil_top;   // the y of its first block: layers count down from it
 
 	// the soil the surface is painted with: `top` down to (not including)
 	// top_end, the filler down to filler_end
@@ -86,6 +92,9 @@ public:
 	MapNode node(const Column &c, s32 y) const;
 
 private:
+	// a block of the column's soil, `below` blocks under its first
+	MapNode soilNode(const Column &c, s32 below) const;
+
 	Column nothing() const; // a column of no world: air, for storage that isn't a place
 
 	const terragen::World &m_world;

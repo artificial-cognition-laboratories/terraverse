@@ -137,6 +137,7 @@ struct Sample
 	double wind_u, wind_v; // m/s, east and north
 	double pressure;      // Pa at the given height
 	double ash;           // 0..1
+	double soil;          // how wet the ground is, 0..1 (its bucket: rain in, evaporation out; 1 at sea)
 	uint32_t events;      // bit (1 << Event)
 };
 

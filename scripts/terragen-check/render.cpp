@@ -2,7 +2,7 @@
 // shaded relief, lakes, rivers by flow — and prints how long the grid took and
 // what share is land. For tuning generation by eye:
 //   scripts/terragen-tool.sh render scripts/terragen-check/render.cpp
-//   ./render TF21.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents|sediment]
+//   ./render TF22.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents|sediment|soil]
 #include "terragen/world.h"
 #include "terragen/worlds.h"
 #include "terragen/sphere.h"
@@ -190,6 +190,19 @@ int main(int argc, char **argv)
 			} else if (mode == "fertility") {
 				double f = g->fertility[i] / 65536.0;
 				if (e >= 0) { r = (90 + 80 * (1 - f)) * shade; gg = (70 + 120 * f) * shade; b = 50 * shade; }
+			} else if (mode == "soil" && e >= 0) {
+				// what the ground is made of, as the globe shows it (planetarium/paint.cpp):
+				// each cell's regional soil
+				const World::RegionalSoil &rs = world.regionalSoil();
+				const double sa = world.between(rs.sand, at) / 65536.0, si = world.between(rs.silt, at) / 65536.0,
+						cl = world.between(rs.clay, at) / 65536.0, st = world.between(rs.stones, at) / 65536.0,
+						dark = std::min(1.0, world.between(rs.organic, at) / 65536.0 * 1.8);
+				const double SAND[3] = { 222, 200, 150 }, SILT[3] = { 150, 132, 108 }, CLAY[3] = { 168, 108, 82 }, PEAT[3] = { 52, 40, 30 },
+						STONE[3] = { 128, 124, 120 };
+				double c[3];
+				for (int k = 0; k < 3; k++)
+					c[k] = ((SAND[k] * sa + SILT[k] * si + CLAY[k] * cl) * (1 - dark) + PEAT[k] * dark) * (1 - st * 0.8) + STONE[k] * st * 0.8;
+				r = c[0]; gg = c[1]; b = c[2];
 			}
 			if (mode != "relief") {
 			} else if (g->lake[i]) { r = 60; gg = 150; b = 210; }

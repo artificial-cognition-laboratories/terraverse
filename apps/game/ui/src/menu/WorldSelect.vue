@@ -76,8 +76,8 @@ const current = computed(() => entries.value.find((entry) => entry.id === select
 const local = computed(() => current.value?.kind === "local" ? current.value.world : null)
 const friend = computed(() => current.value?.kind === "friend" ? current.value : null)
 
-// the world selected is the universe behind: its system, the camera flown to
-// its lit side, framed in what the panel leaves (src/shell/planetarium.h)
+// the world selected is the universe behind: its system, framed by the Play
+// shot (menu/screens.ts) in what the panel leaves (src/shell/planetarium.h)
 const covers = ref({ left: 0, right: 0 })
 const code = computed(() => local.value?.code ?? null)
 const planet = usePlanetarium({
@@ -86,9 +86,6 @@ const planet = usePlanetarium({
     active: computed(() => code.value !== null),
     body: computed(() => ({ code: code.value ?? "" })),
     frame: covers,
-})
-watch(code, (now) => {
-    if (now) planet.fly({ radii: 1.5, lit: true, seconds: 2 })
 })
 const installedMods = computed(() => catalog.value?.mods.filter((mod) =>
     mod.source === "installed" && local.value && mod.enabledWorlds.includes(local.value.path)) ?? null)

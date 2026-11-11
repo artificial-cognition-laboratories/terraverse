@@ -86,6 +86,10 @@ public:
 		// 4096 sixteenths, its open faces a bit each (shape::melted). Unset: it
 		// keeps its water in till it's all melted.
 		std::function<void(Pos, int, unsigned, bool)> carve;
+		// how wet the ground is at a position, 0 (dry) .. 1 (as wet as it
+		// gets), from the weather (sprint 111): a porous block's pores hold
+		// that share of what they can. Unset: dry
+		std::function<double(Pos)> wetness;
 	};
 	// The air of a world's body: its pressure at the ground and its gases.
 	struct Air
@@ -123,6 +127,10 @@ public:
 		// a powder: what fills it piles at its angle of repose and pours (a
 		// heap of salt), where a block of it stands as built
 		bool loose = false;
+		// sprint 111: how much of its pores (the 1 − share not its matter)
+		// water fills where the ground's as wet as it gets: soil, by its
+		// texture (clay holds most, sand least). 0: its pores are air.
+		double holds = 0;
 	};
 	int32_t kind(const Spec &spec); // returns its id
 	// A kind's mass per cubic metre (a block's) at room temperature: what
@@ -191,6 +199,7 @@ private:
 		matter::State state;
 		double fill;
 		double k, capacity; // asleep at the weather's temperature: W/(m·K), J/K
+		double pores = 0;   // share of its volume water fills where the ground's wettest (sprint 111)
 	};
 	struct Cell
 	{
@@ -270,6 +279,7 @@ private:
 	double unlike(const matter::Mixture &b, const Sky &sky) const; // how far its gas is from the room's air (the largest excess share)
 
 	const matter::Matter &m_matter;
+	int32_t m_water = -1; // the substance pores hold (sprint 111), −1 in tables without it
 	Ground m_ground;
 	std::vector<Sky> m_skies;
 	std::vector<Kind> m_kinds;

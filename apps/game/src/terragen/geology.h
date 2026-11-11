@@ -61,7 +61,23 @@ struct Volcano
 	int32_t base;          // the land's height at its vent (blocks): its lava lake is level from here
 	bool active;           // lava in the crater
 	VolcanoKind kind;
+	// (sprint 112) how long it's been worn since it last grew, 0 (erupting
+	// now) to VOLCANO_AGES − 1: lower, its crater filled, its flanks cut by
+	// radial ravines; and whether its top fell in (a caldera: a wide, flat,
+	// steep-walled hollow where the magma chamber emptied)
+	uint8_t age = 0;
+	bool caldera = false;
 };
+constexpr int VOLCANO_AGES = 4;
+// A young basalt volcano's (a hotspot's or a rift's, age 0 or 1) lava runs
+// far past its slopes: its plains reach PLAINS_REACH of its radius
+// (sprint 112); everything else's lava field, half again its radius.
+inline bool floods(const Volcano &v)
+{
+	return (v.kind == VolcanoKind::Hotspot || v.kind == VolcanoKind::Rift) && v.age <= 1;
+}
+constexpr int32_t PLAINS_REACH = 3;
+inline int64_t lavaReach(const Volcano &v) { return (int64_t)v.radius * (floods(v) ? 2 * PLAINS_REACH : 3) / 2; }
 
 // How a cell's crust came to be (the plates' history, history.cpp).
 enum class Formed : uint8_t { Craton, Orogen, Arc, Rift, Ocean };
@@ -157,6 +173,10 @@ struct Strata
 	bool pluton;        // a granite body under it
 	bool crumpled;      // beds folded on themselves (an orogen's, not fold ridges': those are laid out by the ridge)
 	bool humid, arid;
+	// the bed cycle's (of 36): sandstone below `sands`, shale below `limes`,
+	// lime above; moving smoothly with the climate (deserts lay sand, warm
+	// shallow seas lime), never a line where it turns
+	int32_t sands, limes;
 	fix placer;         // how rich its river gravels are in gold and tin (0..1; Grid::placer)
 	int32_t crater;     // blocks to the nearest active crater (large if none)
 	bool lava_province; // deep caverns fill with lava, not water

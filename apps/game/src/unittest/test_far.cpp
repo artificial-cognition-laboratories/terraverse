@@ -37,6 +37,7 @@ public:
 	void runTests(IGameDef *gamedef);
 	void testKeptTileIsTheTile();
 	void testKeptTilesAreBounded();
+	void testSketchStandsInForTheTile();
 
 	void testPacketRoundTrip();
 	void testTilingIsTheAtlas();
@@ -56,13 +57,14 @@ void TestFar::runTests(IGameDef *gamedef)
 	TEST(testNoHolesFromAbove);
 	TEST(testKeptTileIsTheTile);
 	TEST(testKeptTilesAreBounded);
+	TEST(testSketchStandsInForTheTile);
 }
 
 // A horizon with made-up block ids: the far view only compares them.
 static Horizon horizon()
 {
 	Horizon h;
-	h.code = "TF21.dGVycmE";
+	h.code = "TF22.dGVycmE";
 	h.water_level = 1;
 	terra::Blocks &b = h.content.blocks;
 	content_t next = 100;
@@ -73,6 +75,9 @@ static Horizon horizon()
 	b.lava = 13;
 	b.placer = 14;
 	b.soil = 15;
+	for (auto &kinds : b.soils)
+		for (content_t &c : kinds)
+			c = next++;
 	for (content_t &c : b.rock)
 		c = next++;
 	b.ore[0] = CONTENT_IGNORE;
@@ -99,7 +104,8 @@ void TestFar::testPacketRoundTrip()
 	Horizon r = read(in);
 	UASSERT(r.code == h.code && r.water_level == h.water_level);
 	UASSERT(r.content.blocks.biomes[3].filler == h.content.blocks.biomes[3].filler);
-	UASSERT(r.content.blocks.rock[2] == h.content.blocks.rock[2] && r.content.blocks.soil == h.content.blocks.soil);
+	UASSERT(r.content.blocks.rock[2] == h.content.blocks.rock[2] && r.content.blocks.soil == h.content.blocks.soil &&
+			r.content.blocks.soils[2][3] == h.content.blocks.soils[2][3]);
 	UASSERT(r.content.species.size() == 1 && r.content.species[0].name == "oak");
 	UASSERT(r.content.species[0].niche.heat[0] == h.content.species[0].niche.heat[0]);
 	UASSERT(r.content.species[0].shape.rules_a == h.content.species[0].shape.rules_a);
@@ -415,6 +421,39 @@ void TestFar::testKeptTileIsTheTile()
 	const TileCache elsewhere(root, other, atlas, planet::Atlas::HOME);
 	UASSERT(!elsewhere.load(key));
 	UASSERT(cache.load(key)); // (and making it kept these)
+}
+
+// Sprint 110: a root's sketch has the tile's shape (the same cells are space)
+// and stands near its ground, in well under the time
+void TestFar::testSketchStandsInForTheTile()
+{
+	Horizon h = horizon();
+	const planet::Atlas atlas = planet::Atlas::resident(ATLAS);
+	const Generator gen(h, atlas, planet::Atlas::HOME);
+	const Tiling tiling(atlas.body(planet::Atlas::HOME));
+	const std::vector<TileKey> &roots = tiling.roots();
+	double built_s = 0, sketched_s = 0;
+	int64_t off = 0, cells = 0;
+	for (size_t k = 0; k < roots.size(); k += roots.size() / 8) {
+		auto start = std::chrono::steady_clock::now();
+		const Tile built = gen.build(roots[k]);
+		built_s += std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+		start = std::chrono::steady_clock::now();
+		const Tile sketch = gen.sketch(roots[k]);
+		sketched_s += std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+		for (s32 j = -1; j <= TILE; j++)
+			for (s32 i = -1; i <= TILE; i++) {
+				UASSERTEQ(bool, sketch.at(i, j).space, built.at(i, j).space);
+				if (built.at(i, j).space)
+					continue;
+				off += std::abs(sketch.at(i, j).ground - built.at(i, j).ground);
+				cells++;
+			}
+	}
+	infostream << "far sketch: " << sketched_s << " s against " << built_s << " s, " << (double)off / cells
+			<< " blocks off on average" << std::endl;
+	UASSERT(cells > 0);
+	UASSERT(sketched_s < built_s * 0.6);
 }
 
 // Sprint 110: kept tiles are swept under their cap, the least recently used

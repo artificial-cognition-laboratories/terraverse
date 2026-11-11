@@ -70,19 +70,27 @@ double Physics::conductivity(const matter::Mixture &b) const
 Physics::Main Physics::main(const matter::Mixture &b) const
 {
 	Main out{ -1, State::Gas, condensed(b) / volume() };
-	double most = 0;
+	// which state takes more room, then the substance taking most of it
+	double by_state[2] = { 0, 0 }, most[2] = { 0, 0 };
+	int32_t which[2] = { -1, -1 };
 	for (size_t s = 0; s < b.amounts.size(); s++) {
 		if (b.amounts[s] <= 0)
 			continue;
 		const matter::Substance &sub = m_matter.substances()[s];
-		for (State st : { State::Solid, State::Liquid }) {
+		for (int k = 0; k < 2; k++) {
+			const State st = k ? State::Liquid : State::Solid;
 			double taken = b.in(s, st) * sub.molar_mass / 1000.0 / sub.density(st, b.temperature, m_pressure);
-			if (taken > most) {
-				most = taken;
-				out.substance = (int32_t)s;
-				out.state = st;
+			by_state[k] += taken;
+			if (taken > most[k]) {
+				most[k] = taken;
+				which[k] = (int32_t)s;
 			}
 		}
+	}
+	const int k = by_state[1] > by_state[0] ? 1 : 0;
+	if (which[k] >= 0) {
+		out.substance = which[k];
+		out.state = k ? State::Liquid : State::Solid;
 	}
 	return out;
 }

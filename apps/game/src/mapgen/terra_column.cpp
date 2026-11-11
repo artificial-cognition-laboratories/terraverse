@@ -55,18 +55,25 @@ Column Columns::atPlace(const Place &at) const
 	c.strata = m_world.strata(at, g);
 
 	// the soil: rock begins under it. A layer of plain stone isn't soil:
-	// there the bedrock shows (peaks)
+	// there the bedrock shows (peaks). Where the biome's filler or riverbed
+	// is the column's soil, terragen says how deep it is (sprint 111)
+	c.made_of = m_world.soil(at, g, *c.strata);
+	const s32 deep = std::max<s32>(1, c.made_of.depth);
 	bool riverbed = (g.kind == Water::River || g.kind == Water::Lake) && g.water > g.terrain &&
 			b.riverbed != CONTENT_IGNORE;
-	s32 top_depth = riverbed ? (b.riverbed == m_blocks.stone ? 0 : b.depth_riverbed)
-			: (b.top == m_blocks.stone ? 0 : b.depth_top);
-	c.soil = top_depth + (b.filler == m_blocks.stone ? 0 : b.depth_filler);
-	c.soil_point = soilIndex(m_world.soil(at, g, *c.strata));
+	const s16 depth_bed = b.riverbed == m_blocks.soil ? deep : b.depth_riverbed;
+	const s16 depth_filler = b.filler == m_blocks.soil ? deep : b.depth_filler;
+	s32 top_depth = riverbed ? (b.riverbed == m_blocks.stone ? 0 : depth_bed)
+			: (b.top == m_blocks.stone || g.bare ? 0 : b.depth_top + g.dune);
+	// (a bed of the column's soil is all of it: what the water laid, no filler under it)
+	const bool soil_bed = riverbed && b.riverbed == m_blocks.soil;
+	c.soil = top_depth + (b.filler == m_blocks.stone || soil_bed ? 0 : depth_filler);
 
 	// under a river or lake the top is the biome's riverbed
 	bool bed = (g.kind == Water::River || g.kind == Water::Lake) && c.water > c.height;
 	bool use_bed = bed && b.riverbed != CONTENT_IGNORE;
-	c.top = use_bed ? b.riverbed : b.top;
+	// (too steep for its sand: its filler is the top)
+	c.top = use_bed ? b.riverbed : g.bare ? b.filler : b.top;
 	// gold and tin lie in the gravel where rivers laid them (terragen's
 	// placers), here and there by how rich it is (by the column's block at the
 	// surface): in a river's bed or a lake's, or on the floodplain beside it
@@ -75,12 +82,22 @@ Column Columns::atPlace(const Place &at) const
 	const bool alluvial = bed || terragen::alluvium(m_world.between(m_world.grid().sediment, at)) >= terragen::HALF;
 	if (alluvial && roll < (uint32_t)(c.strata->placer >> 7) / (bed ? 1 : 4))
 		c.top = m_blocks.placer;
-	c.top_end = c.height - (use_bed ? b.depth_riverbed : b.depth_top);
-	c.filler_end = c.top_end - b.depth_filler;
+	// (a dune is its top all through: wind-blown sand)
+	c.top_end = c.height - (use_bed ? depth_bed : g.bare ? 0 : b.depth_top + g.dune);
+	c.filler_end = use_bed && b.riverbed == m_blocks.soil ? c.top_end : c.top_end - depth_filler;
+	// the soil's layers count from its first block: the bed's top, or under the biome's top
+	c.soil_top = c.top == m_blocks.soil ? c.height : c.top_end;
 
 	c.ice_end = b.water_top != CONTENT_IGNORE && c.height < m_water_level
 			? m_water_level - b.depth_water_top : m_water_level;
 	return c;
+}
+
+MapNode Columns::soilNode(const Column &c, s32 below) const
+{
+	// its layer's kind, and what its fine earth is as param2
+	const Soil layer = soilLayer(c.made_of, below);
+	return MapNode(m_blocks.soils[(int)soilParent(layer.parent)][soilStony(layer.stones)], 0, soilIndex(layer));
 }
 
 MapNode Columns::node(const Column &c, s32 y) const
@@ -114,9 +131,10 @@ MapNode Columns::node(const Column &c, s32 y) const
 	// the soil is painted over plain stone, top then filler
 	if (n.getContent() == b.stone && y > c.filler_end) {
 		content_t fill = y > c.top_end ? c.top : b.biomes[(int)c.biome].filler;
+		if (fill == b.soil)
+			return soilNode(c, c.soil_top - y);
 		if (fill != CONTENT_IGNORE)
-			// soil carries what it's made of here as its param2
-			return fill == b.soil ? MapNode(fill, 0, c.soil_point) : MapNode(fill);
+			return MapNode(fill);
 	}
 	return n;
 }

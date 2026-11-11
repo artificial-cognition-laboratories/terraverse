@@ -238,7 +238,7 @@ Each file in `shell/` owns one concern.
 bun dev                 # engine, Vite, game against the dev server (hot reload); --go enters a world; --profile two adds a second player
 bun components          # the component gallery in a browser, mock engine, no game
 bun run build           # engine + production UI
-cmake --build .output/build -j8          # engine only (after cmake -S . -B .output/build -DRUN_IN_PLACE=TRUE)
+bash scripts/build.sh -j8              # engine only, waits its turn if another build is running (after cmake -S . -B .output/build -DRUN_IN_PLACE=TRUE)
 bun run stage           # refresh resources in the runtime tree
 cd apps/game/ui && bun run typecheck
 ./.output/bin/luanti --server --gameid terrafirma --world <tmp dir> --port <n>   # headless boot: catches Lua errors
@@ -267,8 +267,8 @@ To tune by eye, render a code's grid to a PNG:
 (`<code>@<body>` draws another body.)
 
 **How agents verify:** build the engine, typecheck and build the UI, boot headless for Lua errors,
-run the check for what changed, and use the gallery for UI. **Don't launch the game client or
-screenshot the user's desktop:** hand it over, and the user runs it and shares screenshots. Say
+run the check for what changed, and use the gallery for UI. Agents may run the engine, the game
+client and the render tools to see their work or capture images from it. Say
 plainly what was and wasn't run. Commit only when asked.
 
 ## Code standards

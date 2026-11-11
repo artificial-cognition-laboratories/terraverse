@@ -39,7 +39,7 @@ const signed = (v: number) => (Math.round(v * 100) === 0 ? "0" : `${v > 0 ? "+" 
         <template v-else-if="settings">
             <strong class="name">{{ chosen.name }}</strong>
             <Section title="Land">
-                <Slider v-if="moving" v-model="settings.continents" label="Continents" :min="1" :max="8" :step="1" />
+                <Slider v-if="moving" v-model="settings.continents" label="Continents" :min="1" :max="16" :step="1" />
                 <Slider v-if="wet" v-model="settings.land" label="Land" :min="0.1" :max="0.9" :step="0.01" :format="percent" />
                 <Slider v-if="wet" v-model="settings.coast" label="Coastline" :min="0" :max="1" :step="0.01"
                     :format="(v) => (v < 0.33 ? 'smooth' : v < 0.66 ? 'varied' : 'jagged')" />

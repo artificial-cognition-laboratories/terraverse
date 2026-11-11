@@ -50,6 +50,10 @@ struct Grid
 	std::vector<fix> filled;       // the water surface: = eroded on dry land, above it on lakes
 	std::vector<int32_t> receiver; // the cell this one drains into; −1 = the sea (or a polar wall)
 	std::vector<int64_t> drained;  // rain-weighted area draining through, in fixed cell units
+	// …of it what runs as water: less the snow that never melts (an ice
+	// sheet's, which flows away as ice). Rivers are drawn by it; the land's
+	// valleys, which the ice ages' glaciers cut as well, by `drained`
+	std::vector<int64_t> runoff;
 	std::vector<uint8_t> lake;     // 1 where water pools at least a block deep
 	std::vector<uint8_t> pan;      // 1 on a closed basin's dry floor: salt, where its water dried
 	// On lake cells, the lake's one surface: its outlet, the lowest filled
@@ -61,6 +65,11 @@ struct Grid
 	// the ground is (0..1: what rock and rivers supply, less what rain washes out)
 	std::vector<fix> rain_season[2];
 	std::vector<fix> sea_heat; // what the ocean currents add to the heat (negative: cold water), coasts included
+	// the year's mean surface wind, in the planet's frame (climate.h); and on
+	// a coast's cells how hard the waves come in (0..1: the open sea upwind of
+	// it, sheltered bays and lee shores least; 0 off the coast; sprint 112)
+	std::vector<fix> wind[3];
+	std::vector<fix> surf;
 	// the yearly mean heat at sea level (currents in it), and what it gains per
 	// unit of sunlight above the year's (the seasons; climate.h)
 	std::vector<fix> heat, heat_gain;
@@ -95,8 +104,8 @@ struct Grid
 	std::vector<fix> mare, mare_level, titanium, thin;
 
 	fix rain(int32_t i) const { return (rain_season[0][i] + rain_season[1][i]) / 2; }
-	bool river(int32_t i) const { return base[i] >= 0 && drained[i] >= river_threshold; }
-	bool stream(int32_t i) const { return base[i] >= 0 && drained[i] >= stream_threshold; } // rivers included
+	bool river(int32_t i) const { return base[i] >= 0 && runoff[i] >= river_threshold; }
+	bool stream(int32_t i) const { return base[i] >= 0 && runoff[i] >= stream_threshold; } // rivers included
 	int32_t size() const { return (int32_t)base.size(); }
 };
 
@@ -141,6 +150,6 @@ constexpr fix VEIN_CORE = ratio(1, 2);
 inline fix alluvium(fix sediment) { return clamp(sediment * 16, 0, ONE); }
 
 // Distinct noise streams, so the fields are independent.
-enum Stream : uint32_t { CONTINENT = 0, COAST = 3, RIDGE = 7, HEAT = 13, DETAIL = 41, SOIL_NOISE = 53, BLEND = 59, MEANDER = 71, SHORE = 79, SCOURED = 83, GULLIES = 89, BASINS = 97, RIFTS = 419, ALPINE = 431 };
+enum Stream : uint32_t { CONTINENT = 0, COAST = 3, RIDGE = 7, HEAT = 13, DETAIL = 41, SOIL_NOISE = 53, BLEND = 59, MEANDER = 71, SHORE = 79, SCOURED = 83, GULLIES = 89, BASINS = 97, RIFTS = 419, ALPINE = 431, RIVER_BEDS = 467, RIVERS_WANDER = 479, PROVINCE_EDGES = 491, BRAIDS = 503, DUNES = 509, RAVINES = 521, CRAGS = 523, LAVA_PLAINS = 541, KARST = 547 };
 
 } // namespace terragen

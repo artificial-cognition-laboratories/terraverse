@@ -3,7 +3,6 @@
 
 #include "planetarium/galaxy.h"
 #include "planetarium/camera.h"
-#include "planetarium/shot.h"
 #include "client/shader.h"
 #include "filesys.h"
 #include "porting.h"
@@ -79,12 +78,11 @@ std::shared_future<std::shared_ptr<const milkyway::Picture>> &picture()
 
 struct Galaxy::SkyUniforms : public IShaderUniformSetterRC
 {
-	float fade = 0, grain = 1;
-	CachedPixelShaderSetting<float> m_fade{ "galaxyFade" }, m_grain{ "galaxyGrain" };
+	float fade = 0;
+	CachedPixelShaderSetting<float> m_fade{ "galaxyFade" };
 	void onSetUniforms(video::IMaterialRendererServices *s) override
 	{
 		m_fade.set(&fade, s);
-		m_grain.set(&grain, s);
 	}
 };
 
@@ -247,10 +245,6 @@ void Galaxy::draw(video::IVideoDriver *driver, float aspect, float fov, v2f shif
 	const double since = std::chrono::duration<double>(std::chrono::steady_clock::now() - m_shared->shownAt).count();
 	const float fade = (float)std::min(1.0, since / FADE_IN);
 	m_skyUniforms->fade = fade * level;
-	// the specks about as big on screen through any lens: two fixed scales, the
-	// wide lens's and the long one's, crossfaded. One scale changing with the lens would slide them across the sky
-	const float wide = std::tan(OrbitCamera::FOV / 2), longer = std::tan(HOME_SHOT.fov / 2);
-	m_skyUniforms->grain = std::clamp((wide / std::tan(fov / 2) - 1) / (wide / longer - 1), 0.0f, 1.0f);
 	m_skyMaterial.TextureLayers[0].Texture = m_shared->texture;
 	m_skyMaterial.TextureLayers[1].Texture = m_shared->grain;
 	driver->setMaterial(m_skyMaterial);

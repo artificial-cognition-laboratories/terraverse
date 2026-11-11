@@ -36,6 +36,9 @@ WorldMatter::WorldMatter(const Opts &opts) :
 	if (!m_ground.kind || !m_ground.become || !m_ground.ambient || !m_ground.level || !m_ground.room || !m_ground.face ||
 			!m_ground.fill || !m_ground.setFill)
 		throw SandboxError("the world's matter needs the ground's kind, become, ambient, level, room, face and fill");
+	for (size_t s = 0; s < m_matter.substances().size(); s++)
+		if (m_matter.substances()[s].id == "water")
+			m_water = (int32_t)s;
 	if (opts.airs.empty() || (opts.airs.size() > 1 && !m_ground.air))
 		throw SandboxError("the world's matter needs an air, and with several, the ground's air to say which is where");
 	for (const Air &a : opts.airs) {
@@ -162,6 +165,11 @@ int32_t WorldMatter::kind(const Spec &spec)
 			}
 		}
 	}
+	if (spec.holds < 0 || spec.holds > 1)
+		throw SandboxError(node + ": what its pores hold is 0..1 of them");
+	if (spec.holds > 0 && (k.air || state != State::Solid))
+		throw SandboxError(node + ": only a solid block has pores to hold water");
+	k.pores = (1 - share) * spec.holds;
 	matter::Mixture sample = made(k, m_skies[0], 293.15);
 	Physics::Main main = base().main(sample);
 	k.main = main.substance;
@@ -266,6 +274,26 @@ matter::Mixture WorldMatter::asleep(Pos at, const Kind &k, double temperature) c
 		(void)capacity; // it's at the same temperature: nothing to mix
 		// its gas gives up the room the liquid takes
 		here.physics.balance(b, here.air, temperature);
+	}
+	// the water its pores hold (sprint 111): as wet as the ground is, soaked
+	// beside standing water; frozen where it's below freezing
+	if (k.pores > 0 && m_water >= 0) {
+		double wet = m_ground.wetness ? std::clamp(m_ground.wetness(at), 0.0, 1.0) : 0;
+		static const Pos SIDES[6] = { { 1, 0, 0 }, { -1, 0, 0 }, { 0, 1, 0 }, { 0, -1, 0 }, { 0, 0, 1 }, { 0, 0, -1 } };
+		for (const Pos &d : SIDES) {
+			if (wet >= 1)
+				break;
+			const int32_t n = m_ground.kind({ at.x + d.x, at.y + d.y, at.z + d.z });
+			if (n >= 0 && m_kinds[n].main == m_water && m_kinds[n].state == State::Liquid)
+				wet = 1;
+		}
+		if (wet > 0) {
+			const matter::Substance &water = m_matter.substances()[m_water];
+			const State st = water.state(temperature, std::max(here.physics.pressure(), 1.0)) == State::Solid ? State::Solid : State::Liquid;
+			const double kg = k.pores * wet * here.physics.volume() * water.density(st, temperature, here.physics.pressure());
+			b.add(m_water, st, kg / (water.molar_mass / 1000.0));
+			here.physics.balance(b, here.air, temperature);
+		}
 	}
 	return b;
 }
@@ -602,8 +630,10 @@ bool WorldMatter::settled(const Cell &c) const
 		return false; // still running
 	if (k.leveled)
 		return m.substance == k.main && m.state == k.state;
-	// close enough to sleep as the kind it is (melted ice takes 8% less room than the ice did)
-	return m.substance == k.main && m.state == k.state && std::fabs(m.fill - k.fill) < 0.1;
+	// close enough to sleep as the kind it is (melted ice takes 8% less room
+	// than the ice did); one whose pores hold water, as full as it is asleep
+	const double fill = k.pores > 0 ? sky(c).physics.main(asleep(c.pos, k, c.mix.temperature)).fill : k.fill;
+	return m.substance == k.main && m.state == k.state && std::fabs(m.fill - fill) < 0.1;
 }
 
 void WorldMatter::step(double seconds)
@@ -854,8 +884,9 @@ std::optional<matter::Mixture> WorldMatter::mixture(Pos at) const
 		return std::nullopt;
 	if (auto held = m_held.find(key(at)); held != m_held.end() && held->second.kind == kind)
 		return held->second.mix;
+	// as it would wake: its kind's matter, the liquid in its open space and its pores' water
 	const Kind &k = m_kinds[kind];
-	return made(k, sky(at), wakeAt(k, sky(at), m_ground.ambient(at)), k.leveled ? m_ground.level(at) : 1);
+	return asleep(at, k, wakeAt(k, sky(at), m_ground.ambient(at)));
 }
 
 std::vector<std::pair<Pos, size_t>> WorldMatter::happened()

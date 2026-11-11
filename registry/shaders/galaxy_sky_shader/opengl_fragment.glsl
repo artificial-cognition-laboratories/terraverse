@@ -2,7 +2,6 @@
 uniform sampler2D baseTexture;
 uniform sampler2D texture1;
 uniform float galaxyFade;
-uniform float galaxyGrain;
 
 VARYING_ highp vec3 varWay;
 
@@ -26,8 +25,6 @@ void main(void)
 	facing *= facing;
 	facing /= facing.x + facing.y + facing.z;
 	float speck = specks(way, facing, 0.93);
-	if (galaxyGrain > 0.0)
-		speck = mix(speck, specks(way, facing, 1.6), galaxyGrain);
 	colour *= mix(1.0, speck * 3.0, 0.55);
 	// long fades on near-black band on 8 bits: a shade of noise, by the screen's pixel
 	float grain = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));

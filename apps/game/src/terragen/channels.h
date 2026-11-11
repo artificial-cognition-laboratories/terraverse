@@ -28,7 +28,6 @@ class Channels
 {
 public:
 	static constexpr int MOST_LEVELS = 7;
-	static constexpr int STREAM_LEVELS = 3; // the levels that can carry water
 
 	// A channel node: runs from `at` (head) to `join` (foot, on the level above)
 	struct Node
@@ -45,6 +44,12 @@ public:
 		// (the prototype's land) its foot's and head's heights before the flow's
 		// known (blocks, fixed): what a finer node joins by, as Shape's need it
 		int64_t rough_low = 0, rough_high = 0;
+		// (the prototype's land) it runs into another of its own level's head,
+		// `into`, not the level above: a tributary of a tributary, so each
+		// level branches as a tree, not a comb of lines into the one above
+		bool sibling = false;
+		std::array<int32_t, 3> into{};
+		int64_t cost = INT64_MAX; // what its way down costs (build's: rough height plus the climb to it)
 	};
 
 	// A node's shape as the drainage wears it (sprint 108): the area it drains
@@ -61,6 +66,7 @@ public:
 		int64_t pond_r = 0, pond_depth = 0, pond_level = 0;
 		// a fan at its mouth (none: 0): its radius (blocks, fixed)
 		int64_t fan_r = 0;
+		int64_t cirque_r = 0; // a cirque at its head (none: 0): its radius (blocks, fixed)
 		fix ice = 0; // how much ice worked it (World::glacial at its head)
 	};
 
@@ -99,6 +105,8 @@ public:
 
 	bool active() const { return m_levels > 0; }
 	int levels() const { return m_levels; }
+	// its own, of every Channels made: what the threads' caches know it by
+	uint64_t owner() const { return m_owner; }
 	int64_t spacing(int level) const { return m_lattice[level]; } // place units
 	// `warped` is the place read for channels; `range` how much it's a rising range
 	// `least`: no level with a lattice finer than this (place units): what a
@@ -109,9 +117,15 @@ public:
 	// its shape (a node that exists)
 	const Shape &shape(int level, int32_t i, int32_t j, int32_t l) const;
 	int32_t latticeOf(int level, int32_t c) const;
+	// A stream's width for what drains to it (blocks² of average rain; World::riverWidth)
+	int64_t streamWidth(int64_t flow) const;
 
 private:
 	Node build(int level, int32_t i, int32_t j, int32_t l) const;
+	// a node joining only the level above (or the grid's runs): what build()
+	// weighs its own level's lower heads against (cached)
+	const Node &down(int level, int32_t i, int32_t j, int32_t l) const;
+	Node toLevelAbove(int level, int32_t i, int32_t j, int32_t l) const;
 	Shape wear(int level, int32_t i, int32_t j, int32_t l) const;
 	// everything upstream of a node: its own cell and its children's, each
 	// as much as a child of its level drains on average (blocks², cached;
@@ -122,7 +136,7 @@ private:
 	// how hard the rock is at a place, 0..1: its province's, varying between
 	// beds and joints (the land's texture: sprint 109 P3)
 	fix hardness(const Place &p) const;
-	void toGrid(const Place &p, Read &out) const;
+	void toGrid(const Place &p, fix range, Read &out) const;
 	void beds(const Place &p, Read &out) const;
 
 	const Grid *m_grid;
@@ -134,12 +148,19 @@ private:
 	bool m_land;
 	int m_levels = 0;
 	int m_area_levels = 0; // the levels what a channel drains is counted over (the finer are side valleys)
+	int m_wet_levels = 0;  // the levels that can carry water, 1..this (by their size: STREAM_LEAST_*)
+	std::array<fix, MOST_LEVELS + 1> m_wet{};              // the rain each needs to (the grid's: 1 average)
+	std::array<int64_t, MOST_LEVELS + 1> m_stream_width{}; // its stream's width as the noise land draws it (blocks, fixed)
 	std::array<int64_t, MOST_LEVELS + 1> m_lattice{}; // [0]: the grid's spacing
 	std::array<int32_t, MOST_LEVELS + 1> m_waves{};
 	// (the land's) how far round a trunk window's middle its runs are
 	// gathered (place units): every run within its reach of any place in it
 	int64_t m_trunk_ball = 0;
 	int32_t m_roll_waves = 8; // the gentle land's swells, round the world
+	// beds and rolls as tall as on the planet they were tuned on (100 000 round), less on a smaller one,
+	// whose heights are less (sprint 112): this planet's height scale against that one's, at most 1
+	fix m_small = ONE;
+	fix m_steep = ONE; // how many times steeper hillsides stand than the Earth's (STEEP_MOST at most)
 	int m_tarn_level = 0;     // the level whose channels are a cirque's size (none: 0)
 	// a level's lattice spacing (whole blocks)
 	int64_t blocksOf(int level) const { return mulShift(m_lattice[level], m_radius, PLACE_FRAC) >> FRAC; }

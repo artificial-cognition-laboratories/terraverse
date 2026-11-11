@@ -124,6 +124,7 @@ private:
 public:
 	void orbits(bool shown) { m_orbits = shown; }
 	void skyLevel(float level) { m_skyLevel = level; }
+	float skyLevel() const { return m_skyLevel; }
 private:
 
 	// a vector of the system (km, the ecliptic's axes) in the scene's (blocks)

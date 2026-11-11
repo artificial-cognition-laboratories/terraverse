@@ -43,10 +43,17 @@ static constexpr float STAY_WHOLE = 0.85f;
 class Crew
 {
 public:
+	// a tile to build, or only to sketch (Generator::sketch)
+	struct Job
+	{
+		TileKey key;
+		bool sketch = false;
+	};
 	struct Result
 	{
 		TileKey key;
 		Mesh mesh;
+		bool sketch = false; // a stand-in: the tile itself is still to build
 	};
 
 	Crew(const planet::Atlas &atlas, int body, const Horizon &horizon, const Palette &palette, const Tiling &tiling) :
@@ -65,14 +72,14 @@ public:
 	}
 
 	// the tiles wanted, nearest first; replaces what was asked before
-	void want(const std::vector<std::pair<float, TileKey>> &keys)
+	void want(const std::vector<Job> &jobs)
 	{
 		{
 			std::lock_guard lock(m_mutex);
 			m_queue.clear();
-			for (const auto &k : keys)
-				if (!m_busy.count(id(k.second)))
-					m_queue.push_back(k.second);
+			for (const Job &job : jobs)
+				if (!m_busy.count(id(job.key)))
+					m_queue.push_back(job);
 		}
 		m_wake.notify_all();
 	}
@@ -103,19 +110,23 @@ public:
 				return; // take() reports it
 			if (m_stop)
 				return;
-			TileKey key = m_queue.front();
+			const Job job = m_queue.front();
 			m_queue.pop_front();
-			m_busy.insert(id(key));
+			m_busy.insert(id(job.key));
 			lock.unlock();
 
-			Result r{ key, {} };
+			Result r{ job.key, {} };
 			try {
 				const ScopeProfiler timed(g_profiler, "Far view: tile built [ms]", SPT_AVG);
 				// kept from before if it can be: the world model's only made
 				// once a tile isn't
-				std::optional<Tile> tile = m_cache.load(key);
-				if (!tile) {
-					tile = generator().build(key);
+				std::optional<Tile> tile = m_cache.load(job.key);
+				if (!tile && job.sketch) {
+					// never kept: only the tile itself is
+					tile = generator().sketch(job.key);
+					r.sketch = true;
+				} else if (!tile) {
+					tile = generator().build(job.key);
 					m_cache.save(*tile);
 				}
 				r.mesh = onPlanet(*tile);
@@ -171,7 +182,7 @@ private:
 	std::mutex m_mutex;
 	std::condition_variable m_wake;
 	bool m_stop = false;
-	std::deque<TileKey> m_queue;
+	std::deque<Job> m_queue;
 	std::set<std::tuple<s32, s32, s32, s32>> m_busy; // being built, or built and not yet taken
 	std::deque<Result> m_results;
 	std::string m_error;
@@ -186,6 +197,7 @@ private:
 class Workers
 {
 public:
+	using Job = Crew::Job;
 	using Result = Crew::Result;
 
 	Workers(const planet::Atlas &atlas, int body, const Horizon &horizon, const Palette &palette, const Tiling &tiling,
@@ -200,7 +212,7 @@ public:
 
 	~Workers() { m_crew->stop(); }
 
-	void want(const std::vector<std::pair<float, TileKey>> &keys) { m_crew->want(keys); }
+	void want(const std::vector<Job> &jobs) { m_crew->want(jobs); }
 	std::optional<Result> take() { return m_crew->take(); }
 
 private:
@@ -234,25 +246,31 @@ void Tiles::update(const Eye &eye)
 		choose(Key(root), eye, m_draw, want);
 
 	// the roots, everywhere, before anything: a coarse planet always there to
-	// stand in while the eye's own tiles are built (turning never opens holes)
+	// stand in while the eye's own tiles are built (turning never opens holes).
+	// Sketched first, all of them, so the whole planet shows in a fraction of
+	// the time; then built properly
+	std::set<Key> sketches;
 	for (const TileKey &root : m_tiling.roots()) {
 		Entry &e = m_tiles[Key(root)];
 		e.used = m_frame;
-		if (e.ready)
+		if (e.ready && !e.sketch)
 			continue;
+		const float first = e.ready ? -1.0f : -2.0f;
+		if (!e.ready)
+			sketches.insert(Key(root));
 		auto again = std::find_if(want.begin(), want.end(), [&](const auto &w) { return !(w.second < Key(root)) && !(Key(root) < w.second); });
 		if (again != want.end())
-			again->first = -1.0f; // wanted already: first, now
+			again->first = first; // wanted already: first, now
 		else
-			want.emplace_back(-1.0f, Key(root));
+			want.emplace_back(first, Key(root));
 	}
 	m_pending = want.size();
 	std::sort(want.begin(), want.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
-	std::vector<std::pair<float, TileKey>> keys;
-	keys.reserve(want.size());
+	std::vector<Workers::Job> jobs;
+	jobs.reserve(want.size());
 	for (const auto &w : want)
-		keys.emplace_back(w.first, w.second.tile());
-	m_workers->want(keys);
+		jobs.push_back({ w.second.tile(), sketches.count(w.second) > 0 });
+	m_workers->want(jobs);
 
 	install();
 	if (m_coarse && based()) {
@@ -444,6 +462,7 @@ void Tiles::install()
 		if (m_coarse && !e.ready && result->key.level == m_tiling.roots().front().level)
 			m_coarse->advance();
 		e.ready = true;
+		e.sketch = result->sketch;
 	}
 }
 

@@ -5,7 +5,7 @@
 # awake blocks must save. Builds the engine first.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
-cmake --build "$root/.output/build" -j > /dev/null
+bash "$root/scripts/build.sh" -j > /dev/null
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 world="$work/world"

@@ -111,6 +111,11 @@ Json::Value Baked::write(const Content &content, const Palette &palette,
 	blocks["lava"] = name(b.lava);
 	blocks["placer"] = name(b.placer);
 	blocks["soil"] = name(b.soil);
+	Json::Value soils(Json::arrayValue);
+	for (const auto &kinds : b.soils)
+		for (content_t c : kinds)
+			soils.append(name(c));
+	blocks["soils"] = soils;
 	Json::Value biomes(Json::objectValue);
 	for (int i = 0; i < (int)terragen::Biome::Count; i++) {
 		const terra::BiomeBlocks &bb = b.biomes[i];
@@ -234,6 +239,12 @@ Baked Baked::read(const Json::Value &json)
 	b.lava = ids.of(text(blocks, "lava"));
 	b.placer = ids.of(text(blocks, "placer"));
 	b.soil = ids.of(text(blocks, "soil"));
+	const Json::Value &soils = field(blocks, "soils");
+	if (!soils.isArray() || soils.size() != (Json::ArrayIndex)terragen::SoilParent::Count * terragen::SOIL_STONY)
+		fail("blocks.soils: one per soil kind");
+	for (int p = 0; p < (int)terragen::SoilParent::Count; p++)
+		for (int k = 0; k < terragen::SOIL_STONY; k++)
+			b.soils[p][k] = ids.of(soils[p * terragen::SOIL_STONY + k].asString());
 	const Json::Value &biomes = field(blocks, "biomes");
 	for (int i = 0; i < (int)terragen::Biome::Count; i++) {
 		const Json::Value &v = field(biomes, terragen::BIOME_NAMES[i]);

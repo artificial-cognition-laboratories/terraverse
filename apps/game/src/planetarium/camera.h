@@ -44,6 +44,9 @@ public:
 	void resize(double sea, double farthest);
 
 	double altitude() const { return m_altitude; }
+	// from the centre to it (unit); the screen's up (unit, square to it)
+	const Vec &up() const { return m_up; }
+	const Vec &north() const { return m_north; }
 	double sea() const { return m_sea; }
 	double farthest() const { return m_farthest; }
 	// over where (radians)
@@ -78,8 +81,15 @@ public:
 	static core::matrix4 turned(const core::matrix4 &view, double spin);
 
 	// The way from the camera through a pixel (unit, planet frame), on a
-	// screen `width` × `height`.
-	Vec ray(double x, double y, double width, double height, v2f shift = v2f()) const;
+	// screen `width` × `height`; the view turned by `aim` after (aimed()).
+	Vec ray(double x, double y, double width, double height, v2f shift = v2f(),
+			const core::matrix4 &aim = core::IdentityMatrix) const;
+	// A turn of the camera on its own axes, after its view, so what it looks
+	// at (the body's centre) is drawn at `at` (the screen's half widths and
+	// heights, +x right, +y up) on a screen of `aspect`. Unlike a shift
+	// (perspective), the lens stays square to the screen: nothing stretches
+	// toward the far edge.
+	static core::matrix4 aimed(v2f at, float aspect);
 
 private:
 	double m_sea, m_farthest; // (not const: a camera is replaced when it goes to another body)

@@ -45,6 +45,8 @@ std::vector<content_t> blocksIn(const Content &content)
 {
 	const terra::Blocks &b = content.blocks;
 	std::vector<content_t> out = { b.stone, b.water, b.lava, b.placer, b.soil };
+	for (const auto &kinds : b.soils)
+		out.insert(out.end(), std::begin(kinds), std::end(kinds));
 	for (const terra::BiomeBlocks &bb : b.biomes)
 		out.insert(out.end(), { bb.top, bb.filler, bb.riverbed, bb.water_top });
 	out.insert(out.end(), std::begin(b.rock), std::end(b.rock));

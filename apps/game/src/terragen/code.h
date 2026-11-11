@@ -36,9 +36,9 @@ fix luminosity(fix mass);
 fix lifetime(fix mass);
 
 /*
-	A decoded world code: TF21.<seed>.<params>[.<bodies>], as ui/src/worldgen/config.ts
+	A decoded world code: TF22.<seed>.<params>[.<bodies>], as ui/src/worldgen/config.ts
 	writes it. (TF1: sprint 1, without water or exact land; TF2: sprint 2, before
-	plates and geology; TF3: sprint 9, before the climate; TF4: sprint 13, before the ocean currents; TF5: sprint 14, on the flat map before the sphere; TF6: sprint 86, places to 1/65 536 of the radius; TF7: sprint 87, before the plates had a history; TF8: sprint 89, before the energy-balance climate; TF9: before stars had classes; TF10: before the code carried the system; TF11: before the home followed its card; TF12: before each body had its own land; TF13: before the winds followed a body's day; TF20: sprint 110, before the rivers' levels came from the network.)
+	plates and geology; TF3: sprint 9, before the climate; TF4: sprint 13, before the ocean currents; TF5: sprint 14, on the flat map before the sphere; TF6: sprint 86, places to 1/65 536 of the radius; TF7: sprint 87, before the plates had a history; TF8: sprint 89, before the energy-balance climate; TF9: before stars had classes; TF10: before the code carried the system; TF11: before the home followed its card; TF12: before each body had its own land; TF13: before the winds followed a body's day; TF20: sprint 110, before the rivers' levels came from the network; TF21: sprint 110, before the rivers wandered and each level branched.)
 	Parameters are kept as the fixed values their quantized bytes stand for,
 	so the same code always gives exactly the same numbers.
 */
@@ -136,7 +136,7 @@ struct WorldCode
 	SystemStyle style = SystemStyle::Home;
 	Companion companion; // as the code says; none and style Binary: the seed's (SystemSpec::forWorld)
 	std::vector<uint8_t> bodies; // the system as edited (SystemSpec::read); empty: as the style lays it out
-	int32_t continents;    // 1..8
+	int32_t continents;    // 1..16
 	fix land, coast, mountains, roughness; // 0..1
 	fix temperature, humidity;             // −1..1
 	fix rivers, caves, ores;               // 0..1

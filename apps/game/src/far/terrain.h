@@ -105,6 +105,10 @@ public:
 	const terragen::World &world() const { return *m_world; }
 
 	Tile build(const TileKey &key) const;
+	// A rough tile, built in about a quarter of the time: the land read at
+	// every other cell (each odd one a copy of the one before it), as land
+	// twice as coarse. It stands in till the tile itself is built.
+	Tile sketch(const TileKey &key) const;
 
 	// The top solid block of an atlas cell's column, or the liquid's surface if that's higher.
 	s32 surfaceAt(const planet::Atlas::Cell &cell) const;
@@ -117,6 +121,7 @@ public:
 	const terra::AtlasLand &land() const { return *m_land; }
 
 private:
+	Tile made(const TileKey &key, s32 stride) const; // every stride-th cell read, the rest copied
 	Horizon m_horizon;
 	std::shared_ptr<const terragen::World> m_world; // (terragen::worldFor: the game's own, in one process)
 	planet::Atlas m_atlas;

@@ -2,10 +2,10 @@
 # Where making a world spends its time (terragen/progress.h), at a few sizes,
 # cold (nothing kept) and warm (opened again), as `bun perf:gen`. Each run's a
 # line in .output/perf/gen.jsonl, and the last like it is shown beside it.
-#   [SIZES="314160 628320"] [CODE=TF21.Y3gyMzlqNHY] bun perf:gen
+#   [SIZES="314160 628320"] [CODE=TF22.Y3gyMzlqNHY] bun perf:gen
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
-code="${CODE:-TF21.Y3gyMzlqNHY}"
+code="${CODE:-TF22.Y3gyMzlqNHY}"
 sizes="${SIZES:-314160 628320}"
 out="$root/.output/perf"
 tool="$out/perf"

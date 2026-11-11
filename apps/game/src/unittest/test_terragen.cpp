@@ -22,6 +22,8 @@
 #include "terragen/grid.h"
 #include "terragen/sphere.h"
 #include "terragen/climate.h"
+#include "matter/grains.h"
+#include "porting.h"
 #include <algorithm>
 #include <string>
 
@@ -35,6 +37,7 @@ public:
 	void runTests(IGameDef *gamedef);
 	void testChannels();
 	void testRanges();
+	void testRangesAtEarthsScale();
 	void testCoarse();
 
 	void testDecodeDefaults();
@@ -73,6 +76,11 @@ public:
 	void testEveryBodysLand();
 	void testEnergyBalance();
 	void testSoil();
+	void testSoilMatchesMatter();
+	void testSoilByWater();
+	void testColdAndDryWater();
+	void testCoasts();
+	void testCraterLakesAndKarst();
 	void testDeterminismGolden();
 };
 
@@ -90,6 +98,7 @@ void TestTerragen::runTests(IGameDef *gamedef)
 {
 	TEST(testChannels);
 	TEST(testRanges);
+	TEST(testRangesAtEarthsScale);
 	TEST(testCoarse);
 	TEST(testDecodeDefaults);
 	TEST(testDecodeParams);
@@ -127,14 +136,19 @@ void TestTerragen::runTests(IGameDef *gamedef)
 	TEST(testEveryBodysLand);
 	TEST(testEnergyBalance);
 	TEST(testSoil);
+	TEST(testSoilMatchesMatter);
+	TEST(testSoilByWater);
+	TEST(testColdAndDryWater);
+	TEST(testCoasts);
+	TEST(testCraterLakesAndKarst);
 	TEST(testDeterminismGolden);
 }
 
 // Codes for the water tests: default, a supercontinent, an archipelago (as the page encodes them).
 static const char *const WATER_CODES[] = {
-	"TF21.dGVycmE",
-	"TF21.dGVycmE.AgKAqoCAAACmWZmAgICAgICCVQ",
-	"TF21.dGVycmE.AgKAqoCAAP9A2U2ApoCAgICCVQ",
+	"TF22.dGVycmE",
+	"TF22.dGVycmE.AgKAqoCAAACmWZmAgICAgICCVQ",
+	"TF22.dGVycmE.AgKAqoCAAP9A2U2ApoCAgICCVQ",
 };
 
 static bool near(fix a, fix b, fix tolerance)
@@ -145,7 +159,7 @@ static bool near(fix a, fix b, fix tolerance)
 // Codes produced by the page's encodeWorldCode (ui/src/worldgen/config.ts).
 void TestTerragen::testDecodeDefaults()
 {
-	WorldCode w = WorldCode::decode("TF21.YWJj");
+	WorldCode w = WorldCode::decode("TF22.YWJj");
 	UASSERTEQ(std::string, w.seed, "abc");
 	UASSERTEQ(int, w.size, 16384); // as ui/src/worldgen/config.ts DEFAULTS
 	UASSERTEQ(std::string, w.star->id, "G");
@@ -160,7 +174,7 @@ void TestTerragen::testDecodeParams()
 {
 	// size 1 (62832 round: radius 10k), red dwarf, continents 6, tilt 40,
 	// everything else default
-	WorldCode w = WorldCode::decode("TF21.YWJj.AQCAqoCAALZmgICAgICAgIDjVQ");
+	WorldCode w = WorldCode::decode("TF22.YWJj.AQCAqoCAAFVmgICAgICAgIDjVQ");
 	UASSERTEQ(int, w.size, 62832);
 	UASSERTEQ(std::string, w.star->id, "M");
 	UASSERTEQ(int, w.continents, 6);
@@ -174,8 +188,8 @@ void TestTerragen::testDecodeRejects()
 	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF1.YWJj")); // an older generator: refused, not reinterpreted
 	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF2.YWJj")); // before plates and geology: refused too
 	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF9."));
-	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF21.YWJj.AACAqoCAAA"));
-	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF21.YW*j"));
+	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF22.YWJj.AACAqoCAAA"));
+	EXCEPTION_CHECK(CodeError, WorldCode::decode("TF22.YW*j"));
 }
 
 void TestTerragen::testTrig()
@@ -300,7 +314,7 @@ static fix real(double v)
 }
 
 // As the page's encodeWorldCode writes them: an Earth at 2 AU, a moon called Mún.
-static const char *const PAGE_BODIES = "TF21.YWJj.AAKAqoCAAG1mgICAgICAgICCVQ.AgVlYXJ0aAVFYXJ0aFCkxf8DaAkAACIrA1mZgAMuAW0ETcO6bqq7zAAAkTeAwdFWDU0aGvsO";
+static const char *const PAGE_BODIES = "TF22.YWJj.AAKAqoCAAG1mgICAgICAgICCVQ.AgVlYXJ0aAVFYXJ0aFCkxf8DaAkAACIrA1mZgAMuAW0ETcO6bqq7zAAAkTeAwdFWDU0aGvsO";
 
 // Stars by class: the Sun's exact, heavy ones short-lived and fierce, poor ones poor in metal.
 // A system as the page writes it (config.ts bodyBytes), on a code of default settings
@@ -341,7 +355,7 @@ static std::string codeWith(const SystemSpec &s)
 	}
 	if (bits > 0)
 		out.push_back(ABC[(acc << (6 - bits)) & 63]);
-	return "TF21.dGVycmE.AAKAqoCAAG1mgICAgICAgICCVQ." + out;
+	return "TF22.dGVycmE.AAKAqoCAAG1mgICAgICAgICCVQ." + out;
 }
 
 // the mean of a world's year at a place, °C
@@ -402,7 +416,7 @@ void TestTerragen::testBinary()
 	int close_ones = 0, wide_ones = 0;
 	for (const char *seed : { "dGVycmE", "YWJj", "c2VlZDE", "c2VlZDI", "c2VlZDM", "c2VlZDQ", "c2VlZDU", "c2VlZDY", "c2VlZDc" })
 		for (int star = 0; star < STAR_COUNT; star++) {
-			WorldCode c = WorldCode::decode(std::string("TF21.") + seed);
+			WorldCode c = WorldCode::decode(std::string("TF22.") + seed);
 			c.style = SystemStyle::Binary;
 			c.star = &STARS[star];
 			c.star_mass = STARS[star].mass;
@@ -489,7 +503,7 @@ void TestTerragen::testDouble()
 
 	// everything the seed lays out holds together, doubles too
 	for (const char *seed : { "dGVycmE", "YWJj", "c2VlZDE", "c2VlZDI", "c2VlZDM", "c2VlZDQ", "c2VlZDU" }) {
-		WorldCode c = WorldCode::decode(std::string("TF21.") + seed);
+		WorldCode c = WorldCode::decode(std::string("TF22.") + seed);
 		for (int style = (int)SystemStyle::SunLike; style < (int)SystemStyle::Count; style++) {
 			c.style = (SystemStyle)style;
 			const System s{ SystemSpec::generate(c) };
@@ -559,7 +573,7 @@ void TestTerragen::testSpin()
 void TestTerragen::testHomeFollowsCard()
 {
 	// the default world is Earth's, with nothing pushing its climate
-	const WorldCode earth = WorldCode::decode("TF21.dGVycmE");
+	const WorldCode earth = WorldCode::decode("TF22.dGVycmE");
 	UASSERT(earth.processes.warming == 0);
 	UASSERT(earth.processes.water && earth.processes.life && earth.processes.regime == Regime::Plates);
 
@@ -610,7 +624,7 @@ void TestTerragen::testHomeFollowsCard()
 	for (int kind : { 1, 2, 3 }) {
 		int living = 0;
 		for (int seed = 0; seed < 50; seed++) {
-			WorldCode c = WorldCode::decode("TF21.dGVycmE");
+			WorldCode c = WorldCode::decode("TF22.dGVycmE");
 			c.seed_hash = seed * 2654435761u;
 			c.style = SystemStyle::SunLike;
 			c.star = &STARS[kind];
@@ -636,7 +650,7 @@ void TestTerragen::testEveryBodysLand()
 		throw std::logic_error("no moon to stand on");
 	};
 	const WorldCode usual = moonOf(SystemSpec::home());
-	UASSERT(usual.mountains == WorldCode::decode("TF21.dGVycmE").mountains);
+	UASSERT(usual.mountains == WorldCode::decode("TF22.dGVycmE").mountains);
 
 	// a slider reaches the moon's own land, and nothing else's
 	LandBytes high = defaultLand();
@@ -694,7 +708,7 @@ void TestTerragen::testStars()
 	UASSERT(poor.metal < ours.metal);
 
 	// as the page encodes them (ui/src/worldgen/config.ts): the star's whole description
-	const WorldCode oh = WorldCode::decode("TF21.YWJj.AQa1VQVAAG1mgICAgICAgICCVQ");
+	const WorldCode oh = WorldCode::decode("TF22.YWJj.AQa1VQVAAG1mgICAgICAgICCVQ");
 	UASSERTEQ(std::string, oh.star->id, "O");
 	UASSERT(near(oh.star_mass, toFix(40), ONE / 8));
 	UASSERT(oh.metallicity == -HALF);
@@ -703,7 +717,7 @@ void TestTerragen::testStars()
 	System{ SystemSpec::forWorld(oh) };
 
 	// a system from the seed: its own, the same every time, in the model's range
-	WorldCode a = WorldCode::decode("TF21.YWJj.AAKAqoCAAW1mgICAgICAgICCVQ");
+	WorldCode a = WorldCode::decode("TF22.YWJj.AAKAqoCAAW1mgICAgICAgICCVQ");
 	WorldCode b = a;
 	b.seed_hash ^= 77;
 	const SystemSpec one = SystemSpec::generate(a), again = SystemSpec::generate(a), other = SystemSpec::generate(b);
@@ -816,20 +830,27 @@ void TestTerragen::testBodies()
 // kind there. (On the flat map both were edges.)
 void TestTerragen::testNoPoleOrSeam()
 {
-	World w(WorldCode::decode("TF21.dGVycmE"));
+	World w(WorldCode::decode("TF22.dGVycmE"));
 	const double R = w.radius() / (double)ONE;
 	// the steepest step of a walk of 20° along a great circle in plane (a, b), from angle `from`
 	const auto walk = [&](double from, std::array<double, 3> a, std::array<double, 3> b) {
 		int32_t was = INT32_MIN, steepest = 0;
+		bool was_dry = false;
 		for (int32_t k = 0; k <= (int32_t)(R * M_PI / 9); k++) {
 			const double t = from + k / R;
 			const Dir d = normalise(std::llround((a[0] * std::cos(t) + b[0] * std::sin(t)) * (1 << 20)),
 					std::llround((a[1] * std::cos(t) + b[1] * std::sin(t)) * (1 << 20)),
 					std::llround((a[2] * std::cos(t) + b[2] * std::sin(t)) * (1 << 20)));
-			const int32_t h = w.ground(d, w.sunlight(d, std::nullopt)).terrain;
-			if (was != INT32_MIN)
+			const Ground g = w.ground(d, w.sunlight(d, std::nullopt));
+			const int32_t h = g.terrain;
+			// (not across a shore or into a river: a coast can stand as a low
+			// cliff over the sea anywhere, a river cuts its bed below its banks,
+			// and since TF22 this walk crosses both)
+			const bool dry = h > 0 && g.kind == Water::None;
+			if (was != INT32_MIN && dry && was_dry)
 				steepest = std::max(steepest, std::abs(h - was));
 			was = h;
+			was_dry = dry;
 		}
 		return steepest;
 	};
@@ -936,7 +957,9 @@ void TestTerragen::testSediment()
 			if (g.placer[i] > 0)
 				UASSERT(g.sediment[i] > 0 && g.tectonics.belt[i] <= VEIN_CORE);
 			land += g.eroded[i] >= 0;
-			rich += g.placer[i] >= ratio(1, 4);
+			// (a fifth: the richest of these worlds stood 0.22–0.26, and since
+			// sprint 112's ranges rise under the rivers, 0.21–0.23)
+			rich += g.placer[i] >= ratio(1, 5);
 		}
 		UASSERT(rich * 10 < land);
 		any_rich += rich;
@@ -1035,12 +1058,17 @@ void TestTerragen::testVolcanoes()
 	World w(WorldCode::decode(WATER_CODES[0]));
 	const Grid &g = w.grid();
 	UASSERT(!g.volcanoes.empty());
-	int active = 0;
+	int active = 0, calderas = 0, old = 0;
 	for (const Volcano &v : g.volcanoes) {
 		active += v.active;
+		calderas += v.caldera;
+		old += v.age > 0;
 		UASSERT(v.radius > 0 && v.height > 0 && v.crater < v.radius);
+		UASSERT(!v.active || v.age == 0); // only the youngest erupt
 	}
 	UASSERT(active > 0);
+	// (sprint 112) some tops fell in, and most have been worn a while
+	UASSERT(calderas > 0 && old * 2 > (int)g.volcanoes.size());
 	bool lava = false;
 	for (const Volcano &v : g.volcanoes) {
 		if (!v.active)
@@ -1153,7 +1181,7 @@ void TestTerragen::testCover()
 // the climate allows turns up somewhere, and fertility follows the rock.
 void TestTerragen::testClimate()
 {
-	World w(WorldCode::decode("TF21.dGVycmE"));
+	World w(WorldCode::decode("TF22.dGVycmE"));
 	const Grid &g = w.grid();
 	auto band = [&](double lo, double hi) {
 		int64_t sum = 0, n = 0;
@@ -1170,7 +1198,7 @@ void TestTerragen::testClimate()
 	UASSERT(band(0, 10) > 3 * band(25, 38)); // the ITCZ, and the dry belts under the sinking air
 	UASSERT(band(50, 65) > 2 * band(25, 38)); // the storm tracks
 	// the same code, the same climate
-	World again(WorldCode::decode("TF21.dGVycmE"));
+	World again(WorldCode::decode("TF22.dGVycmE"));
 	UASSERT(again.grid().rain_season[0] == g.rain_season[0] && again.grid().rain_season[1] == g.rain_season[1]);
 
 	int counts[(int)Biome::Count] = {};
@@ -1224,7 +1252,7 @@ static double meanOver(const std::vector<fix> &f, Where where)
 // and a rain shadow; a continent in the tropics gets its rain in summer.
 void TestTerragen::testClimateFromLand()
 {
-	WorldCode code = WorldCode::decode("TF21.dGVycmE");
+	WorldCode code = WorldCode::decode("TF22.dGVycmE");
 	const std::vector<fix> e = drawn([](double lat, double x) {
 		if (lat >= 38 && lat <= 58 && x >= 50 && x <= 74) // a north–south range, lowland either side
 			return x >= 60 && x <= 63 ? ratio(6, 10) : ratio(5, 100);
@@ -1252,7 +1280,7 @@ void TestTerragen::testClimateFromLand()
 // the second's west coast), which leaves that coast drier.
 void TestTerragen::testOceanCurrents()
 {
-	WorldCode code = WorldCode::decode("TF21.dGVycmE");
+	WorldCode code = WorldCode::decode("TF22.dGVycmE");
 	const std::vector<fix> e = drawn([](double lat, double x) {
 		return lat >= 5 && lat <= 55 && ((x >= 20 && x <= 40) || (x >= 70 && x <= 90)) ? ratio(6, 100) : -ratio(3, 10);
 	});
@@ -1289,10 +1317,10 @@ void TestTerragen::testEnergyBalance()
 		}
 		return (double)sum / area;
 	};
-	const Climate earth = climate(WorldCode::decode("TF21.dGVycmE"), e);
+	const Climate earth = climate(WorldCode::decode("TF22.dGVycmE"), e);
 	// the Temperature setting at −0.5 and −1
-	const Climate cool = climate(WorldCode::decode("TF21.dGVycmE.AAKAqoCAAG1mgICAQICAgICCVQ"), e);
-	const Climate cold = climate(WorldCode::decode("TF21.dGVycmE.AAKAqoCAAG1mgICAAICAgICCVQ"), e);
+	const Climate cool = climate(WorldCode::decode("TF22.dGVycmE.AAKAqoCAAG1mgICAQICAgICCVQ"), e);
+	const Climate cold = climate(WorldCode::decode("TF22.dGVycmE.AAKAqoCAAG1mgICAAICAgICCVQ"), e);
 	const double t_earth = mean(earth), t_cool = mean(cool), t_cold = mean(cold);
 	infostream << "energy balance: " << t_earth << " °C, ice " << earth.ice / 655.36 << "%; cooler " << t_cool << " °C, ice "
 			<< cool.ice / 655.36 << "%; colder " << t_cold << " °C, ice " << cold.ice / 655.36 << "%" << std::endl;
@@ -1307,8 +1335,9 @@ void TestTerragen::testEnergyBalance()
 }
 
 // Soil as a composition: every point round-trips through its index, and the
-// soils follow why they differ: weathering makes clay where it's warm and
-// wet, dry ground keeps sand, cold wet ground keeps peat.
+// soils follow why they differ (sprint 111): weathering makes clay where it's
+// warm and wet, dry ground keeps sand and stones, cold wet ground keeps
+// peat, steep ground is thin and stony, hollows deep.
 void TestTerragen::testSoil()
 {
 	for (int32_t i = 0; i < SOIL_POINTS; i++) {
@@ -1318,32 +1347,260 @@ void TestTerragen::testSoil()
 	}
 	EXCEPTION_CHECK(std::invalid_argument, soilPoint((uint8_t)SOIL_POINTS));
 
-	World w(WorldCode::decode("TF21.dGVycmE"));
+	World w(WorldCode::decode("TF22.dGVycmE"));
 	int32_t size = w.code().size;
-	double wet_clay = 0, dry_clay = 0, cold_organic = 0, warm_organic = 0, steep_sand = 0, flat_sand = 0;
-	int n_wet = 0, n_dry = 0, n_cold = 0, n_warm = 0, n_steep = 0, n_flat = 0;
-	for (int32_t k = 0; k < 4000; k++) {
+	struct Mean
+	{
+		double sum = 0;
+		int n = 0;
+		void add(double v) { sum += v; n++; }
+		double of() const { return n ? sum / n : 0; }
+	};
+	Mean wet_clay, dry_clay, cold_organic, warm_organic, steep_stones, flat_stones, steep_depth, flat_depth, lake_clay, dry_stones, wet_stones;
+	for (int32_t k = 0; k < 6000; k++) {
 		int32_t x = (k * 7919) % size - size / 2, z = (k * 104729) % (size * 8 / 10) - size * 4 / 10;
 		const Place at = flat(w, x, z);
 		Ground g = w.ground(at, w.sunlight(at, std::nullopt));
+		if (g.kind == Water::Lake) {
+			lake_clay.add(w.soil(at, g, w.strata(at, g)).clay / 65536.0);
+			continue;
+		}
 		if (g.kind != Water::None)
 			continue;
 		Soil s = w.soil(at, g, w.strata(at, g));
-		Cover c = w.cover(at, g);
-		double clay = s.clay / 65536.0, sand = s.sand / 65536.0, organic = s.organic / 65536.0;
-		if (g.column.heat > ratio(30, 100) && g.column.wet > ratio(30, 100)) { wet_clay += clay; n_wet++; }
-		if (g.column.wet < -ratio(30, 100)) { dry_clay += clay; n_dry++; }
-		if (g.column.heat < -ratio(20, 100) && g.column.wet > ratio(10, 100)) { cold_organic += organic; n_cold++; }
-		if (g.column.heat > ratio(30, 100)) { warm_organic += organic; n_warm++; }
-		if (c.slope > ratio(8, 10)) { steep_sand += sand; n_steep++; }
-		if (c.slope < ratio(1, 10)) { flat_sand += sand; n_flat++; }
+		const double clay = s.clay / 65536.0, stones = s.stones / 65536.0, organic = s.organic / 65536.0;
+		if (g.column.heat > ratio(30, 100) && g.column.wet > ratio(30, 100)) { wet_clay.add(clay); wet_stones.add(stones); }
+		if (g.column.wet < -ratio(30, 100)) { dry_clay.add(clay); dry_stones.add(stones); }
+		if (g.column.heat < -ratio(20, 100) && g.column.wet > ratio(10, 100)) cold_organic.add(organic);
+		if (g.column.heat > ratio(30, 100)) warm_organic.add(organic);
+		// (slopes in one climate: deserts are flat and stony, and so are the
+		// till plains the ice left, where it's cold)
+		const bool temperate = g.column.wet > -ratio(15, 100) && g.column.wet < ratio(40, 100) && g.column.heat > ratio(5, 100);
+		// (the ground's own slope, from its neighbours four blocks off: what soil
+		// reads where the drainage shapes the land, not the grid's)
+		const auto height = [&](int32_t dx, int32_t dz) {
+			const Place q = flat(w, x + dx, z + dz);
+			return w.ground(q, w.sunlight(q, std::nullopt)).terrain;
+		};
+		const double local = std::hypot(height(4, 0) - height(-4, 0), height(0, 4) - height(0, -4)) / 8.0;
+		// (soil made where it lies: what water laid is sorted, a riverbed's gravel)
+		if (temperate && !s.laid && local > 0.3) { steep_stones.add(stones); steep_depth.add(s.depth); }
+		if (temperate && !s.laid && local < 0.05) { flat_stones.add(stones); flat_depth.add(s.depth); }
 	}
-	infostream << "soil: clay where warm and wet " << wet_clay / std::max(n_wet, 1) << " (" << n_wet << "), dry " << dry_clay / std::max(n_dry, 1)
-			<< " (" << n_dry << "); organic cold-wet " << cold_organic / std::max(n_cold, 1) << ", warm " << warm_organic / std::max(n_warm, 1)
-			<< "; sand steep " << steep_sand / std::max(n_steep, 1) << ", flat " << flat_sand / std::max(n_flat, 1) << std::endl;
-	if (n_wet && n_dry) UASSERT(wet_clay / n_wet > dry_clay / n_dry);
-	if (n_cold && n_warm) UASSERT(cold_organic / n_cold > warm_organic / n_warm);
-	if (n_steep && n_flat) UASSERT(steep_sand / n_steep > flat_sand / n_flat);
+	infostream << "soil: clay warm-wet " << wet_clay.of() << ", dry " << dry_clay.of() << "; stones warm-wet " << wet_stones.of()
+			<< ", dry " << dry_stones.of() << "; organic cold-wet " << cold_organic.of() << ", warm " << warm_organic.of()
+			<< "; stones steep " << steep_stones.of() << ", flat " << flat_stones.of() << "; depth steep " << steep_depth.of()
+			<< ", flat " << flat_depth.of() << "; lake floors' clay " << lake_clay.of() << std::endl;
+	UASSERT(wet_clay.n && dry_clay.n && cold_organic.n && warm_organic.n && steep_stones.n && flat_stones.n && lake_clay.n);
+	UASSERT(wet_clay.of() > dry_clay.of());
+	UASSERT(wet_stones.of() < dry_stones.of());
+	UASSERT(cold_organic.of() > warm_organic.of());
+	UASSERT(steep_stones.of() > flat_stones.of());
+	UASSERT(steep_depth.of() < flat_depth.of());
+	UASSERT(lake_clay.of() > 0.5); // still water lays clay
+
+	// the maps' soil, a cell at a time from the grid: the same order, nothing at sea
+	const World::RegionalSoil &r = w.regionalSoil();
+	const Grid &grid = w.grid();
+	Mean cell_wet, cell_dry;
+	for (int32_t c = 0; c < grid.size(); c++) {
+		if (grid.base[c] < 0) {
+			UASSERT(r.sand[c] == 0 && r.clay[c] == 0 && r.stones[c] == 0);
+			continue;
+		}
+		const Column col = w.column(Place(gridSphere().centre(c)), w.sunlight(Place(gridSphere().centre(c)), std::nullopt));
+		if (col.heat > ratio(30, 100) && col.wet > ratio(30, 100)) cell_wet.add(r.clay[c] / 65536.0);
+		if (col.wet < -ratio(30, 100)) cell_dry.add(r.clay[c] / 65536.0);
+	}
+	infostream << "regional soil: clay warm-wet " << cell_wet.of() << " (" << cell_wet.n << "), dry " << cell_dry.of() << std::endl;
+	UASSERT(cell_wet.n && cell_dry.n && cell_wet.of() > cell_dry.of());
+}
+
+// terragen weathers rock by its own copy of the matter data (it reads no
+// files): the copy must be the data
+void TestTerragen::testSoilMatchesMatter()
+{
+	const matter::Matter m = matter::Matter::load(porting::path_share + DIR_DELIM "matter");
+	for (int r = 0; r < (int)Rock::Count; r++) {
+		if ((Rock)r == Rock::Ice)
+			continue;
+		const ParentRock &p = parentRock((Rock)r);
+		const matter::RockKind &kind = m.rock(ROCK_NAMES[r]);
+		size_t named = 0;
+		for (const ParentMineral &pm : p.minerals) {
+			if (!pm.id)
+				continue;
+			named++;
+			const size_t index = m.index(pm.id);
+			double share = -1;
+			for (const matter::RockKind::Part &part : kind.minerals)
+				if (part.substance == index)
+					share = part.share;
+			UTEST(std::fabs(share - pm.share / 65536.0) < 0.002, "%s: %s is %g of it in the data", ROCK_NAMES[r], pm.id, share);
+			const matter::Substance &sub = m.substances()[index];
+			const double rate = sub.weathers ? sub.weathers->rate : 0, keep = sub.weathers ? sub.weathers->keep : 0;
+			UTEST(std::fabs(rate - pm.rate / 65536.0) < 0.002 && std::fabs(keep - pm.keep / 65536.0) < 0.002,
+					"%s weathers at %g keeping %g in the data", pm.id, rate, keep);
+			const int finest = sub.grain ? (int)matter::bandOf(*sub.grain) : -1;
+			UTEST(finest == pm.finest, "%s comes apart at band %d in the data", pm.id, finest);
+		}
+		UTEST(named == kind.minerals.size(), "%s: %zu minerals in the data", ROCK_NAMES[r], kind.minerals.size());
+		UTEST((int)matter::bandOf(kind.grain) == p.crystals, "%s: its crystals' band", ROCK_NAMES[r]);
+		UTEST(std::fabs(kind.crumbles - p.crumbles / 65536.0) < 0.002, "%s crumbles at %g in the data", ROCK_NAMES[r], kind.crumbles);
+	}
+}
+
+// Rivers sort what they carry (sprint 111): a channel keeps what its current
+// can't move (stony where it runs steep, sand where it's gentle), its banks
+// and bars the next finer, its floodplain silt and clay. On an Earth-sized
+// planet, where streams below the grid are drawn as well as its rivers.
+// Sprint 112: an ice sheet's snow never melts, so it feeds no river; and a
+// closed basin's salt is where its water stands in the wet years, a share of
+// its floor, not all of it; and a minority of rivers braid.
+void TestTerragen::testColdAndDryWater()
+{
+	const auto g = gridFor(WorldCode::decode("TF22.YmZ2bmVmZzQ"));
+	int rivers_on_ice = 0, pan = 0, land = 0;
+	for (int32_t c = 0; c < g->size(); c++) {
+		land += g->base[c] >= 0;
+		pan += g->pan[c];
+		const fix celsius = celsiusOf(g->heat[c] - mul(std::max<fix>(0, g->eroded[c]), LAPSE));
+		// (what drains through from warmer ground upstream may still run)
+		if (g->river(c) && celsius < -toFix(15) && g->runoff[c] < g->river_threshold * 4)
+			rivers_on_ice++;
+	}
+	UASSERTEQ(int, rivers_on_ice, 0);
+	UASSERT(pan > 0);
+	UASSERT(pan * 100 < land); // under 1% of the land
+	// and some rivers braid, steep for what they carry, a minority (sprint 112)
+	const World w(WorldCode::decode("TF22.dGVycmE"));
+	int drawn = 0, braided = 0;
+	for (int32_t c = 0; c < w.grid().size(); c++)
+		if (w.drawn(c)) {
+			drawn++;
+			braided += w.braided(c);
+		}
+	UASSERT(braided * 100 > drawn * 3 && braided * 100 < drawn * 25);
+}
+
+// Coasts and dunes (sprint 112): waves only on the coast, sheltered and
+// exposed; sandy beach on some of the shore, not all; dunes only as sand,
+// on dry land, no higher than sand stands
+void TestTerragen::testCoasts()
+{
+	const World w(WorldCode::decode("TF22.YmZ2bmVmZzQ"));
+	const Grid &g = w.grid();
+	int calm = 0, rough = 0;
+	for (int32_t c = 0; c < g.size(); c++) {
+		bool by_sea = false;
+		for (const int32_t *p = gridSphere().neighboursBegin(c); p != gridSphere().neighboursEnd(c); p++)
+			by_sea |= g.base[*p] < 0;
+		if (g.base[c] < 0 || !by_sea) {
+			UASSERTEQ(fix, g.surf[c], 0);
+			continue;
+		}
+		calm += g.surf[c] < ratio(15, 100);
+		rough += g.surf[c] > ratio(40, 100);
+	}
+	UASSERT(calm > 0 && rough > 0);
+	int shore = 0, beach = 0, desert = 0, dunes = 0;
+	const int U = 300, V = 150;
+	for (int j = 1; j < V; j++)
+		for (int i = 0; i < U; i++) {
+			const Place p = World::place((fix)((int64_t)i * ONE / U), (fix)((int64_t)j * ONE / V));
+			const Ground gr = w.ground(p, w.sunlight(p, std::nullopt));
+			if (gr.dune > 0) {
+				dunes++;
+				UASSERT(gr.kind == Water::None);
+				UASSERT(gr.column.biome == Biome::Desert || gr.column.biome == Biome::Beach);
+				UASSERT(gr.dune <= 10);
+			}
+			if (gr.kind != Water::None || gr.terrain < 1)
+				continue;
+			desert += gr.column.biome == Biome::Desert;
+			if (g.surf[w.cell(p)] > 0 && gr.terrain <= 3) {
+				shore++;
+				beach += gr.column.biome == Biome::Beach;
+			}
+		}
+	UASSERT(shore > 0 && beach * 10 > shore && beach * 10 < shore * 6);
+	UASSERT(dunes * 10 > desert && dunes < desert);
+}
+
+// (sprint 112) quiet craters where it rains hold lakes; a humid basin's
+// limestone platforms are karst, their ground limestone
+void TestTerragen::testCraterLakesAndKarst()
+{
+	const World w(WorldCode::decode("TF22.YmZ2bmVmZzQ"));
+	const Grid &g = w.grid();
+	int lakes = 0;
+	for (const Volcano &v : g.volcanoes) {
+		const Ground at = w.ground(Place(v.at), 0);
+		lakes += at.kind == Water::Lake;
+		UASSERT(!(v.active && at.kind == Water::Lake)); // an active one's is lava
+	}
+	UASSERT(lakes > 0);
+	int karst = 0, lime = 0;
+	const int U = 200, V = 100;
+	for (int j = 1; j < V; j++)
+		for (int i = 0; i < U; i++) {
+			const Place p = World::place((fix)((int64_t)i * ONE / U), (fix)((int64_t)j * ONE / V));
+			const Ground gr = w.ground(p, 0);
+			if (gr.terrain < 1)
+				continue;
+			if (w.karst(p, gr.column.wet) <= HALF)
+				continue;
+			karst++;
+			lime += w.rock(w.strata(p, gr), 1, gr.terrain) == Rock::Limestone;
+		}
+	UASSERT(karst > 0 && lime * 10 > karst * 7);
+}
+
+void TestTerragen::testSoilByWater()
+{
+	WorldCode code = WorldCode::decode("TF22.dGVycmE");
+	code.size = (int32_t)std::llround(6371000.0 * 2 * M_PI);
+	World w(code);
+	const Grid &g = w.grid();
+	const Sphere &sphere = gridSphere();
+	// round the biggest rivers: a window across each, every few blocks
+	std::vector<int32_t> rivers;
+	for (int32_t i = 0; i < g.size(); i++)
+		if (g.river(i) && g.receiver[i] >= 0 && g.base[g.receiver[i]] >= 0)
+			rivers.push_back(i);
+	std::sort(rivers.begin(), rivers.end(), [&](int32_t a, int32_t b) { return g.drained[a] > g.drained[b]; });
+	double bed_fine = 0, plain_fine = 0, steep_stones = 0, gentle_stones = 0;
+	int beds = 0, plains = 0, steep = 0, gentle = 0;
+	for (size_t r = 0; r < rivers.size() && r < 400; r += 4) {
+		const Place c(sphere.centre(rivers[r]));
+		for (int k = 0; k < 400; k++) {
+			// a 20 km square round the cell's centre, at its own precision
+			const int64_t step = (int64_t)(PLACE_ONE / (w.radius() / 65536.0) * 1000);
+			const Place at = placeOf((int64_t)c.x + (k % 20 - 10) * step, (int64_t)c.y + (k / 20 - 10) * step, c.z);
+			const Ground gr = w.ground(at, w.sunlight(at, std::nullopt));
+			if (gr.kind == Water::Sea || gr.kind == Water::Lake)
+				continue;
+			const Soil s = w.soil(at, gr, w.strata(at, gr));
+			const double fine = (s.silt + s.clay) / 65536.0 * (1 - s.stones / 65536.0), stones = s.stones / 65536.0;
+			if (gr.kind == Water::River && gr.river_width > 0 && gr.river_dist < gr.river_width / 2) {
+				bed_fine += fine;
+				beds++;
+				if (gr.river_slope > ratio(3, 1000)) { steep_stones += stones; steep++; }
+				else if (gr.river_slope < ratio(5, 10000)) { gentle_stones += stones; gentle++; }
+			} else if (gr.kind == Water::None && gr.river_width > 0 && gr.river_dist > gr.river_width * 2 &&
+					gr.river_dist < gr.river_width * 4 && gr.terrain - gr.river_level <= 2) {
+				plain_fine += fine;
+				plains++;
+			}
+		}
+	}
+	infostream << "soil by water: fines in beds " << bed_fine / std::max(beds, 1) << " (" << beds << "), on floodplains "
+			<< plain_fine / std::max(plains, 1) << " (" << plains << "); stones in steep beds " << steep_stones / std::max(steep, 1)
+			<< " (" << steep << "), gentle " << gentle_stones / std::max(gentle, 1) << " (" << gentle << ")" << std::endl;
+	UASSERT(beds > 20 && plains > 20);
+	UASSERT(plain_fine / plains > 2 * bed_fine / beds);
+	if (steep > 5 && gentle > 5)
+		UASSERT(steep_stones / steep > gentle_stones / gentle);
 }
 
 void TestTerragen::testRiversOnLand()
@@ -1389,9 +1646,9 @@ static void describe(const char *code)
 // for an existing code needs a new code version, not a silent update.
 void TestTerragen::testDeterminismGolden()
 {
-	describe("TF21.YWJj");
-	describe("TF21.dGVycmE");
-	World w(WorldCode::decode("TF21.YWJj.AQCAqoCAALZmgICAgICAgIDjVQ"));
+	describe("TF22.YWJj");
+	describe("TF22.dGVycmE");
+	World w(WorldCode::decode("TF22.YWJj.AQCAqoCAAFVmgICAgICAgIDjVQ"));
 	Preview p = preview(w, std::nullopt, 48);
 	uint32_t h = 2166136261u;
 	auto mix = [&](uint32_t v) { h = (h ^ v) * 16777619u; };
@@ -1422,7 +1679,7 @@ void TestTerragen::testDeterminismGolden()
 	// big enough for channels below its cells has that land, so a new world's
 	// size): patches round a few land cells, a block apart and 9 apart
 	{
-		WorldCode big = WorldCode::decode("TF21.dGVycmE");
+		WorldCode big = WorldCode::decode("TF22.dGVycmE");
 		big.size = 628320;
 		const World land(big);
 		const Grid &g = land.grid();
@@ -1445,6 +1702,23 @@ void TestTerragen::testDeterminismGolden()
 				}
 		}
 		UASSERTEQ(int, patches, 6);
+		// and along a few rivers (sprint 110: the patches never fell on one, so
+		// the rivers' levels changed with the golden none the wiser): the
+		// ground at points along their drawn runs, and the water there
+		int rivers = 0;
+		for (int32_t c = 0; c < g.size() && rivers < 12; c += 113) {
+			if (!land.drawn(c) || !land.profile(c))
+				continue;
+			rivers++;
+			for (int32_t k = 0; k < 16; k++) {
+				const Place at = land.unwarped(land.onRun(c, ratio(2 * k + 1, 32)));
+				const Ground gr = land.ground(at, land.sunlight(at, std::nullopt));
+				mix((uint32_t)gr.terrain);
+				mix((uint32_t)gr.water);
+				mix((uint32_t)gr.kind);
+			}
+		}
+		UASSERTEQ(int, rivers, 12);
 	}
 	// what the world is made of, for a human reading --info output when tuning
 	int counts[(int)Biome::Count] = {};
@@ -1469,10 +1743,30 @@ void TestTerragen::testDeterminismGolden()
 	// TF18, sprint 107: old land worn flat (shields; was 2420144613)
 	// TF19, sprint 108: the land from the drainage, pinned at block scale on a
 	// big world too (was 3548419286)
-	// TF21: mountain belts graded to foothills, narrower on the side going
+	// TF20: mountain belts graded to foothills, narrower on the side going
 	// under (was 2338250884); sprint 109: natural land, seamless, bent,
 	// branching to the finest, ranges brought to the grid's heights (was 4220558337)
-	UASSERTEQ(uint32_t, h, 1517453345u);
+	// TF21, sprint 110: the rivers' levels from the network's bed, not the
+	// land read at every run, and no world handed another's channel nodes
+	// from a thread's cache (was 1517453345, itself not always so); then
+	// along rivers too, their profiles from their ends and rock (was 989336567)
+	// TF22, sprint 110: rivers wander down the grid and meet, and each level
+	// branches into its own, joining along its streams' length, meandering
+	// by its rock, streams as wide as their flow into the rivers, and the
+	// Rivers setting's default denser, rivers as wide as real ones for what
+	// they drain at any planet's size, up to 16 continents, streams and
+	// ranges by the planet's scale (was 1009732295); sprint 111: soil made
+	// by weathering, slopes and water sorting, the beds level, mostly mud, and
+	// provinces' edges wandering (was 3749507156); sprint 112: ice sheets
+	// feed no rivers, salt pans where water stands in wet years, braided
+	// rivers, cut banks (was 3928772032); valleys still cut under the ice
+	// sheets, fjords reaching further in (was 3302989925); the drainage's
+	// valleys down to 12 blocks apart, so the smallest planets have them
+	// (was 1719416001); a small planet's ranges' hillsides as steep as its
+	// land is exaggerated, and their peaks free of the grid's mean (was
+	// 4140243162); ranges rising under rivers already running (was
+	// 1580458716); valleys along a rising range (was 1392860933)
+	UASSERTEQ(uint32_t, h, 3597410694u);
 }
 
 // Sprint 100: the drainage below the grid. Every channel runs down the land to
@@ -1481,13 +1775,16 @@ void TestTerragen::testDeterminismGolden()
 // Ranges by what built them (planning/sprint-101-ranges.md)
 // A far tile's columns leave out what's narrower than its cells: nothing for a
 // block-wide one, and what's left stands about where the whole land does.
+// The sea's never invented: a far tile is sea only where the land is. An
+// inlet narrower than the tile (a fjord) is left out of it, as a valley is;
+// tiles as narrow as an inlet draw it (sprint 112).
 void TestTerragen::testCoarse()
 {
-	const WorldCode code = WorldCode::decode("TF21.a3U3eWd1Y2c.BQKAqoCAAG1mgICAgICAgICCVQ") /* 250k radius */;
+	const WorldCode code = WorldCode::decode("TF22.a3U3eWd1Y2c.BQKAqoCAAG1mgICAgICAgICCVQ") /* 250k radius */;
 	const World world(code);
 	// (each column on its own: a Coarse read is the thread's)
 	constexpr int N = 400;
-	std::vector<Ground> whole(N), same(N), far(N);
+	std::vector<Ground> whole(N), same(N), far(N), near(N);
 	parallelFor(N, [&](int32_t k) {
 		const Place at = placeOf(k * 7919 % 2001 - 1000, k * 6271 % 2003 - 1001, k * 4057 % 1999 - 999 + 1);
 		const fix sun = world.sunlight(at, std::nullopt);
@@ -1496,27 +1793,70 @@ void TestTerragen::testCoarse()
 			const World::Coarse one(world, 1);
 			same[k] = world.ground(at, sun);
 		}
+		{
+			const World::Coarse narrow(world, 256);
+			near[k] = world.ground(at, sun);
+		}
 		const World::Coarse coarse(world, 4096);
 		far[k] = world.ground(at, sun);
 	});
 	int64_t moved = 0;
-	int worst = 0, seas = 0, n = 0;
+	int worst = 0, seas = 0, invented = 0, near_seas = 0, n = 0;
 	for (int k = 0; k < N; k++) {
 		UASSERTEQ(int, same[k].terrain, whole[k].terrain);
 		const int d = std::abs(far[k].terrain - whole[k].terrain);
 		moved += d;
 		worst = std::max(worst, d);
 		seas += (far[k].kind == Water::Sea) != (whole[k].kind == Water::Sea);
+		invented += far[k].kind == Water::Sea && whole[k].kind != Water::Sea;
+		near_seas += (near[k].kind == Water::Sea) != (whole[k].kind == Water::Sea);
 		n++;
 	}
 	infostream << "coarse columns: moved " << moved / n << " blocks on average, at most " << worst << ", " << seas << " of " << n << " change sea" << std::endl;
 	UASSERT(moved / n < 150);
-	UASSERT(seas == 0);
+	UASSERT(invented == 0);
+	UASSERT(seas * 100 <= n); // inlets narrower than the tile, left out
+	UASSERT(near_seas == 0);
+}
+
+// Sprint 110: on an Earth-sized planet (a block a metre) a rising range has
+// a real range's relief: the highest ground less the lowest within 10 km is
+// over 500 m in most of them (real ranges: 1.5–2.5 km; it was 167 m when the
+// ground over the grid was held to 300 blocks on any planet)
+void TestTerragen::testRangesAtEarthsScale()
+{
+	terragen::WorldCode code = terragen::WorldCode::decode("TF22.dGVycmE");
+	code.size = (int32_t)std::llround(6371000.0 * 2 * M_PI);
+	code.grid_key += "@earth";
+	const terragen::World w(code);
+	const terragen::Grid &g = w.grid();
+	const terragen::Sphere &sphere = terragen::gridSphere();
+	const double R = 6371000.0, span = 10000.0;
+	std::vector<int> reliefs;
+	for (int32_t c = 0; c < sphere.size() && reliefs.size() < 12; c += 97) {
+		if (g.base[c] < 0 || g.tectonics.belt[c] < terragen::ratio(6, 10))
+			continue;
+		const Place m(sphere.centre(c));
+		const double u0 = World::u(m) / 65536.0, v0 = World::v(m) / 65536.0;
+		int lo = INT32_MAX, hi = INT32_MIN;
+		for (int a = -5; a <= 5; a++)
+			for (int b = -5; b <= 5; b++) {
+				const Place p = World::place((fix)((u0 + a * span / 10 / (2 * M_PI * R)) * 65536), (fix)((v0 + b * span / 10 / (M_PI * R)) * 65536));
+				const int h = w.ground(p, w.sunlight(p, std::nullopt)).terrain;
+				lo = std::min(lo, h);
+				hi = std::max(hi, h);
+			}
+		reliefs.push_back(hi - lo);
+	}
+	UASSERT(reliefs.size() >= 8);
+	std::sort(reliefs.begin(), reliefs.end());
+	infostream << "TestTerragen: an Earth's ranges, relief in 10 km: median " << reliefs[reliefs.size() / 2] << " m" << std::endl;
+	UASSERT(reliefs[reliefs.size() / 2] > 500);
 }
 
 void TestTerragen::testRanges()
 {
-	terragen::WorldCode code = terragen::WorldCode::decode("TF21.dGVycmE");
+	terragen::WorldCode code = terragen::WorldCode::decode("TF22.dGVycmE");
 	code.size = 628320;
 	code.grid_key += "@wide"; // (what the grid's kept by)
 	terragen::World world(code);
@@ -1527,7 +1867,7 @@ void TestTerragen::testRanges()
 
 	// all parts present, and a plateau stands high and level: far less rough
 	// across its neighbours than a range still rising without one (its core:
-	// belts are graded to foothills since TF21)
+	// belts are graded to foothills since TF20)
 	int folded = 0, plains = 0;
 	int64_t plain_rough = 0, range_rough = 0;
 	int ranges = 0;
@@ -1595,7 +1935,7 @@ void TestTerragen::testRanges()
 
 void TestTerragen::testChannels()
 {
-	terragen::WorldCode code = terragen::WorldCode::decode("TF21.dGVycmE");
+	terragen::WorldCode code = terragen::WorldCode::decode("TF22.dGVycmE");
 	code.size = 628320;
 	code.grid_key += "@wide"; // (what the grid's kept by)
 	terragen::World world(code);

@@ -43,7 +43,7 @@ const VIEW_ICONS = {
 
 // what a body has decides what can be shown on it: no rain without water, nothing on a giant's clouds
 const DRY: readonly OverlayId[] = ["terrain", "elevation", "temperature", "plates", "geology"]
-const WET: readonly OverlayId[] = [...DRY, "biomes", "moisture", "seasons", "fertility", "currents"]
+const WET: readonly OverlayId[] = [...DRY, "biomes", "moisture", "seasons", "fertility", "soil", "currents"]
 const offered = computed<readonly OverlayId[] | undefined>(() => {
     const card = chosenCard.value
     if (selected.value === STAR) return undefined
@@ -81,21 +81,23 @@ watch(() => encodeWorldCode(props.draft.config), (code) => {
     settling = setTimeout(() => { shown.value = { code: code } }, 200)
 })
 onBeforeUnmount(() => clearTimeout(settling))
+const bridge = useBridge()
 const planet = usePlanetarium({
-    bridge: useBridge(),
+    bridge: bridge,
     place: "whole", // the universe behind the whole screen, as behind the menu
     active: ref(true),
     frame: toRef(props, "frame"),
     body: shown,
 })
 const playableId = computed(() => props.draft.system.bodies.find((b) => b.playable)!.id)
-// the camera flies to the body selected: in from the menu's view when the
-// screen opens, across the system when another is picked; out to the whole
-// system for the star
-watch(selected, (id, was) => {
-    const seconds = was === undefined ? 2.5 : 3
-    planet.fly({ body: id, radii: 2.5, seconds: seconds })
-}, { immediate: true })
+// the screen opens on the Play shot (menu/screens.ts: the draft's world where
+// Play had the selected one); another body picked lets it go, and the camera
+// flies across the system to it, out to the whole system for the star
+watch(selected, (id) => {
+    void bridge.send("planetarium.scene", { shot: null, seconds: 1 })
+        .then(() => planet.fly({ body: id, radii: 2.5, seconds: 3 }))
+        .catch((error) => console.error("planetarium.scene", error))
+})
 // what's over the land: the overlay's painting (the playable world's), the
 // body cut open, or the land itself
 watch([overlay, image, selected, () => overlay.value === "temperature" ? date.value : null], () => {

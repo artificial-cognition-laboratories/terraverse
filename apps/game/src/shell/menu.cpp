@@ -313,6 +313,7 @@ std::optional<Choice> Menu::run(const std::string &error)
 		}
 		u64 start = porting::getTimeMs();
 		driver->beginScene(true, true, video::SColor(255, 12, 14, 12));
+		m_planetarium.pointer(cursor->getPosition());
 		m_planetarium.tick((start - last) / 1000.0); // the universe's clock (the page may stop it, or set it)
 		last = start;
 		m_planetarium.draw(driver); // always shown: the backdrop when no page asks for another

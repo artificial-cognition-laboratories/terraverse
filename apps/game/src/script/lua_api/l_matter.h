@@ -53,6 +53,7 @@ private:
 	static int l_blow(lua_State *L);
 	static int l_step(lua_State *L);
 	static int l_ambient(lua_State *L);
+	static int l_wetness(lua_State *L);
 	static int l_temperature(lua_State *L);
 	static int l_capacity(lua_State *L);
 	static int l_density(lua_State *L);

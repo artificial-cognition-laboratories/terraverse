@@ -8,7 +8,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
-cmake --build "$root/.output/build" -j > /dev/null
+bash "$root/scripts/build.sh" -j > /dev/null
 bash "$root/scripts/stage-runtime.sh" > /dev/null
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -17,7 +17,7 @@ mkdir -p "$world"
 printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\nauth_backend = sqlite3\n' > "$world/world.mt"
 # any terra world: the palette is the game's, not a world's
 atlas="atlas-v2 radius=2607.5945876176133 segments=24 capLatitude=85 core=651.8986469044033 rounding=0.95 height=256"
-printf 'mg_name = terra\nmgterra_code = TF21.dGVycmE\nseed = 1\nchunksize = 1\nplanet_atlas = %s\n[end_of_params]\n' "$atlas" > "$world/map_meta.txt"
+printf 'mg_name = terra\nmgterra_code = TF22.dGVycmE\nseed = 1\nchunksize = 1\nplanet_atlas = %s\n[end_of_params]\n' "$atlas" > "$world/map_meta.txt"
 
 env -u DISPLAY -u WAYLAND_DISPLAY timeout 120 "$root/.output/bin/luanti" --config /dev/null --world "$world" \
 	--gameid terrafirma --export-palette "$work/palette.json" > "$work/log.txt" 2>&1 || {

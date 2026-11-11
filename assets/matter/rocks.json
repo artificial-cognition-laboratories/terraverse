@@ -8,6 +8,8 @@
     "feldspar": 0.55,
     "mica": 0.15
    },
+   "grain": 1.5,
+   "crumbles": 1,
    "origin": "igneous",
    "note": "Magma that cooled slowly deep down: coarse grains of quartz, feldspar and mica. The roots of continents and mountains."
   },
@@ -19,6 +21,8 @@
     "silica": 0.3,
     "mica": 0.2
    },
+   "grain": 1,
+   "crumbles": 0.8,
    "origin": "metamorphic",
    "note": "Granite and sediment squeezed and heated deep in a mountain belt until its minerals lined up in bands."
   },
@@ -30,6 +34,8 @@
     "silica": 0.3,
     "kaolinite": 0.2
    },
+   "grain": 0.005,
+   "crumbles": 0.7,
    "origin": "metamorphic",
    "note": "Mudstone baked and pressed in a mountain belt: splits into flat sheets."
   },
@@ -41,6 +47,8 @@
     "plagioclase": 0.45,
     "olivine": 0.1
    },
+   "grain": 0.1,
+   "crumbles": 0.7,
    "origin": "igneous",
    "note": "Lava cooled fast at the surface. The ocean floors, lava fields and volcanic islands."
   },
@@ -52,6 +60,8 @@
     "pyroxene": 0.3,
     "silica": 0.1
    },
+   "grain": 0.1,
+   "crumbles": 0.8,
    "origin": "igneous",
    "note": "The lava of volcanic arcs above sinking plates."
   },
@@ -63,6 +73,8 @@
     "feldspar": 0.3,
     "plagioclase": 0.1
    },
+   "grain": 0.03,
+   "crumbles": 3,
    "origin": "igneous",
    "note": "Volcanic ash, settled and welded into rock."
   },
@@ -73,6 +85,8 @@
     "silica": 0.75,
     "feldspar": 0.25
    },
+   "grain": 1,
+   "crumbles": 0.5,
    "origin": "igneous",
    "note": "Lava cooled so fast it became glass. Flakes to an edge sharper than steel."
   },
@@ -83,6 +97,8 @@
     "silica": 0.9,
     "feldspar": 0.1
    },
+   "grain": 0.25,
+   "crumbles": 3,
    "origin": "sedimentary",
    "note": "Sand of old beaches, rivers and deserts, buried and cemented."
   },
@@ -94,6 +110,8 @@
     "silica": 0.3,
     "calcite": 0.1
    },
+   "grain": 0.004,
+   "crumbles": 4,
    "origin": "sedimentary",
    "note": "Mud settled in quiet water, pressed into thin layers. Where coal seams lie."
   },
@@ -101,9 +119,12 @@
    "id": "limestone",
    "name": "Limestone",
    "minerals": {
-    "calcite": 0.95,
-    "silica": 0.05
+    "calcite": 0.9,
+    "kaolinite": 0.06,
+    "silica": 0.04
    },
+   "grain": 0.02,
+   "crumbles": 1,
    "origin": "sedimentary",
    "note": "The shells of sea life, piled up on old sea floors. Water dissolves it into caves."
   },
@@ -114,6 +135,8 @@
     "carbon": 0.9,
     "pyrite": 0.1
    },
+   "grain": 1,
+   "crumbles": 2,
    "origin": "sedimentary",
    "note": "Swamp forests buried and pressed for millions of years. Burns hot, with a little sulfur."
   },
@@ -125,6 +148,8 @@
     "feldspar": 0.2,
     "magnetite": 0.1
    },
+   "grain": 20,
+   "crumbles": 5,
    "origin": "sediment",
    "note": "Broken rock, rounded by rivers."
   },
@@ -135,6 +160,8 @@
     "plagioclase": 0.9,
     "pyroxene": 0.1
    },
+   "grain": 1.5,
+   "crumbles": 1,
    "origin": "igneous",
    "note": "Light feldspar that floated to the top of a young moon's molten surface and froze: the bright highlands."
   },
@@ -147,6 +174,8 @@
     "olivine": 0.1,
     "silica": 0.05
    },
+   "grain": 2,
+   "crumbles": 2,
    "origin": "impact",
    "note": "Rock shattered by impacts and welded back together from the pieces. A cratered crust's top few kilometres."
   },
@@ -159,6 +188,8 @@
     "olivine": 0.05,
     "silica": 0.1
    },
+   "grain": 0.07,
+   "crumbles": 5,
    "origin": "impact",
    "note": "Rock ground to sharp dust by billions of years of small impacts, where no air stops them."
   },
@@ -172,6 +203,8 @@
     "ilmenite": 0.1,
     "silica": 0.1
    },
+   "grain": 0.07,
+   "crumbles": 5,
    "origin": "impact",
    "note": "The dark dust of the lava plains: ground basalt, with ilmenite in it."
   }

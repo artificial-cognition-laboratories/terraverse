@@ -28,6 +28,9 @@ struct Preview
 	std::vector<int8_t> wet;
 	std::vector<int8_t> season;
 	std::vector<uint8_t> fertility;
+	// the regional soil (World::regionalSoil), 4 bytes a pixel: sand, clay,
+	// organic matter and stones × 255 (silt the rest of the fine earth); 0 at sea
+	std::vector<uint8_t> soil;
 	std::vector<int8_t> current; // what the ocean currents add to the heat × 100
 	std::vector<uint8_t> biome;
 	std::vector<uint8_t> lake;

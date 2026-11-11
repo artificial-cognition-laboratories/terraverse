@@ -2,6 +2,7 @@
     <div>
         <home-hero />
         <home-features />
+        <home-land />
         <shared-footer />
     </div>
 </template>

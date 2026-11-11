@@ -45,6 +45,10 @@ export const OVERLAY_ICONS: Record<OverlayId, Icon> = {
         rows: ["WWWWWWWWW", "WRRRRRWWW", "WRWWWRWWW", "WRWLWRWWW", "WRWLWBWWW", "WRWWWBWWW", "WRBBBBWWW", "WWWWWWWWW", "WWWWWWWWW"],
         palette: { W: "#1e4478", R: "#e0603d", B: "#6aa0e8", L: "#9a8f80" },
     },
+    soil: {
+        rows: ["GGGGGGGGG", "DDDDDDDDD", "DDODDDDOD", "SSSSSSSSS", "SSSSPSSSS", "CCCCCCCCC", "CCPCCCCCC", "RRRRRRPRR", "RRRRRRRRR"],
+        palette: { G: "#5aa83c", D: "#4a3424", O: "#2e2218", S: "#a88c64", C: "#a86c52", P: "#8a8680", R: "#7a7470" },
+    },
     fertility: {
         rows: [".........", "....L....", "...LLL...", "..LLSLL..", "....S....", "....S....", "DDDDSDDDD", "DDDDDDDDD", "BBBBBBBBB"],
         palette: { L: "#5aa83c", S: "#3c7a2c", D: "#6a4a30", B: "#4a3424" },

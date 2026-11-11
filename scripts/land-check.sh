@@ -10,7 +10,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 quick=""
 [[ "${1:-}" == "--quick" ]] && quick=1
-cmake --build "$root/.output/build" -j > /dev/null
+bash "$root/scripts/build.sh" -j > /dev/null
 
 logs="$(mktemp -d)"
 trap 'rm -rf "$logs"' EXIT

@@ -492,6 +492,9 @@ export type PlanetariumLayer =
     | { inside: true }
     | { none: true }
 
+/** The composed views (src/shell/planetarium.h): the main menu's, and Play's (the selected world in full view, mostly lit). */
+export type PlanetariumShot = "home" | "play"
+
 /** Where `planetarium.fly` takes the camera: what's left out stays as it is. */
 export type PlanetariumFlight = {
     body?: string // a body's id, or "star"
@@ -665,10 +668,10 @@ export type Intents = {
     "planetarium.time": { request: { running?: boolean; date?: number }; response: null }
     /** Whether the atlas's seams are drawn. */
     "planetarium.seams": { request: { shown: boolean }; response: null }
-    /** The main menu's composed view (src/planetarium/shot.h): its camera, moment and frame, eased over `seconds`; the mouse doesn't move it. */
     /** Whether the bodies' orbits are drawn, for a page that wants the view clear. */
     "planetarium.orbits": { request: { shown: boolean }; response: null }
-    "planetarium.scene": { request: { shown: boolean; seconds: number }; response: null }
+    /** A menu's composed view (src/planetarium/shot.h), eased to over `seconds` from wherever it's framed; the mouse doesn't move it. null: the page's own view. */
+    "planetarium.scene": { request: { shot: PlanetariumShot | null; seconds: number }; response: null }
     "planetarium.frame": { request: { left?: number; right?: number; top?: number; bottom?: number }; response: null }
     "planetarium.focus": { request: (PlanetariumPlace & { altitude?: number }) | { body: string }; response: null }
     "planetarium.markers": { request: { markers: PlanetariumMarker[] }; response: null }

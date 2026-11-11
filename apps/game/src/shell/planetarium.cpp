@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "planetarium.h"
+#include "exceptions.h"
 #include "log.h"
 #include "bridge.h"
 #include "shell.h"
@@ -9,11 +10,26 @@
 #include "terragen/progress.h"
 #include "terragen/body.h"
 #include "util/base64.h"
+#include <IEventReceiver.h>
 #include <IVideoDriver.h>
 #include <cmath>
 #include <cstdio>
+#include <map>
 
 namespace shell {
+
+// The lean (screen halves): the camera orbits the planet, which holds its
+// place on screen and turns in it; the star and sky, at infinity, pass behind
+// round its axis; less over and under it, which is the more disorienting
+constexpr float LEAN_ACROSS = 0.035f * 0.75f, LEAN_UP = 0.035f * 0.5f;
+constexpr double LEAN_EASE = 1.2;          // seconds to most of the way: slow, never a snap
+constexpr double TURN_SECONDS = 8 * 60;    // one of the planet's days, on the menu
+constexpr double WANDER = 0.35;            // of the lean, with the mouse still
+constexpr double WARM_MS = 3;              // a frame's share of uploading the next body's land
+// A held camera, put where the page leaves room: far out, turned to it (a
+// sphere seen square on); close in, the lens shifted (the ground nearly a
+// plane, and a shifted lens looks straight down on a plane, undistorted)
+constexpr double SHIFT_BELOW = 0.15, TURN_ABOVE = 1.0; // radii up
 
 using planetarium::MarkerLayer;
 using View = planetarium::Planetarium;
@@ -98,6 +114,7 @@ void Planetarium::serve(Body body, std::optional<Json::Value> backdrop)
 	m_afterMade.clear();
 	m_backdrop.reset();
 	m_scene = Scene{};
+	m_held = false;
 	m_orbits = true; // (whoever's served next: the game has its own view)
 	hide();
 	m_markers.clear();
@@ -194,27 +211,37 @@ void Planetarium::show(View::Opts body)
 	next->markers(m_markers);
 	next->layer(m_layer);
 	apply(*next);
-	if (m_scene.shown)
-		compose(*next, 0); // (the backdrop made again, under it)
+	if (m_scene.shot && !m_held)
+		compose(*next); // (the backdrop made again, under it; a held camera's kept by keep())
 	m_next = std::move(next);
 }
 
 void Planetarium::apply(View &p) const
 {
 	p.seams(m_seams);
-	p.orbits(m_orbits && !m_scene.shown);
+	p.orbits(m_orbits && !m_scene.shot);
 	p.day(m_clock.date * p.system().year());
 }
 
 void Planetarium::tick(double seconds)
 {
 	collect();
+	m_scene.t += seconds;
 	const double step = seconds / m_scene.seconds;
-	m_scene.blend = std::clamp(m_scene.blend + (m_scene.shown ? step : -step), 0.0, 1.0);
+	m_scene.home = std::clamp(m_scene.home + (m_scene.shot == Shot::Home ? step : -step), 0.0, 1.0);
 	if (m_clock.running) {
 		m_clock.date += seconds * m_clock.rate;
 		m_clock.date -= std::floor(m_clock.date); // round the year again
+	} else if (m_scene.shot && m_current) {
+		// the composed picture's planet turns (unreported: the page's clock is stopped)
+		m_clock.date += seconds / (TURN_SECONDS * m_current->system().year());
+		m_clock.date -= std::floor(m_clock.date);
 	}
+	// after the mouse, eased; still a while, a slow wander of its own
+	m_lean.since += seconds;
+	const double t = m_lean.since, wander = WANDER * std::clamp((t - 4) / 6, 0.0, 1.0);
+	const v2f aim = m_lean.want * (f32)(1 - wander) + v2f((f32)std::sin(t * 0.11), (f32)std::sin(t * 0.07 + 1)) * (f32)wander;
+	m_lean.now += (aim - m_lean.now) * (f32)(1 - std::exp(-seconds * 3 / LEAN_EASE));
 	for (View *p : { m_current.get(), m_next.get() })
 		if (p)
 			apply(*p);
@@ -285,46 +312,118 @@ Json::Value Planetarium::time(const Json::Value &intent)
 	return Json::Value();
 }
 
-void Planetarium::compose(planetarium::Planetarium &p, double seconds)
+planetarium::Shot Planetarium::leaned() const
 {
-	m_scene.aspect = (float)m_screen.X / std::max(1u, m_screen.Y);
-	p.compose(planetarium::HOME_SHOT, m_scene.aspect, seconds);
+	planetarium::Shot s = planetarium::HOME_SHOT;
+	const float k = (float)(m_scene.home * m_scene.home * (3 - 2 * m_scene.home)); // none while easing out
+	s.star -= v2f(m_lean.now.X * LEAN_ACROSS, m_lean.now.Y * LEAN_UP) * k;
+	return s;
+}
+
+void Planetarium::pointer(v2s32 at)
+{
+	const v2f was = m_lean.want;
+	m_lean.want = v2f(std::clamp(2.f * at.X / std::max(1u, m_screen.X) - 1, -1.f, 1.f),
+			std::clamp(1 - 2.f * at.Y / std::max(1u, m_screen.Y), -1.f, 1.f));
+	if (m_lean.want != was)
+		m_lean.since = 0; // moved: the mouse leads, the wander waits
+}
+
+v2f Planetarium::room() const
+{
+	const float k = m_opts.shell.scale();
+	return v2f((f32)((m_insets.left - m_insets.right) * k / std::max(1u, m_screen.X)),
+			(f32)(-(m_insets.top - m_insets.bottom) * k / std::max(1u, m_screen.Y)));
+}
+
+planetarium::Framing Planetarium::framingFor(Shot shot) const
+{
+	const float aspect = (float)m_screen.X / std::max(1u, m_screen.Y);
+	if (shot == Shot::Home)
+		return View::framingOf(leaned(), aspect);
+	// the home shot's star way across the screen and its side of the body, so
+	// from there it's a swing round toward the day side; framed in what the page leaves
+	const planetarium::Framing home = View::framingOf(planetarium::HOME_SHOT, aspect);
+	return planetarium::Framing{ planetarium::PLAY_ALTITUDE, v2f(), planetarium::PLAY_OFF, home.roll, home.around, 1.f };
+}
+
+void Planetarium::compose(View &p)
+{
+	if (!m_scene.shot)
+		throw BaseException("shell::Planetarium: composed with no shot");
+	const planetarium::Framing to = framingFor(*m_scene.shot);
+	planetarium::Framing f = to;
+	if (m_scene.from) {
+		// each number eased: a turn and a swing round the body, never a twist
+		const double x = std::clamp(m_scene.t / m_scene.seconds, 0.0, 1.0), e = x * x * x * (x * (6 * x - 15) + 10);
+		const planetarium::Framing &a = *m_scene.from;
+		const auto mix = [e](double p, double q) { return p + (q - p) * e; };
+		const double roll = a.roll + std::remainder(to.roll - a.roll, 2 * M_PI); // the short way round
+		f = planetarium::Framing{ mix(a.altitude, to.altitude), a.centre + (to.centre - a.centre) * (f32)e, mix(a.off, to.off),
+			mix(a.roll, roll), mix(a.around, to.around), (f32)mix(a.sky, to.sky) };
+	}
+	m_scene.now = f;
+	// where the page leaves room, by turning to it too: a shifted lens would stretch the far side
+	p.frame(v2f());
+	p.aim(f.centre + room());
+	p.skyLevel(f.sky);
+	p.compose(f, 0);
 }
 
 void Planetarium::opening()
 {
-	m_scene.shown = true;
-	m_scene.blend = 1;
+	m_scene = Scene{ Shot::Home, std::nullopt, std::nullopt, 0, 1, 1 };
 	m_clock.date = planetarium::HOME_SHOT.date;
 	m_clock.running = false;
 	for (View *p : { m_current.get(), m_next.get() })
 		if (p) {
 			apply(*p);
-			compose(*p, 0);
+			compose(*p);
 		}
 }
 
 Json::Value Planetarium::scene(const Json::Value &intent)
 {
-	if (!intent.isObject() || !intent["shown"].isBool())
-		throw Refused("planetarium.scene takes { shown, seconds }");
+	static const std::map<std::string, Shot> SHOTS{ { "home", Shot::Home }, { "play", Shot::Play } };
+	if (!intent.isObject() || !(intent["shot"].isNull() || intent["shot"].isString()))
+		throw Refused("planetarium.scene takes { shot: \"home\" | \"play\" | null, seconds }");
 	const double seconds = needed(intent, "seconds");
 	if (seconds <= 0 || seconds > 60)
 		throw Refused("planetarium.scene: it takes up to 60 seconds");
-	if (m_scene.shown && intent["shown"].asBool())
+	std::optional<Shot> shot;
+	if (intent["shot"].isString()) {
+		const auto found = SHOTS.find(intent["shot"].asString());
+		if (found == SHOTS.end())
+			throw Refused("planetarium.scene: no shot '" + intent["shot"].asString() + "'");
+		shot = found->second;
+	}
+	if (shot == m_scene.shot)
 		return Json::Value(); // there already (the menu opened on it)
-	m_scene.shown = intent["shown"].asBool();
-	m_scene.seconds = seconds;
-	if (m_scene.shown) {
-		m_clock.date = planetarium::HOME_SHOT.date;
+	if (shot == Shot::Home && !m_scene.shot) {
+		m_clock.date = planetarium::HOME_SHOT.date; // (from a page's own view: the home shot's moment)
 		m_clock.running = false;
 	}
+	// from wherever it's framed now, mid-move or not, or where the mouse left it
+	if (m_held && m_current) {
+		m_scene.now = m_current->framed();
+		// the centre as compose takes it: the page's room is its own, a shift counted as a turn
+		m_scene.now->centre += m_current->shift() - room();
+	}
+	m_held = false;
+	m_scene.from = m_scene.now;
+	m_scene.shot = shot;
+	m_scene.t = 0;
+	m_scene.seconds = seconds;
 	for (View *p : { m_current.get(), m_next.get() })
 		if (p) {
 			apply(*p);
-			if (m_scene.shown)
-				compose(*p, seconds);
+			if (!shot) { // the page's view from here: its own frame (planetarium.frame), straight on
+				p->aim(v2f());
+				p->skyLevel(1);
+			}
 		}
+	if (!shot)
+		m_scene.now.reset();
 	return Json::Value();
 }
 
@@ -583,9 +682,16 @@ Json::Value Planetarium::viewport(const Json::Value &intent)
 
 bool Planetarium::handle(const SEvent &event)
 {
-	if (m_scene.shown)
-		return false; // a composed picture: not the mouse's to move
 	View *p = m_current ? m_current.get() : m_next.get();
+	if (m_scene.shot == Shot::Home)
+		return false; // a composed picture: not the mouse's to move
+	// Play's: grabbed or wheeled, the camera's the mouse's from where it is
+	// (the move to it finished at once: it's taken from under the mouse, never jumps)
+	if (m_scene.shot == Shot::Play && !m_held && event.EventType == EET_MOUSE_INPUT_EVENT &&
+			(event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN || event.MouseInput.Event == EMIE_MOUSE_WHEEL)) {
+		m_held = true;
+		m_heldCentre = m_scene.now ? m_scene.now->centre : v2f();
+	}
 	return p && p->handle(event);
 }
 
@@ -596,8 +702,24 @@ void Planetarium::draw(video::IVideoDriver *driver)
 	m_screen = v2u32(screen.Width, screen.Height);
 	if (m_next) {
 		// the old body stays until the new one is whole, if coarsely
-		if (!m_current || (m_next->update(v2u32(screen.Width, screen.Height)), m_next->ready()))
+		// its land uploaded a little a frame while it's made, so it's on the GPU when it swaps in
+		m_next->update(v2u32(screen.Width, screen.Height));
+		const bool warmed = m_current && m_next->warm(driver, WARM_MS);
+		if (!m_current || (m_next->ready() && warmed)) {
+			// the old one kept through the new one's first frame: what they share
+			// (the galaxy's picture and stars) passes over, never made again
+			// Play's camera carried over the same way in space: the planet and the
+			// sky stay put, the new world's own ground and time of day under it
+			// (not mid-move: the move's own framing has it then)
+			if (m_current && m_scene.shot == Shot::Play && (m_held || m_scene.t >= m_scene.seconds)) {
+				m_next->align(*m_current);
+				if (!m_held)
+					m_heldCentre = m_scene.now ? m_scene.now->centre : v2f();
+				m_held = true;
+			}
+			m_retiring = std::move(m_current);
 			m_current = std::move(m_next);
+		}
 	}
 	tellMaking();
 	if (!m_current)
@@ -613,15 +735,17 @@ void Planetarium::draw(video::IVideoDriver *driver)
 	const float k = m_opts.shell.scale();
 	const double w = std::max(1, view.getWidth()), h = std::max(1, view.getHeight());
 	const double cx = (m_insets.left - m_insets.right) * k / 2, cy = (m_insets.top - m_insets.bottom) * k / 2;
-	const double eased = m_scene.blend * m_scene.blend * (3 - 2 * m_scene.blend);
-	const v2f centre = planetarium::HOME_SHOT.centre;
-	m_current->frame(v2f((f32)(cx / (w / 2) + centre.X * eased), (f32)(-cy / (h / 2) + centre.Y * eased)));
-	m_current->fov((f32)(planetarium::OrbitCamera::FOV + (planetarium::HOME_SHOT.fov - planetarium::OrbitCamera::FOV) * eased));
-	m_current->skyLevel((f32)(1 + (planetarium::HOME_SHOT.sky - 1) * eased));
-	// the window changed shape: the same picture on it
-	if (m_scene.shown && !m_current->flying() && m_scene.aspect != (float)screen.Width / std::max(1u, screen.Height))
-		compose(*m_current, 0);
+	// the picture as it is this frame: eased, leaned, turned, on the window's shape
+	if (m_scene.shot && !m_held)
+		compose(*m_current);
+	else if (m_held) {
+		const double w = std::clamp((m_current->radiiUp() - SHIFT_BELOW) / (TURN_ABOVE - SHIFT_BELOW), 0.0, 1.0);
+		m_current->aim((m_heldCentre + room()) * (f32)w);
+		m_current->frame((m_heldCentre + room()) * (f32)(1 - w));
+	} else
+		m_current->frame(v2f((f32)(cx / (w / 2)), (f32)(-cy / (h / 2))));
 	m_current->draw(driver, view);
+	m_retiring.reset();
 	tellHover(*m_current);
 	if (const std::optional<std::optional<size_t>> chosen = m_current->takeChosen()) {
 		Json::Value message;

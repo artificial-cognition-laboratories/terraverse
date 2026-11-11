@@ -9,6 +9,7 @@ export type Fields = {
     wet: Float32Array       // ~−1 arid .. 1 soaked: log₂ of the year's rain (relative to the land's median), halved
     season: Float32Array    // when the rain falls: 1 all in summer .. −1 all in winter
     fertility: Float32Array // 0..1: what the ground supplies, less what rain washes out (0 at sea)
+    soil: Uint8Array        // 4 a pixel, × 255: the regional soil's sand, clay, organic matter and stones (silt the rest of the fine earth; 0 at sea)
     current: Float32Array   // what the ocean currents add to the heat (warm +, cold −), coasts included
     biome: Uint8Array       // index into `biomes`
     biomes: string[]        // the engine's biome names, in index order
@@ -41,6 +42,7 @@ export type PreviewWire = {
     wet: string       // int8 × 100
     season: string    // int8 × 100
     fertility: string // uint8 × 255
+    soil: string      // 4 uint8 a pixel × 255: sand, clay, organic, stones
     current: string   // int8 × 100
     biome: string     // uint8
     biomes: string[]
@@ -64,12 +66,13 @@ export function decodePreview(wire: PreviewWire): Fields {
     const wet = new Int8Array(bytesOf(wire.wet).buffer)
     const season = new Int8Array(bytesOf(wire.season).buffer), fertility = bytesOf(wire.fertility)
     const current = new Int8Array(bytesOf(wire.current).buffer)
+    const soil = bytesOf(wire.soil)
     const biome = bytesOf(wire.biome)
     const lake = bytesOf(wire.lake)
     const riverBytes = bytesOf(wire.rivers)
     const province = bytesOf(wire.province), plate = bytesOf(wire.plate), boundary = bytesOf(wire.boundary)
     const volcanoBytes = bytesOf(wire.volcanoes)
-    if (elevation.length !== n || heat.length !== n || wet.length !== n || season.length !== n || fertility.length !== n || current.length !== n ||
+    if (elevation.length !== n || heat.length !== n || wet.length !== n || season.length !== n || fertility.length !== n || soil.length !== 4 * n || current.length !== n ||
         biome.length !== n || lake.length !== n || riverBytes.length % 9 ||
         province.length !== n || plate.length !== n || boundary.length !== n || volcanoBytes.length % 5)
         throw new Error(`preview fields don't match resolution ${wire.resolution}`)
@@ -88,6 +91,7 @@ export function decodePreview(wire: PreviewWire): Fields {
         wet: Float32Array.from(wet, (v) => v / 100),
         season: Float32Array.from(season, (v) => v / 100),
         fertility: Float32Array.from(fertility, (v) => v / 255),
+        soil: soil,
         current: Float32Array.from(current, (v) => v / 100),
         biome: biome,
         biomes: wire.biomes,
@@ -136,6 +140,7 @@ export const OVERLAYS = [
     { id: "moisture", label: "Rainfall" },
     { id: "seasons", label: "Rain seasons" },
     { id: "fertility", label: "Fertility" },
+    { id: "soil", label: "Soil" },
     { id: "currents", label: "Ocean currents" },
     { id: "plates", label: "Plates" },
     { id: "geology", label: "Geology" },
@@ -175,6 +180,18 @@ function currentColor(current: number, sea: boolean): Rgb {
     return [base + 180 * Math.max(0, a) - 30 * Math.max(0, -a), base - 30 * Math.abs(a), base + 180 * Math.max(0, -a) - 30 * Math.max(0, a)]
 }
 
+// What the ground's made of (sprint 111): sand pale gold, silt grey-brown, clay
+// rust, organic matter darkening it toward peat, stones greying it. The
+// globe's painter is the same (src/planetarium/paint.cpp soilColour).
+function soilColor(soil: Uint8Array, i: number): Rgb {
+    const sand = soil[i * 4]! / 255, clay = soil[i * 4 + 1]! / 255, organic = soil[i * 4 + 2]! / 255, stones = soil[i * 4 + 3]! / 255
+    const silt = Math.max(0, 1 - sand - clay)
+    const SAND: Rgb = [222, 200, 150], SILT: Rgb = [150, 132, 108], CLAY: Rgb = [168, 108, 82], PEAT: Rgb = [52, 40, 30], STONE: Rgb = [128, 124, 120]
+    const dark = Math.min(1, organic * 1.8), grey = stones * 0.8
+    const at = (k: number) => ((SAND[k]! * sand + SILT[k]! * silt + CLAY[k]! * clay) * (1 - dark) + PEAT[k]! * dark) * (1 - grey) + STONE[k]! * grey
+    return [at(0), at(1), at(2)]
+}
+
 function seasonColor(season: number, wet: number): Rgb {
     const amount = Math.max(0.35, Math.min(1, 0.6 + wet * 0.5))
     // only a strong season shows its colour: weak ones stay near grey
@@ -211,6 +228,7 @@ export function paint(fields: Fields, overlay: OverlayId): ImageData {
                 // red where the currents warm the sea and coast, blue where they chill it
                 case "currents": color = currentColor(fields.current[i]!, e < 0); break
                 case "fertility": color = e < 0 ? [24, 40, 70] : ramp(FERTILE_RAMP, fields.fertility[i]!); break
+                case "soil": color = e < 0 ? [24, 40, 70] : soilColor(fields.soil, i); break
                 case "plates": color = fields.boundary[i] ? BOUNDARY_COLORS[fields.boundary[i]!]! : plateColor(fields.plate[i]!, e < 0); break
                 case "geology": color = PROVINCE_COLORS[fields.province[i]!]!; break
                 case "weather": throw new Error("the weather overlay is painted by paintWeather (weather.ts)")

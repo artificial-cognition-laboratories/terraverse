@@ -127,16 +127,19 @@ local function weather_at(pos)
 	return core.terra.weather(pos).temperature + 273.15
 end
 
--- the weather's temperature for the cubes around each player
+-- the weather's temperature, and how wet its ground is (sprint 111), for
+-- the cubes around each player
 local function tell_weather()
 	for _, player in ipairs(core.get_connected_players()) do
 		local pos = vector.round(player:get_pos())
-		local t = weather_at(pos)
-		if t then
+		local w = core.terra.enabled() and core.terra.weather(pos)
+		if w then
 			for dx = -32, 32, 16 do
 				for dy = -32, 32, 16 do
 					for dz = -32, 32, 16 do
-						core.matter.ambient(vector.offset(pos, dx, dy, dz), t)
+						local at = vector.offset(pos, dx, dy, dz)
+						core.matter.ambient(at, w.temperature + 273.15)
+						core.matter.wetness(at, math.max(0, math.min(1, w.soil)))
 					end
 				end
 			end

@@ -185,10 +185,13 @@
 	PROTOCOL VERSION 90 (Terra Firma)
 		A body's clock (sprint 107): TOCLIENT_SET_SKY's solar carries turns and at
 		Only 90 is accepted on either side.
+	PROTOCOL VERSION 100 (Terra Firma)
+		The ground (sprint 111): TOCLIENT_HORIZON's blocks carry the soil
+		kinds (by parent rock and stoniness). Only 100 is accepted on either side.
 */
 
 // Note: Also update core.protocol_versions in builtin when bumping
-const u16 LATEST_PROTOCOL_VERSION = 99;
+const u16 LATEST_PROTOCOL_VERSION = 100;
 
 // See also formspec [Version History] in doc/lua_api.md
 const u16 FORMSPEC_API_VERSION = 12;

@@ -220,6 +220,11 @@ Matter Matter::load(const std::string &dir)
 			throw MatterError(where + ": give a boiling point at 1 atm, or where it sublimes at 1 atm, not both");
 		if (x.sublime && (x.triple.p <= ATMOSPHERE || *x.sublime >= x.triple.t))
 			throw MatterError(where + ": a substance that sublimes at 1 atm has its triple point above 1 atm and its sublimation below it");
+		if (s.isMember("grain")) {
+			x.grain = number(s, "grain", where);
+			if (*x.grain <= 0)
+				throw MatterError(where + ": grain must be positive (mm)");
+		}
 		if (x.boil && x.triple.p >= ATMOSPHERE)
 			throw MatterError(where + ": a boiling point at 1 atm needs its triple point below 1 atm");
 		m.m_substances.push_back(x);
@@ -236,6 +241,28 @@ Matter Matter::load(const std::string &dir)
 		if (x.most <= 0 || x.solvent == n)
 			throw MatterError(where + ": it dissolves in something else, some moles per mole of it");
 		m.m_substances[n].dissolves = x;
+	}
+
+	// how each weathers (sprint 111), once every substance is known
+	for (Json::ArrayIndex n = 0; n < substances["substances"].size(); n++) {
+		const Json::Value &s = substances["substances"][n];
+		if (!s.isMember("weathers"))
+			continue;
+		const std::string where = "substance " + s["id"].asString() + ".weathers";
+		const Json::Value &w = s["weathers"];
+		Substance::Weathers x{ number(w, "rate", where), std::nullopt, 0 };
+		if (x.rate <= 0)
+			throw MatterError(where + ": rate must be positive");
+		if (w.isMember("into")) {
+			x.into = m.index(field(w, "into", where).asString());
+			const double per = number(w, "per", where);
+			if (*x.into == n || per <= 0)
+				throw MatterError(where + ": it weathers into something else, some moles per mole of it");
+			x.keep = per * m.m_substances[*x.into].molar_mass / m.m_substances[n].molar_mass;
+			if (x.keep > 1.5)
+				throw MatterError(where + ": " + std::to_string(x.keep) + " kg left a kg weathered: check per");
+		}
+		m.m_substances[n].weathers = x;
 	}
 
 	// each one's thermodynamics (sprint 79): baked by scripts/matter-data
@@ -352,6 +379,10 @@ Matter Matter::load(const std::string &dir)
 		}
 		if (std::fabs(total - 1) > 1e-6)
 			throw MatterError(where + ": its minerals' shares add up to " + std::to_string(total) + ", not 1");
+		x.grain = number(r, "grain", where);
+		x.crumbles = number(r, "crumbles", where);
+		if (x.grain <= 0 || x.crumbles <= 0)
+			throw MatterError(where + ": grain (mm) and crumbles must be positive");
 		m.m_rocks.push_back(x);
 	}
 
@@ -379,6 +410,14 @@ size_t Matter::index(const std::string &id) const
 		if (m_substances[i].id == id)
 			return i;
 	throw MatterError("no substance \"" + id + "\"");
+}
+
+const RockKind &Matter::rock(const std::string &id) const
+{
+	for (const RockKind &r : m_rocks)
+		if (r.id == id)
+			return r;
+	throw MatterError("no rock " + id);
 }
 
 const Element &Matter::element(const std::string &symbol) const

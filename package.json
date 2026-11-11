@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "bun scripts/dev.ts",
-    "build": "cmake -S . -B .output/build -DRUN_IN_PLACE=TRUE && cmake --build .output/build -j && bun run stage && cd apps/game/ui && bun run build",
+    "build": "cmake -S . -B .output/build -DRUN_IN_PLACE=TRUE && bash scripts/build.sh -j && bun run stage && cd apps/game/ui && bun run build",
     "stage": "bash scripts/stage-runtime.sh",
     "palette": "bash scripts/palette.sh",
     "components": "cd apps/game/ui && bun run gallery",

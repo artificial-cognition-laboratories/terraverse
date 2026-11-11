@@ -73,6 +73,9 @@ struct Climate
 	// fierce in continental interiors, mild where the sea damps them)
 	std::vector<fix> heat;
 	std::vector<fix> gain;
+	// the year's mean surface wind (the two seasons'), as a vector in the
+	// planet's frame (x, y, z): which way sand drifts and waves run (sprint 112)
+	std::vector<fix> wind[3];
 	fix ice; // the share of the planet's area frozen over (yearly mean below −10 °C)
 };
 

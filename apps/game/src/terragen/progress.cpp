@@ -22,6 +22,7 @@ struct Live
 	StepRecord record;
 	Clock::time_point start;
 	std::atomic<int64_t> done{ 0 };
+	bool past = false; // a making before this one's: not told
 };
 
 // A few codes' records, latest first (a world's making is asked after by
@@ -102,6 +103,24 @@ void beginMaking(const std::string &code)
 	std::lock_guard<std::mutex> hold(g_lock);
 	for (auto it = g_entries.begin(); it != g_entries.end(); ++it)
 		if ((*it)->code == code) {
+			// Steps for it may already be running (whoever's showing it starts
+			// its tiles as the world's asked for): they're this making's, so
+			// the entry's kept, and only what finished before is let go (a
+			// step's place in it can't move under it)
+			Step::Entry &e = **it;
+			bool running = false;
+			for (Live &live : e.steps) {
+				if (live.record.finished)
+					live.past = true;
+				else if (!running || live.start < e.start) {
+					e.start = live.start;
+					running = true;
+				}
+			}
+			if (running) {
+				e.done = false;
+				return;
+			}
 			g_entries.erase(it);
 			break;
 		}
@@ -114,6 +133,8 @@ static Making snapshot(const Step::Entry &e)
 	m.done = e.done;
 	m.seconds = since(e.start);
 	for (const Live &live : e.steps) {
+		if (live.past)
+			continue;
 		StepRecord r = live.record;
 		if (!r.finished) {
 			r.seconds = since(live.start);

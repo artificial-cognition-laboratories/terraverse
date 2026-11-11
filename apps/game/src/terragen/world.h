@@ -55,13 +55,60 @@ struct Cover
 	uint32_t roll; // a per-column random number, for the game's choices
 };
 
-// Soil as a composition (soil.cpp): its mineral part on the texture
-// triangle, and organic matter as a share of the whole.
+// Soil as a composition (soil.cpp, sprint 111): what weathering made of
+// the rock under it, moved and sorted by slopes and water. Its fine earth
+// (under 2 mm) on the texture triangle; stones over that; organic matter.
 struct Soil
 {
-	fix sand, silt, clay; // shares of the mineral part, summing to ~1
+	fix sand, silt, clay; // shares of the mineral fine earth, summing to ~1
 	fix organic;          // 0..1 of the soil
+	fix stones = 0;       // 0..1 of the mineral part: gravel and stones over 2 mm
+	int32_t depth = 0;    // blocks of it over the rock
+	Rock parent = Rock::Granite; // what its grains weathered from
+	bool laid = false;    // water or ice laid it (a bed, a bank, a floodplain, till): one deposit all the way down
 };
+// Soil kinds (sprint 111): a soil block's name says what its grains came
+// from and how stony it is; its param2 is its fine earth (soilIndex).
+enum class SoilParent : uint8_t { Granitic, Basaltic, Limy, Shaly, Count };
+extern const char *const SOIL_PARENT_NAMES[(int)SoilParent::Count];
+SoilParent soilParent(Rock rock);
+// how stony: stones under 15% of it, to 35%, to 60%, more (gravel)
+constexpr int SOIL_STONY = 4;
+extern const char *const SOIL_STONY_NAMES[SOIL_STONY]; // "" (none), "stony", "gravelly", "gravel"
+int soilStony(fix stones);
+fix soilStonesOf(int stony); // the share a class stands for
+// What a column's soil holds `below` blocks under its top (0: the top):
+// the topsoil is the column's; the subsoil under it keeps a quarter of its
+// organic matter (peat all of it) and the clay rain washed down; its last
+// block, over the rock, is the rock breaking up. What water laid is one
+// deposit all the way down, its organic matter in the top alone.
+Soil soilLayer(const Soil &column, int32_t below);
+// Whether a river braids (sprint 112): steep for what it carries, a wide
+// shallow bed of bars split among many channels, against one that winds in
+// a single channel. Leopold and Wolman's line, slope > 0.012·Q^−0.44 (Q in
+// m³/s, drawn ten times higher for the grid's runs: soil.cpp), Q and the slope in the planet's own metres as soil reads them;
+// glacial meltwater, laden with outwash, braids at a third of the slope.
+// `width` its single channel's (blocks, fixed), `glacial` 0..1.
+bool braids(int64_t width, fix slope, fix rain, int64_t radius, fix metre, fix glacial);
+// The minerals each rock weathers by (soil.cpp): its own copy of
+// assets/matter (rocks.json minerals and grain, substances.json weathers),
+// since terragen reads no files; TestTerragen holds it to the data.
+constexpr int GRAIN_BANDS = 5; // stone, gravel, sand, silt, clay (matter::Band)
+struct ParentMineral
+{
+	const char *id; // the substance
+	fix share;      // of the rock's mass
+	fix rate;       // how fast it weathers (0: it lasts)
+	fix keep;       // kg it leaves a kg weathered (as clay); the rest dissolves
+	int finest;     // the band its crystals come apart at, if finer than the rock's (clay minerals: clay), else −1
+};
+struct ParentRock
+{
+	std::array<ParentMineral, 4> minerals; // unused ones have no id
+	int crystals; // the band its grains fall apart into
+	fix crumbles; // how fast, against granite
+};
+const ParentRock &parentRock(Rock rock);
 // The compositions a soil block can hold (its param2): sand and clay in
 // tenths, silt the rest, at three levels of organic matter.
 constexpr int32_t SOIL_ORGANIC = 3;
@@ -83,6 +130,20 @@ struct Ground
 	Water kind;
 	Column column;
 	int32_t mare = 0; // blocks of lava under the top (a flooded lid's maria), 0 off them
+	// The nearest of the grid's rivers, as soil reads what it laid (sprint
+	// 111): its width and how far its line is (blocks, fixed; no width:
+	// none near), its water's level (blocks), how steeply it runs there
+	// (rise over run), whether this is the bar inside its bend, which side
+	// of the bend it's on (1 inside, −1 outside, the cut bank), and whether
+	// the river braids (sprint 112)
+	int64_t river_width = 0, river_dist = INT64_MAX;
+	int32_t river_level = 0;
+	fix river_slope = 0;
+	bool river_bar = false;
+	int8_t river_bend = 0;
+	bool river_braided = false;
+	int32_t dune = 0; // blocks of wind-blown sand on top (sprint 112)
+	bool bare = false; // too steep for the biome's loose top: its filler shows
 };
 
 /*
@@ -167,6 +228,8 @@ public:
 	// How much the ice ages' glaciers worked a cell's ground at this height
 	// (blocks, fixed): 0 never .. 1 (cold enough now, so colder then)
 	fix glacial(int32_t c, int64_t height) const;
+	// Whether a cell's run braids (sprint 112; see braids())
+	bool braided(int32_t c) const { return !m_runs.empty() && m_runs[(size_t)c].braided; }
 	// A drawn run's water level (blocks) at PROFILE + 1 points along it, from
 	// the cell to its receiver (none: nullptr). Worked out the first time it's asked for.
 	static constexpr int PROFILE = 8;
@@ -190,6 +253,9 @@ public:
 	// carved there (`water_above`: under a sea, lake or river).
 	Strata strata(const Place &d, const Ground &ground) const;
 	Rock rock(const Strata &s, int32_t depth, int32_t y) const;
+	// Karst (sprint 112): how much a place is a limestone platform's (0..1)
+	// in a climate this wet: its beds lime, its small streams sunk
+	fix karst(const Place &at, fix wet) const;
 	Ore ore(const Strata &s, Rock rock, int32_t depth, int32_t y) const;
 	Cave cave(const Strata &s, Rock rock, int32_t depth, int32_t y, bool water_above) const;
 	// A grid field (Grid's per-cell vectors) at a place, between cell centres.
@@ -202,12 +268,28 @@ public:
 	// What the soil is made of here (soil.cpp), and how far a rock at height
 	// `y` blends toward its neighbour (0 .. ROCK_BLENDS − 1).
 	Soil soil(const Place &d, const Ground &ground, const Strata &strata) const;
+	// The soil each grid cell's land mostly has (sprint 111), for maps: from
+	// the grid alone (its height, climate, rock and rivers; no streams below
+	// it, no detail), as fields `between` reads. Made the first time it's
+	// asked for, in parallel; the sea's cells hold nothing.
+	struct RegionalSoil
+	{
+		std::vector<fix> sand, silt, clay, organic, stones;
+	};
+	const RegionalSoil &regionalSoil() const;
 	uint8_t blend(const Place &d, int32_t y) const;
 
 	// What can grow here (vegetation.cpp).
 	Cover cover(const Place &d, const Ground &ground) const;
 
 public:
+	// A river's width (blocks, fixed, at least one) for what drains to it
+	// (blocks² of average rain): its streams' and the grid's runs' alike
+	int64_t riverWidth(int64_t area) const;
+	// blocks a metre of height is (blocksPerMetre)
+	fix metre() const { return m_metre; }
+	// the drainage below the grid, if this world has one (for tools that draw it)
+	const Channels *channels() const { return m_channels ? &*m_channels : nullptr; }
 	// where a place lies on its fold ridge (0 valley .. 1 crest; 0 outside a belt)
 	fix ridgesAt(const Place &at) const { return folds(at).crest; }
 
@@ -215,12 +297,20 @@ private:
 	// how much every nearby volcano raises a place, and a crater's lava surface
 	// (absolute blocks) if any
 	// `floor` is the crater's floor (absolute) inside a crater, built level from the vent
-	void volcanic(const Place &at, int32_t &raise, int32_t &lava, int32_t &floor) const;
+	// a volcano's relief at a place: its cone (raise), a crater's floor and its
+	// lava lake's level, a crater lake's level (pool, where it's wet
+	// enough to fill), and how thick a young lava plain lies (sprint 112);
+	// INT32_MIN where there's none
+	struct Volcanic
+	{
+		int32_t raise = 0, lava = INT32_MIN, floor = INT32_MIN, pool = INT32_MIN, plain = 0;
+		bool fresh = false; // the plain is the youngest's: bare lava
+	};
+	Volcanic volcanic(const Place &at, fix wet) const;
 
 	WorldCode m_code;
 	std::shared_ptr<const Grid> m_grid;
 	int64_t m_radius, m_cell_blocks;
-	int64_t m_river_scale; // fixed: how much wider rivers are than on the default planet
 	int32_t m_meander;     // rivers' meanders: waves round the equator
 	fix m_height;          // blocks per unit of elevation (heightScale)
 	fix m_metre;           // blocks per metre (blocksPerMetre)
@@ -237,12 +327,14 @@ private:
 		int arms;              // its distributaries
 	};
 	std::vector<int32_t> m_upstream; // each drawn cell's main stem in: the one draining most into it (−1 none)
+	std::vector<uint8_t> m_sea_cells; // each cell's steps to the sea (0 at sea; capped at 255)
 	// A drawn run's shape, the same for every column that reads it
 	struct RunShape
 	{
 		int64_t width = 0;  // blocks, fixed
 		int64_t run = 0;    // its length, blocks, fixed (0: not drawn)
 		int64_t loops = 1;  // meander loops along it
+		bool braided = false; // a braided river's: wide, straight, split round bars
 		int64_t swing = 0, reach_side = 0; // how far they swing (signed), and at most (blocks, fixed)
 		fix m0 = 0, m1 = 0; // its slopes across the run at each end (Hermite's)
 		// the line's offset across the run at t (blocks, fixed), the meander's
@@ -252,20 +344,23 @@ private:
 	std::vector<RunShape> m_runs;
 	void shapeRuns();
 	// Each drawn run's water level (blocks) at PROFILE + 1 points from its
-	// cell to its receiver: falling downstream, under the ground beside it
-	// (the water's cut into the land, never banked up over it). Its ends are
-	// the network's (profileRuns, for every run: each is held by those up and
-	// down it); the points between are its own, the ground read along it,
-	// filled in the first time it's asked for (profileRun). Read at full detail
-	// whoever asks, so the same either way; on a large planet each read is
-	// somewhere new, its channels built from nothing: read for every run as
-	// the world was made, boot took 20 s.
+	// cell to its receiver: falling downstream; the land's carved to it (the
+	// water's cut into the land, never banked up over it). Its ends are the
+	// network's (profileRuns, for every run: each is held by those up and
+	// down it); the points between are its own, from its ends and the rock
+	// it runs over (profileRun), filled in the first time it's asked for.
+	// Never the land read along it: a full read each, somewhere new on a
+	// large planet, its channels built from nothing (sprint 110: 20 s to make
+	// a world, then 9 s for its coarse planet)
 	mutable std::vector<int32_t> m_profile;
 	std::unique_ptr<std::once_flag[]> m_profiled; // a run's points between filled in
 	void profileRuns();
 	void profileRun(int32_t c) const;
-	// the ground at a place before volcanoes and water, as ground() starts it
-	int32_t landAt(const Place &at) const;
+
+	// the soil from what the column says and, if any, the channel nearest (soil.cpp)
+	Soil soilWith(const Place &at, const Ground &ground, const Strata &strata, const Channels::Read *read) const;
+	mutable RegionalSoil m_regional_soil;
+	mutable std::once_flag m_regional_soiled;
 
 	std::vector<Delta> m_deltas;
 	std::vector<int16_t> m_delta_at; // each cell's delta, if one reaches it (−1 none)
@@ -306,7 +401,7 @@ private:
 	// in its valley (the last place's is kept: ground asks twice)
 	struct ChannelsAt
 	{
-		const Channels *from = nullptr;
+		uint64_t from = 0; // the Channels' owner(): an address is reused once one's freed
 		int64_t least = 0;
 		Place at{};
 		Channels::Read read;
@@ -316,6 +411,12 @@ private:
 	// Gullies: the drainage finer than the grid, as erosion leaves it on a
 	// slope (blocks, fixed, about 0); `strength` 0..1 how deeply it's cut
 	fix gullies(const Place &at, fix strength) const;
+	// wind-blown sand: raises `out` by its dunes and makes them sand
+	void dunes(const Place &at, fix surf, int32_t strand, Ground &out) const;
+	// small relief on steep hillsides, blocks (sprint 112)
+	int32_t crags(const Place &at, fix slope) const;
+	// its sinkholes' depth at a place, blocks (karst())
+	int32_t dolines(const Place &at, fix karst) const;
 	// fold ridges at a place (planning/sprint-101-ranges.md)
 	struct Folds
 	{

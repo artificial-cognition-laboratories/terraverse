@@ -63,6 +63,9 @@ terra::Blocks terraBlocks(const BiomeManager *bmgr, const NodeDefManager *ndef)
 	blocks.lava = need("mapgen_lava_source");
 	blocks.placer = need("mapgen_placer");
 	blocks.soil = need("mapgen_soil");
+	for (int p = 0; p < (int)SoilParent::Count; p++)
+		for (int k = 0; k < SOIL_STONY; k++)
+			blocks.soils[p][k] = need(std::string("mapgen_soil_") + SOIL_PARENT_NAMES[p] + (k ? std::string("_") + SOIL_STONY_NAMES[k] : ""));
 	for (int i = 0; i < (int)terragen::Rock::Count; i++)
 		blocks.rock[i] = need(std::string("mapgen_rock_") + ROCK_NAMES[i]);
 	blocks.ore[0] = CONTENT_IGNORE;

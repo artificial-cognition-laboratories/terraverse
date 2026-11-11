@@ -3,6 +3,7 @@
 
 #include "test.h"
 
+#include "matter/grains.h"
 #include "matter/matter.h"
 #include "matter/mixture.h"
 #include "porting.h"
@@ -29,6 +30,7 @@ public:
 	void testMeltingTakesTime();
 	void testHeatsFromData();
 	void testWetChemistry();
+	void testGrains();
 };
 
 static TestMatter g_test_instance;
@@ -53,6 +55,7 @@ void TestMatter::runTests(IGameDef *gamedef)
 	TEST(testMeltingTakesTime);
 	TEST(testHeatsFromData);
 	TEST(testWetChemistry);
+	TEST(testGrains);
 }
 
 void TestMatter::testLoads()
@@ -336,4 +339,62 @@ void TestMatter::testWetChemistry()
 		jar.run(60, Conditions{ 293.15, ATMOSPHERE, 0, 0, 0 });
 		UASSERT(jar.amounts[h2] == 0);
 	}
+}
+
+// Grain size (sprint 111): rock weathers into ground by what it's made of,
+// and every split keeps the mass.
+void TestMatter::testGrains()
+{
+	Matter m = table();
+	UASSERT(bandOf(100) == Band::Stone && bandOf(2) == Band::Gravel && bandOf(1) == Band::Sand);
+	UASSERT(bandOf(0.01) == Band::Silt && bandOf(0.001) == Band::Clay);
+	// feldspar keeps half a mole of kaolinite a mole: 0.46 kg a kg, from the masses
+	UASSERT(std::fabs(m.substance("feldspar").weathers->keep - 0.464) < 0.01);
+	UASSERT(!m.substance("silica").weathers); // quartz lasts
+
+	auto weathered = [&](const char *rock, double extent, double *dissolved) {
+		const RockKind &r = m.rock(rock);
+		Grains g = Grains::broken(m, r, 1000, Band::Stone);
+		*dissolved = g.weather(extent, bandOf(r.grain), r.crumbles);
+		UASSERT(std::fabs(g.mass() + *dissolved - 1000) < 1e-6);
+		return g;
+	};
+	double gone;
+	// granite rots to quartz sand and kaolinite clay: a sandy loam where
+	// weathering is mild (temperate), clay with quartz sand in it where
+	// it's deep (the tropics)
+	Grains granite = weathered("granite", 4, &gone);
+	Texture t = granite.texture();
+	UTEST(t.sand > 0.6 && t.clay > 0.1 && t.clay < 0.3, "mild: granite weathered to sand %.2f, clay %.2f", t.sand, t.clay);
+	UASSERT(granite.stones() < 0.05);
+	Texture deep = weathered("granite", 15, &gone).texture();
+	UTEST(deep.clay > 0.4 && deep.sand > 0.3, "deep: granite weathered to sand %.2f, clay %.2f", deep.sand, deep.clay);
+	// basalt has no quartz: clay or nothing
+	Grains basalt = weathered("basalt", 4, &gone);
+	UTEST(basalt.texture().clay > t.clay, "basalt's clay %.2f under granite's %.2f", basalt.texture().clay, t.clay);
+	// limestone goes into the water, leaving its clay (terra rossa)
+	Grains lime = weathered("limestone", 4, &gone);
+	UTEST(gone > 850, "limestone left %.0f kg of 1000", 1000 - gone);
+	UASSERT(lime.texture().clay > 0.4);
+	// young weathering: still mostly the rock, in pieces
+	Grains young = weathered("granite", 0.1, &gone);
+	UASSERT(young.stones() > 0.8);
+
+	// splits keep everything, water included
+	Grains soil = granite;
+	soil.water = 100;
+	const double before = soil.mass();
+	Grains fine = soil.finer(Band::Silt);
+	UASSERT(fine.mass(Band::Sand) == 0 && soil.mass(Band::Clay) == 0);
+	UASSERT(std::fabs(fine.mass() + soil.mass() - before) < 1e-9 && std::fabs(fine.water + soil.water - 100) < 1e-9);
+	soil.add(fine);
+	Grains spade = soil.share(0.25);
+	UASSERT(std::fabs(spade.mass() * 3 - soil.mass()) < 1e-6);
+	young.crush(Band::Sand);
+	UASSERT(young.stones() == 0);
+	// organic matter counts in the mass, never the texture
+	Grains peat(m);
+	peat.add(m.index("wood"), Band::Silt, 10);
+	peat.add(m.index("kaolinite"), Band::Clay, 10);
+	UASSERT(peat.organic() == 0.5 && peat.texture().clay == 1);
 }

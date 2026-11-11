@@ -14,7 +14,7 @@ export type SystemStyle = (typeof SYSTEM_STYLES)[number]
 export type WorldConfig = {
     seed: string
     size: number        // blocks per side; wraps east–west, with polar north/south edges
-    continents: number  // 1..8, roughly how many landmasses
+    continents: number  // 1..16, roughly how many landmasses
     land: number        // 0..1, share of the surface above sea level
     coast: number       // 0..1, smooth shores ↔ fjords and islets
     mountains: number   // 0..1, how high and how much
@@ -90,7 +90,7 @@ const between = (lo: number, hi: number) => lo + Math.random() * (hi - lo)
 /** Random land settings within sensible bounds — for discovering world types (size is kept). */
 export function surprise(): Omit<WorldConfig, "seed" | "size" | "style" | "bodies"> {
     return {
-        continents: 1 + Math.floor(Math.random() * 8),
+        continents: 1 + Math.floor(Math.random() * 16),
         land: between(0.15, 0.7),
         coast: between(0, 1),
         mountains: between(0.1, 1),
@@ -126,11 +126,11 @@ export function randomSeed() {
  *            per field (fixed order, quantized); omitted when all default
  * The version prefix means a code never silently changes meaning.
  */
-const VERSION = "TF21"
+const VERSION = "TF22"
 
 type Field = { key: Exclude<keyof WorldConfig, "seed" | "size" | "star" | "starMass" | "metallicity" | "age" | "wind" | "companion" | "style" | "bodies">; min: number; max: number }
 const FIELDS: Field[] = [
-    { key: "continents", min: 1, max: 8 },
+    { key: "continents", min: 1, max: 16 },
     { key: "land", min: 0, max: 1 },
     { key: "coast", min: 0, max: 1 },
     { key: "mountains", min: 0, max: 1 },

@@ -47,12 +47,15 @@ core.register_node("tf_world:tundra", {
 
 -- The polar wall at the north and south edges of the world.
 
--- Beds under rivers and lakes: sand unless the biome says otherwise.
+-- Beds under rivers and lakes: the column's soil (what the water laid there,
+-- sorted: gravel, sand, clay; sprint 111) unless the biome says otherwise.
+-- Where a filler or riverbed is "tf_world:soil", terragen says how deep it
+-- is and what each block of it is; depth_filler is for the other fillers.
 local function biome(name, def)
 	def.name = name
 	def.y_min = -31000
 	def.y_max = 31000
-	def.node_riverbed = def.node_riverbed or "tf_world:sand"
+	def.node_riverbed = def.node_riverbed or "tf_world:soil"
 	def.depth_riverbed = 2
 	core.register_biome(def)
 end
@@ -114,7 +117,7 @@ biome("mediterranean", { node_top = "tf_world:dry_grass", depth_top = 1, node_fi
 biome("taiga", { node_top = "tf_world:grass", depth_top = 1, node_filler = "tf_world:soil", depth_filler = 3, heat_point = 15, humidity_point = 55 })
 biome("tundra", { node_top = "tf_world:tundra", depth_top = 1, node_filler = "tf_world:soil", depth_filler = 2, heat_point = 10, humidity_point = 30 })
 biome("rock", { node_top = "tf_world:stone", depth_top = 1, node_filler = "tf_world:stone", depth_filler = 0,
-	node_riverbed = "tf_world:gravel", heat_point = 40, humidity_point = 30 })
+	heat_point = 40, humidity_point = 30 })
 -- airless ground: the highlands' light dust, the maria's dark
 biome("regolith", { node_top = "tf_world:regolith", depth_top = 2, node_filler = "tf_world:regolith", depth_filler = 0,
 	node_riverbed = "tf_world:regolith", heat_point = 30, humidity_point = 0 })
@@ -128,8 +131,8 @@ biome("saltflat", { node_top = "tf_world:salt_crust", depth_top = 1, node_filler
 	node_riverbed = "tf_world:salt_crust", heat_point = 80, humidity_point = 5 })
 biome("marsh", { node_top = "tf_world:mud", depth_top = 2, node_filler = "tf_world:clay", depth_filler = 3,
 	node_riverbed = "tf_world:mud", heat_point = 55, humidity_point = 95 })
--- (a marsh's mud lies on the clay it settled; a river's banks over its plain are clay to dig)
+-- (a marsh's mud lies on the clay it settled)
 biome("floodplain", { node_top = "tf_world:grass", depth_top = 1, node_filler = "tf_world:soil", depth_filler = 6,
-	node_riverbed = "tf_world:clay", heat_point = 60, humidity_point = 70 })
+	heat_point = 60, humidity_point = 70 })
 biome("snow", { node_top = "tf_world:snow", depth_top = 1, node_filler = "tf_world:stone", depth_filler = 0,
-	node_riverbed = "tf_world:gravel", heat_point = 0, humidity_point = 40 })
+	heat_point = 0, humidity_point = 40 })

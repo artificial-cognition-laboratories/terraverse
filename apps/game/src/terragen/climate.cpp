@@ -471,6 +471,8 @@ Climate climate(const WorldCode &code, const std::vector<fix> &elevation)
 	Planet turning = home();
 	turning.day = turning.day * ((double)code.processes.day / toFix(24));
 	const Circulation circ = circulation(turning);
+	for (int k = 0; k < 3; k++)
+		out.wind[k].assign(g.n, 0);
 	for (int s = 0; s < 2; s++) {
 		const fix date = s == 0 ? ratio(1, 4) : ratio(3, 4);
 		// the rising branch follows the sun about halfway (thermal lows carry it further over land)
@@ -514,6 +516,9 @@ Climate climate(const WorldCode &code, const std::vector<fix> &elevation)
 			const fix u = f.u + mul(warm_east[i], MONSOON), v = f.v + mul(warm_north[i], MONSOON);
 			const Dir &c = g.sphere.centre(i), &e = g.east[i], &n = g.north[i];
 			const fix du = mul(u, STEP), dv = mul(v, STEP);
+			out.wind[0][i] += (mul(u, e.x) + mul(v, n.x)) / 2;
+			out.wind[1][i] += (mul(u, e.y) + mul(v, n.y)) / 2;
+			out.wind[2][i] += (mul(u, e.z) + mul(v, n.z)) / 2;
 			from[i] = g.sphere.spot(normalise((int64_t)c.x - mul(du, e.x) - mul(dv, n.x),
 					(int64_t)c.y - mul(du, e.y) - mul(dv, n.y), (int64_t)c.z - mul(du, e.z) - mul(dv, n.z)));
 			// wind blowing up the land is lifted by it; air over a cold current

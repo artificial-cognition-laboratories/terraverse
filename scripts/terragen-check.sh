@@ -8,10 +8,10 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 # the engine must match the source the predictor is built from (BUILT=1: the caller built it)
-[[ -n "${BUILT:-}" ]] || cmake --build "$root/.output/build" -j > /dev/null
+[[ -n "${BUILT:-}" ]] || bash "$root/scripts/build.sh" -j > /dev/null
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-code="TF21.dGVycmE"
+code="TF22.dGVycmE"
 
 "$root/scripts/terragen-tool.sh" "$work/predict" "$root/scripts/terragen-check/predict.cpp"
 world="$work/world"
@@ -19,7 +19,7 @@ mkdir -p "$world/worldmods"
 "$work/predict" "$code" "$world/points.txt"
 cp -r "$root/scripts/terragen-check/probe" "$world/worldmods/probe"
 printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\nauth_backend = sqlite3\n' > "$world/world.mt"
-# TF21.dGVycmE: the default size, 16384 round: an atlas of radius 8192 / 2π, the standard layout
+# TF22.dGVycmE: the default size, 16384 round: an atlas of radius 8192 / 2π, the standard layout
 atlas="atlas-v2 radius=2607.5945876176133 segments=24 capLatitude=85 core=651.8986469044033 rounding=0.95 height=256"
 printf 'mg_name = terra\nmgterra_code = %s\nseed = 1\nchunksize = 1\nplanet_atlas = %s\n[end_of_params]\n' "$code" "$atlas" > "$world/map_meta.txt"
 
@@ -37,16 +37,18 @@ work = sys.argv[1]
 def table(name):
     return {l.split()[1]: l.split()[2:] for l in open(f"{work}/{name}")}
 predicted, probed = table("predicted.txt"), table("probed.txt")
-# each terragen biome's top block, and its bed under rivers and lakes (games/terrafirma/mods/tf_world/biomes.lua);
+# each terragen biome's top block (games/terrafirma/mods/tf_world/biomes.lua); its bed under rivers
+# and lakes, the column's soil kind (predicted: what the water laid) unless the biome names its own;
 # 20 blocks down, the rock, ore or cave terragen's geology decided
 TOP = {"deep": "gravel", "ocean": "sand", "seaice": "gravel", "beach": "sand", "desert": "sand",
        "savanna": "dry_grass", "grassland": "grass", "forest": "grass", "jungle": "grass",
        "taiga": "grass", "tundra": "tundra", "rock": "stone", "snow": "snow",
        "monsoon": "grass", "mediterranean": "dry_grass",
        "saltflat": "salt_crust", "marsh": "mud", "floodplain": "grass"}
-BED = {"rock": "gravel", "snow": "gravel"}
+BED = {"regolith": "regolith", "mare": "mare_regolith", "dust": "rust_dust", "sulfur": "sulfur_crust",
+       "saltflat": "salt_crust", "marsh": "mud"}
 bad, kinds = [], {}
-for key, (terrain, water, kind, biome, deep) in predicted.items():
+for key, (terrain, water, kind, biome, deep, bed_top) in predicted.items():
     kinds[kind] = kinds.get(kind, 0) + 1
     got = probed.get(key)
     if not got:
@@ -55,7 +57,7 @@ for key, (terrain, water, kind, biome, deep) in predicted.items():
     if kind == "lava":
         expect = None  # a crater's floor: whatever the rim's rock is
     elif kind in ("river", "lake") and int(water) > int(terrain):
-        expect = (f"tf_world:{BED.get(biome, 'sand')}", "tf_world:placer_gravel")
+        expect = (f"tf_world:{BED[biome]}" if biome in BED else bed_top, "tf_world:placer_gravel")
     elif biome == "rock":
         expect = None  # bare peaks: the bedrock shows
     else:

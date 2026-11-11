@@ -23,6 +23,8 @@ Preview preview(const World &world, std::optional<fix> date, int32_t resolution)
 	p.wet.resize(n);
 	p.season.resize(n);
 	p.fertility.resize(n);
+	p.soil.resize(n * 4);
+	const World::RegionalSoil &soil = world.regionalSoil();
 	p.current.resize(n);
 	p.biome.resize(n);
 	p.lake.resize(n);
@@ -56,6 +58,13 @@ Preview preview(const World &world, std::optional<fix> date, int32_t resolution)
 			p.lake[i] = g.lake[cell];
 			p.current[i] = quantize<int8_t>(world.between(g.sea_heat, at), 100, -127, 127);
 			p.fertility[i] = c.elevation < 0 ? 0 : (uint8_t)std::clamp(roundInt(g.fertility[cell] * 255), 0, 255);
+			if (c.elevation >= 0) {
+				const auto share = [&](const std::vector<fix> &f) { return (uint8_t)std::clamp(roundInt(world.between(f, at) * 255), 0, 255); };
+				p.soil[i * 4] = share(soil.sand);
+				p.soil[i * 4 + 1] = share(soil.clay);
+				p.soil[i * 4 + 2] = share(soil.organic);
+				p.soil[i * 4 + 3] = share(soil.stones);
+			}
 			p.province[i] = (uint8_t)g.province[cell];
 			p.plate[i] = g.tectonics.plate[cell];
 			p.boundary[i] = g.tectonics.distance[cell] == 0 ? (uint8_t)g.tectonics.boundary[cell] : 0;

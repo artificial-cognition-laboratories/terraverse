@@ -122,6 +122,7 @@ private:
 		std::vector<std::vector<video::SColor>> own; // each part's vertices' own colours (under a tint)
 		u32 painted = 0; // the tint it's coloured by (Tiles::m_tints)
 		bool ready = false;
+		bool sketch = false; // ready, but only a stand-in till it's built (Generator::sketch)
 		u32 used = 0; // the frame it was last wanted or drawn
 		u32 whole = 0; // the frame it was last drawn as itself, not split
 	};

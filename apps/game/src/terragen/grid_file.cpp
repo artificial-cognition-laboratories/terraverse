@@ -24,7 +24,7 @@ namespace fs = std::filesystem;
 
 namespace {
 
-constexpr size_t GRID_SIZE = 1184;
+constexpr size_t GRID_SIZE = 1304;
 
 std::mutex g_lock;
 std::string g_dir, g_build, g_grid_build;
@@ -84,8 +84,8 @@ void fields(IO &io, G &g)
 	static_assert(sizeof(Grid) == GRID_SIZE, "Grid changed: list the new field here, then set GRID_SIZE");
 	field(io, g.sea_offset); field(io, g.base); field(io, g.eroded); field(io, g.worn); field(io, g.sediment);
 	field(io, g.placer); field(io, g.to_deep); field(io, g.uplifted); field(io, g.hollows); field(io, g.filled); field(io, g.pan);
-	field(io, g.receiver); field(io, g.drained); field(io, g.lake); field(io, g.lake_level);
-	field(io, g.rain_season[0]); field(io, g.rain_season[1]); field(io, g.sea_heat); field(io, g.heat);
+	field(io, g.receiver); field(io, g.drained); field(io, g.runoff); field(io, g.lake); field(io, g.lake_level);
+	field(io, g.rain_season[0]); field(io, g.rain_season[1]); field(io, g.sea_heat); field(io, g.wind[0]); field(io, g.wind[1]); field(io, g.wind[2]); field(io, g.surf); field(io, g.heat);
 	field(io, g.heat_gain); field(io, g.ice); field(io, g.fertility); field(io, g.river_threshold);
 	field(io, g.stream_threshold);
 	auto &t = g.tectonics;

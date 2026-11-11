@@ -1,16 +1,10 @@
 <script setup lang="ts">
 import { Button } from "../kit"
 import { useBridge } from "../bridge/use"
-import { onBeforeUnmount, onMounted } from "vue"
 import type { Screen } from "./screens"
 
 defineEmits<{ go: [screen: Screen] }>()
 const bridge = useBridge()
-// the picture behind the menu (src/planetarium/shot.h), this page's alone
-const scene = (shown: boolean) => bridge.send("planetarium.scene", { shown, seconds: 2.5 })
-    .catch((error) => console.error("planetarium.scene", error))
-onMounted(() => scene(true))
-onBeforeUnmount(() => scene(false))
 const TITLE = "Terraverse"
 </script>
 

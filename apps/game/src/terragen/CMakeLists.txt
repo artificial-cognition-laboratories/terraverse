@@ -26,8 +26,8 @@ set(terragen_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/system.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/vegetation.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/worlds.cpp
-	PARENT_SCOPE)
+	${CMAKE_CURRENT_SOURCE_DIR}/worlds.cpp)
+set(terragen_SRCS ${terragen_SRCS} PARENT_SCOPE) # (and here: the grid's hash below reads it)
 
 # What a grid is built from: every source but those only a column's read runs
 # (the drainage land, soil, cover, the preview, the atlas). A kept grid is

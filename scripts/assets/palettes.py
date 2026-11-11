@@ -6,6 +6,9 @@
   grey-brown, clay reddish, organic matter darkening it toward peat. The
   soil texture is a neutral grey version of the pack's dirt, so the palette
   sets its colour.
+- Pebbles (tf_world_pebbles_<k>.png, sprint 111): masks of stones over the
+  soil, k = 1 stony to 3 gravel; the soil blocks show their parent rock's
+  texture through them. Drawn here (ours), the same every run.
 - Rocks (tf_world_<rock>_palette.png): entry k blends the rock's look toward
   its partner's (granite toward gneiss…), k = 0 unchanged to 15 most
   blended; a multiply can only darken, so each is scaled to its brightest.
@@ -54,6 +57,24 @@ for sand, silt, clay, organic in points:
     target = [mineral[i] * (1 - dark) + PEAT[i] * dark for i in range(3)]
     soil.append([255 * target[i] / base[i] for i in range(3)])
 palette(soil, "tf_world_soil_palette.png")
+
+# --- pebbles: rounded stones, more of them and bigger toward gravel
+import random
+for k, (count, big) in enumerate([(5, 0.2), (10, 0.45), (18, 0.8)], start=1):
+    rnd = random.Random(1110 + k)
+    mask = Image.new("RGBA", dirt.size, (0, 0, 0, 0))
+    w, h = dirt.size
+    for _ in range(count):
+        cx, cy = rnd.uniform(0, w), rnd.uniform(0, h)
+        r = 1.0 + (1.6 if rnd.random() < big else 0.4) * rnd.random() * 1.6
+        for y in range(h):
+            for x in range(w):
+                # wrapped, so the tile repeats without a seam
+                dx = min(abs(x + 0.5 - cx), w - abs(x + 0.5 - cx))
+                dy = min(abs(y + 0.5 - cy), h - abs(y + 0.5 - cy))
+                if (dx / r) ** 2 + (dy / (r * 0.8)) ** 2 <= 1:
+                    mask.putpixel((x, y), (255, 255, 255, 255))
+    mask.save(os.path.join(tex, f"tf_world_pebbles_{k}.png"))
 
 # --- rocks: each toward its partner (geological neighbours)
 PARTNERS = {"granite": "gneiss", "gneiss": "slate", "slate": "shale", "basalt": "andesite", "andesite": "tuff",

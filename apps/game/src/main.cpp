@@ -304,7 +304,7 @@ int main(int argc, char *argv[])
 		const std::string code = cmd_args.get("planetarium");
 		const std::optional<double> bench = cmd_args.exists("planetarium-bench")
 				? std::optional<double>(cmd_args.getFloat("planetarium-bench")) : std::nullopt;
-		planetarium::runStandalone(code.empty() ? "TF21.dGVycmE" : code, bench);
+		planetarium::runStandalone(code.empty() ? "TF22.dGVycmE" : code, bench);
 		return 0;
 	}
 #endif

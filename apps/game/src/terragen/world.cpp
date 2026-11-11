@@ -71,11 +71,20 @@ static const int32_t FOLD_WAVES = 4, FOLD_CELL_LEAST = 256;
 static const int32_t FOLD_M = 650, FOLD_OLD_M = 250;
 static const fix FOLD_STEEP = ratio(30, 100);
 
+// Fjords (sprint 112): a glacier cut its trough under the sea far inland
+// (Sognefjord runs 200 km, its floor over a kilometre down), so where ice cut
+// a valley the drowning reaches up to FJORD_CELLS cells from the sea, over
+// land up to FJORD_BAND_M high, rather than a cell over low ground
+static const int32_t FJORD_CELLS = 4, FJORD_BAND_M = 2000;
+// A drowned valley's inlet is about this wide (blocks: a trough's floor at
+// its widest, channels.cpp's TROUGH_MOST each side); far tiles wider leave
+// it out, as they leave out valleys narrower than themselves
+static const int64_t INLET_WIDE = 320;
+
 World::World(const WorldCode &code) :
 	m_code(code), m_grid(gridFor(code)), m_radius(radiusOf(code)),
 	m_cell_blocks(cellBlocksOf(code)),
 	// rivers' width: by the planet's size against the default's (16 384 round), never narrower
-	m_river_scale(std::max<int64_t>(ONE, ((int64_t)code.size << FRAC) / 16384)),
 	// meanders: about a wave a cell, counted round the equator as noise is
 	m_meander((int32_t)std::max<int64_t>(8, ((int64_t)TWO_PI << FRAC) / gridSphere().spacing() >> FRAC)),
 	m_height(heightScale(code)),
@@ -105,6 +114,24 @@ World::World(const WorldCode &code) :
 			const int32_t r = g.receiver[c];
 			if (r >= 0 && (drawn(c) || (m_land && g.base[c] >= 0)) && (m_upstream[r] < 0 || g.drained[c] > g.drained[m_upstream[r]]))
 				m_upstream[r] = c;
+		}
+		// (steps to the sea, for fjords: breadth first from every sea cell)
+		m_sea_cells.assign((size_t)g.size(), 255);
+		std::vector<int32_t> front;
+		for (int32_t c = 0; c < g.size(); c++)
+			if (g.base[c] < 0) {
+				m_sea_cells[c] = 0;
+				front.push_back(c);
+			}
+		for (size_t head = 0; head < front.size(); head++) {
+			const int32_t c = front[head];
+			if (m_sea_cells[c] >= FJORD_CELLS)
+				continue;
+			for (const int32_t *q = gridSphere().neighboursBegin(c); q != gridSphere().neighboursEnd(c); q++)
+				if (m_sea_cells[*q] == 255) {
+					m_sea_cells[*q] = (uint8_t)(m_sea_cells[c] + 1);
+					front.push_back(*q);
+				}
 		}
 		Step step(code.text, "rivers' runs");
 		shapeRuns();
@@ -172,6 +199,22 @@ fix blocksPerMetre(const WorldCode &code)
 	// ratio is 27 / 65 536 as a fix)
 	const int64_t ratio = std::min<int64_t>((int64_t)ONE << FRAC, (World::radiusOf(code) << FRAC) / EARTH_RADIUS_M);
 	return sqrtWide64(ratio) >> 8;
+}
+
+// Rivers' width (sprint 110): as real rivers', RIVER_WIDTH × √ of the area
+// they drain (m²): a metre for a square kilometre, 40 m for a thousand, two
+// kilometres for the Amazon's (hydraulic geometry: width as √ of discharge,
+// discharge as the area). A planet's area is (R / R⊕)² of what Earth's
+// would be and its heights √(R / R⊕) (blocksPerMetre), and a river's as wide
+// as its valley is deep: × √(R⊕ / R) all told. (By the planet's size, they
+// were as much wider as it was bigger than the default: on half the Earth, a
+// big river 15 km across, a sixth of a cell.)
+static const fix RIVER_WIDTH = ratio(12, 10000);
+
+int64_t World::riverWidth(int64_t area) const
+{
+	const int64_t metres = (int64_t)isqrt((uint64_t)std::max<int64_t>(0, area)) * RIVER_WIDTH; // fixed, at Earth's scale
+	return std::max<int64_t>(toFix(1), (int64_t)(((__int128)metres << FRAC) / std::max<fix>(1, m_metre)));
 }
 
 int64_t World::radiusOf(const WorldCode &code)
@@ -282,6 +325,9 @@ static const fix HARD[(int)Province::Count] = {
 	ratio(50, 100),    // mare
 };
 
+// waves under which a muddy shore stays mud (Grid::surf)
+static const fix CALM = ratio(12, 100);
+
 fix World::hardness(const Dir &d) const
 {
 	const Grid &g = *m_grid;
@@ -298,12 +344,43 @@ int32_t World::cell(const Dir &d) const
 	return gridSphere().cell(d);
 }
 
-void World::volcanic(const Place &at, int32_t &raise, int32_t &lava, int32_t &floor) const
+// Volcanoes by their magma (sprint 112). Basalt is runny: its lava runs far
+// and builds shields, broad and convex (1 − x²: Mauna Loa's); andesite is
+// sticky and builds stratocones, steep and concave ((1 − x)²: Fuji's), and
+// fissures between, (1 − x)^1.5. A caldera's floor is flat under walls
+// CALDERA_WALL of its radius thick; a crater's is a bowl. Age cuts ravines
+// down the flanks (RAVINES_BLOCKS apart round the mountain, up to
+// RAVINE_DEPTH of the flank's height at the oldest, fading toward the
+// summit; a young cone's only gullied): drainage running away from the
+// summit every way.
+// the finest lattice this thread's columns read (World::Coarse), place units
+static thread_local int64_t t_least = 0;
+
+static const int32_t RAVINES_BLOCKS = 160;
+// Lava plains: a young shield's or rift's flows, in PLAINS_LOBES lobes round
+// it, as thick as a quarter of its height (PLAINS_THIN..PLAINS_THICK blocks;
+// half that once it's no longer erupting)
+static const int32_t PLAINS_LOBES = 10, PLAINS_THIN = 3, PLAINS_THICK = 16;
+// Crater lakes: wetter than POOL_WET, in craters at least POOL_LEAST deep,
+// filled to POOL_UNDER of their depth under the rim
+static const fix POOL_WET = -ratio(20, 100), POOL_UNDER = ratio(30, 100);
+static const int32_t POOL_LEAST = 4;
+static const fix RAVINE_DEPTH = ratio(50, 100), RAVINE_WIDE = ratio(10, 100), CALDERA_WALL = ratio(15, 100);
+
+static fix coneProfile(VolcanoKind kind, fix t)
+{
+	switch (kind) {
+	case VolcanoKind::Arc: return mul(t, t);
+	case VolcanoKind::Hotspot: case VolcanoKind::Giant: { const fix x = ONE - t; return ONE - mul(x, x); }
+	default: return mul(t, sqrt(t));
+	}
+}
+
+World::Volcanic World::volcanic(const Place &at, fix wet) const
 {
 	const Grid &g = *m_grid;
-	raise = 0;
-	lava = INT32_MIN;
-	floor = INT32_MIN;
+	Volcanic out;
+	const int64_t tile = t_least > 0 ? blocksFine(t_least) : 0;
 	int32_t i = cell(at);
 	for (uint32_t k = g.volcano_start[i]; k < g.volcano_start[i + 1]; k++) {
 		const Volcano &vo = g.volcanoes[g.volcano_list[k]];
@@ -311,26 +388,59 @@ void World::volcanic(const Place &at, int32_t &raise, int32_t &lava, int32_t &fl
 		// (a patera's rim is a broken outline, never a circle)
 		if (vo.kind == VolcanoKind::Patera && far < 2 * (int64_t)toFix(vo.radius))
 			far = mulShift(far, ONE + fbm(at, m_code.seed_hash + PATERA + g.volcano_list[k], m_meander / 2, 3, HALF) / 4, FRAC);
-		if (far >= toFix(vo.radius))
-			continue;
-		const fix d = (fix)far; // within its slopes: fits
-		// the cone: (1 − d/r)^1.5, steeper near the top
-		fix t = ONE - d / vo.radius;
-		int32_t cone = floorInt(mul(toFix(vo.height), mul(t, sqrt(t))));
-		if (d < toFix(vo.crater)) {
-			// the crater: a bowl sunk below the rim
-			fix r = div(d, toFix(vo.crater));
-			fix rim_t = ONE - div(toFix(vo.crater), toFix(vo.radius));
-			int32_t rim = floorInt(mul(toFix(vo.height), mul(rim_t, sqrt(rim_t))));
-			int32_t depth = vo.depth;
-			// built from the vent's ground, so the rim is level and a lava lake sits flat in it
-			floor = std::max(floor, vo.base + rim - floorInt(mul(toFix(depth), ONE - mul(r, r))));
-			if (vo.active)
-				lava = std::max(lava, vo.base + rim - depth / 2);
+		if (far >= toFix(vo.radius)) {
+			if (floods(vo) && far < lavaReach(vo) * ONE) {
+				// its plains: lobes of lava run out along the way from the
+				// vent (a noise read by that way, and a finer one here),
+				// thinning to their ends
+				const Place v(vo.at);
+				const Dir way = normalise((int64_t)at.x - v.x, (int64_t)at.y - v.y, (int64_t)at.z - v.z);
+				const fix lobe = fbm(way, m_code.seed_hash + LAVA_PLAINS + g.volcano_list[k], PLAINS_LOBES, 2, HALF) * 2
+						+ fbm(at, m_code.seed_hash + LAVA_PLAINS, m_meander * 4, 2, HALF) / 2;
+				const fix reach = (fix)(((far >> FRAC) - vo.radius) * ONE / std::max<int64_t>(1, lavaReach(vo) - vo.radius));
+				const fix thick = mul(smooth(clamp(lobe * 4, 0, ONE)), ONE - smooth(reach));
+				const int32_t plain = floorInt(mul(thick, toFix(std::max(PLAINS_THIN, std::min(PLAINS_THICK, vo.height / 4)))) * (vo.age == 0 ? 2 : 1) / 2);
+				if (plain > out.plain) {
+					out.plain = plain;
+					out.fresh = vo.age == 0;
+				}
+			}
 			continue;
 		}
-		raise = std::max(raise, cone);
+		const fix d = (fix)far; // within its slopes: fits
+		fix t = ONE - d / vo.radius;
+		int32_t cone = floorInt(mul(toFix(vo.height), coneProfile(vo.kind, t)));
+		if (d < toFix(vo.crater)) {
+			fix r = div(d, toFix(vo.crater));
+			fix rim_t = ONE - div(toFix(vo.crater), toFix(vo.radius));
+			int32_t rim = floorInt(mul(toFix(vo.height), coneProfile(vo.kind, rim_t)));
+			// a caldera: flat, then its wall; a crater: a bowl
+			const fix fall = vo.caldera ? ONE - smooth(clamp(div(r - (ONE - CALDERA_WALL), CALDERA_WALL), 0, ONE)) : ONE - mul(r, r);
+			// built from the vent's ground, so the rim is level and a lava lake sits flat in it
+			out.floor = std::max(out.floor, vo.base + rim - floorInt(mul(toFix(vo.depth), fall)));
+			if (vo.active)
+				out.lava = std::max(out.lava, vo.base + rim - vo.depth / 2);
+			// a quiet crater where it rains fills to under its rim (Crater
+			// Lake, the maars'): to POOL_UNDER of its depth down
+			else if (wet > POOL_WET && vo.depth >= POOL_LEAST)
+				out.pool = std::max(out.pool, vo.base + rim - floorInt(mul(toFix(vo.depth), POOL_UNDER)));
+			continue;
+		}
+		// the ravines: a noise read by which way the place lies from the vent
+		// alone, so it's the same all down a line from the summit
+		const int32_t round = std::max(6, (int32_t)((int64_t)vo.radius * 3 / RAVINES_BLOCKS));
+		if (vo.kind != VolcanoKind::Giant && vo.kind != VolcanoKind::Patera && tile * round < toFix(vo.radius)) {
+			const Place v(vo.at);
+			const Dir way = normalise((int64_t)at.x - v.x, (int64_t)at.y - v.y, (int64_t)at.z - v.z);
+			const fix n = std::abs(fbm(way, m_code.seed_hash + RAVINES + g.volcano_list[k], round, 2, HALF));
+			const fix in = std::max<fix>(0, ONE - div(n, RAVINE_WIDE));
+			const fix worn = ratio(1, 4) + vo.age * ratio(1, 4);
+			const fix below_top = std::min<fix>(ONE, (ONE - t) * 4); // none at the summit
+			cone -= floorInt(mul(toFix(cone), mul(mul(RAVINE_DEPTH, worn), mul(below_top, smooth(in)))));
+		}
+		out.raise = std::max(out.raise, cone);
 	}
+	return out;
 }
 
 fix World::between(const std::vector<fix> &f, const Dir &d) const
@@ -402,6 +512,10 @@ Column World::column(const Place &p, fix sun) const
 	// land's own (low alone, a third of some worlds' land was sand)
 	if (biome == Biome::Beach && c.processes.water && !bySea(d))
 		biome = classify(ratio(3, 100), heat, wet, season);
+	// and only where waves sort the sand from the mud: a sheltered shore a
+	// river's silt reaches is mudflat, the land's own at its edge (sprint 112)
+	if (biome == Biome::Beach && c.processes.water && between(m_grid->surf, d) < CALM && alluvium(between(m_grid->sediment, d)) >= HALF)
+		biome = classify(ratio(3, 100), heat, wet, season);
 	// a lifeless body: one bare biome over all of it, low ground and poles too
 	if (!c.processes.life)
 		biome = bareBiome(d, between(m_grid->mare, d) > 0);
@@ -426,8 +540,6 @@ fix World::temperature(const Place &d, fix date, fix hour) const
 	return celsiusOf(c.heat) + daily;
 }
 
-// the finest lattice this thread's columns read (World::Coarse), place units
-static thread_local int64_t t_least = 0;
 
 World::Coarse::Coarse(const World &world, int64_t cell_blocks)
 {
@@ -439,7 +551,7 @@ World::Coarse::~Coarse() { t_least = 0; }
 const World::ChannelsAt &World::channelsAt(const Place &at) const
 {
 	thread_local ChannelsAt last;
-	const Channels *from = &*m_channels;
+	const uint64_t from = m_channels->owner();
 	if (last.from == from && last.least == t_least && last.at.x == at.x && last.at.y == at.y && last.at.z == at.z)
 		return last;
 	// (read in the rivers' own warp, nothing more: the streams end on their lines)
@@ -617,6 +729,62 @@ static const int32_t GLACIAL_TROUGH_M = 400;
 // the trees, ground steeper than ALPINE_ROCK is bare rock (the prototype's
 // land, by its own slope)
 static const fix SNOW_STEEPEST = ratio(70, 100), ALPINE_ROCK = ratio(50, 100);
+static const fix SAND_STEEPEST = ratio(60, 100); // sand's angle of repose, about 31°
+
+// Crags (sprint 112): a hillside at its critical slope is a sheet, even and
+// smooth; a real one is ledges, knobs and outcrops where the rock's joints
+// and hard beds hold. Noise CRAG_WAVE blocks across (two octaves), up to
+// CRAG_HIGH blocks either way, from CRAG_FROM's slope to CRAG_FULL's;
+// blocks, not metres (it's the rock's own grain). Left out of far tiles
+// wider than half its wave.
+static const int32_t CRAG_WAVE = 24, CRAG_HIGH = 3;
+static const fix CRAG_FROM = ratio(30, 100), CRAG_FULL = ratio(80, 100);
+
+// Karst (sprint 112): limestone dissolves, so where thick beds of it lie
+// in a wet climate the water goes underground. A humid basin's beds are
+// limestone where a platform sea laid them (patches KARST_WAVES round the
+// world, about a third of humid basins); there small streams sink into it
+// and leave their valleys dry (rivers fed from beyond keep running), and
+// sinkholes (dolines) pit the ground, DOLINE_WAVE blocks apart, up to
+// DOLINE_DEEP deep.
+static const int32_t KARST_WAVES = 20, DOLINE_WAVE = 48, DOLINE_DEEP = 6;
+static const fix KARST_WET = ratio(15, 100), KARST_STREAM = toFix(6); // a stream this wide or more keeps running
+static const fix DOLINE_FROM = ratio(45, 100);
+
+fix World::karst(const Place &at, fix wet) const
+{
+	if (!m_code.processes.water || m_code.processes.eruptions > 0 || m_grid->province[cell(at)] != Province::Basin)
+		return 0;
+	const fix humid = smooth(clamp(div(wet - KARST_WET, ratio(30, 100)), 0, ONE));
+	if (humid <= 0)
+		return 0;
+	const fix platform = smooth(clamp(fbm(at, m_code.seed_hash + KARST, KARST_WAVES, 2, HALF) * 4 - HALF, 0, ONE));
+	return mul(humid, platform);
+}
+
+int32_t World::dolines(const Place &at, fix karst) const
+{
+	const int64_t tile = t_least > 0 ? blocksFine(t_least) : 0;
+	if (karst <= 0 || tile * 2 >= toFix(DOLINE_WAVE))
+		return 0;
+	const int32_t waves = (int32_t)std::min<int64_t>(INT32_MAX / 4, (m_radius >> FRAC) * 6283 / 1000 / DOLINE_WAVE);
+	const fix n = noise(at, m_code.seed_hash + KARST + 1, waves);
+	if (n <= DOLINE_FROM)
+		return 0;
+	return floorInt(mul(toFix(DOLINE_DEEP), mul(karst, smooth(div(n - DOLINE_FROM, ONE - DOLINE_FROM)))));
+}
+
+int32_t World::crags(const Place &at, fix slope) const
+{
+	if (slope <= CRAG_FROM)
+		return 0;
+	const int64_t tile = t_least > 0 ? blocksFine(t_least) : 0;
+	if (tile * 2 >= toFix(CRAG_WAVE))
+		return 0;
+	const int32_t waves = (int32_t)std::min<int64_t>(INT32_MAX / 4, (m_radius >> FRAC) * 6283 / 1000 / CRAG_WAVE); // round the world
+	const fix steep = smooth(clamp(div(slope - CRAG_FROM, CRAG_FULL - CRAG_FROM), 0, ONE));
+	return floorInt(mul(fbm(at, m_code.seed_hash + CRAGS, waves, 2, HALF) * 2 * CRAG_HIGH, steep));
+}
 // How much smoother a shield's bumps are than a young plain's (Tectonics::stable)
 static const fix SHIELD_SMOOTH = ratio(60, 100);
 // how deep the channels' valleys are cut at their deepest (blocks), on a plain and in a range
@@ -807,19 +975,20 @@ int32_t World::surface(fix e, const Place &d) const
 			// headlands: coves and rias, fjords
 			// (a cell or two in from the sea, by cells by it: by height alone a
 			// low plain's valleys drowned 50 km inland)
+			// (where ice cut it, further: a fjord, FJORD_CELLS in, over high ground)
 			const Sphere::Spot spot = gridSphere().spot(d.dir());
+			const fix reach = ONE + read.ice * (FJORD_CELLS - 1);
 			fix seaward = 0;
-			for (int k = 0; k < 3; k++) {
-				bool by = m_grid->base[spot.cells[k]] < 0;
-				for (const int32_t *q = gridSphere().neighboursBegin(spot.cells[k]); !by && q != gridSphere().neighboursEnd(spot.cells[k]); q++)
-					by = m_grid->base[*q] < 0;
-				if (by)
-					seaward += spot.weights[k];
-			}
-			const fix coast = mul(smooth(seaward), ONE - smooth(clamp(div(base, mul(toFix(DROWN_BAND_M), m_metre)), 0, ONE)));
+			for (int k = 0; k < 3 && !m_sea_cells.empty(); k++) // (none on a dry body)
+				seaward += mul(clamp(reach + ONE - toFix(m_sea_cells[spot.cells[k]]), 0, ONE), spot.weights[k]);
+			const fix band = mul(toFix(DROWN_BAND_M) + mul(toFix(FJORD_BAND_M - DROWN_BAND_M), read.ice), m_metre);
+			const fix coast = mul(smooth(seaward), ONE - smooth(clamp(div(base, band), 0, ONE)));
 			// (a trunk's valley: a finer one's inlet is narrower than a far
 			// tile's cells, which would draw it land where the sea's come in)
-			if (m_code.processes.water && coast > 0 && read.bed != INT64_MAX && read.bed_level == 0) {
+			// (a far tile no wider than an inlet: wider, the land it averages
+			// sank with the valley, and a tile of hillside drew as sea)
+			const bool inlet_seen = t_least == 0 || blocksFine(t_least) <= toFix(INLET_WIDE);
+			if (m_code.processes.water && coast > 0 && inlet_seen && read.bed != INT64_MAX && read.bed_level == 0) {
 				const int64_t deep = mul(toFix(DROWN_M) + mul(toFix(FJORD_M - DROWN_M), read.ice), m_metre);
 				const fix valley = ONE - clamp((fix)(((read.land - read.bed) << FRAC) / std::max<int64_t>(1, deep)), 0, ONE);
 				const int64_t drop = mulShift(mulShift(deep, coast, FRAC), valley, FRAC);
@@ -859,7 +1028,15 @@ static bool grows(Biome b)
 
 // a run's fall per block of it under which a river meanders freely, and over which it barely does
 static const fix MEANDER_FLAT = ratio(1, 1000), MEANDER_STEEP = ratio(12, 1000);
-static const fix MAX_WIDTH = toFix(24);
+// and how much of that its banks let it, on the softest rock and the hardest
+static const fix MEANDER_SOFT = ratio(120, 100), MEANDER_HARD = ratio(35, 100);
+// A braided river (sprint 112): this many times a single channel's width;
+// its bars, gravel islands at its water's level, stand where noise of about
+// BRAID_BAR of its widths' wavelength along it (BRAID_LONG times shorter
+// across) is over BRAID_DRY (of its swing, ±1), none within a block of its edges
+static const int64_t BRAID_WIDER = 3;
+static const fix BRAID_BAR = ratio(12, 10), BRAID_DRY = ratio(10, 100);
+static const int32_t BRAID_LONG = 4;
 // and never wider than a cell over this: wider, a run between two centres is
 // a slab with straight banks, its ends not meeting the next run's
 static const int64_t WIDEST = 6;
@@ -882,9 +1059,80 @@ fix World::craters(const Place &at, Age age) const
 // the lava, cooling and sinking, buckled (sinuous, a few hundred metres
 // high, a cell or so long); rilles, channels its flows cut (narrow, winding,
 // a few tens of metres deep); domes, low shields over late vents.
-static const int32_t CLIFF_M = 80, CLIFF_MIN = 6;
-static const int32_t BEACH_TOP = 3; // blocks over the sea a beach reaches // a sea cliff's height: metres, and blocks at the least
+static const int32_t CLIFF_M = 80, CLIFF_MIN = 6; // a sea cliff's height: metres, and blocks at the least
+// blocks over the sea a beach reaches: its strand, and the berm storm waves
+// throw up on top of it where the coast faces the open sea (Grid::surf)
+static const int32_t BEACH_TOP = 3, BERM = 4;
 static const int32_t WRINKLE_M = 300, RILLE_M = 250, DOME_M = 200, RIDGE_M = 200, CHAOS_M = 150;
+
+// Dunes (sprint 112): sand the wind piles into ridges across it, where
+// there's sand and nothing holds it. Ergs where it's dry and the rivers and
+// basins left sand (an alluvial cover); foredunes behind a beach the open
+// sea's waves feed, wet or dry. Each ridge rises gently into the wind
+// (DUNE_STOSS of its wave) and falls steeply away from it, at most sand's
+// angle of repose; their crests wander (DUNE_SWAY) and their height is the
+// sand's. Dunes are sand's own physics, so blocks, not metres: the same on
+// every planet. Each of the three cells round a place lays its ridges
+// across its own wind and they're blended, so the wind can turn.
+static const int32_t DUNE_WAVE = 96, DUNE_HIGH = 10; // blocks
+static const fix DUNE_STOSS = ratio(80, 100), DUNE_SWAY = ratio(30, 100);
+static const fix DUNE_DRY = ratio(30, 100), DUNE_DRIEST = ratio(70, 100); // −wet: dunes start, and are all the sand makes
+static const fix DUNE_SURF = ratio(35, 100); // the waves past which a beach grows foredunes
+static const int32_t FOREDUNE_BACK = 8; // blocks over the strand they reach
+static const int32_t DUNE_PATCH = 2;
+
+void World::dunes(const Place &at, fix surf, int32_t strand, Ground &out) const
+{
+	const Grid &g = *m_grid;
+	const Column &c = out.column;
+	if (c.biome == Biome::Snow || c.biome == Biome::Rock || c.biome == Biome::Tundra || c.biome == Biome::SeaIce)
+		return;
+	const Dir d = at.dir();
+	const fix patch = clamp(HALF + fbm(at, m_code.seed_hash + DUNES + 1, m_meander / DUNE_PATCH, 2, HALF) * 3, 0, ONE);
+	const fix sand = mul(std::max(alluvium(between(g.sediment, d)), ONE - hardness(d)), patch);
+	const fix dry = clamp(div(-c.wet - DUNE_DRY, DUNE_DRIEST - DUNE_DRY), 0, ONE);
+	// (only a desert's: steppe's grass holds its sand)
+	const fix erg = c.biome == Biome::Desert ? mul(sand, smooth(dry)) : 0;
+	fix fore = 0;
+	if (surf > DUNE_SURF && out.terrain <= strand + FOREDUNE_BACK && hardness(d) < HALF && bySea(d))
+		fore = mul(div(surf - DUNE_SURF, ONE - DUNE_SURF), ONE - div(toFix(std::max(0, out.terrain - strand)), toFix(FOREDUNE_BACK)));
+	const fix amount = std::max(erg, fore);
+	if (amount <= 0)
+		return;
+	const fix high = amount * DUNE_HIGH;
+	int32_t dune;
+	const int64_t tile = t_least > 0 ? blocksFine(t_least) : 0;
+	if (tile * 2 >= toFix(DUNE_WAVE)) {
+		// a far tile wider than half a wave: the field's mean, not its ridges
+		dune = floorInt(high / 2);
+	} else {
+		const Sphere::Spot spot = gridSphere().spot(d);
+		const int64_t blocks = (int64_t)m_radius >> FRAC; // a radius, in blocks
+		const fix sway = mul(fbm(at, m_code.seed_hash + DUNES, m_meander * 2, 2, HALF), DUNE_SWAY * 2);
+		int64_t sum = 0;
+		for (int k = 0; k < 3; k++) {
+			const int32_t i = spot.cells[k];
+			const fix wx = g.wind[0][i], wy = g.wind[1][i], wz = g.wind[2][i];
+			const fix w = sqrt(mul(wx, wx) + mul(wy, wy) + mul(wz, wz));
+			if (w <= 0)
+				continue;
+			// how far downwind, in blocks: the place against the wind's line
+			const __int128 along = ((__int128)at.x * div(wx, w) + (__int128)at.y * div(wy, w) + (__int128)at.z * div(wz, w)) >> FRAC;
+			const int64_t s = (int64_t)(along * blocks >> PLACE_FRAC);
+			// its phase in its wave (0..1), swayed
+			const fix t = (fix)((((int64_t)(s << FRAC) / DUNE_WAVE) + sway) & (ONE - 1));
+			const fix h = t < DUNE_STOSS ? smooth(div(t, DUNE_STOSS)) : ONE - div(t - DUNE_STOSS, ONE - DUNE_STOSS);
+			sum += (int64_t)h * spot.weights[k];
+		}
+		dune = floorInt(mul((fix)(sum >> FRAC), high));
+	}
+	if (dune <= 0 && amount < HALF)
+		return;
+	out.terrain += dune;
+	out.dune = dune;
+	out.bare = false;
+	out.column.biome = erg >= fore ? Biome::Desert : Biome::Beach;
+}
 
 int32_t World::mareRelief(const Place &at) const
 {
@@ -1063,7 +1311,7 @@ static const fix FALL_HARD = ratio(45, 100);
 bool World::drawn(int32_t c) const
 {
 	const Grid &g = *m_grid;
-	return g.base[c] >= 0 && g.river_threshold != INT64_MAX && g.drained[c] * CREEK_SHARE >= g.river_threshold;
+	return g.base[c] >= 0 && g.river_threshold != INT64_MAX && g.runoff[c] * CREEK_SHARE >= g.river_threshold;
 }
 
 void World::RunShape::line(fix t, int64_t &side, int64_t &off, int64_t &rate) const
@@ -1096,13 +1344,11 @@ void World::shapeRuns()
 		// planet: what drains a hillside, not a cell. A river grows from
 		// there to its full width over its first few times the threshold,
 		// so the channel doesn't jump where one becomes the other.
-		const int64_t flow = (g.drained[i] << FRAC) / g.river_threshold; // 1 = a river
-		int64_t width = toFix(1) + 4 * std::min<int64_t>(flow, ONE);
-		if (g.river(i)) {
-			const int64_t full = std::min({ mulShift(toFix(3) + 2 * sqrtWide64(flow), m_river_scale, FRAC),
-					mulShift(MAX_WIDTH, m_river_scale, FRAC), m_cell_blocks / WIDEST });
-			width += mulShift(std::max<int64_t>(0, full - width), std::min<int64_t>(ONE, (flow - ONE) / 3), FRAC);
-		}
+		// As wide as what it drains (riverWidth: the streams below the grid
+		// by the same rule, so a stream grows on into its river), never wider
+		// than a sixth of a cell, the land it drains between
+		const int64_t cell = m_cell_blocks >> FRAC;
+		const int64_t width = std::min(riverWidth(mulShift(g.drained[i], cell * cell, FRAC)), m_cell_blocks / WIDEST);
 		shape.width = width;
 		// positions from the cell's centre, blocks to 1/256
 		const Place from(sphere.centre(i));
@@ -1129,7 +1375,18 @@ void World::shapeRuns()
 		const int64_t fall = std::max<int64_t>(0, (int64_t)waterBlocks(g.filled[i]) - (g.base[r] < 0 ? 0 : waterBlocks(g.filled[r]))) << FRAC;
 		shape.run = std::max<int64_t>(ONE, len << (FRAC - NEAR));
 		const fix grade = (fix)std::min<int64_t>(ONE, (fall << FRAC) / shape.run);
-		const fix wander_by = ONE - smooth(clamp(div(grade - MEANDER_FLAT, MEANDER_STEEP - MEANDER_FLAT), 0, ONE));
+		// and by its rock: soft banks give way and the loops grow, hard ones
+		// hold the river to its line (MEANDER_HARD to MEANDER_SOFT of it)
+		const fix banks = MEANDER_SOFT + mul(MEANDER_HARD - MEANDER_SOFT, hardness(from.dir()));
+		fix wander_by = mul(ONE - smooth(clamp(div(grade - MEANDER_FLAT, MEANDER_STEEP - MEANDER_FLAT), 0, ONE)), banks);
+		// A river steep for what it carries braids (braids(), sprint 112):
+		// BRAID_WIDER times as wide, among bars, and nearly straight
+		if (drawn(i) && braids(width, grade, g.rain(i), m_radius, m_metre,
+					glacial(i, (int64_t)waterBlocks(g.filled[i]) << FRAC))) {
+			shape.braided = true;
+			shape.width = std::min<int64_t>(width * BRAID_WIDER, m_cell_blocks / WIDEST);
+			wander_by = wander_by / 4;
+		}
 		shape.reach_side = std::min<int64_t>(mulShift(width, ratio(1, 4) + mul(wander_by, ratio(11, 4)), FRAC), shape.run / (4 * shape.loops));
 		uint32_t hash = ((uint32_t)i * 0x9e3779b1u) ^ m_code.seed_hash;
 		hash ^= hash >> 15;
@@ -1167,16 +1424,6 @@ void World::shapeRuns()
 		shape.m0 = slopeAt(m_upstream[i], i);
 		shape.m1 = slopeAt(r, g.base[r] < 0 ? -1 : g.receiver[r]);
 	}
-}
-
-int32_t World::landAt(const Place &at) const
-{
-	const Dir d = at.dir();
-	fix e = between(m_grid->base, d);
-	if (e >= 0)
-		e = std::max<fix>(e + between(m_grid->worn, d), 0);
-	int32_t mare;
-	return terrain(at, e, mare);
 }
 
 Place World::unwarped(const Place &p) const
@@ -1251,18 +1498,41 @@ void World::profileRuns()
 	}
 }
 
-// Along a run: falling, a block under the ground, never below where it ends
+// Along a run, from its ends (profileRuns) and what it runs over, never the
+// land read along it (a full read at each point: the coarse planet's tiles
+// touch nearly every run, and read them for most of their 9 s). A river's
+// profile is concave, steeper toward its head; and where a harder bed
+// crosses it the drop gathers at it, while the softer beds between are worn
+// gentle: over hard enough rock, a step steep enough is drawn as a fall
+// (ground()), so falls stand where the rock is hard, rapids where it's less
+// so, and a soft plain's river runs smooth. The land's carved to it (ground()).
 void World::profileRun(int32_t c) const
 {
 	constexpr int P = PROFILE;
 	int32_t *out = &m_profile[(size_t)c * (P + 1)];
-	// at full detail, whoever asks (a far tile's thread leaves the fine channels
-	// out: its profile would differ from a block's)
-	const int64_t least = t_least;
-	t_least = 0;
-	for (int j = 1; j < P; j++)
-		out[j] = std::max(out[P], std::min(out[j - 1], landAt(unwarped(onRun(c, ratio(j, P)))) - 1));
-	t_least = least;
+	const int64_t drop = (int64_t)out[0] - out[P];
+	if (drop <= 0) {
+		for (int j = 1; j < P; j++)
+			out[j] = out[P];
+		return;
+	}
+	// each piece's share of the drop: by how far up the run it is (twice at
+	// the head what it is at the foot), and as hard as its bed is, squared
+	// so the hardest beds take most of it
+	fix share[P];
+	int64_t all = 0;
+	for (int j = 0; j < P; j++) {
+		const Place mid = onRun(c, ratio(2 * j + 1, 2 * P));
+		const fix bed = clamp(hardness(mid.dir()) + fbm(mid, m_code.seed_hash + RIVER_BEDS, m_meander * 4, 3, HALF) - HALF, 0, ONE);
+		const fix up = ONE + ratio(P - j, P);
+		share[j] = mul(up, ratio(1, 8) + mul(mul(bed, bed), 4 * ONE));
+		all += share[j];
+	}
+	int64_t fallen = 0;
+	for (int j = 1; j < P; j++) {
+		fallen += share[j - 1];
+		out[j] = out[0] - (int32_t)(drop * fallen / all);
+	}
 }
 
 const int32_t *World::profile(int32_t c) const
@@ -1304,9 +1574,10 @@ Place World::onRun(int32_t c, fix t) const
 	const Place a(sphere.centre(c)), b(sphere.centre(m_grid->receiver[c]));
 	const int64_t sx = (int64_t)b.x - a.x, sy = (int64_t)b.y - a.y, sz = (int64_t)b.z - a.z;
 	const Place on = placeOf((int64_t)a.x + mulShift(sx, t, FRAC), (int64_t)a.y + mulShift(sy, t, FRAC), (int64_t)a.z + mulShift(sz, t, FRAC));
-	const RunShape &shape = m_runs[c];
-	if (shape.run == 0)
+	// (a dry body's runs are never shaped: straight between the centres)
+	if (m_runs.empty() || m_runs[c].run == 0)
 		return on;
+	const RunShape &shape = m_runs[c];
 	int64_t side, off, rate;
 	shape.line(t, side, off, rate);
 	// across the run (run × up, as ground() reads it), the offset in place units
@@ -1346,7 +1617,8 @@ void World::deltas()
 		d.side[1] = mul(up.z, d.sea[0]) - mul(up.x, d.sea[2]);
 		d.side[2] = mul(up.x, d.sea[1]) - mul(up.y, d.sea[0]);
 		const int64_t root = sqrtWide64(flow);
-		d.width = std::min({ mulShift(toFix(3) + 2 * root, m_river_scale, FRAC), mulShift(MAX_WIDTH, m_river_scale, FRAC), m_cell_blocks / WIDEST });
+		const int64_t cell = m_cell_blocks >> FRAC;
+		d.width = std::min(riverWidth(mulShift(g.drained[i], cell * cell, FRAC)), m_cell_blocks / WIDEST);
 		d.radius = std::min(d.width * DELTA_WIDTHS, mulShift(m_cell_blocks, DELTA_MOST, FRAC));
 		d.arms = 3 + (int)std::min<int64_t>(3, root >> FRAC >> 1);
 		const int16_t k = (int16_t)m_deltas.size();
@@ -1442,15 +1714,27 @@ Ground World::ground(const Place &at, fix sun) const
 	if (!m_code.processes.life)
 		out.column.biome = bareBiome(at.dir(), mare > 0 && !rayed(at));
 	// volcanoes stand on the land (or rise from the sea floor to islands)
-	int32_t raise, lava, floor;
-	volcanic(at, raise, lava, floor);
+	const Volcanic vol = volcanic(at, m_code.processes.water ? c.wet : -ONE);
+	const int32_t raise = vol.raise, floor = vol.floor;
 	if (raise > 0)
 		out.terrain += raise;
+	// a young lava plain over the land (not the sea's floor), bare where it's
+	// the youngest's
+	if (vol.plain > 0 && out.terrain >= 1) {
+		out.terrain += vol.plain;
+		if (vol.fresh && m_code.processes.life)
+			out.column.biome = Biome::Rock;
+	}
 	if (floor != INT32_MIN) {
 		out.terrain = std::max(out.terrain, floor);
-		if (lava != INT32_MIN && lava > out.terrain && lava > 1) {
-			out.water = lava; // an active crater: a lava lake
+		if (vol.lava != INT32_MIN && vol.lava > out.terrain && vol.lava > 1) {
+			out.water = vol.lava; // an active crater: a lava lake
 			out.kind = Water::Lava;
+			return out;
+		}
+		if (vol.pool != INT32_MIN && vol.pool > out.terrain && vol.pool > 1) {
+			out.water = vol.pool; // a crater lake
+			out.kind = Water::Lake;
 			return out;
 		}
 	}
@@ -1458,7 +1742,9 @@ Ground World::ground(const Place &at, fix sun) const
 	// not its cell's (the air cooling as it rises): snow only where it lies,
 	// bare rock where it doesn't and above the trees where hillsides are
 	// steep (a range's critical slopes are scree and crags, its valleys turf)
-	if (m_land && m_channels && m_code.processes.life && out.terrain > BEACH_TOP) {
+	const fix surf = m_code.processes.water ? between(g.surf, at.dir()) : 0;
+	const int32_t strand = BEACH_TOP + floorInt(surf * BERM);
+	if (m_land && m_channels && m_code.processes.life && out.terrain > strand) {
 		const Channels::Read &read = channelsAt(at).read;
 		if (read.land != INT64_MAX) {
 			const fix real = (fix)std::clamp<int64_t>(((int64_t)out.terrain << (2 * FRAC)) / std::max<int64_t>(1, m_height), 0, toFix(8));
@@ -1470,8 +1756,13 @@ Ground World::ground(const Place &at, fix sun) const
 				b = Biome::Tundra; // high, gentle: turf
 			else if (read.wash && b != Biome::Snow && b != Biome::Rock && b != Biome::Tundra)
 				b = Biome::Desert; // a wash's floor: sand the floods spread
+			// sand slides off past its angle of repose: a steep desert
+			// hillside is its rock (and stepped in blocks, sand on every
+			// step over rock read as rows of posts)
+			out.bare = b == Biome::Desert && read.slope >= SAND_STEEPEST;
 			out.column.biome = b;
 			out.column.heat = heat;
+			out.terrain += crags(at, read.slope);
 		}
 	}
 	if (!m_code.processes.water)
@@ -1495,8 +1786,10 @@ Ground World::ground(const Place &at, fix sun) const
 	}
 	// the beach is the strand: a coastal plain past a few blocks over the
 	// sea is the land's biome (rivers' and lakes' strands come below)
-	if (out.column.biome == Biome::Beach && out.terrain > BEACH_TOP && m_code.processes.life)
+	if (out.column.biome == Biome::Beach && out.terrain > strand && m_code.processes.life)
 		out.column.biome = classify(ratio(3, 100), out.column.heat, out.column.wet, out.column.season);
+	if (out.terrain >= 1 && m_code.processes.life)
+		dunes(at, surf, strand, out);
 	if (out.terrain < 0) {
 		out.kind = Water::Sea;
 		out.water = 0;
@@ -1580,7 +1873,10 @@ Ground World::ground(const Place &at, fix sun) const
 	int64_t best_bar = 0; // how wide the point bar is here (blocks, fixed)
 	int64_t best_flow = 0; // the nearest run's flow (1 a river's least)
 	int32_t best_pool = 0; // how much deeper the bed is in a fall's plunge pool
+	fix best_grade = 0;    // how steeply it runs there (rise over run)
 	int best_bend = 0; // the column's side of the bend: 1 inside (a bar), −1 outside (a cut bank), 0 on a straight
+	bool best_braided = false;
+	int32_t best_along = 0, best_across = 0, best_run = -1; // blocks along and across the nearest run's line
 	// (in a lake or the sea, the river is the water there: no channel, no banks)
 	const bool open = out.kind != Water::Lake && out.kind != Water::Sea;
 	// a far tile's width (blocks, fixed; 0 for a block), and the least a run
@@ -1615,6 +1911,7 @@ Ground World::ground(const Place &at, fix sun) const
 		const int64_t width = shape.width, half = std::max(width / 2, tile * 40 / 100);
 		int bend = 0;
 		int64_t bar = 0;
+		int32_t run_along = 0, run_across = 0;
 		int64_t dist = (int64_t)isqrt((uint64_t)(px * px + py * py + pz * pz)) << (FRAC - NEAR);
 		{
 			const int64_t len = std::max<int64_t>(1, (int64_t)isqrt((uint64_t)(len2 << NEAR))); // 1/256 blocks
@@ -1645,6 +1942,8 @@ Ground World::ground(const Place &at, fix sun) const
 			// the line swung toward the outside of its bend: there the water
 			// cuts the bank, on the inside it slows and lays its load down
 			const int64_t rel = across + off;
+			run_along = (int32_t)(mulShift(run, u, FRAC) >> FRAC);
+			run_across = (int32_t)(rel >> FRAC);
 			bend = rel == 0 || side == 0 ? 0 : (rel > 0) == (side > 0) ? 1 : -1;
 			// a bar is a crescent: widest at the bend's apex, nothing where the line crosses back
 			bar = shape.reach_side > 0 ? width * std::abs(side) / shape.reach_side : 0;
@@ -1658,11 +1957,17 @@ Ground World::ground(const Place &at, fix sun) const
 			best_dist = dist;
 			best_bar = bar;
 			best_bend = bend;
+			best_braided = shape.braided;
+			best_along = run_along;
+			best_across = run_across;
+			best_run = i;
 			// the run's profile (profileRuns), between its points
 			const int32_t *profile = World::profile(i);
 			const int64_t along_points = (int64_t)t * PROFILE;
 			const int j = (int)std::min<int64_t>(PROFILE - 1, along_points >> FRAC);
 			const fix within = (fix)(along_points - ((int64_t)j << FRAC));
+			best_grade = (fix)std::clamp<int64_t>(((int64_t)std::max(0, profile[j] - profile[j + 1]) << (2 * FRAC)) /
+					std::max<int64_t>(ONE, shape.run / PROFILE), 0, toFix(4));
 			// Falls: where the run drops steeply over hard rock, the drop isn't a
 			// ramp but a step at a lip of the harder bed: level above it, a
 			// plunge pool below (the walls cut back to the lower water make the
@@ -1697,13 +2002,33 @@ Ground World::ground(const Place &at, fix sun) const
 	}
 	// a point bar: inside a bend, as wide as the river, at the water's level
 	// (gravel and sand: a beach of the river's)
+	if (best_gap != INT64_MAX) {
+		out.river_width = 2 * best_half;
+		out.river_dist = best_dist;
+		out.river_level = best_level;
+		out.river_slope = best_grade;
+		out.river_bend = (int8_t)best_bend;
+		out.river_braided = best_braided;
+	}
+	// a braided river's bars: islands at its water's level, among its channels
+	bool braid_bar = false;
+	if (best_braided && tile == 0 && best_gap != INT64_MAX && best_dist + ONE < best_half) {
+		// (laid along the flow: BRAID_LONG times as long as they're wide)
+		const int32_t wave = (int32_t)std::max<int64_t>(4, mulShift(2 * best_half, BRAID_BAR, FRAC) >> FRAC);
+		braid_bar = value3(best_along, best_across * BRAID_LONG, best_run, m_code.seed_hash + BRAIDS, wave) > BRAID_DRY;
+	}
 	if (best_bend > 0 && best_dist >= best_half && best_dist < best_half + best_bar && out.kind == Water::None &&
 			out.terrain > best_level) {
+		out.river_bar = true;
 		out.terrain = best_level;
 		if (m_code.processes.life)
 			out.column.biome = Biome::Beach;
 	} else if (best_gap < toFix(BANK)) {
-		if (best_dist < best_half) {
+		if (braid_bar) {
+			out.river_bar = true;
+			out.terrain = best_level;
+			out.kind = Water::None;
+		} else if (best_dist < best_half) {
 			// the channel: a bed under the water, deepest mid-stream
 			int32_t depth = 1 + (int32_t)std::min<int64_t>(3, (((best_half - best_dist) >> 1) + HALF) >> FRAC);
 			out.terrain = std::min(out.terrain, best_level - depth - best_pool);
@@ -1741,7 +2066,8 @@ Ground World::ground(const Place &at, fix sun) const
 			const bool long_enough = stream.pond ||
 					(stream.water_from > 0 && blocksFine(m_channels->spacing(stream.water_from)) >= tile * STREAM_TILES);
 			const int64_t within = tile == 0 ? stream.water_width / 2 : long_enough ? std::max(stream.water_width / 2, tile * 40 / 100) : 0;
-			if (stream.water != INT64_MIN && stream.water_gap < within && (tile == 0 || stream.water_width >= toFix(4))) {
+			const bool sinks = !stream.pond && stream.water_width < KARST_STREAM && karst(at, out.column.wet) > HALF;
+			if (stream.water != INT64_MIN && stream.water_gap < within && (tile == 0 || stream.water_width >= toFix(4)) && !sinks) {
 				out.water = std::max(1, (int32_t)(stream.water >> FRAC));
 				out.terrain = std::min(out.terrain, out.water - 1);
 				out.kind = stream.pond ? Water::Lake : Water::River;
@@ -1750,13 +2076,17 @@ Ground World::ground(const Place &at, fix sun) const
 		// (on a far tile, only a level whose runs are long next to the tile, widened as the rivers are)
 		const bool long_enough = stream.stream_from > 0 && blocksFine(m_channels->spacing(stream.stream_from)) >= tile * STREAM_TILES;
 		const int64_t within = tile == 0 ? stream.stream_width / 2 : long_enough ? std::max(stream.stream_width / 2, tile * 40 / 100) : 0;
-		if (stream.stream_from > 0 && stream.stream_gap < within) {
+		const bool sinks = stream.stream_width < KARST_STREAM && karst(at, out.column.wet) > HALF;
+		if (stream.stream_from > 0 && stream.stream_gap < within && !sinks) {
 			out.water = out.terrain;
 			out.terrain--;
 			out.kind = Water::River;
 		}
 		}
 	}
+	// sinkholes in a limestone platform's dry ground
+	if (out.kind == Water::None && out.terrain > 1)
+		out.terrain = std::max(1, out.terrain - dolines(at, karst(at, out.column.wet)));
 	// Landforms: where water has left the ground. Marsh and floodplain only
 	// over what grows (the biome's climate kept beneath: a cold marsh is
 	// still not a jungle's); a pan whatever (it's low, often by the sea's level).
@@ -1814,6 +2144,10 @@ Ground World::ground(const Place &at, fix sun) const
 	// a bank or a lake's rim raised over the sea's level: dry ground, not sea
 	if (out.kind == Water::Sea && out.terrain >= out.water)
 		out.kind = Water::None;
+	// a dune a river, lake or the sea cut down since is wet sand, not a dune;
+	// one a river's banks grew over is held under their ground
+	if (out.kind != Water::None || (out.column.biome != Biome::Desert && out.column.biome != Biome::Beach))
+		out.dune = 0;
 	return out;
 }
 

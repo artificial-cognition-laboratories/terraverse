@@ -100,11 +100,24 @@ Cell Generator::column(s32 x, s32 z) const
 */
 Tile Generator::build(const TileKey &key) const
 {
+	return made(key, 1);
+}
+
+Tile Generator::sketch(const TileKey &key) const
+{
+	return made(key, 2);
+}
+
+Tile Generator::made(const TileKey &key, s32 stride) const
+{
 	Tile tile;
 	tile.key = key;
 	tile.cells.resize((size_t)(TILE + 2) * (TILE + 2));
 	const terragen::Atlas &atlas = m_atlas.body(m_body);
-	const World::Coarse coarse(*m_world, (int64_t)1 << key.level);
+	const World::Coarse coarse(*m_world, (int64_t)stride << key.level);
+	// the cell a sketch copies (itself when it's read): the one before it,
+	// counting from the tile's edge, -1
+	const auto from = [&](s32 i) { return i - (i + 1) % stride; };
 	for (s32 j = -1; j <= TILE; j++)
 		for (s32 i = -1; i <= TILE; i++) {
 			const terragen::Atlas::Cell cell = m_tiling->cell(key, i, j);
@@ -115,6 +128,11 @@ Tile Generator::build(const TileKey &key) const
 				out = Cell{};
 				out.space = true;
 				out.ground = out.water = std::numeric_limits<s32>::max() / 2;
+				continue;
+			}
+			const Cell &copy = tile.at(from(i), from(j));
+			if ((from(i) != i || from(j) != j) && !copy.space) {
+				out = copy;
 				continue;
 			}
 			out = cellOf(*m_columns, m_columns->atPlace(m_atlas.place(planet::Atlas::Cell(m_body, cell))));

@@ -25,7 +25,7 @@ namespace far {
 */
 struct Baked
 {
-	static constexpr int VERSION = 2; // 2: no ice block (the polar wall went, sprint 86)
+	static constexpr int VERSION = 3; // 2: no ice block (the polar wall went, sprint 86); 3: soil kinds (sprint 111)
 
 	std::vector<std::string> names; // by id; "" for ids no block has
 	Content content;

@@ -11,6 +11,9 @@ const devUrl = "http://localhost:5173"
 // ../arclabs lists it); ARCLABS_URL points elsewhere, e.g. production.
 const arclabsUrl = process.env.ARCLABS_URL ?? "http://localhost:3099"
 
+// Builds in this tree take turns on one lock (see scripts/build.sh).
+const locked = (cmd: string[]) => ["flock", `${root}/.output/build.lock`, ...cmd]
+
 async function run(cmd: string[], cwd: string, label: string) {
     const started = performance.now()
     const code = await Bun.spawn(cmd, { cwd: cwd, stdio: ["inherit", "inherit", "inherit"] }).exited
@@ -55,13 +58,14 @@ async function launchGame(args: string[]) {
     }
 }
 
+await Bun.$`mkdir -p ${root}/.output`
 if (!(await Bun.file(`${root}/.output/build/CMakeCache.txt`).exists()))
-    await run(["cmake", "-S", ".", "-B", ".output/build", "-DRUN_IN_PLACE=TRUE"], root, "configure")
+    await run(locked(["cmake", "-S", ".", "-B", ".output/build", "-DRUN_IN_PLACE=TRUE"]), root, "configure")
 // CMake regenerates its build files when CMake inputs change.
 // (no link-time optimisation here: that's most of a rebuild's wait; a release has its own)
-await run(["cmake", "-S", ".", "-B", ".output/build", "-DRUN_IN_PLACE=TRUE", "-DENABLE_LTO=FALSE"], root, "configure")
-await run(["cmake", "--build", ".output/build", "-j8"], root, "engine build")
-await run(["bash", "scripts/stage-runtime.sh"], root, "runtime staging")
+await run(locked(["cmake", "-S", ".", "-B", ".output/build", "-DRUN_IN_PLACE=TRUE", "-DENABLE_LTO=FALSE"]), root, "configure")
+await run(["bash", "scripts/build.sh", "-j8"], root, "engine build")
+await run(locked(["bash", "scripts/stage-runtime.sh"]), root, "runtime staging")
 if (!(await Bun.file(`${ui}/node_modules/.bin/vite`).exists()))
     await run(["bun", "install"], ui, "UI dependencies")
 
