@@ -26,7 +26,6 @@ type State = {
     downloads: Record<string, Download>
     failures: Record<string, string>
     game: Game | null
-    playAfterInstall: string | null // Play on a version not yet installed: install, then launch
     refusal: string | null
     launcherUpdate: LauncherUpdate | null
 }
@@ -34,7 +33,7 @@ type State = {
 export function LauncherStore({ backend }: { backend: Backend }) {
     const state = reactive<State>({
         about: null, settings: null, manifest: null, offline: null, installed: null,
-        downloads: {}, failures: {}, game: null, playAfterInstall: null, refusal: null, launcherUpdate: null,
+        downloads: {}, failures: {}, game: null, refusal: null, launcherUpdate: null,
     })
 
     // the game's account and friends, kept as given: the game's dropdown takes them as they are
@@ -48,16 +47,11 @@ export function LauncherStore({ backend }: { backend: Backend }) {
                 break
             case "installed":
                 delete state.downloads[message.version]
-                void refreshInstalled().then(() => {
-                    if (state.playAfterInstall !== message.version) return
-                    state.playAfterInstall = null
-                    return attempt(() => backend.launch(message.version))
-                })
+                void refreshInstalled()
                 break
             case "installFailed":
                 delete state.downloads[message.version]
                 state.failures[message.version] = message.reason
-                if (state.playAfterInstall === message.version) state.playAfterInstall = null
                 break
             case "game":
                 state.game = message.game
@@ -174,7 +168,6 @@ export function LauncherStore({ backend }: { backend: Backend }) {
 
         install,
         async cancel(id: string) {
-            if (state.playAfterInstall === id) state.playAfterInstall = null
             await attempt(() => backend.cancel(id))
             delete state.downloads[id]
         },
@@ -183,12 +176,8 @@ export function LauncherStore({ backend }: { backend: Backend }) {
             await refreshInstalled()
             if (state.settings?.pinned === id) await changeSettings({ pinned: null })
         },
-        /** Launch, installing first if it isn't there yet. */
-        async play(id: string) {
-            if (standing(id).state === "installed") return void await attempt(() => backend.launch(id))
-            state.playAfterInstall = id
-            await install(id)
-        },
+        /** Launch an installed version. Installing never launches: the player presses Play. */
+        play: (id: string) => attempt(() => backend.launch(id)),
 
         collectReport: (session: string | null) => backend.collectReport(session),
         submitReport: (session: string, note: string) => attempt(() => backend.submitReport(session, note)),

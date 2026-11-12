@@ -1,11 +1,15 @@
 # Terra Firma releases. A pushed tag v* builds every platform we ship and
-# attaches each to that tag's GitHub Release (`arc deploy release` pushes the
+# attaches each to that tag's GitHub Release (`arc deploy terraverse` pushes the
 # tag: repo.config.ts). Run it by hand to get the builds as artifacts without
 # releasing.
 #
-# Built on the oldest system we support (Ubuntu 22.04, glibc 2.35), so the
-# result runs on that and anything newer. scripts/release/package-linux.sh
-# bundles the libraries a desktop may lack.
+# Each platform builds, tests, packages and boots its package; then one job
+# writes the manifest naming every build, signs it, and publishes them together.
+#
+# Linux is built on the oldest system we support (Ubuntu 22.04, glibc 2.35), so
+# the result runs on that and anything newer. scripts/release/package-linux.sh
+# bundles the libraries a desktop may lack. Windows builds with clang-cl
+# (terragen's fixed point needs __int128) against vcpkg.
 name: release
 
 on:
@@ -112,10 +116,155 @@ jobs:
           ! grep -q 'ERROR\[' boot.log
           test -f "$TERRAVERSE_HOME/logs/debug.txt" # player data left the package
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-linux-x86_64
+          path: .output/releases/terraverse-${{ env.VERSION }}-linux-x86_64.tar.zst
+          compression-level: 0 # already zstd
+
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 150
+    env:
+      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.output/vcpkg-cache
+      SCCACHE_GHA_ENABLED: "true"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      # vcpkg builds every dependency from source: keep what it built.
+      # Saved even when a later step fails (below): every run builds on the last.
+      - name: Restore vcpkg builds
+        uses: actions/cache/restore@v4
+        with:
+          path: .output/vcpkg-cache
+          key: vcpkg-x64-windows-${{ hashFiles('vcpkg.json') }}-${{ github.run_id }}
+          restore-keys: vcpkg-x64-windows-${{ hashFiles('vcpkg.json') }}-
+
+      - name: Cache CEF
+        uses: actions/cache@v4
+        with:
+          path: .output/build/_deps
+          key: cef-windows64-${{ hashFiles('cmake/Modules/CEF.cmake') }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Build the UI
+        working-directory: apps/game/ui
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+
+      # Compiled objects kept between runs: the engine is ~1000 files.
+      - uses: mozilla-actions/sccache-action@v0.0.9
+
+      # clang-cl, the linker and the packaged C++ runtime need Visual Studio's environment.
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      # The runner's own LLVM, the newest clang-cl. The Windows SDK's mt.exe
+      # embeds the manifest: llvm-mt's merge is one Windows refuses to start.
+      - name: Configure
+        run: |
+          LLVM="C:/Program Files/LLVM/bin"
+          "$LLVM/clang-cl.exe" --version
+          mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+          cmake -S . -B .output/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER="$LLVM/clang-cl.exe" -DCMAKE_CXX_COMPILER="$LLVM/clang-cl.exe" \
+            -DCMAKE_LINKER="$LLVM/lld-link.exe" \
+            -DCMAKE_MT="$(cygpath -m "$(command -v mt.exe)")" \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET=x64-windows \
+            -DRUN_IN_PLACE=TRUE \
+            -DENABLE_CURSES=OFF -DENABLE_POSTGRESQL=OFF -DENABLE_LEVELDB=OFF \
+            -DENABLE_REDIS=OFF -DENABLE_SPATIAL=OFF -DENABLE_PROMETHEUS=OFF \
+            -DENABLE_UPDATE_CHECKER=OFF \
+            -DENABLE_LTO=OFF \
+            -DTERRAFIRMA_VERSION="$VERSION"
+
+      - name: Save vcpkg builds
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .output/vcpkg-cache
+          key: vcpkg-x64-windows-${{ hashFiles('vcpkg.json') }}-${{ github.run_id }}
+
+      # -k 0: one run reports every compile error, not just the first.
+      - name: Build the engine
+        run: cmake --build .output/build -- -k 0 && bash scripts/stage-runtime.sh
+
+      # Through cmd: Git Bash refused to run luanti.exe directly.
+      - name: Unit tests
+        run: |
+          cd .output/bin
+          for module in TestOnline TestRelease TestTerragen; do
+            cmd.exe //C "luanti.exe --test-module $module"
+          done
+
+      - name: Package
+        run: scripts/release/package-windows.sh "$VERSION"
+
+      # The package on its own: it starts, says its version, and a world boots
+      # with the player's data outside the package.
+      - name: Smoke test the package
+        shell: pwsh
+        run: |
+          $pkg = ".output\releases\terraverse-$env:VERSION-windows-x86_64"
+          $exe = "$pkg\bin\terraverse.exe"
+          $env:TERRAVERSE_HOME = "$env:RUNNER_TEMP\home"
+          Start-Process $exe -ArgumentList '--version' -Wait -NoNewWindow -RedirectStandardOutput version.out -RedirectStandardError version.err
+          Get-Content version.out, version.err
+          if (-not (Select-String -Path version.out, version.err -SimpleMatch $env:VERSION -Quiet)) { throw "--version doesn't say $env:VERSION" }
+          $p = Start-Process $exe -ArgumentList '--server', '--gameid', 'terrafirma', '--world', "$env:RUNNER_TEMP\world", '--port', '30500' `
+            -PassThru -NoNewWindow -RedirectStandardOutput boot.out -RedirectStandardError boot.log
+          if (-not $p.WaitForExit(20000)) { Stop-Process -Id $p.Id -Force }
+          Get-Content boot.out, boot.log
+          if (-not (Select-String -Path boot.out, boot.log -SimpleMatch 'listening on' -Quiet)) { throw "the server didn't start" }
+          if (Select-String -Path boot.out, boot.log -SimpleMatch 'ERROR[' -Quiet) { throw "errors booting a world" }
+          if (-not (Test-Path "$env:TERRAVERSE_HOME\logs\debug.txt")) { throw "player data didn't leave the package" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-windows-x86_64
+          path: .output/releases/terraverse-${{ env.VERSION }}-windows-x86_64.tar.zst
+          compression-level: 0 # already zstd
+
+  # One manifest names every platform's build, signed once: a release is all
+  # its platforms or none of them.
+  publish:
+    needs: [linux, windows]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: build-*
+          path: .output/releases
+          merge-multiple: true
+
       - name: Write the manifest
         run: |
-          bun scripts/release/manifest.ts "$VERSION" linux-x86_64 \
-            ".output/releases/terraverse-$VERSION-linux-x86_64.tar.zst" .output/releases/manifest.json
+          out=.output/releases
+          bun scripts/release/manifest.ts "$VERSION" "$out/manifest.json" \
+            linux-x86_64="$out/terraverse-$VERSION-linux-x86_64.tar.zst" \
+            windows-x86_64="$out/terraverse-$VERSION-windows-x86_64.tar.zst"
+          cat "$out/manifest.json"
 
       # The private key exists only as this secret. The game trusts the public
       # half, so nothing else can publish an update it will accept.
@@ -146,7 +295,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            .output/releases/terraverse-${{ env.VERSION }}-linux-x86_64.tar.zst
+            .output/releases/terraverse-${{ env.VERSION }}-*.tar.zst
             .output/releases/manifest.json
             .output/releases/manifest.json.sig
           body_path: .output/releases/notes.md
@@ -157,7 +306,7 @@ jobs:
         if: github.ref_type != 'tag'
         uses: actions/upload-artifact@v4
         with:
-          name: terraverse-${{ env.VERSION }}-linux-x86_64
+          name: terraverse-${{ env.VERSION }}
           path: |
-            .output/releases/terraverse-${{ env.VERSION }}-linux-x86_64.tar.zst
+            .output/releases/terraverse-${{ env.VERSION }}-*.tar.zst
             .output/releases/manifest.json

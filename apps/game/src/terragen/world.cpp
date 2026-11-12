@@ -2062,7 +2062,10 @@ Ground World::ground(const Place &at, fix sun) const
 	// as wide as their level's, a block into the ground there so no level of
 	// their own can disagree with the land (none through a cone: it stands on
 	// what they drained)
-	if (m_channels && raise <= 0 && floor == INT32_MIN && out.kind == Water::None && out.terrain > 1 && best_gap > toFix(BANK)) {
+	// (the prototype's run on to what they join: through a grid river's bank
+	// into it, and down to the sea's level; dropped there, a quarter of the
+	// streams by a river and most on a low plain ended short of it)
+	if (m_channels && raise <= 0 && floor == INT32_MIN && out.kind == Water::None && (m_land || (out.terrain > 1 && best_gap > toFix(BANK)))) {
 		const Channels::Read &stream = channelsAt(at).read;
 		// the prototype's: the water of the channel whose valley this is, at its own level
 		if (m_land) {

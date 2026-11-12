@@ -8,6 +8,7 @@
     "preview": "bunx serve .output/public",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
+    "check": "nuxt typecheck && bash ../../scripts/release/install-check.sh && nuxt generate",
     "deploy": "bun run deploy.ts",
     "verify": "bun run verify.ts",
     "bake": "bash bake/bake.sh"

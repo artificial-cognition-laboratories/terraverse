@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // Deploys the site and install.sh to Cloud Run, in the same project as axon-api:
-// `arc deploy docs`. It's a prerendered static site, so it takes no secrets or env.
+// `arc deploy site`. It's a prerendered static site, so it takes no secrets or env.
 import { $ } from "bun"
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"

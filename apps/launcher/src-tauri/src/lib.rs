@@ -196,8 +196,10 @@ fn remove(l: L, version: String) -> Result<()> {
 fn game(l: L) -> events::Game {
     l.runner.get()
 }
+// async: tokio::process spawns the game, which needs Tokio's runtime; a sync
+// command runs on the GTK main thread, outside it, and panics there.
 #[tauri::command]
-fn launch(l: L, version: String) -> Result<()> {
+async fn launch(l: L<'_>, version: String) -> Result<()> {
     let settings = l.settings.lock().unwrap().clone();
     let launcher = Arc::clone(&l);
     l.runner.launch(&l.app, &l.home, &version, move |app| {

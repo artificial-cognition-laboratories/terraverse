@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <atomic>
 #include <memory>
+#include <mutex>
+#include <unordered_map>
 #include <stdexcept>
 #include <vector>
 
@@ -19,9 +21,16 @@ using plates::unit;
 
 namespace {
 
-enum ChannelStream : uint32_t { NODE = 353, BEND = 379, CLUMPS = 439, PONDS = 443, BEDS = 449, SLOPES = 457, ROCK = 461, ROLLS = 463 }; // (359 was the levels' wander)
-// how far a level's channels bend either way: its lattice over this
-const int64_t BEND_SHARE = 4;
+enum ChannelStream : uint32_t { NODE = 353, BEND = 379, CLUMPS = 439, PONDS = 443, BEDS = 449, SLOPES = 457, ROCK = 461, ROLLS = 463, ROUTE = 467, WANDER = 479 }; // (359 was the levels' wander)
+// how far a level's channels bend either way: its lattice over BEND_SHARE,
+// by noise BEND_WAVES times its waves (the cells' lattice: about its own).
+// Gentle enough never to fold, every level's together: the bend's slope
+// (amplitude over wavelength) well under one. At a quarter of the lattice
+// over noise half as wide, a bend's slope reached π: its line turned back on
+// itself, a stream in loops and pieces (6–25% of the ground on the finer
+// levels; the stream probe, phase 2)
+const int64_t BEND_SHARE = 12;
+const int32_t BEND_WAVES = 2;
 
 // The finest level's points are at least this far apart (blocks). What a
 // channel drains is counted over the levels AREA_FINEST_BLOCKS apart or more:
@@ -99,8 +108,26 @@ const int64_t FADE_LEAST = toFix(32); // blocks, fixed
 // A channel carries a stream once this much drains to it (blocks² of average
 // rain: a few hundred blocks square), as wide as World::riverWidth says
 const int64_t STREAM_FLOW = 40000;
-// A join facing upstream counts as this much further, squared
-const int64_t JOIN_AGAINST = 4;
+// A tributary meets what it joins heading downstream with it: it joins this
+// far down from its nearest point, of how far off it is (cot 60°: it comes in
+// at 60°), and never where that faces upstream or comes in squarer than 75°. Joining the nearest point,
+// it came in square, and bent by a hair, against the flow (a quarter of joins)
+const fix JOIN_DOWN = ratio(58, 100);
+const int64_t JOIN_SQUARE = 7;
+// A level's node runs into the level above's channel once this near it (of
+// its lattice); further, down its own level's chain (build())
+const fix JOIN_NEAR = ratio(90, 100);
+// A channel's way wanders over the lie of the land (trace()): noise
+// WANDER_WAVES times its level's waves (a few to a lattice), each turn
+// costing WANDER_TURN of the noise's range by its sine
+const int32_t WANDER_WAVES = 3;
+const fix WANDER_TURN = ratio(15, 100);
+// How rough the ground a level's chains wander over is: ROUTE_ROUGH of a
+// lattice's climb either way, by noise about 2 / ROUTE_WAVES lattices wide (rise())
+const fix ROUTE_ROUGH = ratio(150, 100);
+const int32_t ROUTE_WAVES = 1; // cos² 75°, in hundredths: the squarest it comes in
+const int64_t RUN_MOST = 11; // the longest a run to the level above, in quarters of its lattice along any axis…
+const int64_t FAR_COST = (int64_t)1 << 56; // …unless there's no other: what a longer one costs more
 // The steepest a channel runs, of its hillsides' slope
 const fix CHANNEL_SHARE = ratio(60, 100);
 // Rock strength (P3): how hard each province's rock is to running water and
@@ -226,8 +253,17 @@ const fix VARY = ratio(30, 100);
 const fix FLOOR_GRADE = ratio(2, 100);
 const int64_t FLOOR_WIDTHS = 4;
 const int32_t FLOOR_MOST = 40;
-// A stream where the land stands this many blocks over its water runs under it
-const int32_t STREAM_SINKS = 2;
+// The network carries its water (phase 2 of the streams: water followed the
+// lowest land, and another valley's lower hillside took it half the time): a
+// wet channel's water runs down its whole line, and the land round it gives
+// way. Its banks stand BANK_HIGH over its water for BANK_WIDE blocks either
+// side, falling CREST_FALL a block past them where the land beyond is lower
+// (a stream on a spur's shoulder, not perched over the next valley), and the
+// land's cut down to its water where anything stood over it (a fan, a sill,
+// the rolls); both within CORRIDOR blocks and widths of it
+const int64_t BANK_HIGH = toFix(1), BANK_WIDE = toFix(2), CORRIDOR = toFix(8);
+const int64_t CORRIDOR_WIDTHS = 3;
+const fix CREST_FALL = ratio(33, 100);
 // Ponds, where something held the water up (a sill across the channel, and
 // a hollow worn or left behind it): tarns where the ice worked a channel's
 // head (a cirque's floor scoured out, its lip of rock or moraine), only on the
@@ -272,6 +308,39 @@ Place along(const Place &a, const Place &b, fix t)
 {
 	return placeOf((int64_t)a.x + mulShift((int64_t)b.x - a.x, t, FRAC), (int64_t)a.y + mulShift((int64_t)b.y - a.y, t, FRAC),
 			(int64_t)a.z + mulShift((int64_t)b.z - a.z, t, FRAC));
+}
+
+// Ground `h` over the grid's surface `g` brought towards it, bending E over it (OVER_GRID_M)
+int64_t keepWith(int64_t h, int64_t g, int64_t E)
+{
+	return h <= g ? h : g + (h - g) * E / (E + h - g);
+}
+
+// Where a tributary from `at` meets a → b, water running a → b (`downstream`
+// +1) or b → a (−1): JOIN_DOWN of how far off it is down from its nearest
+// point (`near`, moved there), so it comes in heading down with it. False
+// where that still faces upstream (past the downstream end): no join there
+bool joinDownstream(const Place &at, const Place &a, const Place &b, int downstream, Near &near)
+{
+	const int64_t sx = (int64_t)b.x - a.x, sy = (int64_t)b.y - a.y, sz = (int64_t)b.z - a.z;
+	const int64_t length = (int64_t)isqrt((uint64_t)(sx * sx + sy * sy + sz * sz));
+	if (length > 0) {
+		const int64_t off = (int64_t)isqrt((uint64_t)near.dist2);
+		const int64_t by = std::min<int64_t>(ONE, mulShift(off, JOIN_DOWN, FRAC) * ONE / length);
+		const int64_t t = near.t + by * downstream;
+		// (not past its foot: there it'd turn the corner into what that
+		// joins, crossing what else meets it; it joins that instead)
+		if (t < 0 || t > ONE)
+			return false;
+		near.t = (fix)t;
+	}
+	const Place on = along(a, b, near.t);
+	const int64_t vx = (int64_t)on.x - at.x, vy = (int64_t)on.y - at.y, vz = (int64_t)on.z - at.z;
+	near.dist2 = vx * vx + vy * vy + vz * vz;
+	const __int128 with = ((__int128)vx * sx + (__int128)vy * sy + (__int128)vz * sz) * downstream;
+	// (at 75° or less: where it slid to an end, it may still come in square)
+	const __int128 v2 = (__int128)near.dist2, s2 = (__int128)sx * sx + (__int128)sy * sy + (__int128)sz * sz;
+	return with > 0 && with / 64 * (with / 64) * 100 > v2 / 64 * (s2 / 64) * JOIN_SQUARE;
 }
 
 int32_t floorBy(int64_t v, int64_t d)
@@ -345,10 +414,29 @@ private:
 
 } // namespace
 
+// Paths kept for every thread, in shards by node, each emptied once it holds
+// TRACED_MOST (a world's never needs them all at once; a thread's own cache
+// in front keeps it from asking often)
+constexpr size_t TRACED_SHARDS = 64, TRACED_MOST = 1 << 14;
+struct Channels::Traced
+{
+	struct Shard
+	{
+		std::mutex lock;
+		std::unordered_map<uint64_t, Path> paths;
+	};
+	std::array<Shard, TRACED_SHARDS> shards;
+	static uint64_t key(int level, int32_t i, int32_t j, int32_t l)
+	{
+		return (uint64_t)level << 60 ^ ((uint64_t)(uint32_t)i & 0xFFFFF) << 40 ^ ((uint64_t)(uint32_t)j & 0xFFFFF) << 20 ^ ((uint64_t)(uint32_t)l & 0xFFFFF);
+	}
+};
+
 Channels::Channels(const WorldCode &code, const Grid &grid, const World &world, int64_t radius, int64_t cell_blocks, bool land) :
 	m_grid(&grid), m_world(&world), m_seed(code.seed_hash + NODE), m_owner(nextOwner()),
 	m_radius(radius), m_water(code.processes.water), m_land(land),
-	m_pieces(new std::atomic<Pieces *>[grid.size()]()) // (all null)
+	m_pieces(new std::atomic<Pieces *>[grid.size()]()), // (all null)
+	m_traced(new Traced())
 {
 	m_lattice[0] = (int64_t)gridSphere().spacing() << (PLACE_FRAC - FRAC);
 	// only where water ever ran
@@ -581,9 +669,23 @@ Channels::Node Channels::toLevelAbove(int level, int32_t i, int32_t j, int32_t l
 	fix link_t = 0;         // and how far along its run it joins
 	// `downstream`: the way water runs along p → q (+1) or q → p (−1)
 	const auto consider = [&](const Place &p, const Place &q, const std::array<int32_t, 3> &above, bool wet, int32_t cell, int downstream, int64_t low, int64_t high) {
-		const Near near = nearest(n.at, p, q);
+		Near near = nearest(n.at, p, q);
 		if (!m_land && near.dist2 >= best)
 			return;
+		// (a tributary meets what it joins heading down with it, as rivers
+		// do, never against it: joining the nearest point, it came in square
+		// and, bent, a quarter against the flow; or, before, every stream
+		// joined the nearest point, often a node, and a run's tributaries
+		// fanned into it from all round)
+		if (m_land && !joinDownstream(n.at, p, q, downstream, near))
+			return;
+		// (no further than read() gathers its channels round a place, WINDOW
+		// lattices less its bend, unless there's nothing nearer: a longer
+		// run's water ran out short of its foot, where its head was left out)
+		// (by each axis apart, as the window's cells lie)
+		const Place on_it = along(p, q, near.t);
+		const int64_t apart = std::max({ std::abs((int64_t)on_it.x - n.at.x), std::abs((int64_t)on_it.y - n.at.y), std::abs((int64_t)on_it.z - n.at.z) });
+		const bool far = m_land && apart * 4 > L * RUN_MOST;
 		const Place join = along(p, q, near.t);
 		const Sphere::Spot there = sphere.spot(join.dir());
 		// not uphill of here (the prototype's land joins by the heights it
@@ -592,18 +694,6 @@ Channels::Node Channels::toLevelAbove(int level, int32_t i, int32_t j, int32_t l
 		if (!m_land && field(g.eroded, there) > here)
 			return;
 		int64_t cost = near.dist2;
-		// A tributary meets what it joins heading downstream with it (40–70°
-		// as rivers do), never against it: a join facing upstream costs
-		// JOIN_AGAINST× (or every stream joins the nearest point, often a
-		// node, and a run's tributaries fan into it from all round)
-		if (m_land) {
-			const Place on = along(p, q, near.t);
-			const int64_t vx = (int64_t)on.x - n.at.x, vy = (int64_t)on.y - n.at.y, vz = (int64_t)on.z - n.at.z;
-			const int64_t dx = ((int64_t)q.x - p.x) * downstream, dy = ((int64_t)q.y - p.y) * downstream, dz = ((int64_t)q.z - p.z) * downstream;
-			const __int128 with = (__int128)vx * dx + (__int128)vy * dy + (__int128)vz * dz;
-			if (with < 0)
-				cost *= JOIN_AGAINST;
-		}
 		if (folded > 0) {
 			const int64_t across = mulShift(field(g.tectonics.front, there) - front, m_lattice[0], FRAC);
 			cost += (across * across >> FRAC) * mul(folded, TRELLIS);
@@ -618,6 +708,8 @@ Channels::Node Channels::toLevelAbove(int level, int32_t i, int32_t j, int32_t l
 			const fix through = ONE + mul(DEFLECT, (fix)(hard >> FRAC));
 			cost = height + mulShift(mulShift(blocks((int64_t)isqrt((uint64_t)cost)), hill, FRAC), through, FRAC);
 		}
+		if (far)
+			cost += FAR_COST;
 		if (cost >= best)
 			return;
 		best = cost;
@@ -683,13 +775,15 @@ Channels::Node Channels::toLevelAbove(int level, int32_t i, int32_t j, int32_t l
 }
 
 /*
-	A node's way down (the prototype's land): to the level above, as
-	toLevelAbove() finds it, or into one of its own level's nodes round it,
-	anywhere down that one's length, if that costs less (the same cost: the
-	height where they'd meet plus the climb to it). Only into one that stands
-	lower by the way to the level above alone, so there's never a loop. Each
-	level is a tree of its own, and the network branches as real drainage
-	does (Horton's orders), not as a comb of single lines into the level above.
+	A node's way down (the prototype's land), as the grid's cells drain: to
+	whichever neighbour of its own level it falls to most steeply, over
+	what each stands at (rise()), so a level's streams are chains of short
+	steps that wander as the land does, merging where they meet, as a
+	grid's do; once within JOIN_NEAR of the level above's channel, or with
+	no neighbour lower, into that (toLevelAbove()). Each step is a tree's
+	edge into a lower node, so there's never a loop. Joined straight to the
+	level above, node to channel, a level's streams were lines a lattice or
+	three long at fixed angles, over spurs and on dykes across coarser floors.
 */
 Channels::Node Channels::build(int level, int32_t i, int32_t j, int32_t l) const
 {
@@ -701,72 +795,104 @@ Channels::Node Channels::build(int level, int32_t i, int32_t j, int32_t l) const
 	const Sphere::Spot spot = sphere.spot(n.at.dir());
 	const fix hill = critical(g, spot.cells[0], m_steep);
 	const auto blocks = [&](int64_t place) { return mulShift(place, m_radius, PLACE_FRAC); };
-	const std::array<int32_t, 3> self{ i, j, l };
-	// (ordered by height, then by place: two heads as high never both run into the other)
-	const auto lower = [&](const Node &o, const std::array<int32_t, 3> &at) {
-		return o.rough_high < n.rough_high || (o.rough_high == n.rough_high && at < self);
+	const auto apart = [](const Place &a, const Place &b) {
+		const int64_t dx = (int64_t)a.x - b.x, dy = (int64_t)a.y - b.y, dz = (int64_t)a.z - b.z;
+		return (int64_t)isqrt((uint64_t)(dx * dx + dy * dy + dz * dz));
 	};
-	int64_t best = n.cost;
-	std::array<int32_t, 3> into{};
-	Place join{};
-	fix join_t = 0;
-	int64_t join_low = 0;
-	bool wet = false, found = false;
+	const int64_t L = m_lattice[level];
+	// near the level above's channel, it runs into it
+	if (apart(n.at, n.join) <= mulShift(L, JOIN_NEAR, FRAC))
+		return n;
+	const std::array<int32_t, 3> self{ i, j, l };
+	const int64_t here = rise(level, i, j, l);
+	// (ordered by what they stand at, then by place: two as high never both run into the other)
+	const auto lower = [&](int64_t at, const std::array<int32_t, 3> &o) { return at < here || (at == here && o < self); };
+	// the lower neighbours, and their ways: what a step mustn't cross
+	struct Low
+	{
+		std::array<int32_t, 3> at;
+		int64_t rise;
+		Node node;
+	};
+	std::array<Low, 26> lows;
+	int count = 0;
 	for (int32_t a = i - 1; a <= i + 1; a++)
 		for (int32_t b = j - 1; b <= j + 1; b++)
 			for (int32_t c = l - 1; c <= l + 1; c++) {
 				const std::array<int32_t, 3> at{ a, b, c };
-				if (at == self)
+				if (at == self || !down(level, a, b, c).exists)
 					continue;
-				if (!down(level, a, b, c).exists || !lower(down(level, a, b, c), at))
+				const int64_t r = rise(level, a, b, c);
+				if (!lower(r, at))
 					continue;
-				// its own way down (lower, so no loop), and where along it this
-				// would meet it: anywhere down its length, as a tributary meets a
-				// stream (into its head, a level's water ran head to head, a
-				// line with a corner at every one)
 				const Node o = node(level, a, b, c); // (a copy: asking again can overwrite its slot)
-				const Near near = nearest(n.at, o.join, o.at);
-				const Place on = along(o.join, o.at, near.t);
-				const int64_t vx = (int64_t)on.x - n.at.x, vy = (int64_t)on.y - n.at.y, vz = (int64_t)on.z - n.at.z;
-				int64_t dist2 = near.dist2;
-				// (meeting it heading down with it: against its way, JOIN_AGAINST× as far)
-				const int64_t dx = (int64_t)o.join.x - o.at.x, dy = (int64_t)o.join.y - o.at.y, dz = (int64_t)o.join.z - o.at.z;
-				if ((__int128)vx * dx + (__int128)vy * dy + (__int128)vz * dz < 0)
-					dist2 *= JOIN_AGAINST;
-				const Sphere::Spot there = sphere.spot(on.dir());
-				int64_t hard = 0;
-				for (int k = 0; k < 3; k++)
-					hard += (int64_t)STRENGTH[(int)g.province[there.cells[k]]] * there.weights[k];
-				const fix through = ONE + mul(DEFLECT, (fix)(hard >> FRAC));
-				const int64_t height = o.rough_low + mulShift(o.rough_high - o.rough_low, near.t, FRAC);
-				const int64_t cost = height + mulShift(mulShift(blocks((int64_t)isqrt((uint64_t)dist2)), hill, FRAC), through, FRAC);
-				if (cost < best) {
-					best = cost;
-					into = at;
-					join = on;
-					join_t = near.t;
-					join_low = height;
-					wet = o.wet;
-					found = true;
-				}
+				if (o.exists)
+					lows[count++] = { at, r, o };
 			}
-	if (!found)
-		return n;
+	// (crossing in the plane square to the place's largest axis: the
+	// lattice's few cells round, as flat as a plane there)
+	const int axis = std::abs(n.at.x) >= std::abs(n.at.y) && std::abs(n.at.x) >= std::abs(n.at.z) ? 0 : std::abs(n.at.y) >= std::abs(n.at.z) ? 1 : 2;
+	const auto flat = [&](const Place &q) {
+		return axis == 0 ? std::array<int64_t, 2>{ q.y, q.z } : axis == 1 ? std::array<int64_t, 2>{ q.x, q.z } : std::array<int64_t, 2>{ q.x, q.y };
+	};
+	const auto side = [](const std::array<int64_t, 2> &a, const std::array<int64_t, 2> &b, const std::array<int64_t, 2> &c) {
+		const __int128 v = (__int128)(b[0] - a[0]) * (c[1] - a[1]) - (__int128)(b[1] - a[1]) * (c[0] - a[0]);
+		return v > 0 ? 1 : v < 0 ? -1 : 0;
+	};
+	// the steepest fall to one, by what it falls over how far (no crossing another's step)
+	const Low *best = nullptr;
+	__int128 best_fall = 0, best_run = 1;
+	for (int k = 0; k < count; k++) {
+		const Low &o = lows[k];
+		const int64_t run = std::max<int64_t>(1, apart(n.at, o.node.at));
+		const __int128 fall = (__int128)(here - o.rise);
+		if (best && fall * best_run <= best_fall * run)
+			continue;
+		const std::array<int64_t, 2> a = flat(n.at), b = flat(o.node.at);
+		bool crosses = false;
+		for (int m = 0; m < count && !crosses; m++) {
+			if (m == k)
+				continue;
+			const std::array<int64_t, 2> c = flat(lows[m].node.at), d = flat(lows[m].node.join);
+			crosses = side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0;
+		}
+		if (crosses)
+			continue;
+		best = &o;
+		best_fall = fall;
+		best_run = run;
+	}
+	if (!best)
+		return n; // a hollow: none round it lower, so into the level above
+	// into its head, as a grid cell into its receiver
+	const Node &o = best->node;
 	n.sibling = true;
-	n.into = into;
-	n.join = join;
-	n.t = join_t;
-	n.cost = best;
-	const int64_t lx = (int64_t)n.join.x - n.at.x, ly = (int64_t)n.join.y - n.at.y, lz = (int64_t)n.join.z - n.at.z;
-	const int64_t length = blocks((int64_t)isqrt((uint64_t)(lx * lx + ly * ly + lz * lz)));
-	const int64_t cell = blocks(m_lattice[level]) >> FRAC;
-	const int64_t flow = std::max<int64_t>(1, mulShift(cell * cell * ROUGH_CELLS, g.rain(spot.cells[0]), FRAC));
-	n.rough_low = join_low;
-	n.rough_high = join_low + mulShift(length, slopeFor(spot.cells[0], flow, hill), FRAC);
-	n.wet = m_water && level <= m_wet_levels && wet && n.rain >= m_wet[level];
+	n.into = best->at;
+	n.join = o.at;
+	n.t = ONE;
+	n.cost = here;
+	// (its bed its own climb from the level above's, as down() has it, never
+	// under what it runs into: by its chain's length, a node stood tens of
+	// blocks over the valley beside it that it didn't drain into, on a dyke)
+	n.rough_low = o.rough_high;
+	n.rough_high = std::max(n.rough_low, down(level, i, j, l).rough_high);
+	n.wet = m_water && level <= m_wet_levels && o.wet && n.rain >= m_wet[level];
 	return n;
 }
 
+// What a node stands at, as its level's drain over it (build()): its climb
+// from the level above (down()'s cost: the height where it'd join plus the
+// climb there) and the lie of the land between, ROUTE_ROUGH of a lattice's
+// climb either way, by noise a couple of lattices wide: what bends a chain
+// round, as hard and soft ground and the hollows erosion left do
+int64_t Channels::rise(int level, int32_t i, int32_t j, int32_t l) const
+{
+	const Node &n = down(level, i, j, l);
+	const fix hill = critical(*m_grid, gridSphere().spot(n.at.dir()).cells[0], m_steep);
+	const int64_t climb = mulShift(mulShift(m_lattice[level], m_radius, PLACE_FRAC), hill, FRAC);
+	const fix lie = fbm(n.at, m_seed + ROUTE + (uint32_t)level, std::max(4, m_waves[level] / ROUTE_WAVES), 2, HALF);
+	return n.cost + mulShift(mulShift(climb, ROUTE_ROUGH, FRAC), lie * 2, FRAC);
+}
 
 const Channels::Shape &Channels::shape(int level, int32_t i, int32_t j, int32_t l) const
 {
@@ -776,6 +902,129 @@ const Channels::Shape &Channels::shape(int level, int32_t i, int32_t j, int32_t 
 		return *k;
 	const Shape worn = wear(level, i, j, l); // (asks for its parent's: may land in this set)
 	return kept.put(m_owner, level, i, j, l, h, worn);
+}
+
+const Channels::Path &Channels::path(int level, int32_t i, int32_t j, int32_t l) const
+{
+	thread_local Ways<Path> kept;
+	const uint32_t h = mix(mix((uint32_t)i, (uint32_t)j, (uint32_t)level), (uint32_t)l, 0x9b05688cu);
+	if (const Path *k = kept.find(m_owner, level, i, j, l, h))
+		return *k;
+	const uint64_t key = Traced::key(level, i, j, l);
+	Traced::Shard &shard = m_traced->shards[mix((uint32_t)key, (uint32_t)(key >> 32), 0x7f4a7c15u) % TRACED_SHARDS];
+	{
+		std::lock_guard<std::mutex> hold(shard.lock);
+		const auto found = shard.paths.find(key);
+		if (found != shard.paths.end())
+			return kept.put(m_owner, level, i, j, l, h, found->second);
+	}
+	// (traced unlocked: it asks for others' paths. Another thread may trace it
+	// too: the same path, so either's kept)
+	const Path traced = trace(level, i, j, l); // (asks for what it joins's: may land in this set)
+	{
+		std::lock_guard<std::mutex> hold(shard.lock);
+		if (shard.paths.size() >= TRACED_MOST)
+			shard.paths.clear();
+		shard.paths.emplace(key, traced);
+	}
+	return kept.put(m_owner, level, i, j, l, h, traced);
+}
+
+Place Channels::pathAt(const Path &path, fix t)
+{
+	const int64_t on = (int64_t)std::clamp<fix>(t, 0, ONE) * PATH_PIECES;
+	const int q = (int)std::min<int64_t>(PATH_PIECES - 1, on >> FRAC);
+	return along(path.at[q], path.at[q + 1], (fix)(on - ((int64_t)q << FRAC)));
+}
+
+/*
+	A channel's way (the prototype's): from its head to its foot on what it
+	joins's own way, wandering over the lie of the land between. Node to node
+	in straight steps, a level's streams were lines hundreds of blocks long:
+	most join the level above in one.
+*/
+Channels::Path Channels::trace(int level, int32_t i, int32_t j, int32_t l) const
+{
+	const Node n = node(level, i, j, l); // (a copy: what it joins's path can overwrite its slot)
+	Path out;
+	out.ground.fill(INT64_MAX);
+	if (!n.exists)
+		throw std::logic_error("terragen::Channels: a path asked of no channel");
+	// its foot on what it joins's own way (on the first level, the grid's run: n.join's on it)
+	Place foot = n.join;
+	if (m_land && (level > 1 || n.sibling)) {
+		const Path into = n.sibling ? path(level, n.into[0], n.into[1], n.into[2]) : path(level - 1, n.parent[0], n.parent[1], n.parent[2]);
+		foot = pathAt(into, n.t);
+	}
+	out.at[0] = foot;
+	out.at[PATH_PIECES] = n.at;
+	// (straight, off the prototype's land)
+	if (!m_land) {
+		for (int s = 0; s <= PATH_PIECES; s++)
+			out.at[s] = along(foot, n.at, ratio(s, PATH_PIECES));
+		return out;
+	}
+	// from its head, each piece to the lowest of the lie of the land a step on
+	// (WANDER: the rock's noise, a few times finer than its lattice), within
+	// 50° of the way to its foot, a step as long as its share of what's left:
+	// so it wanders as water finds its way, and still ends on its foot
+	struct Turn
+	{
+		fix cos, sin;
+	};
+	static constexpr Turn TURNS[] = {
+		{ ONE, 0 },
+		{ 59395, 27697 }, { 59395, -27697 }, // 25°
+		{ 42125, 50203 }, { 42125, -50203 }, // 50°
+	};
+	const int32_t waves = m_waves[level] * WANDER_WAVES;
+	Place cur = n.at;
+	for (int s = PATH_PIECES - 1; s >= 1; s--) {
+		const int64_t dx = (int64_t)foot.x - cur.x, dy = (int64_t)foot.y - cur.y, dz = (int64_t)foot.z - cur.z;
+		// square to the way, along the ground, as long (cur's a radius long)
+		const int64_t px = ((int64_t)cur.y * dz - (int64_t)cur.z * dy) >> PLACE_FRAC;
+		const int64_t py = ((int64_t)cur.z * dx - (int64_t)cur.x * dz) >> PLACE_FRAC;
+		const int64_t pz = ((int64_t)cur.x * dy - (int64_t)cur.y * dx) >> PLACE_FRAC;
+		const int64_t left = s + 1; // pieces from here to the foot
+		Place best = cur;
+		fix lowest = 0;
+		bool any = false;
+		for (const Turn &turn : TURNS) {
+			const Place q = placeOf((int64_t)cur.x + (dx * turn.cos + px * turn.sin) / left / ONE,
+					(int64_t)cur.y + (dy * turn.cos + py * turn.sin) / left / ONE,
+					(int64_t)cur.z + (dz * turn.cos + pz * turn.sin) / left / ONE);
+			// (a turn costs a little: it bends where the land says, not by a hair)
+			const fix lie = fbm(q, m_seed + WANDER + (uint32_t)level, waves, 2, HALF) + mul(std::abs(turn.sin), WANDER_TURN);
+			if (!any || lie < lowest) {
+				any = true;
+				lowest = lie;
+				best = q;
+			}
+		}
+		out.at[s] = best;
+		cur = best;
+	}
+	// eased once: no corner of a step's turn left in it
+	{
+		Path eased = out;
+		for (int s = 1; s < PATH_PIECES; s++) {
+			const Place &a = out.at[s - 1], &b = out.at[s], &c = out.at[s + 1];
+			eased.at[s] = placeOf(((int64_t)a.x + 2 * (int64_t)b.x + c.x) / 4, ((int64_t)a.y + 2 * (int64_t)b.y + c.y) / 4,
+					((int64_t)a.z + 2 * (int64_t)b.z + c.z) / 4);
+		}
+		out.at = eased.at;
+	}
+	// the land it runs over, made by what it can drain into (its level's lower
+	// nodes and the coarser levels', so at its foot what it joins), never
+	// rising toward its foot: its water's held to it, so it's never on a dyke
+	// over a lower valley it lies in (a stream in a wide trough beside it
+	// stood tens of blocks over the trough's floor)
+	const Below below{ level, rise(level, i, j, l), { i, j, l } };
+	for (int s = 0; s <= PATH_PIECES; s++)
+		out.ground[s] = readWith(out.at[s], rangeAt(out.at[s]), m_lattice[level], &below).land;
+	for (int s = PATH_PIECES - 1; s >= 0; s--)
+		out.ground[s] = std::min(out.ground[s], out.ground[s + 1]);
+	return out;
 }
 
 int64_t Channels::drains(int level, int32_t i, int32_t j, int32_t l) const
@@ -837,6 +1086,31 @@ static int64_t floorOf(int64_t flow, fix grade)
 	return mulShift(std::min<int64_t>(toFix(FLOOR_MOST), stream * FLOOR_WIDTHS / 2), gentle, FRAC);
 }
 
+// The flat floor of a valley, half its width (blocks, fixed), as read()
+// shapes it (floorOf, and climate()'s trough and wash): what drains to it
+// (blocks², and with its rain), its grade, its hillsides' slope, its ice
+static int64_t valleyFloor(int64_t area, fix rain, fix grade, fix hill, fix ice)
+{
+	int64_t half = floorOf(mulShift(area, rain, FRAC), grade);
+	const int64_t across = toFix((int64_t)isqrt((uint64_t)std::max<int64_t>(0, area)));
+	ice = mul(ice, smooth(clamp(div(hill - TROUGH_HILL, TROUGH_HILL), 0, ONE)));
+	if (ice > 0)
+		half = std::max(half, mulShift(std::min<int64_t>(toFix(TROUGH_MOST), mulShift(across, TROUGH_SHARE, FRAC)), ice, FRAC));
+	const fix dry = clamp(div(WASH_RAIN - rain, WASH_RAIN) * 2, 0, ONE);
+	if (dry > 0 && ice == 0)
+		half = std::max(half, mulShift(std::min<int64_t>(toFix(WASH_MOST), mulShift(across, WASH_SHARE, FRAC)), dry, FRAC));
+	return half;
+}
+
+// A channel's bed `t` along it from its foot: level across what it joins's
+// floor (`flat` of the way), then rising
+static int64_t bedAt(int64_t low, int64_t high, fix flat, fix t)
+{
+	if (t <= flat)
+		return low;
+	return low + mulShift(high - low, (fix)(((int64_t)(t - flat) << FRAC) / std::max<int64_t>(1, ONE - flat)), FRAC);
+}
+
 int64_t Channels::streamWidth(int64_t flow) const
 {
 	return m_world->riverWidth(flow);
@@ -865,10 +1139,16 @@ Channels::Shape Channels::wear(int level, int32_t i, int32_t j, int32_t l) const
 	out.hill = most;
 	// its foot's height: on the grid's run, or the level above's channel where it joins
 	fix floor_grade = ONE; // what it joins: how steep there
+	int64_t joins_floor = 0; // and its floor's half width (blocks, fixed)
+	Place joins_a, joins_b;  // and its line
 	if (n.sibling) {
 		const Shape &into = shape(level, n.into[0], n.into[1], n.into[2]);
-		out.low = into.low + mulShift(into.high - into.low, n.t, FRAC);
+		out.low = bedAt(into.low, into.high, into.flat, n.t);
 		floor_grade = into.slope;
+		const Node o = node(level, n.into[0], n.into[1], n.into[2]);
+		joins_floor = valleyFloor(into.area, o.rain, into.slope, into.hill, into.ice);
+		joins_a = o.join;
+		joins_b = o.at;
 	} else if (level == 1) {
 		out.low = m_world->linkHeight(n.link, n.t);
 		const int32_t to = g.receiver[n.link];
@@ -877,19 +1157,69 @@ Channels::Shape Channels::wear(int level, int32_t i, int32_t j, int32_t l) const
 			const int64_t drop = m_world->linkHeight(n.link, 0) - m_world->linkHeight(n.link, ONE);
 			if (run > 0)
 				floor_grade = (fix)std::clamp<int64_t>((drop << FRAC) / run, 0, ONE);
+			// (a grid run's trunk valley: its floor as read() traces its pieces)
+			if (!m_world->drawn(n.link) && g.drained[n.link] >= TRUNK_LEAST) {
+				const int64_t cell = mulShift(m_lattice[0], m_radius, PLACE_FRAC) >> FRAC;
+				const int64_t area = mulShift(g.drained[n.link], cell * cell, FRAC);
+				joins_floor = valleyFloor(area, g.rain(n.link), floor_grade, critical(g, n.link, m_steep), m_world->glacial(n.link, out.low));
+			}
+			joins_a = Place(sphere.centre(n.link));
+			joins_b = Place(sphere.centre(to));
 		}
 	} else {
 		const Shape &above = shape(level - 1, n.parent[0], n.parent[1], n.parent[2]);
-		out.low = above.low + mulShift(above.high - above.low, n.t, FRAC);
+		out.low = bedAt(above.low, above.high, above.flat, n.t);
 		floor_grade = above.slope;
+		const Node o = node(level - 1, n.parent[0], n.parent[1], n.parent[2]);
+		joins_floor = valleyFloor(above.area, o.rain, above.slope, above.hill, above.ice);
+		joins_a = o.join;
+		joins_b = o.at;
+	}
+	// it runs level across that floor till it's out of it (its head this far
+	// off its line): its bed rising from its foot stood over the floor,
+	// tens of blocks in a trough, and its water on a dyke across it
+	if (m_land && joins_floor > 0 && length > 0) {
+		const int64_t off = blocks((int64_t)isqrt((uint64_t)nearest(n.at, joins_a, joins_b).dist2));
+		const int64_t across = off > 0 ? std::min<int64_t>(length, (int64_t)((__int128)joins_floor * length / off)) : length;
+		out.flat = (fix)std::min<int64_t>(ONE * 3 / 4, ((int64_t)across << FRAC) / length);
 	}
 	if (m_land && floor_grade < FAN_FLOOR && out.slope >= floor_grade * FAN_STEEPER) {
 		const fix dry = ratio(160, 100) - clamp(div(n.rain - FAN_DRY, FAN_WET - FAN_DRY), 0, ONE);
 		const int64_t radius = mulShift(mulShift(toFix((int64_t)isqrt((uint64_t)out.area)), FAN_SHARE, FRAC), dry, FRAC);
 		out.fan_r = std::min(std::clamp<int64_t>(radius, toFix(FAN_LEAST), toFix(FAN_MOST)), length);
 	}
-	out.high = out.low + mulShift(length, out.slope, FRAC);
+	out.high = out.low + mulShift(length - mulShift(length, out.flat, FRAC), out.slope, FRAC);
+	// on a chain (build()), its own climb from the level above's channel,
+	// as if it ran straight there, never under what it runs into: so a
+	// level's beds stand as the ground they drain does, each node's its own,
+	// not summed down its chain
+	if (m_land && n.sibling) {
+		const Node d = down(level, i, j, l);
+		int64_t base;
+		if (level == 1)
+			base = m_world->linkHeight(d.link, d.t);
+		else {
+			const Shape &above = shape(level - 1, d.parent[0], d.parent[1], d.parent[2]);
+			base = bedAt(above.low, above.high, above.flat, d.t);
+		}
+		out.flat = 0;
+		out.high = std::max(out.low, base + mulShift(blocks(apart(d.join, d.at)), out.slope, FRAC));
+	}
 	out.ice = m_land ? m_world->glacial(c, out.high) : 0;
+	if (m_land) {
+		// what its water's brought to the grid by: what it joins's, where it
+		// joins (on the first level, the grid's there), and at its head no less
+		if (n.sibling || level > 1) {
+			const Shape &to = n.sibling ? shape(level, n.into[0], n.into[1], n.into[2]) : shape(level - 1, n.parent[0], n.parent[1], n.parent[2]);
+			out.grid_low = to.grid_low + mulShift(to.grid_high - to.grid_low, n.t, FRAC);
+			out.over_low = to.over_low + mulShift(to.over_high - to.over_low, n.t, FRAC);
+		} else {
+			out.grid_low = m_world->gridHeight(n.join);
+			out.over_low = overGrid(rangeAt(n.join));
+		}
+		out.grid_high = std::max(out.grid_low, m_world->gridHeight(n.at));
+		out.over_high = std::max(out.over_low, overGrid(rangeAt(n.at)));
+	}
 	// a cirque at its head where ice worked it, on the level whose channels
 	// are a cirque's size, in a range's steep ground
 	if (m_land && level == m_tarn_level && out.ice > 0 && out.hill >= TROUGH_HILL)
@@ -920,7 +1250,7 @@ Channels::Shape Channels::wear(int level, int32_t i, int32_t j, int32_t l) const
 		if (radius > 0 && radius * 4 <= length) {
 			out.pond_r = radius;
 			// its level the channel's at its downstream rim
-			const int64_t centre = out.low + mulShift(out.high - out.low, out.pond_t, FRAC);
+			const int64_t centre = bedAt(out.low, out.high, out.flat, out.pond_t);
 			out.pond_level = std::max(out.low, centre - mulShift(radius, out.slope, FRAC));
 		}
 	}
@@ -928,6 +1258,11 @@ Channels::Shape Channels::wear(int level, int32_t i, int32_t j, int32_t l) const
 }
 
 Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
+{
+	return readWith(p, range, least, nullptr);
+}
+
+Channels::Read Channels::readWith(const Place &p, fix range, int64_t least, const Below *below) const
 {
 	Read out;
 	const Grid &g = *m_grid;
@@ -940,9 +1275,25 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 		bool hollows = false; // (the trunk's) its runs that drain little, as valleys
 		int32_t i = 0, j = 0, l = 0;
 		int count = 0;
-		std::array<Segment, 1024> segments;
+		std::vector<Segment> segments;
 	};
-	thread_local std::unique_ptr<std::array<List, MOST_LEVELS + 1>> lists(new std::array<List, MOST_LEVELS + 1>());
+	// (a set a depth: tracing a channel's path reads the land, inside a read,
+	// and what this one's found in its lists is pointed at)
+	thread_local int depth = 0;
+	// (a level's own nodes' ways read the land of those lower: as deep as a chain is long)
+	thread_local std::vector<std::unique_ptr<std::array<List, MOST_LEVELS + 1>>> stacked;
+	if (depth >= (int)stacked.size())
+		stacked.resize(depth + 1);
+	if (!stacked[depth])
+		stacked[depth].reset(new std::array<List, MOST_LEVELS + 1>());
+	// (the set itself, not its slot: a nested read may grow `stacked`)
+	std::array<List, MOST_LEVELS + 1> *const lists = stacked[depth].get();
+	struct Deeper
+	{
+		int &d;
+		explicit Deeper(int &d) : d(d) { d++; }
+		~Deeper() { d--; }
+	} deeper(depth);
 
 	// a valley as the climate shapes it: a trough where ice worked it, a wash
 	// where it's dry (P6); `area` what it drains (blocks²)
@@ -970,6 +1321,7 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 	int64_t sum = 0, norm = 0;
 	fix weight = ONE, above = ONE;
 	int64_t bent[3] = { 0, 0, 0 }; // the coarser levels' bends, summed (place units)
+	int64_t to_above2 = INT64_MAX; // how far (²) the place, bent so far, is from the last level's channels
 	// the land: the lowest channel-and-hillside, the next, and how much the
 	// divide between them is rounded (blocks, fixed)
 	int64_t lowest = INT64_MAX, second = INT64_MAX, round = 0;
@@ -994,6 +1346,13 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 	const Segment *fan = nullptr, *owner = nullptr;
 	const Segment *pond = nullptr;
 	int64_t pond_h = INT64_MAX; // its channel's ground here
+	// the water: the nearest wet channel's (the larger flow, as near),
+	// its level there, and its width (blocks, fixed); and the land round
+	// every wet channel near: raised to its banks, cut down to its water
+	int64_t wet_gap = INT64_MAX, wet_edge = INT64_MAX, wet_level = 0, wet_flow = 0;
+	int wet_from = 0;
+	int64_t banks = INT64_MIN, cut = INT64_MAX;
+	int64_t grid_here = INT64_MIN; // the grid's height here, once asked (none yet)
 	fix pond_by = toFix(2);
 	for (int k = 0; k <= m_levels && (k == 0 || m_lattice[k] >= least); k++) {
 		const int64_t L = m_lattice[k];
@@ -1005,8 +1364,10 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 		// (read no finer than the trunk, a far tile's land, nothing finer
 		// shapes what drains little: its runs are valleys there too)
 		const bool hollows = k == 0 && (m_levels == 0 || m_lattice[1] < least);
-		if (list.owner != m_owner || list.hollows != hollows || list.i != i || list.j != j || list.l != l) {
-			list.owner = m_owner;
+		// (a list of only the lower of a level's nodes is this read's alone: never kept)
+		const bool only_lower = below && below->level == k;
+		if (only_lower || list.owner != m_owner || list.hollows != hollows || list.i != i || list.j != j || list.l != l) {
+			list.owner = only_lower ? 0 : m_owner;
 			list.hollows = hollows;
 			list.i = i;
 			list.j = j;
@@ -1014,7 +1375,7 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 			list.count = 0;
 			const auto add = [&](const Segment &s) {
 				if (list.count == (int)list.segments.size())
-					throw std::logic_error("terragen::Channels: more segments round a place than a list holds");
+					list.segments.emplace_back();
 				list.segments[list.count++] = s;
 			};
 			if (k == 0) {
@@ -1130,8 +1491,16 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 							const Node n = node(k, a, b, c); // (a copy: its shape asks for more)
 							if (!n.exists)
 								continue;
+							if (only_lower) {
+								const int64_t r = rise(k, a, b, c);
+								const std::array<int32_t, 3> at{ a, b, c };
+								if (!(r < below->rise || (r == below->rise && at < below->self)))
+									continue;
+							}
 							Segment s{ n.join, n.at, n.wet, n.rain };
+							s.head = n.at;
 							if (m_land) {
+								const Path way = path(k, a, b, c); // (first, and a copy: tracing reads, and shape's slot may go)
 								const Shape &sh = shape(k, a, b, c);
 								s.low = sh.low;
 								s.high = sh.high;
@@ -1141,19 +1510,36 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 								s.grade = sh.slope;
 								s.ice = sh.ice;
 								s.cirque = sh.cirque_r;
+								s.flat = sh.flat;
+								s.grid_low = sh.grid_low;
+								s.grid_high = sh.grid_high;
+								s.over_low = sh.over_low;
+								s.over_high = sh.over_high;
 								climate(s, sh.area, sh.ice, n.rain);
 								if (sh.fan_r > 0) {
 									const int64_t dx = (int64_t)n.at.x - n.join.x, dy = (int64_t)n.at.y - n.join.y, dz = (int64_t)n.at.z - n.join.z;
 									const int64_t length = mulShift((int64_t)isqrt((uint64_t)(dx * dx + dy * dy + dz * dz)), m_radius, PLACE_FRAC);
-									s.fan = along(n.join, n.at, (fix)std::min<int64_t>(ONE, (sh.fan_r << FRAC) / 2 / std::max<int64_t>(1, length)));
+									s.fan = pathAt(way, (fix)std::min<int64_t>(ONE, (sh.fan_r << FRAC) / 2 / std::max<int64_t>(1, length)));
 									s.fan_r = sh.fan_r;
 								}
 								if (sh.pond_r > 0) {
-									s.pond = along(n.join, n.at, sh.pond_t);
+									s.pond = pathAt(way, sh.pond_t);
 									s.pond_r = sh.pond_r;
 									s.pond_depth = sh.pond_depth;
 									s.pond_level = sh.pond_level;
 								}
+								// its way, piece by piece
+								for (int q = 0; q < PATH_PIECES; q++) {
+									Segment piece = s;
+									piece.join = way.at[q];
+									piece.at = way.at[q + 1];
+									piece.t0 = ratio(q, PATH_PIECES);
+									piece.t1 = ratio(q + 1, PATH_PIECES);
+									piece.ground_low = way.ground[q];
+									piece.ground_high = way.ground[q + 1];
+									add(piece);
+								}
+								continue;
 							}
 							add(s);
 						}
@@ -1166,11 +1552,25 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 		// bend together; its own bend fades out toward its foot, so it ends
 		// where it joins (on the first level, on the grid's water)
 		int64_t bend[3] = { 0, 0, 0 };
-		if (k > 0)
+		// (not on the prototype's land: its channels' ways are traced down it)
+		if (k > 0 && !m_land)
 			for (int c = 0; c < 3; c++)
-				bend[c] = (int64_t)noise(p, m_seed + BEND + (uint32_t)(k * 3 + c), m_waves[k] * 4) * L / BEND_SHARE >> FRAC;
+				bend[c] = (int64_t)noise(p, m_seed + BEND + (uint32_t)(k * 3 + c), m_waves[k] * BEND_WAVES) * L / BEND_SHARE >> FRAC;
 		const int64_t bx = (int64_t)p.x + bent[0], by = (int64_t)p.y + bent[1], bz = (int64_t)p.z + bent[2];
+		// its bend fades out toward the level above's channels, the same for
+		// all its own (by how far the place is from the nearest, as this
+		// level reads them), so its channels end on them and, bent alike,
+		// never cross each other (each fading toward its own foot, two crossed
+		// by a hair, one's water stood over the other's)
 		const int64_t fade = std::max<int64_t>(1, L / 2);
+		const fix own = k == 0 || to_above2 == INT64_MAX ? ONE
+				: smooth((fix)std::min<int64_t>(ONE, ((int64_t)isqrt((uint64_t)to_above2) << FRAC) / fade));
+		const Place here_k = placeOf(bx + mulShift(bend[0], own, FRAC), by + mulShift(bend[1], own, FRAC), bz + mulShift(bend[2], own, FRAC));
+		out.bent[k] = here_k;
+		// (and where the next level reads, unfaded: how far that is from these)
+		const bool finer = m_land && k < m_levels;
+		const Place next = placeOf(bx + bend[0], by + bend[1], bz + bend[2]);
+		int64_t next2 = INT64_MAX;
 		// The trunk's window holds every run within reach of anywhere in it, so
 		// most are out of reach of any one place: past both its hillside's
 		// reach (its ground fades out) and the divide's (the hillside saturates
@@ -1179,6 +1579,8 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 		// a coarse planet's channel reads went on runs out of reach; sprint 110)
 		const int64_t out_of_reach = std::max(mulShift(L, TRUNK_REACH, FRAC), L * 3 / 4);
 		const __int128 out_of_reach2 = (__int128)out_of_reach * out_of_reach;
+		const int64_t reach = mulShift(L, REACH, FRAC);
+		const __int128 reach2 = (__int128)reach * reach;
 		for (int s = 0; s < list.count; s++) {
 			const Segment &seg = list.segments[s];
 			if (k == 0 && m_land && !seg.wet && seg.fan_r == 0 && seg.pond_r == 0) {
@@ -1187,14 +1589,20 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 				if ((__int128)ox * ox + (__int128)oy * oy + (__int128)oz * oz >= out_of_reach2)
 					continue;
 			}
-			Place pk = placeOf(bx, by, bz);
-			if (k > 0) {
-				const int64_t dx = bx - seg.join.x, dy = by - seg.join.y, dz = bz - seg.join.z;
-				const int64_t foot = (int64_t)isqrt((uint64_t)(dx * dx + dy * dy + dz * dz));
-				const fix own = smooth((fix)std::min<int64_t>(ONE, (foot << FRAC) / fade));
-				pk = placeOf(bx + mulShift(bend[0], own, FRAC), by + mulShift(bend[1], own, FRAC), bz + mulShift(bend[2], own, FRAC));
+			// (a piece of a finer channel's way, as far: past its reach from
+			// anywhere on it, so from its head, it shapes nothing here, and its
+			// water's a corridor's width wide)
+			if (k > 0 && m_land) {
+				const auto off = [](int64_t v, int64_t a, int64_t b) { return std::max<int64_t>({ 0, std::min(a, b) - v, v - std::max(a, b) }); };
+				const int64_t ox = off(bx, seg.join.x, seg.at.x), oy = off(by, seg.join.y, seg.at.y), oz = off(bz, seg.join.z, seg.at.z);
+				if ((__int128)ox * ox + (__int128)oy * oy + (__int128)oz * oz >= reach2)
+					continue;
 			}
+			const Place pk = here_k;
+			if (finer)
+				next2 = std::min(next2, nearest(next, seg.join, seg.at).dist2);
 			const Near near = nearest(pk, seg.join, seg.at);
+			const fix tn = seg.t0 + mul(near.t, seg.t1 - seg.t0); // along its node's way, from its foot
 			closest2 = std::min(closest2, near.dist2);
 			// (the land's) how far its hillside has risen away: 0 in reach .. ONE
 			// past it, where its window may have left it out
@@ -1207,7 +1615,7 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 					from = mulShift(L, TRUNK_REACH_FROM, FRAC);
 					to = mulShift(L, TRUNK_REACH, FRAC);
 				} else {
-					const int64_t dx = (int64_t)pk.x - seg.at.x, dy = (int64_t)pk.y - seg.at.y, dz = (int64_t)pk.z - seg.at.z;
+					const int64_t dx = (int64_t)pk.x - seg.head.x, dy = (int64_t)pk.y - seg.head.y, dz = (int64_t)pk.z - seg.head.z;
 					d = (int64_t)isqrt((uint64_t)(dx * dx + dy * dy + dz * dz));
 					from = mulShift(L, REACH_FROM, FRAC);
 					to = mulShift(L, REACH, FRAC);
@@ -1239,18 +1647,53 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 					pond = &seg;
 				}
 			}
+			// its water, the network's: down its whole line, whatever valley's
+			// the land's lowest (by the lowest, another's lower hillside took it)
+			if (m_land && m_water && seg.flow >= STREAM_FLOW) {
+				const int64_t gap = mulShift((int64_t)isqrt((uint64_t)near.dist2), m_radius, PLACE_FRAC);
+				// (its level as the land's brought to the grid, by its own way
+				// there: a trunk piece's where it is, as the grid's run is)
+				int64_t level = bedAt(seg.low, seg.high, seg.flat, tn);
+				if (k > 0) {
+					level = keepWith(level, seg.grid_low + mulShift(seg.grid_high - seg.grid_low, tn, FRAC),
+							seg.over_low + mulShift(seg.over_high - seg.over_low, tn, FRAC));
+					// (never over the land its way runs over: Path::ground)
+					if (seg.ground_low != INT64_MAX && seg.ground_high != INT64_MAX)
+						level = std::min(level, seg.ground_low + mulShift(seg.ground_high - seg.ground_low, near.t, FRAC));
+				} else {
+					if (grid_here == INT64_MIN)
+						grid_here = m_world->gridHeight(p);
+					level = keepWith(level, grid_here, overGrid(range));
+				}
+				const int64_t half = streamWidth(seg.flow) / 2;
+				// (by how far from its edge: inside a wide one's water, a narrow
+				// one's line nearer by still leaves it the wide one's)
+				if (gap - half < wet_edge || (gap - half == wet_edge && seg.flow > wet_flow)) {
+					wet_edge = gap - half;
+					wet_gap = gap;
+					wet_level = level;
+					wet_flow = seg.flow;
+					wet_from = k;
+				}
+				// (within its corridor only: past it both fall away four blocks a
+				// block, under anything, so no window's edge shows)
+				const int64_t past = std::max<int64_t>(0, gap - half - std::max(CORRIDOR, half * 2 * CORRIDOR_WIDTHS)) * 4;
+				const int64_t off = std::max<int64_t>(0, gap - half);
+				banks = std::max(banks, level + BANK_HIGH - mulShift(std::max<int64_t>(0, off - BANK_WIDE), CREST_FALL, FRAC) - past);
+				cut = std::min(cut, gap < half ? level - ONE : level + mulShift(off, mul(seg.hill, vary), FRAC) + past);
+			}
 			// the ground: this channel's height here and its side rising to the place
 			if (m_land && gone < ONE) {
 				const int64_t gap = mulShift((int64_t)isqrt((uint64_t)near.dist2), m_radius, PLACE_FRAC);
 				const fix hill = mul(seg.hill, vary);
 				int64_t floor = seg.floor, wall_run = seg.wall_run;
 				fix wall = seg.wall;
-				int64_t bed = seg.low + mulShift(seg.high - seg.low, near.t, FRAC);
+				int64_t bed = bedAt(seg.low, seg.high, seg.flat, tn);
 				// a cirque: its head scooped to a bowl, a near-level floor (from
 				// its lip, CIRQUE_FROM up the channel) under a steep headwall
 				// round it, as high as the bowl's wide, then the hillside
 				if (seg.cirque > 0) {
-					const fix bowl = smooth(clamp(div(near.t - CIRQUE_FROM, ONE - CIRQUE_FROM), 0, ONE));
+					const fix bowl = smooth(clamp(div(tn - CIRQUE_FROM, ONE - CIRQUE_FROM), 0, ONE));
 					if (bowl > 0) {
 						const int64_t across = mulShift(seg.cirque, bowl, FRAC);
 						const int64_t lip = seg.low + mulShift(seg.high - seg.low, CIRQUE_FROM, FRAC);
@@ -1275,17 +1718,6 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 					out.wash = seg.wash && gap <= floor;
 					out.ice = seg.ice;
 					out.slope = gap <= floor ? seg.grade : off <= wall_run ? wall : hill;
-					// its water: a stream once enough drains to it, wider as √ of the flow
-					if (m_water && seg.flow >= STREAM_FLOW) {
-						out.water = seg.low + mulShift(seg.high - seg.low, near.t, FRAC);
-						out.water_gap = gap;
-						out.water_width = streamWidth(seg.flow);
-						out.water_from = k;
-					} else {
-						out.water = INT64_MIN;
-						out.water_gap = INT64_MAX;
-						out.water_from = 0;
-					}
 				} else
 					second = std::min(second, h);
 			}
@@ -1325,6 +1757,7 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 		above = x;
 		for (int c = 0; c < 3; c++)
 			bent[c] += bend[c];
+		to_above2 = next2;
 	}
 	// centred on the land the grid gave (sharp divides sit lower: measured), and
 	// as wide as the noise it replaces, so a range stays as high as it was
@@ -1341,8 +1774,6 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 		if (fan != nullptr && fan_top > out.land) {
 			out.land = fan_top;
 			out.slope = mul(fan->grade, FAN_GRADE);
-			if (owner == fan && out.water != INT64_MIN)
-				out.water = std::max(out.water, fan_top);
 		}
 		// a pond: a bowl under its level, its water standing in it; round
 		// it a sill holds the ground at its level at least (where its channel
@@ -1372,15 +1803,6 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 				out.land += mulShift(rim - out.land, own, FRAC);
 			}
 		}
-		// a stream across another's fan or a pond's sill, which stood the land
-		// over its own bed, sinks into it (a slot cut down to its bed was a
-		// wall either side, P4); it comes up where the land's down to it again
-		if (out.water != INT64_MIN && !out.pond && out.land - out.water > toFix(STREAM_SINKS)) {
-			out.water = INT64_MIN;
-			out.water_gap = INT64_MAX;
-			out.water_width = 0;
-			out.water_from = 0;
-		}
 		// the land rolls where it's gentle, clear of the water
 		if (m_land && !out.pond && out.bed != INT64_MAX) {
 			const fix gentle = ONE - smooth(clamp(div(out.slope, ROLL_SLOPE), 0, ONE));
@@ -1396,6 +1818,20 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 	if (out.land != INT64_MAX && m_land) {
 		toGrid(p, range, out);
 		beds(p, out);
+		// the network's water (already at the grid's: its levels run down its
+		// way there), and the land gives way to it: its banks stand over it,
+		// never a lower valley's hillside beside it, and nothing over its
+		// channel (a fan, a sill, a swell, a bench: it runs on through, never under)
+		if (!out.pond && wet_gap != INT64_MAX) {
+			out.water = wet_level;
+			out.water_gap = wet_gap;
+			out.water_width = streamWidth(wet_flow);
+			out.water_from = wet_from;
+			if (banks != INT64_MIN)
+				out.land = std::max(out.land, banks);
+			if (cut != INT64_MAX)
+				out.land = std::min(out.land, cut);
+		}
 	}
 	if (out.stream_from > 0)
 		out.stream_gap = mulShift((int64_t)isqrt((uint64_t)stream2), m_radius, PLACE_FRAC);
@@ -1408,8 +1844,8 @@ void Channels::toGrid(const Place &p, fix range, Read &out) const
 {
 	// (a rising range's peaks stand free: its ridges climb from the valleys
 	// till they meet, RANGE_OVER times as far over the grid before they bend)
-	const int64_t g = m_world->gridHeight(p), E = (OVER_GRID_M * m_world->metre()) * (ONE + mul(range, toFix(RANGE_OVER - 1))) >> FRAC;
-	const auto keep = [&](int64_t h) { return h <= g ? h : g + (h - g) * E / (E + h - g); };
+	const int64_t g = m_world->gridHeight(p), E = overGrid(range);
+	const auto keep = [&](int64_t h) { return keepWith(h, g, E); };
 	if (out.land > g) {
 		// (its steepness by the map's: (E / (E + e))²)
 		const fix by = (fix)((E << FRAC) / (E + out.land - g));
@@ -1420,6 +1856,18 @@ void Channels::toGrid(const Place &p, fix range, Read &out) const
 		out.bed = keep(out.bed);
 	if (out.water != INT64_MIN)
 		out.water = keep(out.water);
+}
+
+int64_t Channels::overGrid(fix range) const
+{
+	return (OVER_GRID_M * m_world->metre()) * (ONE + mul(range, toFix(RANGE_OVER - 1))) >> FRAC;
+}
+
+// (World::channelsAt's: how much a place is a rising range)
+fix Channels::rangeAt(const Place &p) const
+{
+	const fix belt = m_world->between(m_grid->tectonics.belt, p);
+	return clamp(div(belt - ratio(18, 100), ratio(62, 100)), 0, ONE);
 }
 
 // Flat-lying beds step the land (BEDDED): every height is mapped through one

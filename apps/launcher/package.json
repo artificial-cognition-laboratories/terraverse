@@ -9,7 +9,10 @@
     "ui": "vite --port 5175 --strictPort",
     "ui:build": "vue-tsc --noEmit && vite build",
     "typecheck": "vue-tsc --noEmit",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "release:gate": "bun release.ts gate",
+    "release:tag": "bun release.ts tag",
+    "release:wait": "bun release.ts wait"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

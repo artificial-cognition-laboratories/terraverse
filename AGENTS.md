@@ -258,8 +258,10 @@ bun check:palette       # fails if palette.json is stale
 bun pose-sheet          # the figure's moves as PNGs
 .output/bin/luanti --planetarium TF9.dGVycmE                                     # the planet viewer alone
 
-arc gate release        # build, tests, UI and a headless world
-arc deploy release      # package.json version → tag → CI attaches the Linux package
+arc gate terraverse     # build, tests, UI and a headless world
+arc deploy terraverse   # package.json version → tag → CI attaches every platform's package
+arc deploy launcher     # apps/launcher, on its own release track (version in tauri.conf.json)
+arc deploy site         # apps/site and install.sh to Cloud Run
 bun package:linux <version>   # the portable Linux package from the current build
 ```
 

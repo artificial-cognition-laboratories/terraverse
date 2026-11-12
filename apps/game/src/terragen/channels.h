@@ -70,6 +70,16 @@ public:
 		int64_t fan_r = 0;
 		int64_t cirque_r = 0; // a cirque at its head (none: 0): its radius (blocks, fixed)
 		fix ice = 0; // how much ice worked it (World::glacial at its head)
+		// what its water's brought towards the grid's surface by (toGrid): the
+		// grid's height and how far over it the land bends, at its foot and
+		// head (blocks, fixed). Its foot's those of what it joins there, its
+		// head's never less: so its water, read through them, runs downhill all
+		// the way to the grid's runs (read where it is, the grid's surface
+		// rising downstream stood a stream's water up hill)
+		int64_t grid_low = 0, grid_high = 0, over_low = 0, over_high = 0;
+		// how much of its way from its foot runs level, across what it joins's
+		// floor (0..3/4): its bed rises from there, so it crosses the floor on it
+		fix flat = 0;
 	};
 
 	struct Read
@@ -99,6 +109,9 @@ public:
 		// there): the least of each one's hillside here and its rise over its bed
 		int64_t clear = INT64_MAX;
 		bool wash = false;       // on a dry channel's floor: sand, water only in floods
+		// where each level's channels are measured from, the place bent (0: the
+		// trunk's, the place itself): a channel's line runs where its own is on it
+		std::array<Place, MOST_LEVELS + 1> bent{};
 		fix ice = 0;             // how much ice worked that valley (0..1)
 	};
 
@@ -118,6 +131,19 @@ public:
 	const Node &node(int level, int32_t i, int32_t j, int32_t l) const;
 	// its shape (a node that exists)
 	const Shape &shape(int level, int32_t i, int32_t j, int32_t l) const;
+	// A channel's way on the land (the prototype's land): from its head to
+	// its foot on what it joins's own way, wandering, in PATH_PIECES pieces,
+	// `at` foot (0) to head. `ground`: a floor its water never stands over
+	// (blocks, fixed; INT64_MAX none)
+	static constexpr int PATH_PIECES = 8;
+	struct Path
+	{
+		std::array<Place, PATH_PIECES + 1> at{};
+		std::array<int64_t, PATH_PIECES + 1> ground{};
+	};
+	const Path &path(int level, int32_t i, int32_t j, int32_t l) const;
+	// the place `t` along a path from its foot
+	static Place pathAt(const Path &path, fix t);
 	int32_t latticeOf(int level, int32_t c) const;
 	// A stream's width for what drains to it (blocks² of average rain; World::riverWidth)
 	int64_t streamWidth(int64_t flow) const;
@@ -147,10 +173,22 @@ private:
 		Place fan;  // its fan's centre, half fan_r up from its foot, if fan_r > 0
 		int64_t fan_r = 0;
 		int64_t pond_r = 0, pond_depth = 0, pond_level = 0;
+		int64_t grid_low = 0, grid_high = 0, over_low = 0, over_high = 0; // (Shape's; none on the trunk)
+		fix flat = 0; // (Shape's)
+		// a piece of a channel's path: its node's head, the share of the
+		// node's way it spans (from its foot), and the coarser ground at its
+		// ends (Path::ground; INT64_MAX none)
+		Place head;
+		fix t0 = 0, t1 = ONE;
+		int64_t ground_low = INT64_MAX, ground_high = INT64_MAX;
 	};
 	struct Pieces; // a grid run's trunk pieces, as read() traces them
 	// each grid cell's run's pieces, traced once and kept for every thread (none yet: null)
 	std::unique_ptr<std::atomic<Pieces *>[]> m_pieces;
+	// the channels' paths traced, kept for every thread (each tracing its own,
+	// a thread's whole share of a world went on paths its others had)
+	struct Traced;
+	std::unique_ptr<Traced> m_traced;
 
 	Node build(int level, int32_t i, int32_t j, int32_t l) const;
 	// a node joining only the level above (or the grid's runs): what build()
@@ -158,6 +196,17 @@ private:
 	const Node &down(int level, int32_t i, int32_t j, int32_t l) const;
 	Node toLevelAbove(int level, int32_t i, int32_t j, int32_t l) const;
 	Shape wear(int level, int32_t i, int32_t j, int32_t l) const;
+	Path trace(int level, int32_t i, int32_t j, int32_t l) const;
+	// read() with only the lower of a level's nodes than one (by rise(), and
+	// not it): the land its own way runs over, made by what it can drain into
+	struct Below
+	{
+		int level;
+		int64_t rise;
+		std::array<int32_t, 3> self;
+	};
+	Read readWith(const Place &warped, fix range, int64_t least, const Below *below) const;
+	int64_t rise(int level, int32_t i, int32_t j, int32_t l) const;
 	// everything upstream of a node: its own cell and its children's, each
 	// as much as a child of its level drains on average (blocks², cached;
 	// heights not needed, so no cycle with wear)
@@ -168,6 +217,10 @@ private:
 	// beds and joints (the land's texture: sprint 109 P3)
 	fix hardness(const Place &p) const;
 	void toGrid(const Place &p, fix range, Read &out) const;
+	// how far over the grid's surface land bends towards it at a place
+	// (OVER_GRID_M, by how much it's a rising range: blocks, fixed)
+	int64_t overGrid(fix range) const;
+	fix rangeAt(const Place &p) const;
 	void beds(const Place &p, Read &out) const;
 
 	const Grid *m_grid;

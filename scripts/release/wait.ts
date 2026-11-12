@@ -4,7 +4,9 @@
 import { releaseTag, run } from "./version"
 
 const tag = releaseTag()
-const ASSETS = [`terraverse-${tag}-linux-x86_64.tar.zst`, "manifest.json", "manifest.json.sig"]
+// Every platform release.yml builds: the release is out only when all are attached.
+const PLATFORMS = ["linux-x86_64", "windows-x86_64"]
+const ASSETS = [...PLATFORMS.map(p => `terraverse-${tag}-${p}.tar.zst`), "manifest.json", "manifest.json.sig"]
 const BUDGET_MS = 28 * 60_000 // under arc's 30-minute step limit
 const LOOK_MS = 30_000
 

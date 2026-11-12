@@ -11,7 +11,6 @@ const { state } = store
 
 const standing = computed(() => store.standing(props.version.id))
 const running = computed(() => state.game?.state === "running" ? state.game : null)
-const queued = computed(() => state.playAfterInstall === props.version.id)
 
 // the time played, ticking by the minute: no faster repaint than that
 const now = ref(Date.now())
@@ -27,14 +26,14 @@ onBeforeUnmount(() => clearInterval(clock))
         </div>
         <div v-else-if="standing.state === 'downloading'" class="downloading">
             <Progress :value="standing.progress.received / standing.progress.total"
-                :label="`${queued ? 'Installing, then playing' : 'Installing'} · ${bytes(standing.progress.received)} of ${bytes(standing.progress.total)}`" />
+                :label="`Installing · ${bytes(standing.progress.received)} of ${bytes(standing.progress.total)}`" />
             <Button size="sm" @click="store.cancel(version.id)">Cancel</Button>
         </div>
         <Button v-else-if="standing.state === 'installed'" variant="primary" size="lg" class="go" @click="store.play(version.id)">
             Play
         </Button>
-        <Button v-else variant="primary" size="lg" class="go" @click="store.play(version.id)">
-            {{ standing.state === "failed" ? "Retry" : "Install & play" }}
+        <Button v-else variant="primary" size="lg" class="go" @click="store.install(version.id)">
+            {{ standing.state === "failed" ? "Retry" : "Install" }}
             <small class="size">{{ bytes(version.size) }}</small>
         </Button>
     </div>
