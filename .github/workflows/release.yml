@@ -12,9 +12,24 @@
 # (terragen's fixed point needs __int128) against vcpkg.
 name: release
 
+# A push to master that touches what ships builds and tests both platforms
+# without publishing: CI, and the caches (vcpkg, CEF, compiled objects) a tag
+# can read, since a tag sees only the default branch's. Without them a release
+# builds Windows from nothing (~45 min, not ~8).
 on:
   push:
     tags: ['v*']
+    branches: [master]
+    paths:
+      - 'apps/game/**'
+      - 'assets/**'
+      - 'library/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - 'vcpkg.json'
+      - 'scripts/release/**'
+      - 'scripts/stage-runtime.sh'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
     inputs:
       version:
@@ -26,14 +41,14 @@ permissions:
 
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
   linux:
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     env:
-      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version || 'dev' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -74,11 +89,17 @@ jobs:
           bun install --frozen-lockfile
           bun run build
 
+      # Compiled objects kept between runs: the engine is ~1000 files.
+      - uses: mozilla-actions/sccache-action@v0.0.9
+
       - name: Configure
+        env:
+          SCCACHE_GHA_ENABLED: "true"
         run: |
           cmake -S . -B .output/build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER=gcc-12 -DCMAKE_CXX_COMPILER=g++-12 \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
             -DRUN_IN_PLACE=TRUE \
             -DENABLE_POSTGRESQL=OFF -DENABLE_LEVELDB=OFF \
             -DENABLE_UPDATE_CHECKER=OFF \
@@ -88,6 +109,8 @@ jobs:
 
       # -k: one run reports every compile error, not just the first.
       - name: Build the engine
+        env:
+          SCCACHE_GHA_ENABLED: "true"
         run: cmake --build .output/build -j"$(nproc)" -- -k && bash scripts/stage-runtime.sh
 
       - name: Unit tests
@@ -126,7 +149,7 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 150
     env:
-      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version || 'dev' }}
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.output/vcpkg-cache
       SCCACHE_GHA_ENABLED: "true"
     defaults:
@@ -241,10 +264,11 @@ jobs:
   # its platforms or none of them.
   publish:
     needs: [linux, windows]
+    if: github.event_name != 'push' || github.ref_type == 'tag'
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     env:
-      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version || 'dev' }}
     steps:
       - uses: actions/checkout@v4
 

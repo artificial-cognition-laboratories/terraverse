@@ -12,11 +12,19 @@
 #                                for the download page's buttons (apps/site/app/config/downloads.ts)
 #
 # Neither release is ever GitHub's "latest": that's the game's.
+#
+# A push to master that touches the launcher builds it without publishing: CI,
+# and the Rust caches a tag can read (a tag sees only the default branch's).
 name: launcher
 
 on:
   push:
     tags: ['launcher-v*']
+    branches: [master]
+    paths:
+      - 'apps/launcher/**'
+      - 'apps/game/ui/src/kit/**'
+      - '.github/workflows/launcher.yml'
   workflow_dispatch:
 
 permissions:
@@ -24,11 +32,11 @@ permissions:
 
 concurrency:
   group: launcher-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
-  # Built first and handed to the linux job, which publishes everything: one
-  # place writes latest.json, so it always names both platforms or neither.
+  # Each platform builds in parallel and hands its files to publish: one place
+  # writes latest.json, so it always names both platforms or neither.
   windows:
     runs-on: windows-latest
     timeout-minutes: 45
@@ -78,7 +86,6 @@ jobs:
           path: .output/launcher-windows/
 
   linux:
-    needs: windows
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
@@ -124,21 +131,41 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: bunx tauri build --bundles appimage,deb
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: launcher-windows
-          path: .output/launcher
-
-      # The files, under names that say what they are; then what points at them.
-      - name: Gather the builds
+      - name: Gather the build
         run: |
           version=$(jq -r .version apps/launcher/src-tauri/tauri.conf.json)
           bundle=apps/launcher/src-tauri/target/release/bundle
-          out=.output/launcher
-          mkdir -p "$out/rolling"
+          out=.output/launcher-linux
+          mkdir -p "$out"
           cp "$(ls "$bundle"/appimage/*.AppImage)" "$out/terraverse-launcher-$version-x86_64.AppImage"
           cp "$(ls "$bundle"/appimage/*.AppImage.sig)" "$out/terraverse-launcher-$version-x86_64.AppImage.sig"
           cp "$(ls "$bundle"/deb/*.deb)" "$out/terraverse-launcher_${version}_amd64.deb"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: launcher-linux
+          path: .output/launcher-linux/
+
+  publish:
+    needs: [windows, linux]
+    if: github.event_name != 'push' || github.ref_type == 'tag'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: launcher-*
+          path: .output/launcher
+          merge-multiple: true
+
+      # What never changes name, for the download page; then what points at it.
+      - name: Gather the builds
+        run: |
+          version=$(jq -r .version apps/launcher/src-tauri/tauri.conf.json)
+          out=.output/launcher
+          mkdir -p "$out/rolling"
           cp "$out/terraverse-launcher-$version-x86_64.AppImage" "$out/rolling/terraverse-launcher-x86_64.AppImage"
           cp "$out/terraverse-launcher_${version}_amd64.deb" "$out/rolling/terraverse-launcher_amd64.deb"
           cp apps/launcher/src-tauri/icons/128x128.png "$out/rolling/terraverse.png"
@@ -195,6 +222,7 @@ jobs:
         with:
           files: |
             .output/launcher/terraverse-launcher-*
+            .output/launcher/terraverse-launcher_*
           make_latest: false
           generate_release_notes: true
 
@@ -207,10 +235,3 @@ jobs:
           gh release view launcher >/dev/null 2>&1 || gh release create launcher --title "Launcher updates" \
             --notes "What installed launchers read to update themselves. Not a game version." --latest=false --prerelease
           gh release upload launcher .output/launcher/rolling/* --clobber
-
-      - name: Keep as an artifact
-        if: github.ref_type != 'tag'
-        uses: actions/upload-artifact@v4
-        with:
-          name: launcher-linux
-          path: .output/launcher/
