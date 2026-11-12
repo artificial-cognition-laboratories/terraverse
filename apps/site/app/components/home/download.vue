@@ -1,35 +1,32 @@
 <template>
-    <div id="download" class="download">
-        <div class="tabs" role="tablist">
-            <button
-                v-for="p in platforms"
-                :key="p.id"
-                role="tab"
-                class="tab"
-                :aria-selected="p.id === shown.id"
-                :class="{ active: p.id === shown.id }"
-                @click="chosen = p.id"
-            >
-                <Icon :name="p.icon" />
-                {{ p.label }}
-                <span v-if="p.id === detected" class="yours">yours</span>
+    <div class="download">
+        <div v-if="mine.command" class="command">
+            <span class="prompt">$</span>
+            <code>{{ mine.command }}</code>
+            <button class="copy" :class="{ done: copied !== 'copy' }" @click="copy(mine.command)">
+                {{ copied }}
             </button>
         </div>
 
-        <div class="panel">
-            <p v-if="shown.notReady" class="not-ready">{{ shown.notReady }}</p>
-            <template v-else>
-                <div v-if="shown.command" class="command">
-                    <span class="prompt">$</span>
-                    <code>{{ shown.command }}</code>
-                    <button class="copy" @click="copy(shown.command)">{{ copied }}</button>
-                </div>
-                <div class="files">
-                    <span v-if="shown.command" class="or">or download</span>
-                    <a v-for="d in shown.downloads" :key="d.href" :href="d.href" class="file">
-                        <span class="file-label">{{ d.label }}</span>
-                        <span class="file-detail">{{ d.detail }}</span>
-                    </a>
+        <div class="tiles">
+            <template v-for="(p, n) in ordered" :key="p.id">
+                <span v-if="n === 1" class="split" aria-hidden="true" />
+                <a
+                    v-for="d in p.downloads"
+                    :key="d.href"
+                    :href="d.href"
+                    class="tile"
+                    :class="{ other: n > 0 }"
+                >
+                    <Icon :name="d.icon" class="tile-icon" />
+                    <!-- One download names its OS; several name themselves -->
+                    <span class="tile-label">{{ p.downloads.length === 1 ? p.label : d.label }}</span>
+                    <span class="tile-detail">{{ d.detail }}</span>
+                </a>
+                <div v-if="p.notReady" class="tile soon" :title="p.notReady">
+                    <Icon :name="p.icon" class="tile-icon" />
+                    <span class="tile-label">{{ p.label }}</span>
+                    <span class="tile-detail">soon</span>
                 </div>
             </template>
         </div>
@@ -37,19 +34,19 @@
 </template>
 
 <script setup lang="ts">
-import { platforms, type Platform, type PlatformId } from "~/config/downloads"
+import { platforms, type Platform } from "~/config/downloads"
 
 const { detected } = usePlatform()
 
-// The visitor's pick wins; then their OS; then the first platform, which is
-// what the prerendered page shows before anything is known
-const chosen = ref<PlatformId | null>(null)
-const shown = computed<Platform>(() => {
-    const id = chosen.value ?? detected.value
-    const found = platforms.find(p => p.id === id) ?? platforms[0]
+// The visitor's OS leads; before it's known (and on the prerendered page) the
+// first platform does. Every other platform sits in the smaller row below.
+const mine = computed<Platform>(() => {
+    const found = platforms.find(p => p.id === detected.value) ?? platforms[0]
     if (!found) throw new Error("downloads: no platforms")
     return found
 })
+// Theirs first, then the rest past a gap
+const ordered = computed(() => [mine.value, ...platforms.filter(p => p.id !== mine.value.id)])
 
 const copied = ref("copy")
 async function copy(text: string) {
@@ -65,69 +62,96 @@ async function copy(text: string) {
 
 <style scoped lang="scss">
 .download {
-    max-width: 38rem;
-    background: rgba($bg-space, 0.82);
-    border: 1px solid $border-mid;
+    max-width: 34rem;
 }
 
-.tabs {
+.tiles {
     display: flex;
-    border-bottom: 1px solid $border-soft;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+
+    .command + & {
+        margin-top: 0.75rem;
+    }
 }
 
-.tab {
+.tile {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.45rem;
-    padding: 0.7rem 1rem;
-    font-size: 0.8rem;
-    color: $text-tertiary;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid transparent;
-    margin-bottom: -1px;
-    cursor: pointer;
-    white-space: nowrap;
+    justify-content: center;
+    gap: 0.2rem;
+    width: 5.5rem;
+    aspect-ratio: 1;
+    background: $surface-solid;
+    border: 1px solid $border-mid;
+    color: $text-primary;
+    text-decoration: none;
+    transition: $transition-standard;
 
     &:hover {
+        border-color: $primary;
+        background: color-mix(in srgb, $surface-solid 88%, $primary);
+
+        .tile-icon {
+            color: $primary;
+        }
+    }
+
+    &.other {
         color: $text-secondary;
     }
 
-    &.active {
-        color: $primary;
-        border-bottom-color: $primary;
+    &.soon {
+        color: $text-tertiary;
+        opacity: 0.7;
+        cursor: default;
+
+        &:hover {
+            border-color: $border-mid;
+            background: $surface-solid;
+        }
     }
 }
 
-.yours {
-    font-size: 0.6rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: $text-tertiary;
-    border: 1px solid $border-soft;
-    padding: 0.05rem 0.3rem;
+.tile-icon {
+    font-size: 1.3rem;
+    margin-bottom: 0.25rem;
+    transition: $transition-standard;
 }
 
-.panel {
-    padding: 1rem;
+.tile-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
+.tile-detail {
+    font-size: 0.52rem;
+    color: $text-tertiary;
+    text-align: center;
+    white-space: nowrap;
+    padding: 0 0.5rem;
 }
 
 .command {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.7rem;
+    padding: 0 0 0 0.9rem;
     background: $surface-solid;
-    border: 1px solid $border-soft;
-    padding: 0.6rem 0.75rem;
+    border: 1px solid $border-mid;
+    border-left: 2px solid $primary;
 
     .prompt {
         color: $primary;
+        user-select: none;
     }
 
     code {
         flex: 1;
         min-width: 0;
-        font-size: 0.8rem;
+        padding: 0.75rem 0;
+        font-size: 0.78rem;
         color: $text-primary;
         overflow-x: auto;
         white-space: nowrap;
@@ -135,73 +159,40 @@ async function copy(text: string) {
     }
 }
 
+// Joined to the box's right edge rather than floating inside it
 .copy {
     flex: none;
+    align-self: stretch;
+    padding: 0 1rem;
     font-size: 0.72rem;
     color: $text-secondary;
     background: transparent;
-    border: 1px solid $border-mid;
-    padding: 0.25rem 0.6rem;
+    border: none;
+    border-left: 1px solid $border-mid;
     cursor: pointer;
 
     &:hover {
         color: $primary;
-        border-color: $border-strong;
-    }
-}
-
-.files {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.6rem;
-
-    .command + & {
-        margin-top: 0.85rem;
-    }
-}
-
-.or {
-    font-size: 0.72rem;
-    color: $text-tertiary;
-}
-
-.file {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    padding: 0.45rem 0.8rem;
-    border: 1px solid $border-mid;
-    text-decoration: none;
-
-    &:hover {
-        border-color: $primary;
         background: rgba($primary, 0.06);
     }
+
+    &.done {
+        color: $status-good;
+    }
 }
 
-.file-label {
-    color: $primary;
-    font-size: 0.82rem;
-}
-
-.file-detail {
-    color: $text-tertiary;
-    font-size: 0.7rem;
-}
-
-.not-ready {
-    margin: 0;
-    font-size: 0.82rem;
-    color: $text-secondary;
+.split {
+    width: 1px;
+    margin: 0.75rem 0.4rem;
+    background: $border-mid;
 }
 
 @include mobile {
-    .tab {
-        padding: 0.7rem 0.7rem;
+    .tile {
+        width: calc(50% - 0.3rem);
     }
 
-    .yours {
+    .split {
         display: none;
     }
 }

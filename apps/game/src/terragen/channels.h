@@ -197,13 +197,17 @@ private:
 	Node toLevelAbove(int level, int32_t i, int32_t j, int32_t l) const;
 	Shape wear(int level, int32_t i, int32_t j, int32_t l) const;
 	Path trace(int level, int32_t i, int32_t j, int32_t l) const;
-	// read() with only the lower of a level's nodes than one (by rise(), and
-	// not it): the land its own way runs over, made by what it can drain into
+	// read() with only the lower of a level's nodes than one (by rise()), and
+	// maybe that one: the land a way runs over, made by what it can drain into
 	struct Below
 	{
 		int level;
 		int64_t rise;
 		std::array<int32_t, 3> self;
+		bool with_self; // and that one itself
+		// and the way being traced, as far as it's known (its valley's in what it runs over)
+		std::array<int32_t, 3> own;
+		const Path *own_path;
 	};
 	Read readWith(const Place &warped, fix range, int64_t least, const Below *below) const;
 	int64_t rise(int level, int32_t i, int32_t j, int32_t l) const;

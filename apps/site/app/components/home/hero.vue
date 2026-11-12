@@ -8,19 +8,14 @@
         />
 
         <div class="hero-inner">
-            <p class="eyebrow">An open-source voxel universe</p>
-            <h1>A universe<br />you can<br /><em>dig into.</em></h1>
+            <p class="eyebrow">Open beta · Linux &amp; Windows</p>
+            <h1>A whole planet<br /><em>to dig into.</em></h1>
             <p class="lede">
-                Real planets. Real matter. Build what the world asks for, or make your own game on top of it.
+                An open-source voxel sandbox and survival game. Every world is a real planet, with plates,
+                rivers and climate, made of matter that melts, burns and flows.
             </p>
 
             <home-download />
-
-            <div v-if="world" class="now-showing">
-                <span>this planet is real</span>
-                <code>{{ world.code }}</code>
-                <span class="hint">drag it</span>
-            </div>
         </div>
     </section>
 </template>
@@ -30,15 +25,12 @@ import { Planet } from "~/lib/planet.js"
 
 interface BakedWorld {
     name: string
-    code: string
 }
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const ready = ref(false)
-const world = ref<BakedWorld | null>(null)
 
-// A different real world each visit, named by its code. Client only: the
-// prerendered page shows no code rather than one that isn't on screen.
+// A different real world each visit. Client only: there's no canvas to draw on before.
 onMounted(async () => {
     if (!canvas.value) throw new Error("hero: no canvas")
     const planet = Planet(canvas.value, () => (ready.value = true))
@@ -48,7 +40,6 @@ onMounted(async () => {
     const worlds: BakedWorld[] = await response.json()
     const pick = worlds[Math.floor(Math.random() * worlds.length)]
     if (!pick) throw new Error("hero: worlds.json is empty")
-    world.value = pick
     await planet.show(pick.name)
 })
 </script>
@@ -58,6 +49,8 @@ onMounted(async () => {
     position: relative;
     min-height: calc(100vh - 52px);
     min-height: calc(100dvh - 52px);
+    // The footer lies over the bottom of the hero
+    padding-bottom: 4rem;
     display: flex;
     align-items: center;
     overflow: hidden;
@@ -109,9 +102,9 @@ onMounted(async () => {
 h1 {
     font-family: $font-display;
     font-weight: 400;
-    font-size: clamp(2.5rem, 7vw, 4.75rem);
-    line-height: 1.05;
-    margin: 1.25rem 0 1.5rem;
+    font-size: clamp(2rem, 4.5vw, 3.25rem);
+    line-height: 1.15;
+    margin: 1rem 0 1.5rem;
     color: #e8eef4;
 
     em {
@@ -122,27 +115,10 @@ h1 {
 
 .lede {
     color: $text-secondary;
-    max-width: 30rem;
-    line-height: 1.7;
+    max-width: 28rem;
+    font-size: 0.95rem;
+    line-height: 1.75;
     margin: 0 0 2.5rem;
-}
-
-.now-showing {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    align-items: baseline;
-    margin-top: 2rem;
-    font-size: 0.75rem;
-    color: $text-tertiary;
-
-    code {
-        color: $primary;
-    }
-
-    .hint {
-        opacity: 0.6;
-    }
 }
 
 // On a narrow screen the planet rises under the words (planet.js places it)

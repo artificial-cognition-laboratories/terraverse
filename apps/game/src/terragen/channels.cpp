@@ -780,7 +780,9 @@ Channels::Node Channels::toLevelAbove(int level, int32_t i, int32_t j, int32_t l
 	what each stands at (rise()), so a level's streams are chains of short
 	steps that wander as the land does, merging where they meet, as a
 	grid's do; once within JOIN_NEAR of the level above's channel, or with
-	no neighbour lower, into that (toLevelAbove()). Each step is a tree's
+	no neighbour lower, into that (toLevelAbove()). (Into that wherever it
+	fell more steeply, as a grid cell would, nodes leapt to a channel two
+	lattices off in a straight line.) Each step is a tree's
 	edge into a lower node, so there's never a loop. Joined straight to the
 	level above, node to channel, a level's streams were lines a lattice or
 	three long at fixed angles, over spurs and on dykes across coarser floors.
@@ -846,8 +848,16 @@ Channels::Node Channels::build(int level, int32_t i, int32_t j, int32_t l) const
 		const Low &o = lows[k];
 		const int64_t run = std::max<int64_t>(1, apart(n.at, o.node.at));
 		const __int128 fall = (__int128)(here - o.rise);
-		if (best && fall * best_run <= best_fall * run)
+		if (fall <= 0 || (best && fall * best_run <= best_fall * run))
 			continue;
+		// (on with it, never back the way it came: water turning back past
+		// square at a join, a tributary met its stream against its flow)
+		{
+			const __int128 sx = (int64_t)o.node.at.x - n.at.x, sy = (int64_t)o.node.at.y - n.at.y, sz = (int64_t)o.node.at.z - n.at.z;
+			const __int128 ox = (int64_t)o.node.join.x - o.node.at.x, oy = (int64_t)o.node.join.y - o.node.at.y, oz = (int64_t)o.node.join.z - o.node.at.z;
+			if (sx * ox + sy * oy + sz * oz <= 0)
+				continue;
+		}
 		const std::array<int64_t, 2> a = flat(n.at), b = flat(o.node.at);
 		bool crosses = false;
 		for (int m = 0; m < count && !crosses; m++) {
@@ -937,6 +947,8 @@ Place Channels::pathAt(const Path &path, fix t)
 	return along(path.at[q], path.at[q + 1], (fix)(on - ((int64_t)q << FRAC)));
 }
 
+static int64_t bedAt(int64_t low, int64_t high, fix flat, fix t);
+
 /*
 	A channel's way (the prototype's): from its head to its foot on what it
 	joins's own way, wandering over the lie of the land between. Node to node
@@ -1004,6 +1016,25 @@ Channels::Path Channels::trace(int level, int32_t i, int32_t j, int32_t l) const
 		out.at[s] = best;
 		cur = best;
 	}
+	// its last piece comes in along what it joins, from upstream of its foot
+	// (half way to there): as the noise left it, it met its stream at any
+	// angle, a dozen in a range against its flow
+	{
+		Place up = foot;
+		if (level > 1 || n.sibling) {
+			const Path into = n.sibling ? path(level, n.into[0], n.into[1], n.into[2]) : path(level - 1, n.parent[0], n.parent[1], n.parent[2]);
+			up = pathAt(into, std::min<fix>(ONE, n.t + ONE / PATH_PIECES)); // (t runs from its foot up it)
+		} else if (n.link >= 0)
+			up = m_world->onRun(n.link, std::max<fix>(0, n.t - ONE / TRUNK_PIECES)); // (a run's t runs down it)
+		const int64_t ux = (int64_t)up.x - foot.x, uy = (int64_t)up.y - foot.y, uz = (int64_t)up.z - foot.z;
+		const int64_t ul = (int64_t)isqrt((uint64_t)(ux * ux + uy * uy + uz * uz));
+		const int64_t px = (int64_t)out.at[1].x - foot.x, py = (int64_t)out.at[1].y - foot.y, pz = (int64_t)out.at[1].z - foot.z;
+		const int64_t pl = (int64_t)isqrt((uint64_t)(px * px + py * py + pz * pz));
+		if (ul > 0 && pl > 0) {
+			const Place along_it = placeOf(foot.x + ux * pl / ul, foot.y + uy * pl / ul, foot.z + uz * pl / ul);
+			out.at[1] = placeOf(((int64_t)out.at[1].x + along_it.x) / 2, ((int64_t)out.at[1].y + along_it.y) / 2, ((int64_t)out.at[1].z + along_it.z) / 2);
+		}
+	}
 	// eased once: no corner of a step's turn left in it
 	{
 		Path eased = out;
@@ -1014,16 +1045,85 @@ Channels::Path Channels::trace(int level, int32_t i, int32_t j, int32_t l) const
 		}
 		out.at = eased.at;
 	}
+	// never across a lower one of its level's ways round it (build() kept
+	// their straight lines apart, not their wanderings): straight, if so
+	{
+		const int64_t here = rise(level, i, j, l);
+		const int axis = std::abs(n.at.x) >= std::abs(n.at.y) && std::abs(n.at.x) >= std::abs(n.at.z) ? 0 : std::abs(n.at.y) >= std::abs(n.at.z) ? 1 : 2;
+		const auto flat = [&](const Place &q) {
+			return axis == 0 ? std::array<int64_t, 2>{ q.y, q.z } : axis == 1 ? std::array<int64_t, 2>{ q.x, q.z } : std::array<int64_t, 2>{ q.x, q.y };
+		};
+		const auto side = [](const std::array<int64_t, 2> &a, const std::array<int64_t, 2> &b, const std::array<int64_t, 2> &c) {
+			const __int128 v = (__int128)(b[0] - a[0]) * (c[1] - a[1]) - (__int128)(b[1] - a[1]) * (c[0] - a[0]);
+			return v > 0 ? 1 : v < 0 ? -1 : 0;
+		};
+		const auto cross = [&](const Place &a0, const Place &a1, const Place &b0, const Place &b1) {
+			const auto a = flat(a0), b = flat(a1), c = flat(b0), d = flat(b1);
+			return side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0;
+		};
+		const std::array<int32_t, 3> self{ i, j, l };
+		const auto crossesAny = [&]() {
+		bool crosses = false;
+		for (int32_t a = i - 2; a <= i + 2 && !crosses; a++)
+			for (int32_t b = j - 2; b <= j + 2 && !crosses; b++)
+				for (int32_t c = l - 2; c <= l + 2 && !crosses; c++) {
+					const std::array<int32_t, 3> at{ a, b, c };
+					if (at == self || !down(level, a, b, c).exists)
+						continue;
+					const int64_t r = rise(level, a, b, c);
+					if (!(r < here || (r == here && at < self)) || !node(level, a, b, c).exists)
+						continue;
+					const Path other = path(level, a, b, c);
+					for (int p = 0; p < PATH_PIECES && !crosses; p++)
+						for (int q = 0; q < PATH_PIECES && !crosses; q++)
+							crosses = cross(out.at[p], out.at[p + 1], other.at[q], other.at[q + 1]);
+				}
+		return crosses;
+		};
+		// (pulled half way to straight first: straight, every crossing way
+		// was a line hundreds of blocks long among the wandering)
+		for (int tries = 0; tries < 2 && crossesAny(); tries++)
+			for (int s = 1; s < PATH_PIECES; s++) {
+				const Place straight = along(foot, n.at, ratio(s, PATH_PIECES));
+				out.at[s] = tries == 0 ? placeOf(((int64_t)out.at[s].x + straight.x) / 2, ((int64_t)out.at[s].y + straight.y) / 2, ((int64_t)out.at[s].z + straight.z) / 2)
+						: straight;
+			}
+	}
 	// the land it runs over, made by what it can drain into (its level's lower
 	// nodes and the coarser levels', so at its foot what it joins), never
 	// rising toward its foot: its water's held to it, so it's never on a dyke
 	// over a lower valley it lies in (a stream in a wide trough beside it
 	// stood tens of blocks over the trough's floor)
-	const Below below{ level, rise(level, i, j, l), { i, j, l } };
+	// (on a chain, what its receiver's runs over and its receiver: so where
+	// they meet their water's held alike. By all lower than itself, more than
+	// its receiver's saw, its water stood under its receiver's there, and ran
+	// up into it)
+	// (and its own valley: its water's never over its own floor either. The
+	// grid's heights it's brought to the grid by are what it joins's, rising
+	// to its head, and stood it tens of blocks over its own valley there)
+	const Below below = n.sibling ? Below{ level, rise(level, n.into[0], n.into[1], n.into[2]), n.into, true, { i, j, l }, &out }
+			: Below{ level, rise(level, i, j, l), { i, j, l }, false, { i, j, l }, &out };
 	for (int s = 0; s <= PATH_PIECES; s++)
 		out.ground[s] = readWith(out.at[s], rangeAt(out.at[s]), m_lattice[level], &below).land;
 	for (int s = PATH_PIECES - 1; s >= 0; s--)
 		out.ground[s] = std::min(out.ground[s], out.ground[s + 1]);
+	// and never under what it joins's water where it joins: what that runs
+	// over isn't quite what this does (each holds to what's lower than what
+	// it runs into), and its water ran up into the other's
+	if (level > 1 || n.sibling) {
+		const int tl = n.sibling ? level : level - 1;
+		const std::array<int32_t, 3> to = n.sibling ? n.into : n.parent;
+		const Path into = path(tl, to[0], to[1], to[2]);
+		const Shape sh = shape(tl, to[0], to[1], to[2]);
+		int64_t there = keepWith(bedAt(sh.low, sh.high, sh.flat, n.t), sh.grid_low + mulShift(sh.grid_high - sh.grid_low, n.t, FRAC),
+				sh.over_low + mulShift(sh.over_high - sh.over_low, n.t, FRAC));
+		const int64_t on = (int64_t)std::clamp<fix>(n.t, 0, ONE) * PATH_PIECES;
+		const int q = (int)std::min<int64_t>(PATH_PIECES - 1, on >> FRAC);
+		if (into.ground[q] != INT64_MAX && into.ground[q + 1] != INT64_MAX)
+			there = std::min(there, into.ground[q] + mulShift(into.ground[q + 1] - into.ground[q], (fix)(on - ((int64_t)q << FRAC)), FRAC));
+		for (int64_t &g : out.ground)
+			g = std::max(g, there);
+	}
 	return out;
 }
 
@@ -1491,16 +1591,19 @@ Channels::Read Channels::readWith(const Place &p, fix range, int64_t least, cons
 							const Node n = node(k, a, b, c); // (a copy: its shape asks for more)
 							if (!n.exists)
 								continue;
-							if (only_lower) {
+							const bool own = only_lower && std::array<int32_t, 3>{ a, b, c } == below->own;
+							if (only_lower && !own) {
 								const int64_t r = rise(k, a, b, c);
 								const std::array<int32_t, 3> at{ a, b, c };
-								if (!(r < below->rise || (r == below->rise && at < below->self)))
+								if (!(r < below->rise || (r == below->rise && at < below->self) || (below->with_self && at == below->self)))
 									continue;
 							}
 							Segment s{ n.join, n.at, n.wet, n.rain };
 							s.head = n.at;
 							if (m_land) {
-								const Path way = path(k, a, b, c); // (first, and a copy: tracing reads, and shape's slot may go)
+								// (first, and a copy: tracing reads, and shape's slot may go; the
+								// way being traced as it's known, never asked again: that's a loop)
+								const Path way = own ? *below->own_path : path(k, a, b, c);
 								const Shape &sh = shape(k, a, b, c);
 								s.low = sh.low;
 								s.high = sh.high;
@@ -1528,6 +1631,10 @@ Channels::Read Channels::readWith(const Place &p, fix range, int64_t least, cons
 									s.pond_depth = sh.pond_depth;
 									s.pond_level = sh.pond_level;
 								}
+								// (the way being traced: its valley alone, no water yet, so
+								// no banks raised to the very water this holds down)
+								if (own)
+									s.flow = 0;
 								// its way, piece by piece
 								for (int q = 0; q < PATH_PIECES; q++) {
 									Segment piece = s;

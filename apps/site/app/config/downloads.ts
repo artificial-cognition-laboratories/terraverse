@@ -12,6 +12,8 @@ export interface Download {
     /** What it is, in a few words */
     detail: string
     href: string
+    /** Its tile's icon */
+    icon: string
 }
 
 export interface Platform {
@@ -32,19 +34,15 @@ export const platforms: Platform[] = [
         icon: "simple-icons:linux",
         command: "curl -fsSL https://terraverse.arclabs.it/install.sh | sh",
         downloads: [
-            { label: ".deb", detail: "Debian, Ubuntu, Mint", href: `${ROLLING}/terraverse-launcher_amd64.deb` },
-            { label: "AppImage", detail: "any x86_64 distro", href: `${ROLLING}/terraverse-launcher-x86_64.AppImage` },
+            { label: ".deb", detail: "Debian, Ubuntu", href: `${ROLLING}/terraverse-launcher_amd64.deb`, icon: "simple-icons:debian" },
+            { label: "AppImage", detail: "any distro", href: `${ROLLING}/terraverse-launcher-x86_64.AppImage`, icon: "simple-icons:appimage" },
         ],
     },
     {
         id: "windows",
         label: "Windows",
         icon: "simple-icons:windows",
-        // The launcher builds for Windows (.github/workflows/launcher.yml), but
-        // there's no Windows game build for it to install yet. When release.yml
-        // ships one, drop notReady.
-        downloads: [{ label: "Installer", detail: "Windows 10 and 11, x64", href: `${ROLLING}/terraverse-launcher-setup.exe` }],
-        notReady: "The Windows build is on its way.",
+        downloads: [{ label: "Installer", detail: "Windows 10, 11", href: `${ROLLING}/terraverse-launcher-setup.exe`, icon: "simple-icons:windows" }],
     },
     {
         id: "macos",

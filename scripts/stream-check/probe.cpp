@@ -341,6 +341,25 @@ public:
 				lowest = std::min(lowest, s.water);
 			}
 		}
+		if (w.worst_rise > 20 && std::getenv("PROBE_UPHILL")) {
+			const Channels::Path pw = m_ch.path(w.level, w.cell[0], w.cell[1], w.cell[2]);
+			const Channels::Shape sh = m_ch.shape(w.level, w.cell[0], w.cell[1], w.cell[2]);
+			const Channels::Node nd = m_ch.node(w.level, w.cell[0], w.cell[1], w.cell[2]);
+			std::string line = "UP L" + std::to_string(w.level) + " sib " + std::to_string(nd.sibling) + " low " + std::to_string(blocks(sh.low)) + " high " + std::to_string(blocks(sh.high)) + " ground";
+			for (int64_t gg : pw.ground) line += " " + std::to_string((int)(gg == INT64_MAX ? -1 : blocks(gg)));
+			line += " | N " + std::to_string(N) + " rise at";
+			double low = INFINITY, worst = 0;
+			int at = -1;
+			for (int s = 0; s < N; s++)
+				if (!std::isnan(w.samples[s].water)) {
+					if (w.samples[s].water - low > worst) { worst = w.samples[s].water - low; at = s; }
+					low = std::min(low, w.samples[s].water);
+				}
+			line += " " + std::to_string(at) + ":";
+			for (int s = std::max(0, at - 4); s < std::min(N, at + 3); s++)
+				line += " " + (std::isnan(w.samples[s].water) ? std::string("-") : std::to_string((int)w.samples[s].water));
+			std::printf("%s\n", line.c_str());
+		}
 		// across it, where its water is: the land at its bank and further out
 		for (int s = 0; s < N; s++) {
 			Sample &x = w.samples[s];
@@ -559,6 +578,12 @@ void region(const Region &reg, const std::string &dir)
 			const Channels::Node node = ch.node(k, i, j, l); // (a copy: its shape asks for more)
 			if (!node.exists)
 				return;
+			if (std::getenv("PROBE_WET")) {
+				static std::atomic<int> told{ 0 };
+				const Channels::Shape sh = ch.shape(k, i, j, l);
+				if (told++ < 40)
+					std::printf("WET L%d sib %d wet %d rain %.2f area %lld flow %lld\n", k, node.sibling, node.wet, node.rain / 65536.0, (long long)sh.area, (long long)(sh.area * node.rain >> 16));
+			}
 			const Channels::Shape &sh = ch.shape(k, i, j, l);
 			const int64_t flow = mulShift(sh.area, node.rain, FRAC);
 			int x, y;
