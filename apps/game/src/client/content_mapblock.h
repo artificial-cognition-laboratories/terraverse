@@ -167,6 +167,8 @@ private:
 	// Terra Firma: a cut node's sixteenths (MeshMakeData::m_shapes)
 	const shape::Shape *cutShape(v3s16 p) const;
 	void drawShape(const shape::Shape &s);
+	// Terra Firma: the small plants footed in the area (sprig::Sprig)
+	void drawSprigs();
 	// Terra Firma: a quad of sixteenths facing `face` (tile_dirs), wound to
 	// face it; lit smoothly, or with `flat`
 	void voxelQuad(const TileSpec &tile, int face, std::array<v3f, 4> q,

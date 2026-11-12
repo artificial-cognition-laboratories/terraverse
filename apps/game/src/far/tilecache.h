@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 /*
 	Far tiles kept on disk between runs (sprint 110): a planet opened before
@@ -36,6 +37,8 @@ public:
 	TileCache(const std::string &root, const Horizon &horizon, const planet::Atlas &atlas, int body, uintmax_t cap = CAP_BYTES);
 
 	std::optional<Tile> load(const TileKey &key) const;
+	// The tiles kept for this world, by their files (some may be swept before they're read)
+	std::vector<TileKey> kept() const;
 	void save(const Tile &tile) const;
 
 	// Down to under the cap if it's over, least recently used first (save()

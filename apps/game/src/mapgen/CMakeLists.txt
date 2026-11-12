@@ -13,6 +13,7 @@ set(mapgen_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/terra_column.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/atlas_land.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/terra_species.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/terra_flora.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/mapgen_v5.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/mapgen_v6.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/mapgen_v7.cpp

@@ -6,6 +6,8 @@
 #include "code.h"
 #include "sphere.h"
 #include <array>
+#include <atomic>
+#include <memory>
 #include <cstdint>
 
 /*
@@ -120,7 +122,36 @@ public:
 	// A stream's width for what drains to it (blocks² of average rain; World::riverWidth)
 	int64_t streamWidth(int64_t flow) const;
 
+	~Channels();
+	Channels(const Channels &) = delete;
+	Channels &operator=(const Channels &) = delete;
+
 private:
+	// What's near a place's lattice cell, as read() gathers it: a channel, or
+	// a piece of a grid run's (the trunk's)
+	struct Segment
+	{
+		Place join, at;
+		bool wet;
+		fix rain;
+		int64_t low = 0, high = 0; // heights at its foot and head (blocks, fixed)
+		fix hill = 0, grade = 0; // its sides' slope, and its own
+		int64_t flow = 0; // what runs down it, blocks² of average rain (the grid's runs: none drawn here)
+		int64_t floor = 0; // its flat floor's half width (blocks, fixed)
+		Place pond; // its pond's centre, if pond_r > 0 (Shape's)
+		bool wash = false; // a dry channel's floor (WASH_RAIN)
+		fix wall = 0;      // a trough's walls' slope, rising wall_run off its floor (blocks, fixed), then hill
+		int64_t wall_run = 0;
+		fix ice = 0;       // how much ice worked it
+		int64_t cirque = 0; // a cirque's radius at its head (blocks, fixed; 0 none)
+		Place fan;  // its fan's centre, half fan_r up from its foot, if fan_r > 0
+		int64_t fan_r = 0;
+		int64_t pond_r = 0, pond_depth = 0, pond_level = 0;
+	};
+	struct Pieces; // a grid run's trunk pieces, as read() traces them
+	// each grid cell's run's pieces, traced once and kept for every thread (none yet: null)
+	std::unique_ptr<std::atomic<Pieces *>[]> m_pieces;
+
 	Node build(int level, int32_t i, int32_t j, int32_t l) const;
 	// a node joining only the level above (or the grid's runs): what build()
 	// weighs its own level's lower heads against (cached)

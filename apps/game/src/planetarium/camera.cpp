@@ -11,7 +11,6 @@ namespace planetarium {
 static constexpr double LOWEST = 100;  // blocks over the sea
 static constexpr double TURN = 0.004;  // radians a pixel, from a body radius up
 static constexpr double STEP = 0.85;   // a wheel step's share of the altitude
-static constexpr float CELL = 6;       // pixels a tile's cell may span before it splits: finer cost frames (a ninth the cells of 2)
 
 OrbitCamera::OrbitCamera(double sea, double farthest) : m_sea(sea), m_farthest(farthest), m_altitude(2.5 * sea)
 {
@@ -133,9 +132,9 @@ far::Eye OrbitCamera::eyeAt(const Vec &p, double sea, float height)
 	const double horizon = std::acos(sea / (sea + h));
 	const float range = (float)(2 * sea * std::sin(std::min(horizon * 1.15, M_PI) / 2));
 	// a tile of span s, seen from d, splits while d < s · split: its cells
-	// (s / TILE) are wider than CELL pixels at d
+	// (s / TILE) are wider than `cell` pixels at d
 	const float focal = height / (2 * std::tan(FOV / 2));
-	const float split = focal / (far::TILE * CELL);
+	const float split = focal / (far::TILE * cell);
 	return { { u.x * sea, u.y * sea, u.z * sea }, (float)h, 0, range, split };
 }
 

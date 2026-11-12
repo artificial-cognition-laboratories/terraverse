@@ -32,4 +32,10 @@ struct Mesh
 // A tile's mesh, flat: in the tile's own cells (a layout bends it onto its planet).
 Mesh mesh(const Tile &tile, const Palette &palette);
 
+// What a cell shows from straight above: its top block, or its liquid seen
+// over it, lit as deep as the ground lies under it (as mesh() colours its top).
+video::SColorf surface(const Cell &cell, const Palette &palette);
+// A liquid's top over ground of colour `floor`, `depth` blocks under it.
+video::SColorf under(const Palette &palette, MapNode liquid, video::SColorf floor, s32 depth);
+
 } // namespace far

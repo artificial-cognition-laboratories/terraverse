@@ -8,6 +8,7 @@
 #include "far/tiles.h"
 #include "planet/atlas.h"
 #include "planetarium/camera.h"
+#include "planetarium/globe.h"
 #include "planetarium/markers.h"
 #include "planetarium/paint.h"
 #include "planetarium/seams.h"
@@ -96,6 +97,15 @@ public:
 	float readiness() const { return m_tiles.basedShare(); }
 	// Whether all the camera's own tiles are built (the detail it wants, not just the coarse whole).
 	bool settled() const { return m_tiles.based() && m_tiles.pending() == 0; }
+	// Its globe's made too (what's drawn from far out: planetarium/globe.h)
+	bool globed() const { return m_globe && m_globe->ready(); }
+	// What the tiled body's land costs to draw now: tiles, draw calls (their
+	// buffers), vertices (the ladder reports them: --planetarium-ladder)
+	struct DrawStats
+	{
+		size_t tiles = 0, buffers = 0, vertices = 0;
+	};
+	DrawStats drawStats() const;
 
 	// Over a place on the tiled body (Opts::body) (its ground's latitude and longitude):
 	// the camera goes round to it as the body is turned now.
@@ -209,6 +219,10 @@ private:
 	const terragen::Atlas m_atlas;
 	const double m_sea;
 	far::Tiles m_tiles;
+	// the tiled body from afar, once its tiles' cells are about a pixel; made
+	// once its coarse tiles are there (not to slow the first view's)
+	std::unique_ptr<Globe> m_globe;
+	bool m_globed = false; // it's drawn as its globe now (with some give, so it doesn't flicker on the line)
 	OrbitCamera m_camera;
 	SeamLayer m_seams;
 	bool m_seamsShown = false;

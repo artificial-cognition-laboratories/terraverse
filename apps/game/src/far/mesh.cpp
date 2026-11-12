@@ -63,6 +63,34 @@ public:
 			quad({ { x0, y, z0 }, { x1, y, z0 }, { x1, y, z1 }, { x0, y, z1 } }, face, colour);
 	}
 
+	// tops at height y over [xs[0], xs[n]] × [z0, z1], alike (colour, normal),
+	// as one strip: a vertex pair at every cell's edge, shared, so the strip
+	// bends onto the planet as its neighbours do (one long quad, bent only at
+	// its ends, left cracks against the next row's)
+	void row(const std::vector<float> &xs, float z0, float z1, float y, video::SColorf colour, v3f normal)
+	{
+		if (normal == v3f())
+			normal = NORMAL[UP];
+		const size_t n = xs.size();
+		int &at = m_last[quarter];
+		if (at < 0 || mesh.parts[at].vertices.size() + 2 * n > 65536) {
+			at = (int)mesh.parts.size();
+			mesh.parts.emplace_back().quarter = quarter;
+		}
+		Mesh::Part &p = mesh.parts[at];
+		const u16 base = p.vertices.size();
+		const video::SColor c = video::SColorf(colour.r * SHADE[UP], colour.g * SHADE[UP], colour.b * SHADE[UP], 1).toSColor();
+		for (float x : xs) {
+			p.vertices.emplace_back(v3f(x, y, z0) * BS, normal, c, v2f(0, 0));
+			p.vertices.emplace_back(v3f(x, y, z1) * BS, normal, c, v2f(0, 0));
+		}
+		// as flat()'s UP quad winds: (x0, z0), (x0, z1), (x1, z1), (x1, z0)
+		for (size_t k = 0; k + 1 < n; k++) {
+			const u16 a = (u16)(base + 2 * k), b = (u16)(a + 1), d = (u16)(a + 2), e = (u16)(a + 3);
+			p.indices.insert(p.indices.end(), { a, b, e, a, e, d });
+		}
+	}
+
 	// the vertical face on the `face` side of [x0, x1] × [z0, z1], from y0 up to y1
 	// `low` and `high`: how lit its bottom and top edges are
 	void side(float x0, float x1, float z0, float z1, float y0, float y1, Face face, video::SColorf colour,
@@ -135,6 +163,19 @@ static float lightAt(float y, s32 water)
 
 } // namespace
 
+video::SColorf surface(const Cell &cell, const Palette &palette)
+{
+	if (cell.water <= cell.ground)
+		return palette.face(cell.top, UP);
+	// the liquid, seen through as the near world's is
+	return under(palette, cell.liquid, palette.face(cell.top, UP), cell.water - cell.ground);
+}
+
+video::SColorf under(const Palette &palette, MapNode liquid, video::SColorf floor, s32 depth)
+{
+	return palette.through(liquid, floor, lightAt(top(0), depth));
+}
+
 Mesh mesh(const Tile &tile, const Palette &palette)
 {
 	Builder b;
@@ -142,8 +183,48 @@ Mesh mesh(const Tile &tile, const Palette &palette)
 	static const s32 DI[4] = { 1, -1, 0, 0 }, DJ[4] = { 0, 0, 1, -1 };
 	static const Face SIDE[4] = { EAST, WEST, NORTH, SOUTH };
 	sunLight(); // tiles are lit by it: unset, say so whatever the tile
+	// A row's tops alike side by side (as high, as coloured, as sloped: a
+	// sea's, a plain's) as one face: cell by cell, a planet's worth of them
+	// was most of what the Planetarium sent the GPU each frame (sprint 114)
+	struct Tops
+	{
+		bool open = false;
+		std::vector<float> xs; // its cells' edges
+		float z0 = 0, z1 = 0, y = 0;
+		video::SColorf colour;
+		v3f normal;
+		u8 quarter = 0;
+	} run;
+	const auto flush = [&] {
+		if (!run.open)
+			return;
+		const u8 was = b.quarter;
+		b.quarter = run.quarter;
+		b.row(run.xs, run.z0, run.z1, run.y, run.colour, run.normal);
+		b.quarter = was;
+		run.open = false;
+	};
 	for (s32 j = 0; j < TILE; j++) {
 		const float cz0 = (float)(j * cell) - 0.5f, cz1 = cz0 + (float)cell;
+		flush();
+		// this cell's top: onto the run if it carries it on, else a run of its own
+		const auto topFace = [&](float x0, float x1, float z0, float z1, float y, video::SColorf colour, v3f normal) {
+			const video::SColorf &r = run.colour;
+			if (run.open && run.quarter == b.quarter && run.xs.back() == x0 && run.z0 == z0 && run.z1 == z1 && run.y == y &&
+					r.r == colour.r && r.g == colour.g && r.b == colour.b && run.normal == normal) {
+				run.xs.push_back(x1);
+				return;
+			}
+			flush();
+			run.open = true;
+			run.xs.assign({ x0, x1 });
+			run.z0 = z0;
+			run.z1 = z1;
+			run.y = y;
+			run.colour = colour;
+			run.normal = normal;
+			run.quarter = b.quarter;
+		};
 		for (s32 i = 0; i < TILE; i++) {
 			const Cell &c = tile.at(i, j);
 			if (c.space)
@@ -167,16 +248,15 @@ Mesh mesh(const Tile &tile, const Palette &palette)
 					return (float)(n.space ? c.ground : n.ground);
 				};
 				const float gx = (height(1, 0) - height(-1, 0)) / (2.0f * cell), gz = (height(0, 1) - height(0, -1)) / (2.0f * cell);
-				b.flat(x0, x1, z0, z1, top(c.ground), UP, palette.face(c.top, UP), v3f(-gx, 1, -gz).normalize());
+				topFace(x0, x1, z0, z1, top(c.ground), surface(c, palette), v3f(-gx, 1, -gz).normalize());
 			} else {
-				// the liquid, seen through as the near world's is
-				const float lit = lightAt(top(c.ground), c.water);
-				b.flat(x0, x1, z0, z1, top(c.water), UP, palette.through(c.liquid, palette.face(c.top, UP), lit));
+				topFace(x0, x1, z0, z1, top(c.water), surface(c, palette), v3f());
 			}
 
 			for (int k = 0; k < 4; k++) {
 				const s32 ni = i + DI[k], nj = j + DJ[k];
 				Cell n = tile.at(ni, nj);
+				const bool within = !n.space && ni >= 0 && ni < TILE && nj >= 0 && nj < TILE;
 				// at the tile's edge, a skirt: the next tile may be coarser or finer,
 				// its edge not meeting ours vertex for vertex; a wall hung below the
 				// ground fills what would show through. Toward a seam too, from
@@ -189,8 +269,11 @@ Mesh mesh(const Tile &tile, const Palette &palette)
 					n.water = std::min(n.water, std::max(n.ground, c.water) - SKIRT * cell);
 				}
 				Face face = SIDE[k];
-				// a cliff: the soil's bands, then rock
-				if (n.ground < c.ground) {
+				// a cliff: the soil's bands, then rock. Not one all under the
+				// water beside it: its top is drawn opaque over it (the far
+				// view's and the Planetarium's), and a sea floor's every step
+				// went to the GPU unseen (sprint 114)
+				if (n.ground < c.ground && !(within && n.water > n.ground && n.water >= c.ground)) {
 					float low = top(n.ground), high = top(c.ground);
 					float bands[3] = { top(c.top_end), top(c.filler_end), low };
 					MapNode nodes[3] = { c.top, c.filler, c.rock };
@@ -243,6 +326,7 @@ Mesh mesh(const Tile &tile, const Palette &palette)
 
 		}
 	}
+	flush(); // (the last row's)
 	return std::move(b.mesh);
 }
 

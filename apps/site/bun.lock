@@ -6,6 +6,7 @@
       "name": "terraverse-site",
       "dependencies": {
         "@iconify-json/simple-icons": "^1.2.86",
+        "@iconify-json/vscode-icons": "^1.2.97",
         "@nuxt/content": "^3.12.0",
         "@nuxt/icon": "^2.1.0",
         "nuxt": "^4.2.1",
@@ -150,6 +151,8 @@
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.28.2", "", { "os": "win32", "cpu": "x64" }, "sha512-5ebpxr3nWMzrL/rnUI755Jkuee0bHL/Gq0WTF9lvcpv73wAp5eu8MfBUgWK9bhWvZjj7yX8etf/8tI8Ney695g=="],
 
     "@iconify-json/simple-icons": ["@iconify-json/simple-icons@1.2.102", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-IwbAj1ZI6LBy+qU7sVYxB1wgbSSIDKjY9I0BnnpjfIdlqfXoYnBb80UvYA0WkodUFWfQyL4AjaKMg48fqX8sIw=="],
+
+    "@iconify-json/vscode-icons": ["@iconify-json/vscode-icons@1.2.97", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-nkqeEluYLK3JGXQqmQKHJHdrHYL/r09yz1RZLRl0qDoBdIlW2JQmTRDxc86lzwcmfIyTXib8CBDWEsBj5xVfWQ=="],
 
     "@iconify/collections": ["@iconify/collections@1.0.763", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-J55yMmMDcy1GhIfEuNCEy4nX0R/9KXnfr8Z3npficbjsnGmJ2HNn5reqxI+C78cUW7b3m5OIL/Y5YfGQu8VRng=="],
 

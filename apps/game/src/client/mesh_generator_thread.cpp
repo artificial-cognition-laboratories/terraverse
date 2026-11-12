@@ -58,6 +58,16 @@ void QueuedMeshUpdate::retrieveBlocks(Map *map, u16 cell_size)
 			block->m_shapes.each([&](v3s16 rel, const shape::Shape &s) {
 				shapes.emplace_back(block->getPosRelative() + rel, s);
 			});
+	// a plant's drawn by the mesh its foot's in (it reaches past it: MOST_GROUND_REACH)
+	sprigs.clear();
+	for (MapBlock *block : map_blocks)
+		if (block) {
+			const v3s16 b = block->getPos();
+			if (b.X >= p.X && b.Y >= p.Y && b.Z >= p.Z && b.X < p.X + cell_size && b.Y < p.Y + cell_size && b.Z < p.Z + cell_size)
+				block->m_sprigs.each([&](v3s16 rel, const sprig::Sprig &s) {
+					sprigs.emplace_back(block->getPosRelative() + rel, s);
+				});
+		}
 
 	// Terra Firma: the border past an atlas's seams, read now (this is the
 	// main thread; meshes are made on others)
@@ -136,6 +146,7 @@ void QueuedMeshUpdate::fill(MeshMakeData *data) const
 	data->m_shapes.clear();
 	for (const auto &[pos, s] : shapes)
 		data->m_shapes.emplace(pos, s);
+	data->m_sprigs = sprigs;
 
 	// NOTE: the "data race" mentioned by MapBlock::tryShrinkNodes() is right here
 	for (auto *block : map_blocks) {

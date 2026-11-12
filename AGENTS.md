@@ -89,6 +89,7 @@ Our folders in `apps/game/src/`:
 | `matter/` | Substances, mixtures, reactions |
 | `sandbox/` | Block physics of matter: `WorldMatter` runs in the world, `Stage` in wiki scenes |
 | `fill/`, `pile/`, `ground/`, `shape/`, `sculpt/` | Liquid in a node's open space, loose ground, cut and smoothed ground, shapes |
+| `flora/`, `sprig/` | Plants grown from their site (pure, fixed point); small plants as the map keeps them |
 | `physics/` | Jolt: rigid bodies, the player's movement (`mover`, `walk`, `reach`), the figure's pose |
 | `piece/`, `workshop/` | Machines: parts and joints, compiled into physics |
 | `orbit/` | Flight under a planet's gravity and air |

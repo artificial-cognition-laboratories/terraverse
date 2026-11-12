@@ -69,6 +69,11 @@ static Cell cellOf(const terra::Columns &columns, const terra::Column &c)
 	return cell;
 }
 
+Cell Generator::seenAt(const terragen::Place &place) const
+{
+	return cellOf(*m_columns, m_columns->atPlace(place));
+}
+
 s32 Generator::surfaceAt(const planet::Atlas::Cell &cell) const
 {
 	const Cell c = cellOf(*m_columns, m_columns->atPlace(m_atlas.place(cell)));
@@ -114,7 +119,10 @@ Tile Generator::made(const TileKey &key, s32 stride) const
 	tile.key = key;
 	tile.cells.resize((size_t)(TILE + 2) * (TILE + 2));
 	const terragen::Atlas &atlas = m_atlas.body(m_body);
-	const World::Coarse coarse(*m_world, (int64_t)stride << key.level);
+	// rivers their own width: a coarse cell shows one where its middle's on it
+	// (widened to show on every cell they crossed, they swelled from afar;
+	// sprint 114)
+	const World::Coarse coarse(*m_world, (int64_t)stride << key.level, false);
 	// the cell a sketch copies (itself when it's read): the one before it,
 	// counting from the tile's edge, -1
 	const auto from = [&](s32 i) { return i - (i + 1) % stride; };

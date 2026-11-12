@@ -38,6 +38,7 @@ public:
 		float occluders[OCCLUDERS][4];
 		float penumbra; // the star's angular radius, radians
 		float contour;  // blocks between contour lines on the land; 0 for none
+		bool textured = false; // its colours its texture's, not its vertices' (planetarium/globe.h)
 	};
 	// The material to draw land with, for this body. Set again per body.
 	const video::SMaterial &material(const Light &light);

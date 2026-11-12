@@ -347,7 +347,8 @@ private:
 
 Channels::Channels(const WorldCode &code, const Grid &grid, const World &world, int64_t radius, int64_t cell_blocks, bool land) :
 	m_grid(&grid), m_world(&world), m_seed(code.seed_hash + NODE), m_owner(nextOwner()),
-	m_radius(radius), m_water(code.processes.water), m_land(land)
+	m_radius(radius), m_water(code.processes.water), m_land(land),
+	m_pieces(new std::atomic<Pieces *>[grid.size()]()) // (all null)
 {
 	m_lattice[0] = (int64_t)gridSphere().spacing() << (PLACE_FRAC - FRAC);
 	// only where water ever ran
@@ -416,6 +417,18 @@ Channels::Channels(const WorldCode &code, const Grid &grid, const World &world, 
 		const int64_t L = m_lattice[0];
 		m_trunk_ball = mulShift(L, TRUNK_REACH, FRAC) + wander + L * 7 / 8 + L / 8;
 	}
+}
+
+struct Channels::Pieces
+{
+	std::array<Segment, TRUNK_PIECES> pieces;
+};
+
+Channels::~Channels()
+{
+	if (m_pieces)
+		for (int32_t c = 0; c < m_grid->size(); c++)
+			delete m_pieces[c].load();
 }
 
 int32_t Channels::latticeOf(int level, int32_t c) const
@@ -921,25 +934,6 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 	const Sphere &sphere = gridSphere();
 	// What's near a place's lattice cell, kept per thread: columns come in runs
 	// through one cell, and only a few of a window's cells hold a node
-	struct Segment
-	{
-		Place join, at;
-		bool wet;
-		fix rain;
-		int64_t low = 0, high = 0; // heights at its foot and head (blocks, fixed)
-		fix hill = 0, grade = 0; // its sides' slope, and its own
-		int64_t flow = 0; // what runs down it, blocks² of average rain (the grid's runs: none drawn here)
-		int64_t floor = 0; // its flat floor's half width (blocks, fixed)
-		Place pond; // its pond's centre, if pond_r > 0 (Shape's)
-		bool wash = false; // a dry channel's floor (WASH_RAIN)
-		fix wall = 0;      // a trough's walls' slope, rising wall_run off its floor (blocks, fixed), then hill
-		int64_t wall_run = 0;
-		fix ice = 0;       // how much ice worked it
-		int64_t cirque = 0; // a cirque's radius at its head (blocks, fixed; 0 none)
-		Place fan;  // its fan's centre, half fan_r up from its foot, if fan_r > 0
-		int64_t fan_r = 0;
-		int64_t pond_r = 0, pond_depth = 0, pond_level = 0;
-	};
 	struct List
 	{
 		uint64_t owner = 0;
@@ -949,15 +943,6 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 		std::array<Segment, 1024> segments;
 	};
 	thread_local std::unique_ptr<std::array<List, MOST_LEVELS + 1>> lists(new std::array<List, MOST_LEVELS + 1>());
-	// a grid run's pieces as the trunk gathers them, per thread, by cell
-	constexpr size_t PIECES_SLOTS = 1024;
-	struct PiecesKept
-	{
-		uint64_t owner = 0;
-		int32_t c = -1;
-		std::array<Segment, TRUNK_PIECES> pieces;
-	};
-	thread_local std::unique_ptr<std::array<PiecesKept, PIECES_SLOTS>> pieces(new std::array<PiecesKept, PIECES_SLOTS>());
 
 	// a valley as the climate shapes it: a trough where ice worked it, a wash
 	// where it's dry (P6); `area` what it drains (blocks²)
@@ -1045,15 +1030,18 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 					if (g.drained[c] < TRUNK_LEAST && !m_world->drawn(c) && !hollows)
 						return;
 					// (kept: a run's within reach of many windows round it, and each
-					// gathered it again, most of a coarse planet's time; sprint 110)
-					PiecesKept &kept = (*pieces)[(size_t)c & (PIECES_SLOTS - 1)];
-					if (kept.owner == m_owner && kept.c == c) {
-						for (const Segment &s : kept.pieces)
+					// gathered it again, most of a coarse planet's time; sprint 110.
+					// Kept once for every thread, not per thread: a coarse planet's
+					// tiles reach every run, past any thread's cache, and each
+					// thread traced each run again; sprint 114)
+					std::atomic<Pieces *> &slot = m_pieces[c];
+					if (const Pieces *kept = slot.load(std::memory_order_acquire)) {
+						for (const Segment &s : kept->pieces)
 							add(s);
 						return;
 					}
-					kept.owner = m_owner;
-					kept.c = c;
+					auto fresh = std::make_unique<Pieces>();
+					Pieces &kept = *fresh;
 					int made = 0;
 					// the prototype's: the run's line, in pieces, at the grid's heights along it
 					const fix hill = critical(g, c, m_steep);
@@ -1081,6 +1069,10 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 					}
 					if (made != TRUNK_PIECES)
 						throw std::logic_error("terragen::Channels: a run kept with pieces missing");
+					// (another thread may have traced it too: the same pieces, so either's kept)
+					Pieces *none = nullptr;
+					if (slot.compare_exchange_strong(none, fresh.get(), std::memory_order_acq_rel))
+						fresh.release();
 				};
 				const Place middle = placeOf(((int64_t)i * 2 + 1) * L / 2, ((int64_t)j * 2 + 1) * L / 2, ((int64_t)l * 2 + 1) * L / 2);
 				std::vector<int32_t> cells;
@@ -1094,12 +1086,31 @@ Channels::Read Channels::read(const Place &p, fix range, int64_t least) const
 						const int64_t dx = (int64_t)q.x - centre.x, dy = (int64_t)q.y - centre.y, dz = (int64_t)q.z - centre.z;
 						return (int64_t)isqrt((uint64_t)(dx * dx + dy * dy + dz * dz)) <= m_trunk_ball;
 					};
+					// (what's in already, marked by a stamp a cell, the thread's:
+					// searching the list for each neighbour was a quarter of a
+					// read where every column's window is a new one; sprint 114)
+					thread_local std::vector<uint32_t> marks;
+					thread_local uint32_t stamp = 0;
+					if (marks.size() < (size_t)sphere.size())
+						marks.assign((size_t)sphere.size(), 0);
+					if (++stamp == 0) { // wrapped round: an old mark could pass for this window's
+						std::fill(marks.begin(), marks.end(), 0);
+						stamp = 1;
+					}
+					const auto in = [&](int32_t c) { return marks[c] == stamp; };
 					for (int32_t c : sphere.spot(middle.dir()).cells)
-						cells.push_back(c);
+						if (!in(c)) {
+							marks[c] = stamp;
+							cells.push_back(c);
+						}
 					for (size_t at = 0; at < cells.size(); at++)
 						for (const int32_t *q = sphere.neighboursBegin(cells[at]); q != sphere.neighboursEnd(cells[at]); q++)
-							if (std::find(cells.begin(), cells.end(), *q) == cells.end() && near(*q))
-								cells.push_back(*q);
+							if (!in(*q)) {
+								// (one out of reach is marked too: it's out from anywhere)
+								marks[*q] = stamp;
+								if (near(*q))
+									cells.push_back(*q);
+							}
 				} else {
 					for (int32_t c : sphere.spot(middle.dir()).cells) {
 						cells.push_back(c);

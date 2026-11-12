@@ -111913,6 +111913,78 @@
 		},
 		{
 			"flowing" : false,
+			"form" : false,
+			"friction" : 0.60000002384185791,
+			"leveled" : false,
+			"liquid" : false,
+			"loose" : false,
+			"matter" : "wood",
+			"node" : "tf_world:plant_flesh",
+			"share" : 0.10000000149011612,
+			"tiles" : 
+			[
+				"tf_flora_flesh.png",
+				"tf_flora_flesh.png",
+				"tf_flora_flesh.png"
+			],
+			"vessel" : false
+		},
+		{
+			"flowing" : false,
+			"form" : false,
+			"friction" : 0.60000002384185791,
+			"leveled" : false,
+			"liquid" : false,
+			"loose" : false,
+			"matter" : "wood",
+			"node" : "tf_world:plant_flower",
+			"share" : 0.05000000074505806,
+			"tiles" : 
+			[
+				"tf_flora_leaf.png",
+				"tf_flora_leaf.png",
+				"tf_flora_leaf.png"
+			],
+			"vessel" : false
+		},
+		{
+			"flowing" : false,
+			"form" : false,
+			"friction" : 0.60000002384185791,
+			"leveled" : false,
+			"liquid" : false,
+			"loose" : false,
+			"matter" : "wood",
+			"node" : "tf_world:plant_leaf",
+			"share" : 0.05000000074505806,
+			"tiles" : 
+			[
+				"tf_flora_leaf.png",
+				"tf_flora_leaf.png",
+				"tf_flora_leaf.png"
+			],
+			"vessel" : false
+		},
+		{
+			"flowing" : false,
+			"form" : false,
+			"friction" : 0.60000002384185791,
+			"leveled" : false,
+			"liquid" : false,
+			"loose" : false,
+			"matter" : "wood",
+			"node" : "tf_world:plant_wood",
+			"share" : 0.40000000596046448,
+			"tiles" : 
+			[
+				"tf_flora_wood.png",
+				"tf_flora_wood.png",
+				"tf_flora_bark.png"
+			],
+			"vessel" : false
+		},
+		{
+			"flowing" : false,
 			"form" : true,
 			"friction" : 0.34999999403953552,
 			"leveled" : false,

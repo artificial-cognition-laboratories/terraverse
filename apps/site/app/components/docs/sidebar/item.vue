@@ -3,15 +3,21 @@
         v-if="item.path"
         :to="item.path"
         class="nav-item"
-        :class="{ active: route.path === item.path, folder: !!item.items }"
+        :class="{ active: route.path === item.path, folder: !!item.items, command: !!item.flavor }"
         :style="{ '--depth': depth }"
     >
         <Icon v-if="item.icon" :name="item.icon" class="nav-icon" />
-        <span>{{ item.title }}</span>
+        <span v-if="command" class="nav-title">
+            <span class="cmd-program">{{ command.program }}</span>
+            <template v-for="(arg, i) in command.args" :key="i">
+                {{ " " }}<span :class="arg.startsWith('<') ? 'cmd-placeholder' : 'cmd-arg'">{{ arg }}</span>
+            </template>
+        </span>
+        <span v-else class="nav-title">{{ item.title }}</span>
     </NuxtLink>
     <span v-else class="nav-item static" :class="{ folder: !!item.items }" :style="{ '--depth': depth }">
         <Icon v-if="item.icon" :name="item.icon" class="nav-icon" />
-        <span>{{ item.title }}</span>
+        <span class="nav-title">{{ item.title }}</span>
     </span>
     <ul v-if="item.items?.length" class="nav-children">
         <li v-for="child in item.items" :key="child.path ?? child.title">
@@ -23,8 +29,15 @@
 <script setup lang="ts">
 import type { DocsNavItem } from "~/config/docs-nav"
 
-defineProps<{ item: DocsNavItem; depth: number }>()
+const props = defineProps<{ item: DocsNavItem; depth: number }>()
 const route = useRoute()
+
+// A command is its program, then its words; a `<placeholder>` is coloured apart from literal ones
+const command = computed(() => {
+    if (props.item.flavor !== "bash") return undefined
+    const [program, ...args] = props.item.title.split(" ")
+    return { program, args }
+})
 </script>
 
 <style scoped lang="scss">
@@ -59,6 +72,33 @@ $indent: 0.85rem;
     &.static:hover {
         background: transparent;
     }
+
+    &.command {
+        opacity: 0.8;
+
+        &:hover,
+        &.active {
+            opacity: 1;
+        }
+    }
+}
+
+.nav-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+// The dark-plus bash colours the docs' code blocks use
+.cmd-program {
+    color: #dcdcaa;
+}
+
+.cmd-arg {
+    color: #ce9178;
+}
+
+.cmd-placeholder {
+    color: #d4d4d4;
 }
 
 .nav-children {

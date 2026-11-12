@@ -5,6 +5,8 @@
 #pragma once
 
 #include <map>
+#include "shape/shape.h"
+#include "sprig/sprig.h"
 #include <mutex>
 #include "network/networkprotocol.h"
 #include "irr_v3d.h"
@@ -41,6 +43,10 @@ struct BlockMakeData {
 	v3s16 blockpos_max;
 	UniqueQueue<v3s16> transforming_liquid;
 	const NodeDefManager *nodedef = nullptr;
+	// Terra Firma: the cut shapes of nodes the generator placed (plants), set once they're in the map
+	std::map<v3s16, shape::Shape> shapes;
+	// Terra Firma: the small plants it planted, by their foot (a tf_world:growth it placed)
+	std::map<v3s16, sprig::Sprig> sprigs;
 
 	BlockMakeData() = default;
 

@@ -29,6 +29,11 @@ public:
 	// the body's sea: blocks from its centre; the farthest it goes over it
 	OrbitCamera(double sea, double farthest);
 	static constexpr float FOV = 1.0f; // radians, vertical
+	// pixels a tile's cell may span before it splits: about one block a pixel
+	// or two, as sharp at every height as the land zoomed into (sprint 114;
+	// 6 left a coarse planet till it was zoomed in on). Lowered further only
+	// for a reference render (the ladder's)
+	static inline float cell = 2;
 
 	// pixels the mouse moved while held; wheel steps (up: closer)
 	void drag(double dx, double dy);

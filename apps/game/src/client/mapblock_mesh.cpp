@@ -908,10 +908,10 @@ void bendOntoAtlas(MeshCollector &collector, const planet::Atlas &atlas, v3s16 b
 				const v3f s = v.Pos / BS;
 				const terragen::Atlas::Vec p = atlas.onPlanet(*chart, low.X + s.X, low.Y + s.Y, low.Z + s.Z);
 				v.Pos = v3f(p.x, p.y, p.z) * BS;
-				const v3f n = v.Normal;
+				const v3f n = v.Normal; // (its length kept: a small plant's says how high it stands)
 				v.Normal = v3f(axes[0].x * n.X + axes[1].x * n.Y + axes[2].x * n.Z,
 						axes[0].y * n.X + axes[1].y * n.Y + axes[2].y * n.Z,
-						axes[0].z * n.X + axes[1].z * n.Y + axes[2].z * n.Z).normalize();
+						axes[0].z * n.X + axes[1].z * n.Y + axes[2].z * n.Z).normalize() * n.getLength();
 				radius_sq = std::max(radius_sq, v.Pos.getLengthSQ());
 			}
 	collector.m_bounding_radius_sq = radius_sq;

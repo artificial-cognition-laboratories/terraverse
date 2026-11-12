@@ -26,6 +26,7 @@
 */
 namespace far {
 
+
 // The game's part of a planet's land: every block the generator places, by
 // role, and the tree species. The same for every world of the game (only
 // their content ids are a server's).
@@ -117,6 +118,10 @@ public:
 
 	// The storage column at (x, z) (throws for seam).
 	Cell column(s32 x, s32 z) const;
+	// What the column at a place on the body shows from afar (as a tile's cell
+	// there would; planetarium/globe.h)
+	Cell seenAt(const terragen::Place &place) const;
+
 	// The planet's cells as the generator fills them.
 	const terra::AtlasLand &land() const { return *m_land; }
 

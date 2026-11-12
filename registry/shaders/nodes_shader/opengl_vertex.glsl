@@ -183,26 +183,46 @@ void main(void)
 	pos.x += disp_x;
 	pos.y += disp_z * 0.1;
 	pos.z += disp_z;
-#elif MATERIAL_TYPE == TILE_MATERIAL_WAVING_PLANTS && ENABLE_WAVING_PLANTS
+#elif MATERIAL_TYPE == TILE_MATERIAL_WAVING_PLANTS
+	// Terra Firma: a small plant (client/sprigs) carries its height over its
+	// foot, in blocks, as how far its normal is longer than one: it bends in
+	// the wind from its foot up, its tips most, whatever the setting says
+	float sway = length(inVertexNormal) - 1.0;
+	if (sway > 0.001) {
+		vec3 at = wpos.xyz + cameraOffset;
+		float t = animationTimer * 100.0; // seconds
+		// gusts roll across the land; each plant shivers in them
+		float gust = 0.55 + 0.45 * sin(t * 0.4 - at.x * 0.006 - at.z * 0.003);
+		float shiver = sin(t * 2.1 + at.x * 0.05 + at.z * 0.03) + 0.4 * sin(t * 4.3 + at.x * 0.11 - at.z * 0.07);
+		float bend = pow(sway, 1.5) * gust * 0.9; // node units (BS 10)
+		pos.x += bend * (1.0 + 0.5 * shiver);
+		pos.z += bend * 0.35 * sin(t * 1.7 + at.z * 0.05 - at.x * 0.02);
+		pos.y -= bend * bend * 0.04; // (a bent stem is no longer)
+	}
+#if ENABLE_WAVING_PLANTS
 	// bottom of plant doesn't wave
-	if (varTexCoord.y < 0.05) {
+	else if (varTexCoord.y < 0.05) {
 		pos.x += disp_x;
 		pos.z += disp_z;
 	}
 #endif
+#endif
 #if MATERIAL_TYPE == TILE_MATERIAL_WAVING_LEAVES || MATERIAL_TYPE == TILE_MATERIAL_WAVING_PLANTS
-	// Prevent z-fighting of oversized plants
-	pos.z += fract(wpos.y * 0.1) * 0.1;
+	// Prevent z-fighting of oversized plants (not a small plant: it's its own solid shape)
+	if (length(inVertexNormal) < 1.001)
+		pos.z += fract(wpos.y * 0.1) * 0.1;
 #endif
 
 	worldPosition = (mWorld * pos).xyz;
 	gl_Position = mWorldViewProj * pos;
 
 	eyeVec = -(mWorldView * pos).xyz;
+	// (a small plant's is longer: see above; some are zero, kept so)
+	vec3 unitNormal = length(inVertexNormal) > 1.001 ? normalize(inVertexNormal) : inVertexNormal;
 #ifdef SECONDSTAGE
-	normalPass = normalize((inVertexNormal+1)/2);
+	normalPass = normalize((unitNormal+1)/2);
 #endif
-	vNormal = inVertexNormal;
+	vNormal = unitNormal;
 
 	// Calculate color.
 	vec4 color = inVertexColor;

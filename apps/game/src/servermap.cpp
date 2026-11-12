@@ -292,6 +292,14 @@ void ServerMap::finishBlockMake(BlockMakeData *data,
 		NOTE: blitBackAll adds nearly everything to changed_blocks
 	*/
 	data->vmanip->blitBackAll(changed_blocks);
+	// Terra Firma: what the generator cut (its plants), now the nodes are there
+	for (const auto &[p, s] : data->shapes)
+		setShape(p, s);
+	for (const auto &[p, s] : data->sprigs) {
+		const v3s16 bp = getNodeBlockPos(p);
+		if (MapBlock *block = getBlockNoCreateNoEx(bp))
+			block->m_sprigs.set(p - bp * MAP_BLOCKSIZE, s);
+	}
 
 	EMERGE_DBG_OUT("finishBlockMake: changed_blocks.size()="
 		<< changed_blocks->size());

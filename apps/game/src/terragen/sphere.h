@@ -7,7 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <unordered_set>
+#include <stdexcept>
 #include <vector>
 
 namespace terragen {
@@ -78,15 +78,36 @@ public:
 
 	// The cells reached from `start` by neighbours while `keep(cell)` holds
 	// (start first, then outward): a patch of the sphere round a place.
+	// (What's been looked at is marked with a stamp per cell, the thread's,
+	// made once: a set made afresh each call, an allocation a cell, was a
+	// twentieth of a far column's time. Not from inside `keep`.)
 	template <typename Keep>
 	std::vector<int32_t> around(int32_t start, Keep keep) const
 	{
+		thread_local std::vector<uint32_t> marks;
+		thread_local uint32_t stamp = 0;
+		thread_local bool busy = false;
+		if (busy)
+			throw std::logic_error("terragen::Sphere::around: called from its own keep");
+		busy = true;
+		struct Done
+		{
+			bool &busy;
+			~Done() { busy = false; }
+		} done{ busy };
+		if (marks.size() < (size_t)size())
+			marks.assign((size_t)size(), 0);
+		if (++stamp == 0) { // wrapped round: an old mark could pass for this call's
+			std::fill(marks.begin(), marks.end(), 0);
+			stamp = 1;
+		}
 		std::vector<int32_t> out{ start };
-		std::unordered_set<int32_t> seen{ start };
+		marks[start] = stamp;
 		for (size_t head = 0; head < out.size(); head++)
 			for (const int32_t *p = neighboursBegin(out[head]); p != neighboursEnd(out[head]); p++) {
-				if (!seen.insert(*p).second)
+				if (marks[*p] == stamp)
 					continue;
+				marks[*p] = stamp;
 				if (keep(*p))
 					out.push_back(*p);
 			}
@@ -105,6 +126,11 @@ public:
 		std::array<fix, 3> weights;
 	};
 	Spot spot(const Dir &d) const;
+
+private:
+	Spot spotAt(const Dir &d) const; // spot(), not kept
+
+public:
 
 private:
 	// Where a direction falls on the icosahedron: its face and its place in

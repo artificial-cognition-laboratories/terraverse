@@ -15,7 +15,9 @@
 #include <mutex>
 #include <vector>
 #include "mapgen/terra_column.h"
+#include "mapgen/terra_flora.h"
 #include <string>
+#include <unordered_map>
 
 class Biome;
 class BiomeManager;
@@ -94,6 +96,22 @@ private:
 		content_t segmentA, segmentB, cap, core, segmentSeam, capEdge, cut, coreEdge, line;
 	} m_paint{};
 	terra::Blocks m_blocks;
+	// Plants: its trees and what grows under them, grown by flora (sprint 113), with their cut shapes for the map
+	void plantTrees(BlockMakeData *data);
+	std::optional<terra::PlantBlocks> m_plants;
+	// What a column grows, worked out once: a chunk plants its neighbours'
+	// plants too, and the chunks over a column all ask (plantTrees)
+	struct Foot
+	{
+		s16 height;   // its ground; nothing grows if no forest
+		std::shared_ptr<flora::Forest> forest;
+		u32 seed;     // the forest's
+		bool tree;    // or a small plant, kept as a sprig
+		u32 id;       // flora::Forest::idOf
+		u32 roll;
+	};
+	const Foot &footAt(s16 x, s16 z, const terra::Column *own);
+	std::unordered_map<u32, Foot> m_feet;
 	// An atlas's bodies, each a world of its own (terragen/worlds.h): its
 	// columns, its cells (shared with the far view) and this generator's
 	// reading of them. Built when a chunk first needs them.

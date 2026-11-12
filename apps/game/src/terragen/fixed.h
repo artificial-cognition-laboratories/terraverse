@@ -46,8 +46,13 @@ inline fix fraction(fix v) { return v & (ONE - 1); }
 inline int32_t roundInt(fix v) { return (v + HALF) >> FRAC; }
 
 // ⌊a·b / 2^shift⌋, exactly, for products past 64 bits (0 < shift < 64; the
-// result must fit 64 bits).
-int64_t mulShift(int64_t a, int64_t b, int shift);
+// result must fit 64 bits). Inline, in 128 bits: the land reads it tens of
+// millions of times a second, and called it was a twelfth of a far column's
+// time (sprint 114)
+inline int64_t mulShift(int64_t a, int64_t b, int shift)
+{
+	return (int64_t)(((__int128)a * b) >> shift);
+}
 
 fix sqrt(fix v);                     // v ≥ 0
 uint64_t isqrt(uint64_t n);          // ⌊√n⌋ of a plain integer

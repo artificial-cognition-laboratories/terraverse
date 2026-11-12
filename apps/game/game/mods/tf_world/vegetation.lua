@@ -155,106 +155,13 @@ local SPECIES = {
 -- The engine chooses among them (core.terra.species: of the species that
 -- fit, one by the column's roll; banks favour willows), so the far view
 -- grows the same trees the world does.
-local BY_NAME = {}
 for _, s in ipairs(SPECIES) do
-	BY_NAME[s.name] = s
 	core.terra.register_species({
 		name = s.name, heat = s.heat, wet = s.wet, season = s.season, bank = s.bank, shore = s.shore,
 		on = s.on, trunk = s.trunk, leaves = s.leaves, shape = SHAPES[s.name],
 	})
 end
 
--- the coast: sand barely above the sea (terragen elevation; 0.03 ≈ 5 blocks)
-local function shore(c, i)
-	return c.elevation[i] < 0.03 or c.bank[i]
-end
-
--- what covers the ground where no tree stands
-local FLOWERS = { "tf_world:dandelion", "tf_world:poppy", "tf_world:orange_tulip", "tf_world:white_tulip" }
-local function ground_plant(c, i, ground)
-	if not c.alive[i] then return nil end -- (a dead world's sand is only sand)
-	local d, h, w, r = c.density[i], c.heat[i], c.wet[i], c.roll[i] -- r: 0 .. 2^32 − 1
-	local pick = math.floor(r / 256) % 1000 / 1000
-	if SAND[ground] then
-		if shore(c, i) then -- beaches, and the water's edge
-			if pick < 0.05 then return c.bank[i] and "tf_world:reed" or "tf_world:dune_grass" end
-		elseif h > 0.3 then -- desert: a cactus here and there, scrub, a few tufts
-			if pick < 0.004 then return "cactus" end
-			if pick < 0.02 then return "tf_world:dead_bush" end
-			if pick < 0.03 then return "tf_world:desert_grass" end
-		elseif pick < 0.01 then
-			return "tf_world:dune_grass"
-		end
-		return nil
-	end
-	if not SOIL[ground] then return nil end
-	if c.bank[i] and pick < 0.06 then
-		return (r % 2 == 0) and "tf_world:reed" or "tf_world:cattail"
-	end
-	if d > 0.7 then -- under the canopy
-		if pick < 0.02 then return (r % 3 == 0) and "tf_world:red_mushroom" or "tf_world:brown_mushroom" end
-		if pick < 0.25 then return "tf_world:fern" end
-		return nil
-	end
-	if d > 0.08 then -- meadow and open woodland
-		if pick < d * 0.6 then
-			if math.floor(r / 1048576) % 12 == 0 and h > -0.35 then -- no flowers at the treeline
-				if h > 0.2 and w < 0 then return "tf_world:lavender" end
-				return FLOWERS[math.floor(r / 16) % #FLOWERS + 1]
-			end
-			if math.floor(r / 1048576) % 40 == 1 and h > -0.2 and h < 0.4 then return "tf_world:berry_bush" end
-			return "tf_world:grass_tuft"
-		end
-		return nil
-	end
-	if w < -0.3 and pick < 0.015 then return "tf_world:dead_bush" end
-	return nil
-end
-
--- ---- planting, as each chunk generates ------------------------------------
-
-if not core.terra.enabled() then
-	return -- other worlds (the Lab) have no terragen to ask
-end
-
-core.register_on_generated(function()
-	local c = core.get_mapgen_object("terra_cover")
-	local vm
-	-- keeping the light the generator gave the open node
-	local function put(p, name)
-		local was = vm:get_node_at(p)
-		if was.name == "air" then
-			vm:set_node_at(p, { name = name, param1 = was.param1 })
-			return true
-		end
-	end
-	local any = false
-	for i = 1, #c.y do
-		local ground = core.get_name_from_content_id(c.ground[i])
-		local at = { x = c.x[i], y = c.y[i] + 1, z = c.z[i] }
-		-- where terragen stands a tree, the species the engine picks (as the far view draws it)
-		local species = c.alive[i] and c.tree[i] and core.terra.species(at, ground)
-		local plant = not species and ground_plant(c, i, ground)
-		if species then
-			vm = vm or core.get_mapgen_object("voxelmanip")
-			any = true
-			local s = BY_NAME[species]
-			local def = table.copy(SHAPES[species])
-			def.trunk, def.leaves, def.seed = s.trunk, s.leaves, c.roll[i] % 65536
-			core.spawn_tree_on_vmanip(vm, at, def)
-		elseif plant then
-			vm = vm or core.get_mapgen_object("voxelmanip")
-			any = true
-			if plant == "cactus" then
-				for k = 1, 1 + c.roll[i] % 3 do
-					put({ x = c.x[i], y = c.y[i] + k, z = c.z[i] }, "tf_world:cactus")
-				end
-			else
-				put({ x = c.x[i], y = c.y[i] + 1, z = c.z[i] }, plant)
-			end
-		end
-	end
-	if any then
-		vm:write_to_map(false)
-	end
-end)
+-- ---- planting --------------------------------------------------------------
+-- Plants are the generator's (flora, sprint 113: apps/game/src/flora), trees
+-- and what grows under them. The blocks above stay for building and the Lab.

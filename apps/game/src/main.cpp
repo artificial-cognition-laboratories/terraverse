@@ -23,6 +23,7 @@
 #include "far/export.h" // Terra Firma
 #include "planetarium/standalone.h" // Terra Firma
 #include "planetarium/shot.h" // Terra Firma
+#include "planetarium/camera.h" // Terra Firma
 #endif
 #include "database/database.h"
 #include "config.h"
@@ -300,6 +301,12 @@ int main(int argc, char *argv[])
 		planetarium::runStandalone(planetarium::HOME_SHOT.code, std::nullopt, cmd_args.get("planetarium-shot"));
 		return 0;
 	}
+	if (cmd_args.exists("planetarium-ladder")) {
+		if (cmd_args.exists("planetarium-cell"))
+			planetarium::OrbitCamera::cell = cmd_args.getFloat("planetarium-cell");
+		planetarium::runStandalone(planetarium::HOME_SHOT.code, std::nullopt, std::nullopt, cmd_args.get("planetarium-ladder"));
+		return 0;
+	}
 	if (cmd_args.exists("planetarium")) {
 		const std::string code = cmd_args.get("planetarium");
 		const std::optional<double> bench = cmd_args.exists("planetarium-bench")
@@ -434,6 +441,10 @@ static void set_allowed_options(OptionList *allowed_options)
 			_("With --planetarium: run <value> seconds on a script (layers switched each second), print the worst frames, and exit"))));
 	allowed_options->insert(std::make_pair("planetarium-shot", ValueSpec(VALUETYPE_STRING,
 			_("Render the main menu's picture (Terraverse) to the PNG <value>, and exit"))));
+	allowed_options->insert(std::make_pair("planetarium-ladder", ValueSpec(VALUETYPE_STRING,
+			_("Render the Planetarium's map from a small planet down to the ground (Terraverse) as PNGs in <value>, and exit"))));
+	allowed_options->insert(std::make_pair("planetarium-cell", ValueSpec(VALUETYPE_STRING,
+			_("With --planetarium-ladder: pixels a tile's cell may span before it splits (the reference renders under 1)"))));
 	allowed_options->insert(std::make_pair("export-palette", ValueSpec(VALUETYPE_STRING,
 			_("Write the game's baked palette (Terraverse) to <value>, from --world, and exit"))));
 	allowed_options->insert(std::make_pair("run-unittests", ValueSpec(VALUETYPE_FLAG,

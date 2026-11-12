@@ -50,14 +50,15 @@
 	29: Switched compression to zstd, a bit of reorganization
 	30: Terra Firma: cut nodes' shapes (shape::Shapes), after node metadata
 	31: Terra Firma: liquid in nodes' open space (fill::Fills), after the shapes (sprint 81)
+	32: Terra Firma: small plants (sprig::Sprigs), after the fills (sprint 113)
 */
 
 // This represents an uninitialized or invalid format
 constexpr u8 SER_FMT_VER_INVALID = 255;
 // Highest supported serialization version
-constexpr u8 SER_FMT_VER_HIGHEST_READ = 31;
+constexpr u8 SER_FMT_VER_HIGHEST_READ = 32;
 // Saved on disk version
-constexpr u8 SER_FMT_VER_HIGHEST_WRITE = 31;
+constexpr u8 SER_FMT_VER_HIGHEST_WRITE = 32;
 // Lowest supported serialization version
 constexpr u8 SER_FMT_VER_LOWEST_READ = 0;
 // Lowest serialization version for writing

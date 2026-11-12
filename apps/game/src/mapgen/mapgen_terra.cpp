@@ -187,6 +187,7 @@ void MapgenTerra::makeChunk(BlockMakeData *data)
 		m_emerge->oremgr->placeAllOres(this, blockseed, node_min, node_max);
 	if (flags & MG_DECORATIONS)
 		m_emerge->decomgr->placeAllDecos(this, blockseed, node_min, node_max);
+	plantTrees(data);
 	dustTopNodes();
 
 	updateLiquid(&data->transforming_liquid, full_node_min, full_node_max);
@@ -194,6 +195,107 @@ void MapgenTerra::makeChunk(BlockMakeData *data)
 		lightAtlas();
 
 	this->generating = false;
+}
+
+// Of the columns between trees, the share that grow a plant where the cover's closed; and the light a closed canopy leaves
+static const fix GROUND_PLANTS = 45 * ONE / 100, CANOPY_SHADES = 85 * ONE / 100;
+
+const MapgenTerra::Foot &MapgenTerra::footAt(s16 x, s16 z, const terra::Column *own)
+{
+	const u32 key = ((u32)(u16)x << 16) | (u16)z;
+	if (const auto found = m_feet.find(key); found != m_feet.end())
+		return found->second;
+	if (m_feet.size() > 1 << 18) // (a few hundred chunks' columns: it's a cache, not a store)
+		m_feet.clear();
+	Foot &out = m_feet[key];
+	out = { 0, nullptr, 0, false, 0, 0 };
+	BodyLand &land = landAt(x, z);
+	const terra::Column *read = own ? nullptr : land.reader.column({ x, 0, z });
+	const terra::Column &c = own ? *own : read ? *read : land.columns.at(x, z);
+	out.height = c.height;
+	const terragen::World &world = land.world;
+	if (c.space || c.water_above || c.lava || !world.code().processes.life)
+		return out;
+	const terragen::Cover cover = world.cover(c.at, c.ground);
+	// a tree at terragen's spots; between them, as thick as the cover, what grows under
+	const bool tree = cover.tree;
+	if (!tree && ((cover.roll >> 16) & 0xffff) >= (u32)mul(cover.density, GROUND_PLANTS))
+		return out;
+	const terragen::Column &g = c.ground.column;
+	flora::Site site;
+	site.heat = g.heat;
+	site.wet = g.wet;
+	site.season = g.season;
+	site.fertility = cover.fertility;
+	site.sand = c.made_of.sand;
+	site.clay = c.made_of.clay;
+	site.stones = c.made_of.stones;
+	site.depth = std::clamp<s32>(c.soil, 0, 8);
+	site.slope = cover.slope;
+	site.bank = cover.bank;
+	if (!tree) // (the canopy over it takes its light as the cover closes)
+		site.light = ONE - mul(cover.density, CANOPY_SHADES);
+	std::shared_ptr<flora::Forest> forest = flora::forestFor(world.code().seed_hash);
+	const int lineage = forest->choose(tree ? flora::Forest::Layer::Trees : flora::Forest::Layer::Ground, site, x, z, cover.roll);
+	if (lineage < 0)
+		return out;
+	out.forest = std::move(forest);
+	out.seed = world.code().seed_hash;
+	out.tree = tree;
+	out.id = flora::Forest::idOf(lineage, site, cover.roll);
+	out.roll = cover.roll;
+	return out;
+}
+
+/*
+	Trees are blocks; each chunk places every tree that reaches into it,
+	whichever chunk its foot stands in, and writes only its own nodes. A tree
+	is a function of its column, so the chunks either side of a seam grow it
+	alike and it comes out whole in whatever order they're made. Nothing
+	reaches further than flora::MOST_REACH blocks from its foot, and past
+	the chunk a column is read only at a tree's spot (World::treeSpot: a
+	column costs as much as the chunk's own).
+
+	A small plant is a sprig at its foot (sprig::Sprig): the client grows
+	and draws it, so it never crosses a seam as blocks.
+*/
+static const s16 REACH = flora::MOST_REACH;
+
+void MapgenTerra::plantTrees(BlockMakeData *data)
+{
+	if (!m_plants)
+		m_plants = terra::plantBlocks(ndef);
+	const content_t air = CONTENT_AIR;
+	const terra::Open open = [&](v3s16 p) { return vm->getNodeNoExNoEmerge(p).getContent() == air; };
+	// (in the order of the world's coordinates, never the chunk's, so where two plants want a node every chunk lets the same one have it)
+	for (s16 z = node_min.Z - REACH; z <= node_max.Z + REACH; z++)
+		for (s16 x = node_min.X - REACH; x <= node_max.X + REACH; x++) {
+			const s16 out = std::max({ node_min.X - x, x - node_max.X, node_min.Z - z, z - node_max.Z });
+			if (out > 0) {
+				const std::optional<terragen::Place> at = m_atlas.place({ x, 0, z });
+				if (!at || !landAt(x, z).world.treeSpot(*at))
+					continue;
+			}
+			const Foot &foot = footAt(x, z, out <= 0 ? &m_column.at((z - node_min.Z) * csize.X + (x - node_min.X)) : nullptr);
+			if (!foot.forest || foot.height >= node_max.Y)
+				continue;
+			const u8 pose = (u8)(((foot.roll >> 8) % 4) | (((foot.roll >> 10) & 1) << 2));
+			if (!foot.tree) {
+				const v3s16 at(x, foot.height + 1, z);
+				if (out > 0 || at.Y < node_min.Y || !open(at))
+					continue;
+				vm->setNodeNoEmerge(at, MapNode(m_plants->growth));
+				data->sprigs[at] = { foot.seed, foot.id, pose };
+				continue;
+			}
+			const std::shared_ptr<const flora::Plant> plant = foot.forest->plant(foot.id);
+			const s32 reach = (plant->reach + plant->grain - 1) / plant->grain + 1, top = (plant->top + plant->grain - 1) / plant->grain;
+			if (out > reach || foot.height + 1 + top < node_min.Y)
+				continue;
+			const flora::Traits t = foot.forest->traitsOf(foot.id);
+			terra::place(*plant, t.colours, v3s16(x, foot.height + 1, z), pose & 3, pose & 4, node_min, node_max, *m_plants, *vm,
+					open, data->shapes);
+		}
 }
 
 MapgenTerra::SurfaceCover MapgenTerra::surfaceCover(size_t index) const

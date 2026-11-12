@@ -258,6 +258,26 @@ export type MoveState = { time: number; doing: string; pace: number; mass?: numb
 
 export type ReliefState = { round: number; rounds: number }
 
+/** A place a plant grows, as terragen knows a column (src/flora/flora.h: Site). */
+export type FloraSite = {
+    heat: number; wet: number; season: number; fertility: number; sand: number; clay: number; stones: number
+    depth: number; wind: number; slope: number; upset: number; light: number; bank: boolean
+}
+export type FloraLineage = { name: string; preset: string; group: string; leaf: string; bark: string; lives: boolean }
+/** One of a plant's genes (src/flora/flora.h: GENES): what it was born with or set to, and what its site grew of it. */
+export type FloraGene = { id: string; label: string; group: string; lo: number; hi: number; whole: boolean; value: number; grown: number; set: boolean }
+/** What grew there (src/shell/flora.cpp); `limit` and `why`: none, cold, drought, hunger, rooting, shade or wet. */
+export type FloraState = {
+    lineages: FloraLineage[]
+    genes: FloraGene[]
+    strategy: { warmth: number; water: number; light: number; food: number; rooting: number; vigour: number; disturbance: number; strategy: string; limit: string }
+    traits: { lives: boolean; why: string; evergreen: boolean; leafing: number; flowering: number; leaf: string }
+    /** Whole blocks' worth of each part. */
+    blocks: Record<string, number>
+    /** Its voxels to a block's side. */
+    grain: number
+}
+
 export type SceneRect = { x: number; y: number; width: number; height: number }
 
 export type SandboxFrame = {
@@ -583,6 +603,8 @@ export type Intents = {
     "relief.set": { request: { lens: string; speed: number; running: boolean }; response: null }
     "relief.restart": { request: {}; response: null }
     "relief.state": { request: {}; response: ReliefState }
+    "flora.show": { request: { rect: SceneRect; right: number }; response: null }
+    "flora.set": { request: { world: string; lineage: number; plant: number; life: { age: number; season: number }; genes: Record<string, number>; site: FloraSite }; response: FloraState }
     "scene.show": { request: { id: number; rect: SceneRect; right: number; heat: boolean }; response: null }
     "scene.place": { request: { rect: SceneRect; right: number }; response: null }
     "scene.hide": { request: {}; response: null }

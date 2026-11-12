@@ -29,6 +29,6 @@ export const features: Feature[] = [
         kicker: "modding",
         title: "A universe to make games in",
         body: "The official game is built from the same public Lua API you get. Switch it off and you have a clean universe for survival, racing or anything else.",
-        to: "/docs/modding",
+        to: "/docs/mods",
     },
 ]

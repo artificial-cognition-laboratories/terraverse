@@ -217,6 +217,22 @@ int32_t Sphere::cell(const Dir &d) const
 
 Sphere::Spot Sphere::spot(const Dir &d) const
 {
+	// the last asked for, the thread's: a column reads a dozen fields between
+	// the cells at one place (World::between, surface, column), and finding
+	// them each time was a tenth of a far tile's time (sprint 114)
+	thread_local const Sphere *last_sphere = nullptr;
+	thread_local Dir last_dir{};
+	thread_local Spot last{};
+	if (last_sphere == this && last_dir.x == d.x && last_dir.y == d.y && last_dir.z == d.z)
+		return last;
+	last = spotAt(d);
+	last_sphere = this;
+	last_dir = d;
+	return last;
+}
+
+Sphere::Spot Sphere::spotAt(const Dir &d) const
+{
 	const Onface o = onFace(d);
 	int32_t i = std::clamp(floorInt(o.i), 0, m_n - 1), j = std::clamp(floorInt(o.j), 0, m_n - 1 - i);
 	fix a = o.i - toFix(i), b = o.j - toFix(j);

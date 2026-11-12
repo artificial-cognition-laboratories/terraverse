@@ -10,7 +10,8 @@ struct Lit::Uniforms : public IShaderUniformSetterRC
 {
 	Light light{};
 	CachedPixelShaderSetting<float, 3> m_centre{"litCentre"}, m_sun{"litSun"}, m_second{"litSecond"};
-	CachedPixelShaderSetting<float> m_share{"litShare"}, m_on{"litOn"}, m_penumbra{"litPenumbra"}, m_contour{"litContour"};
+	CachedPixelShaderSetting<float> m_share{"litShare"}, m_on{"litOn"}, m_penumbra{"litPenumbra"}, m_contour{"litContour"},
+		m_textured{"litTextured"};
 	CachedPixelShaderSetting<float, 4> m_occ[OCCLUDERS] = { {"litOcc0"}, {"litOcc1"}, {"litOcc2"}, {"litOcc3"} };
 
 	void onSetUniforms(video::IMaterialRendererServices *s) override
@@ -23,6 +24,8 @@ struct Lit::Uniforms : public IShaderUniformSetterRC
 		m_on.set(&on, s);
 		m_penumbra.set(&light.penumbra, s);
 		m_contour.set(&light.contour, s);
+		const float textured = light.textured ? 1 : 0;
+		m_textured.set(&textured, s);
 		for (int i = 0; i < OCCLUDERS; i++)
 			m_occ[i].set(light.occluders[i], s);
 	}

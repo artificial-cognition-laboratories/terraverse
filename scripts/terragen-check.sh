@@ -62,7 +62,7 @@ for key, (terrain, water, kind, biome, deep, bed_top) in predicted.items():
         expect = None  # bare peaks: the bedrock shows
     else:
         expect = (f"tf_world:{TOP[biome]}",)
-    tree = any(t in node for t in ("log", "leaves", "needles"))
+    tree = any(t in node for t in ("log", "leaves", "needles", "tf_world:plant_"))
     if gy != terrain and not tree:
         bad.append(f"{key} {kind}: ground {gy}, expected {terrain}")
     elif gy == terrain and expect and node not in expect:

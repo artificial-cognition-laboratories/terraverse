@@ -14,6 +14,7 @@
 #include "nodetimer.h"
 #include "shape/shape.h"
 #include "fill/fill.h"
+#include "sprig/sprig.h"
 #include "modifiedstate.h"
 #include "util/numeric.h" // getContainerPos
 
@@ -563,6 +564,7 @@ public:
 	// Terra Firma: its cut nodes (sprint 44)
 	shape::Shapes m_shapes;
 	fill::Fills m_fills; // Terra Firma: liquid in its nodes' open space (sprint 81)
+	sprig::Sprigs m_sprigs; // Terra Firma: its small plants, by their foot (sprint 113)
 	StaticObjectList m_static_objects;
 
 private:

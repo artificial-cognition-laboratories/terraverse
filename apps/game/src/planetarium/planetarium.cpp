@@ -185,6 +185,18 @@ double Planetarium::spinOf(size_t index) const
 	return m_system.system().turning(index, m_day);
 }
 
+// The body's drawn as its globe (planetarium/globe.h) once its coarsest
+// tiles' cells are smaller than a tile's would be let be (OrbitCamera::cell:
+// past that they'd merge, but they're the coarsest there are), till they're
+// this many times that again
+static constexpr double GLOBE_LEAVE = 1.4;
+// What makes the globe's picture: a few threads, beside the tiles' (a second or two)
+static constexpr unsigned GLOBE_THREADS = 2;
+
+// How much wider than the screen tiles are split for: what's built before it
+// turns into view.
+static constexpr double VIEW_MARGIN = 1.1;
+
 // A baked body is drawn from its tiles once it's this many pixels across (a sphere till then).
 static constexpr double BAKED_PIXELS = 6;
 
@@ -649,7 +661,28 @@ void Planetarium::update(v2u32 screen)
 		m_flight.reset();
 	}
 	const auto tilesFrom = std::chrono::steady_clock::now();
-	m_tiles.update(OrbitCamera::eyeAt(OrbitCamera::turn(eye(), -m_spin), m_sea, (float)screen.Y * std::tan(OrbitCamera::FOV / 2) / std::tan(m_fov / 2))); // (a long lens: finer for what fills the screen)
+	far::Eye tilesEye = OrbitCamera::eyeAt(OrbitCamera::turn(eye(), -m_spin), m_sea, (float)screen.Y * std::tan(OrbitCamera::FOV / 2) / std::tan(m_fov / 2)); // (a long lens: finer for what fills the screen)
+	// a spot that was fine stays fine while one of its tiles is rebuilt: a
+	// coarser one fills only that tile's hole (panning, the whole spot had
+	// gone coarse for a moment)
+	tilesEye.keep_fine = true;
+	if (!m_flight && m_target == m_tiled) {
+		// round it: what it sees is the screen, by the view's own axes in the
+		// ground's frame (as draw() turns it), wider for the picture moved off
+		// centre (shift), and a margin
+		const core::matrix4 v = OrbitCamera::turned(view(), m_spin);
+		const auto axis = [&](int k) { return far::Tiling::Vec{ v[k], v[4 + k], v[8 + k] }; };
+		const double t = std::tan(m_fov / 2) * VIEW_MARGIN;
+		const double aspect = (double)screen.X / std::max(1u, screen.Y);
+		tilesEye.right = axis(0);
+		tilesEye.upward = axis(1);
+		tilesEye.look = axis(2);
+		tilesEye.wide = (float)(t * aspect * (1 + std::abs((double)m_shift.X)));
+		tilesEye.high = (float)(t * (1 + std::abs((double)m_shift.Y)));
+	}
+	m_tiles.update(tilesEye);
+	if (!m_globe && m_tiles.based())
+		m_globe = std::make_unique<Globe>(m_horizon, m_world, m_body, m_palette, GLOBE_THREADS);
 	m_worstTiles = std::max(m_worstTiles, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tilesFrom).count());
 	if (++m_frame % 120 == 0) {
 		infostream << "planetarium: " << m_tiles.drawn().size() << " tiles drawn, " << m_tiles.pending() << " to build, "
@@ -693,7 +726,7 @@ void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 	} timed{ frameFrom, m_worstFrame };
 	m_corner = view.UpperLeftCorner;
 	update(v2u32(std::max(1, view.getWidth()), std::max(1, view.getHeight())));
-	const core::dimension2du window = driver->getScreenSize();
+	const core::dimension2du window = driver->getCurrentRenderTargetSize(); // (the window, or a picture drawn off screen)
 	driver->draw2DRectangle(video::SColor(255, 0, 0, 0), view); // space
 	driver->setViewPort(view);
 	const core::dimension2du screen(m_screen.X, m_screen.Y);
@@ -716,8 +749,33 @@ void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 		}
 		driver->setTransform(video::ETS_VIEW, spun);
 		// (an overlay is there to be read, on the night side too)
-		driver->setMaterial(m_system.lit(m_tiled, m_day, v3f((float)-ground.x, (float)-ground.y, (float)-ground.z) * BS, m_spin, !m_layer, contour()));
-		for (const far::Tiles::Drawn &tile : m_tiles.drawn()) {
+		// So far out the coarsest tiles' cells are about a pixel, its globe: a
+		// tile's cell is one column's colour, and a pixel over a few showed
+		// one of them at random, a grain; the globe's mipmaps show their mean.
+		// Not under a layer (its colours are the tiles')
+		const double up = std::hypot(ground.x, ground.y, ground.z) - m_sea;
+		const double focal = screen.Height / (2 * std::tan(m_fov / 2));
+		const double root = (double)(1 << m_tiles.tiling().roots().front().level) * focal / std::max(up, 1.0); // its cells' pixels
+		m_globed = !m_layer && m_globe && m_globe->ready() && root < OrbitCamera::cell * (m_globed ? GLOBE_LEAVE : 1.0);
+		if (m_globed) {
+			core::matrix4 world;
+			world.setScale((f32)(m_sea * BS));
+			world.setTranslation(v3f((float)-ground.x, (float)-ground.y, (float)-ground.z) * BS);
+			m_globe->draw(driver, m_system.lit(m_tiled, m_day, v3f((float)-ground.x, (float)-ground.y, (float)-ground.z) * BS,
+					m_spin, true, 0, true), world);
+		}
+		driver->setMaterial(m_system.lit(m_tiled, m_day, v3f((float)-ground.x, (float)-ground.y, (float)-ground.z) * BS,
+				m_spin, !m_layer, contour()));
+		// what isn't built yet shows a coarser tile behind the finer ones that
+		// are (Eye::keep_fine), not instead of them all: drawn first, so the
+		// fine land is drawn over it and it only shows through the holes
+		std::vector<far::Tiles::Drawn> tiles;
+		if (!m_globed) {
+			tiles = m_tiles.behind();
+			for (far::Tiles::Drawn &tile : m_tiles.drawn())
+				tiles.push_back(std::move(tile));
+		}
+		for (const far::Tiles::Drawn &tile : tiles) {
 			core::matrix4 world;
 			world.setTranslation(v3f((float)(tile.middle.x - ground.x), (float)(tile.middle.y - ground.y),
 					(float)(tile.middle.z - ground.z)) * BS);
@@ -733,6 +791,22 @@ void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 		return drawBaked(driver, look, aspect, index, at, pixels, near, far);
 	});
 	driver->setViewPort(core::recti(0, 0, window.Width, window.Height)); // the page draws over the whole window
+}
+
+Planetarium::DrawStats Planetarium::drawStats() const
+{
+	DrawStats out;
+	if (m_globed)
+		return out;
+	for (const std::vector<far::Tiles::Drawn> &list : { m_tiles.behind(), m_tiles.drawn() })
+		for (const far::Tiles::Drawn &tile : list) {
+			out.tiles++;
+			for (const auto &part : tile.parts) {
+				out.buffers++;
+				out.vertices += part->getVertexCount();
+			}
+		}
+	return out;
 }
 
 Planetarium::~Planetarium() = default;

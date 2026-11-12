@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "fixed.h"
+#include <cmath>
 #include <stdexcept>
 
 namespace terragen {
@@ -15,18 +16,18 @@ static const fix CORDIC_GAIN = 39797; // 0.60725
 
 uint64_t isqrt(uint64_t n)
 {
-	uint64_t r = 0, bit = (uint64_t)1 << 62;
-	while (bit > n)
-		bit >>= 2;
-	while (bit) {
-		if (n >= r + bit) {
-			n -= r + bit;
-			r = (r >> 1) + bit;
-		} else {
-			r >>= 1;
-		}
-		bit >>= 2;
-	}
+	// A float's root, then made exact in integers: the float's only a first
+	// guess (n past 2⁵³ rounds going in, the root may be one off), and what's
+	// returned is ⌊√n⌋ exactly, the same on any machine. Bit by bit, as it
+	// was, it was a fifth of a far column's time (sprint 114)
+	uint64_t r = (uint64_t)std::sqrt((double)n);
+	// (squared in 128 bits: past 2³² r² overflows 64; no division, which
+	// cost as much as the bits did)
+	using W = unsigned __int128;
+	while ((W)r * r > n)
+		r--;
+	while ((W)(r + 1) * (r + 1) <= n)
+		r++;
 	return r;
 }
 
@@ -192,23 +193,5 @@ fix exp(fix v)
 	return exp2(mul(v, 94548)); // log₂ e
 }
 
-int64_t mulShift(int64_t a, int64_t b, int shift)
-{
-	// |a|·|b| as 128 bits in two halves, from 32-bit limbs
-	const bool negative = (a < 0) != (b < 0);
-	const uint64_t ua = a < 0 ? 0 - (uint64_t)a : (uint64_t)a, ub = b < 0 ? 0 - (uint64_t)b : (uint64_t)b;
-	const uint64_t a0 = ua & 0xffffffffu, a1 = ua >> 32, b0 = ub & 0xffffffffu, b1 = ub >> 32;
-	const uint64_t low = a0 * b0, mid1 = a1 * b0, mid2 = a0 * b1, high = a1 * b1;
-	const uint64_t mid = (low >> 32) + (mid1 & 0xffffffffu) + (mid2 & 0xffffffffu);
-	const uint64_t lo = (low & 0xffffffffu) | (mid << 32);
-	const uint64_t hi = high + (mid1 >> 32) + (mid2 >> 32) + (mid >> 32);
-	uint64_t q = (lo >> shift) | (hi << (64 - shift));
-	if (negative) {
-		// floor of a negative: one further down if anything was shifted out
-		const bool rest = (lo & ((1ull << shift) - 1)) != 0;
-		return -(int64_t)q - (rest ? 1 : 0);
-	}
-	return (int64_t)q;
-}
 
 } // namespace terragen

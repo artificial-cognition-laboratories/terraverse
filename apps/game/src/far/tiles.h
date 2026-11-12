@@ -36,6 +36,13 @@ struct Eye
 	float split;     // a tile splits while nearer than this many of its spans past the cut
 	bool keep_fine = false; // what isn't built yet shows a coarser tile behind the rest (behind()), not instead of it
 	Tiling::Vec heading{ 0, 0, 0 }; // unit, or none: which way it's moving, on the planet. What's ahead is built first
+	// What it can see, if it knows: the way it looks, the screen's right and
+	// up (unit, square to each other), and how far its edges are off the way
+	// it looks (the tangents of half its width and height, margin and all). A
+	// tile out of that is neither drawn nor split: it's off screen (the
+	// Planetarium's camera, looking down at a patch of the ground)
+	Tiling::Vec look{ 0, 0, 0 }, right{ 0, 0, 0 }, upward{ 0, 0, 0 };
+	float wide = 0, high = 0; // 0: sees all round
 };
 
 /*
@@ -118,24 +125,48 @@ private:
 	struct Entry
 	{
 		std::vector<irr_ptr<scene::SMeshBuffer>> parts;
-		std::array<std::vector<irr_ptr<scene::SMeshBuffer>>, 4> quarters; // the same parts, by the child they lie in
+		// the same land by the child it lies in, for standing in behind it
+		// (behind()): made when it's first wanted, from its range of `parts`
+		// (one buffer, merged), and again after it's repainted
+		std::array<std::vector<irr_ptr<scene::SMeshBuffer>>, 4> quarters;
+		struct Range
+		{
+			u32 v0 = 0, v1 = 0, i0 = 0, i1 = 0; // its vertices and indices in the merged buffer
+		};
+		std::array<Range, 4> ranges;
+		bool merged = false; // parts is one buffer, the quarters' ranges in it (else they're its parts by quarter)
 		std::vector<std::vector<video::SColor>> own; // each part's vertices' own colours (under a tint)
 		u32 painted = 0; // the tint it's coloured by (Tiles::m_tints)
 		bool ready = false;
 		bool sketch = false; // ready, but only a stand-in till it's built (Generator::sketch)
 		u32 used = 0; // the frame it was last wanted or drawn
 		u32 whole = 0; // the frame it was last drawn as itself, not split
+		size_t bytes = 0; // its mesh's (what evict() keeps the tiles under)
 	};
+
+	// A tile's middle (Tiling::middle) and half its diagonal, worked out once:
+	// each costs a trip round the atlas (terragen::Atlas::at), and choosing
+	// asked for them several times a tile, each frame (sprint 114)
+	struct Place
+	{
+		Tiling::Vec middle;
+		double half;
+	};
+	const Place &place(const Key &key) const;
+	mutable std::map<Key, Place> m_places;
 
 	// how far a tile is from the eye along the ground (blocks, less half its size)
 	float distance(const TileKey &key, const Eye &eye) const;
 	// whether all of a tile is within the eye's cut (the near world's range)
 	bool inside(const TileKey &key, const Eye &eye) const;
+	// whether any of a tile is within what the eye sees (Eye::look)
+	bool seen(const TileKey &key, const Eye &eye) const;
 	bool choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::vector<std::pair<float, Key>> &want);
 	void install();
 	void paint(const Key &key, Entry &e) const; // its colours, tinted or its own
 	void repaint(); // tiles still in another tint's colours, within the budget
 	void evict();
+	void quarter(Entry &e, s32 child); // its quarter's buffers, if not made
 
 	const planet::Atlas m_atlas; // kept: the workers build from them
 	const Horizon m_horizon;
@@ -145,10 +176,12 @@ private:
 	std::vector<Key> m_draw;
 	std::vector<std::pair<Key, s32>> m_behind; // a tile, and the child of it it stands in for
 	u32 m_frame = 0;
+	size_t m_bytes = 0; // every held tile's (Entry::bytes)
 	size_t m_pending = 0;
 	std::unique_ptr<terragen::Step> m_coarse; // the roots as they're built, till the coarse planet's all there (terragen/progress.h)
 	std::shared_ptr<const Tint> m_tint;
 	u32 m_tints = 0; // tints set so far: a tile painted by this one is up to date
+	u32 m_swept = 0; // the tint every held tile's been painted by, once repaint() finds none left
 };
 
 } // namespace far

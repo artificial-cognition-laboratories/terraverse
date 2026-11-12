@@ -30,6 +30,28 @@ const int32_t SPOT_CELL = 5; // blocks: at most one tree per 5×5
 
 } // namespace
 
+/*
+	One jittered spot per small cell: its hash (never 0) if the place is it,
+	else 0. The cells are a square lattice on the plane of the cube face
+	this place looks out through (its surface block's other two coordinates),
+	with the face's axis in the hash so the faces' lattices differ.
+*/
+uint32_t World::spot(const Place &at, const std::array<int32_t, 3> &p) const
+{
+	const int axis = std::abs(at.x) >= std::abs(at.y) && std::abs(at.x) >= std::abs(at.z) ? 0
+			: std::abs(at.y) >= std::abs(at.z) ? 1 : 2;
+	const int32_t x = p[(axis + 1) % 3], z = p[(axis + 2) % 3];
+	int32_t sx = (x >= 0 ? x : x - SPOT_CELL + 1) / SPOT_CELL, sz = (z >= 0 ? z : z - SPOT_CELL + 1) / SPOT_CELL;
+	uint32_t h = mix((uint32_t)sx, (uint32_t)sz, m_code.seed_hash + SPOT + (uint32_t)(axis * 2 + (p[axis] < 0)));
+	int32_t px = sx * SPOT_CELL + (int32_t)(h % SPOT_CELL), pz = sz * SPOT_CELL + (int32_t)((h >> 8) % SPOT_CELL);
+	return px == x && pz == z ? std::max<uint32_t>(h, 1) : 0;
+}
+
+bool World::treeSpot(const Place &at) const
+{
+	return spot(at, solid(at, 0));
+}
+
 Cover World::cover(const Place &at, const Ground &ground) const
 {
 	const Grid &g = *m_grid;
@@ -77,17 +99,9 @@ Cover World::cover(const Place &at, const Ground &ground) const
 	density = clamp(mul(density, ratio(70, 100) + mul(woods, ratio(60, 100))), 0, ONE);
 	out.density = density;
 
-	// a tree here? one jittered spot per small cell, kept if the roll is under
-	// the density. The cells are a square lattice on the plane of the cube face
-	// this place looks out through (its surface block's other two coordinates),
-	// with the face's axis in the hash so the faces' lattices differ
-	const int axis = std::abs(at.x) >= std::abs(at.y) && std::abs(at.x) >= std::abs(at.z) ? 0
-			: std::abs(at.y) >= std::abs(at.z) ? 1 : 2;
-	const int32_t x = p[(axis + 1) % 3], z = p[(axis + 2) % 3];
-	int32_t sx = (x >= 0 ? x : x - SPOT_CELL + 1) / SPOT_CELL, sz = (z >= 0 ? z : z - SPOT_CELL + 1) / SPOT_CELL;
-	uint32_t h = mix((uint32_t)sx, (uint32_t)sz, m_code.seed_hash + SPOT + (uint32_t)(axis * 2 + (p[axis] < 0)));
-	int32_t px = sx * SPOT_CELL + (int32_t)(h % SPOT_CELL), pz = sz * SPOT_CELL + (int32_t)((h >> 8) % SPOT_CELL);
-	out.tree = px == x && pz == z && (fix)((h >> 12) & (ONE - 1)) < mul(density, ratio(85, 100));
+	// a tree here? at its spot, kept if the roll is under the density
+	const uint32_t h = spot(at, p);
+	out.tree = h && (fix)((h >> 12) & (ONE - 1)) < mul(density, ratio(85, 100));
 	return out;
 }
 

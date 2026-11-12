@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "far/tilecache.h"
+#include <cstdio>
 #include "far/horizon.h"
 #include "exceptions.h"
 #include "network/networkpacket.h"
@@ -116,6 +117,24 @@ static Run getRun(const std::string &in, size_t &at)
 	r.high = get<s32>(in, at);
 	r.node = getNode(in, at);
 	return r;
+}
+
+std::vector<TileKey> TileCache::kept() const
+{
+	std::vector<TileKey> out;
+	std::error_code error;
+	for (const fs::directory_entry &entry : fs::directory_iterator(m_dir, error)) {
+		// <level>_<face>_<x>_<z>.tile (path()); anything else isn't one
+		const std::string name = entry.path().filename().string();
+		TileKey key{ 0, 0, 0, 0 };
+		char tail[8] = {};
+		if (std::sscanf(name.c_str(), "%d_%d_%d_%d%7s", &key.level, &key.face, &key.x, &key.z, tail) == 5 &&
+				std::string(tail) == ".tile")
+			out.push_back(key);
+	}
+	if (error && error != std::errc::no_such_file_or_directory)
+		throw BaseException("far tile cache: can't list " + m_dir + ": " + error.message());
+	return out;
 }
 
 std::optional<Tile> TileCache::load(const TileKey &key) const

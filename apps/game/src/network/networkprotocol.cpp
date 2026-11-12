@@ -188,10 +188,13 @@
 	PROTOCOL VERSION 100 (Terra Firma)
 		The ground (sprint 111): TOCLIENT_HORIZON's blocks carry the soil
 		kinds (by parent rock and stoniness). Only 100 is accepted on either side.
+	PROTOCOL VERSION 101 (Terra Firma)
+		Small plants (sprint 113): map blocks carry sprigs (serialization 32).
+		Only 101 is accepted on either side.
 */
 
 // Note: Also update core.protocol_versions in builtin when bumping
-const u16 LATEST_PROTOCOL_VERSION = 100;
+const u16 LATEST_PROTOCOL_VERSION = 101;
 
 // See also formspec [Version History] in doc/lua_api.md
 const u16 FORMSPEC_API_VERSION = 12;

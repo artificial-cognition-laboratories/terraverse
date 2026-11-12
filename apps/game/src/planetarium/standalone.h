@@ -20,7 +20,9 @@ namespace planetarium {
 // the worst frame overall and the worst just after a switch, then return.
 // `shot`: render the main menu's picture (planetarium/shot.h) to that PNG, once
 // its land is built, and return. For tuning its looks without the game.
+// `ladder`: the home shot's side from a small planet down to the ground, as
+// PNGs in that directory (scripts/map-shots.sh scores them), and return.
 void runStandalone(const std::string &code, std::optional<double> bench = std::nullopt,
-		std::optional<std::string> shot = std::nullopt);
+		std::optional<std::string> shot = std::nullopt, std::optional<std::string> ladder = std::nullopt);
 
 } // namespace planetarium

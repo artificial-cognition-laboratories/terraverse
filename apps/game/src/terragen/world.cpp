@@ -355,6 +355,8 @@ int32_t World::cell(const Dir &d) const
 // summit every way.
 // the finest lattice this thread's columns read (World::Coarse), place units
 static thread_local int64_t t_least = 0;
+// whether this thread's coarse rivers are widened to show on every cell (World::Coarse)
+static thread_local bool t_widened = true;
 
 static const int32_t RAVINES_BLOCKS = 160;
 // Lava plains: a young shield's or rift's flows, in PLAINS_LOBES lobes round
@@ -541,12 +543,17 @@ fix World::temperature(const Place &d, fix date, fix hour) const
 }
 
 
-World::Coarse::Coarse(const World &world, int64_t cell_blocks)
+World::Coarse::Coarse(const World &world, int64_t cell_blocks, bool widened)
 {
+	t_widened = widened;
 	t_least = cell_blocks > 1 ? (int64_t)(((__int128)cell_blocks * PLACE_ONE << FRAC) / world.m_radius) : 0;
 }
 
-World::Coarse::~Coarse() { t_least = 0; }
+World::Coarse::~Coarse()
+{
+	t_least = 0;
+	t_widened = true;
+}
 
 const World::ChannelsAt &World::channelsAt(const Place &at) const
 {
@@ -1908,7 +1915,7 @@ Ground World::ground(const Place &at, fix sun) const
 		// tile was missed by most of the tiles it crossed: few rivers, dashed)
 		if (tile > 0 && g.drained[i] < shown)
 			continue;
-		const int64_t width = shape.width, half = std::max(width / 2, tile * 40 / 100);
+		const int64_t width = shape.width, half = t_widened ? std::max(width / 2, tile * 40 / 100) : width / 2;
 		int bend = 0;
 		int64_t bar = 0;
 		int32_t run_along = 0, run_across = 0;

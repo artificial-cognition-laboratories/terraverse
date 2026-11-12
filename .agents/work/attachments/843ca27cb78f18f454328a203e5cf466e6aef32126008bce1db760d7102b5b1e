@@ -1,0 +1,50 @@
+GOAL
+A standalone stream-sanity probe for terragen that turns "small rivers look wrong" into numbers, each failure attributed to its cause in channels.cpp.
+
+WHY
+Small streams (the Channels levels below the grid's rivers) look wrong in game: they break into disjoint pieces, turn at sharp kinks, and some run along hilltops instead of down toward a river or sea. Before redesigning anything we need counts per mechanism, so the fix job has a check that can fail and we fix the dominant cause first. Agreed target ("sane"): every drawn stream runs unbroken from its head to what it joins, always downhill, never above its banks, never along a ridge. Sinking into fans/sills is not an excuse for now: count it as a break, with its cause.
+
+CONTEXT
+- Repo: /home/cody/git/terraverse. Read AGENTS.md first (fixed-point rules, terragen is pure, planet = function of place).
+- Stream model: apps/game/src/terragen/channels.{h,cpp}. Header comment explains levels/lattice/nodes. Key code in Channels::read():
+  - ~L1160-1190: per-level bend noise (BEND, BEND_SHARE), faded to 0 toward each segment's foot.
+  - ~L1268-1288: water is assigned from whichever segment owns the LOWEST land (`owner`), only if seg.flow >= STREAM_FLOW.
+  - ~L1378: STREAM_SINKS removes water where land stands above it.
+  - later: rolls (ROLLS), beds/benches step(), keep() reshape land after the water is chosen.
+  Read gives: land, water, water_gap, water_width, water_from (level), bed, bed_level, relief (-1 floor..1 ridge), slope, pond.
+- Node joins are chosen on rough heights (Node::rough_low/high, cost) in build()/toLevelAbove(); sibling/into = tributary of a same-level head.
+- Design history: planning/sprint-100-channels.md, sprint-108-water-shapes-land.md, sprint-109-natural-land.md.
+- Existing standalone tools to copy the pattern from: scripts/terragen-check/*.cpp (e.g. landscape.cpp, region.cpp, render.cpp), built with scripts/terragen-tool.sh <out> <tool.cpp>. Default world code used by checks: TF22.dGVycmE.
+
+HYPOTHESES TO TEST (Captain's, from reading code; confirm or refute each)
+H1 Disjointed: water follows lowest-land ownership, so where a neighbour's hillside (fade ramp, hardness, cirque, rise) comes out lower, the stream's water vanishes mid-run; STREAM_SINKS adds more gaps.
+H2 Sharp: segments are straight head->join lines; bend fades to 0 at the foot, so joins and sibling chains kink.
+H3 Hilltops: joins picked on rough pre-flow heights, then rolls/benches/rock reshape land around a stream that doesn't know; and/or a fine segment runs along a parent's hillside rather than down it.
+
+APPROACH
+- New tool scripts/stream-check/probe.cpp (+ a small runner script scripts/stream-check.sh and a `bun check:streams`-style entry only if package.json pattern makes it trivial).
+- For a fixed set of regions (several codes/planet sizes incl. a 100k-radius world and the default; mix of gentle plains and ranges; fixed so runs are comparable), walk the network itself: for each wet node (Channels::node/shape, flow >= STREAM_FLOW), sample along its drawn path (bent as read() bends it) at ~1 block steps, calling read() at each sample.
+- Metrics, per level and overall:
+  1. continuity: fraction of path samples where read().water is absent or belongs to another level/segment; split the cause: ownership flip (other segment lower), sink (STREAM_SINKS), threshold, other.
+  2. sharpness: turn angle distribution along paths and at joins (p50/p95/max, count > 45°/90°).
+  3. downhill: water level rising downstream along a path (count, worst).
+  4. banks/ridges: water above land within a few blocks either side; path samples with relief > some threshold (on a ridge); fraction of a path where land falls away on both sides.
+- Also emit a PNG per region (red = break, yellow = sharp turn, magenta = uphill/ridge over a hillshade) so the Captain and human can eyeball it. Put images in .output/stream-check/.
+- Print one summary table; deterministic output.
+
+CONSTRAINTS
+- Do NOT modify anything under apps/game/src/ (another agent has uncommitted work in terragen/channels.cpp; don't touch, stash, or revert it). Read-only on engine code. If you need private Channels internals, approximate from public API (node/shape/read/spacing/latticeOf) and say so; if truly impossible, report blocked with what accessor you'd need.
+- Match terragen tool style (fixed-point, comments in the repo's voice). No new dependencies.
+- Don't commit.
+
+OUT OF SCOPE
+Fixing anything. Changing generation, goldens, versions. Planetarium/far rendering (sprint 114).
+
+DONE WHEN
+- Tool builds and runs end to end from one command, in reasonable time (state it).
+- Summary table of the four metrics per level for each region, with H1/H2/H3 each marked confirmed/refuted/partial with the numbers behind it, and the top cause of breaks named.
+- PNGs exist and visibly mark the failures; name 2-3 world coordinates of clear examples of each failure.
+- Running it twice gives identical numbers.
+
+REPORT
+STATUS / CHANGED / DECISIONS / EVIDENCE / QUESTIONS. Under EVIDENCE include the command, runtime, the summary table, and image paths.

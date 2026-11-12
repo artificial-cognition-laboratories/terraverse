@@ -13,4 +13,4 @@ On top of that universe you play games: survival, racing, or whatever the commun
 
 - [Install it](/docs/play/install)
 - [Learn the controls](/docs/play/controls)
-- [Make a mod](/docs/modding)
+- [Make a mod](/docs/mods)

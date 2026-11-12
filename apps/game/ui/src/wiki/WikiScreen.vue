@@ -5,6 +5,7 @@ import { Button, WorkbenchPanel } from "../kit/index.ts"
 import { AIR_DEMOS } from "./air.ts"
 import { LAB_DEMOS } from "./demos.ts"
 import DemosSection from "./DemosSection.vue"
+import FloraSection from "./FloraSection.vue"
 import FluidsSection from "./FluidsSection.vue"
 import MatterSection from "./MatterSection.vue"
 import MovementSection from "./MovementSection.vue"
@@ -43,6 +44,8 @@ const RAIL: { id: Section; label: string; shortLabel?: string; rows: string[]; p
         rows: ["..CCC....", ".C...C.CC", "......C..", "CCCCCC...", ".........", "CCCCCCCC.", "........C", "...F...C.", "..FFF.CC."] },
     { id: "worlds", label: "Worlds", palette: { G: "#5f7a45", B: "#3f76e4", S: "#c9b27c", R: "#7c7c78" },
         rows: [".....R...", "....RRR..", "...RRRRR.", "..GGRBRG.", ".GGGGBGG.", "GGGGBBGGG", "GGSBBSGGG", "SSBBBSSSS", "BBBBBBBBB"] },
+    { id: "flora", label: "Flora", palette: { L: "#4f8a35", D: "#2f6a2a", W: "#6b5a48", G: "#5f7a45" },
+        rows: ["...LLL...", "..LLDLL..", ".LLDLLLL.", ".LLLLDLL.", "..LDLLL..", "...LWL...", "....W....", "....W....", ".GGGWGGG."] },
     { id: "movement", label: "Movement", shortLabel: "Move", palette: { S: "#d8a07a", B: "#0094d2", T: "#8a93ad" },
         rows: ["....SS...", "....SS...", "...BBB.B.", "..B.BBB..", ".B..BB...", "....TT...", "...T..T..", "..T...T..", ".T.....T."] },
     { id: "vehicles", label: "Vehicles", shortLabel: "Drive", palette: { B: "#0094d2", W: "#c9d4dc", D: "#3a3f55" },
@@ -69,6 +72,7 @@ const query = wiki.search
                 <DemosSection v-else-if="wiki.state.section === 'heat'" key="heat" section="heat" :demos="LAB_DEMOS" />
                 <DemosSection v-else-if="wiki.state.section === 'air'" key="air" section="air" :demos="AIR_DEMOS" />
                 <WorldsSection v-else-if="wiki.state.section === 'worlds'" />
+                <FloraSection v-else-if="wiki.state.section === 'flora'" />
                 <FluidsSection v-else-if="wiki.state.section === 'fluids'" />
                 <MovementSection v-else-if="wiki.state.section === 'movement' || wiki.state.section === 'vehicles'" :key="wiki.state.section" :kind="wiki.state.section" />
             </div>

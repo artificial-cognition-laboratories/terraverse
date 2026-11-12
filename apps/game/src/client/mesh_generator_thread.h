@@ -8,6 +8,7 @@
 
 #include "mapnode.h"
 #include "shape/shape.h"
+#include "sprig/sprig.h"
 #include <ctime>
 #include <mutex>
 #include <unordered_map>
@@ -53,6 +54,7 @@ struct QueuedMeshUpdate
 	// Terra Firma: the cut nodes of the blocks read (absolute), copied here
 	// on the main thread, which changes them
 	std::vector<std::pair<v3s16, shape::Shape>> shapes;
+	std::vector<std::pair<v3s16, sprig::Sprig>> sprigs; // Terra Firma: of the cell's own blocks
 	u16 epoch = U16_MAX;
 	bool urgent = false;
 

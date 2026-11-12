@@ -4,6 +4,7 @@
 #pragma once
 
 #include "course.h"
+#include "flora.h"
 #include "matter.h"
 #include "relief.h"
 #include "orbit/flight.h"
@@ -36,6 +37,8 @@ class Shell;
 	  moves.set      { speed, running }; moves.restart; moves.state → { time, doing, stance, pace }
 	  relief.show    { rect, right }; relief.set { lens, speed, running }; relief.restart; relief.state → { round, rounds }:
 	                 the Worlds time-lapse (Relief)
+	  flora.show     { rect, right }; flora.set { world, lineage, plant, site } → what grew (Flora::state):
+	                 a plant grown from a site (Flora)
 	  orbit.coast    { altitude, speed, angle, mass, drag_area, seconds }: Newton's cannonball
 */
 class Wiki
@@ -66,6 +69,7 @@ private:
 	std::unique_ptr<Course> m_course; // the main thread's; while one plays no sandbox is shown
 	u64 m_course_at = 0;
 	std::unique_ptr<Relief> m_relief; // the same
+	std::unique_ptr<Flora> m_flora;   // the same
 	Json::Value m_river;
 	const Json::Value &moves(const std::string &kind);
 	std::map<std::string, Json::Value> m_moves; // by kind: movement, vehicles

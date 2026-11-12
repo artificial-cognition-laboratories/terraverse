@@ -99,6 +99,25 @@ public:
 		int floor = 0; // what its sides stop at
 	};
 	void ground(std::optional<Ground> ground);
+	// Boxes that aren't a sandbox's (the wiki's plants): each a look's, where it stands. Remeshed when `version` moves on.
+	struct Boxes
+	{
+		struct Look
+		{
+			std::array<std::string, 3> tiles;
+			bool cut; // its texture's clear texels are holes (leaves)
+			std::optional<video::SColor> flat = std::nullopt; // no texture: this colour, a little uneven box to box
+		};
+		struct Box
+		{
+			v3f middle, size;
+			int look;
+		};
+		std::vector<Look> looks;
+		std::vector<Box> boxes;
+		u64 version = 0;
+	};
+	void boxes(std::optional<Boxes> boxes);
 	void distance(float d) { m_distance = d; }
 	void hide();
 	// A different simulation from here: nothing of the last one's picture stays (the camera does).
@@ -165,7 +184,11 @@ private:
 	std::optional<Ground> m_ground;
 	std::vector<Batch> m_ground_batches;
 	bool m_ground_dirty = false;
-	void drawBatches(video::IVideoDriver *driver, const std::vector<Batch> &batches, bool clear);
+	void buildBoxes();
+	std::optional<Boxes> m_boxes;
+	std::vector<Batch> m_box_batches, m_cut_batches;
+	bool m_boxes_dirty = false;
+	void drawBatches(video::IVideoDriver *driver, const std::vector<Batch> &batches, bool clear, bool cut = false);
 	Looks m_looks;
 	std::vector<std::vector<Batch>> m_parts; // by body
 	bool m_built_parts = false;

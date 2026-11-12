@@ -174,10 +174,13 @@ public:
 	// wide (far tiles): valleys and craters narrower than a cell are left out.
 	// They'd only alias, and finding them costs 20× a column near its
 	// neighbour. One block wide (a generated block, a level-0 tile) leaves out nothing.
+	// A map (the Planetarium's) reads at its texels' width, and draws a river
+	// by how much of a texel it covers: `widened` false keeps rivers their
+	// own width, where a far tile widens them to show on every cell they cross.
 	class Coarse
 	{
 	public:
-		Coarse(const World &world, int64_t cell_blocks);
+		Coarse(const World &world, int64_t cell_blocks, bool widened = true);
 		~Coarse();
 		Coarse(const Coarse &) = delete;
 		Coarse &operator=(const Coarse &) = delete;
@@ -281,6 +284,9 @@ public:
 
 	// What can grow here (vegetation.cpp).
 	Cover cover(const Place &d, const Ground &ground) const;
+	// Whether a tree may stand here: its spot in its small cell (cover's
+	// `tree` is this and the density). Cheap: no column.
+	bool treeSpot(const Place &d) const;
 
 public:
 	// A river's width (blocks, fixed, at least one) for what drains to it
@@ -294,6 +300,7 @@ public:
 	fix ridgesAt(const Place &at) const { return folds(at).crest; }
 
 private:
+	uint32_t spot(const Place &at, const std::array<int32_t, 3> &solid) const;
 	// how much every nearby volcano raises a place, and a crater's lava surface
 	// (absolute blocks) if any
 	// `floor` is the crater's floor (absolute) inside a crater, built level from the vent

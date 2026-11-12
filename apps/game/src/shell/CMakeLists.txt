@@ -10,6 +10,7 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/finepowder.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/plume.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/relief.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/flora.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/ime.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/input.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/items.cpp

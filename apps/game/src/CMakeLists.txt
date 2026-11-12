@@ -454,6 +454,7 @@ add_subdirectory(content)
 add_subdirectory(database)
 add_subdirectory(mapgen)
 add_subdirectory(terragen)
+add_subdirectory(flora)
 
 # The hash of what terragen's grids are built from: kept grids are named by it
 # (sorted: a list's order mustn't change the hash)
@@ -515,6 +516,7 @@ add_subdirectory(air)
 add_subdirectory(ground)
 add_subdirectory(shape)
 add_subdirectory(fill)
+add_subdirectory(sprig)
 add_subdirectory(pile)
 add_subdirectory(sculpt)
 add_subdirectory(piece)
@@ -630,12 +632,14 @@ set(common_SRCS
 	${common_server_SRCS}
 	${mapgen_SRCS}
 	${terragen_SRCS}
+	${flora_SRCS}
 	${planet_SRCS}
 	${far_SRCS}
 	${air_SRCS}
 	${ground_SRCS}
 	${shape_SRCS}
 	${fill_SRCS}
+	${sprig_SRCS}
 	${pile_SRCS}
 	${sculpt_SRCS}
 	${piece_SRCS}

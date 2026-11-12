@@ -246,8 +246,10 @@ static void set_node_in_block(const NodeDefManager *nodedef, MapBlock *block,
 		return;
 	}
 	// Terra Firma: a shape is its material's; something else is whole
-	if (block->getNodeNoCheck(relpos).getContent() != n.getContent())
+	if (block->getNodeNoCheck(relpos).getContent() != n.getContent()) {
 		block->m_shapes.erase(relpos);
+		block->m_sprigs.erase(relpos); // (and a plant its foot's)
+	}
 	block->setNodeNoCheck(relpos, n);
 }
 

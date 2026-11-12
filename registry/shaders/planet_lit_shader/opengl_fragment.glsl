@@ -4,6 +4,8 @@ uniform vec3 litSecond;
 uniform float litShare; // the second star's part of the light
 uniform float litOn;    // 0: all lit
 uniform float litContour; // blocks between contour lines; 0: none
+uniform float litTextured; // 1: its colours its texture's (a globe: planetarium/globe.h)
+uniform sampler2D baseTexture;
 
 uniform float litPenumbra; // the star's angular radius
 uniform vec4 litOcc0;   // what can eclipse it: xyz where, w radius (0: none)
@@ -15,6 +17,7 @@ VARYING_ lowp vec4 varColor;
 VARYING_ highp vec3 varWorld;
 VARYING_ mediump vec3 varNormal;
 VARYING_ highp float varHeight;
+VARYING_ mediump vec2 varTexCoord;
 
 // How much steeper slopes are drawn than they are: a mountain is small beside
 // a planet, and a map's hillshade exaggerates too
@@ -67,7 +70,8 @@ void main(void)
 	float day = max(dot(ground, litSun), 0.0) * shade * (1.0 - litShare) + max(dot(ground, litSecond), 0.0) * litShare;
 	// the night side: only sky-glow on it, deep blue, the land's shapes barely there
 	vec3 lit = mix(vec3(1.0), mix(vec3(0.045, 0.06, 0.10), vec3(1.0), day), litOn);
-	vec3 colour = varColor.rgb * lit * mix(1.0, hill, mix(0.6, 1.0, 1.0 - litOn));
+	vec3 base = litTextured > 0.5 ? texture2D(baseTexture, varTexCoord).rgb : varColor.rgb;
+	vec3 colour = base * lit * mix(1.0, hill, mix(0.6, 1.0, 1.0 - litOn));
 	if (litContour > 0.0 && varHeight > 0.5) {
 		float major = contour(litContour * 5.0), minor = contour(litContour);
 		colour *= 1.0 - max(major * 0.55, minor * 0.3);

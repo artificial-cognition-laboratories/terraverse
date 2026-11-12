@@ -13,6 +13,7 @@
 #include "client/tile.h"
 #include "voxel.h"
 #include "shape/shape.h"
+#include "sprig/sprig.h"
 #include <unordered_map>
 #include <map>
 
@@ -61,6 +62,8 @@ struct MeshMakeData
 	const planet::Atlas *m_atlas = nullptr;
 	// Terra Firma: the cut nodes of the area and its margin, by node (absolute)
 	std::unordered_map<v3s16, shape::Shape> m_shapes;
+	// Terra Firma: the small plants footed in the area, by their foot (absolute)
+	std::vector<std::pair<v3s16, sprig::Sprig>> m_sprigs;
 	float m_ao_gamma_inv = 0.0f;
 	// Terra Firma (sprint 85): how coarsely cut and smoothed ground is drawn
 	// far off: sixteenths a drawn step (1 near, 4 quarters, 16 whole nodes)

@@ -15,7 +15,7 @@ namespace shell {
 
 static const char *const VERBS[] = {
 	"matter.list", "matter.state", "matter.react", "sandbox.create", "sandbox.step", "sandbox.drop",
-	"orbit.coast", "moves.list", "moves.show", "moves.set", "moves.restart", "moves.state", "relief.show", "relief.set", "relief.restart", "relief.state", "scene.show", "scene.place", "scene.hide",
+	"orbit.coast", "moves.list", "moves.show", "moves.set", "moves.restart", "moves.state", "relief.show", "relief.set", "relief.restart", "relief.state", "flora.show", "flora.set", "scene.show", "scene.place", "scene.hide",
 };
 
 static const size_t MOST_SANDBOXES = 8; // a page shows one or two; more is a leak
@@ -70,6 +70,7 @@ Wiki::Wiki(Shell &shell) : m_shell(shell)
 		m_shown = 0;
 		m_course.reset();
 		m_relief.reset();
+		m_flora.reset();
 		m_scene.hide();
 		return Json::Value();
 	});
@@ -78,9 +79,12 @@ Wiki::Wiki(Shell &shell) : m_shell(shell)
 		blocks(); // (and the river baked beside them)
 		m_relief = std::make_unique<Relief>(m_river);
 		m_course.reset();
+		m_flora.reset();
 		m_shown = 0;
 		m_latest.reset();
 		m_scene.looks(&blocks(), {}, {});
+		m_scene.boxes(std::nullopt);
+		m_scene.outline(true);
 		m_scene.heat(false);
 		m_scene.frame(Scene::Frame{ 4, 1, 4, std::vector<sandbox::Stage::Cell>(16) });
 		m_scene.distance(7);
@@ -110,6 +114,33 @@ Wiki::Wiki(Shell &shell) : m_shell(shell)
 			throw Refused("no time-lapse is playing");
 		return m_relief->state();
 	});
+	m_shell.on("flora.show", [this](const Json::Value &intent) {
+		m_flora = std::make_unique<Flora>();
+		m_course.reset();
+		m_relief.reset();
+		m_shown = 0;
+		m_latest.reset();
+		m_scene.looks(&blocks(), {}, {});
+		m_scene.heat(false);
+		m_scene.frame(Scene::Frame{ 1, 1, 1, std::vector<sandbox::Stage::Cell>(1) });
+		m_scene.outline(false);
+		m_scene.figure(std::nullopt);
+		m_scene.machine(std::nullopt);
+		m_scene.distance(m_flora->distance());
+		m_scene.place(rectOf(intent["rect"]), (float)intent["right"].asDouble() * m_shell.scale());
+		m_scene.show();
+		return Json::Value();
+	});
+	m_shell.on("flora.set", [this](const Json::Value &intent) {
+		if (!m_flora)
+			throw Refused("no plant is showing");
+		// (the camera steps back only when the plant's another size: the wheel's zoom holds while a slider's nudged)
+		const float before = m_flora->distance();
+		m_flora->set(intent);
+		if (m_flora->distance() != before)
+			m_scene.distance(m_flora->distance());
+		return m_flora->state();
+	});
 	m_shell.on("moves.show", [this](const Json::Value &intent) {
 		const std::string id = intent["id"].asString();
 		for (const Json::Value &move : moves(intent["scenes"].asString())) {
@@ -117,6 +148,8 @@ Wiki::Wiki(Shell &shell) : m_shell(shell)
 				continue;
 			blocks(); // (and the machines baked beside them)
 			m_relief.reset();
+			m_flora.reset();
+			m_scene.boxes(std::nullopt);
 			m_course = std::make_unique<Course>(move, blocks(), m_machines);
 			m_shown = 0;
 			m_latest.reset();
@@ -159,6 +192,13 @@ Wiki::Wiki(Shell &shell) : m_shell(shell)
 			m_course_at = now;
 			m_scene.ground(m_relief->ground());
 			m_scene.follow(m_relief->focus());
+		}
+		if (m_flora) {
+			if (m_flora->takeGrown()) {
+				m_scene.ground(m_flora->ground());
+				m_scene.boxes(m_flora->boxes());
+			}
+			m_scene.follow(v3f(0));
 		}
 		if (m_course) {
 			const u64 now = porting::getTimeMs();

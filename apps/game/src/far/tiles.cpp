@@ -28,10 +28,14 @@ namespace far {
 static constexpr double INSTALL_MS = 3;
 // And recolouring tiles for a new tint.
 static constexpr double PAINT_MS = 3;
-// A tile not wanted for this many updates is dropped.
-static constexpr u32 KEEP_FRAMES = 600;
+// What the held tiles' meshes may take, all of them: past it the least
+// recently wanted go. (Dropped after ten seconds unwanted, a spot panned away
+// from and back to was built again, coarse meanwhile; sprint 114)
+static constexpr size_t KEEP_BYTES = (size_t)256 << 20;
 static constexpr s32 BACKDROP_LEVEL = 3; // cells of 8 blocks
 static constexpr float STAY_WHOLE = 0.85f;
+// How many levels finer a tile not built yet looks for finer ones to stand in for it.
+static constexpr s32 FINER_DEPTH = 3;
 
 /*
 	What the workers share: copies of what they build from, the queue, the
@@ -60,6 +64,8 @@ public:
 		m_atlas(atlas), m_body(body), m_horizon(horizon), m_palette(palette), m_tiling(tiling),
 		m_cache(porting::path_cache, horizon, atlas, body)
 	{
+		for (const TileKey &key : m_cache.kept())
+			m_kept.insert(id(key));
 	}
 
 	void stop()
@@ -77,9 +83,13 @@ public:
 		{
 			std::lock_guard lock(m_mutex);
 			m_queue.clear();
-			for (const Job &job : jobs)
-				if (!m_busy.count(id(job.key)))
-					m_queue.push_back(job);
+			// what's kept on disk first, nearest first: it's read in a
+			// fraction of a build, and behind the builds a spot seen before
+			// stayed coarse as long as one coming into view
+			for (int pass = 0; pass < 2; pass++)
+				for (const Job &job : jobs)
+					if (!m_busy.count(id(job.key)) && (m_kept.count(id(job.key)) > 0) == (pass == 0))
+						m_queue.push_back(job);
 		}
 		m_wake.notify_all();
 	}
@@ -128,6 +138,8 @@ public:
 				} else if (!tile) {
 					tile = generator().build(job.key);
 					m_cache.save(*tile);
+					std::lock_guard kept(m_mutex);
+					m_kept.insert(id(job.key));
 				}
 				r.mesh = onPlanet(*tile);
 			} catch (const std::exception &e) {
@@ -184,6 +196,7 @@ private:
 	bool m_stop = false;
 	std::deque<Job> m_queue;
 	std::set<std::tuple<s32, s32, s32, s32>> m_busy; // being built, or built and not yet taken
+	std::set<std::tuple<s32, s32, s32, s32>> m_kept; // on disk (TileCache: some may be swept since)
 	std::deque<Result> m_results;
 	std::string m_error;
 };
@@ -272,6 +285,8 @@ void Tiles::update(const Eye &eye)
 		jobs.push_back({ w.second.tile(), sketches.count(w.second) > 0 });
 	m_workers->want(jobs);
 
+	for (const auto &[key, child] : m_behind)
+		quarter(m_tiles.at(key), child);
 	install();
 	if (m_coarse && based()) {
 		m_coarse.reset();
@@ -308,7 +323,7 @@ std::vector<Tiles::Drawn> Tiles::behind() const
 	std::vector<Drawn> out;
 	out.reserve(m_behind.size());
 	for (const auto &[key, child] : m_behind)
-		out.push_back({ key.tile(), m_tiling.middle(key.tile()), m_tiles.at(key).quarters[child] });
+		out.push_back({ key.tile(), place(key).middle, m_tiles.at(key).quarters[child] });
 	return out;
 }
 
@@ -317,16 +332,17 @@ std::vector<Tiles::Drawn> Tiles::drawn() const
 	std::vector<Drawn> out;
 	out.reserve(m_draw.size());
 	for (const Key &key : m_draw)
-		out.push_back({ key.tile(), m_tiling.middle(key.tile()), m_tiles.at(key).parts });
+		out.push_back({ key.tile(), place(key).middle, m_tiles.at(key).parts });
 	return out;
 }
 
 float Tiles::distance(const TileKey &key, const Eye &eye) const
 {
-	const Tiling::Vec p = m_tiling.middle(key);
+	const Place &at = place(Key(key));
+	const Tiling::Vec &p = at.middle;
 	const double r = m_tiling.radius(), sea = r + m_horizon.water_level + 1;
 	const double d = std::hypot(p.x * sea / r - eye.at.x, p.y * sea / r - eye.at.y, p.z * sea / r - eye.at.z);
-	return (float)std::max(d - m_tiling.diagonal(key) / 2, 0.0);
+	return (float)std::max(d - at.half, 0.0);
 }
 
 bool Tiles::inside(const TileKey &key, const Eye &eye) const
@@ -335,12 +351,48 @@ bool Tiles::inside(const TileKey &key, const Eye &eye) const
 		return false;
 	// its farthest point from the eye, at the sea, and its land's highest a
 	// tile's relief over that (a peak could be farther off than the sea under it)
-	const Tiling::Vec p = m_tiling.middle(key);
+	const Place &at = place(Key(key));
+	const Tiling::Vec &p = at.middle;
 	const double r = m_tiling.radius(), sea = r + m_horizon.water_level + 1;
-	const double d = std::hypot(p.x * sea / r - eye.at.x, p.y * sea / r - eye.at.y, p.z * sea / r - eye.at.z) +
-			m_tiling.diagonal(key) / 2;
+	const double d = std::hypot(p.x * sea / r - eye.at.x, p.y * sea / r - eye.at.y, p.z * sea / r - eye.at.z) + at.half;
 	const double far = std::hypot(d, (double)eye.altitude) + Tiles::RELIEF;
 	return far < eye.cut;
+}
+
+const Tiles::Place &Tiles::place(const Key &key) const
+{
+	auto it = m_places.find(key);
+	if (it != m_places.end())
+		return it->second;
+	// (a long journey's worth, then started again)
+	if (m_places.size() > 1 << 18)
+		m_places.clear();
+	return m_places.emplace(key, Place{ m_tiling.middle(key.tile()), m_tiling.diagonal(key.tile()) / 2 }).first->second;
+}
+
+bool Tiles::seen(const TileKey &key, const Eye &eye) const
+{
+	if (eye.wide <= 0)
+		return true;
+	// The tile as a ball round its middle, half its diagonal wide, at the sea
+	// and RELIEF over it (its land is between), against the four sides of
+	// what the eye sees: a side through the eye, square to n, inside where
+	// v · n ≤ 0 (v from the eye). A circle round the screen took in its
+	// corners' worth all round it
+	const double r = std::hypot(eye.at.x, eye.at.y, eye.at.z), up = (r + eye.altitude) / r;
+	const Tiling::Vec &m = place(Key(key)).middle;
+	const double mr = std::hypot(m.x, m.y, m.z), half = place(Key(key)).half;
+	const auto dot = [](const Tiling::Vec &a, double x, double y, double z) { return a.x * x + a.y * y + a.z * z; };
+	for (const double h : { 0.0, (double)RELIEF }) {
+		const double k = (mr + h) / mr;
+		const double vx = m.x * k - eye.at.x * up, vy = m.y * k - eye.at.y * up, vz = m.z * k - eye.at.z * up;
+		const double ahead = dot(eye.look, vx, vy, vz), across = dot(eye.right, vx, vy, vz), above = dot(eye.upward, vx, vy, vz);
+		// each side's (v · n) · |n|, n = (±side − look · tan); |n| = √(1 + tan²)
+		const double nw = std::sqrt(1 + (double)eye.wide * eye.wide), nh = std::sqrt(1 + (double)eye.high * eye.high);
+		if (std::abs(across) - ahead * eye.wide <= half * nw && std::abs(above) - ahead * eye.high <= half * nh)
+			return true;
+	}
+	return false;
 }
 
 bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::vector<std::pair<float, Key>> &want)
@@ -350,6 +402,8 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 	float d = distance(key.tile(), eye);
 	if (d > eye.range)
 		return true; // beyond the eye's reach: nothing to draw
+	if (!seen(key.tile(), eye))
+		return true; // off screen: nothing to draw (drawn, a coarse planet's worth of it went to the GPU each frame)
 	// all within the near world's range: its blocks are the land there, and this is
 	// only what shows where they haven't arrived, so it needn't be fine
 	const bool only_backdrop = inside(key.tile(), eye) && key.level <= BACKDROP_LEVEL;
@@ -369,7 +423,7 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 			return true;
 		}
 		{
-			const Tiling::Vec m = m_tiling.middle(key.tile());
+			const Tiling::Vec &m = place(key).middle;
 			const double to[3] = { m.x - eye.at.x, m.y - eye.at.y, m.z - eye.at.z };
 			const double len = std::max(1.0, std::hypot(to[0], to[1], to[2]));
 			const double ahead = (to[0] * eye.heading.x + to[1] * eye.heading.y + to[2] * eye.heading.z) / len;
@@ -379,8 +433,11 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 		size_t mark = draw.size();
 		// (standing in behind them, a coarser tile needn't have all of them:
 		// what's there is kept, and it shows only through the rest)
-		std::function<bool(const Key &)> finer = [&](const Key &k) {
-			if (k.level == 0)
+		// (no deeper than FINER_DEPTH: kept looking past a missing one, with
+		// keep_fine, a coarse planet not there yet was a search of every tile
+		// under it to the finest, millions a frame; sprint 114)
+		std::function<bool(const Key &, s32)> finer = [&](const Key &k, s32 depth) {
+			if (k.level == 0 || depth == FINER_DEPTH)
 				return false;
 			bool all = true;
 			for (s32 c = 0; c < 4 && (all || eye.keep_fine); c++) {
@@ -389,13 +446,13 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 				if (it != m_tiles.end() && it->second.ready) {
 					it->second.used = m_frame;
 					draw.push_back(child);
-				} else if (!finer(child)) {
+				} else if (!finer(child, depth + 1)) {
 					all = false;
 				}
 			}
 			return all;
 		};
-		if (finer(key))
+		if (finer(key, 0))
 			return true;
 		if (!eye.keep_fine)
 			draw.resize(mark);
@@ -438,17 +495,60 @@ void Tiles::install()
 		if (!result)
 			return;
 		Entry &e = m_tiles[Key(result->key)];
+		m_bytes -= e.bytes;
+		e.bytes = 0;
 		e.parts.clear();
 		for (auto &q : e.quarters)
 			q.clear();
 		e.own.clear();
+		e.merged = false;
+		// one buffer for all of it if it fits 16-bit indices, quarter by
+		// quarter: four a tile, a fine view was thousands of draws a frame,
+		// and the driver looks over every buffer it holds each frame (sprint 114)
+		size_t all = 0;
+		for (const Mesh::Part &part : result->mesh.parts)
+			all += part.vertices.size();
+		if (all <= 65536) {
+			auto buffer = make_irr<scene::SMeshBuffer>();
+			auto &vertices = buffer->Vertices->Data;
+			auto &indices = buffer->Indices->Data;
+			vertices.reserve(all);
+			for (u8 q = 0; q < 4; q++) {
+				Entry::Range &range = e.ranges[q];
+				range.v0 = (u32)vertices.size();
+				range.i0 = (u32)indices.size();
+				for (const Mesh::Part &part : result->mesh.parts) {
+					if (part.quarter != q)
+						continue;
+					const u16 base = (u16)vertices.size();
+					vertices.insert(vertices.end(), part.vertices.begin(), part.vertices.end());
+					for (u16 i : part.indices)
+						indices.push_back((u16)(base + i));
+				}
+				range.v1 = (u32)vertices.size();
+				range.i1 = (u32)indices.size();
+			}
+			std::vector<video::SColor> own;
+			own.reserve(vertices.size());
+			for (const video::S3DVertex &v : vertices)
+				own.push_back(v.Color);
+			e.own.push_back(std::move(own));
+			e.bytes += vertices.size() * sizeof(video::S3DVertex) + indices.size() * sizeof(u16);
+			buffer->recalculateBoundingBox();
+			buffer->setHardwareMappingHint(scene::EHM_STATIC);
+			e.parts.push_back(std::move(buffer));
+			e.merged = true;
+		}
 		for (Mesh::Part &part : result->mesh.parts) {
+			if (e.merged)
+				break;
 			auto buffer = make_irr<scene::SMeshBuffer>();
 			std::vector<video::SColor> own;
 			own.reserve(part.vertices.size());
 			for (const video::S3DVertex &v : part.vertices)
 				own.push_back(v.Color);
 			e.own.push_back(std::move(own));
+			e.bytes += part.vertices.size() * sizeof(video::S3DVertex) + part.indices.size() * sizeof(u16);
 			buffer->Vertices->Data = std::move(part.vertices);
 			buffer->Indices->Data = std::move(part.indices);
 			buffer->recalculateBoundingBox();
@@ -456,6 +556,7 @@ void Tiles::install()
 			e.quarters[part.quarter].push_back(buffer);
 			e.parts.push_back(std::move(buffer));
 		}
+		m_bytes += e.bytes;
 		if (m_tint)
 			paint(Key(result->key), e);
 		e.painted = m_tints;
@@ -466,6 +567,23 @@ void Tiles::install()
 	}
 }
 
+void Tiles::quarter(Entry &e, s32 child)
+{
+	if (!e.merged || !e.quarters[child].empty())
+		return;
+	const Entry::Range &r = e.ranges[child];
+	if (r.v1 == r.v0)
+		return; // nothing of it there
+	const scene::SMeshBuffer &all = *e.parts.front();
+	auto buffer = make_irr<scene::SMeshBuffer>();
+	buffer->Vertices->Data.assign(all.Vertices->Data.begin() + r.v0, all.Vertices->Data.begin() + r.v1);
+	for (u32 i = r.i0; i < r.i1; i++)
+		buffer->Indices->Data.push_back((u16)(all.Indices->Data[i] - r.v0));
+	buffer->recalculateBoundingBox();
+	buffer->setHardwareMappingHint(scene::EHM_STATIC);
+	e.quarters[child].push_back(std::move(buffer));
+}
+
 void Tiles::tint(std::shared_ptr<const Tint> tint)
 {
 	m_tint = std::move(tint);
@@ -474,6 +592,8 @@ void Tiles::tint(std::shared_ptr<const Tint> tint)
 
 void Tiles::repaint()
 {
+	if (m_swept == m_tints)
+		return; // (looking over every tile and the clock each, each frame, cost the Planetarium's frames)
 	const auto start = std::chrono::steady_clock::now();
 	const auto spent = [&] { return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count(); };
 	// the drawn first: what's on screen changes first
@@ -487,13 +607,14 @@ void Tiles::repaint()
 		}
 	}
 	for (auto &[key, e] : m_tiles) {
-		if (spent() >= PAINT_MS)
-			return;
 		if (e.ready && e.painted != m_tints) {
+			if (spent() >= PAINT_MS)
+				return;
 			paint(key, e);
 			e.painted = m_tints;
 		}
 	}
+	m_swept = m_tints; // (a tile installed since is painted as it's installed)
 }
 
 size_t Tiles::unpainted() const
@@ -506,7 +627,7 @@ size_t Tiles::unpainted() const
 
 void Tiles::paint(const Key &key, Entry &e) const
 {
-	const Tiling::Vec mid = m_tiling.middle(key.tile());
+	const Tiling::Vec mid = place(key).middle;
 	for (size_t p = 0; p < e.parts.size(); p++) {
 		auto &vertices = e.parts[p]->Vertices->Data;
 		const std::vector<video::SColor> &own = e.own.at(p);
@@ -523,15 +644,28 @@ void Tiles::paint(const Key &key, Entry &e) const
 		}
 		e.parts[p]->setDirty(scene::EBT_VERTEX);
 	}
+	if (e.merged)
+		for (auto &q : e.quarters)
+			q.clear(); // (made again from the repainted buffer when they're wanted)
 }
 
 void Tiles::evict()
 {
-	for (auto it = m_tiles.begin(); it != m_tiles.end();) {
-		if (m_frame - it->second.used > KEEP_FRAMES) // (the roots are used every update: kept)
-			it = m_tiles.erase(it);
-		else
-			++it;
+	if (m_bytes <= KEEP_BYTES)
+		return;
+	// the least recently wanted first, down to the budget; nothing wanted
+	// this update (the roots are wanted every update: kept)
+	std::vector<std::pair<u32, Key>> old;
+	for (const auto &[key, e] : m_tiles)
+		if (e.used != m_frame)
+			old.emplace_back(e.used, key);
+	std::sort(old.begin(), old.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
+	for (const auto &[used, key] : old) {
+		if (m_bytes <= KEEP_BYTES)
+			break;
+		auto it = m_tiles.find(key);
+		m_bytes -= it->second.bytes;
+		m_tiles.erase(it);
 	}
 }
 

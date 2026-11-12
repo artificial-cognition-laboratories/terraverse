@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include "content_mapblock.h"
+#include "client/sprigs.h" // Terra Firma
 #include "planet/atlas.h" // Terra Firma
 #include "ground/ground.h" // Terra Firma
 #include "exceptions.h"
@@ -2555,5 +2556,67 @@ void MapblockMeshGenerator::generate()
 			continue;
 		cur_node.f = &nodedef->get(cur_node.n);
 		drawNode();
+	}
+	drawSprigs();
+}
+
+/*
+	Terra Firma: each small plant footed here, grown from its sprig
+	(client/sprigs): its faces, turned as it stands, in the plant blocks'
+	look (tf_world:sprig: a tile for each flora::Part, in grey, waving)
+	and its own colours, lit as its foot is. Past the area too: a plant's
+	drawn whole by the mesh its foot's in. Each vertex's normal is as much
+	longer than one as it stands over the foot, in blocks: the shader bends
+	it in the wind by that (nodes_shader, TILE_MATERIAL_WAVING_PLANTS).
+*/
+void MapblockMeshGenerator::drawSprigs()
+{
+	// near, whole; further, in quarter blocks; far off, none (the ground's colour is enough)
+	const s32 grain = data->m_detail <= 1 ? 16 : data->m_detail <= 4 ? 4 : 0;
+	if (data->m_sprigs.empty() || !grain)
+		return;
+	content_t look;
+	if (!nodedef->getId("tf_world:sprig", look))
+		throw BaseException("the game has no tf_world:sprig (how small plants look)");
+	TileSpec tiles[(int)flora::Part::Count];
+	for (int part = 0; part < (int)flora::Part::Count; part++) {
+		getNodeTileN(MapNode(look), v3s16(), part, data, tiles[part]);
+		for (auto &layer : tiles[part].layers) {
+			layer.color = video::SColor(0xFFFFFFFF); // (its own, in the vertices)
+			layer.material_flags |= MATERIAL_FLAG_BACKFACE_CULLING;
+		}
+	}
+	for (const auto &[foot, s] : data->m_sprigs) {
+		const MapNode n = data->m_vmanip.getNodeNoExNoEmerge(foot);
+		const video::SColor light = encode_light(getInteriorLight(n, 0, nodedef), 0);
+		const v3f origin = intToFloat(foot - blockpos_nodes, BS) - v3f(0, 0.5f * BS, 0); // (its floor)
+		const auto turned = [&](v3f c) {
+			if (s.mirror())
+				c.X = -c.X;
+			for (int k = 0; k < s.turn(); k++)
+				c = v3f(-c.Z, c.Y, c.X);
+			return c;
+		};
+		for (const sprig::Face &face : *sprig::facesOf(s.forest, s.id, grain)) {
+			const v3f normal = turned(v3f::from(face.normal));
+			v3f q[4];
+			for (int k = 0; k < 4; k++)
+				q[k] = turned(face.corner[k]);
+			if ((q[1] - q[0]).crossProduct(q[3] - q[0]).dotProduct(normal) < 0)
+				std::swap(q[1], q[3]);
+			// lit as its foot, shaded by which way it faces, in its colour
+			video::SColor c = light;
+			applyFacesShading(c, normal);
+			c.set(c.getAlpha(), c.getRed() * ((face.rgb >> 16) & 255) / 255U, c.getGreen() * ((face.rgb >> 8) & 255) / 255U,
+					c.getBlue() * (face.rgb & 255) / 255U);
+			// textured by the plane's own axes, a texture to a block
+			const int axis = normal.X != 0 ? 0 : normal.Y != 0 ? 1 : 2;
+			const int ua = axis == 0 ? 2 : 0, va = axis == 1 ? 2 : 1;
+			video::S3DVertex vertices[4];
+			for (int k = 0; k < 4; k++)
+				vertices[k] = video::S3DVertex(q[k] * BS + origin, normal * (1.0f + std::max(0.0f, q[k].Y)), c,
+						v2f(q[k][ua], q[k][va]));
+			collector->append(tiles[(int)face.part], vertices, 4, quad_indices, 6);
+		}
 	}
 }

@@ -85,6 +85,10 @@ void Scene::hide()
 	m_ground.reset();
 	m_ground_batches.clear();
 	m_ground_dirty = false;
+	m_boxes.reset();
+	m_box_batches.clear();
+	m_cut_batches.clear();
+	m_boxes_dirty = false;
 	m_machine.reset();
 	m_looks.clear();
 	m_parts.clear();
@@ -365,6 +369,69 @@ void Scene::buildGround()
 	m_batches.swap(kept);
 }
 
+void Scene::boxes(std::optional<Boxes> boxes)
+{
+	if (boxes && m_boxes && boxes->version == m_boxes->version)
+		return;
+	m_boxes = std::move(boxes);
+	m_boxes_dirty = true;
+}
+
+// A face between two whole blocks isn't drawn where it can't be seen: wood's against wood, leaves' against anything.
+void Scene::buildBoxes()
+{
+	m_boxes_dirty = false;
+	m_box_batches.clear();
+	m_cut_batches.clear();
+	if (!m_boxes)
+		return;
+	const Boxes &all = *m_boxes;
+	const auto whole = [](const Boxes::Box &b) { return b.size.X >= 1 && b.size.Y >= 1 && b.size.Z >= 1; };
+	const auto key = [](v3f at) {
+		return ((u64)(u16)(s16)std::lround(at.X) << 32) | ((u64)(u16)(s16)std::lround(at.Y) << 16) | (u64)(u16)(s16)std::lround(at.Z);
+	};
+	std::map<u64, bool> filled; // a whole block there, and whether it's cut
+	for (const Boxes::Box &b : all.boxes)
+		if (whole(b))
+			filled[key(b.middle)] = all.looks.at(b.look).cut;
+	std::vector<Batch> kept;
+	kept.swap(m_batches);
+	for (const bool cut : { false, true }) {
+		for (const Boxes::Box &b : all.boxes) {
+			const Boxes::Look &look = all.looks.at(b.look);
+			if (look.cut != cut)
+				continue;
+			const v3f h = b.size * 0.5f;
+			for (const Face &f : FACES) {
+				if (whole(b)) {
+					const auto beside = filled.find(key(b.middle + f.normal));
+					if (beside != filled.end() && (cut || !beside->second))
+						continue;
+				}
+				video::SColor tint;
+				video::ITexture *tex = nullptr;
+				if (look.flat) {
+					u32 h = (u32)key(b.middle * 16) * 0x9e3779b1u;
+					h = (h ^ (h >> 15)) * 0x2c1b3c6du;
+					tint = lit(*look.flat, 0.88f + ((h >> 12) & 255) / 255.f * 0.12f);
+				} else {
+					const auto [name, multiplied] = tileOf(look.tiles[f.normal.Y > 0 ? 0 : f.normal.Y < 0 ? 1 : 2]);
+					tint = multiplied;
+					tex = texture(name);
+				}
+				Batch &to = batch(tex, false);
+				const v3f middle = b.middle + v3f(f.normal.X * h.X, f.normal.Y * h.Y, f.normal.Z * h.Z);
+				const v3f u(f.u.X * h.X, f.u.Y * h.Y, f.u.Z * h.Z), v(f.v.X * h.X, f.v.Y * h.Y, f.v.Z * h.Z);
+				const float tu = std::abs(f.u.X) * b.size.X + std::abs(f.u.Y) * b.size.Y + std::abs(f.u.Z) * b.size.Z;
+				const float tv = std::abs(f.v.X) * b.size.X + std::abs(f.v.Y) * b.size.Y + std::abs(f.v.Z) * b.size.Z;
+				quad(to.vertices, to.indices, middle, u, v, f.normal, lit(tint, f.light), v2f(0, 0), v2f(tu, tv), to.frames);
+			}
+		}
+		(cut ? m_cut_batches : m_box_batches).swap(m_batches);
+	}
+	m_batches.swap(kept);
+}
+
 // As the game's near water: a sixteenth-wide top for each column, on its sixteenth, and sides where it
 // stands over what's beside it, in the liquid's colour catching the sky. Rows of one height are one top.
 void Scene::drawFine(video::IVideoDriver *driver, float dt)
@@ -612,13 +679,15 @@ static core::matrix4 turnOf(const physics::Quat &q)
 	return m;
 }
 
-void Scene::drawBatches(video::IVideoDriver *driver, const std::vector<Batch> &batches, bool clear)
+void Scene::drawBatches(video::IVideoDriver *driver, const std::vector<Batch> &batches, bool clear, bool cut)
 {
 	for (const Batch &b : batches) {
 		if (b.clear != clear)
 			continue;
 		video::SMaterial mat;
-		mat.MaterialType = clear ? video::EMT_TRANSPARENT_VERTEX_ALPHA : video::EMT_SOLID;
+		mat.MaterialType = clear ? video::EMT_TRANSPARENT_VERTEX_ALPHA : cut ? video::EMT_TRANSPARENT_ALPHA_CHANNEL_REF : video::EMT_SOLID;
+		if (cut)
+			mat.MaterialTypeParam = 0.5f; // the alpha under which a texel is a hole
 		mat.FogEnable = false;
 		mat.ColorMask = video::ECP_RGB;
 		if (clear)
@@ -725,6 +794,10 @@ void Scene::draw(video::IVideoDriver *driver)
 		buildGround();
 	drawBatches(driver, m_batches, false);
 	drawBatches(driver, m_ground_batches, false);
+	if (m_boxes_dirty)
+		buildBoxes();
+	drawBatches(driver, m_box_batches, false);
+	drawBatches(driver, m_cut_batches, false, true);
 	drawFigure(driver);
 	drawMachine(driver);
 	// the floor it stands on: the blocks' outline, so an empty scene still has a place

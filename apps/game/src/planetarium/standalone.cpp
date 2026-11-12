@@ -15,13 +15,68 @@
 #include "mapgen/mapgen.h"
 #include "porting.h"
 #include "terragen/code.h"
+#include "terragen/world.h"
 #include <IVideoDriver.h>
 #include <cmath>
 #include <fstream>
+#include <vector>
 
 namespace planetarium {
 
-void runStandalone(const std::string &code, std::optional<double> bench, std::optional<std::string> shot)
+// The ladder's rungs: the home shot's side of the body, centred, from a small
+// planet down to the ground, each to <dir>/<name>.png
+struct Rung
+{
+	const char *name;
+	double altitude; // radii
+};
+static constexpr Rung LADDER[] = {
+	{ "1-small", 5.0 }, { "2-orbit", 1.2 }, { "3-continent", 0.3 }, { "4-region", 0.12 }, { "5-close", 0.04 },
+};
+
+// Where the ladder looks: over the widest river on land, within a radian of
+// the noon longitude `sun` and out of the polar caps (a broad search: the
+// shots want land, a river and light, nothing more exact). Radians, as the camera's.
+static std::pair<double, double> riverToShow(const terragen::WorldCode &code, double date, double sun)
+{
+	const terragen::World world(code);
+	constexpr int ROWS = 120, COLS = 240;
+	int64_t widest = -1;
+	std::pair<double, double> best{ 0, 0 };
+	for (int j = ROWS / 6; j < ROWS * 5 / 6; j++)
+		for (int i = 0; i < COLS; i++) {
+			const double longitude = 2 * M_PI * (2 * i + 1) / (2.0 * COLS) - M_PI;
+			if (std::abs(std::remainder(longitude - sun, 2 * M_PI)) > 1)
+				continue;
+			const terragen::fix u = terragen::ratio(2 * i + 1, 2 * COLS), v = terragen::ratio(2 * j + 1, 2 * ROWS);
+			const terragen::Place at = terragen::World::place(u, v);
+			const terragen::Ground g = world.ground(at, world.sunlight(at, (terragen::fix)(date * terragen::ONE)));
+			// on the river's line, on land
+			if (g.terrain <= 0 || g.river_width <= widest || g.river_dist > g.river_width)
+				continue;
+			widest = g.river_width;
+			// as Painter reads a place: u east from −π, v south from the pole
+			best = { M_PI / 2 - M_PI * (2 * j + 1) / (2.0 * ROWS), longitude };
+		}
+	if (widest < 0)
+		throw BaseException("planetarium: no river on land for the ladder");
+	return best;
+}
+
+// What's drawn on a render target, as an image (the caller drops it)
+static video::IImage *picture(video::IVideoDriver *driver, video::ITexture *target)
+{
+	const core::dimension2du size = target->getSize();
+	void *pixels = target->lock(video::ETLM_READ_ONLY);
+	if (!pixels)
+		throw BaseException("planetarium: the ladder's picture couldn't be read");
+	video::IImage *image = driver->createImageFromData(target->getColorFormat(), size, pixels, false, false); // (copied)
+	target->unlock();
+	return image;
+}
+
+void runStandalone(const std::string &code, std::optional<double> bench, std::optional<std::string> shot,
+		std::optional<std::string> ladder)
 {
 	const terragen::WorldCode world = terragen::WorldCode::decode(code);
 	far::Baked baked = far::Baked::load("terrafirma");
@@ -39,11 +94,43 @@ void runStandalone(const std::string &code, std::optional<double> bench, std::op
 	const far::Horizon horizon{ code, MapgenParams().water_level, std::move(baked.content) };
 	auto planet = std::make_unique<Planetarium>(Planetarium::Opts{ atlas, horizon, std::move(baked.palette),
 			std::make_shared<const terragen::System>(terragen::SystemSpec::forWorld(world)) });
-	if (shot) {
+	// the pictures to take, in turn: a composed shot, or the camera over a place
+	struct Picture
+	{
+		std::optional<Shot> shot;
+		double latitude = 0, longitude = 0, altitude = 0; // radians; blocks over the sea
+		std::string file;
+	};
+	std::vector<Picture> pictures;
+	if (shot)
+		pictures.push_back({ HOME_SHOT, 0, 0, 0, *shot });
+	if (ladder) {
+		planet->day(HOME_SHOT.date * planet->system().year());
+		// (litLongitude leans off noon for the edge of night: back to noon)
+		const auto [latitude, longitude] = riverToShow(world, HOME_SHOT.date, planet->litLongitude() - 0.7);
+		const double radius = atlas.body(planet::Atlas::HOME).params().radius;
+		for (const Rung &r : LADDER)
+			pictures.push_back({ std::nullopt, latitude, longitude, r.altitude * radius, *ladder + DIR_DELIM + r.name + ".png" });
+	}
+	if (!pictures.empty()) {
 		planet->orbits(false);
 		planet->day(HOME_SHOT.date * planet->system().year());
-		planet->aim(HOME_SHOT.centre);
-		planet->skyLevel(HOME_SHOT.sky);
+		planet->aim(pictures.front().shot ? pictures.front().shot->centre : v2f(0, 0));
+		planet->skyLevel(pictures.front().shot ? pictures.front().shot->sky : 0);
+	}
+	size_t taken = 0;
+	int still = 0; // frames settled on this picture's view
+	double settled_ms = 0; // their frames' time, from the second (what the view costs to draw, built)
+	int settled_frames = 0;
+	// the ladder's pictures drawn off screen, at the size the settings ask
+	// (screen_w × screen_h): a window is the window manager's to resize, and
+	// the reference is drawn twice as large as the game's
+	video::ITexture *target = nullptr;
+	if (ladder) {
+		const core::dimension2du size(g_settings->getU16("screen_w"), g_settings->getU16("screen_h"));
+		target = engine.get_video_driver()->addRenderTargetTexture(size, "planetarium:ladder", video::ECF_A8R8G8B8);
+		if (!target)
+			throw BaseException("planetarium: the ladder's pictures need a render target");
 	}
 	bool quit = false;
 	receiver.capture = [&](const SEvent &event) {
@@ -98,24 +185,46 @@ void runStandalone(const std::string &code, std::optional<double> bench, std::op
 			}
 		}
 		driver->beginScene(true, true, video::SColor(255, 8, 10, 14));
-		const core::dimension2du window = driver->getScreenSize();
+		if (target)
+			driver->setRenderTarget(target, video::ECBF_COLOR | video::ECBF_DEPTH, video::SColor(255, 8, 10, 14));
+		const core::dimension2du window = driver->getCurrentRenderTargetSize();
 		// (and it may take its shape after the first frames: framed for the one it has)
-		if (shot)
-			planet->compose(Planetarium::framingOf(HOME_SHOT, (float)window.Width / window.Height), 0);
+		if (taken < pictures.size()) {
+			const Picture &p = pictures[taken];
+			if (p.shot)
+				planet->compose(Planetarium::framingOf(*p.shot, (float)window.Width / window.Height), 0);
+			else
+				planet->focus(p.latitude, p.longitude, p.altitude);
+		}
 		planet->draw(driver, core::recti(0, 0, window.Width, window.Height));
-		// land built, and a moment for the air's pictures (made on workers)
-		if (shot && planet->settled() && t > 5) {
-			video::IImage *image = driver->createScreenShot();
+		// land built for a few frames running (what a view wants is only known
+		// once it's drawn), and a moment for the air's pictures (made on workers)
+		still = planet->settled() && planet->globed() ? still + 1 : 0;
+		if (taken < pictures.size() && still > 10 && t > 5) {
+			const std::string &file = pictures[taken].file;
+			video::IImage *image = target ? picture(driver, target) : driver->createScreenShot();
 			if (!image)
 				throw BaseException("planetarium: no screenshot");
-			const bool written = driver->writeImageToFile(image, shot->c_str());
+			const bool written = driver->writeImageToFile(image, file.c_str());
 			image->drop();
 			if (!written)
-				throw BaseException("planetarium: couldn't write " + *shot);
-			quit = true;
+				throw BaseException("planetarium: couldn't write " + file);
+			const Planetarium::DrawStats drawn = planet->drawStats();
+			rawstream << "PLANETARIUM LADDER " << file << ": " << (settled_frames ? settled_ms / settled_frames : 0) << " ms a frame, "
+					<< drawn.tiles << " tiles, " << drawn.buffers << " draws, " << drawn.vertices / 1000 << "k vertices" << std::endl;
+			still = 0;
+			settled_ms = 0;
+			settled_frames = 0;
+			quit = ++taken == pictures.size();
 		}
+		if (target)
+			driver->setRenderTarget(nullptr, 0);
 		driver->endScene();
 		const u64 spent = porting::getTimeMs() - start;
+		if (still > 1) {
+			settled_ms += spent;
+			settled_frames++;
+		}
 		if (bench && t > SETTLE) {
 			worst = std::max(worst, spent);
 			if (lastSwitch && start - lastSwitch < 500)

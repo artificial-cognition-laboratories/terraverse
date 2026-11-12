@@ -8,6 +8,8 @@ export interface DocsNavItem {
     title: string
     path?: string
     icon?: string
+    /** Drawn as a shell command: the program in one colour, its flags in another */
+    flavor?: "bash"
     items?: DocsNavItem[]
 }
 
@@ -24,6 +26,24 @@ export interface DocsSection {
     groups: DocsGroup[]
     /** Which end of the subnav the tab sits at: building on Terraverse groups right */
     side?: "left" | "right"
+}
+
+/** A mod as it sits on disk: each entry links to the page about that file. */
+const modFolder: DocsNavItem = {
+    title: "my_mod",
+    icon: "vscode-icons:default-folder-opened",
+    path: "/docs/mods/folder",
+    items: [
+        { title: "textures", icon: "vscode-icons:folder-type-images", path: "/docs/mods/textures" },
+        { title: "init.lua", icon: "vscode-icons:file-type-lua", path: "/docs/mods/init" },
+        { title: "lab.json", icon: "vscode-icons:file-type-json", path: "/docs/mods/lab" },
+        { title: "lab.lua", icon: "vscode-icons:file-type-lua", path: "/docs/mods/lab-lua" },
+        { title: "mod.conf", icon: "vscode-icons:file-type-config", path: "/docs/mods/conf" },
+    ],
+}
+
+function cli(title: string, path: string): DocsNavItem {
+    return { title, path, flavor: "bash" }
 }
 
 export const docsSections: DocsSection[] = [
@@ -69,16 +89,35 @@ export const docsSections: DocsSection[] = [
         groups: [{ title: "Machines", items: [{ title: "Parts and joints", path: "/docs/machines" }] }],
     },
     {
-        id: "modding",
-        label: "Modding",
-        path: "/docs/modding",
+        id: "mods",
+        label: "Mods",
+        path: "/docs/mods",
         side: "right",
         groups: [
             {
-                title: "Modding",
+                title: "Mods",
                 items: [
-                    { title: "Overview", path: "/docs/modding" },
-                    { title: "Your first mod", path: "/docs/modding/first-mod" },
+                    { title: "Overview", path: "/docs/mods" },
+                    { title: "Your first mod", path: "/docs/mods/first-mod" },
+                ],
+            },
+            { title: "Mod structure", items: [modFolder] },
+        ],
+    },
+    {
+        id: "cli",
+        label: "CLI",
+        path: "/docs/cli",
+        side: "right",
+        groups: [
+            {
+                title: "CLI API",
+                items: [
+                    cli("terraverse", "/docs/cli"),
+                    cli("terraverse <ref>", "/docs/cli/ref"),
+                    cli("terraverse host", "/docs/cli/host"),
+                    cli("terraverse version", "/docs/cli/version"),
+                    cli("terraverse publish", "/docs/cli/publish"),
                 ],
             },
         ],
@@ -89,21 +128,6 @@ export const docsSections: DocsSection[] = [
         path: "/docs/hosting",
         side: "right",
         groups: [{ title: "Hosting", items: [{ title: "Hosting a world", path: "/docs/hosting" }] }],
-    },
-    {
-        id: "engine",
-        label: "Engine",
-        path: "/docs/engine",
-        side: "right",
-        groups: [
-            {
-                title: "Engine",
-                items: [
-                    { title: "Architecture", path: "/docs/engine" },
-                    { title: "Building from source", path: "/docs/engine/building" },
-                ],
-            },
-        ],
     },
 ]
 

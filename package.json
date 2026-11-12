@@ -18,6 +18,7 @@
     "check:matter": "bash scripts/matter-check.sh",
     "check:far": "bash scripts/far-check.sh",
     "perf:gen": "bash scripts/perf-gen.sh",
+    "shots:map": "bash scripts/map-shots.sh",
     "check:palette": "bash scripts/palette.sh --check",
     "release:gate": "bash scripts/release/gate.sh",
     "release:tag": "bun scripts/release/tag.ts",

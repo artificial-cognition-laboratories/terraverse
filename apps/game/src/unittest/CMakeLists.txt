@@ -43,6 +43,7 @@ set(unittest_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/test_pile.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_matter.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_terragen.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_flora.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_sphere.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_atlas.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_atlas_view.cpp

@@ -571,6 +571,20 @@ export function MockBridge() {
         "relief.set": () => null,
         "relief.restart": () => null,
         "relief.state": () => ({ round: 0, rounds: 12 }),
+        "flora.show": () => null,
+        // (the gallery grows nothing: one lineage's numbers, whatever the site)
+        // (the gallery grows nothing: a few lineages and genes, whatever the site)
+        "flora.set": ({ site, genes }) => ({
+            lineages: [["Kreidei", "Broadleaf", "Trees and bushes"], ["Goune", "Split-leaf", "Palms and great leaves"], ["Steredei", "Fern", "Ferns, grasses, herbs"]]
+                .map(([name, preset, group], i) => ({ name: name!, preset: preset!, group: group!, leaf: "#4f8a35", bark: "#6b5a48", lives: i !== 2 })),
+            genes: [["height", "Height (m)", "Stems", 0.05, 45, false, 20], ["levels", "Branching levels", "Branches", 0, 3, true, 3], ["splits", "Splits", "Leaves", 0, 1, false, 0]]
+                .map(([id, label, group, lo, hi, whole, value]) => ({ id: id as string, label: label as string, group: group as string, lo: lo as number, hi: hi as number,
+                    whole: whole as boolean, value: genes[id as string] ?? value as number, grown: value as number, set: id as string in genes })),
+            strategy: { warmth: (site.heat + 1) / 2, water: (site.wet + 1) / 2, light: site.light, food: 0.6 + 0.4 * site.fertility, rooting: 1, vigour: 0.5, disturbance: site.wind, strategy: "competitor", limit: "cold" },
+            traits: { lives: true, why: "none", evergreen: false, leafing: 1, flowering: 0, leaf: "#4f8a35" },
+            blocks: { wood: 40, branch: 65, leaf: 936 },
+            grain: 2,
+        }),
         "scene.show": () => null,
         "scene.place": () => null,
         "scene.hide": () => null,
