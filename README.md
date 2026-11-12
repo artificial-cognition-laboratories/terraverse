@@ -1,5 +1,7 @@
 # Terraverse
-[hero](./assets/readme/planet-detail-create-world.png)
+
+<img src="./assets/readme/planet-detail-create-world.png" />
+<img src="./assets/readme/system-view-create-world.png" />
 
 ## Overview
 
