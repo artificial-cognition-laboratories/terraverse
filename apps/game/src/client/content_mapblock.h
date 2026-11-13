@@ -58,6 +58,8 @@ public:
 private:
 	MeshMakeData *const data;
 	MeshCollector *const collector;
+	size_t collectedVertices() const; // Terra Firma
+	static const char *drawtypeName(NodeDrawType t);
 
 	const NodeDefManager *const nodedef;
 

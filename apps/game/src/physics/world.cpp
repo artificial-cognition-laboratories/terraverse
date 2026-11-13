@@ -48,6 +48,7 @@
 #include <cmath>
 #include <limits>
 #include <map>
+#include <future>
 #include <mutex>
 #include <tuple>
 
@@ -523,8 +524,22 @@ struct World::Impl
 	{
 		BodyID body; // invalid: nothing solid in it
 		int unused = 0;
+		std::future<RefConst<Shape>> making; // valid: its shape's being made on a worker
 	};
 	std::map<s64, Ground> ground;
+	// Shapes still being made for ground that's since changed or gone:
+	// waited for, never used (a worker reads `hulls`)
+	std::vector<std::future<RefConst<Shape>>> abandoned;
+	int making = 0; // shapes being made, abandoned ones too
+	// a block's boxes are read here (the map's this thread's), up to tens
+	// of ms in a forest: one block a step is read ahead, no more
+	bool read_ahead = false;
+	// a block's shape took up to a quarter of a second (a forest's leaves,
+	// a hillside's hulls): made ahead on workers, where a character's going,
+	// so it's there when it's needed. What's needed now is waited for (the
+	// steps stay deterministic: ground is never late). Only so many at once
+	static constexpr int MAKING_AHEAD = 4;
+	enum class Want { NOW, AHEAD }; // NOW: built before it returns
 
 	struct Char
 	{
@@ -586,16 +601,25 @@ struct World::Impl
 		return id;
 	}
 
-	// The ground round a character, built; false: some isn't loaded.
+	// The ground round a character, built; false: some isn't loaded. Where
+	// it's going is started on too.
 	bool charGround(const Char &c)
 	{
 		const RVec3 p = c.to ? *c.to : c.c->GetPosition();
-		bool all = true; // every block's built that can be (one flying through needs the rest)
-		for (int x = blockOf(p.GetX() - 2); x <= blockOf(p.GetX() + 2); x++)
-			for (int y = blockOf(p.GetY() - 2); y <= blockOf(p.GetY() + 3); y++)
-				for (int z = blockOf(p.GetZ() - 2); z <= blockOf(p.GetZ() + 2); z++)
-					all = groundAt(v3s16(x, y, z)) && all;
-		return all;
+		auto each = [&](const RVec3 &lo, const RVec3 &hi, Want want) {
+			bool all = true; // every block's started that can be (one flying through needs the rest)
+			for (int x = blockOf(lo.GetX() - 2); x <= blockOf(hi.GetX() + 2); x++)
+				for (int y = blockOf(lo.GetY() - 2); y <= blockOf(hi.GetY() + 3); y++)
+					for (int z = blockOf(lo.GetZ() - 2); z <= blockOf(hi.GetZ() + 2); z++)
+						all = groundAt(v3s16(x, y, z), want) && all;
+			return all;
+		};
+		const bool here = each(p, p, Want::NOW);
+		read_ahead = false;
+		// half a second on, so it's made before it's stood in
+		const RVec3 on = p + RVec3(c.c->GetLinearVelocity() * 0.5f);
+		each(RVec3::sMin(p, on), RVec3::sMax(p, on), Want::AHEAD);
+		return here;
 	}
 
 	// The `k`th of this call's `n` steps.
@@ -1083,29 +1107,69 @@ struct World::Impl
 			for (s16 x = lo.X; x <= hi.X; x++)
 				for (s16 y = lo.Y; y <= hi.Y; y++)
 					for (s16 z = lo.Z; z <= hi.Z; z++)
-						if (!groundAt(v3s16(x, y, z)))
+						if (!groundAt(v3s16(x, y, z), Want::NOW)) // (an assembly that lacks it is frozen)
 							return false;
 		}
 		return true;
 	}
 
-	// The block built (if it isn't), kept a while longer; false: not loaded.
-	bool groundAt(v3s16 block)
+	// The block built (if it isn't), kept a while longer; false: not
+	// loaded, or its shape's still being made.
+	bool groundAt(v3s16 block, Want want)
 	{
 		auto it = ground.find(key(block));
-		if (it != ground.end()) {
-			it->second.unused = 0;
-			return true;
-		}
-		ScopeProfiler sp(g_profiler, "Physics: ground built", SPT_ADD, PRECISION_MICRO);
-		std::vector<aabb3f> boxes;
-		{
-			ScopeProfiler read(g_profiler, "Physics: ground read", SPT_ADD, PRECISION_MICRO);
-			if (!opts.ground(block, boxes))
+		if (it == ground.end()) {
+			if (want == Want::AHEAD && (making >= MAKING_AHEAD || read_ahead))
 				return false;
+			read_ahead = read_ahead || want == Want::AHEAD;
+			std::vector<aabb3f> boxes;
+			{
+				ScopeProfiler read(g_profiler, "Physics: ground read [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
+				if (!opts.ground(block, boxes))
+					return false;
+			}
+			Ground &g = ground[key(block)];
+			if (boxes.empty())
+				return true;
+			if (want == Want::NOW) {
+				g.body = addGround(block, shapeOf(boxes));
+				return true;
+			}
+			// (a block started ahead but not needed yet: an empty entry
+			// marks it seen, its shape comes later)
+			making++;
+			g.making = std::async(std::launch::async, [this, boxes = std::move(boxes)]() mutable { return shapeOf(boxes); });
+			return false;
 		}
-		ground[key(block)] = { makeGround(block, boxes), 0 };
+		Ground &g = it->second;
+		g.unused = 0;
+		if (!g.making.valid())
+			return true;
+		if (want == Want::AHEAD && g.making.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+			return false;
+		making--;
+		g.body = addGround(block, g.making.get()); // (a worker's throw is rethrown here)
 		return true;
+	}
+
+	// A block's ground leaves: its body, or the shape it was waiting for.
+	void forget(Ground &g)
+	{
+		dropGround(g);
+		if (g.making.valid())
+			abandoned.push_back(std::move(g.making));
+	}
+
+	void reap()
+	{
+		for (auto it = abandoned.begin(); it != abandoned.end();) {
+			if (it->wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+				making--;
+				it = abandoned.erase(it);
+			} else {
+				++it;
+			}
+		}
 	}
 
 	// Shaped ground (a slope, a wedge, a corner) comes as a node's worth of
@@ -1116,11 +1180,15 @@ struct World::Impl
 	// again with each change to it, a hull a sloped node, and smoothed sand
 	// is a few shapes many times): the hull, or none if its slices stay
 	std::unordered_map<std::string, Ref<ShapeSettings>> hulls;
+	std::mutex hulls_lock; // shapes are made on workers
 
 	void slopes(std::vector<aabb3f> &boxes, std::vector<std::pair<Vec3, Ref<ShapeSettings>>> &parts)
 	{
-		if (hulls.size() > 50000)
-			hulls.clear(); // a bound, not a policy: rebuilt as it's needed
+		{
+			std::lock_guard lock(hulls_lock);
+			if (hulls.size() > 50000)
+				hulls.clear(); // a bound, not a policy: rebuilt as it's needed
+		}
 		// a 45° staircase of 16 steps overfills by 1/32 of a node
 		constexpr float OVERFILL = 0.06f;
 		std::map<std::tuple<int, int, int>, std::vector<size_t>> by_node;
@@ -1146,13 +1214,16 @@ struct World::Impl
 					key.push_back(char(q >> 8));
 				}
 			}
-			if (auto hit = hulls.find(key); hit != hulls.end()) {
-				if (hit->second) {
-					parts.push_back({ at, hit->second });
-					for (size_t i : in)
-						gone[i] = true;
+			{
+				std::lock_guard lock(hulls_lock);
+				if (auto hit = hulls.find(key); hit != hulls.end()) {
+					if (hit->second) {
+						parts.push_back({ at, hit->second });
+						for (size_t i : in)
+							gone[i] = true;
+					}
+					continue;
 				}
-				continue;
 			}
 			Array<Vec3> points;
 			float filled = 0;
@@ -1168,6 +1239,7 @@ struct World::Impl
 			// one that fills its hull is a box (or boxes) already: merged
 			// with its neighbours, it has no seams to catch on
 			const float hull_volume = r.HasError() ? 0 : r.Get()->GetVolume();
+			std::lock_guard lock(hulls_lock);
 			if (r.HasError() || hull_volume < filled + 1e-4f || hull_volume > filled + OVERFILL) {
 				hulls[key] = nullptr;
 				continue;
@@ -1184,16 +1256,22 @@ struct World::Impl
 		boxes = std::move(kept);
 	}
 
-	BodyID makeGround(v3s16 block, std::vector<aabb3f> &boxes)
+	// A block's ground as one shape, from its boxes (not none). Made on a
+	// worker: touches nothing but `hulls`, under its lock
+	RefConst<Shape> shapeOf(std::vector<aabb3f> &boxes)
 	{
-		if (boxes.empty())
-			return BodyID();
+		ScopeProfiler sp(g_profiler, "Physics: ground built [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
 		std::vector<std::pair<Vec3, Ref<ShapeSettings>>> parts;
 		slopes(boxes, parts);
 		merge(boxes);
 		for (const aabb3f &b : boxes)
 			parts.push_back({ vec(b.getCenter()), box(b, 1000) });
-		BodyCreationSettings s(compound(parts), RVec3(block.X * BLOCK, block.Y * BLOCK, block.Z * BLOCK),
+		return compound(parts);
+	}
+
+	BodyID addGround(v3s16 block, RefConst<Shape> shape)
+	{
+		BodyCreationSettings s(shape, RVec3(block.X * BLOCK, block.Y * BLOCK, block.Z * BLOCK),
 				JPH::Quat::sIdentity(), EMotionType::Static, Layer::GROUND);
 		s.mFriction = 0.7f;
 		const BodyID b = bi().CreateAndAddBody(s, EActivation::DontActivate);
@@ -1254,9 +1332,10 @@ struct World::Impl
 					freeze(r);
 			}
 		}
+		reap();
 		for (auto it = ground.begin(); it != ground.end();) {
 			if (++it->second.unused > 120) { // two seconds needed by nothing
-				dropGround(it->second);
+				forget(it->second);
 				it = ground.erase(it);
 			} else {
 				++it;
@@ -1572,7 +1651,9 @@ World::~World()
 	for (auto &[id, r] : m->recs)
 		m->freeze(r);
 	for (auto &[k, g] : m->ground)
-		m->dropGround(g);
+		m->forget(g);
+	for (auto &f : m->abandoned)
+		f.wait(); // (they read the hulls, gone with us)
 	m->chars.clear();
 }
 
@@ -2173,7 +2254,7 @@ void World::groundChanged(v3s16 block)
 	auto it = m->ground.find(key(block));
 	if (it == m->ground.end())
 		return;
-	m->dropGround(it->second);
+	m->forget(it->second);
 	m->ground.erase(it);
 	// what may have stood on it looks again
 	for (auto &[id, r] : m->recs)

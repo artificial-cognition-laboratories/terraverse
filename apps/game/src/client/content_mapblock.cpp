@@ -18,6 +18,8 @@
 #include "client/tile.h"
 #include "mesh.h"
 #include "client/meshgen/collector.h"
+#include "profiler.h"
+#include <map>
 #include "client/renderingengine.h"
 #include "client.h"
 #include "noise.h"
@@ -1867,7 +1869,23 @@ void MapblockMeshGenerator::drawAllfacesNode()
 	TileSpec tiles[6];
 	for (int face = 0; face < 6; face++)
 		getTile(tile_dirs[face], &tiles[face]);
+#if USE_SHELL
+	// Terra Firma: a canopy is thousands of leaves, and drawing every face
+	// between two of them made trees most of the vertices on screen. Only
+	// faces onto something see-through are drawn; a log hides one too. Ground
+	// may be cut or smoothed, so it never hides a face.
+	u8 mask = 0;
+	for (int face = 0; face < 6; face++) {
+		const ContentFeatures &f2 = nodedef->get(data->m_vmanip.getNodeRefUnsafeCheckFlags(
+				blockpos_nodes + cur_node.p + tile_dirs[face]));
+		if (f2.drawtype == NDT_ALLFACES || f2.drawtype == NDT_ALLFACES_OPTIONAL ||
+				(f2.drawtype == NDT_NORMAL && !f2.is_ground_content))
+			mask |= 1 << face;
+	}
+	drawAutoLightedCuboid(box, tiles, 6, nullptr, mask);
+#else
 	drawAutoLightedCuboid(box, tiles, 6);
+#endif
 }
 
 void MapblockMeshGenerator::drawNodeboxNode()
@@ -2543,6 +2561,8 @@ void MapblockMeshGenerator::generate()
 	assert(data->m_vmanip.m_area.contains(blockpos_nodes - 3));
 	assert(data->m_vmanip.m_area.contains(blockpos_nodes + v3s16(data->m_side_length + 2)));
 
+	std::map<const char *, size_t> made;
+
 	for (cur_node.p.Z = 0; cur_node.p.Z < data->m_side_length; cur_node.p.Z++)
 	for (cur_node.p.Y = 0; cur_node.p.Y < data->m_side_length; cur_node.p.Y++)
 	for (cur_node.p.X = 0; cur_node.p.X < data->m_side_length; cur_node.p.X++) {
@@ -2555,9 +2575,40 @@ void MapblockMeshGenerator::generate()
 				data->m_hidden[(cur_node.p.Z * side + cur_node.p.Y) * side + cur_node.p.X])
 			continue;
 		cur_node.f = &nodedef->get(cur_node.n);
+		// Terra Firma: what each kind of node costs in vertices, for the profiler
+		const size_t before = collectedVertices();
 		drawNode();
+		const char *kind = cur_node.f->drawtype == NDT_NORMAL && cutShape(blockpos_nodes + cur_node.p) ?
+				"cut ground" : drawtypeName(cur_node.f->drawtype);
+		made[kind] += collectedVertices() - before;
 	}
+	const size_t before = collectedVertices();
 	drawSprigs();
+	made["sprigs"] += collectedVertices() - before;
+	for (const auto &[kind, n] : made)
+		g_profiler->add(std::string("Mesh vertices: ") + kind + " [#]", n);
+}
+
+size_t MapblockMeshGenerator::collectedVertices() const
+{
+	size_t n = 0;
+	for (const auto &layer : collector->prebuffers)
+		for (const PreMeshBuffer &b : layer)
+			n += b.vertices.size();
+	return n;
+}
+
+const char *MapblockMeshGenerator::drawtypeName(NodeDrawType t)
+{
+	switch (t) {
+	case NDT_NORMAL: return "solid";
+	case NDT_LIQUID: case NDT_FLOWINGLIQUID: return "liquid";
+	case NDT_ALLFACES: case NDT_ALLFACES_OPTIONAL: return "leaves";
+	case NDT_PLANTLIKE: case NDT_PLANTLIKE_ROOTED: return "plantlike";
+	case NDT_NODEBOX: return "nodebox";
+	case NDT_MESH: return "mesh";
+	default: return "other";
+	}
 }
 
 /*
