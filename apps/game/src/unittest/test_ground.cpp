@@ -4,6 +4,7 @@
 #include "test.h"
 
 #include "ground/ground.h"
+#include "workshop/motion.h"
 #include "collision.h"
 #include "dummygamedef.h"
 #include "dummymap.h"
@@ -11,6 +12,7 @@
 #include "object_properties.h"
 #include "network/networkprotocol.h"
 #include "noise.h"
+#include <chrono>
 #include <sstream>
 #include <map>
 #include <memory>
@@ -33,6 +35,7 @@ public:
 	void testUnknownAndCubesAreWalls();
 	void testWalksUpASteppedHill();
 	void testFirstCutKeepsTheShape();
+	void testBlockBoxesAsTheMapSays();
 };
 
 static TestGround g_test_instance;
@@ -48,6 +51,7 @@ void TestGround::runTests(IGameDef *gamedef)
 	TEST(testUnknownAndCubesAreWalls);
 	TEST(testWalksUpASteppedHill);
 	TEST(testFirstCutKeepsTheShape);
+	TEST(testBlockBoxesAsTheMapSays);
 }
 
 namespace {
@@ -106,6 +110,11 @@ void TestGround::testFlatStaysFlat()
 		UASSERTEQ(int, t->sides[i][0], STEPS);
 		UASSERTEQ(int, t->sides[i][1], STEPS);
 	}
+	// stood on as one box, the whole block
+	std::vector<aabb3f> boxes;
+	t->boxes(boxes);
+	UASSERTEQ(size_t, boxes.size(), 1);
+	UASSERT(boxes[0].MinEdge.equals(v3f(-0.5f * BS)) && boxes[0].MaxEdge.equals(v3f(0.5f * BS)));
 	// not a top: ground over it
 	UASSERT(!Ground(*land.ndef).top(land, v3s16(0, -2, 0)));
 }
@@ -422,4 +431,93 @@ void TestGround::testFirstCutKeepsTheShape()
 		}
 	}
 	UASSERT(risen > 0); // some rose into the cell above
+}
+
+/*
+	A block's ground as physics stands on it (workshop::groundBoxes, which
+	reads each node once for the smoothing it does) is what the map says,
+	node by node: Map::getShapedBoxes, or a node's own boxes. A rough
+	hill of loose ground with stone in it, across blocks.
+*/
+void TestGround::testBlockBoxesAsTheMapSays()
+{
+	DummyGameDef gamedef;
+	NodeDefManager *ndef = gamedef.getWritableNodeDefManager();
+	ContentFeatures d;
+	d.name = "test:dirt";
+	d.walkable = true;
+	d.groups["loose"] = 1;
+	const content_t dirt = ndef->set(d.name, std::move(d));
+	ContentFeatures st;
+	st.name = "test:stone";
+	st.walkable = true;
+	const content_t stone = ndef->set(st.name, std::move(st));
+
+	HillEnvironment env(&gamedef);
+	Map &map = env.getMap();
+	auto top = [](int x, int z) { return 4 + int(std::floor(3 * std::sin(x * 0.7) + 2 * std::cos(z * 0.45) + ((x * 7 + z * 13) % 5 == 0 ? 2 : 0))); };
+	for (s16 x = -16; x < 32; x++)
+		for (s16 z = -16; z < 32; z++)
+			for (s16 y = -16; y < 32; y++)
+				map.setNode(v3s16(x, y, z), MapNode(y >= top(x, z) ? CONTENT_AIR
+						: (x * 3 + z) % 11 == 0 ? stone : dirt));
+
+	for (const v3s16 block : { v3s16(0, 0, 0), v3s16(0, -1, 0), v3s16(1, 0, 1) }) {
+		std::vector<aabb3f> got;
+		const auto t0 = std::chrono::steady_clock::now();
+		UASSERT(workshop::groundBoxes(map, ndef, block, got));
+		const auto t1 = std::chrono::steady_clock::now();
+		// as it was read before: through the map, a node at a time
+		std::vector<aabb3f> want, nb;
+		const v3s16 base = block * MAP_BLOCKSIZE;
+		auto whole = [&](v3s16 p) {
+			const ContentFeatures &f = ndef->get(map.getNode(p));
+			bool is = f.walkable && f.drawtype == NDT_NORMAL && !map.getShape(p);
+			if (is && f.loose) {
+				const v3s16 up = p + v3s16(0, 1, 0);
+				const ContentFeatures &over = ndef->get(map.getNode(up));
+				if (!(over.walkable && !map.getShape(up))) {
+					std::vector<aabb3f> shaped;
+					is = !map.getShapedBoxes(p, shaped);
+				}
+			}
+			return is;
+		};
+		for (s16 x = 0; x < MAP_BLOCKSIZE; x++)
+			for (s16 y = 0; y < MAP_BLOCKSIZE; y++)
+				for (s16 z = 0; z < MAP_BLOCKSIZE; z++) {
+					const v3s16 rel(x, y, z), p = base + rel;
+					const MapNode n = map.getNode(p);
+					if (!ndef->get(n).walkable)
+						continue;
+					const bool inner = x > 0 && y > 0 && z > 0 && x < MAP_BLOCKSIZE - 1 && y < MAP_BLOCKSIZE - 1
+							&& z < MAP_BLOCKSIZE - 1;
+					bool buried = inner && whole(p);
+					for (const v3s16 &dir : { v3s16(1, 0, 0), v3s16(-1, 0, 0), v3s16(0, 1, 0), v3s16(0, -1, 0),
+							v3s16(0, 0, 1), v3s16(0, 0, -1) })
+						buried = buried && whole(p + dir);
+					if (buried)
+						continue;
+					nb.clear();
+					if (whole(p))
+						nb.push_back(aabb3f(v3f(-0.5f * BS), v3f(0.5f * BS)));
+					else if (!map.getShapedBoxes(p, nb))
+						n.getCollisionBoxes(ndef, &nb, n.getNeighbors(p, &map));
+					for (aabb3f b : nb) {
+						b.MinEdge = b.MinEdge / BS + v3f::from(rel);
+						b.MaxEdge = b.MaxEdge / BS + v3f::from(rel);
+						if (b.getVolume() > 0)
+							want.push_back(b);
+					}
+				}
+		const auto t2 = std::chrono::steady_clock::now();
+		auto ms = [](auto a, auto b) { return std::chrono::duration<double, std::milli>(b - a).count(); };
+		rawstream << "ground boxes (" << block.X << ", " << block.Y << ", " << block.Z << "): " << got.size()
+				<< " boxes in " << ms(t0, t1) << " ms, node by node " << ms(t1, t2) << " ms" << std::endl;
+		UTEST(got.size() == want.size(), "block (%d, %d, %d): %zu boxes, the map's %zu",
+				block.X, block.Y, block.Z, got.size(), want.size());
+		UASSERT(want.size() > 0);
+		for (size_t i = 0; i < want.size(); i++)
+			UASSERT(got[i].MinEdge.equals(want[i].MinEdge) && got[i].MaxEdge.equals(want[i].MaxEdge));
+	}
 }

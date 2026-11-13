@@ -21,6 +21,7 @@
 #include <string>
 #include <thread>
 #include "profiler.h"
+#include "terragen/parallel.h"
 
 namespace far {
 
@@ -220,7 +221,7 @@ public:
 		if (threads == 0)
 			throw BaseException("far tiles: no threads to build with");
 		for (unsigned i = 0; i < threads; i++)
-			std::thread([crew = m_crew] { crew->run(); }).detach();
+			std::thread([crew = m_crew] { terragen::background(); crew->run(); }).detach();
 	}
 
 	~Workers() { m_crew->stop(); }

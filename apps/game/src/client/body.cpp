@@ -20,6 +20,7 @@
 #include "terragen/planet.h"
 #include "terragen/worlds.h"
 #include "workshop/motion.h"
+#include "terragen/parallel.h"
 #include <cmath>
 #include <functional>
 
@@ -82,7 +83,7 @@ bool Body::standIn(v3s16 block, std::vector<aabb3f> &boxes)
 		if (m_standins.size() > 4096) // a bound: the made ones let go, the rest still coming
 			for (auto i = m_standins.begin(); i != m_standins.end();)
 				i = i->second.wait_for(std::chrono::seconds(0)) == std::future_status::ready ? m_standins.erase(i) : std::next(i);
-		m_standins.emplace(block, std::async(std::launch::async, [this, block] { return buildStandIn(block); }).share());
+		m_standins.emplace(block, std::async(std::launch::async, [this, block] { terragen::background(); return buildStandIn(block); }).share());
 		return false;
 	}
 	if (it->second.wait_for(std::chrono::seconds(0)) != std::future_status::ready)

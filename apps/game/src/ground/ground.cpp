@@ -6,6 +6,7 @@
 #include "constants.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 namespace ground {
@@ -78,14 +79,34 @@ int Top::beside(int s, int k) const
 void Top::boxes(std::vector<aabb3f> &out) const
 {
 	auto at = [](int v) { return (v / float(STEPS) - 0.5f) * BS; };
+	// rectangles of one height: a run along x, grown along z while the
+	// rows past it are the same height there (flat ground is one box, not
+	// a row each: physics built each block of it from thousands)
+	std::array<std::array<bool, STEPS>, STEPS> taken{}; // [x][z]
 	for (int z = 0; z < STEPS; z++)
 		for (int x = 0; x < STEPS;) {
+			if (taken[x][z]) {
+				x++;
+				continue;
+			}
 			const int h = cells[x][z];
 			int end = x + 1;
-			while (end < STEPS && cells[end][z] == h)
+			while (end < STEPS && !taken[end][z] && cells[end][z] == h)
 				end++;
+			int far = z + 1;
+			auto same = [&](int row) {
+				for (int i = x; i < end; i++)
+					if (taken[i][row] || cells[i][row] != h)
+						return false;
+				return true;
+			};
+			while (far < STEPS && same(far))
+				far++;
+			for (int i = x; i < end; i++)
+				for (int j = z; j < far; j++)
+					taken[i][j] = true;
 			if (h > 0)
-				out.emplace_back(at(x), at(0), at(z), at(end), at(h), at(z + 1));
+				out.emplace_back(at(x), at(0), at(z), at(end), at(h), at(far));
 			x = end;
 		}
 }

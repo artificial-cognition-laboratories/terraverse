@@ -18,6 +18,11 @@ namespace terragen {
 
 constexpr int32_t PARTS = 64;
 
+// The calling thread yields to the rest: a worker (building a world, the
+// far view, meshes, physics' ground) runs below the frame's thread, so a
+// machine that's busy everywhere still draws on time. Once per thread.
+void background();
+
 // fn(part, begin, end) for PARTS slices of 0..n, in any order, on any thread.
 void parallelParts(int32_t n, const std::function<void(int32_t, int32_t, int32_t)> &fn);
 

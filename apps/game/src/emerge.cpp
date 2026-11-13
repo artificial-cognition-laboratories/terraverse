@@ -31,6 +31,7 @@
 #include "util/serialize.h"
 #include "settings.h"
 #include "voxel.h"
+#include "terragen/parallel.h" // Terra Firma: background()
 
 EmergeParams::~EmergeParams()
 {
@@ -695,6 +696,7 @@ void *EmergeThread::run()
 	std::map<v3s16, MapBlock*> modified_blocks;
 	std::string databuf;
 
+	terragen::background(); // Terra Firma: the frame's thread first
 	m_map    = &m_server->m_env->getServerMap();
 	m_emerge = m_server->getEmergeManager();
 	m_mapgen = m_emerge->m_mapgens[id];

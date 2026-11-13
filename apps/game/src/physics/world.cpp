@@ -4,6 +4,7 @@
 #include "world.h"
 #include "aero.h"
 #include "profiler.h"
+#include "terragen/parallel.h"
 
 #include <Jolt/Jolt.h>
 #include <set>
@@ -525,6 +526,7 @@ struct World::Impl
 		BodyID body; // invalid: nothing solid in it
 		int unused = 0;
 		std::future<RefConst<Shape>> making; // valid: its shape's being made on a worker
+		bool stale = false; // changed: its body stands in till the new shape's made
 	};
 	std::map<s64, Ground> ground;
 	// Shapes still being made for ground that's since changed or gone:
@@ -1114,20 +1116,17 @@ struct World::Impl
 	}
 
 	// The block built (if it isn't), kept a while longer; false: not
-	// loaded, or its shape's still being made.
+	// loaded, or its shape's still being made. Changed ground stands as it
+	// was till its new shape's made (sprint 107: footprints and fills
+	// changed the block underfoot four times a second, and each time it
+	// was read and built again in the step, up to 50 ms)
 	bool groundAt(v3s16 block, Want want)
 	{
 		auto it = ground.find(key(block));
 		if (it == ground.end()) {
-			if (want == Want::AHEAD && (making >= MAKING_AHEAD || read_ahead))
-				return false;
-			read_ahead = read_ahead || want == Want::AHEAD;
 			std::vector<aabb3f> boxes;
-			{
-				ScopeProfiler read(g_profiler, "Physics: ground read [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
-				if (!opts.ground(block, boxes))
-					return false;
-			}
+			if (!readGround(block, want, boxes))
+				return false;
 			Ground &g = ground[key(block)];
 			if (boxes.empty())
 				return true;
@@ -1137,19 +1136,54 @@ struct World::Impl
 			}
 			// (a block started ahead but not needed yet: an empty entry
 			// marks it seen, its shape comes later)
-			making++;
-			g.making = std::async(std::launch::async, [this, boxes = std::move(boxes)]() mutable { return shapeOf(boxes); });
+			make(g, std::move(boxes));
 			return false;
 		}
 		Ground &g = it->second;
 		g.unused = 0;
+		if (g.stale && !g.making.valid()) {
+			std::vector<aabb3f> boxes;
+			if (readGround(block, Want::AHEAD, boxes))
+				make(g, std::move(boxes));
+			return true; // (unloaded since: it stays as it was)
+		}
 		if (!g.making.valid())
 			return true;
-		if (want == Want::AHEAD && g.making.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
-			return false;
+		if ((want == Want::AHEAD || g.stale) && g.making.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+			return g.stale;
 		making--;
-		g.body = addGround(block, g.making.get()); // (a worker's throw is rethrown here)
+		RefConst<Shape> shape = g.making.get(); // (a worker's throw is rethrown here)
+		dropGround(g);
+		g.body = shape ? addGround(block, shape) : BodyID();
+		if (g.stale) {
+			g.stale = false;
+			// what may have stood on it looks again
+			for (auto &[id, r] : recs)
+				for (const BodyID &b : r.bodies)
+					bi().ActivateBody(b);
+		}
 		return true;
+	}
+
+	// A block's boxes, read here (the map's this thread's). Only so much is
+	// read ahead a step; what's needed now always is. False: not read
+	bool readGround(v3s16 block, Want want, std::vector<aabb3f> &boxes)
+	{
+		if (want == Want::AHEAD && (making >= MAKING_AHEAD || read_ahead))
+			return false;
+		read_ahead = read_ahead || want == Want::AHEAD;
+		ScopeProfiler read(g_profiler, "Physics: ground read [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
+		return opts.ground(block, boxes);
+	}
+
+	// Its shape made on a worker (none: nothing solid's left in it)
+	void make(Ground &g, std::vector<aabb3f> boxes)
+	{
+		making++;
+		g.making = std::async(std::launch::async, [this, boxes = std::move(boxes)]() mutable {
+			terragen::background();
+			return boxes.empty() ? RefConst<Shape>() : shapeOf(boxes);
+		});
 	}
 
 	// A block's ground leaves: its body, or the shape it was waiting for.
@@ -2254,12 +2288,17 @@ void World::groundChanged(v3s16 block)
 	auto it = m->ground.find(key(block));
 	if (it == m->ground.end())
 		return;
-	m->forget(it->second);
-	m->ground.erase(it);
-	// what may have stood on it looks again
-	for (auto &[id, r] : m->recs)
-		for (const BodyID &b : r.bodies)
-			m->bi().ActivateBody(b);
+	// made again on a worker, the old standing in till then
+	Impl::Ground &g = it->second;
+	if (g.making.valid()) {
+		if (!g.stale) { // never built: started again from scratch
+			m->forget(g);
+			m->ground.erase(it);
+			return;
+		}
+		m->abandoned.push_back(std::move(g.making));
+	}
+	g.stale = true;
 }
 
 // a server steps every 0.09 s by default (5–6 of ours): up to a fifth of

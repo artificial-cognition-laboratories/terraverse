@@ -83,8 +83,8 @@ struct Top
 	// Where the neighbour across side s stands no lower than, at voxel k
 	// along it (from the side's first corner), in sixteenths.
 	int beside(int s, int k) const;
-	// What's stood on: a box from the block's base up to the columns, one a
-	// run of one height along x; node coordinates (from its centre, BS).
+	// What's stood on: a box from the block's base up to the columns, one
+	// a rectangle of one height; node coordinates (from its centre, BS).
 	void boxes(std::vector<aabb3f> &out) const;
 	// The columns as sixteenths of the block's own cell (layer 0) or of the
 	// cell above it (1): what it's cut from, the first time it's cut.

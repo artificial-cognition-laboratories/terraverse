@@ -742,7 +742,12 @@ void Client::step(float dtime)
 		std::vector<v3s16> blocks_to_ack;
 		bool force_update_shadows = false;
 		MeshUpdateResult r;
-		while (m_mesh_update_manager->getNextResult(r))
+		// Terra Firma: only so many new meshes a frame. Each is uploaded to
+		// the GPU when it's first drawn, and a burst of them (a ring of
+		// detail crossed, a world arriving) was a frame of tens of ms; the
+		// rest wait a frame or two
+		constexpr int MESHES_A_FRAME = 12;
+		while (num_processed_meshes < MESHES_A_FRAME && m_mesh_update_manager->getNextResult(r))
 		{
 			num_processed_meshes++;
 

@@ -2,6 +2,15 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "parallel.h"
+#if defined(_WIN32)
+#include <windows.h>
+#elif defined(__APPLE__)
+#include <pthread.h>
+#else
+#include <sys/resource.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#endif
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
@@ -11,6 +20,25 @@
 #include <vector>
 
 namespace terragen {
+
+void background()
+{
+	thread_local bool done = false;
+	if (done)
+		return;
+	done = true;
+	// (a hint: where it can't be lowered, it runs as it was)
+#if defined(_WIN32)
+	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+#elif defined(__APPLE__)
+	pthread_set_qos_class_self_np(QOS_CLASS_UTILITY, 0);
+#else
+	// niceness is a thread's own on Linux: 10 more is about a tenth of the
+	// frame's share when both want a core
+	const id_t self = (id_t)syscall(SYS_gettid);
+	setpriority(PRIO_PROCESS, self, getpriority(PRIO_PROCESS, self) + 10);
+#endif
+}
 
 namespace {
 
@@ -77,6 +105,7 @@ private:
 
 	void work()
 	{
+		background();
 		uint64_t seen = 0;
 		std::unique_lock<std::mutex> hold(m_lock);
 		while (true) {

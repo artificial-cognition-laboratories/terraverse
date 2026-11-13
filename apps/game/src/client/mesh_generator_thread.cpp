@@ -14,6 +14,7 @@
 #include "exceptions.h"
 #include "nodedef.h"
 #include "planet/atlas.h"
+#include "terragen/parallel.h" // Terra Firma: background()
 #include <optional>
 
 // Terra Firma: what a cut cell shows across its cut face (below)
@@ -533,6 +534,7 @@ MeshUpdateWorkerThread::MeshUpdateWorkerThread(Client *client, MeshUpdateQueue *
 
 void MeshUpdateWorkerThread::doUpdate()
 {
+	terragen::background(); // Terra Firma: the frame's thread first
 	QueuedMeshUpdate *q;
 	while ((q = m_queue_in->pop())) {
 		ScopeProfiler sp(g_profiler, "Client: Mesh making (sum)");
