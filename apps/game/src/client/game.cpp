@@ -63,6 +63,7 @@
 #include "config.h"
 #if USE_SHELL
 #include "shell/shell.h"
+#include "shell/entering.h"
 #include "shell/social.h"
 #include "online/gate.h"
 #include "online/players.h"
@@ -524,11 +525,13 @@ bool Game::startup(volatile std::sig_atomic_t *kill,
 		}
 		return m_shell_session->planetarium().handle(event);
 	});
+	// the world's there: the menu's planet let go, the game's page up
+	g_shell->setMode(shell::Mode::Game);
+	g_shell->entering().end();
 #endif
 
 	return true;
 }
-
 
 void Game::run()
 {

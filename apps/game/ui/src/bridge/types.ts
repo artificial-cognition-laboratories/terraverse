@@ -7,7 +7,8 @@ import type { StarId } from "../worldgen/config"
 // Change both sides together: intents are answered by verbs registered with
 // Shell::on() (shell.cpp, menu.cpp), messages are sent by Shell::send().
 
-export type Mode = "menu" | "game"
+/** entering: a world chosen and on its way (src/shell/entering.h); the menu stays up, locked, till its first frame. */
+export type Mode = "menu" | "entering" | "game"
 
 /** In-game screens the engine can open (src/shell/screens.cpp: SCREENS). */
 export type ScreenName = "pause" | "inventory" | "lab" | "wiki" | "map" | "making"
@@ -554,6 +555,8 @@ export type PlanetariumMessage =
 /** Engine → UI */
 export type EngineMessage =
     | { kind: "mode"; mode: Mode }
+    /** How far the world being entered has got, by stage; null once it's there (or it never got there). */
+    | { kind: "entering"; loading: Loading | null }
     | { kind: "error"; message: string }
     | { kind: "items"; items: Record<string, ItemInfo> }
     | { kind: "screen"; screen: ScreenName | null }

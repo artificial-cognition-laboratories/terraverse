@@ -133,7 +133,9 @@ void openWorld(const std::string &world, const std::string &build, const std::st
 	if (saved == build)
 		return;
 	const auto theirs = parse(saved);
-	if (theirs && *theirs > *ours)
+	// two dev builds of one version are named by commit, and commits have no order
+	const auto dev = [](const Version &v) { return !v.pre.empty() && v.pre[0].rfind("dev", 0) == 0; };
+	if (theirs && *theirs > *ours && !(dev(*theirs) && dev(*ours) && theirs->core == ours->core))
 		throw BaseException("This world was last saved by Terraverse " + saved + ", which is newer than this "
 			"version (" + build + "). " + (launched() ? "Choose a newer version in the launcher to open it."
 				: "Run terraverse update to open it."));

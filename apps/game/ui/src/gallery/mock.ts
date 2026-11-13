@@ -350,6 +350,7 @@ export function MockBridge() {
     }
 
     let making: ReturnType<typeof setInterval> | undefined // the create screen's body being made
+    let entering: ReturnType<typeof setInterval> | undefined // a world being entered (play)
     const handlers: Handlers = {
         ready: () => null,
         // no native planet in the gallery: the page around it is what's shown
@@ -430,7 +431,23 @@ export function MockBridge() {
             for (const pack of community.textures) pack.active = pack.id === id
             return null
         },
-        play: () => null,
+        // a world entered stage by stage, as the engine tells it (src/shell/entering.h); the
+        // gallery has no world to arrive in, so it comes back as one that wasn't entered
+        play: () => {
+            clearInterval(entering)
+            let at = 0
+            queueMicrotask(() => emitAll({ kind: "mode", mode: "entering" }))
+            entering = setInterval(() => {
+                at += 0.2
+                const loading = cannedEntering(at)
+                emitAll({ kind: "entering", loading })
+                if (loading) return
+                clearInterval(entering)
+                emitAll({ kind: "error", message: "The gallery has no engine to enter a world with." })
+                emitAll({ kind: "mode", mode: "menu" })
+            }, 200)
+            return null
+        },
         "screen.open": ({ name }) => {
             queueMicrotask(() => emitAll({ kind: "screen", screen: name }))
             return null
@@ -751,6 +768,25 @@ export function cannedLoading(at: number): Loading | null {
         if (into >= seconds) return { id, label, state: "done", seconds, share: null }
         if (into < 0) return { id, label, state: "waiting", seconds: 0, share: null }
         return { id, label, state: "running", seconds: Math.round(into * 10) / 10, share: id === "rivers" ? Math.round(into / seconds * 100) / 100 : null }
+    })
+    return { share: Math.round(at / total * 100) / 100, stages }
+}
+
+/** A world `at` seconds into being entered, by the engine's stages (src/shell/entering.cpp); null once it's there. */
+export function cannedEntering(at: number): Loading | null {
+    const STAGES: [id: string, label: string, seconds: number, counts: boolean][] = [
+        ["start", "Starting up", 0.3, false], ["server", "Opening the world", 2, false], ["connect", "Joining it", 0.4, false],
+        ["content", "Receiving blocks and media", 0.8, true], ["prepare", "Preparing textures and shaders", 1.5, true],
+    ]
+    const total = STAGES.reduce((sum, [, , seconds]) => sum + seconds, 0)
+    if (at >= total) return null
+    let begun = 0
+    const stages = STAGES.map(([id, label, seconds, counts]): LoadingStage => {
+        const into = at - begun
+        begun += seconds
+        if (into >= seconds) return { id, label, state: "done", seconds, share: null }
+        if (into < 0) return { id, label, state: "waiting", seconds: 0, share: null }
+        return { id, label, state: "running", seconds: Math.round(into * 10) / 10, share: counts ? Math.round(into / seconds * 100) / 100 : null }
     })
     return { share: Math.round(at / total * 100) / 100, stages }
 }

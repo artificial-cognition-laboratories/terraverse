@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
-import { BridgeError, type CommunityCatalog, type Friend, type Invite, type Player, type World } from "../bridge/index.ts"
+import { BridgeError, type CommunityCatalog, type Friend, type Invite, type Loading, type Player, type World } from "../bridge/index.ts"
 import { useBridge } from "../bridge/use.ts"
 import PixelIcon from "../game/PixelIcon.vue"
 import { useStore } from "../game/store.ts"
-import { Button, Dock, Field, Notice } from "../kit/index.ts"
+import { Button, Dock, Field, Notice, Progress, Stages } from "../kit/index.ts"
 import { usePlanetarium } from "../planetarium/use.ts"
 import { decodeWorldCode } from "../worldgen/config.ts"
 import { Copier } from "./create/copy.ts"
@@ -16,7 +16,10 @@ type Entry =
     | { kind: "friend"; id: string; label: string; note: string; tag: string; search: string; player: Player; world: string; invite?: Invite }
 type ListGroup = { label: string; entries: Entry[] }
 
-const emit = defineEmits<{ go: [screen: Screen] }>()
+// entering: the world chosen on its way (src/shell/entering.h; the menu's locked
+// meanwhile); error: why the last one wasn't, or ended
+const props = defineProps<{ entering: Loading | null; error: string | null }>()
+const emit = defineEmits<{ go: [screen: Screen]; dismiss: [] }>()
 const bridge = useBridge()
 const store = useStore()
 const copier = Copier()
@@ -144,6 +147,13 @@ function activate(entry: Entry) {
     else void join(entry.player)
 }
 const orbits = (shown: boolean) => bridge.send("planetarium.orbits", { shown }).catch(report)
+const running = computed(() => props.entering?.stages.find((stage) => stage.state === "running") ?? null)
+// a world that wasn't entered: the menu's host is new, and has none of what it was told
+watch(() => store.mode, (mode, was) => {
+    if (mode !== "menu" || was !== "entering") return
+    void orbits(false)
+    planet.again()
+})
 onMounted(() => {
     void orbits(false)
     void refreshWorlds()
@@ -259,7 +269,20 @@ onBeforeUnmount(() => { void orbits(true) })
         </template>
     </Dock>
 
-    <div class="go">
+    <div v-if="entering" class="go">
+        <div class="entering">
+            <Stages :stages="entering.stages" />
+        </div>
+        <div class="buttons">
+            <Progress :value="entering.share" :label="running ? running.label : 'Starting'" class="bar" />
+            <Button variant="primary" busy>{{ friend ? "Join" : "Play" }}</Button>
+        </div>
+    </div>
+    <div v-else class="go">
+        <span v-if="error" class="problem" role="alert">
+            <span><strong>Couldn't play:</strong> {{ error }}</span>
+            <button aria-label="Dismiss" @click="emit('dismiss')">✕</button>
+        </span>
         <span v-if="problem" class="problem" role="alert">{{ problem }}</span>
         <div class="buttons">
             <Button v-if="section === 'mine'" @click="emit('go', 'create')">+ New world</Button>
@@ -279,6 +302,12 @@ onBeforeUnmount(() => { void orbits(true) })
 .buttons { display: flex; gap: 8px; }
 .gear { width: 18px; height: 18px; }
 .problem { max-width: 320px; padding: 6px 8px; border: var(--b) solid var(--edge); background: rgb(12 14 16 / 0.85); color: var(--danger); font-size: 11px; }
+.problem:has(button) { display: flex; gap: 8px; align-items: start; }
+.problem button { border: 0; background: none; padding: 0 2px; color: var(--ink-dim); }
+.entering { width: 100%; padding: 10px 12px; border: var(--b) solid var(--edge); background: rgb(21 24 27 / 0.94); box-shadow: var(--raised); }
+/* the bar where New world and the gear were: as tall as the buttons beside it */
+.bar { width: 280px; min-width: 0; height: 44px; }
+.bar :deep(.label) { line-height: 40px; }
 .list-group { margin: 8px 0 14px; }
 .list-group h3 { margin: 0 0 5px; padding: 0 10px; color: var(--ink-faint); font: 10px var(--font-display); text-transform: uppercase; letter-spacing: .07em; }
 .entry { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 9px 10px 9px 9px; border: 0; border-left: 3px solid transparent; background: none; color: var(--ink); text-align: left; cursor: pointer; }

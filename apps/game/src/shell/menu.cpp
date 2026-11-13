@@ -144,6 +144,7 @@ Menu::Menu(const Opts &opts) :
 	// can be composed (Home.vue: planetarium.scene)
 	Json::Value universe;
 	universe["code"] = planetarium::HOME_SHOT.code;
+	m_planetarium.release(); // a world that was being entered, and wasn't
 	m_planetarium.serve([this](const Json::Value &b) { return body(b); }, universe);
 	m_planetarium.opening();
 	m_intents.onAsync("community.list", [this](const Json::Value &) {
@@ -274,7 +275,10 @@ Menu::~Menu()
 {
 	m_intents.clear();
 	m_shell.drain(); // a verb on the worker may be using this menu
-	m_planetarium.serve(nullptr); // its bodies were this menu's
+	if (m_choice)
+		m_planetarium.hold(); // the world chosen stays on screen while it's entered (entering.h)
+	else
+		m_planetarium.serve(nullptr); // its bodies were this menu's
 }
 
 std::optional<Choice> Menu::run(const std::string &error)

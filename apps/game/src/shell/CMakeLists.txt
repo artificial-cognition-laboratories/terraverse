@@ -5,6 +5,7 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/client.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/community.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/entering.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/course.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/finewater.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/finepowder.cpp

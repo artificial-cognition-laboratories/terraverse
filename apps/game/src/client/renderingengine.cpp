@@ -28,6 +28,7 @@
 #include "config.h"
 #if USE_SHELL
 #include "shell/shell.h"
+#include "shell/entering.h"
 #include "far/view.h"
 #endif
 
@@ -306,6 +307,21 @@ void RenderingEngine::draw_load_screen(const std::wstring &text,
 		gui::IGUIEnvironment *guienv, ITextureSource *tsrc, float dtime,
 		int percent, float *indef_pos, const std::wstring &bottom_text)
 {
+#if USE_SHELL
+	// Terra Firma: the page shows how far a world's got (shell/entering.h),
+	// over the planet chosen; otherwise (shutting down) the page alone
+	if (g_shell) {
+		if (g_shell->entering().active()) {
+			g_shell->entering().step(percent);
+		} else {
+			auto *driver = get_video_driver();
+			driver->beginScene(true, true, video::SColor(255, 12, 14, 12));
+			g_shell->frame();
+			driver->endScene();
+		}
+		return;
+	}
+#endif
 	v2u32 screensize = getWindowSize();
 
 	v2s32 textsize(g_fontengine->getTextWidth(text), g_fontengine->getLineHeight());

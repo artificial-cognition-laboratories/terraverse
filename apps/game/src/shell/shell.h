@@ -16,6 +16,7 @@ namespace Json { class Value; }
 namespace shell {
 
 class Planetarium;
+class Entering;
 
 /*
 	Chromium re-launches this executable for its renderer and GPU processes.
@@ -24,7 +25,8 @@ class Planetarium;
 */
 int runHelper(int argc, char *argv[]);
 
-enum class Mode { Menu, Game };
+// Entering: a world chosen, on its way (entering.h); the menu's page stays up, locked
+enum class Mode { Menu, Entering, Game };
 
 // Answers one kind of intent from the page (see bridge.h: Refused).
 using Verb = std::function<Json::Value(const Json::Value &intent)>;
@@ -84,6 +86,8 @@ public:
 	float scale() const;
 	// The planet under the page (planetarium.h): the window's, as long as it.
 	Planetarium &planetarium();
+	// A world being entered, Play to its first frame (entering.h).
+	Entering &entering();
 
 private:
 	struct Impl;

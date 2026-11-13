@@ -106,12 +106,55 @@ Planetarium::~Planetarium()
 
 void Planetarium::serve(Body body, std::optional<Json::Value> backdrop)
 {
+	if (m_holding) {
+		// what's held stays till it's let go (release): the new server's from then
+		m_body = std::move(body);
+		m_backdrop = std::move(backdrop);
+		return;
+	}
+	clear();
+	m_body = std::move(body);
+	m_backdrop = std::move(backdrop);
+	if (m_backdrop)
+		ask(*m_backdrop);
+}
+
+void Planetarium::hold()
+{
 	if (m_making.valid())
 		m_making.wait(); // its work may use what the last server owns
 	m_making = {};
 	m_wanted.reset();
 	m_makingWanted = false;
 	m_afterMade.clear();
+	m_body = nullptr;
+	m_backdrop.reset();
+	m_holding = true;
+}
+
+void Planetarium::release()
+{
+	if (!m_holding)
+		return;
+	m_holding = false;
+	Body body = std::move(m_body);
+	std::optional<Json::Value> backdrop = std::move(m_backdrop);
+	clear();
+	m_body = std::move(body);
+	m_backdrop = std::move(backdrop);
+	if (m_backdrop)
+		ask(*m_backdrop);
+}
+
+void Planetarium::clear()
+{
+	if (m_making.valid())
+		m_making.wait(); // its work may use what the last server owns
+	m_making = {};
+	m_wanted.reset();
+	m_makingWanted = false;
+	m_afterMade.clear();
+	m_body = nullptr;
 	m_backdrop.reset();
 	m_scene = Scene{};
 	m_held = false;
@@ -122,10 +165,6 @@ void Planetarium::serve(Body body, std::optional<Json::Value> backdrop)
 	m_insets = Insets{};
 	m_parked.reset(); // the last window's bodies
 	m_looked = false;
-	m_body = std::move(body);
-	m_backdrop = std::move(backdrop);
-	if (m_backdrop)
-		ask(*m_backdrop);
 }
 
 void Planetarium::ask(const Json::Value &body)

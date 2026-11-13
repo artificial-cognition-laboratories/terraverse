@@ -96,7 +96,12 @@ export function usePlanetarium(opts: {
         window.removeEventListener("resize", follow)
         hide()
     })
-    return { problem, focus, fly, layer, time, seams }
+    /** Asked for again: a new host (the menu back after a world wasn't entered) has none of what it was told. */
+    function again() {
+        shown = false
+        show()
+    }
+    return { problem, focus, fly, layer, time, seams, again }
 }
 
 // bytes as base64, in chunks (a whole image at once overflows the call stack)

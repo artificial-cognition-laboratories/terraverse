@@ -3,21 +3,23 @@ import { defineAsyncComponent, onBeforeUnmount, ref, watch } from "vue"
 import Corner from "../account/Corner.vue"
 import { useBridge } from "../bridge/use.ts"
 import PixelIcon from "../game/PixelIcon.vue"
-import { IconTile } from "../kit/index.ts"
+import { IconTile, Progress } from "../kit/index.ts"
 import Attributions from "./Attributions.vue"
 import CreateWorld from "./create/CreateWorld.vue"
 import Home from "./Home.vue"
 import Community from "./Community.vue"
 import Settings from "./Settings.vue"
 import { SHOT, type Screen } from "./screens.ts"
-import type { PlanetariumShot, SystemWire, UpdateCheck } from "../bridge"
+import type { Loading, PlanetariumShot, SystemWire, UpdateCheck } from "../bridge"
 import WorldSelect from "./WorldSelect.vue"
+import { useStore } from "../game/store.ts"
 import { useMenuMusic } from "./music.ts"
 
 // the wiki brings three.js: loaded when first opened
 const WikiScreen = defineAsyncComponent(() => import("../wiki/WikiScreen.vue"))
 
-const props = withDefaults(defineProps<{ error: string | null; playMusic?: boolean }>(), { playMusic: true })
+// entering: a world on its way (src/shell/entering.h): Play shows it; any other screen (a world entered from the command line) has it in a corner
+const props = withDefaults(defineProps<{ error: string | null; entering?: Loading | null; playMusic?: boolean }>(), { entering: null, playMusic: true })
 defineEmits<{ dismiss: [] }>()
 useMenuMusic(props.playMusic)
 
@@ -28,6 +30,9 @@ const bridge = useBridge()
 const scene = (shot: PlanetariumShot | null) => bridge.send("planetarium.scene", { shot, seconds: 2.5 })
     .catch((error) => console.error("planetarium.scene", error))
 watch(() => SHOT[screen.value], scene, { immediate: true })
+// a world that wasn't entered: the menu's host is new, and has none of what it was told
+const store = useStore()
+watch(() => store.mode, (mode, was) => { if (mode === "menu" && was === "entering") void scene(SHOT[screen.value]) })
 onBeforeUnmount(() => scene(null))
 // null until the engine answers; a failed check still names the running version
 const update = ref<UpdateCheck | null>(null)
@@ -74,19 +79,23 @@ const CREDITS_ICON = {
 </script>
 
 <template>
-    <main class="menu">
+    <!-- a world on its way: nothing here answers till it is, or isn't -->
+    <main class="menu" :inert="entering !== null">
         <div v-if="homeProblem" class="error" role="alert">
             <span><strong>Can't start a world:</strong> {{ homeProblem }}</span>
             <button @click="homeProblem = null">✕</button>
         </div>
-        <div v-if="error" class="error" role="alert">
+        <div v-if="error && screen !== 'worlds'" class="error" role="alert">
             <span><strong>Session ended:</strong> {{ error }}</span>
             <button @click="$emit('dismiss')">✕</button>
         </div>
 
+        <Progress v-if="entering && screen !== 'worlds'" class="entering" :value="entering.share"
+            :label="entering.stages.find((stage) => stage.state === 'running')?.label ?? 'Starting'" />
+
         <Transition name="screen" mode="out-in">
             <Home v-if="screen === 'home'" @go="go" />
-            <WorldSelect v-else-if="screen === 'worlds'" @go="go" />
+            <WorldSelect v-else-if="screen === 'worlds'" :entering="entering" :error="error" @go="go" @dismiss="$emit('dismiss')" />
             <CreateWorld v-else-if="screen === 'create' && home" :initial-code="seedCode" :home="home" @go="go" />
             <Settings v-else-if="screen === 'settings'" @go="go" />
             <Community v-else-if="screen === 'community'" @go="go" @create-code="createFromCode" />
@@ -127,6 +136,7 @@ const CREDITS_ICON = {
 </template>
 
 <style scoped>
+.entering { position: absolute; right: 16px; bottom: 16px; z-index: 1; width: 320px; }
 .menu {
     position: relative;
     height: 100%;

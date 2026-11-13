@@ -59,6 +59,11 @@ public:
 	// backdrop (a body as the page would ask for it) is shown now and
 	// whenever the page hides the planet: the menu's universe, always there.
 	void serve(Body body, std::optional<Json::Value> backdrop = std::nullopt);
+	// The body shown stays on screen with no one serving, through a serve,
+	// till it's let go: the menu's planet while its world is entered
+	// (entering.h). Let go, it's hidden, and the latest server's from then.
+	void hold();
+	void release();
 
 	bool shown() const { return m_current != nullptr || m_next != nullptr || m_wanted.has_value(); }
 	// Shows a body directly (a key, a command line), as `planetarium.show` does.
@@ -107,6 +112,8 @@ private:
 
 	Opts m_opts;
 	Body m_body;
+	bool m_holding = false; // hold(): the picture kept till release()
+	void clear(); // what one server had shown, hidden, no one serving
 	std::optional<Json::Value> m_backdrop;
 	Json::Value m_asked; // the body shown (or being made), as asked for
 	std::future<planetarium::Planetarium::Opts> m_making; // on the worker (one at a time: what they share isn't locked)

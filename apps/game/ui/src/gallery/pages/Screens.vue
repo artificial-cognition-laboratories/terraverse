@@ -3,10 +3,13 @@ import { ref } from "vue"
 import { Segmented } from "../../kit/index.ts"
 import MainMenu from "../../menu/MainMenu.vue"
 import SettingsPanel from "../../settings/SettingsPanel.vue"
+import { useStore } from "../../game/store.ts"
 
 /** Whole screens against the mock engine: click through them as in the game. */
 const screen = ref<"menu" | "settings">("menu")
 const error = ref<string | null>(null)
+// Play enters a world as the engine would tell it, and comes back with the gallery's error
+const store = useStore()
 const query = ref("")
 </script>
 
@@ -17,7 +20,8 @@ const query = ref("")
             <button class="err" @click="error = error ? null : 'Connection lost: server closed.'">toggle session error</button>
         </div>
         <div class="frame">
-            <MainMenu v-if="screen === 'menu'" :error="error" :play-music="false" @dismiss="error = null" />
+            <MainMenu v-if="screen === 'menu'" :error="error ?? store.error" :entering="store.mode === 'entering' ? store.entering : null"
+                :play-music="false" @dismiss="error = null; store.error = null" />
             <div v-else class="pad">
                 <SettingsPanel v-model:query="query" />
             </div>

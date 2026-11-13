@@ -8,6 +8,7 @@
 #include "app.h"
 #include "bridge.h"
 #include "client.h"
+#include "entering.h"
 #include "ime.h"
 #include "options.h"
 #include "planetarium.h"
@@ -47,7 +48,12 @@ static std::string accountPath(const std::string &dir, const std::string &api)
 
 static const char *modeName(Mode mode)
 {
-	return mode == Mode::Menu ? "menu" : "game";
+	switch (mode) {
+	case Mode::Menu: return "menu";
+	case Mode::Entering: return "entering";
+	case Mode::Game: return "game";
+	}
+	return "game";
 }
 
 struct Shell::Impl
@@ -71,6 +77,7 @@ struct Shell::Impl
 	CefRefPtr<Client> client;
 	CefRefPtr<CefBrowser> browser;
 	std::unique_ptr<Planetarium> planetarium; // its verbs come off before the rest goes
+	std::unique_ptr<Entering> entering;
 
 	// Page state, as far as the engine knows it. Reset on every navigation:
 	// a reloaded page has to announce itself again before it is spoken to.
@@ -257,6 +264,7 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(opts))
 		return Json::Value();
 	});
 	m->planetarium = std::make_unique<Planetarium>(Planetarium::Opts{ *this });
+	m->entering = std::make_unique<Entering>(Entering::Opts{ *this, opts.driver, opts.cursor });
 	m->router = CefMessageRouterBrowserSide::Create(routerConfig());
 	m->router->AddHandler(&m->bridge, true);
 	m->client = new Client(m->pixels, m->viewport, m->router, [this] { m->onNavigate(); });
@@ -382,6 +390,11 @@ Account &Shell::account()
 Planetarium &Shell::planetarium()
 {
 	return *m->planetarium;
+}
+
+Entering &Shell::entering()
+{
+	return *m->entering;
 }
 
 float Shell::scale() const

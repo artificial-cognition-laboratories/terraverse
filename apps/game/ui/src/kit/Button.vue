@@ -1,14 +1,22 @@
 <script setup lang="ts">
-/** A block you press: bevelled, hard-edged, sinks two pixels when held. */
-withDefaults(defineProps<{ variant?: "primary" | "plain" | "danger"; size?: "lg" | "md" | "sm"; disabled?: boolean }>(), {
+/**
+ * A block you press: bevelled, hard-edged, sinks two pixels when held. Busy,
+ * it's what was pressed and is under way: a spinner by its label, not pressable,
+ * and not faded as a button that can't be.
+ */
+import Spinner from "./Spinner.vue"
+
+withDefaults(defineProps<{ variant?: "primary" | "plain" | "danger"; size?: "lg" | "md" | "sm"; disabled?: boolean; busy?: boolean }>(), {
     variant: "plain",
     size: "md",
     disabled: false,
+    busy: false,
 })
 </script>
 
 <template>
-    <button class="btn" :class="[variant, size]" :disabled="disabled">
+    <button class="btn" :class="[variant, size, { busy }]" :disabled="disabled || busy" :aria-busy="busy">
+        <Spinner v-if="busy" />
         <slot />
     </button>
 </template>
@@ -54,4 +62,5 @@ withDefaults(defineProps<{ variant?: "primary" | "plain" | "danger"; size?: "lg"
 .danger:hover:not(:disabled) { background: var(--danger); outline-color: #ff8a73; }
 
 .btn:disabled { opacity: 0.4; cursor: default; }
+.btn.busy { opacity: 1; cursor: progress; }
 </style>

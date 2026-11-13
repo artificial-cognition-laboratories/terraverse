@@ -20,7 +20,8 @@ openMaking({ bridge: bridge, store: store })
 
 <template>
     <p v-if="!bridge.connected" class="detached">Not running inside the engine.</p>
-    <MainMenu v-else-if="store.mode === 'menu'" :error="store.error" @dismiss="store.error = null" />
+    <!-- one branch for both: the menu stays as it was while its world is entered, and if it isn't -->
+    <MainMenu v-else-if="store.mode === 'menu' || store.mode === 'entering'" :error="store.error" :entering="store.mode === 'entering' ? store.entering : null" @dismiss="store.error = null" />
     <template v-else-if="store.mode === 'game'">
         <Hud />
         <PauseScreen v-if="store.screen === 'pause'" />

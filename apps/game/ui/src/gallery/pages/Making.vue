@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { onMounted } from "vue"
-import { Meter, Progress, Stages } from "../../kit/index.ts"
+import { Button, Meter, Progress, Spinner, Stages } from "../../kit/index.ts"
 import MakingScreen from "../../game/making/MakingScreen.vue"
-import { cannedLoading, useMock } from "../mock.ts"
+import { cannedEntering, cannedLoading, useMock } from "../mock.ts"
 import Specimen from "../Specimen.vue"
 
 /** The real making screen against canned tf_craft offers and worktop: Make runs the bar and comes back. */
@@ -10,6 +10,9 @@ const mock = useMock()
 // a world partway through its rivers
 const loading = cannedLoading(3)
 if (!loading) throw new Error("the canned world is made by 3 s")
+// a world being entered, its media and textures coming in
+const entering = cannedEntering(3.8)
+if (!entering) throw new Error("the canned world is entered by 5 s")
 onMounted(() => {
     mock.emit({ kind: "mode", mode: "game" })
     mock.emit({ kind: "state", section: "hotbar", value: { size: 9, selected: 0 } })
@@ -26,6 +29,16 @@ onMounted(() => {
         </Specimen>
         <Specimen name="Stages" note="work in stages: under way, done in its time, or kept and never run">
             <Stages :stages="loading.stages" class="bar" />
+        </Specimen>
+        <Specimen name="Spinner" note="under way for no time anyone can say; stepped, never a smooth spin">
+            <Spinner />
+        </Specimen>
+        <Specimen name="Button busy" note="what was pressed, under way: a spinner, not pressable, not faded">
+            <div class="row">
+                <Progress :value="entering.share" label="Preparing textures and shaders" class="entering-bar" />
+                <Button variant="primary" busy>Play</Button>
+            </div>
+            <Stages :stages="entering.stages" class="bar" />
         </Specimen>
         <Specimen name="Meter" note="an amount against marks: what's carried, toned past them">
             <div class="meters">
@@ -44,6 +57,9 @@ onMounted(() => {
 <style scoped>
 .page { display: flex; flex-direction: column; gap: 20px; height: 100%; }
 .bar { width: 320px; }
+.row { display: flex; gap: 8px; margin-bottom: 8px; }
+.entering-bar { width: 280px; height: 44px; }
+.entering-bar :deep(.label) { line-height: 40px; }
 .meters { display: flex; flex-direction: column; gap: 8px; }
 .world { position: relative; flex: 1; min-height: 560px; overflow: hidden; border: var(--b) solid var(--edge); transform: translateZ(0); }
 .sky { position: absolute; inset: 0; background: linear-gradient(180deg, #8ab6f0, #c4dcf5 60%, #5b8f3a 60%, #4c7a31); }

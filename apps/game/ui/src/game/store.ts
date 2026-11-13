@@ -29,6 +29,7 @@ export function GameStore(opts: { bridge: BridgeHandle }) {
         picked: null as Omit<Extract<PlanetariumMessage, { event: "picked" }>, "kind" | "event"> | null,
         clock: null as { date: number; running: boolean } | null, // the planet viewer's clock, while it runs
         making: null as Loading | null, // a body the planet viewer is making: how far, by stage, till it's shown
+        entering: null as Loading | null, // the world being entered: how far, by stage, till its first frame
         /** The body under the mouse on the Planetarium, while it's shown. */
         hover: null as PlanetariumHover | null,
         /** The last body a double click on the Planetarium flew to (its id; "star"), once: a page takes it. */
@@ -54,6 +55,9 @@ export function GameStore(opts: { bridge: BridgeHandle }) {
                 break
             case "error":
                 store.error = message.message
+                break
+            case "entering":
+                store.entering = message.loading
                 break
             case "screen":
                 store.screen = message.screen

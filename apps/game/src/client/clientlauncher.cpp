@@ -29,6 +29,7 @@
 #include "shell/account.h"
 #include "shell/menu.h"
 #include "shell/shell.h"
+#include "shell/entering.h"
 #include "shell/social.h"
 #include "shell/worlds.h"
 #include <random>
@@ -268,7 +269,10 @@ bool ClientLauncher::run(const GameParams &game_params, const Settings &cmd_args
 				break;
 
 #if USE_SHELL
-			m_shell->setMode(shell::Mode::Game);
+			// the page stays on the menu, over the world chosen, till the
+			// game's first frame (Game::arrive): Mode::Game from there
+			m_shell->setMode(shell::Mode::Entering);
+			m_shell->entering().begin();
 #endif
 			the_game(
 				kill,
@@ -278,6 +282,9 @@ bool ClientLauncher::run(const GameParams &game_params, const Settings &cmd_args
 				errordata,
 				chat_backend
 			);
+#if USE_SHELL
+			m_shell->entering().end(); // (a game that ended before it was there)
+#endif
 #ifdef NDEBUG
 		} catch (std::exception &e) {
 			errordata.message = "Some exception: " + debug_describe_exc(e);
