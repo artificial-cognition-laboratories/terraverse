@@ -1,6 +1,7 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include <set>
 #include "test.h"
 #include <chrono>
 
@@ -42,6 +43,7 @@ public:
 	void testPitFills();
 	void testPitOverflows();
 	void testSoilHoldsWater();
+	void testRiverKeepsFull();
 };
 
 static TestSandbox g_test_instance;
@@ -86,6 +88,7 @@ void TestSandbox::runTests(IGameDef *gamedef)
 	TEST(testWorldBudget);
 	TEST(testPuddleSpreads);
 	TEST(testDitchLevels);
+	TEST(testRiverKeepsFull);
 	TEST(testPowderHeaps);
 	TEST(testVapourLeaves);
 	TEST(testSpiritBurns);
@@ -216,6 +219,7 @@ struct Plot
 	}
 	double ambient = 293.15;
 	double wet = 0; // how wet the ground is (sprint 111)
+	std::set<std::tuple<int, int, int>> river; // held water: kept full (sprint 115)
 	std::unique_ptr<WorldMatter> matter;
 	std::map<std::string, int32_t> kinds;
 
@@ -258,6 +262,7 @@ struct Plot
 			},
 		};
 		g.wetness = [this](Pos) { return wet; };
+		g.held = [this](Pos p) { return river.count({ p.x, p.y, p.z }) > 0; };
 		matter = std::make_unique<WorldMatter>(WorldMatter::Opts{ table(), airs, g });
 		using matter::State;
 		for (auto [node, id, share, state, form] : std::vector<std::tuple<const char *, const char *, double, State, bool>>{
@@ -540,6 +545,33 @@ void TestSandbox::testDitchLevels()
 	}
 	infostream << "world: a ditch of 10 filled with 2 m³: from " << lo << " to " << hi << " deep" << std::endl;
 	UASSERT(lo > 0.15 && hi - lo < 0.05); // level along its length
+}
+
+// A river's water is kept full by its reach (sprint 115): a ditch dug from
+// it fills to its level and the river doesn't fall.
+void TestSandbox::testRiverKeepsFull()
+{
+	Plot m;
+	for (int x = -1; x <= 10; x++)
+		for (int z = -1; z <= 1; z++) {
+			m.nodes[{ x, -1, z }] = "granite";
+			if (z != 0 || x < 0 || x > 9)
+				m.nodes[{ x, 0, z }] = "granite";
+		}
+	m.nodes[{ 0, 0, 0 }] = "sea";
+	m.river.insert({ 0, 0, 0 });
+	m.matter->disturb({ 0, 0, 0 });
+	for (int k = 0; k < 120; k++)
+		m.matter->step(1);
+	const size_t water = table().index("water");
+	auto deep = [&](int x) {
+		auto mix = m.matter->mixture({ x, 0, 0 });
+		return mix ? mix->in(water, matter::State::Liquid) / WATER_PER_M3 : 0.0;
+	};
+	infostream << "world: a ditch of 9 from a river: the river " << m.at(0, 0, 0) << ", the ditch from " << deep(1)
+			<< " to " << deep(9) << " deep" << std::endl;
+	UASSERT(m.at(0, 0, 0) == "sea"); // the river's still a full block
+	UASSERT(deep(9) > 0.5);           // and the ditch filled from it
 }
 
 // Salt poured in one place heaps: it slides until its sides are no steeper

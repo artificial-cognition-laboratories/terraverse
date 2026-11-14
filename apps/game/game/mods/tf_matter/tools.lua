@@ -238,6 +238,10 @@ function tf_matter.probe(user, pos)
 	local def = core.registered_nodes[node.name]
 	-- a family's block: the composition it is, by name ("Loam (sand 40% · silt 40% · clay 20%)")
 	r.node = def and def._point_name and def._point_name(node.param2) or (def and def.description ~= "" and def.description) or node.name
+	-- a river's or lake's water: what the weather has it doing (sprint 115)
+	if core.terra.enabled() and core.get_item_group(node.name, "water") > 0 then
+		r.river = core.terra.river(pos)
+	end
 	user:set_ui("probe", r)
 end
 

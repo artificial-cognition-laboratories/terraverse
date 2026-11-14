@@ -124,6 +124,7 @@ const ToClientCommandHandler toClientCommandTable[TOCLIENT_NUM_MSG_TYPES] =
 	{ "TOCLIENT_MATERIALS",                TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Materials }, // 0x6E Terra Firma
 	{ "TOCLIENT_FILL",                     TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Fill }, // 0x6F Terra Firma
 	{ "TOCLIENT_STREAM",                   TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Stream }, // 0x70 Terra Firma
+	{ "TOCLIENT_RIVERS",                   TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Rivers }, // 0x71 Terra Firma
 };
 
 const static ServerCommandFactory null_command_factory = { nullptr, 0, false };

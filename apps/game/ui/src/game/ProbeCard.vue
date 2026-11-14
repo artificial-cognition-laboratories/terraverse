@@ -31,6 +31,14 @@ const kelvin = (t: number) => `${Math.round(t)} K · ${Math.round(t - 273.15)} �
             <span v-if="r.vapour && (r.haze ?? 0) > 0.02" class="dim">{{ name(r.vapour) }} {{ Math.round((r.haze ?? 0) * 100) }}% of its gas</span>
             <span v-for="c in r.contents ?? []" :key="c.substance" class="dim">{{ name(c.substance) }} · {{ c.state }} · {{ moles(c.moles) }}</span>
             <span class="dim">{{ r.awake ? "awake" : "settled" }}</span>
+            <template v-if="r.river">
+                <span v-if="r.river.lake" class="what">a lake · stands at its level</span>
+                <template v-else>
+                    <span class="what">river · {{ Math.round(r.river.discharge) }} m³/s · ×{{ r.river.ratio.toFixed(2) }} its usual</span>
+                    <span class="dim">{{ r.river.local.toFixed(1) }} m³/s in its channel here</span>
+                    <span class="dim">{{ r.river.rise >= 0 ? "+" : "" }}{{ r.river.rise.toFixed(2) }} blocks · {{ r.river.speed.toFixed(2) }} blocks/s · {{ r.river.to_sea.toFixed(1) }} days to the sea</span>
+                </template>
+            </template>
         </template>
     </div>
 </template>

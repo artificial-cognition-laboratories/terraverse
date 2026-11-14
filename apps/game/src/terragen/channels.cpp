@@ -436,7 +436,7 @@ Channels::Channels(const WorldCode &code, const Grid &grid, const World &world, 
 	m_grid(&grid), m_world(&world), m_seed(code.seed_hash + NODE), m_owner(nextOwner()),
 	m_radius(radius), m_water(code.processes.water), m_land(land),
 	m_pieces(new std::atomic<Pieces *>[grid.size()]()), // (all null)
-	m_traced(new Traced())
+	m_traced(new Traced()), m_ways(new Traced()), m_wanders(new Traced())
 {
 	m_lattice[0] = (int64_t)gridSphere().spacing() << (PLACE_FRAC - FRAC);
 	// only where water ever ran
@@ -914,30 +914,49 @@ const Channels::Shape &Channels::shape(int level, int32_t i, int32_t j, int32_t 
 	return kept.put(m_owner, level, i, j, l, h, worn);
 }
 
-const Channels::Path &Channels::path(int level, int32_t i, int32_t j, int32_t l) const
+// A node's path, way or wandering, kept for every thread in `store` and in
+// this thread's own cache in front (one per caller: each `make` its own type)
+template <typename Make>
+const Channels::Path &Channels::keptIn(Traced &store, uint32_t salt, int level, int32_t i, int32_t j, int32_t l, Make make) const
 {
 	thread_local Ways<Path> kept;
-	const uint32_t h = mix(mix((uint32_t)i, (uint32_t)j, (uint32_t)level), (uint32_t)l, 0x9b05688cu);
-	if (const Path *k = kept.find(m_owner, level, i, j, l, h))
+	const uint64_t owner = m_owner;
+	const uint32_t h = mix(mix((uint32_t)i, (uint32_t)j, (uint32_t)level), (uint32_t)l, salt);
+	if (const Path *k = kept.find(owner, level, i, j, l, h))
 		return *k;
 	const uint64_t key = Traced::key(level, i, j, l);
-	Traced::Shard &shard = m_traced->shards[mix((uint32_t)key, (uint32_t)(key >> 32), 0x7f4a7c15u) % TRACED_SHARDS];
+	Traced::Shard &shard = store.shards[mix((uint32_t)key, (uint32_t)(key >> 32), 0x7f4a7c15u) % TRACED_SHARDS];
 	{
 		std::lock_guard<std::mutex> hold(shard.lock);
 		const auto found = shard.paths.find(key);
 		if (found != shard.paths.end())
-			return kept.put(m_owner, level, i, j, l, h, found->second);
+			return kept.put(owner, level, i, j, l, h, found->second);
 	}
-	// (traced unlocked: it asks for others' paths. Another thread may trace it
-	// too: the same path, so either's kept)
-	const Path traced = trace(level, i, j, l); // (asks for what it joins's: may land in this set)
+	// (made unlocked: it asks for others'. Another thread may make it too:
+	// the same, so either's kept)
+	const Path made = make(); // (asks for what it joins's: may land in this set)
 	{
 		std::lock_guard<std::mutex> hold(shard.lock);
 		if (shard.paths.size() >= TRACED_MOST)
 			shard.paths.clear();
-		shard.paths.emplace(key, traced);
+		shard.paths.emplace(key, made);
 	}
-	return kept.put(m_owner, level, i, j, l, h, traced);
+	return kept.put(owner, level, i, j, l, h, made);
+}
+
+const Channels::Path &Channels::path(int level, int32_t i, int32_t j, int32_t l) const
+{
+	return keptIn(*m_traced, 0x9b05688cu, level, i, j, l, [&] { return trace(level, i, j, l); });
+}
+
+const Channels::Path &Channels::way(int level, int32_t i, int32_t j, int32_t l) const
+{
+	return keptIn(*m_ways, 0x510e527fu, level, i, j, l, [&] { return wayOf(level, i, j, l); });
+}
+
+const Channels::Path &Channels::wander(int level, int32_t i, int32_t j, int32_t l) const
+{
+	return keptIn(*m_wanders, 0x1f83d9abu, level, i, j, l, [&] { return wanderOf(level, i, j, l); });
 }
 
 Place Channels::pathAt(const Path &path, fix t)
@@ -955,9 +974,9 @@ static int64_t bedAt(int64_t low, int64_t high, fix flat, fix t);
 	in straight steps, a level's streams were lines hundreds of blocks long:
 	most join the level above in one.
 */
-Channels::Path Channels::trace(int level, int32_t i, int32_t j, int32_t l) const
+Channels::Path Channels::wanderOf(int level, int32_t i, int32_t j, int32_t l) const
 {
-	const Node n = node(level, i, j, l); // (a copy: what it joins's path can overwrite its slot)
+	const Node n = node(level, i, j, l); // (a copy: what it joins's way can overwrite its slot)
 	Path out;
 	out.ground.fill(INT64_MAX);
 	if (!n.exists)
@@ -965,7 +984,7 @@ Channels::Path Channels::trace(int level, int32_t i, int32_t j, int32_t l) const
 	// its foot on what it joins's own way (on the first level, the grid's run: n.join's on it)
 	Place foot = n.join;
 	if (m_land && (level > 1 || n.sibling)) {
-		const Path into = n.sibling ? path(level, n.into[0], n.into[1], n.into[2]) : path(level - 1, n.parent[0], n.parent[1], n.parent[2]);
+		const Path &into = n.sibling ? way(level, n.into[0], n.into[1], n.into[2]) : way(level - 1, n.parent[0], n.parent[1], n.parent[2]);
 		foot = pathAt(into, n.t);
 	}
 	out.at[0] = foot;
@@ -1022,7 +1041,7 @@ Channels::Path Channels::trace(int level, int32_t i, int32_t j, int32_t l) const
 	{
 		Place up = foot;
 		if (level > 1 || n.sibling) {
-			const Path into = n.sibling ? path(level, n.into[0], n.into[1], n.into[2]) : path(level - 1, n.parent[0], n.parent[1], n.parent[2]);
+			const Path &into = n.sibling ? way(level, n.into[0], n.into[1], n.into[2]) : way(level - 1, n.parent[0], n.parent[1], n.parent[2]);
 			up = pathAt(into, std::min<fix>(ONE, n.t + ONE / PATH_PIECES)); // (t runs from its foot up it)
 		} else if (n.link >= 0)
 			up = m_world->onRun(n.link, std::max<fix>(0, n.t - ONE / TRUNK_PIECES)); // (a run's t runs down it)
@@ -1045,9 +1064,23 @@ Channels::Path Channels::trace(int level, int32_t i, int32_t j, int32_t l) const
 		}
 		out.at = eased.at;
 	}
+	return out;
+}
+
+// A channel's way as it lies (trace()'s, without the land under it)
+Channels::Path Channels::wayOf(int level, int32_t i, int32_t j, int32_t l) const
+{
+	Path out = wander(level, i, j, l);
+	if (!m_land)
+		return out;
 	// never across a lower one of its level's ways round it (build() kept
-	// their straight lines apart, not their wanderings): straight, if so
+	// their straight lines apart, not their wanderings): straight, if so.
+	// (Against their wanderings, before their own straightening: by their
+	// finished ways, each way asked for every lower one's round it, and those
+	// theirs, down a whole basin: half a minute a column)
 	{
+		const Node &n = node(level, i, j, l);
+		const Place foot = out.at[0];
 		const int64_t here = rise(level, i, j, l);
 		const int axis = std::abs(n.at.x) >= std::abs(n.at.y) && std::abs(n.at.x) >= std::abs(n.at.z) ? 0 : std::abs(n.at.y) >= std::abs(n.at.z) ? 1 : 2;
 		const auto flat = [&](const Place &q) {
@@ -1073,7 +1106,7 @@ Channels::Path Channels::trace(int level, int32_t i, int32_t j, int32_t l) const
 					const int64_t r = rise(level, a, b, c);
 					if (!(r < here || (r == here && at < self)) || !node(level, a, b, c).exists)
 						continue;
-					const Path other = path(level, a, b, c);
+					const Path &other = wander(level, a, b, c);
 					for (int p = 0; p < PATH_PIECES && !crosses; p++)
 						for (int q = 0; q < PATH_PIECES && !crosses; q++)
 							crosses = cross(out.at[p], out.at[p + 1], other.at[q], other.at[q + 1]);
@@ -1089,6 +1122,18 @@ Channels::Path Channels::trace(int level, int32_t i, int32_t j, int32_t l) const
 						: straight;
 			}
 	}
+	return out;
+}
+
+/*
+	A channel's path: its way, and the land it runs over (Path::ground).
+*/
+Channels::Path Channels::trace(int level, int32_t i, int32_t j, int32_t l) const
+{
+	const Node n = node(level, i, j, l); // (a copy: what it joins's path can overwrite its slot)
+	Path out = way(level, i, j, l);
+	if (!m_land)
+		return out;
 	// the land it runs over, made by what it can drain into (its level's lower
 	// nodes and the coarser levels', so at its foot what it joins), never
 	// rising toward its foot: its water's held to it, so it's never on a dyke
@@ -1209,6 +1254,12 @@ static int64_t bedAt(int64_t low, int64_t high, fix flat, fix t)
 	if (t <= flat)
 		return low;
 	return low + mulShift(high - low, (fix)(((int64_t)(t - flat) << FRAC) / std::max<int64_t>(1, ONE - flat)), FRAC);
+}
+
+int64_t Channels::cellArea() const
+{
+	const int64_t cell = mulShift(m_lattice[0], m_radius, PLACE_FRAC) >> FRAC;
+	return std::max<int64_t>(1, cell * cell);
 }
 
 int64_t Channels::streamWidth(int64_t flow) const
@@ -1603,7 +1654,10 @@ Channels::Read Channels::readWith(const Place &p, fix range, int64_t least, cons
 							if (m_land) {
 								// (first, and a copy: tracing reads, and shape's slot may go; the
 								// way being traced as it's known, never asked again: that's a loop)
-								const Path way = own ? *below->own_path : path(k, a, b, c);
+								// (a lower one of the traced way's own level by its way alone, not
+								// the land under it: that asked for every lower one's round it, and
+								// those theirs, down a whole basin, half a minute a column)
+								const Path way = own ? *below->own_path : only_lower ? this->way(k, a, b, c) : path(k, a, b, c);
 								const Shape &sh = shape(k, a, b, c);
 								s.low = sh.low;
 								s.high = sh.high;
@@ -1934,6 +1988,7 @@ Channels::Read Channels::readWith(const Place &p, fix range, int64_t least, cons
 			out.water_gap = wet_gap;
 			out.water_width = streamWidth(wet_flow);
 			out.water_from = wet_from;
+			out.water_flow = wet_flow;
 			if (banks != INT64_MIN)
 				out.land = std::max(out.land, banks);
 			if (cut != INT64_MAX)

@@ -180,6 +180,10 @@ static ServerMatter &made(lua_State *L)
 		auto it = sm->wetness.find(cube(p));
 		return it != sm->wetness.end() ? it->second : 0.0;
 	};
+	// a river's or lake's water as generated, kept full (sprint 115)
+	ground.held = [sm](Pos p) {
+		return (sm->server->getEnv().getMap().getNode(v3s16(p.x, p.y, p.z)).getParam2() & fill::HELD) != 0;
+	};
 	// each body's own air, from its card (sprint 96): a fire on the Moon starves
 	ground.carve = [sm](Pos p, int cells, unsigned exposed, bool melting) {
 		Map &map = sm->server->getEnv().getMap();

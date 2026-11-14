@@ -31,6 +31,7 @@ set(unittest_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/test_noderesolver.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_noise.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_fluid.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_rivers.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_online.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_release.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_air.cpp

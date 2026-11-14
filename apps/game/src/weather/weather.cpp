@@ -99,7 +99,7 @@ static double dateOf(double t, double year)
 }
 
 Weather::Weather(const Opts &opts) :
-	m_world(opts.world), m_path(opts.path), m_layer_opts(earth(opts.world, opts.matter))
+	m_world(opts.world), m_path(opts.path), m_each_step(opts.each_step), m_layer_opts(earth(opts.world, opts.matter))
 {
 }
 
@@ -142,10 +142,32 @@ void Weather::advance(double target)
 	while (now() + STEP <= target) {
 		double before = now();
 		m_layer->step(STEP, dateOf(before, year));
+		if (m_each_step)
+			m_each_step(*this, STEP);
 		new_day = new_day || std::floor(before / DAY) != std::floor(now() / DAY);
 	}
 	if (new_day)
 		save();
+}
+
+double Weather::cellRain(const terragen::Grid &grid, const Dir &d, int32_t cell, double now, double &soil) const
+{
+	const double u = toDouble(World::u(d)), v = std::clamp(toDouble(World::v(d)), 0.0, 1.0 - 1e-9);
+	const double date = dateOf(now, m_layer_opts.planet.year);
+	const fluid::Sample s = m_layer->sample(u, v, 0, 0.5);
+	soil = s.soil;
+	// as sample() scales a column's: the grid's rain for each hemisphere's
+	// summer, swung through the year by which one's having it
+	const double north = std::sin(2 * M_PI * date); // 1 at the north's midsummer
+	const double climate_rain = (toDouble(grid.rain_season[0][cell]) * (1 + north) +
+			toDouble(grid.rain_season[1][cell]) * (1 - north)) / 2 * MEDIAN_RAIN;
+	const double own = std::max(m_layer->climatology(u, v), 0.01);
+	return s.precipitation * std::clamp(climate_rain / own, 0.1, 10.0);
+}
+
+double Weather::cellRainMean(const terragen::Grid &grid, int32_t cell)
+{
+	return toDouble(grid.rain(cell)) * MEDIAN_RAIN;
 }
 
 fluid::Sample Weather::sample(const Place &at, int32_t y, double now) const
@@ -203,6 +225,19 @@ std::vector<fluid::Layer::Fields> Weather::year(const World &world, const matter
 		out.push_back(w.m_layer->fields());
 	}
 	return out;
+}
+
+double openWaterEvaporation(const fluid::Sample &air)
+{
+	const double c = air.temperature - 273.15;
+	const double saturated = 6.112 * std::exp(17.62 * c / (c + 243.12)); // hPa (Magnus)
+	const double want = saturated * (1 - std::clamp(air.humidity, 0.0, 1.0));
+	const double wind = std::hypot(air.wind_u, air.wind_v);
+	// (Penman's wind function, halved: Dalton alone has no sun to pay for the
+	// heat it takes, and gave 24 mm a day on a hot dry windy day where real
+	// desert lakes lose 6 to 12)
+	const double per_day = 0.13 * (1 + 0.54 * wind) * want; // mm/day
+	return std::max(0.0, per_day) / 24;
 }
 
 } // namespace weather

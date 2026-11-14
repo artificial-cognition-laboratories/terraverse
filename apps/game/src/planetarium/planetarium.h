@@ -141,8 +141,8 @@ public:
 	// Where the view's middle is drawn (the free part of the screen: as
 	// OrbitCamera::perspective's shift).
 	void frame(v2f shift) { m_shift = shift; }
-	// Where the body's centre is drawn, by turning the camera (OrbitCamera::aimed):
-	// a composed shot's place for it (Shot::centre).
+	// Where the body's centre is drawn, by sliding the lens with the frame's
+	// shift: a composed shot's place for it (Shot::centre).
 	void aim(v2f at) { m_aim = at; }
 	// How bright the galaxy behind it is drawn, 0..1.
 	void skyLevel(float level) { m_system.skyLevel(level); }
@@ -239,7 +239,7 @@ private:
 	v2f m_shift;       // where the view's middle is drawn (frame)
 	v2f m_aim;         // where the body's centre is drawn (aim)
 	std::unordered_set<const scene::SMeshBuffer *> m_warmed; // (warm)
-	core::matrix4 aimed() const; // the turn that puts it there, on this screen
+	v2f lens() const; // the projection's shift: the frame's, and the aim's
 	std::optional<Layer> m_layer;
 	// the land's colours under a layer, from that body's world model (an atlas body's)
 	// (none while its world's still being built: then it's tinted when it is)

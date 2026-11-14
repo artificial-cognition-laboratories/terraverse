@@ -191,7 +191,7 @@ void SystemLayer::draw(video::IVideoDriver *driver, const Camera &camera, double
 
 	driver->setTransform(video::ETS_VIEW, camera.view);
 	if (m_galaxy)
-		m_galaxy->draw(driver, camera.aspect, camera.fov, camera.shift, m_skyLevel);
+		m_galaxy->draw(driver, camera.aspect, m_opts.skyFov > 0 ? m_opts.skyFov : camera.fov, camera.shift, m_skyLevel);
 	if (m_orbits)
 		orbits(driver, camera, day);
 

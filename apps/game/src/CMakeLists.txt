@@ -541,6 +541,7 @@ add_subdirectory(matter)
 add_subdirectory(fluid)
 add_subdirectory(orbit)
 add_subdirectory(weather)
+add_subdirectory(rivers)
 add_subdirectory(sandbox)
 add_subdirectory(online)
 add_subdirectory(network)
@@ -663,6 +664,7 @@ set(common_SRCS
 	${fluid_SRCS}
 	${orbit_SRCS}
 	${weather_SRCS}
+	${rivers_SRCS}
 	${sandbox_SRCS}
 	${online_SRCS}
 	${release_SRCS}

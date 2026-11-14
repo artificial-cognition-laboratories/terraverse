@@ -191,6 +191,8 @@ class Server : public con::PeerHandler, public MapEventReceiver,
 {
 public:
 	void sendStream(v3f from, v3f to, video::SColor colour, u16 cups); // Terra Firma (sprint 82)
+	// Terra Firma (sprint 115): map blocks' rivers, each its rise (sixteenths) and speed (nodes/s × 40)
+	void sendRivers(session_t peer, const std::vector<std::tuple<v3s16, s16, u8, u8>> &blocks);
 	// Terra Firma (sprint 85): a node dug or built where it was `was`: the loose ground round it
 	void groundChanged(v3s16 p, MapNode was);
 	/*
@@ -915,6 +917,8 @@ private:
 	std::vector<terragen::BodyWorld> m_body_worlds; // Terra Firma: its bodies (terragen/worlds.h)
 	std::optional<planet::Pager> m_pager; // Terra Firma: the atlas's window, which tiles are in the map
 	float m_window_timer = 0;             // Terra Firma: to the next keepPlanetWindow
+	float m_rivers_timer = 0;             // Terra Firma: to the next terraSendRivers (sprint 115)
+	float m_lakes_dtime = 0;              // Terra Firma: since the lakes last stepped (sprint 115)
 	std::unique_ptr<orbit::Flight> m_flight; // Terra Firma: core.orbit's
 	std::unique_ptr<online::Gate> m_gate; // Terra Firma: null unless hosted for friends
 

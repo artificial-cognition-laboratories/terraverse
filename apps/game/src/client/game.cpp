@@ -684,7 +684,12 @@ void Game::shutdown()
 {
 #if USE_SHELL
 	input->capture({}); // its callback holds the session
-	m_shell_session.reset();
+	if (m_shell_session) {
+		m_shell_session.reset();
+		// nothing in the game answers the page now: it says the world's being
+		// saved until the server has closed, then Mode::Menu
+		g_shell->setMode(shell::Mode::Leaving);
+	}
 	if (m_online_host) {
 		if (server)
 			server->setStrayHandler(nullptr); // its receive thread calls into the host
@@ -6276,7 +6281,7 @@ void Game::updateFrame(ProfilerGraph *graph, RunStats *stats, f32 dtime,
 					std::max(box.getExtent().X, box.getExtent().Z) / (2 * BS), box.getExtent().Y / BS });
 		}
 		ScopeProfiler water_timed(g_profiler, "Water all [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
-		liquid_layer->update(client->takeLiquidsChanged(), client->takeLiquidGround(), client->takeStreams(), movers,
+		liquid_layer->update(client->takeLiquidsChanged(), client->takeLiquidGround(), client->takeStreams(), movers, client->rivers(),
 				client->getEnv().getClientMap(), camera->getOffset(), camera->getPosition() / BS,
 				client->getHorizon() ? std::optional<s16>(client->getHorizon()->water_level) : std::nullopt,
 				client->getEnv().getDayNightRatio(), dtime, player->getSpeed().getLength() / BS > 30);

@@ -23,6 +23,16 @@ namespace fill {
 
 constexpr u8 FULL = 255;
 
+// A full block of water the world's network keeps (sprint 115: a river's or
+// a lake's, as generated), in its param2: held at its level, as the sea is,
+// not an amount free to run. A river is a staircase of blocks; run as a pool
+// its upper steps drained into the lower and over their banks. Water placed
+// or run by the world's matter has none.
+constexpr u8 HELD = 0x80;
+// ... and held water a dammed lake laid over the land (sprint 115, phase 5,
+// with HELD): its ground is under it, and it goes when the lake drains
+constexpr u8 LAKE = 0x40;
+
 // Liquids by name, numbered as this process first meets them (a map
 // block's fills are saved by name, so the numbers never leave it).
 u16 liquid(const std::string &name);

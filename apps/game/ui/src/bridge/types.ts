@@ -8,7 +8,8 @@ import type { StarId } from "../worldgen/config"
 // Shell::on() (shell.cpp, menu.cpp), messages are sent by Shell::send().
 
 /** entering: a world chosen and on its way (src/shell/entering.h); the menu stays up, locked, till its first frame. */
-export type Mode = "menu" | "entering" | "game"
+/** leaving: the game is over, its world being saved and closed (nothing in it answers) */
+export type Mode = "menu" | "entering" | "game" | "leaving"
 
 /** In-game screens the engine can open (src/shell/screens.cpp: SCREENS). */
 export type ScreenName = "pause" | "inventory" | "lab" | "wiki" | "map" | "making"
@@ -356,7 +357,9 @@ export type UiValues = {
     probe: { node: string; empty?: boolean; temperature?: number; substance?: string; state?: string; fill?: number
         activity?: number; vapour?: string; haze?: number; awake?: boolean
         /** how it looks, from what's in it (#rrggbb), and what's in it, most first (sprint 79) */
-        colour?: string; contents?: { substance: string; moles: number; state: string }[] }
+        colour?: string; contents?: { substance: string; moles: number; state: string }[]
+        /** a river's or lake's water: what the weather has it doing (core.terra.river, sprint 115) */
+        river?: RiverReading }
     /** tf_craft: making, at a station (its name) or by hand (no station); what's under way, if anything */
     making: {
         station?: string
@@ -386,6 +389,9 @@ export type UiValues = {
         events?: string[]   // thunderstorm, blizzard, fog, hurricane, drought, ashfall
     }
 }
+
+/** core.terra.river: m³/s (its planet's; `local` what its channel carries in the blocks), its flow against its usual, blocks over (+) or under (−) its generated level, blocks/s, days to the sea */
+export type RiverReading = { discharge: number; local: number; ratio: number; rise: number; speed: number; to_sea: number; lake: boolean }
 
 type FlightCommon = {
     boundary: number   // m above the sea where space begins

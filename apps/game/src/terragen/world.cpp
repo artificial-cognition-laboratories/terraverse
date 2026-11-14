@@ -2016,6 +2016,8 @@ Ground World::ground(const Place &at, fix sun) const
 		out.river_slope = best_grade;
 		out.river_bend = (int8_t)best_bend;
 		out.river_braided = best_braided;
+		out.river_cell = best_run;
+		out.river_along = best_along;
 	}
 	// a braided river's bars: islands at its water's level, among its channels
 	bool braid_bar = false;
@@ -2081,6 +2083,7 @@ Ground World::ground(const Place &at, fix sun) const
 				out.water = std::max(1, (int32_t)(stream.water >> FRAC));
 				out.terrain = std::min(out.terrain, out.water - 1);
 				out.kind = stream.pond ? Water::Lake : Water::River;
+				out.stream_cells = (fix)std::min<__int128>(INT32_MAX, ((__int128)stream.water_flow << FRAC) / m_channels->cellArea());
 			}
 		} else {
 		// (on a far tile, only a level whose runs are long next to the tile, widened as the rivers are)

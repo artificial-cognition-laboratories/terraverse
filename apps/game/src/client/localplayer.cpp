@@ -276,6 +276,32 @@ void LocalPlayer::move(f32 dtime, Environment *env,
 		const float top = p.Y - 0.5f + fill::Room::of(solid ? &*solid : nullptr).surface(f->amount / 255.0f);
 		return at.Y / BS < top;
 	};
+	// Terra Firma: a river's held water stands where the weather has it
+	// (sprint 115: TOCLIENT_RIVERS), over or under the blocks generated, as
+	// it's drawn: swum in under that surface, not under the block's top
+	auto is_held = [&](v3s16 p) {
+		const MapNode n = map->getNode(p);
+		return nodemgr->get(n.getContent()).liquid_move_physics && (n.getParam2() & fill::HELD);
+	};
+	auto river_rise = [&](v3s16 top) {
+		auto r = m_client->rivers().find(getNodeBlockPos(top));
+		return r == m_client->rivers().end() ? 0.0f : r->second.rise / 16.0f;
+	};
+	auto in_water = [&](v3f at, const ContentFeatures &cf) {
+		const v3s16 p = floatToInt(at, BS);
+		if (cf.liquid_move_physics && is_held(p)) {
+			v3s16 top = p;
+			for (int i = 0; i < MAP_BLOCKSIZE && is_held(top + v3s16(0, 1, 0)); i++)
+				top.Y++;
+			return at.Y / BS < top.Y + 0.5f + river_rise(top);
+		}
+		if (!cf.liquid_move_physics && is_held(p - v3s16(0, 1, 0))) { // a flood over its top
+			const float rise = river_rise(p - v3s16(0, 1, 0));
+			if (rise > 0 && at.Y / BS < p.Y - 0.5f + rise)
+				return true;
+		}
+		return cf.liquid_move_physics || under_fill(at);
+	};
 
 	/*
 		Check if player is in liquid (the oscillating value)
@@ -288,7 +314,7 @@ void LocalPlayer::move(f32 dtime, Environment *env,
 		node = map->getNode(pp, &is_valid_position);
 		if (is_valid_position) {
 			const ContentFeatures &cf = nodemgr->get(node.getContent());
-			in_liquid = cf.liquid_move_physics || under_fill(position + v3f(0.0f, BS * 0.1f, 0.0f));
+			in_liquid = in_water(position + v3f(0.0f, BS * 0.1f, 0.0f), cf);
 			move_resistance = cf.move_resistance;
 		} else {
 			in_liquid = false;
@@ -300,7 +326,7 @@ void LocalPlayer::move(f32 dtime, Environment *env,
 		node = map->getNode(pp, &is_valid_position);
 		if (is_valid_position) {
 			const ContentFeatures &cf = nodemgr->get(node.getContent());
-			in_liquid = cf.liquid_move_physics || under_fill(position + v3f(0.0f, BS * 0.5f, 0.0f));
+			in_liquid = in_water(position + v3f(0.0f, BS * 0.5f, 0.0f), cf);
 			move_resistance = cf.move_resistance;
 		} else {
 			in_liquid = false;
@@ -314,7 +340,7 @@ void LocalPlayer::move(f32 dtime, Environment *env,
 	pp = floatToInt(position + v3f(0.0f), BS);
 	node = map->getNode(pp, &is_valid_position);
 	if (is_valid_position) {
-		in_liquid_stable = nodemgr->get(node.getContent()).liquid_move_physics || under_fill(position);
+		in_liquid_stable = in_water(position, nodemgr->get(node.getContent()));
 	} else {
 		in_liquid_stable = false;
 	}
@@ -913,6 +939,32 @@ void LocalPlayer::old_move(f32 dtime, Environment *env,
 		const float top = p.Y - 0.5f + fill::Room::of(solid ? &*solid : nullptr).surface(f->amount / 255.0f);
 		return at.Y / BS < top;
 	};
+	// Terra Firma: a river's held water stands where the weather has it
+	// (sprint 115: TOCLIENT_RIVERS), over or under the blocks generated, as
+	// it's drawn: swum in under that surface, not under the block's top
+	auto is_held = [&](v3s16 p) {
+		const MapNode n = map->getNode(p);
+		return nodemgr->get(n.getContent()).liquid_move_physics && (n.getParam2() & fill::HELD);
+	};
+	auto river_rise = [&](v3s16 top) {
+		auto r = m_client->rivers().find(getNodeBlockPos(top));
+		return r == m_client->rivers().end() ? 0.0f : r->second.rise / 16.0f;
+	};
+	auto in_water = [&](v3f at, const ContentFeatures &cf) {
+		const v3s16 p = floatToInt(at, BS);
+		if (cf.liquid_move_physics && is_held(p)) {
+			v3s16 top = p;
+			for (int i = 0; i < MAP_BLOCKSIZE && is_held(top + v3s16(0, 1, 0)); i++)
+				top.Y++;
+			return at.Y / BS < top.Y + 0.5f + river_rise(top);
+		}
+		if (!cf.liquid_move_physics && is_held(p - v3s16(0, 1, 0))) { // a flood over its top
+			const float rise = river_rise(p - v3s16(0, 1, 0));
+			if (rise > 0 && at.Y / BS < p.Y - 0.5f + rise)
+				return true;
+		}
+		return cf.liquid_move_physics || under_fill(at);
+	};
 
 	/*
 		Check if player is in liquid (the oscillating value)
@@ -923,7 +975,7 @@ void LocalPlayer::old_move(f32 dtime, Environment *env,
 		node = map->getNode(pp, &is_valid_position);
 		if (is_valid_position) {
 			const ContentFeatures &cf = nodemgr->get(node.getContent());
-			in_liquid = cf.liquid_move_physics || under_fill(position + v3f(0.0f, BS * 0.1f, 0.0f));
+			in_liquid = in_water(position + v3f(0.0f, BS * 0.1f, 0.0f), cf);
 			move_resistance = cf.move_resistance;
 		} else {
 			in_liquid = false;
@@ -934,7 +986,7 @@ void LocalPlayer::old_move(f32 dtime, Environment *env,
 		node = map->getNode(pp, &is_valid_position);
 		if (is_valid_position) {
 			const ContentFeatures &cf = nodemgr->get(node.getContent());
-			in_liquid = cf.liquid_move_physics || under_fill(position + v3f(0.0f, BS * 0.5f, 0.0f));
+			in_liquid = in_water(position + v3f(0.0f, BS * 0.5f, 0.0f), cf);
 			move_resistance = cf.move_resistance;
 		} else {
 			in_liquid = false;
@@ -947,7 +999,7 @@ void LocalPlayer::old_move(f32 dtime, Environment *env,
 	pp = floatToInt(position + v3f(0.0f), BS);
 	node = map->getNode(pp, &is_valid_position);
 	if (is_valid_position)
-		in_liquid_stable = nodemgr->get(node.getContent()).liquid_move_physics || under_fill(position);
+		in_liquid_stable = in_water(position, nodemgr->get(node.getContent()));
 	else
 		in_liquid_stable = false;
 

@@ -27,6 +27,9 @@ private:
 	static int l_species(lua_State *L);
 	static int l_surface(lua_State *L);
 	static int l_weather(lua_State *L);
+	static int l_river(lua_State *L);
+	static int l_force_rivers(lua_State *L);
+	static int l_lake(lua_State *L);
 	static int l_soil_points(lua_State *L);
 	static int l_soil_kinds(lua_State *L);
 	static int l_place(lua_State *L);

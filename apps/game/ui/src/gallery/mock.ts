@@ -615,7 +615,8 @@ export function MockBridge() {
         },
         "game.leave": () => {
             lab = null
-            queueMicrotask(() => emitAll({ kind: "mode", mode: "menu" }))
+            queueMicrotask(() => emitAll({ kind: "mode", mode: "leaving" }))
+            setTimeout(() => emitAll({ kind: "mode", mode: "menu" }), 1500)
             return null
         },
         "game.quit": () => null,

@@ -65,6 +65,10 @@ static double farthest(const Planetarium::Opts &o)
 	return std::max(out * 1.5, 6 * seaOf(o));
 }
 
+// The galaxy behind, through a wider lens than the rest (OrbitCamera::FOV):
+// its picture's texels, magnified by the narrow one, showed. Drawn wider, it
+// turns a little slower than what's in front of it, as a far backdrop would.
+static constexpr float SKY_FOV = 1.0f; // radians, vertical
 // A press let go within this many pixels of where it was is a click, not a drag.
 static constexpr s32 CLICK = 4;
 
@@ -76,7 +80,7 @@ Planetarium::Planetarium(Opts opts) :
 	m_camera(m_sea, farthest(opts)),
 	m_seams(opts.atlas.body(opts.body).params(), m_sea),
 	m_markers(m_sea),
-	m_system({ opts.system, tiledOf(opts), opts.atlas.body(opts.body).params().radius / opts.system->radius(tiledOf(opts)) }),
+	m_system({ opts.system, tiledOf(opts), opts.atlas.body(opts.body).params().radius / opts.system->radius(tiledOf(opts)), true, true, SKY_FOV }),
 	m_body(opts.body),
 	m_tiled(tiledOf(opts)),
 	m_target(m_tiled),
@@ -216,7 +220,7 @@ bool Planetarium::drawBaked(video::IVideoDriver *driver, const core::matrix4 &lo
 	b->tiles->update(OrbitCamera::eyeAt(eye, b->sea, (float)m_screen.Y * std::tan(OrbitCamera::FOV / 2) / std::tan(m_fov / 2)));
 	if (!b->tiles->based())
 		return false; // its sphere till its coarse land is there
-	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, m_shift, m_fov));
+	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, lens(), m_fov));
 	driver->setTransform(video::ETS_VIEW, look);
 	driver->setMaterial(m_system.lit(index, m_day, v3f((f32)at.x, (f32)at.y, (f32)at.z) * BS, 0, !m_layer, contour()));
 	// where it is, turned on its axis, at the scene's scale; a tile from its middle
@@ -357,17 +361,16 @@ Framing Planetarium::framed() const
 
 Framing Planetarium::framingOf(const Shot &shot, float aspect)
 {
-	// The body's centre and the star, each where the shot has it, in the
-	// camera's axes once it's aimed (aim(shot.centre)); then the star in the
-	// unaimed camera's, which looks at the centre: how far off it is, and which
-	// way across the screen
+	// The camera looks at the body's centre, drawn where the shot has it by
+	// the lens (lens()): the star, where the shot has it, is that far across
+	// the screen from it. Its way from the camera: how far off it is, and
+	// which way across the screen
 	const double t = std::tan(OrbitCamera::FOV / 2);
-	const core::matrix4 aim = OrbitCamera::aimed(shot.centre, aspect);
-	core::vector3df s((f32)(shot.star.X * t * aspect), (f32)(shot.star.Y * t), 1);
+	const v2f across = shot.star - shot.centre;
+	core::vector3df s((f32)(across.X * t * aspect), (f32)(across.Y * t), 1);
 	s.normalize();
-	const core::vector3df r(aim[0], aim[1], aim[2]), u(aim[4], aim[5], aim[6]), f(aim[8], aim[9], aim[10]);
-	return Framing{ shot.altitude, shot.centre, std::acos(std::clamp((double)s.dotProduct(f), -1.0, 1.0)),
-		std::atan2((double)s.dotProduct(u), (double)s.dotProduct(r)), shot.around, shot.sky };
+	return Framing{ shot.altitude, shot.centre, std::acos(std::clamp((double)s.Z, -1.0, 1.0)),
+		std::atan2((double)s.Y, (double)s.X), shot.around, shot.sky };
 }
 
 void Planetarium::compose(const Framing &framing, double seconds)
@@ -451,15 +454,18 @@ Planetarium::Pose Planetarium::pose() const
 	return { { look.x + d.x / dl * out, look.y + d.y / dl * out, look.z + d.z / dl * out }, look };
 }
 
-core::matrix4 Planetarium::aimed() const
+// The body's centre is put where it's aimed by sliding the lens, never by
+// turning the camera: a sphere off the camera's axis draws as an egg,
+// stretched away from the middle of the view
+v2f Planetarium::lens() const
 {
-	return OrbitCamera::aimed(m_aim, (float)m_screen.X / std::max(1u, m_screen.Y));
+	return m_shift + m_aim;
 }
 
 core::matrix4 Planetarium::view() const
 {
 	if (!m_flight)
-		return aimed() * (m_target == m_tiled ? OrbitCamera::turned(m_camera.view(), -m_spin) : m_camera.view());
+		return m_target == m_tiled ? OrbitCamera::turned(m_camera.view(), -m_spin) : m_camera.view();
 	const Pose p = pose();
 	core::vector3df ahead((f32)(p.look.x - p.at.x), (f32)(p.look.y - p.at.y), (f32)(p.look.z - p.at.z));
 	ahead.normalize();
@@ -474,7 +480,7 @@ core::matrix4 Planetarium::view() const
 	up.normalize();
 	core::matrix4 m;
 	m.buildCameraLookAtMatrixLH(core::vector3df(0), ahead, up);
-	return aimed() * m;
+	return m;
 }
 
 OrbitCamera::Vec Planetarium::endUp() const
@@ -510,7 +516,7 @@ std::optional<Planetarium::Hover> Planetarium::hoverFor(const OrbitCamera::Vec &
 		look.transformVect(v); // (the view has no translation: the camera is the origin)
 		if (v.Z <= 0)
 			return std::nullopt; // behind
-		const double x = v.X / (v.Z * t * aspect) + m_shift.X, y = v.Y / (v.Z * t) + m_shift.Y;
+		const double x = v.X / (v.Z * t * aspect) + lens().X, y = v.Y / (v.Z * t) + lens().Y;
 		const v2f at((f32)(m_corner.X + (x + 1) / 2 * m_screen.X), (f32)(m_corner.Y + (1 - y) / 2 * m_screen.Y));
 		const float dx = at.X - m_mouse->X, dy = at.Y - m_mouse->Y;
 		return Seen{ at, (f32)(radiusOf(i) / distance * focal), std::sqrt(dx * dx + dy * dy), distance };
@@ -569,7 +575,7 @@ std::optional<Planetarium::Pick> Planetarium::pick(double x, double y) const
 		return std::nullopt; // nothing to pick on another body (yet), nor mid-flight
 	// the ray from the camera through the pixel, onto the sea's sphere
 	const OrbitCamera::Vec o = m_camera.position(),
-			d = m_camera.ray(x - m_corner.X, y - m_corner.Y, m_screen.X, m_screen.Y, m_shift, aimed());
+			d = m_camera.ray(x - m_corner.X, y - m_corner.Y, m_screen.X, m_screen.Y, lens());
 	const double b = o.x * d.x + o.y * d.y + o.z * d.z;
 	const double c = o.x * o.x + o.y * o.y + o.z * o.z - m_sea * m_sea;
 	const double disc = b * b - c;
@@ -677,8 +683,8 @@ void Planetarium::update(v2u32 screen)
 		tilesEye.right = axis(0);
 		tilesEye.upward = axis(1);
 		tilesEye.look = axis(2);
-		tilesEye.wide = (float)(t * aspect * (1 + std::abs((double)m_shift.X)));
-		tilesEye.high = (float)(t * (1 + std::abs((double)m_shift.Y)));
+		tilesEye.wide = (float)(t * aspect * (1 + std::abs((double)lens().X)));
+		tilesEye.high = (float)(t * (1 + std::abs((double)lens().Y)));
 	}
 	m_tiles.update(tilesEye);
 	if (!m_globe && m_tiles.based())
@@ -740,12 +746,12 @@ void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 	m_hover = hoverFor(eye, look, aspect);
 	m_system.highlight(m_hover ? m_hover->body : std::nullopt);
 	// the system round it, far to near; the body its tiles, in its turn
-	m_system.draw(driver, SystemLayer::Camera{ { eye.x, eye.y, eye.z }, look, m_fov, aspect, m_shift, screen.Height }, m_day, [&](float near, float far) {
+	m_system.draw(driver, SystemLayer::Camera{ { eye.x, eye.y, eye.z }, look, m_fov, aspect, lens(), screen.Height }, m_day, [&](float near, float far) {
 		// round it: the camera's own range, tight to the ground; from afar, the layer's
 		if (round)
-			driver->setTransform(video::ETS_PROJECTION, m_camera.projection(aspect, m_shift, m_fov));
+			driver->setTransform(video::ETS_PROJECTION, m_camera.projection(aspect, lens(), m_fov));
 		else {
-			driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, m_shift, m_fov));
+			driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, lens(), m_fov));
 		}
 		driver->setTransform(video::ETS_VIEW, spun);
 		// (an overlay is there to be read, on the night side too)

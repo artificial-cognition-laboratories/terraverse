@@ -246,4 +246,5 @@ const ClientCommandFactory clientCommandFactoryTable[TOCLIENT_NUM_MSG_TYPES] =
 	{ "TOCLIENT_MATERIALS",                0, true }, // 0x6E Terra Firma
 	{ "TOCLIENT_FILL",                     0, true }, // 0x6F Terra Firma: after TOCLIENT_ADDNODE's
 	{ "TOCLIENT_STREAM",                   0, true }, // 0x70 Terra Firma
+	{ "TOCLIENT_RIVERS",                   0, true }, // 0x71 Terra Firma
 };

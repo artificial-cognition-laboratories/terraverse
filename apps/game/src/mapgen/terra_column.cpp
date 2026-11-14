@@ -3,6 +3,7 @@
 
 #include "terra_column.h"
 #include "mapgen.h" // MAX_MAP_GENERATION_LIMIT
+#include "fill/fill.h"
 #include "planet/atlas.h"
 #include <stdexcept>
 
@@ -111,7 +112,10 @@ MapNode Columns::node(const Column &c, s32 y) const
 		// a frozen sea: the biome's water-top over open water
 		if (y > c.ice_end && y <= m_water_level)
 			return MapNode(b.biomes[(int)c.biome].water_top);
-		return MapNode(b.water);
+		// a river's or lake's water is held at its level (the sea's is by being the sea)
+		const terragen::Water kind = c.ground.kind;
+		const bool held = kind == terragen::Water::River || kind == terragen::Water::Lake;
+		return MapNode(b.water, 0, held ? fill::HELD : 0);
 	}
 	s32 depth = c.height - y;
 	MapNode n(b.stone); // inside the soil: painted below

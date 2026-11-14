@@ -62,6 +62,7 @@ static const float DEEP_STILL = 20;   // times STILL a deep column must move to 
 static const float WAKE = 4;          // per s: how fast what moves through water drives it at its own speed
 static const float SPLASH = 0.03;     // node²/s of flow outward per node/s a drop lands at
 static const float CREDIT_FADE = 1;   // per s: drops' water fades as the server's amounts take over
+static const float CURRENT = 0.8f;   // nodes/s: how fast a river carries what's on it (its discharge's, to come)
 static const float FILM = 1 / 32.0f;  // node heights: thinner isn't a pool's water to add to
 static const size_t MOST_DROPS = 3000;
 static const float DROP_LIFE = 3;     // s: a drop that's landed nowhere by then is gone
@@ -493,14 +494,15 @@ void Layer::build(v3s16 blockpos, Block &b, ClientMap &map, u32 daynight)
 // A frame --------------------------------------------------------------
 
 void Layer::update(const std::unordered_set<v3s16> &changed, const std::unordered_set<v3s16> &ground,
-		const std::vector<Stream> &streams, const std::vector<Mover> &movers, ClientMap &map, v3s16 offset,
-		v3f camera, std::optional<s16> sea, u32 daynight, float dtime, bool hurrying)
+		const std::vector<Stream> &streams, const std::vector<Mover> &movers, const Rivers &rivers, ClientMap &map,
+		v3s16 offset, v3f camera, std::optional<s16> sea, u32 daynight, float dtime, bool hurrying)
 {
 	const s64 began = micros();
 	m_offset = offset;
 	m_camera = camera;
 	m_range = map.getControl().range_all ? INFINITY : map.getControl().wanted_range;
 	m_sea = sea;
+	m_rivers = &rivers;
 	for (Grid *g : { &m_fine, &m_coarse })
 		g->sea_level = sea ? (*sea + 1) * 16 : INT32_MIN;
 	std::unordered_set<v3s16> rebuild;
@@ -625,12 +627,14 @@ void Layer::update(const std::unordered_set<v3s16> &changed, const std::unordere
 			if (g->pooled <= 0) {
 				g->pooled = POOLS;
 				pools(*g);
+				currents(*g);
 			}
 			hold(*g, dtime);
 			const float dt = dtOf(*g);
 			g->owed = std::min(g->owed + dtime, dt * mostSteps(*g));
 			while (g->owed >= dt) {
 				flow(*g, dt);
+				carry(*g, dt);
 				g->owed -= dt;
 			}
 		}
@@ -752,6 +756,8 @@ void Layer::place(Grid &g)
 	std::vector<float> depth(columns, 0);
 	std::vector<std::array<float, 4>> out(columns, std::array<float, 4>{});
 	std::vector<std::optional<v3s16>> tops(size_t(g.nodes) * g.nodes);
+	std::vector<float> runs(size_t(g.nodes) * g.nodes, 0);
+	std::vector<std::array<float, 2>> ways(size_t(g.nodes) * g.nodes, std::array<float, 2>{});
 	std::vector<Tile> tiles(size_t(g.tiles) * g.tiles);
 	// it keeps all it has where it overlaps (thrown away and started again from the
 	// server's amounts, a spreading puddle jumped back to the server's squares);
@@ -786,7 +792,11 @@ void Layer::place(Grid &g)
 				}
 			for (int nz = 0; nz < per; nz++)
 				for (int nx = 0; nx < per; nx++)
+				{
 					tops[(mz * per + nz) * g.nodes + mx * per + nx] = g.tops[(tz * per + nz) * g.nodes + tx * per + nx];
+					runs[(mz * per + nz) * g.nodes + mx * per + nx] = g.runs[(tz * per + nz) * g.nodes + tx * per + nx];
+					ways[(mz * per + nz) * g.nodes + mx * per + nx] = g.ways[(tz * per + nz) * g.nodes + tx * per + nx];
+				}
 		}
 	const bool was = g.placed;
 	const v3s16 old = g.origin;
@@ -796,7 +806,10 @@ void Layer::place(Grid &g)
 	g.want.swap(wanted);
 	g.depth.swap(depth);
 	g.out.swap(out);
+	g.current.assign(columns, std::array<float, 2>{}); // found again with the pools
 	g.tops.swap(tops);
+	g.runs.swap(runs);
+	g.ways.swap(ways);
 	g.tile.swap(tiles);
 	g.origin = want;
 	g.placed = true;
@@ -842,6 +855,8 @@ void Layer::scan(Grid &g, int t, ClientMap &map)
 			std::vector<Node> nodes;
 			std::optional<v3s16> top;
 			bool is_sea = false;
+			float runs = 0;
+			std::array<float, 2> way{};
 			float surface = 0; // world sixteenths
 			for (s16 y = hi; y >= lo; y--) {
 				const v3s16 p(x, y, z);
@@ -860,11 +875,22 @@ void Layer::scan(Grid &g, int t, ClientMap &map)
 				if (!top) {
 					const fill::Fill *fill = map.getFill(p);
 					if (f.drawtype == NDT_LIQUID && itemgroup_get(f.groups, "liquid_layer")) {
-						// full water: the sea's at or under its level (a reservoir); above it
-						// (a lake up in the hills, blocks of water placed) it's water like a fill's
+						// full water: the sea's at or under its level (a reservoir), and a
+						// river's or lake's held at its own (sprint 115); otherwise (blocks
+						// of water placed) it's water like a fill's
 						top = p;
-						is_sea = m_sea && y <= *m_sea;
+						const bool held = n.getParam2() & fill::HELD;
+						is_sea = (m_sea && y <= *m_sea) || held;
 						surface = (y + 1) * 16.0f;
+						// a river's level and speed as the weather fills it (sprint 115)
+						if (held && m_rivers) {
+							auto r = m_rivers->find(getNodeBlockPos(p));
+							if (r != m_rivers->end()) {
+								surface += r->second.rise;
+								runs = r->second.speed;
+								way = r->second.way;
+							}
+						}
 						if (!tile.coloured || !tile.sea)
 							tile.r = f.color.getRed(), tile.g = f.color.getGreen(), tile.b = f.color.getBlue();
 					} else if (fill && fill->amount > 0) {
@@ -889,6 +915,8 @@ void Layer::scan(Grid &g, int t, ClientMap &map)
 					m_reflat.insert(getNodeBlockPos(*top));
 			}
 			kept = top;
+			g.runs[(tz * per + nz) * g.nodes + tx * per + nx] = runs;
+			g.ways[(tz * per + nz) * g.nodes + tx * per + nx] = way;
 			sea = sea || is_sea;
 			for (int iz = 0; iz < g.res; iz++)
 				for (int ix = 0; ix < g.res; ix++) {
@@ -915,7 +943,9 @@ void Layer::scan(Grid &g, int t, ClientMap &map)
 					if (!fresh && floor != g.floor[c] && g.floor[c] != NONE && floor != NONE && g.depth[c] > FILM)
 						g.depth[c] = std::max(0.0f, g.depth[c] + (g.floor[c] - floor) / 16.0f);
 					g.floor[c] = floor;
-					g.sea[c] = is_sea && floor != NONE ? s32(surface) : NONE;
+					const s32 held_at = is_sea && floor != NONE ? s32(surface) : NONE;
+					moved = moved || held_at != g.sea[c]; // a river risen or fallen (sprint 115): run to its new level
+					g.sea[c] = held_at;
 					g.want[c] = top && floor != NONE ? s32(std::lround(surface)) : NONE;
 					if (floor == NONE) {
 						g.depth[c] = 0;
@@ -1052,6 +1082,131 @@ void Layer::pools(Grid &g)
 			if (nx >= 0 && nx < g.tiles && nz >= 0 && nz < g.tiles && g.tile[nz * g.tiles + nx].sea)
 				g.coast[pool[t]] = 1;
 		}
+	}
+}
+
+// The rivers' currents: held water above the sea (a river's, sprint 115) is
+// a staircase of levels, and runs toward its nearest step down: each column's
+// way is down the distance to one, found across the grid. A run of one level
+// longer than the grid sees has none, and a lake with no step lies still.
+void Layer::currents(Grid &g)
+{
+	const int n = g.cols * g.cols;
+	if (int(g.current.size()) != n)
+		return;
+	auto river = [&](int c) { return g.sea[c] != NONE && g.sea[c] > g.sea_level; };
+	auto held = [&](int c) { return g.sea[c] != NONE; };
+	std::vector<int> dist(n, -1), open;
+	for (int c = 0; c < n; c++) {
+		g.current[c] = {};
+		if (!river(c))
+			continue;
+		const int x = c % g.cols, z = c / g.cols;
+		for (int s = 0; s < 4; s++) {
+			const int nx = x + SIDES[s].X, nz = z + SIDES[s].Z;
+			if (nx < 0 || nx >= g.cols || nz < 0 || nz >= g.cols)
+				continue;
+			const int m = nz * g.cols + nx;
+			if (held(m) && g.sea[m] < g.sea[c]) {
+				dist[c] = 0;
+				open.push_back(c);
+				break;
+			}
+		}
+	}
+	// outward from the steps across each level's water
+	for (size_t i = 0; i < open.size(); i++) {
+		const int c = open[i], x = c % g.cols, z = c / g.cols;
+		for (int s = 0; s < 4; s++) {
+			const int nx = x + SIDES[s].X, nz = z + SIDES[s].Z;
+			if (nx < 0 || nx >= g.cols || nz < 0 || nz >= g.cols)
+				continue;
+			const int m = nz * g.cols + nx;
+			if (dist[m] < 0 && river(m) && g.sea[m] == g.sea[c]) {
+				dist[m] = dist[c] + 1;
+				open.push_back(m);
+			}
+		}
+	}
+	for (int c : open) {
+		const int x = c % g.cols, z = c / g.cols;
+		// how far on to a step beside it: a lower level's is past one (−1), what's
+		// not this water as far as here
+		auto on = [&](int nx, int nz) {
+			if (nx < 0 || nx >= g.cols || nz < 0 || nz >= g.cols)
+				return float(dist[c]);
+			const int m = nz * g.cols + nx;
+			if (held(m) && g.sea[m] < g.sea[c])
+				return -1.0f;
+			return dist[m] >= 0 && g.sea[m] == g.sea[c] ? float(dist[m]) : float(dist[c]);
+		};
+		const float vx = on(x - 1, z) - on(x + 1, z), vz = on(x, z - 1) - on(x, z + 1);
+		const float len = std::hypot(vx, vz);
+		// as fast as the server says its river runs; till it's said, CURRENT
+		const int node = (z / g.res) * g.nodes + x / g.res;
+		const float speed = g.runs.size() == size_t(g.nodes) * g.nodes && g.runs[node] > 0 ? g.runs[node] : CURRENT;
+		if (len > 0)
+			g.current[c] = { vx / len * speed, vz / len * speed };
+	}
+	// where the server's said which way its river runs (down its run), that
+	// way: a long level reach has no step to run toward, and still flows
+	if (g.ways.size() != size_t(g.nodes) * g.nodes)
+		return;
+	for (int c = 0; c < n; c++) {
+		if (!river(c))
+			continue;
+		const int x = c % g.cols, z = c / g.cols, node = (z / g.res) * g.nodes + x / g.res;
+		const auto &w = g.ways[node];
+		if (w[0] == 0 && w[1] == 0)
+			continue;
+		const float speed = g.runs[node] > 0 ? g.runs[node] : CURRENT;
+		g.current[c] = { w[0] * speed, w[1] * speed };
+	}
+}
+
+// A step of the currents: what stands over or under a river's level (a wake,
+// a splash) is carried downstream, from each column into the next of its
+// level; the level itself is held, so still water stays as it is
+void Layer::carry(Grid &g, float dt)
+{
+	if (g.current.size() != g.depth.size())
+		return;
+	const float L = 1.0f / g.res;
+	std::vector<std::pair<int, float>> moves;
+	for (int t = 0; t < int(g.tile.size()); t++) {
+		if (!g.tile[t].awake || !g.tile[t].known)
+			continue;
+		const int tx = t % g.tiles, tz = t / g.tiles;
+		for (int cz = 0; cz < 16; cz++)
+			for (int cx = 0; cx < 16; cx++) {
+				const int gx = tx * 16 + cx, gz = tz * 16 + cz, c = gz * g.cols + gx;
+				const auto &u = g.current[c];
+				if ((u[0] == 0 && u[1] == 0) || g.floor[c] == NONE)
+					continue;
+				const float rest = std::max(0.0f, (g.sea[c] - g.floor[c]) / 16.0f);
+				const float extra = g.depth[c] - rest;
+				for (int a = 0; a < 2; a++) {
+					if (u[a] == 0)
+						continue;
+					const int s = a * 2 + (u[a] < 0);
+					const int nx = gx + SIDES[s].X, nz = gz + SIDES[s].Z;
+					if (nx < 0 || nx >= g.cols || nz < 0 || nz >= g.cols)
+						continue;
+					const int m = nz * g.cols + nx;
+					if (g.floor[m] == NONE || g.sea[m] != g.sea[c])
+						continue;
+					float amount = extra * std::min(0.25f, std::fabs(u[a]) * dt / L);
+					amount = std::clamp(amount, -g.depth[m], g.depth[c]);
+					moves.push_back({ c, -amount });
+					moves.push_back({ m, amount });
+				}
+			}
+	}
+	for (const auto &[c, by] : moves) {
+		g.depth[c] = std::max(0.0f, g.depth[c] + by);
+		const int t = tileOf(g, c);
+		if (!g.tile[t].awake && std::fabs(by) > STILL)
+			wake(g, t);
 	}
 }
 

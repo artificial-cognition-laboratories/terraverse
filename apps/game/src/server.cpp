@@ -387,6 +387,18 @@ Server::~Server()
 			L"*** Server shutting down"));
 
 	actionstream << "Server: Shutting down" << std::endl;
+#if USE_SHELL
+	// Terra Firma: each slow part of closing is named, so a slow leave says why
+	u64 closing = porting::getTimeMs();
+	const auto took = [&](const char *what) {
+		const u64 now = porting::getTimeMs();
+		if (now - closing > 200)
+			actionstream << "Server: " << what << " took " << (now - closing) << " ms" << std::endl;
+		closing = now;
+	};
+#else
+	const auto took = [](const char *) {};
+#endif
 
 	auto old_async_fatal_error = m_async_fatal_error.get();
 
@@ -395,6 +407,7 @@ Server::~Server()
 		stop();
 		// (Do not delete yet. Accessed by setAsyncFatalError().)
 	}
+	took("stopping its thread");
 
 	// Stop all emerge activity and finish off mapgen callbacks. Do this before
 	// shutdown callbacks since there may be state that is finalized in a
@@ -403,6 +416,7 @@ Server::~Server()
 	//       still interact with map loading.
 	if (m_emerge)
 		m_emerge->stopThreads();
+	took("stopping map generation");
 
 	if (m_env) {
 		EnvAutoLock envlock(this);
@@ -413,6 +427,7 @@ Server::~Server()
 		} catch (ModError &e) {
 			addShutdownError(e);
 		}
+		took("shutdown callbacks");
 
 		infostream << "Server: Saving players" << std::endl;
 		m_env->saveLoadedPlayers();
@@ -437,6 +452,7 @@ Server::~Server()
 		} catch (ModError &e) {
 			addShutdownError(e);
 		}
+		took("saving players and emptying the world");
 
 		infostream << "Server: Saving environment metadata" << std::endl;
 		m_env->saveMeta();
@@ -447,10 +463,12 @@ Server::~Server()
 		m_inventory_mgr.reset();
 		m_script.reset();
 		ModApiMatter::shutdown(); // Terra Firma: it points at this server
+		took("closing its systems");
 
 		// Note that this also deletes and saves the map.
 		delete m_env;
 		m_env = nullptr;
+		took("saving the map");
 	}
 
 	// Write any changes before deletion.
@@ -466,6 +484,7 @@ Server::~Server()
 
 	// emerge may depend on definition managers, so destroy first
 	m_emerge.reset();
+	took("closing map generation");
 
 	// Catch one async error that just happened while this dtor is running
 	auto async_fatal_error = m_async_fatal_error.get();
@@ -883,6 +902,18 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 
 		// Step environment
 		m_env->step(dtime);
+
+		// Terra Firma: the rivers round each player, as the weather fills them (sprint 115)
+		if ((m_rivers_timer -= dtime) <= 0) {
+			m_rivers_timer = 2;
+			terraSendRivers(this);
+		}
+		// Terra Firma: dammed rivers' lakes rise (sprint 115)
+		m_lakes_dtime += dtime;
+		if (m_lakes_dtime >= 0.5f) {
+			terraStepLakes(this, m_lakes_dtime);
+			m_lakes_dtime = 0;
+		}
 
 		// Terra Firma: the planet's window follows the players
 		if (m_pager && (m_window_timer -= dtime) <= 0) {
@@ -1561,6 +1592,8 @@ void Server::onMapEditEvent(const MapEditEvent &event)
 	// Terra Firma: the physics' ground follows every edit (sprint 57)
 	if (m_workshop)
 		m_workshop->mapEdited(event);
+	// Terra Firma: a river dammed (sprint 115)
+	terraEdited(this, event);
 
 	if (m_ignore_map_edit_events_area.contains(event.getArea()))
 		return;
@@ -2703,6 +2736,16 @@ void Server::sendStream(v3f from, v3f to, video::SColor colour, u16 cups)
 	pkt << from << to << u8(colour.getRed()) << u8(colour.getGreen()) << u8(colour.getBlue()) << cups;
 	std::unordered_set<u16> far; // the far just don't see it
 	sendNodeChangePkt(pkt, getNodeBlockPos(floatToInt(from * BS, BS)), from * BS, SEEN, &far);
+}
+
+// Terra Firma: the rivers round a player, as the weather fills them (sprint 115)
+void Server::sendRivers(session_t peer, const std::vector<std::tuple<v3s16, s16, u8, u8>> &blocks)
+{
+	NetworkPacket pkt(TOCLIENT_RIVERS, 2 + blocks.size() * 10, peer);
+	pkt << u16(blocks.size());
+	for (const auto &[pos, rise, speed, way] : blocks)
+		pkt << pos << rise << speed << way;
+	Send(&pkt);
 }
 
 void Server::sendNodeChangePkt(NetworkPacket &pkt, v3s16 block_pos,

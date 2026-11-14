@@ -6,6 +6,7 @@
 #include "fluid/fluid.h"
 #include "matter/matter.h"
 #include "terragen/world.h"
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -26,6 +27,12 @@ namespace weather {
 // Model seconds for the engine's clock.
 double clock(uint32_t day_count, double time_of_day);
 
+// mm/h open water gives off into this air (sprint 115: a lake's losses):
+// Dalton's law, the air's want of vapour (saturation's pressure less what
+// it holds) times a wind function (Penman's, 1948, halved: the sun's heat
+// bounds it), so a warm, dry, windy day takes most and a still fog none.
+double openWaterEvaporation(const fluid::Sample &air);
+
 // Metres of air per block of height (the world's heights are exaggerated
 // ~25× against its width; the air sees mountains at their real height).
 constexpr double BLOCK_METRES = 25;
@@ -38,6 +45,10 @@ public:
 		const terragen::World &world;
 		const matter::Matter &matter;
 		std::string path; // the saved state; empty: never saved
+		// called after each step of the layer, with its length (s): what runs
+		// on the weather's own steps (the rivers, sprint 115), the settling
+		// year included
+		std::function<void(const Weather &, double)> each_step;
 	};
 
 	// The saved state at `path` if there is one (throws fluid::FluidError if
@@ -51,6 +62,14 @@ public:
 
 	// The weather at height y over a place at `now` (which advance() has reached).
 	fluid::Sample sample(const terragen::Place &at, int32_t y, double now) const;
+
+	// The rain over a grid cell (`d` its centre) at `now`, mm/h, as a column
+	// there is rained on: the layer's weather scaled to the world's climate
+	// for the season; and how wet its ground is (0..1)
+	double cellRain(const terragen::Grid &grid, const terragen::Dir &d, int32_t cell, double now, double &soil) const;
+
+	// ... and the year's mean there (mm/h), as the world's climate has it
+	static double cellRainMean(const terragen::Grid &grid, int32_t cell);
 
 	const fluid::Layer &layer() const { return *m_layer; }
 	double now() const { return m_start + m_layer->time(); }
@@ -67,6 +86,7 @@ private:
 
 	const terragen::World &m_world;
 	std::string m_path;
+	std::function<void(const Weather &, double)> m_each_step;
 	fluid::LayerOpts m_layer_opts;
 	std::unique_ptr<fluid::Layer> m_layer;
 	double m_start = 0; // model time at the layer's time 0

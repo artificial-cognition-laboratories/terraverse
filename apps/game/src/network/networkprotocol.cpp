@@ -191,10 +191,14 @@
 	PROTOCOL VERSION 101 (Terra Firma)
 		Small plants (sprint 113): map blocks carry sprigs (serialization 32).
 		Only 101 is accepted on either side.
+	PROTOCOL VERSION 102 (Terra Firma)
+		Rivers (sprint 115): TOCLIENT_RIVERS.
+	PROTOCOL VERSION 103 (Terra Firma)
+		TOCLIENT_RIVERS carries the way each block's river runs. Only 103 is accepted on either side.
 */
 
 // Note: Also update core.protocol_versions in builtin when bumping
-const u16 LATEST_PROTOCOL_VERSION = 101;
+const u16 LATEST_PROTOCOL_VERSION = 103;
 
 // See also formspec [Version History] in doc/lua_api.md
 const u16 FORMSPEC_API_VERSION = 12;

@@ -26,7 +26,7 @@ class Entering;
 int runHelper(int argc, char *argv[]);
 
 // Entering: a world chosen, on its way (entering.h); the menu's page stays up, locked
-enum class Mode { Menu, Entering, Game };
+enum class Mode { Menu, Entering, Game, Leaving };
 
 // Answers one kind of intent from the page (see bridge.h: Refused).
 using Verb = std::function<Json::Value(const Json::Value &intent)>;

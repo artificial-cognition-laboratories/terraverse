@@ -2055,6 +2055,27 @@ void Client::handleCommand_Stream(NetworkPacket *pkt)
 	m_streams.push_back(s);
 }
 
+// Terra Firma: the rivers near, as the weather fills them (sprint 115): their
+// blocks' water looked at again
+void Client::handleCommand_Rivers(NetworkPacket *pkt)
+{
+	u16 count;
+	*pkt >> count;
+	for (u16 i = 0; i < count; i++) {
+		v3s16 block;
+		s16 rise;
+		u8 speed, way;
+		*pkt >> block >> rise >> speed >> way;
+		liquids::River r{ rise, speed / 40.0f };
+		if (way > 0) {
+			const float turn = (way - 1) / 254.0f * 2 * float(M_PI);
+			r.way = { std::cos(turn), std::sin(turn) };
+		}
+		m_rivers[block] = r;
+		liquidsChanged(block);
+	}
+}
+
 // Terra Firma: the player's blueprints (sprint 48)
 void Client::handleCommand_Blueprints(NetworkPacket *pkt)
 {

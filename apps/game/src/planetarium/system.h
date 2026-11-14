@@ -46,6 +46,7 @@ public:
 		double blocksPerKm; // the focused body's scale
 		bool orbits = true; // their paths drawn (a viewer's aid: not in a sky seen from the ground)
 		bool glare = true;  // the star dazzles, over all that's nearer (a camera's: not in a sky seen from the ground)
+		float skyFov = 0;   // the galaxy's lens (radians, vertical), wider than the camera's: 0, the camera's own (a sky seen from the ground turns with the world)
 	};
 	// (The scene is the focused body's frame: its centre the origin, its y
 	// its spin axis, tilted from its orbit's by its tilt.)

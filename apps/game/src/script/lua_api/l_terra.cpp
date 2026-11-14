@@ -19,8 +19,19 @@
 #include "far/terrain.h"
 #include "nodedef.h"
 #include "weather/weather.h"
+#include "servermap.h"
+#include "server/player_sao.h"
+#include "remoteplayer.h"
+#include "mapblock.h"
+#include "fill/fill.h"
+#include "log.h"
+#include "terragen/sphere.h"
+#include "terragen/grid.h"
+#include <sstream>
+#include <fstream>
 #include "filesys.h"
 #include "porting.h"
+#include <algorithm>
 #include <cmath>
 #include <memory>
 
@@ -71,6 +82,50 @@ static const World &worldAt(Server *server, const v3f &pos)
 	return world(server, bodyAt(server, pos));
 }
 
+// A step of the rivers on the weather's (sprint 115). Made on the first, from
+// <world>/rivers.bin if it's there and this world's, else settled on the rain
+// now; saved each new day, as the weather is.
+static void stepRivers(ServerTerra &t, const World &w, const weather::Weather &wx, double dt, const std::string &path)
+{
+	static const double YEAR_MEMORY = 365 * 86400.0, SPEED = 1.0; // m/s: water down a cell's run
+	const terragen::Sphere &sphere = terragen::gridSphere();
+	if (!t.rivers) {
+		t.rivers = std::make_unique<rivers::Network>(
+				rivers::Network::ofGrid(w.grid(), sphere, wx.layer().opts().planet.radius, SPEED, YEAR_MEMORY));
+		std::ifstream in(path, std::ios::binary);
+		if (in) {
+			std::stringstream bytes;
+			bytes << in.rdbuf();
+			try {
+				t.rivers->load(bytes.str());
+				t.rivers_settled = true;
+			} catch (const rivers::RiversError &e) {
+				warningstream << "rivers: " << e.what() << "; settled afresh" << std::endl;
+			}
+		}
+	}
+	t.rivers_step++;
+	std::vector<rivers::Shed> shed = rivers::runoff(wx, w.grid(), sphere, wx.now());
+	std::vector<rivers::Forcing> &fs = t.river_forcings;
+	fs.erase(std::remove_if(fs.begin(), fs.end(), [&](const rivers::Forcing &f) { return f.until <= wx.now(); }), fs.end());
+	for (const rivers::Forcing &f : t.river_forcings)
+		rivers::force(shed, sphere, f);
+	if (!t.rivers_settled) {
+		t.rivers->settle(rivers::climate(w.grid(), &wx, &sphere));
+		t.rivers_settled = true;
+	} else if (dt > 0) {
+		t.rivers->step(dt, shed);
+	}
+	const double day = std::floor(wx.now() / 86400);
+	if (day != t.rivers_day) {
+		if (t.rivers_day >= 0) {
+			std::ofstream out(path, std::ios::binary);
+			out << t.rivers->save();
+		}
+		t.rivers_day = day;
+	}
+}
+
 // The world's weather, opened on first use from <world>/weather.bin (or
 // settled fresh) and stepped to the clock on every call.
 static weather::Weather &weatherNow(Server *server)
@@ -81,8 +136,17 @@ static weather::Weather &weatherNow(Server *server)
 	try {
 		if (!t.matter)
 			t.matter = std::make_unique<matter::Matter>(matter::Matter::load(porting::path_share + DIR_DELIM "matter"));
-		if (!t.weather)
-			t.weather = weather::Weather::open({ w, *t.matter, server->getWorldPath() + DIR_DELIM "weather.bin" }, now);
+		if (!t.weather) {
+			weather::Weather::Opts opts{ w, *t.matter, server->getWorldPath() + DIR_DELIM "weather.bin" };
+			opts.each_step = [&t, &w, path = server->getWorldPath() + DIR_DELIM "rivers.bin"](const weather::Weather &wx, double dt) {
+				stepRivers(t, w, wx, dt, path);
+			};
+			t.weather = weather::Weather::open(opts, now);
+			// a weather opened from its file with no step to take: the rivers start
+			// from it all the same (from their own file, or settled on it)
+			if (!t.rivers)
+				stepRivers(t, w, *t.weather, 0, server->getWorldPath() + DIR_DELIM "rivers.bin");
+		}
 		t.weather->advance(now);
 	} catch (const std::runtime_error &e) { // matter::MatterError, fluid::FluidError
 		throw LuaError(std::string("core.terra.weather: ") + e.what());
@@ -652,6 +716,335 @@ int ModApiTerra::l_weather(lua_State *L)
 	return 1;
 }
 
+// core.terra.river(pos) → nil, or { discharge (m³/s, its planet's), local
+// (m³/s its channel carries in the blocks), ratio (its flow now
+// against its mean), rise (blocks over or under the water as generated),
+// speed (nodes/s), to_sea (days its water takes to reach the sea), lake }: the river or lake at a column, as the weather now
+// fills it (sprint 115). Nil where terragen puts none.
+int ModApiTerra::l_river(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+	Server *server = getServer(L);
+	const v3f pos = check_v3f(L, 1);
+	if (bodyAt(server, pos) != planet::Atlas::HOME)
+		return 0;
+	const World &w = world(server);
+	const Place at = placeAt(server, pos);
+	const terragen::Ground g = w.ground(at, w.sunlight(at, std::nullopt));
+	if (g.kind != terragen::Water::River && g.kind != terragen::Water::Lake)
+		return 0;
+	weatherNow(server);
+	ServerTerra &t = server->terra();
+	if (!t.rivers)
+		throw LuaError("core.terra.river: the rivers haven't run yet (no weather step)");
+	const rivers::Flow f = rivers::flowAt(*t.rivers, terragen::gridSphere(), g, at);
+	lua_createtable(L, 0, 6);
+	setNumber(L, "discharge", f.discharge);
+	setNumber(L, "to_sea", f.to_sea / 86400);
+	setNumber(L, "local", f.local);
+	lua_pushboolean(L, f.stream);
+	lua_setfield(L, -2, "stream");
+	if (f.stream)
+		setNumber(L, "drains", f.share); // in its cell's areas
+	setNumber(L, "ratio", f.ratio);
+	setNumber(L, "rise", f.rise);
+	setNumber(L, "speed", f.speed);
+	lua_pushboolean(L, g.kind == terragen::Water::Lake);
+	lua_setfield(L, -2, "lake");
+	return 1;
+}
+
+// core.terra.force_rivers(pos, radius_km, hours, rain_mm_h): rains
+// rain_mm_h on saturated ground (0: a drought, nothing shed) over the grid's
+// cells within radius_km of pos for the next `hours` of game time, in place
+// of the weather's (sprint 115: to watch a river answer). radius_km 0 clears
+// every forcing.
+int ModApiTerra::l_force_rivers(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+	Server *server = getServer(L);
+	const v3f pos = check_v3f(L, 1);
+	const double radius_km = luaL_checknumber(L, 2), hours = luaL_checknumber(L, 3), rain = luaL_checknumber(L, 4);
+	ServerTerra &t = server->terra();
+	if (radius_km <= 0) {
+		t.river_forcings.clear();
+		return 0;
+	}
+	if (hours <= 0 || rain < 0)
+		throw LuaError("core.terra.force_rivers: hours must be over 0 and rain at least 0");
+	if (bodyAt(server, pos) != planet::Atlas::HOME)
+		throw LuaError("core.terra.force_rivers: only the home world has rivers");
+	const weather::Weather &wx = weatherNow(server);
+	rivers::Forcing f;
+	f.centre = placeAt(server, pos);
+	f.radius = radius_km * 1000 / wx.layer().opts().planet.radius;
+	f.rain = rain / 1000 / 3600;
+	f.until = wx.now() + hours * 3600;
+	t.river_forcings.push_back(f);
+	return 0;
+}
+
+// The way a river runs at a held node, in the map's x and z: down its run
+// (terragen's blocks along it, measured a few blocks either side), as a byte
+// 1..255 round from +x toward +z; 0 for a lake, or where it can't be told.
+static u8 riverWay(Server *server, const World &w, v3s16 node)
+{
+	static const s16 D = 4;
+	auto along = [&](s16 dx, s16 dz, int32_t cell) -> std::optional<double> {
+		const std::optional<Place> p = placeOf(server, intToFloat(node + v3s16(dx, 0, dz), 1));
+		if (!p)
+			return std::nullopt;
+		const terragen::Ground g = w.ground(*p, w.sunlight(*p, std::nullopt));
+		if (g.kind != terragen::Water::River || (cell >= 0 && g.river_cell != cell))
+			return std::nullopt;
+		return g.river_along;
+	};
+	const std::optional<Place> here = placeOf(server, intToFloat(node, 1));
+	if (!here)
+		return 0;
+	const terragen::Ground g = w.ground(*here, w.sunlight(*here, std::nullopt));
+	if (g.kind != terragen::Water::River || g.river_cell < 0)
+		return 0;
+	// the gradient each way, from both sides where both are this run, else one
+	auto slope = [&](s16 dx, s16 dz) {
+		const std::optional<double> a = along(-dx, -dz, g.river_cell), b = along(dx, dz, g.river_cell);
+		if (a && b)
+			return (*b - *a) / (2 * D);
+		if (b)
+			return (*b - g.river_along) / D;
+		if (a)
+			return (g.river_along - *a) / D;
+		return 0.0;
+	};
+	const double gx = slope(D, 0), gz = slope(0, D);
+	if (gx == 0 && gz == 0)
+		return 0;
+	const double turn = std::atan2(gz, gx) / (2 * M_PI); // −½..½
+	return (u8)(1 + (long)std::lround((turn < 0 ? turn + 1 : turn) * 254) % 255);
+}
+
+double terraRiverDischarge(Server *server, v3s16 node)
+{
+	ServerTerra &t = server->terra();
+	if (!t.rivers || mapgenName(server) != "terra")
+		return 0;
+	const std::optional<Place> place = placeOf(server, intToFloat(node, 1));
+	if (!place)
+		return 0;
+	const World &w = world(server);
+	const terragen::Ground g = w.ground(*place, w.sunlight(*place, std::nullopt));
+	if (g.kind != terragen::Water::River)
+		return 0;
+	// and what lakes' streams bring it, run into it upstream of here
+	double brought = 0;
+	auto joins = t.river_joins.find(g.river_cell);
+	if (joins != t.river_joins.end())
+		for (const auto &[along, q] : joins->second)
+			if (along < g.river_along)
+				brought += q;
+	return rivers::flowAt(*t.rivers, terragen::gridSphere(), g, *place).local + brought;
+}
+
+std::pair<s32, s32> terraRiverRun(Server *server, v3s16 node)
+{
+	if (mapgenName(server) != "terra")
+		return { -1, 0 };
+	const std::optional<Place> place = placeOf(server, intToFloat(node, 1));
+	if (!place)
+		return { -1, 0 };
+	const World &w = world(server);
+	const terragen::Ground g = w.ground(*place, w.sunlight(*place, std::nullopt));
+	return g.kind == terragen::Water::River ? std::pair<s32, s32>{ g.river_cell, g.river_along } : std::pair<s32, s32>{ -1, 0 };
+}
+
+std::pair<double, double> terraLakeWeather(Server *server, v3s16 node)
+{
+	const v3f pos = intToFloat(node, 1);
+	if (mapgenName(server) != "terra" || bodyAt(server, pos) != planet::Atlas::HOME)
+		return { 0, 0 };
+	const std::optional<Place> at = placeOf(server, pos);
+	if (!at)
+		return { 0, 0 };
+	weather::Weather &wx = weatherNow(server);
+	const fluid::Sample s = wx.sample(*at, node.Y, wx.now());
+	return { s.precipitation, weather::openWaterEvaporation(s) };
+}
+
+s32 terraGeneratedTop(Server *server, s32 x, s32 z)
+{
+	// the column as the generator makes it (the far view's: check:far holds it to the blocks)
+	if (mapgenName(server) != "terra")
+		return rivers::Basin::UNKNOWN;
+	const planet::Atlas &atlas = atlasOf(server);
+	const std::optional<int> body = atlas.bodyAt({ (s16)x, 0, (s16)z });
+	if (!atlas.place({ (s16)x, 0, (s16)z }) || !body)
+		return rivers::Basin::UNKNOWN;
+	const far::Cell c = surfaceGenerator(server, *body).column((s16)x, (s16)z);
+	return std::max(c.ground, c.water) + 1;
+}
+
+// core.terra.lake(pos) → nil, or { level, spill (blocks), area (m²), inflow
+// (m³/s), outflow (m³/s over its rim), columns, capped, spills_in (s till it's full at this inflow; 0
+// spilling, nil draining or with nothing coming in), rain and evaporation
+// (mm/h over it), closed (its losses balance its inflow under its spill),
+// balance (the level they balance at, when closed) }: the lake over the
+// column at pos (sprint 115)
+int ModApiTerra::l_lake(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+	Server *server = getServer(L);
+	const v3s16 p = floatToInt(check_v3f(L, 1), 1);
+	for (const ServerTerra::Lake &lake : server->terra().lakes) {
+		if (!lake.basin)
+			continue;
+		const bool over = lake.wet.count(((s64)p.X << 32) | (u32)(s32)p.Z) > 0 ||
+				std::any_of(lake.basin->columns().begin(), lake.basin->columns().end(),
+						[&](const rivers::Basin::Column &c) { return c.x == p.X && c.z == p.Z; });
+		if (!over)
+			continue;
+		lua_createtable(L, 0, 6);
+		setNumber(L, "level", lake.level);
+		setNumber(L, "spill", lake.basin->dammed() ? lake.basin->spill() : lake.level0);
+		setNumber(L, "area", lake.basin->area(lake.level));
+		setNumber(L, "inflow", lake.inflow);
+		setNumber(L, "outflow", lake.outflow);
+		// its streams: { path = { {x, y, z}, … } (water's on y), q (m³/s), fills (it runs into a lake) }
+		lua_createtable(L, (int)lake.streams.size(), 0);
+		for (size_t i = 0; i < lake.streams.size(); i++) {
+			const ServerTerra::Lake::Stream &st = lake.streams[i];
+			lua_createtable(L, 0, 3);
+			lua_createtable(L, (int)st.path.size(), 0);
+			for (size_t k = 0; k < st.path.size(); k++) {
+				push_v3s16(L, v3s16(st.path[k][0], st.path[k][2], st.path[k][1]));
+				lua_rawseti(L, -2, (int)k + 1);
+			}
+			lua_setfield(L, -2, "path");
+			setNumber(L, "q", st.q);
+			lua_pushboolean(L, st.fills.has_value());
+			lua_setfield(L, -2, "fills");
+			lua_rawseti(L, -2, (int)i + 1);
+		}
+		lua_setfield(L, -2, "streams");
+		setNumber(L, "fed", lake.fed);
+		if (lake.basin->dammed()) {
+			lua_createtable(L, 0, 2);
+			setNumber(L, "x", lake.basin->outX());
+			setNumber(L, "z", lake.basin->outZ());
+			lua_setfield(L, -2, "out"); // where its flood ran off
+		}
+		setNumber(L, "columns", (double)lake.basin->columns().size());
+		lua_pushboolean(L, lake.basin->capped());
+		lua_setfield(L, -2, "capped");
+		const rivers::Basin &b = *lake.basin;
+		setNumber(L, "rain", lake.rain);
+		setNumber(L, "evaporation", lake.evaporation);
+		const double balance = terraLakeBalance(lake);
+		lua_pushboolean(L, b.dammed() && balance < b.spill());
+		lua_setfield(L, -2, "closed");
+		if (b.dammed() && balance < b.spill())
+			setNumber(L, "balance", balance);
+		if (b.dammed() && lake.level >= b.spill()) {
+			setNumber(L, "spills_in", 0);
+		} else if (b.dammed() && balance >= b.spill()) {
+			// at what comes in less what goes off its surface now
+			const double net = lake.inflow + (lake.rain - lake.evaporation) / 3.6e6 * std::max(1.0, b.area(lake.level));
+			if (net > 0)
+				setNumber(L, "spills_in", (b.volume(b.spill()) - b.volume(lake.level)) / net);
+		}
+		return 1;
+	}
+	return 0;
+}
+
+void terraSendRivers(Server *server)
+{
+	static const int AROUND = 3; // map blocks each way, across; 2 down, 1 up
+	if (mapgenName(server) != "terra")
+		return;
+	ServerTerra &t = server->terra();
+	if (!t.rivers)
+		return; // no weather step yet: rivers stand as generated
+	const World &w = world(server);
+	ServerMap &map = server->getEnv().getServerMap();
+	// A map block's river: its held water found once, its flow read again
+	// each rivers step (and its flood over its banks set by it); nullptr for
+	// a block never loaded
+	auto read = [&](v3s16 bp) -> ServerTerra::RiverBlock * {
+		MapBlock *block = map.getBlockNoCreateNoEx(bp);
+		auto known = t.river_blocks.find(bp);
+		if (!block && known == t.river_blocks.end())
+			return nullptr;
+		ServerTerra::RiverBlock &rb = t.river_blocks[bp];
+		if (known == t.river_blocks.end()) {
+			// looked at once: generated water is held from the start
+			for (s16 i = 0; i < MAP_BLOCKSIZE * MAP_BLOCKSIZE * MAP_BLOCKSIZE && !rb.held; i++) {
+				const v3s16 rel(i % MAP_BLOCKSIZE, (i / MAP_BLOCKSIZE) % MAP_BLOCKSIZE, i / (MAP_BLOCKSIZE * MAP_BLOCKSIZE));
+				const u8 param2 = block->getNodeNoCheck(rel).getParam2();
+				if ((param2 & fill::HELD) && !(param2 & fill::LAKE)) // (a river's own, not a lake's over it)
+					rb.held = bp * MAP_BLOCKSIZE + rel;
+			}
+			if (rb.held)
+				rb.way = riverWay(server, w, *rb.held);
+		}
+		if (rb.held && rb.read_at != t.rivers_step) {
+			rb.read_at = t.rivers_step;
+			const std::optional<Place> place = placeOf(server, intToFloat(*rb.held, 1));
+			const terragen::Ground g = place ? w.ground(*place, w.sunlight(*place, std::nullopt)) : terragen::Ground{};
+			if (place && (g.kind == terragen::Water::River || g.kind == terragen::Water::Lake)) {
+				const rivers::Flow f = rivers::flowAt(*t.rivers, terragen::gridSphere(), g, *place);
+				rb.rise = (s16)std::lround(f.rise * 16);
+				rb.speed = (u8)std::clamp<long>(std::lround(f.speed * 40), 0, 255);
+				terraFlood(server, *rb.held, f.surge);
+			}
+		}
+		return &rb;
+	};
+	// the Live blocks (round players, and kept loaded): their rivers run, and flood
+	for (const v3s16 &bp : server->getEnv().getActiveBlocks())
+		read(bp);
+	std::unordered_map<u16, bool> connected;
+	for (RemotePlayer *player : server->getEnv().getPlayers()) {
+		PlayerSAO *sao = player->getPlayerSAO();
+		if (!sao || player->getPeerId() == PEER_ID_INEXISTENT)
+			continue;
+		const u16 peer = player->getPeerId();
+		connected[peer] = true;
+		std::unordered_map<v3s16, u32> &sent = t.river_sent[peer];
+		std::vector<std::tuple<v3s16, s16, u8, u8>> out;
+		const v3s16 at = getNodeBlockPos(floatToInt(sao->getBasePosition(), BS));
+		for (s16 dz = -AROUND; dz <= AROUND; dz++)
+			for (s16 dx = -AROUND; dx <= AROUND; dx++)
+				for (s16 dy = -2; dy <= 1; dy++) {
+					const v3s16 bp = at + v3s16(dx, dy, dz);
+					ServerTerra::RiverBlock *rb = read(bp);
+					if (!rb)
+						continue;
+					// a lake's top: still, at its level
+					if (const std::optional<s16> lake = terraLakeRise(server, bp)) {
+						const u32 packed = ((u32)(u16)*lake << 16) | 0xFFFF; // (no river runs 255 at way 255)
+						auto was = sent.find(bp);
+						if (was == sent.end() || was->second != packed) {
+							sent[bp] = packed;
+							out.emplace_back(bp, *lake, 0, 0);
+						}
+						continue;
+					}
+					if (!rb->held)
+						continue;
+					const u32 packed = ((u32)(u16)rb->rise << 16) | ((u32)rb->speed << 8) | rb->way;
+					auto was = sent.find(bp);
+					if (was == sent.end() || was->second != packed) {
+						sent[bp] = packed;
+						out.emplace_back(bp, rb->rise, rb->speed, rb->way);
+					}
+				}
+		if (!out.empty())
+			server->sendRivers(peer, out);
+	}
+	for (auto it = t.river_sent.begin(); it != t.river_sent.end();)
+		it = connected.count(it->first) ? std::next(it) : t.river_sent.erase(it);
+}
+
 // core.terra.soil_points() → { { sand, silt, clay, organic }, … } (index + 1 =
 // the soil block's param2 + 1): the compositions a soil block can hold. Pure:
 // works on any world (the game registers its soil from it).
@@ -779,6 +1172,9 @@ void ModApiTerra::Initialize(lua_State *L, int top)
 		{ "species", l_species },
 		{ "surface", l_surface },
 		{ "weather", l_weather },
+		{ "river", l_river },
+		{ "force_rivers", l_force_rivers },
+		{ "lake", l_lake },
 		{ "soil_points", l_soil_points },
 		{ "soil_kinds", l_soil_kinds },
 		{ "place", l_place },

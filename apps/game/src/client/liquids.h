@@ -53,6 +53,16 @@ struct Stream
 	u16 cups = 0; // each a sixteenth-cube drop
 };
 
+// A map block's river as the weather fills it (TOCLIENT_RIVERS, sprint 115):
+// its held water's surface over or under the level generated, and how fast it runs
+struct River
+{
+	s16 rise = 0;      // sixteenths
+	float speed = 0;   // nodes/s
+	std::array<float, 2> way{}; // the way it runs (x, z), a unit vector; zero: a lake, or not known
+};
+using Rivers = std::unordered_map<v3s16, River>;
+
 // Something that pushes water aside: an object, the player; in nodes, its
 // feet's middle and how far it reaches
 struct Mover
@@ -74,7 +84,7 @@ public:
 	// (nodes), the sea's level (the highest node of it; none in a world without
 	// one) and the time since the last frame.
 	void update(const std::unordered_set<v3s16> &changed, const std::unordered_set<v3s16> &ground,
-			const std::vector<Stream> &streams, const std::vector<Mover> &movers, ClientMap &map, v3s16 offset,
+			const std::vector<Stream> &streams, const std::vector<Mover> &movers, const Rivers &rivers, ClientMap &map, v3s16 offset,
 			v3f camera, std::optional<s16> sea, u32 daynight, float dtime, bool hurrying);
 
 	void OnRegisterSceneNode() override;
@@ -119,7 +129,12 @@ public:
 		std::vector<s32> want;              // per column, world sixteenths: where the server's water stands (NONE: none)
 		std::vector<float> depth;           // per column, node heights
 		std::vector<std::array<float, 4>> out; // per column: flow out of each side (+x −x +z −z), node²/s
+		// per column: the river's current (x, z), nodes/s: held water above the
+		// sea runs toward its nearest step down (sprint 115), carrying what's on it
+		std::vector<std::array<float, 2>> current;
 		std::vector<std::optional<v3s16>> tops; // per node: the liquid it draws (not flat)
+		std::vector<float> runs;                // per node: how fast its river runs (nodes/s; 0: still)
+		std::vector<std::array<float, 2>> ways; // per node: the way its river runs (zero: by its steps)
 		std::vector<Tile> tile;
 		std::vector<int> nearest; // tiles, nearest the middle first
 		float owed = 0, pooled = 0;
@@ -171,6 +186,8 @@ private:
 	bool uneven(Grid &g, int tile);
 	void wake(Grid &g, int tile);
 	void pools(Grid &g);
+	void currents(Grid &g);
+	void carry(Grid &g, float dt);
 	void hold(Grid &g, float dtime);
 	void flow(Grid &g, float dt);
 	void push(Grid &g, const Mover &m, v3f v, float dtime);
@@ -208,6 +225,7 @@ private:
 	// how far the map's blocks are drawn (nodes): past it the far view draws
 	// the sea, so the flat sea stops where they do
 	float m_range = 0;
+	const Rivers *m_rivers = nullptr; // this frame's
 	std::optional<s16> m_sea; // the sea's highest node: full water at or under it is the sea's, a reservoir
 	video::SMaterial m_material;
 	aabb3f m_box{ v3f(-1e7f), v3f(1e7f) }; // it is wherever liquid is: never culled as a whole

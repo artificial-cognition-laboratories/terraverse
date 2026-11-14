@@ -268,6 +268,9 @@ void Planetarium::tick(double seconds)
 	m_scene.t += seconds;
 	const double step = seconds / m_scene.seconds;
 	m_scene.home = std::clamp(m_scene.home + (m_scene.shot == Shot::Home ? step : -step), 0.0, 1.0);
+	// the room the page leaves changes at once (a panel comes or goes, mid-move
+	// often): the planet follows it eased, never a jump
+	m_roomNow += (room() - m_roomNow) * (f32)(1 - std::exp(-seconds / ROOM_EASE));
 	if (m_clock.running) {
 		m_clock.date += seconds * m_clock.rate;
 		m_clock.date -= std::floor(m_clock.date); // round the year again
@@ -402,9 +405,9 @@ void Planetarium::compose(View &p)
 			mix(a.roll, roll), mix(a.around, to.around), (f32)mix(a.sky, to.sky) };
 	}
 	m_scene.now = f;
-	// where the page leaves room, by turning to it too: a shifted lens would stretch the far side
+	// in the room the page leaves, as it's eased to (tick)
 	p.frame(v2f());
-	p.aim(f.centre + room());
+	p.aim(f.centre + m_roomNow);
 	p.skyLevel(f.sky);
 	p.compose(f, 0);
 }
@@ -412,6 +415,7 @@ void Planetarium::compose(View &p)
 void Planetarium::opening()
 {
 	m_scene = Scene{ Shot::Home, std::nullopt, std::nullopt, 0, 1, 1 };
+	m_roomNow = room();
 	m_clock.date = planetarium::HOME_SHOT.date;
 	m_clock.running = false;
 	for (View *p : { m_current.get(), m_next.get() })
@@ -446,7 +450,7 @@ Json::Value Planetarium::scene(const Json::Value &intent)
 	if (m_held && m_current) {
 		m_scene.now = m_current->framed();
 		// the centre as compose takes it: the page's room is its own, a shift counted as a turn
-		m_scene.now->centre += m_current->shift() - room();
+		m_scene.now->centre += m_current->shift() - m_roomNow;
 	}
 	m_held = false;
 	m_scene.from = m_scene.now;
@@ -727,8 +731,10 @@ bool Planetarium::handle(const SEvent &event)
 	View *p = m_current ? m_current.get() : m_next.get();
 	if (m_scene.shot == Shot::Home)
 		return false; // a composed picture: not the mouse's to move
-	// Play's: grabbed or wheeled, the camera's the mouse's from where it is
-	// (the move to it finished at once: it's taken from under the mouse, never jumps)
+	// nor while the move to Play's runs: it always lands the planet where Play frames it
+	if (m_scene.shot == Shot::Play && !m_held && m_scene.t < m_scene.seconds)
+		return false;
+	// then grabbed or wheeled, the camera's the mouse's from where it is
 	if (m_scene.shot == Shot::Play && !m_held && event.EventType == EET_MOUSE_INPUT_EVENT &&
 			(event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN || event.MouseInput.Event == EMIE_MOUSE_WHEEL)) {
 		m_held = true;
@@ -782,8 +788,8 @@ void Planetarium::draw(video::IVideoDriver *driver)
 		compose(*m_current);
 	else if (m_held) {
 		const double w = std::clamp((m_current->radiiUp() - SHIFT_BELOW) / (TURN_ABOVE - SHIFT_BELOW), 0.0, 1.0);
-		m_current->aim((m_heldCentre + room()) * (f32)w);
-		m_current->frame((m_heldCentre + room()) * (f32)(1 - w));
+		m_current->aim((m_heldCentre + m_roomNow) * (f32)w);
+		m_current->frame((m_heldCentre + m_roomNow) * (f32)(1 - w));
 	} else
 		m_current->frame(v2f((f32)(cx / (w / 2)), (f32)(-cy / (h / 2))));
 	m_current->draw(driver, view);

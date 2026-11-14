@@ -807,7 +807,17 @@ enum ToClientCommand : u16
 		v3f from, to (nodes), u8 r, g, b, u16 cups (each 1/4096 of a node)
 	*/
 
-	TOCLIENT_NUM_MSG_TYPES = 0x71,
+	TOCLIENT_RIVERS = 0x71,
+	/*
+		Terra Firma (sprint 115): the rivers in map blocks near the player, as
+		the weather fills them
+		u16 count
+		for each: v3s16 block, s16 rise (sixteenths over the water as
+		generated), u8 speed (nodes/s × 40), u8 way (1..255 round from +x
+		toward +z; 0: none)
+	*/
+
+	TOCLIENT_NUM_MSG_TYPES = 0x72,
 };
 
 enum ToServerCommand : u16

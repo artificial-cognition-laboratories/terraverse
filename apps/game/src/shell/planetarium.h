@@ -180,6 +180,8 @@ private:
 	bool m_held = false;
 	v2f m_heldCentre; // the shot's own centre when it was taken (mid-move: not yet the room's middle)
 	v2f room() const; // the middle of what the page leaves, from the window's (its half widths and heights)
+	v2f m_roomNow; // room(), eased: where shots are framed from
+	static constexpr double ROOM_EASE = 0.35; // seconds (to 63%)
 	Scene m_scene;
 	planetarium::Framing framingFor(Shot shot) const; // as it'd be now, on this screen
 	// The composed picture alive: the camera orbits a little after the mouse,

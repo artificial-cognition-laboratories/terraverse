@@ -52,6 +52,7 @@ static const char *modeName(Mode mode)
 	case Mode::Menu: return "menu";
 	case Mode::Entering: return "entering";
 	case Mode::Game: return "game";
+	case Mode::Leaving: return "leaving";
 	}
 	return "game";
 }

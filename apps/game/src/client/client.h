@@ -208,9 +208,11 @@ public:
 	void handleCommand_Shape(NetworkPacket *pkt); // Terra Firma
 	void handleCommand_Fill(NetworkPacket *pkt); // Terra Firma (sprint 81)
 	void handleCommand_Stream(NetworkPacket *pkt); // Terra Firma (sprint 82)
+	void handleCommand_Rivers(NetworkPacket *pkt); // Terra Firma (sprint 115)
 	// Terra Firma: map blocks whose liquid changed since the liquid layer last looked (sprint 81)
 	std::unordered_set<v3s16> takeLiquidsChanged() { std::unordered_set<v3s16> out; out.swap(m_liquids_changed); return out; }
 	std::vector<liquids::Stream> takeStreams() { std::vector<liquids::Stream> out; out.swap(m_streams); return out; }
+	const liquids::Rivers &rivers() const { return m_rivers; } // Terra Firma (sprint 115)
 	// blocks whose ground changed under or beside their liquid (sprint 82: the sea's looked at again)
 	std::unordered_set<v3s16> takeLiquidGround() { std::unordered_set<v3s16> out; out.swap(m_liquid_ground); return out; }
 	void liquidsChanged(v3s16 blockpos) { m_liquids_changed.insert(blockpos); }
@@ -569,6 +571,7 @@ private:
 	std::unordered_set<v3s16> m_liquids_changed; // Terra Firma: blocks whose liquid changed (sprint 81)
 	std::unordered_set<v3s16> m_liquid_ground; // Terra Firma: blocks whose nodes changed (sprint 82)
 	std::vector<liquids::Stream> m_streams; // Terra Firma: liquid poured since the last frame (sprint 82)
+	liquids::Rivers m_rivers; // Terra Firma: the rivers near, as the server last said (sprint 115)
 	workshop::Materials m_materials; // Terra Firma
 	std::unique_ptr<Body> m_body; // Terra Firma: made when it's first asked for
 	// Terra Firma (sprint 84): loose ground this client's own wheels and

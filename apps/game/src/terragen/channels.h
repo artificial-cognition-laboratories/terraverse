@@ -100,6 +100,7 @@ public:
 		// lowest): its level (blocks, fixed), how far off its line, how wide
 		int64_t water = INT64_MIN, water_gap = INT64_MAX, water_width = 0;
 		int water_from = 0; // the level whose stream it is (1: the largest)
+		int64_t water_flow = 0; // what that stream drains, blocks² of average rain (its width's; sprint 115: its water's)
 		bool pond = false; // the water's a pond's, standing still
 		fix slope = 0;     // how steep the land is here: its hillside's, or on a floor its channel's
 		int64_t bed = INT64_MAX; // the height of the channel whose valley it is, here (blocks, fixed)
@@ -142,11 +143,17 @@ public:
 		std::array<int64_t, PATH_PIECES + 1> ground{};
 	};
 	const Path &path(int level, int32_t i, int32_t j, int32_t l) const;
+	// Its way alone, without the land under it (Path::ground none), and its
+	// wandering before it's kept off its lower neighbours' (cached)
+	const Path &way(int level, int32_t i, int32_t j, int32_t l) const;
+	const Path &wander(int level, int32_t i, int32_t j, int32_t l) const;
 	// the place `t` along a path from its foot
 	static Place pathAt(const Path &path, fix t);
 	int32_t latticeOf(int level, int32_t c) const;
 	// A stream's width for what drains to it (blocks² of average rain; World::riverWidth)
 	int64_t streamWidth(int64_t flow) const;
+	// A grid cell's area, blocks² (a run's flow over it: the cells it drains)
+	int64_t cellArea() const;
 
 	~Channels();
 	Channels(const Channels &) = delete;
@@ -188,7 +195,9 @@ private:
 	// the channels' paths traced, kept for every thread (each tracing its own,
 	// a thread's whole share of a world went on paths its others had)
 	struct Traced;
-	std::unique_ptr<Traced> m_traced;
+	std::unique_ptr<Traced> m_traced, m_ways, m_wanders;
+	template <typename Make>
+	const Path &keptIn(Traced &store, uint32_t salt, int level, int32_t i, int32_t j, int32_t l, Make make) const;
 
 	Node build(int level, int32_t i, int32_t j, int32_t l) const;
 	// a node joining only the level above (or the grid's runs): what build()
@@ -197,6 +206,8 @@ private:
 	Node toLevelAbove(int level, int32_t i, int32_t j, int32_t l) const;
 	Shape wear(int level, int32_t i, int32_t j, int32_t l) const;
 	Path trace(int level, int32_t i, int32_t j, int32_t l) const;
+	Path wayOf(int level, int32_t i, int32_t j, int32_t l) const;
+	Path wanderOf(int level, int32_t i, int32_t j, int32_t l) const;
 	// read() with only the lower of a level's nodes than one (by rise()), and
 	// maybe that one: the land a way runs over, made by what it can drain into
 	struct Below

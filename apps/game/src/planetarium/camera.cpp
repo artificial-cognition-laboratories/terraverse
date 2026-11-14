@@ -81,24 +81,7 @@ double OrbitCamera::longitude() const
 	return std::atan2(m_up.z, m_up.x);
 }
 
-core::matrix4 OrbitCamera::aimed(v2f at, float aspect)
-{
-	// where the camera's axes go: ahead toward `at`'s pixel, right level
-	// with the old up (each a row: x' = x·M0 + y·M4 + z·M8)
-	const float t = std::tan(FOV / 2);
-	core::vector3df f(at.X * t * aspect, at.Y * t, 1);
-	f.normalize();
-	core::vector3df r = core::vector3df(0, 1, 0).crossProduct(f);
-	r.normalize();
-	const core::vector3df u = f.crossProduct(r);
-	core::matrix4 m;
-	m[0] = r.X, m[1] = r.Y, m[2] = r.Z;
-	m[4] = u.X, m[5] = u.Y, m[6] = u.Z;
-	m[8] = f.X, m[9] = f.Y, m[10] = f.Z;
-	return m;
-}
-
-OrbitCamera::Vec OrbitCamera::ray(double x, double y, double width, double height, v2f shift, const core::matrix4 &aim) const
+OrbitCamera::Vec OrbitCamera::ray(double x, double y, double width, double height, v2f shift) const
 {
 	// the pixel as if the screen's middle were where the view's is
 	x -= shift.X * width / 2;
@@ -108,7 +91,7 @@ OrbitCamera::Vec OrbitCamera::ray(double x, double y, double width, double heigh
 	const double t = std::tan(FOV / 2), aspect = width / std::max(1.0, height);
 	core::vector3df d((float)((2 * x / width - 1) * t * aspect), (float)((1 - 2 * y / height) * t), 1);
 	core::matrix4 inverse;
-	(aim * view()).getInverse(inverse);
+	view().getInverse(inverse);
 	d = inverse.rotateAndScaleVect(d);
 	d.normalize();
 	return { d.X, d.Y, d.Z };

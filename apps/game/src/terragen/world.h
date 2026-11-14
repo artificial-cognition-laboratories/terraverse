@@ -142,6 +142,12 @@ struct Ground
 	bool river_bar = false;
 	int8_t river_bend = 0;
 	bool river_braided = false;
+	int32_t river_cell = -1; // the grid cell whose run that river is (its water's, sprint 115: rivers::Network's)
+	int32_t river_along = 0; // blocks along that run from its head: rising downstream, so the way it runs
+	// a stream below the grid's (its water's, not a grid river's): what it
+	// drains, in its cell's areas of rain (sprint 115: its share of the cell's
+	// runoff); 0 where it isn't one, or it isn't known (the noise land)
+	fix stream_cells = 0;
 	int32_t dune = 0; // blocks of wind-blown sand on top (sprint 112)
 	bool bare = false; // too steep for the biome's loose top: its filler shows
 };

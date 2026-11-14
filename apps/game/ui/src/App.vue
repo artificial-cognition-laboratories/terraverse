@@ -10,6 +10,7 @@ import MakingScreen from "./game/making/MakingScreen.vue"
 import { openMaking } from "./game/making/open.ts"
 import MainMenu from "./menu/MainMenu.vue"
 import InviteToast from "./social/InviteToast.vue"
+import { Spinner } from "./kit/index.ts"
 
 // the wiki brings three.js: loaded when first opened
 const WikiScreen = defineAsyncComponent(() => import("./wiki/WikiScreen.vue"))
@@ -30,10 +31,12 @@ openMaking({ bridge: bridge, store: store })
         <MakingScreen v-else-if="store.screen === 'making'" />
         <div v-else-if="store.screen === 'wiki'" class="centred"><WikiScreen place="game" @close="bridge.send('screen.close', {})" /></div>
     </template>
+    <p v-else-if="store.mode === 'leaving'" class="leaving"><Spinner label="Saving the world" /> Saving the world</p>
     <InviteToast v-if="bridge.connected" />
 </template>
 
 <style scoped>
 .centred { position: fixed; inset: 0; display: grid; place-items: center; }
+.leaving { position: fixed; inset: 0; margin: 0; display: flex; gap: 10px; justify-content: center; align-items: center; color: var(--ink-dim); background: var(--stone-0); }
 .detached { padding: 24px; color: var(--ink-dim); background: var(--stone-0); height: 100%; margin: 0; }
 </style>

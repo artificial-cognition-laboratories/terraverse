@@ -28,7 +28,10 @@ public:
 
 	// the body's sea: blocks from its centre; the farthest it goes over it
 	OrbitCamera(double sea, double farthest);
-	static constexpr float FOV = 1.0f; // radians, vertical
+	// radians, vertical: narrow enough that the sky, shifted to frame a body
+	// off centre (perspective), isn't stretched toward the far side or warped
+	// as the view turns (1 rad was: a wide screen then saw ~90° across)
+	static constexpr float FOV = 0.7f;
 	// pixels a tile's cell may span before it splits: about one block a pixel
 	// or two, as sharp at every height as the land zoomed into (sprint 114;
 	// 6 left a coarse planet till it was zoomed in on). Lowered further only
@@ -86,15 +89,8 @@ public:
 	static core::matrix4 turned(const core::matrix4 &view, double spin);
 
 	// The way from the camera through a pixel (unit, planet frame), on a
-	// screen `width` × `height`; the view turned by `aim` after (aimed()).
-	Vec ray(double x, double y, double width, double height, v2f shift = v2f(),
-			const core::matrix4 &aim = core::IdentityMatrix) const;
-	// A turn of the camera on its own axes, after its view, so what it looks
-	// at (the body's centre) is drawn at `at` (the screen's half widths and
-	// heights, +x right, +y up) on a screen of `aspect`. Unlike a shift
-	// (perspective), the lens stays square to the screen: nothing stretches
-	// toward the far edge.
-	static core::matrix4 aimed(v2f at, float aspect);
+	// screen `width` × `height`, the lens shifted by `shift` (perspective).
+	Vec ray(double x, double y, double width, double height, v2f shift = v2f()) const;
 
 private:
 	double m_sea, m_farthest; // (not const: a camera is replaced when it goes to another body)

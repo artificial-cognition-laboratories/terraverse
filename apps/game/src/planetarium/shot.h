@@ -43,13 +43,13 @@ struct Framing
 // (a phase of 60°), the star out of frame behind the camera. The roll and
 // around are the home shot's, so going there from it is a turn and a swing
 // east round the body, nothing else.
-inline constexpr double PLAY_ALTITUDE = 2.2, PLAY_OFF = 2.0944; // radii; 120°
+inline constexpr double PLAY_ALTITUDE = 3.66, PLAY_OFF = 2.0944; // radii; 120°
 
 // The main menu's. Tuned by eye: `luanti --planetarium-shot <png>` renders it.
 // Through the orbit view's own lens: a long one magnified the sky's picture
 // past its texels and flattened the depth. Far enough out that the star, in
 // the corner, lights a crescent of the near side; turned so the dusty rim
 // crosses behind, not the galaxy's core.
-inline constexpr Shot HOME_SHOT{ "TF22.dGVycmE", 0.25, 2.0, { -0.7f, -0.5f }, { 0.88f, 0.82f }, 1.9, 0.5f };
+inline constexpr Shot HOME_SHOT{ "TF22.dGVycmE", 0.25, 3.35, { -0.85f, -0.75f }, { 0.88f, 0.82f }, 1.9, 0.5f };
 
 } // namespace planetarium

@@ -11,6 +11,8 @@ if not core.terra.enabled() then
 	return
 end
 
+dofile(core.get_modpath("tf_weather") .. "/rivers.lua") -- /river and /rivers
+
 local PERIOD = 2.0 -- seconds between readings
 
 local space = core.terra.world().boundary -- this high above the sea, space: no weather
