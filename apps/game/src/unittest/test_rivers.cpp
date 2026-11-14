@@ -135,7 +135,7 @@ void TestRivers::testSaves()
 void TestRivers::testWeatherFillsRivers()
 {
 	static const matter::Matter table = matter::Matter::load(porting::path_share + DIR_DELIM "matter");
-	terragen::World world(terragen::WorldCode::decode("TF22.dGVycmE"));
+	terragen::World world(terragen::WorldCode::decode("TF23.dGVycmE"));
 	const terragen::Grid &grid = world.grid();
 	const terragen::Sphere &sphere = terragen::gridSphere();
 	std::optional<Network> net;

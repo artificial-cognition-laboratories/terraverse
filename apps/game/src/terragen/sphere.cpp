@@ -217,18 +217,28 @@ int32_t Sphere::cell(const Dir &d) const
 
 Sphere::Spot Sphere::spot(const Dir &d) const
 {
-	// the last asked for, the thread's: a column reads a dozen fields between
+	// the last two asked for, the thread's: a column reads a dozen fields between
 	// the cells at one place (World::between, surface, column), and finding
-	// them each time was a tenth of a far tile's time (sprint 114)
-	thread_local const Sphere *last_sphere = nullptr;
-	thread_local Dir last_dir{};
-	thread_local Spot last{};
-	if (last_sphere == this && last_dir.x == d.x && last_dir.y == d.y && last_dir.z == d.z)
-		return last;
-	last = spotAt(d);
-	last_sphere = this;
-	last_dir = d;
-	return last;
+	// them each time was a tenth of a far tile's time (sprint 114); two, as
+	// its channels are read at the rivers' warp of it, between its fields
+	struct Kept
+	{
+		const Sphere *sphere = nullptr;
+		Dir dir{};
+		Spot spot{};
+	};
+	thread_local Kept kept[2];
+	thread_local int newer = 0;
+	for (int w = 0; w < 2; w++) {
+		const Kept &k = kept[(newer + w) & 1];
+		if (k.sphere == this && k.dir.x == d.x && k.dir.y == d.y && k.dir.z == d.z) {
+			newer = (newer + w) & 1;
+			return k.spot;
+		}
+	}
+	newer ^= 1;
+	kept[newer] = { this, d, spotAt(d) };
+	return kept[newer].spot;
 }
 
 Sphere::Spot Sphere::spotAt(const Dir &d) const

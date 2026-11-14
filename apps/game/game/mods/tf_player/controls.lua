@@ -272,7 +272,12 @@ local function fact(id, label, get, available)
 	return { id = "world." .. id, kind = "fact", label = label, get = get, available = available }
 end
 local function weather_fact(id, label, read)
-	return fact(id, label, function(player) return read(core.terra.weather(player:get_pos())) end, function() return terra end)
+	return fact(id, label, function(player)
+		local pos = player:get_pos()
+		-- (none on a seam, before a player's placed, or while the weather settles as the world opens)
+		local w = not core.terra.seam(pos) and core.terra.weather(pos)
+		return w and read(w)
+	end, function() return terra end)
 end
 tf_controls.page({
 	id = "world", title = "World", icon = "world",

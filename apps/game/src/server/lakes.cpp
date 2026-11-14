@@ -553,8 +553,8 @@ void terraStepLakes(Server *server, float dtime)
 		const rivers::Basin &b = *lake.basin;
 		lake.inflow = terraRiverDischarge(server, lake.seed) + lake.fed;
 		// the rain on it and what the air takes off it, the weather's there (each rivers step)
-		if (lake.weather_step != t.rivers_step) {
-			lake.weather_step = t.rivers_step;
+		if (lake.weather_step != t.rivers->step) {
+			lake.weather_step = t.rivers->step;
 			const std::pair<double, double> w = terraLakeWeather(server, lake.seed);
 			lake.rain = w.first;
 			lake.evaporation = w.second;
@@ -650,8 +650,8 @@ void terraFlood(Server *server, v3s16 node, double surge)
 		if (lake.level0 != level0)
 			continue; // the next step's flood, over this pool's banks
 		// the highest of its pool's blocks this step (each its own depth)
-		lake.target = lake.target_step == t.rivers_step ? std::max(lake.target, target) : target;
-		lake.target_step = t.rivers_step;
+		lake.target = lake.target_step == t.rivers->step ? std::max(lake.target, target) : target;
+		lake.target_step = t.rivers->step;
 		return;
 	}
 	if (surge <= BRIM)
@@ -663,7 +663,7 @@ void terraFlood(Server *server, v3s16 node, double surge)
 	lake.level = level0;
 	lake.written = level0;
 	lake.target = target;
-	lake.target_step = t.rivers_step;
+	lake.target_step = t.rivers->step;
 	found(lake, rivers::Basin::spread(top.X, top.Z, level0, (s32)std::ceil(target) + 1, mapTop(server, level0), MOST));
 	actionstream << "lakes: a river over its banks at " << top << ": " << surge << " blocks over, onto "
 			<< lake.basin->columns().size() << " columns" << std::endl;

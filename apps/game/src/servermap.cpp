@@ -3,6 +3,7 @@
 // Copyright (C) 2010-2024 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "servermap.h"
+#include "config.h" // USE_SHELL
 #include "database/database-planet.h"
 #include "planet/atlas.h"
 #include "staticobject.h"
@@ -291,7 +292,16 @@ void ServerMap::finishBlockMake(BlockMakeData *data,
 		Blit generated stuff to map
 		NOTE: blitBackAll adds nearly everything to changed_blocks
 	*/
+#if USE_SHELL
+	// Terra Firma: never over a neighbour's finished block. Its border was
+	// read before that chunk was made (another emerge thread making it at
+	// once): written back, it put an empty copy over its trees, and a world
+	// came out by which thread finished first. A chunk's own blocks aren't
+	// generated till after this, so they're all written.
+	data->vmanip->blitBackAll(changed_blocks, false);
+#else
 	data->vmanip->blitBackAll(changed_blocks);
+#endif
 	// Terra Firma: what the generator cut (its plants), now the nodes are there
 	for (const auto &[p, s] : data->shapes)
 		setShape(p, s);

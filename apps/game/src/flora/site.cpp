@@ -514,7 +514,34 @@ Plant grow(const Traits &t, uint32_t seed)
 {
 	if (!t.lives)
 		return Plant();
-	return t.cover.on ? growMat(t, seed) : growPlant(t, seed);
+	Plant plant = t.cover.on ? growMat(t, seed) : growPlant(t, seed);
+	// (its wood as bits in a box round it, a voxel's margin each way: 26 looks a voxel, no hashing)
+	int32_t lo[3] = { INT16_MAX, INT16_MAX, INT16_MAX }, hi[3] = { INT16_MIN, INT16_MIN, INT16_MIN };
+	for (const Voxel &v : plant.voxels) {
+		const int32_t c[3] = { v.x, v.y, v.z };
+		for (int k = 0; k < 3; k++) {
+			lo[k] = std::min(lo[k], c[k] - 1);
+			hi[k] = std::max(hi[k], c[k] + 1);
+		}
+	}
+	const int32_t nx = hi[0] - lo[0] + 1, ny = hi[1] - lo[1] + 1, nz = hi[2] - lo[2] + 1;
+	const auto cellOf = [&](int32_t x, int32_t y, int32_t z) { return ((size_t)(y - lo[1]) * nz + (z - lo[2])) * nx + (x - lo[0]); };
+	std::vector<bool> wood(plant.voxels.empty() ? 0 : (size_t)nx * ny * nz);
+	for (const Voxel &v : plant.voxels)
+		if (v.part == Part::Wood || v.part == Part::Branch)
+			wood[cellOf(v.x, v.y, v.z)] = true;
+	plant.woody.resize(plant.voxels.size());
+	for (size_t i = 0; i < plant.voxels.size(); i++) {
+		const Voxel &v = plant.voxels[i];
+		uint32_t mask = 0;
+		for (int32_t dy = -1; dy <= 1; dy++)
+			for (int32_t dz = -1; dz <= 1; dz++)
+				for (int32_t dx = -1; dx <= 1; dx++)
+					if ((dx || dy || dz) && wood[cellOf(v.x + dx, v.y + dy, v.z + dz)])
+						mask |= 1u << ((dy + 1) * 9 + (dz + 1) * 3 + (dx + 1));
+		plant.woody[i] = mask;
+	}
+	return plant;
 }
 
 } // namespace flora

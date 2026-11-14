@@ -23,7 +23,12 @@ local function update(player)
 		player:set_ui("weather", nil)
 		return
 	end
-	local w = core.terra.weather(pos)
+	-- (none on a seam, before a player's placed; nor while it settles as the world opens)
+	local w = not core.terra.seam(pos) and core.terra.weather(pos)
+	if not w then
+		player:set_ui("weather", nil)
+		return
+	end
 	-- events go only when there are any (an empty Lua table has no JSON shape)
 	player:set_ui("weather", {
 		temperature = w.temperature, humidity = w.humidity, precipitation = w.precipitation,

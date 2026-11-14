@@ -21,8 +21,16 @@ uint64_t isqrt(uint64_t n)
 	// returned is ⌊√n⌋ exactly, the same on any machine. Bit by bit, as it
 	// was, it was a fifth of a far column's time (sprint 114)
 	uint64_t r = (uint64_t)std::sqrt((double)n);
-	// (squared in 128 bits: past 2³² r² overflows 64; no division, which
-	// cost as much as the bits did)
+	// (squared in 64 bits while (r + 1)² fits: below 2³² - 1, as a place's
+	// distances all are; past it, in 128. No division, which cost as much as
+	// the bits did)
+	if (r < 0xFFFFFFFFull) {
+		while (r * r > n)
+			r--;
+		while ((r + 1) * (r + 1) <= n)
+			r++;
+		return r;
+	}
 	using W = unsigned __int128;
 	while ((W)r * r > n)
 		r--;

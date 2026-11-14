@@ -173,7 +173,7 @@ void runStandalone(const std::string &code, std::optional<double> bench, std::op
 			// two thirds in: another world, as a changed setting asks for one
 			// and again 100 ms on, a world still building thrown away (a setting changed twice)
 			if (swaps < 2 && t > *bench * 2 / 3 && (swaps == 0 || start - swappedAt > 100)) {
-				const std::string other = swaps++ ? "TF22.dGhpcmQ" : "TF22.b3RoZXI";
+				const std::string other = swaps++ ? "TF23.dGhpcmQ" : "TF23.b3RoZXI";
 				const terragen::WorldCode w = terragen::WorldCode::decode(other);
 				auto next = std::make_unique<Planetarium>(Planetarium::Opts{ atlas, far::Horizon{ other, MapgenParams().water_level, horizon.content },
 						palette, std::make_shared<const terragen::System>(terragen::SystemSpec::forWorld(w)) });
@@ -240,7 +240,7 @@ void runStandalone(const std::string &code, std::optional<double> bench, std::op
 		// changed setting): its code, its atlas, its system, its Planetarium
 		const auto from = std::chrono::steady_clock::now();
 		const auto lap = [&] { return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - from).count(); };
-		const std::string other = "TF22.b3RoZXI"; // another seed's world
+		const std::string other = "TF23.b3RoZXI"; // another seed's world
 		const terragen::WorldCode w = terragen::WorldCode::decode(other);
 		const double decoded = lap();
 		const planet::Atlas a(terragen::Atlas::standard(w.size / (2 * M_PI)));

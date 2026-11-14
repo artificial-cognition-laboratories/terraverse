@@ -4,6 +4,7 @@
 
 #include <map>
 #include "lua_api/l_vmanip.h"
+#include "config.h" // USE_SHELL
 #include "lua_api/l_mapgen.h"
 #include "lua_api/l_internal.h"
 #include "common/c_content.h"
@@ -161,7 +162,20 @@ int LuaVoxelManip::l_write_to_map(lua_State *L)
 
 	std::map<v3s16, MapBlock*> modified_blocks;
 	if (o->is_mapgen_vm || !update_light) {
+#if USE_SHELL
+		// Terra Firma: a chunk's border never over a finished neighbour (as
+		// ServerMap::finishBlockMake): read before another thread made it
+		if (o->is_mapgen_vm) {
+			// (the chunk is the area less its border of a block each way)
+			const v3s16 low = getNodeBlockPos(o->vm->m_area.MinEdge) + v3s16(1, 1, 1);
+			const v3s16 high = getNodeBlockPos(o->vm->m_area.MaxEdge) - v3s16(1, 1, 1);
+			o->vm->blitBackAll(&modified_blocks, low, high);
+		} else {
+			o->vm->blitBackAll(&modified_blocks);
+		}
+#else
 		o->vm->blitBackAll(&modified_blocks);
+#endif
 	} else {
 		voxalgo::blit_back_with_light(map, o->vm, &modified_blocks);
 	}

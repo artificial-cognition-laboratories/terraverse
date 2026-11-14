@@ -189,7 +189,7 @@ Shed shed(double rain, double soil)
 // up), and what the weather's air over it takes off it
 static Shed lakeShed(const weather::Weather &weather, const terragen::Sphere &sphere, int32_t cell, double rain, double now)
 {
-	const fluid::Sample air = weather.sample(terragen::Place(sphere.centre(cell)), 0, now);
+	const fluid::Sample air = weather.sampleCell(terragen::Place(sphere.centre(cell)), now);
 	return Shed(rain, 0, weather::openWaterEvaporation(air) / 1000 / 3600);
 }
 

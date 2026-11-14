@@ -439,6 +439,10 @@ public:
 	*/
 	void blitBackAll(std::map<v3s16, MapBlock*> * modified_blocks,
 		bool overwrite_generated = true) const;
+	// Terra Firma: ... and the blocks from `always_min` to `always_max` (a
+	// chunk's own, its border's generated neighbours left as they are)
+	void blitBackAll(std::map<v3s16, MapBlock*> *modified_blocks,
+		v3s16 always_min, v3s16 always_max) const;
 
 	/*
 		Creates a copy of this VManip including contents, the copy will not be

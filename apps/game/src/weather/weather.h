@@ -62,6 +62,11 @@ public:
 
 	// The weather at height y over a place at `now` (which advance() has reached).
 	fluid::Sample sample(const terragen::Place &at, int32_t y, double now) const;
+	// ... at the surface of a grid cell's ground (`at` its centre), as the
+	// grid has it: what a cell of the planet's water sees, never a column's
+	// ground at block scale (a column read at each of a planet's lakes, from
+	// scratch, held the server up for minutes as a world opened)
+	fluid::Sample sampleCell(const terragen::Place &at, double now) const;
 
 	// The rain over a grid cell (`d` its centre) at `now`, mm/h, as a column
 	// there is rained on: the layer's weather scaled to the world's climate
@@ -80,6 +85,8 @@ public:
 			int snapshots);
 
 private:
+	// the weather at height y over a place whose ground stands at `surface` (blocks)
+	fluid::Sample sampleOver(const terragen::Place &at, int32_t y, double now, int32_t surface) const;
 	Weather(const Opts &opts);
 	void settle(double now);
 	void save() const;

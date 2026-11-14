@@ -1174,6 +1174,13 @@ std::map<v3s16, bool> MMVManip::getCoveredBlocks() const
 void MMVManip::blitBackAll(std::map<v3s16, MapBlock*> *modified_blocks,
 	bool overwrite_generated) const
 {
+	blitBackAll(modified_blocks, overwrite_generated ? v3s16(-32768, -32768, -32768) : v3s16(1, 1, 1),
+			overwrite_generated ? v3s16(32767, 32767, 32767) : v3s16(0, 0, 0));
+}
+
+void MMVManip::blitBackAll(std::map<v3s16, MapBlock*> *modified_blocks,
+	v3s16 always_min, v3s16 always_max) const
+{
 	if (m_area.hasEmptyExtent())
 		return;
 	assert(m_map);
@@ -1198,7 +1205,9 @@ void MMVManip::blitBackAll(std::map<v3s16, MapBlock*> *modified_blocks,
 				<< " to write data to map" << std::endl;
 			continue;
 		}
-		if (!overwrite_generated && block->isGenerated())
+		const bool always = p.X >= always_min.X && p.Y >= always_min.Y && p.Z >= always_min.Z &&
+				p.X <= always_max.X && p.Y <= always_max.Y && p.Z <= always_max.Z;
+		if (!always && block->isGenerated())
 			continue;
 
 		block->copyFrom(*this);

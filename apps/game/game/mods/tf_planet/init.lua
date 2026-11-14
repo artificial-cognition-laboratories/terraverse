@@ -80,15 +80,25 @@ local function spawn(player)
 end
 core.register_on_newplayer(spawn)
 core.register_on_respawnplayer(spawn)
--- One who joins standing in seam (saved there: on no column of the planet,
--- nowhere to stand or be shown on the map) starts again at the spawn
-core.register_on_joinplayer(function(player)
+-- One standing in seam (on no column of the planet, nowhere to stand or be
+-- shown on the map) starts again at the spawn: one who joins there (saved
+-- there), or turns up there (a client's own position, sent before the
+-- server's placing reached it). First of every mod's, at a join and each
+-- step: everything after asks the planet where the player is, and a seam
+-- has no answer (core.terra raises there)
+local function off_seam(player, how)
 	local pos = player:get_pos()
 	if core.terra.seam(pos) then
-		core.log("warning", "tf_planet: " .. player:get_player_name() .. " joined in seam at " ..
+		core.log("warning", "tf_planet: " .. player:get_player_name() .. " " .. how .. " in seam at " ..
 			core.pos_to_string(pos) .. ": moved to the spawn")
 		spawn(player)
 	end
+end
+core.register_on_joinplayer(function(player) off_seam(player, "joined") end)
+table.insert(core.registered_on_joinplayers, 1, table.remove(core.registered_on_joinplayers))
+core.register_globalstep(function()
+	for _, player in ipairs(core.get_connected_players()) do off_seam(player, "was") end
 end)
+table.insert(core.registered_globalsteps, 1, table.remove(core.registered_globalsteps))
 
 dofile(core.get_modpath("tf_planet") .. "/travel.lua")

@@ -126,7 +126,7 @@ export function randomSeed() {
  *            per field (fixed order, quantized); omitted when all default
  * The version prefix means a code never silently changes meaning.
  */
-const VERSION = "TF22"
+const VERSION = "TF23"
 
 type Field = { key: Exclude<keyof WorldConfig, "seed" | "size" | "star" | "starMass" | "metallicity" | "age" | "wind" | "companion" | "style" | "bodies">; min: number; max: number }
 const FIELDS: Field[] = [

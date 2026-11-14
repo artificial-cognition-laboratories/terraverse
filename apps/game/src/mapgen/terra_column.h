@@ -74,6 +74,7 @@ public:
 	Columns(const terragen::World &world, const Blocks &blocks, s16 water_level,
 			const planet::Atlas &atlas, int body);
 	int body() const { return m_body; }
+	const terragen::World &world() const { return m_world; }
 
 	const Blocks &blocks() const { return m_blocks; }
 	s16 waterLevel() const { return m_water_level; }

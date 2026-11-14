@@ -5,7 +5,8 @@
 
 #include "irr_aabb3d.h"
 #include "irr_v3d.h"
-#include <bitset>
+#include <array>
+#include <cstdint>
 #include <iosfwd>
 #include <optional>
 #include <unordered_map>
@@ -26,14 +27,26 @@ class Shape
 public:
 	static Shape whole();
 
-	bool has(v3s16 c) const { return m_bits[index(c)]; }
-	void set(v3s16 c, bool filled) { m_bits[index(c)] = filled; }
-	bool empty() const { return m_bits.none(); }
-	size_t count() const { return m_bits.count(); }
-	bool isWhole() const { return m_bits.all(); }
+	bool has(v3s16 c) const { return m_words[index(c) / 64] >> (index(c) % 64) & 1; }
+	void set(v3s16 c, bool filled)
+	{
+		const uint64_t bit = uint64_t(1) << (index(c) % 64);
+		uint64_t &w = m_words[index(c) / 64];
+		w = filled ? w | bit : w & ~bit;
+	}
+	// A run along x at (y, z) all at once: bit x of `row` is sixteenth x.
+	void setRow(int y, int z, uint16_t row)
+	{
+		const size_t at = (size_t(y) * STEPS + z) * STEPS;
+		uint64_t &w = m_words[at / 64];
+		w = (w & ~(uint64_t(0xFFFF) << (at % 64))) | uint64_t(row) << (at % 64);
+	}
+	bool empty() const;
+	size_t count() const;
+	bool isWhole() const;
 	// At least half of it is there.
-	bool half() const { return m_bits.count() * 2 >= CELLS; }
-	bool operator==(const Shape &o) const { return m_bits == o.m_bits; }
+	bool half() const { return count() * 2 >= CELLS; }
+	bool operator==(const Shape &o) const { return m_words == o.m_words; }
 
 	// What it fills: boxes in node coordinates (from its centre, BS), each
 	// a run along x, merged along z where runs match.
@@ -51,7 +64,8 @@ public:
 private:
 	static size_t index(v3s16 c) { return (size_t(c.Y) * STEPS + c.Z) * STEPS + c.X; }
 
-	std::bitset<CELLS> m_bits;
+	// sixteenth i is bit i % 64 of word i / 64 (a word: four runs along x)
+	std::array<uint64_t, CELLS / 64> m_words{};
 };
 
 /*

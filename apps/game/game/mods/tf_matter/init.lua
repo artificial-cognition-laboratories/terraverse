@@ -124,7 +124,11 @@ local HOT = 330    -- K: hot enough to hurt
 
 local function weather_at(pos)
 	if not core.terra.enabled() then return nil end
-	return core.terra.weather(pos).temperature + 273.15
+	-- (none on a seam, where a player can stand a moment before they're placed;
+	-- nil while it settles as the world opens)
+	if core.terra.seam(pos) then return nil end
+	local w = core.terra.weather(pos)
+	return w and w.temperature + 273.15
 end
 
 -- the weather's temperature, and how wet its ground is (sprint 111), for
@@ -132,7 +136,7 @@ end
 local function tell_weather()
 	for _, player in ipairs(core.get_connected_players()) do
 		local pos = vector.round(player:get_pos())
-		local w = core.terra.enabled() and core.terra.weather(pos)
+		local w = core.terra.enabled() and not core.terra.seam(pos) and core.terra.weather(pos)
 		if w then
 			for dx = -32, 32, 16 do
 				for dy = -32, 32, 16 do

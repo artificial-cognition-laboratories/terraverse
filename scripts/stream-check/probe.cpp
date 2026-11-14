@@ -99,7 +99,7 @@ struct Region
 // Fixed, so runs compare: the default world and a planet 100 000 round
 // (628 320 a side), each a range, a plain and (the default) a grid river's
 // side, where streams come down into it
-const char *CODE = "TF22.dGVycmE";
+const char *CODE = "TF23.dGVycmE";
 const Region REGIONS[] = {
 	{ "default-belt", 0, "belt", 2048 },
 	{ "default-plain", 0, "plain", 2048 },

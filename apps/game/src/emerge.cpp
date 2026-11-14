@@ -222,7 +222,13 @@ void EmergeManager::initThreads(bool should_multithread)
 		// <https://github.com/luanti-org/luanti/pull/16634>
 		// May have to be revisited after emerge code is refactored to be less
 		// lock heavy.
+#if USE_SHELL
+		// Terra Firma: a planet's chunks are almost all the generator's own
+		// work, not the map's locks: six threads made a place 15% sooner than four
+		nthreads = std::min<s16>(8, nthreads);
+#else
 		nthreads = std::min<s16>(4, nthreads);
+#endif
 	}
 	nthreads = std::max<s16>(1, nthreads);
 

@@ -105,10 +105,11 @@ WorldSpec Worlds::create(const std::string &name, const std::string &code,
 		terragen::Atlas::Params atlas = terragen::Atlas::standard(world_code.size / (2 * M_PI));
 		atlas.height = (int)std::min(atlas.radius, (double)SKY_MOST);
 		meta.set("planet_atlas", terragen::Atlas(atlas).code());
-		// map-block chunks: a region's box is narrow next to an 80-node chunk,
-		// which would be mostly seam and other regions' storage, generated
-		// for nothing
-		meta.set("chunksize", "1");
+		// chunks of 2³ map blocks: an 80-node chunk would be mostly seam and
+		// other tiles' storage, generated for nothing; a single block is made
+		// inside a border 27 blocks' worth and reaches for its neighbours'
+		// trees over 25 times its own columns (2 made a place 12% sooner than 1)
+		meta.set("chunksize", "2");
 		if (g_settings->getBool("planet_atlas_debug"))
 			meta.setBool("planet_atlas_debug", true);
 		meta.set("seed", std::to_string(world_code.seed_hash));

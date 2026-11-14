@@ -618,8 +618,15 @@ struct World::Impl
 		};
 		const bool here = each(p, p, Want::NOW);
 		read_ahead = false;
-		// half a second on, so it's made before it's stood in
-		const RVec3 on = p + RVec3(c.c->GetLinearVelocity() * 0.5f);
+		// half a second on, so it's made before it's stood in; no further
+		// than AHEAD_MOST (a placing far off, a teleport or one moved off a
+		// seam, is a speed of millions spread over a step: read ahead by it,
+		// the box ran a million blocks each way and the server never came back)
+		static const float AHEAD_MOST = 64;
+		Vec3 ahead = c.c->GetLinearVelocity() * 0.5f;
+		if (ahead.Length() > AHEAD_MOST)
+			ahead = ahead.Normalized() * AHEAD_MOST;
+		const RVec3 on = p + RVec3(ahead);
 		each(RVec3::sMin(p, on), RVec3::sMax(p, on), Want::AHEAD);
 		return here;
 	}

@@ -85,7 +85,9 @@ local ACT = {
 }
 
 function tf_weather.act(pos, node)
-	local action = tf_weather.weather_on(pos, node.name, weather_at(pos))
+	local w = weather_at(pos)
+	if not w then return nil end -- (no weather yet: it settles as the world opens)
+	local action = tf_weather.weather_on(pos, node.name, w)
 	if action then ACT[action](pos) end
 	return action
 end

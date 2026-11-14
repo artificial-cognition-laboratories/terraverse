@@ -99,8 +99,11 @@ const int64_t TRUNK_LEAST = 3 * ONE;
 // blocks high (P4); steeper ramps stood as walls round the channels' heads.
 // The ramp's at least FADE_LEAST high: a fine level's band is a few blocks
 // wide, too little to climb to its neighbours before FADE_TO (P5)
+// A finer channel's land is never the lowest past 1¾ of its lattice from its
+// head, so it fades over 1½..2 (it was 2..2½: a third more read a column,
+// for 8% of columns a block or two different and no steeper)
 const fix TRUNK_REACH_FROM = toFix(1), TRUNK_REACH = ratio(160, 100);
-const fix REACH_FROM = toFix(2), REACH = toFix(5) / 2;
+const fix REACH_FROM = ratio(150, 100), REACH = toFix(2);
 const int32_t WINDOW = 3;
 const int64_t FADE_TO = (int64_t)1 << 32; // blocks, fixed: over any land
 const fix FADE_SLOPE = toFix(1), FADE_STEEP = ratio(10, 100);
@@ -1747,7 +1750,9 @@ Channels::Read Channels::readWith(const Place &p, fix range, int64_t least, cons
 			if (k == 0 && m_land && !seg.wet && seg.fan_r == 0 && seg.pond_r == 0) {
 				const auto off = [](int64_t v, int64_t a, int64_t b) { return std::max<int64_t>({ 0, std::min(a, b) - v, v - std::max(a, b) }); };
 				const int64_t ox = off(bx, seg.join.x, seg.at.x), oy = off(by, seg.join.y, seg.at.y), oz = off(bz, seg.join.z, seg.at.z);
-				if ((__int128)ox * ox + (__int128)oy * oy + (__int128)oz * oz >= out_of_reach2)
+				// (out along one axis alone, most are: no squares needed)
+				if (ox >= out_of_reach || oy >= out_of_reach || oz >= out_of_reach ||
+						(__int128)ox * ox + (__int128)oy * oy + (__int128)oz * oz >= out_of_reach2)
 					continue;
 			}
 			// (a piece of a finer channel's way, as far: past its reach from
@@ -1756,7 +1761,7 @@ Channels::Read Channels::readWith(const Place &p, fix range, int64_t least, cons
 			if (k > 0 && m_land) {
 				const auto off = [](int64_t v, int64_t a, int64_t b) { return std::max<int64_t>({ 0, std::min(a, b) - v, v - std::max(a, b) }); };
 				const int64_t ox = off(bx, seg.join.x, seg.at.x), oy = off(by, seg.join.y, seg.at.y), oz = off(bz, seg.join.z, seg.at.z);
-				if ((__int128)ox * ox + (__int128)oy * oy + (__int128)oz * oz >= reach2)
+				if (ox >= reach || oy >= reach || oz >= reach || (__int128)ox * ox + (__int128)oy * oy + (__int128)oz * oz >= reach2)
 					continue;
 			}
 			const Place pk = here_k;
@@ -1764,6 +1769,10 @@ Channels::Read Channels::readWith(const Place &p, fix range, int64_t least, cons
 				next2 = std::min(next2, nearest(next, seg.join, seg.at).dist2);
 			const Near near = nearest(pk, seg.join, seg.at);
 			const fix tn = seg.t0 + mul(near.t, seg.t1 - seg.t0); // along its node's way, from its foot
+			// (its distance and its bed there, each worked out once: the parts below all ask)
+			int64_t root = -1, bed_here = INT64_MIN;
+			const auto dist = [&] { return root >= 0 ? root : (root = (int64_t)isqrt((uint64_t)near.dist2)); };
+			const auto bedHere = [&] { return bed_here != INT64_MIN ? bed_here : (bed_here = bedAt(seg.low, seg.high, seg.flat, tn)); };
 			closest2 = std::min(closest2, near.dist2);
 			// (the land's) how far its hillside has risen away: 0 in reach .. ONE
 			// past it, where its window may have left it out
@@ -1772,7 +1781,7 @@ Channels::Read Channels::readWith(const Place &p, fix range, int64_t least, cons
 			if (m_land) {
 				int64_t d, from, to;
 				if (k == 0) {
-					d = (int64_t)isqrt((uint64_t)near.dist2);
+					d = dist();
 					from = mulShift(L, TRUNK_REACH_FROM, FRAC);
 					to = mulShift(L, TRUNK_REACH, FRAC);
 				} else {
@@ -1811,10 +1820,10 @@ Channels::Read Channels::readWith(const Place &p, fix range, int64_t least, cons
 			// its water, the network's: down its whole line, whatever valley's
 			// the land's lowest (by the lowest, another's lower hillside took it)
 			if (m_land && m_water && seg.flow >= STREAM_FLOW) {
-				const int64_t gap = mulShift((int64_t)isqrt((uint64_t)near.dist2), m_radius, PLACE_FRAC);
+				const int64_t gap = mulShift(dist(), m_radius, PLACE_FRAC);
 				// (its level as the land's brought to the grid, by its own way
 				// there: a trunk piece's where it is, as the grid's run is)
-				int64_t level = bedAt(seg.low, seg.high, seg.flat, tn);
+				int64_t level = bedHere();
 				if (k > 0) {
 					level = keepWith(level, seg.grid_low + mulShift(seg.grid_high - seg.grid_low, tn, FRAC),
 							seg.over_low + mulShift(seg.over_high - seg.over_low, tn, FRAC));
@@ -1845,11 +1854,11 @@ Channels::Read Channels::readWith(const Place &p, fix range, int64_t least, cons
 			}
 			// the ground: this channel's height here and its side rising to the place
 			if (m_land && gone < ONE) {
-				const int64_t gap = mulShift((int64_t)isqrt((uint64_t)near.dist2), m_radius, PLACE_FRAC);
+				const int64_t gap = mulShift(dist(), m_radius, PLACE_FRAC);
 				const fix hill = mul(seg.hill, vary);
 				int64_t floor = seg.floor, wall_run = seg.wall_run;
 				fix wall = seg.wall;
-				int64_t bed = bedAt(seg.low, seg.high, seg.flat, tn);
+				int64_t bed = bedHere();
 				// a cirque: its head scooped to a bowl, a near-level floor (from
 				// its lip, CIRQUE_FROM up the channel) under a steep headwall
 				// round it, as high as the bowl's wide, then the hillside
@@ -1892,7 +1901,7 @@ Channels::Read Channels::readWith(const Place &p, fix range, int64_t least, cons
 			// width; a coarser level's deeper, as Horton's laws have it
 			if (k > 0) {
 				const int64_t half = L * VALLEY_WIDTH >> FRAC;
-				const int64_t d = (int64_t)isqrt((uint64_t)near.dist2);
+				const int64_t d = dist();
 				if (d < half) {
 					const fix x = (fix)((d << FRAC) / std::max<int64_t>(1, half));
 					const fix deep = mul(weight, clamp(sqrt(clamp(div(seg.rain, WET_COARSE), 0, toFix(4))) / 2, 0, ONE));

@@ -161,6 +161,12 @@ void MapgenTerra::makeChunk(BlockMakeData *data)
 
 	this->generating = true;
 	this->vm = data->vmanip;
+	{
+		std::lock_guard<std::mutex> hold(m_building);
+		for (const std::unique_ptr<BodyLand> &land : m_bodies)
+			if (land)
+				land->reader.newChunk();
+	}
 	this->ndef = data->nodedef;
 
 	v3s16 blockpos_min = data->blockpos_min;

@@ -5,10 +5,11 @@
 #include "exceptions.h"
 #include "map.h"
 #include "nodedef.h"
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <stdexcept>
 #include <unordered_map>
-#include <unordered_set>
 
 namespace terra {
 
@@ -88,25 +89,28 @@ void place(const flora::Plant &plant, const flora::Colours &colours, v3s16 foot,
 {
 	using shape::STEPS;
 	const s32 cell = STEPS / plant.grain; // sixteenths a voxel spans
+	if (plant.woody.size() != plant.voxels.size())
+		throw std::logic_error("terra::place: a plant not grown by flora::grow (its voxels' woody neighbours unknown)");
+	// (its sixteenths as rows along x, a row a (y, z): a box of them fills
+	// a row at a time; a shape::Shape is made of it only if it's written partial)
 	struct Node
 	{
-		shape::Shape shape;
+		v3s16 at;
+		std::array<u16, STEPS * STEPS> rows{};
 		std::array<s32, (int)flora::Part::Count> parts{};
 	};
+	static constexpr u16 FULL = 0xFFFF;
 	std::unordered_map<u64, Node> nodes;
 	const auto keyOf = [](v3s16 p) { return ((u64)(u16)p.X << 32) | ((u64)(u16)p.Y << 16) | (u64)(u16)p.Z; };
-	std::unordered_map<u64, v3s16> where;
-	const auto fill = [&](s32 cx, s32 cy, s32 cz, flora::Part part) {
-		const v3s16 at(foot.X + floorDiv(cx, STEPS), foot.Y + floorDiv(cy, STEPS), foot.Z + floorDiv(cz, STEPS));
-		const u64 key = keyOf(at);
-		Node &n = nodes[key];
-		where[key] = at;
-		const v3s16 sub(cx - floorDiv(cx, STEPS) * STEPS, cy - floorDiv(cy, STEPS) * STEPS, cz - floorDiv(cz, STEPS) * STEPS);
-		if (!n.shape.has(sub)) {
-			n.shape.set(sub, true);
-			n.parts[(int)part]++;
-		}
+	const auto nodeAt = [&](v3s16 at) -> Node & {
+		Node &n = nodes[keyOf(at)];
+		n.at = at;
+		return n;
 	};
+	// the chunk's nodes, in sixteenths from the foot node's corner: what's
+	// outside is never written, so never filled
+	const s32 lo_x = (lo.X - foot.X) * STEPS, lo_y = (lo.Y - foot.Y) * STEPS, lo_z = (lo.Z - foot.Z) * STEPS;
+	const s32 hi_x = (hi.X - foot.X + 1) * STEPS, hi_y = (hi.Y - foot.Y + 1) * STEPS, hi_z = (hi.Z - foot.Z + 1) * STEPS;
 	const auto turned = [&](s32 &x, s32 &z) {
 		if (mirror)
 			x = -x;
@@ -116,13 +120,13 @@ void place(const flora::Plant &plant, const flora::Colours &colours, v3s16 foot,
 			z = t;
 		}
 	};
-	// the plant's wood, to join a thin branch to what it grows from
-	const auto voxelKey = [](s32 x, s32 y, s32 z) { return ((u64)(u16)x << 32) | ((u64)(u16)y << 16) | (u64)(u16)z; };
-	std::unordered_set<u64> wood;
-	for (const flora::Voxel &v : plant.voxels)
-		if (v.part == flora::Part::Wood || v.part == flora::Part::Branch)
-			wood.insert(voxelKey(v.x, v.y, v.z));
-	for (const flora::Voxel &v : plant.voxels) {
+	// (voxels are sorted by y: only the layers that can reach the chunk's,
+	// a voxel and the half voxel a thin branch reaches out from it)
+	const auto by_y = [](const flora::Voxel &v, s32 y) { return v.y < y; };
+	const size_t first = std::lower_bound(plant.voxels.begin(), plant.voxels.end(), floorDiv(lo_y, cell) - 2, by_y) - plant.voxels.begin();
+	const size_t last = std::lower_bound(plant.voxels.begin(), plant.voxels.end(), floorDiv(hi_y, cell) + 2, by_y) - plant.voxels.begin();
+	for (size_t i = first; i < last; i++) {
+		const flora::Voxel &v = plant.voxels[i];
 		s32 x = v.x, z = v.z;
 		turned(x, z);
 		// a thin branch fills the middle of its voxel
@@ -131,26 +135,39 @@ void place(const flora::Plant &plant, const flora::Colours &colours, v3s16 foot,
 		// the voxel's sixteenths, from the foot node's corner (its middle is the foot's middle)
 		const s32 x0 = x * cell + STEPS / 2 - cell / 2 + inset, z0 = z * cell + STEPS / 2 - cell / 2 + inset, y0 = v.y * cell + inset;
 		const auto cube = [&](s32 ox, s32 oy, s32 oz) {
-			const s32 cx = x0 + ox, cy = y0 + oy, cz = z0 + oz;
-			// (most of a neighbour's plant is outside: skip it before its sixteenths)
-			if (foot.X + floorDiv(cx + side - 1, STEPS) < lo.X || foot.X + floorDiv(cx, STEPS) > hi.X ||
-					foot.Y + floorDiv(cy + side - 1, STEPS) < lo.Y || foot.Y + floorDiv(cy, STEPS) > hi.Y ||
-					foot.Z + floorDiv(cz + side - 1, STEPS) < lo.Z || foot.Z + floorDiv(cz, STEPS) > hi.Z)
+			// (clipped to the chunk: most of a neighbour's plant is outside)
+			const s32 ax = std::max(x0 + ox, lo_x), bx = std::min(x0 + ox + side, hi_x);
+			const s32 ay = std::max(y0 + oy, lo_y), by = std::min(y0 + oy + side, hi_y);
+			const s32 az = std::max(z0 + oz, lo_z), bz = std::min(z0 + oz + side, hi_z);
+			if (ax >= bx || ay >= by || az >= bz)
 				return;
 			// a whole node at once (a tree's every voxel)
-			if (side == STEPS && cx % STEPS == 0 && cy % STEPS == 0 && cz % STEPS == 0) {
-				const v3s16 at(foot.X + floorDiv(cx, STEPS), foot.Y + floorDiv(cy, STEPS), foot.Z + floorDiv(cz, STEPS));
-				const u64 key = keyOf(at);
-				Node &n = nodes[key];
-				where[key] = at;
-				n.parts[(int)v.part] += (s32)(shape::CELLS - n.shape.count());
-				n.shape = shape::Shape::whole();
+			if (side == STEPS && ax == x0 + ox && ay == y0 + oy && az == z0 + oz && ax % STEPS == 0 && ay % STEPS == 0 && az % STEPS == 0) {
+				Node &n = nodeAt(v3s16(foot.X + floorDiv(ax, STEPS), foot.Y + floorDiv(ay, STEPS), foot.Z + floorDiv(az, STEPS)));
+				s32 had = 0;
+				for (u16 &r : n.rows) {
+					had += __builtin_popcount(r);
+					r = FULL;
+				}
+				n.parts[(int)v.part] += shape::CELLS - had;
 				return;
 			}
-			for (s32 dy = 0; dy < side; dy++)
-				for (s32 dz = 0; dz < side; dz++)
-					for (s32 dx = 0; dx < side; dx++)
-						fill(x0 + ox + dx, y0 + oy + dy, z0 + oz + dz, v.part);
+			// node by node it spans, its sixteenths in each (one look-up a node, not a sixteenth)
+			for (s32 ny = floorDiv(ay, STEPS); ny * STEPS < by; ny++)
+				for (s32 nz = floorDiv(az, STEPS); nz * STEPS < bz; nz++)
+					for (s32 nx = floorDiv(ax, STEPS); nx * STEPS < bx; nx++) {
+						Node &n = nodeAt(v3s16(foot.X + nx, foot.Y + ny, foot.Z + nz));
+						const s32 x_lo = std::max(ax, nx * STEPS) - nx * STEPS, x_hi = std::min(bx, (nx + 1) * STEPS) - nx * STEPS;
+						const u16 mask = (u16)(((1u << (x_hi - x_lo)) - 1) << x_lo);
+						s32 added = 0;
+						for (s32 cy = std::max(ay, ny * STEPS); cy < std::min(by, (ny + 1) * STEPS); cy++)
+							for (s32 cz = std::max(az, nz * STEPS); cz < std::min(bz, (nz + 1) * STEPS); cz++) {
+								u16 &r = n.rows[(cy - ny * STEPS) * STEPS + (cz - nz * STEPS)];
+								added += __builtin_popcount(mask & ~r);
+								r |= mask;
+							}
+						n.parts[(int)v.part] += added;
+					}
 		};
 		cube(0, 0, 0);
 		if (side >= cell)
@@ -158,10 +175,11 @@ void place(const flora::Plant &plant, const flora::Colours &colours, v3s16 foot,
 		/* A thin branch's cube floats in its voxel's middle: reach halfway to
 		   each woody neighbour so the branch is one piece, not a row of dots
 		   (a diagonal one most of all). */
+		const u32 woody = plant.woody[i];
 		for (s32 ny = -1; ny <= 1; ny++)
 			for (s32 nz = -1; nz <= 1; nz++)
 				for (s32 nx = -1; nx <= 1; nx++) {
-					if ((!nx && !ny && !nz) || !wood.count(voxelKey(v.x + nx, v.y + ny, v.z + nz)))
+					if (!(woody >> ((ny + 1) * 9 + (nz + 1) * 3 + (nx + 1)) & 1))
 						continue;
 					s32 dx = nx, dz = nz;
 					turned(dx, dz);
@@ -170,8 +188,11 @@ void place(const flora::Plant &plant, const flora::Colours &colours, v3s16 foot,
 				}
 	}
 	static const s32 WEIGHT[(int)flora::Part::Count] = { 4, 4, 1, 2, 2, 1 }; // wood, branch, leaf, flesh, flower, vein
+	// (its colours' nearest in the palette, each found once: a search of all 256)
+	const u8 bark = paletteIndex(colours.bark), bloom = paletteIndex(colours.bloom), vein = paletteIndex(colours.vein),
+			leaf = paletteIndex(colours.leaf);
 	for (const auto &[key, n] : nodes) {
-		const v3s16 at = where[key];
+		const v3s16 at = n.at;
 		if (at.X < lo.X || at.X > hi.X || at.Y < lo.Y || at.Y > hi.Y || at.Z < lo.Z || at.Z > hi.Z || !vm.m_area.contains(at) ||
 				!open(at))
 			continue;
@@ -180,13 +201,21 @@ void place(const flora::Plant &plant, const flora::Colours &colours, v3s16 foot,
 			if (n.parts[p] * WEIGHT[p] > n.parts[part] * WEIGHT[part])
 				part = p;
 		const flora::Part chosen = (flora::Part)part;
-		const u32 rgb = chosen == flora::Part::Wood || chosen == flora::Part::Branch ? colours.bark
-				: chosen == flora::Part::Flower ? colours.bloom : chosen == flora::Part::Vein ? colours.vein : colours.leaf;
-		vm.setNodeNoEmerge(at, MapNode(blocks.of(chosen), 0, paletteIndex(rgb)));
-		if (!n.shape.isWhole())
-			shapes[at] = n.shape;
-		else
+		const u8 colour = chosen == flora::Part::Wood || chosen == flora::Part::Branch ? bark
+				: chosen == flora::Part::Flower ? bloom : chosen == flora::Part::Vein ? vein : leaf;
+		vm.setNodeNoEmerge(at, MapNode(blocks.of(chosen), 0, colour));
+		bool whole = true;
+		for (const u16 r : n.rows)
+			whole = whole && r == FULL;
+		if (whole) {
 			shapes.erase(at);
+			continue;
+		}
+		shape::Shape out;
+		for (s32 y = 0; y < STEPS; y++)
+			for (s32 z = 0; z < STEPS; z++)
+				out.setRow(y, z, n.rows[y * STEPS + z]);
+		shapes[at] = out;
 	}
 }
 

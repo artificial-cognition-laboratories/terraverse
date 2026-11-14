@@ -12,6 +12,7 @@
 #include "rivers/rivers.h"
 #include "weather/weather.h"
 #include "irr_v3d.h"
+#include <future>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
@@ -36,11 +37,16 @@ struct ServerTerra
 	std::unique_ptr<matter::Matter> matter;
 	// the rivers as the weather fills them (sprint 115): stepped by the
 	// weather's own steps, made on its first, saved beside it each day
-	std::unique_ptr<rivers::Network> rivers;
-	bool rivers_settled = false;
-	double rivers_day = -1;
-	u64 rivers_step = 0; // each step of them: what a block's flow was read at
-	std::vector<rivers::Forcing> river_forcings; // storms and droughts put by hand (core.terra.force_rivers)
+	struct RiverState
+	{
+		std::unique_ptr<rivers::Network> network;
+		bool settled = false;
+		double day = -1;
+		u64 step = 0; // each step of them: what a block's flow was read at
+		std::vector<rivers::Forcing> forcings; // storms and droughts put by hand (core.terra.force_rivers)
+	};
+	// none till the weather's open (it settles on a worker, and they with it)
+	std::shared_ptr<RiverState> rivers;
 	// map blocks with a river's held water near players (sprint 115): one of
 	// its held nodes (none: it has none), and its flow as last read
 	struct RiverBlock
@@ -103,6 +109,16 @@ struct ServerTerra
 	std::unique_ptr<weather::Weather> weather; // after world, matter and rivers: it refers to them
 	std::vector<std::unique_ptr<far::Generator>> surfaces; // by body
 	std::unique_ptr<terragen::System> system; // the world's, for its bodies' clocks
+	// The weather being opened, and the rivers with it: a new world's settles
+	// a year of it, seconds, on a worker so the server goes on meanwhile
+	// (handed over whole: neither's seen half made). Last, so it's let go
+	// (waited for) before the world and matter it reads.
+	struct OpenedWeather
+	{
+		std::unique_ptr<weather::Weather> weather;
+		std::shared_ptr<RiverState> rivers;
+	};
+	std::future<OpenedWeather> weather_opening;
 
 	// The species against the node definitions. The first call closes registration.
 	const std::vector<terra::Species> &resolve(const NodeDefManager *ndef)

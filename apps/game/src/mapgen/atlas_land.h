@@ -6,6 +6,8 @@
 #include "mapgen/terra_column.h"
 #include "planet/atlas.h"
 #include <array>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <vector>
 
@@ -23,7 +25,7 @@ namespace terra {
 class AtlasLand
 {
 public:
-	AtlasLand(const Columns &columns, const planet::Atlas &atlas) : m_columns(columns), m_atlas(atlas) {}
+	AtlasLand(const Columns &columns, const planet::Atlas &atlas);
 
 	const planet::Atlas &atlas() const { return m_atlas; }
 	const Columns &columns() const { return m_columns; }
@@ -40,6 +42,9 @@ public:
 		std::optional<MapNode> node(planet::Atlas::Node n);
 		// The column a storage node is part of; none for seam and the core.
 		const Column *column(planet::Atlas::Node n);
+		// A chunk begins: the window may have laid other tiles where its
+		// storage columns were (what's kept by place stays good)
+		void newChunk() { m_last_xz.reset(); }
 
 	private:
 		const Column &columnAt(const terragen::Place &place);
@@ -52,11 +57,22 @@ public:
 		};
 		static constexpr size_t KEPT = 1 << 13; // a power of two: 32 blocks' worth of columns
 		std::vector<Kept> m_kept;
+		std::optional<planet::Atlas::Cell> m_last; // the last node's cell, and its column's place
+		terragen::Place m_last_place;
+		std::optional<std::pair<int32_t, int32_t>> m_last_xz; // the last storage column asked, and its place
+		std::optional<terragen::Place> m_last_xz_place;
 	};
+
+	// The columns every generator of the same land has built, behind each
+	// reader's own: the chunks stacked over a column are made by whichever
+	// emerge thread is free, and each built the whole column again (five
+	// times over, round a teleport: most of what loading the world cost)
+	class Store;
 
 private:
 	const Columns &m_columns;
 	const planet::Atlas &m_atlas;
+	std::shared_ptr<Store> m_store;
 };
 
 } // namespace terra

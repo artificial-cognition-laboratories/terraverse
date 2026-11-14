@@ -293,22 +293,20 @@ core.register_on_mods_loaded(function()
 	end
 end)
 core.register_on_generated(function(minp, maxp, blockseed)
-	local vm, emin, emax = core.get_mapgen_object("voxelmanip")
-	local area = VoxelArea(emin, emax)
-	local data, param2 = vm:get_data(), vm:get_param2_data()
-	local air = core.CONTENT_AIR
+	-- (node by node down the few columns it tries: the whole chunk read into
+	-- tables was most of what this cost, for some forty columns)
+	local vm = core.get_mapgen_object("voxelmanip")
 	local random = PcgRandom(blockseed)
 	local placed = false
 	for _, lying in ipairs(LYING) do
-		local id = core.get_content_id(lying[1])
 		for _ = 1, lying[2] do
 			local x, z = random:next(minp.x, maxp.x), random:next(minp.z, maxp.z)
 			for y = maxp.y - 1, minp.y, -1 do
-				local here = data[area:index(x, y, z)]
-				if here ~= air then
-					local above = area:index(x, y + 1, z)
-					if GROUND[here] and data[above] == air then
-						data[above], param2[above] = id, random:next(0, 3)
+				local here = vm:get_node_at({ x = x, y = y, z = z })
+				if here.name ~= "air" then
+					local above = { x = x, y = y + 1, z = z }
+					if GROUND[core.get_content_id(here.name)] and vm:get_node_at(above).name == "air" then
+						vm:set_node_at(above, { name = lying[1], param2 = random:next(0, 3) })
 						placed = true
 					end
 					break
@@ -317,8 +315,6 @@ core.register_on_generated(function(minp, maxp, blockseed)
 		end
 	end
 	if placed then
-		vm:set_data(data)
-		vm:set_param2_data(param2)
 		vm:write_to_map()
 	end
 end)

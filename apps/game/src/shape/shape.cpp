@@ -7,6 +7,7 @@
 #include "util/numeric.h"
 #include "util/serialize.h"
 
+#include <bitset>
 #include <cmath>
 
 namespace shape {
@@ -14,8 +15,32 @@ namespace shape {
 Shape Shape::whole()
 {
 	Shape s;
-	s.m_bits.set();
+	s.m_words.fill(~uint64_t(0));
 	return s;
+}
+
+bool Shape::empty() const
+{
+	for (const uint64_t w : m_words)
+		if (w)
+			return false;
+	return true;
+}
+
+size_t Shape::count() const
+{
+	size_t n = 0;
+	for (const uint64_t w : m_words)
+		n += (size_t)__builtin_popcountll(w);
+	return n;
+}
+
+bool Shape::isWhole() const
+{
+	for (const uint64_t w : m_words)
+		if (~w)
+			return false;
+	return true;
 }
 
 void Shape::boxes(std::vector<aabb3f> &out) const
@@ -56,10 +81,11 @@ void Shape::boxes(std::vector<aabb3f> &out) const
 
 void Shape::serialize(std::ostream &os) const
 {
-	char bytes[CELLS / 8] = {};
-	for (size_t i = 0; i < CELLS; i++)
-		if (m_bits[i])
-			bytes[i / 8] |= char(1 << (i % 8));
+	// (sixteenth i is bit i % 8 of byte i / 8: each word's bytes low first)
+	char bytes[CELLS / 8];
+	for (size_t w = 0; w < m_words.size(); w++)
+		for (size_t b = 0; b < 8; b++)
+			bytes[w * 8 + b] = char(m_words[w] >> (8 * b));
 	os.write(bytes, sizeof bytes);
 }
 
@@ -70,8 +96,9 @@ Shape Shape::deSerialize(std::istream &is)
 	if (is.gcount() != sizeof bytes)
 		throw SerializationError("Shape::deSerialize: truncated");
 	Shape s;
-	for (size_t i = 0; i < CELLS; i++)
-		s.m_bits[i] = (bytes[i / 8] >> (i % 8)) & 1;
+	for (size_t w = 0; w < s.m_words.size(); w++)
+		for (size_t b = 0; b < 8; b++)
+			s.m_words[w] |= uint64_t((unsigned char)bytes[w * 8 + b]) << (8 * b);
 	return s;
 }
 

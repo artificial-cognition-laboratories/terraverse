@@ -170,7 +170,7 @@ void TestFarPalette::testShippedPaletteIsWhole()
 void TestFarPalette::testTilesForAnEye()
 {
 	const Baked b = shipped();
-	const Horizon h{ "TF22.dGVycmE", 1, b.content };
+	const Horizon h{ "TF23.dGVycmE", 1, b.content };
 	const planet::Atlas atlas = planet::Atlas::resident({ 300, 12, 80, 60, 0.95, 32 });
 	Tiles tiles(atlas, planet::Atlas::HOME, h, b.palette, 2);
 	const double sea = 300 + h.water_level + 1;
@@ -237,7 +237,7 @@ void TestFarPalette::testSeaIsWater()
 void TestFarPalette::testTintPaintsTheLand()
 {
 	const Baked b = shipped();
-	const Horizon h{ "TF22.dGVycmE", 1, b.content };
+	const Horizon h{ "TF23.dGVycmE", 1, b.content };
 	const planet::Atlas atlas = planet::Atlas::resident({ 300, 12, 80, 60, 0.95, 32 });
 	Tiles tiles(atlas, planet::Atlas::HOME, h, b.palette, 2);
 	tiles.tint(std::make_shared<const Tiles::Tint>([](video::SColor, const Tiling::Vec &at) {
@@ -284,7 +284,7 @@ void TestFarPalette::testTintPaintsTheLand()
 void TestFarPalette::testNothingInsideTheCut()
 {
 	const Baked b = shipped();
-	const Horizon h{ "TF22.dGVycmE", 1, b.content };
+	const Horizon h{ "TF23.dGVycmE", 1, b.content };
 	const planet::Atlas atlas = planet::Atlas::resident(terragen::Atlas::standard(2000));
 	const double sea = 2000 + h.water_level + 1;
 	const float CUT = 700;

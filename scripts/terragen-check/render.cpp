@@ -2,7 +2,7 @@
 // shaded relief, lakes, rivers by flow — and prints how long the grid took and
 // what share is land. For tuning generation by eye:
 //   scripts/terragen-tool.sh render scripts/terragen-check/render.cpp
-//   ./render TF22.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents|sediment|soil]
+//   ./render TF23.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents|sediment|soil]
 #include "terragen/world.h"
 #include "terragen/worlds.h"
 #include "terragen/sphere.h"

@@ -50,6 +50,6 @@ inline constexpr double PLAY_ALTITUDE = 3.66, PLAY_OFF = 2.0944; // radii; 120°
 // past its texels and flattened the depth. Far enough out that the star, in
 // the corner, lights a crescent of the near side; turned so the dusty rim
 // crosses behind, not the galaxy's core.
-inline constexpr Shot HOME_SHOT{ "TF22.dGVycmE", 0.25, 3.35, { -0.85f, -0.75f }, { 0.88f, 0.82f }, 1.9, 0.5f };
+inline constexpr Shot HOME_SHOT{ "TF23.dGVycmE", 0.25, 3.35, { -0.85f, -0.75f }, { 0.88f, 0.82f }, 1.9, 0.5f };
 
 } // namespace planetarium

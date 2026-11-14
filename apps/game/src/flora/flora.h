@@ -220,6 +220,10 @@ struct Plant
 	std::vector<Voxel> voxels; // sorted by y, z, x
 	int32_t count[(int)Part::Count] = {};
 	int32_t reach = 0, top = 0; // the furthest it gets from its foot sideways, and up (voxels)
+	// each voxel's woody neighbours (Wood or Branch), a bit for each of the 26
+	// round it: (dy + 1) · 9 + (dz + 1) · 3 + (dx + 1). What joins a thin
+	// branch to what it grows from, found once, not each time it's placed
+	std::vector<uint32_t> woody;
 };
 // The furthest any plant reaches from its foot sideways, in blocks: the
 // generator grows a chunk's neighbours' trees out to here, and a small

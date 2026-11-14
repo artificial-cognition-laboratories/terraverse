@@ -172,13 +172,24 @@ double Weather::cellRainMean(const terragen::Grid &grid, int32_t cell)
 
 fluid::Sample Weather::sample(const Place &at, int32_t y, double now) const
 {
+	const double date = dateOf(now, m_layer_opts.planet.year);
+	return sampleOver(at, y, now, m_world.ground(at, m_world.sunlight(at, (fix)(date * ONE))).terrain + 1);
+}
+
+fluid::Sample Weather::sampleCell(const Place &at, double now) const
+{
+	const int32_t surface = (int32_t)(m_world.gridHeight(at) >> terragen::FRAC) + 1;
+	return sampleOver(at, surface, now, surface);
+}
+
+fluid::Sample Weather::sampleOver(const Place &at, int32_t y, double now, int32_t surface) const
+{
 	double u = toDouble(World::u(at)), v = std::clamp(toDouble(World::v(at)), 0.0, 1.0 - 1e-9);
 	double hour = std::fmod(now / DAY, 1.0), date = dateOf(now, m_layer_opts.planet.year);
 	fluid::Sample s = m_layer->sample(u, v, y * BLOCK_METRES, hour);
 	// the temperature: terragen's climate for this very column, day and hour
 	// (what the biomes were made from), plus the layer's departure from its
-	// seasons, cooling with height above the ground
-	int32_t surface = m_world.ground(at, m_world.sunlight(at, (fix)(date * ONE))).terrain + 1;
+	// seasons, cooling with height above the ground (`surface`)
 	double climate = toDouble(m_world.temperature(at, (fix)(date * ONE), (fix)(hour * ONE))) + 273.15;
 	double t = m_layer->aloft(climate + m_layer->departure(u, v, date), std::max(0, y - surface) * BLOCK_METRES);
 	// the same vapour at the new temperature

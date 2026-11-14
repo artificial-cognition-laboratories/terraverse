@@ -42,8 +42,7 @@ local function onMap(d)
 	return { x = n.x, z = n.z, place = at }
 end
 
-core.register_on_mods_loaded(function()
-	core.after(1, function()
+local function probe()
 		for id, wp in ipairs(points) do
 			local p = onMap(wp)
 			core.log("action", string.format("MAP %d %d %d %d", id, p.place.x, p.place.y, p.place.z))
@@ -78,5 +77,18 @@ core.register_on_mods_loaded(function()
 				if remaining == 0 then core.request_shutdown("probe done") end
 			end)
 		end
-	end)
+end
+
+-- once the world's weather is open (a new world's settles on a worker as it
+-- starts, core.terra.weather nil till then): what's logged reads it
+core.register_on_mods_loaded(function()
+	local function ready()
+		local first = onMap(points[1])
+		if core.terra.weather({ x = first.x, y = 1, z = first.z }) then
+			probe()
+		else
+			core.after(0.5, ready)
+		end
+	end
+	core.after(1, ready)
 end)
