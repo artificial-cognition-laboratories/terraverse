@@ -1357,8 +1357,8 @@ void TestTerragen::testSoil()
 		double of() const { return n ? sum / n : 0; }
 	};
 	Mean wet_clay, dry_clay, cold_organic, warm_organic, steep_stones, flat_stones, steep_depth, flat_depth, lake_clay, dry_stones, wet_stones;
-	for (int32_t k = 0; k < 6000; k++) {
-		int32_t x = (k * 7919) % size - size / 2, z = (k * 104729) % (size * 8 / 10) - size * 4 / 10;
+	for (int32_t k = 0; k < 24000; k++) {
+		int32_t x = (int32_t)((int64_t)k * 7919 % size) - size / 2, z = (int32_t)((int64_t)k * 104729 % (size * 8 / 10)) - size * 4 / 10;
 		const Place at = flat(w, x, z);
 		Ground g = w.ground(at, w.sunlight(at, std::nullopt));
 		if (g.kind == Water::Lake) {
