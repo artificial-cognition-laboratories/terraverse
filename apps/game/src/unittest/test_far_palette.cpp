@@ -176,13 +176,14 @@ void TestFarPalette::testTilesForAnEye()
 	const double sea = 300 + h.water_level + 1;
 	const Eye eye{ { sea, 0, 0 }, 40, 0, 500, 2 };
 	std::vector<Tiles::Drawn> drawn;
-	for (int i = 0; i < 600; i++) {
+	// (until every tile wanted is built: stopped after a fixed time, a busy
+	// machine still showed the coarse stand-ins everywhere)
+	for (int i = 0; i < 1500 && (i < 50 || tiles.pending() > 0); i++) {
 		tiles.update(eye);
-		drawn = tiles.drawn();
-		if (!drawn.empty() && i > 100)
-			break;
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
+	UTEST(tiles.pending() == 0, "%zu tiles still being built", tiles.pending());
+	drawn = tiles.drawn();
 	UASSERT(!drawn.empty());
 	const Tiling &g = tiles.tiling();
 	s32 nearest = 99, farthest = -1;
@@ -278,9 +279,12 @@ void TestFarPalette::testTintPaintsTheLand()
 	UTEST(red + blue < other / 100 + 1, "untinted, %zu vertices still red or blue (of %zu)", red + blue, red + blue + other);
 }
 
-// Within the eye's cut the near world's blocks are the land: no tile all
-// inside it is drawn (the far view's trees stood among the near world's,
-// sprint 42), and one reaching past it still is.
+// Within the eye's cut the near world's blocks are the land (the far view's
+// trees stood among the near world's, sprint 42): a tile all inside it is
+// only the backdrop for where they haven't arrived (the shader drops it
+// nearer than the cut), so it isn't split there once BACKDROP_LEVEL or finer
+// (level 0 is finest): a fine tile inside comes only from a parent that
+// reached past the cut. One reaching past it is drawn as fine as anywhere.
 void TestFarPalette::testNothingInsideTheCut()
 {
 	const Baked b = shipped();
@@ -297,24 +301,34 @@ void TestFarPalette::testNothingInsideTheCut()
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		}
 		UTEST(tiles.pending() == 0, "%zu tiles still being built", tiles.pending());
-		std::vector<std::pair<double, double>> out; // each drawn tile's nearest and farthest, at the sea
+		// each drawn tile's nearest and farthest, at the sea, its level, and its parent's farthest
+		std::vector<std::tuple<double, double, s32, double>> out;
 		const Tiling &g = tiles.tiling();
 		for (const Tiles::Drawn &t : tiles.drawn()) {
 			const double d = std::hypot(t.middle.x * sea / g.radius() - eye.at.x, t.middle.y * sea / g.radius() - eye.at.y,
 					t.middle.z * sea / g.radius() - eye.at.z);
-			out.emplace_back(d - g.diagonal(t.key) / 2, d + g.diagonal(t.key) / 2);
+			const TileKey up{ t.key.level + 1, t.key.x >> 1, t.key.z >> 1, t.key.face };
+			const Tiling::Vec m = g.middle(up);
+			const double pd = std::hypot(m.x * sea / g.radius() - eye.at.x, m.y * sea / g.radius() - eye.at.y,
+					m.z * sea / g.radius() - eye.at.z);
+			out.emplace_back(d - g.diagonal(t.key) / 2, d + g.diagonal(t.key) / 2, t.key.level, pd + g.diagonal(up) / 2);
 		}
 		return out;
 	};
 	const auto whole = drawnFor(0), cut = drawnFor(CUT);
 	size_t within = 0, across = 0;
-	for (const auto &[near, far] : whole)
-		within += far + 300 < CUT; // all well inside it, peaks and all
-	for (const auto &[near, far] : cut) {
-		UTEST(far + 300 >= CUT, "a tile reaching %.0f blocks off is drawn inside the cut (%.0f)", far, CUT);
+	const s32 BACKDROP = 3; // tiles.cpp's BACKDROP_LEVEL
+	size_t fine_within = 0;
+	for (const auto &[near, far, level, parent] : whole)
+		fine_within += far + 300 < CUT && level < BACKDROP; // all well inside it, peaks and all
+	for (const auto &[near, far, level, parent] : cut) {
+		UTEST(far + 300 >= CUT || level >= BACKDROP || parent + 300 >= CUT,
+				"a tile at level %d reaching %.0f blocks off, split from one inside the cut (%.0f), is drawn", level, far, CUT);
+		within += far + 300 < CUT;
 		across += near < CUT;
 	}
-	UTEST(within > 0, "with no cut, none of %zu tiles lies inside where it would be", whole.size());
+	UTEST(fine_within > 0, "with no cut, none of %zu tiles inside where it would be is finer than the backdrop", whole.size());
+	UTEST(within > 0, "with a cut, no backdrop is drawn inside it (%zu tiles)", cut.size());
 	UTEST(across > 0, "none of %zu tiles drawn reaches inside the cut: the ring past it may be open", cut.size());
 }
 
