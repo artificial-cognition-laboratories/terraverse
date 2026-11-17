@@ -270,6 +270,11 @@ Soil World::soil(const Place &at, const Ground &ground, const Strata &strata) co
 	return soilWith(at, ground, strata, m_channels ? &channelsAt(at).read : nullptr);
 }
 
+fix World::soilSlope(const Place &at, const Ground &ground) const
+{
+	return m_channels ? channelsAt(at).read.slope : cover(at, ground).slope;
+}
+
 const World::RegionalSoil &World::regionalSoil() const
 {
 	std::call_once(m_regional_soiled, [&] {

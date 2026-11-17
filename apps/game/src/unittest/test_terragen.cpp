@@ -1384,14 +1384,19 @@ void TestTerragen::testSoil()
 		};
 		const double local = std::hypot(height(4, 0) - height(-4, 0), height(0, 4) - height(0, -4)) / 8.0;
 		// (soil made where it lies: what water laid is sorted, a riverbed's gravel)
-		if (temperate && !s.laid && local > 0.3) { steep_stones.add(stones); steep_depth.add(s.depth); }
-		if (temperate && !s.laid && local < 0.05) { flat_stones.add(stones); flat_depth.add(s.depth); }
+		if (temperate && !s.laid && local > 0.3) steep_stones.add(stones);
+		if (temperate && !s.laid && local < 0.05) flat_stones.add(stones);
+		// (depth by the hillside the soil model reads: the ground's own slope
+		// also sees valley walls cut below it, where depth isn't decided)
+		const double hill = w.soilSlope(at, g) / 65536.0;
+		if (temperate && !s.laid && hill > 0.3) steep_depth.add(s.depth);
+		if (temperate && !s.laid && hill < 0.05) flat_depth.add(s.depth);
 	}
 	infostream << "soil: clay warm-wet " << wet_clay.of() << ", dry " << dry_clay.of() << "; stones warm-wet " << wet_stones.of()
 			<< ", dry " << dry_stones.of() << "; organic cold-wet " << cold_organic.of() << ", warm " << warm_organic.of()
 			<< "; stones steep " << steep_stones.of() << ", flat " << flat_stones.of() << "; depth steep " << steep_depth.of()
 			<< ", flat " << flat_depth.of() << "; lake floors' clay " << lake_clay.of() << std::endl;
-	UASSERT(wet_clay.n && dry_clay.n && cold_organic.n && warm_organic.n && steep_stones.n && flat_stones.n && lake_clay.n);
+	UASSERT(wet_clay.n && dry_clay.n && cold_organic.n && warm_organic.n && steep_stones.n && flat_stones.n && lake_clay.n && steep_depth.n && flat_depth.n);
 	UASSERT(wet_clay.of() > dry_clay.of());
 	UASSERT(wet_stones.of() < dry_stones.of());
 	UASSERT(cold_organic.of() > warm_organic.of());

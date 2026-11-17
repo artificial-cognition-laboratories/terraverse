@@ -277,6 +277,9 @@ public:
 	// What the soil is made of here (soil.cpp), and how far a rock at height
 	// `y` blends toward its neighbour (0 .. ROCK_BLENDS − 1).
 	Soil soil(const Place &d, const Ground &ground, const Strata &strata) const;
+	// The slope soil reads here: the drainage's hillside where it's drawn,
+	// else the cover's (blocks per block)
+	fix soilSlope(const Place &d, const Ground &ground) const;
 	// The soil each grid cell's land mostly has (sprint 111), for maps: from
 	// the grid alone (its height, climate, rock and rivers; no streams below
 	// it, no detail), as fields `between` reads. Made the first time it's
