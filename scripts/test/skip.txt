@@ -1,8 +1,5 @@
-# Unit tests skipped by name: the code under test is wrong, or (wall-clock
-# budgets) the test fails for load rather than for the code.
+# Unit tests skipped by name: the code under test is wrong. (Time budgets aren't
+# skipped: they're held only by `bun check:budgets`, see scripts/test/serial.txt.)
 # One per line: Module.test  job  (what fails). Remove the line when the job is fixed.
 TestAtlasRender.testViewsMatchThePlanet  .agents/jobs/atlas-seam-crack.md             (a crack along a seam)
-TestAtlasRender.testWithinBudget         .agents/jobs/testing-wall-clock-budgets.md   (a view over its time budget)
 TestMoves.testBonesStayOut               .agents/jobs/testing-moves-bones-stay-out.md (figure sinks into walls)
-TestSandbox.testWorldBudget              .agents/jobs/testing-wall-clock-budgets.md   (wall-clock budget, fails under load)
-TestSandbox.testBudgetPicksBusiest       .agents/jobs/testing-wall-clock-budgets.md   (wall-clock budget, fails under load)

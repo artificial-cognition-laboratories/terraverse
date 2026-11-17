@@ -3,7 +3,7 @@
 
 #include <set>
 #include "test.h"
-#include <chrono>
+#include "cpu_time.h"
 
 #include "porting.h"
 #include "sandbox/sandbox.h"
@@ -476,18 +476,19 @@ void TestSandbox::testWorldBudget()
 	m.matter->budget(1 << 20); // every one of them: this measures a full step
 	const size_t awake = m.matter->awakeCount();
 	m.matter->step(1); // the first wakes what's round them
-	const auto start = std::chrono::steady_clock::now();
+	const double start = threadCpuMs(); // (its CPU time: by the clock, a busy machine failed it)
 	constexpr int STEPS = 5;
 	for (int i = 0; i < STEPS; i++)
 		m.matter->step(1);
-	const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count() / STEPS;
+	const double ms = (threadCpuMs() - start) / STEPS;
 	infostream << "world: " << awake << " blocks awake (" << m.matter->awakeCount() << " now), " << ms
 			<< " ms a 1 s step" << std::endl;
 	UASSERT(awake >= 10000);
 	// 22 ms on the machine it was tuned on (sprint 79: 142 before still
 	// blocks stopped re-running their chemistry and breathing through
 	// rock); twice that is a regression
-	UTEST(ms < 45, "a step of 10 000 awake blocks took %f ms", ms);
+	if (budgetsHeld())
+		UTEST(ms < 45, "a step of 10 000 awake blocks took %f ms", ms);
 }
 
 // ---- sprint 80: liquids and powders that run
@@ -691,13 +692,34 @@ void TestSandbox::testBudgetPicksBusiest()
 			}
 	m.matter->budget(4096);
 	m.matter->step(1);
-	const auto start = std::chrono::steady_clock::now();
+	double start = threadCpuMs(); // (its CPU time, as testWorldBudget's)
 	for (int i = 0; i < 5; i++)
 		m.matter->step(1);
-	const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count() / 5;
-	infostream << "world: " << m.matter->awakeCount() << " awake, a budget of 4096: " << ms << " ms a step" << std::endl;
+	const double ms = (threadCpuMs() - start) / 5;
+	// against the same work alone: a world of just the budget's blocks, every
+	// one stepped, timed alongside, so a busy machine slows both alike
+	Plot few;
+	constexpr int FEW = 16; // 4096 blocks
+	for (int x = 0; x < FEW; x++)
+		for (int y = -FEW; y < 0; y++)
+			for (int z = 0; z < FEW; z++) {
+				few.nodes[{ x, y, z }] = "granite";
+				few.matter->heat({ x, y, z }, 400);
+			}
+	few.matter->budget(1 << 20);
+	few.matter->step(1);
+	start = threadCpuMs();
+	for (int i = 0; i < 5; i++)
+		few.matter->step(1);
+	const double alone = (threadCpuMs() - start) / 5;
+	infostream << "world: " << m.matter->awakeCount() << " awake, a budget of 4096: " << ms << " ms a step; "
+			<< few.matter->awakeCount() << " awake alone: " << alone << " ms" << std::endl;
 	UASSERT(m.matter->awakeCount() > 20000);
-	UTEST(ms < 30, "a budgeted step took %f ms", ms);
+	// (about 2.4 times, choosing the busiest among 27 000 included, idle or busy;
+	// stepping them all, the budget ignored, is over 6)
+	UTEST(ms < alone * 4, "a budgeted step took %f ms, %f times the budget's blocks alone", ms, ms / alone);
+	if (budgetsHeld())
+		UTEST(ms < 30, "a budgeted step took %f ms", ms);
 }
 
 // Sprint 81: liquid lies in a sculpted block's open sixteenths. A floor of

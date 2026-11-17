@@ -1,4 +1,4 @@
-# Modules that assert on wall-clock time, run alone after the parallel batch:
-# under a full machine their budgets fail for load, not for the code.
-# (none: TestSandbox's budgets proved load-sensitive even alone; skipped, see
-# .agents/jobs/testing-wall-clock-budgets.md)
+# Modules run alone, after the parallel batch (none now). Time budgets aren't
+# held in the parallel run at all: tests report their times and assert only
+# what's counted; `bun check:budgets` holds the budgets, one module at a time,
+# with TF_BUDGETS set (apps/game/src/unittest/cpu_time.h).
