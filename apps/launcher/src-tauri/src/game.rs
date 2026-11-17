@@ -87,7 +87,16 @@ impl Runner {
         writeln!(out, "{LOG_HEADER}{id}").context(|| format!("writing {}", log.display()))?;
         let err = out.try_clone().context(|| format!("opening {}", log.display()))?;
 
-        let mut child = tokio::process::Command::new(&entry)
+        let mut command = tokio::process::Command::new(&entry);
+        if let Some(appdir) = std::env::var_os("APPDIR") {
+            for (key, value) in outside_appimage(std::env::vars_os(), std::path::Path::new(&appdir)) {
+                match value {
+                    Some(value) => command.env(key, value),
+                    None => command.env_remove(key),
+                };
+            }
+        }
+        let mut child = command
             .current_dir(&dir)
             .env("TERRAVERSE_HOME", home.root())
             // the game points at the launcher for versions (release/release.h: launched)
@@ -142,8 +151,72 @@ fn exit_code(status: &std::process::ExitStatus) -> i32 {
     status.code().unwrap_or(-1)
 }
 
+/// What the launcher's AppImage set for itself, undone for the game. Its
+/// AppRun puts the AppImage's own libraries (Ubuntu 22.04's libwayland-cursor,
+/// libXcursor, ...) on LD_LIBRARY_PATH and its GTK hook points GTK, GIO and
+/// XDG_DATA_DIRS inside the mount: the game inherited them, loaded those old
+/// libraries in place of the desktop's, and its cursor drew nothing (v0.1.3).
+/// Each change: a variable to set to a new value, or to remove (None).
+fn outside_appimage(
+    vars: impl Iterator<Item = (std::ffi::OsString, std::ffi::OsString)>,
+    appdir: &std::path::Path,
+) -> Vec<(std::ffi::OsString, Option<std::ffi::OsString>)> {
+    // the AppImage's runtime and linuxdeploy's GTK hook, whatever their values
+    const OURS: &[&str] = &["APPDIR", "APPIMAGE", "ARGV0", "OWD", "GTK_THEME", "WEBKIT_DISABLE_DMABUF_RENDERER"];
+    let mut changes = Vec::new();
+    for (key, value) in vars {
+        if key.to_str().is_some_and(|k| OURS.contains(&k)) {
+            changes.push((key, None));
+            continue;
+        }
+        // path lists lose their entries inside the mount; a variable wholly inside it goes
+        let paths: Vec<PathBuf> = std::env::split_paths(&value).collect();
+        let kept: Vec<&PathBuf> = paths.iter().filter(|p| !p.starts_with(appdir)).collect();
+        if kept.len() == paths.len() {
+            continue;
+        }
+        let kept: Vec<&PathBuf> = kept.into_iter().filter(|p| !p.as_os_str().is_empty()).collect();
+        if kept.is_empty() {
+            changes.push((key, None));
+        } else {
+            changes.push((key, Some(std::env::join_paths(kept).expect("paths that were joined join again"))));
+        }
+    }
+    changes
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn leaves_the_appimage_behind() {
+        let vars = [
+            ("LD_LIBRARY_PATH", "/tmp/.mount_X/usr/lib/:/tmp/.mount_X/lib64/:/opt/own"),
+            ("XDG_DATA_DIRS", "/tmp/.mount_X/usr/share/:/usr/share:/usr/local/share"),
+            ("GDK_PIXBUF_MODULE_FILE", "/tmp/.mount_X//usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"),
+            ("GTK_THEME", "Adwaita:dark"),
+            ("APPDIR", "/tmp/.mount_X"),
+            ("HOME", "/home/someone"),
+            ("XCURSOR_SIZE", "24"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.into(), v.into()));
+        let mut changes: Vec<(String, Option<String>)> = super::outside_appimage(vars, std::path::Path::new("/tmp/.mount_X"))
+            .into_iter()
+            .map(|(k, v)| (k.into_string().unwrap(), v.map(|v| v.into_string().unwrap())))
+            .collect();
+        changes.sort();
+        assert_eq!(
+            changes,
+            vec![
+                ("APPDIR".into(), None),
+                ("GDK_PIXBUF_MODULE_FILE".into(), None),
+                ("GTK_THEME".into(), None),
+                ("LD_LIBRARY_PATH".into(), Some("/opt/own".into())),
+                ("XDG_DATA_DIRS".into(), Some("/usr/share:/usr/local/share".into())),
+            ]
+        );
+    }
+
     use super::*;
 
     #[test]
