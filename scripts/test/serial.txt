@@ -1,0 +1,4 @@
+# Modules that assert on wall-clock time, run alone after the parallel batch:
+# under a full machine their budgets fail for load, not for the code.
+# (none: TestSandbox's budgets proved load-sensitive even alone; skipped, see
+# .agents/jobs/testing-wall-clock-budgets.md)

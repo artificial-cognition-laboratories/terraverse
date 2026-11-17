@@ -9,6 +9,7 @@
     "stage": "bash scripts/stage-runtime.sh",
     "palette": "bash scripts/palette.sh",
     "components": "cd apps/game/ui && bun run gallery",
+    "test": "bash scripts/test.sh",
     "check:terragen": "bash scripts/terragen-check.sh",
     "check:land": "bash scripts/land-check.sh",
     "check:streams": "bash scripts/stream-check.sh",

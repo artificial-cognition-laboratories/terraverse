@@ -117,3 +117,4 @@ extern content_t t_CONTENT_SAND;
 
 bool run_tests();
 bool run_tests(const std::string &module_name);
+bool list_test_modules();

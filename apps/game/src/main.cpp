@@ -260,9 +260,13 @@ int main(int argc, char *argv[])
 		porting::attachOrCreateConsole();
 
 	// Run legacy and Catch2 unit tests
-	if (cmd_args.getFlag("run-unittests") || cmd_args.exists("test-module")) {
+	if (cmd_args.getFlag("run-unittests") || cmd_args.exists("test-module")
+			|| cmd_args.getFlag("list-test-modules")) {
 		porting::attachOrCreateConsole();
 #if BUILD_UNITTESTS
+		// Terraverse: scripts/test.sh runs each module in its own process, in parallel
+		if (cmd_args.getFlag("list-test-modules"))
+			return list_test_modules() ? 0 : 1;
 		if (cmd_args.exists("test-module"))
 			return run_tests(cmd_args.get("test-module")) ? 0 : 1;
 		else
@@ -455,6 +459,8 @@ static void set_allowed_options(OptionList *allowed_options)
 			_("Write the game's baked palette (Terraverse) to <value>, from --world, and exit"))));
 	allowed_options->insert(std::make_pair("run-unittests", ValueSpec(VALUETYPE_FLAG,
 			_("Run legacy unit tests and Catch2 tests and exit"))));
+	allowed_options->insert(std::make_pair("list-test-modules", ValueSpec(VALUETYPE_FLAG,
+			_("Print the legacy unit test modules' names, one per line, and exit (Terraverse)"))));
 	allowed_options->insert(std::make_pair("run-tests", ValueSpec(VALUETYPE_FLAG,
 			_("Run Catch2 unit tests and exit; all following args are passed to Catch2"))));
 	allowed_options->insert(std::make_pair("run-benchmarks", ValueSpec(VALUETYPE_FLAG,

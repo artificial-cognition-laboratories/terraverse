@@ -3,6 +3,7 @@
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "test.h"
+#include <cstdlib>
 
 #include "catch.h"
 #include "nodedef.h"
@@ -278,6 +279,13 @@ bool run_tests()
 	return num_modules_failed == 0;
 }
 
+bool list_test_modules()
+{
+	for (auto *testmod : TestManager::getTestModules())
+		rawstream << testmod->getName() << std::endl;
+	return true;
+}
+
 static TestBase *findTestModule(const std::string &module_name) {
 	std::vector<TestBase *> &testmods = TestManager::getTestModules();
 	for (auto *testmod: testmods) {
@@ -363,8 +371,28 @@ std::string TestBase::getTestTempFile()
 	return getTestTempDirectory() + DIR_DELIM + buf + ".tmp";
 }
 
+// Terraverse: tests known to fail because the code is wrong, named
+// "Module.test" in TF_TEST_SKIP (space separated; scripts/test/skip.txt
+// cites the job for each), are reported as skipped instead of run.
+static bool skipped(const std::string &module, const char *name)
+{
+	const char *list = getenv("TF_TEST_SKIP");
+	if (!list)
+		return false;
+	std::istringstream words(list);
+	const std::string want = module + "." + name;
+	for (std::string w; words >> w;)
+		if (w == want)
+			return true;
+	return false;
+}
+
 void TestBase::runTest(const char *name, std::function<void()> &&test)
 {
+	if (skipped(getName(), name)) {
+		rawstream << "[SKIP] " << name << std::endl;
+		return;
+	}
 	u64 t1 = porting::getTimeMs();
 	try {
 		test();

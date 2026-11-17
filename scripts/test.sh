@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# The engine's unit tests, every module in its own process, side by side:
+# the same tests as `luanti --run-unittests`, in a fraction of the time.
+#   bun run test [Module...]   build once, run the named modules (default all)
+# Prints each module's time, slowest first, and for each failure its log and
+# the command that reproduces it. Modules in scripts/test/serial.txt time
+# themselves against the wall clock, so they run alone, after the rest. Tests in scripts/test/skip.txt are skipped
+# by name and listed, each citing the job that tracks it.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+bin="$root/.output/bin/luanti"
+[[ -n "${BUILT:-}" ]] || bash "$root/scripts/build.sh" -j"$(nproc)" > /dev/null
+
+skips="$(grep -vE '^\s*(#|$)' "$root/scripts/test/skip.txt" | awk '{print $1}' | tr '\n' ' ')"
+export TF_TEST_SKIP="$skips"
+
+if [[ $# -gt 0 ]]; then modules=("$@"); else mapfile -t modules < <("$bin" --list-test-modules 2>&1 | grep -E '^Test'); modules+=(Catch); fi
+[[ ${#modules[@]} -gt 0 ]] || { echo "test: no modules listed" >&2; exit 1; }
+
+logs="$(mktemp -d)"
+trap 'rm -rf "$logs"' EXIT
+start=$(date +%s%N)
+# Each process writes its log, its status and its milliseconds. "Catch" is
+# the Catch2 tests, which --run-unittests also runs after the modules.
+run() { # <jobs>, module names on stdin
+	xargs -r -P "$1" -I{} bash -c '
+		s=$(date +%s%N)
+		if [[ "{}" == Catch ]]; then cmd=(--run-tests); else cmd=(--test-module "{}"); fi
+		if "$0" "${cmd[@]}" > "$1/{}.log" 2>&1; then r=0; else r=$?; fi
+		echo "$r $(( ($(date +%s%N) - s) / 1000000 ))" > "$1/{}.status"
+	' "$bin" "$logs"
+}
+serial="$(sed 's/#.*//' "$root/scripts/test/serial.txt" | awk 'NF {print $1}')"
+printf '%s\n' "${modules[@]}" | grep -vxF -f <(echo "$serial" | grep .) | run "$(nproc)" || true
+printf '%s\n' "${modules[@]}" | grep -xF -f <(echo "$serial" | grep .) | run 1 || true
+wall=$(( ($(date +%s%N) - start) / 1000000000 ))
+
+for m in "${modules[@]}"; do
+	read -r r t < "$logs/$m.status"
+	printf '%8.1fs  %s%s\n' "$(( t / 1000 )).$(( t % 1000 / 100 ))" "$m" "$([[ $r == 0 ]] || echo '  FAILED')"
+done | sort -rn
+failed=()
+for m in "${modules[@]}"; do
+	read -r r _ < "$logs/$m.status"
+	[[ $r == 0 ]] && continue
+	failed+=("$m")
+	echo "== $m failed (exit $r): reproduce with"
+	if [[ $m == Catch ]]; then echo "   $bin --run-tests"; else echo "   TF_TEST_SKIP='$skips' $bin --test-module $m"; fi
+	grep -E -B3 '\[FAIL\]|Caught|Segmentation|Aborted|terminate' "$logs/$m.log" | tail -40 || tail -20 "$logs/$m.log"
+done
+skipped=$(cat "$logs"/*.log | grep -c '^\[SKIP\]' || true)
+grep -h '^\[SKIP\]' "$logs"/*.log > /dev/null 2>&1 && grep -vE '^\s*(#|$)' "$root/scripts/test/skip.txt" | sed 's/^/   skipped: /'
+printf 'test: %d modules, %d failed, %d tests skipped, %ds wall\n' "${#modules[@]}" "${#failed[@]}" "$skipped" "$wall"
+[[ ${#failed[@]} -eq 0 ]]

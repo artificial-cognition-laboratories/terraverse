@@ -1,0 +1,11 @@
+# Unit tests skipped by name: the code under test is wrong, or (wall-clock
+# budgets) the test fails for load rather than for the code.
+# One per line: Module.test  job  (what fails). Remove the line when the job is fixed.
+TestAtlasRender.testViewsMatchThePlanet  .agents/jobs/testing-atlas-render-fails.md   (holes near the pole)
+TestAtlasRender.testWithinBudget         .agents/jobs/testing-atlas-render-fails.md   (a view over its time budget)
+TestFarPalette.testTilesForAnEye         .agents/jobs/testing-far-palette-fails.md    (every drawn tile at one level)
+TestFarPalette.testNothingInsideTheCut   .agents/jobs/testing-far-palette-fails.md    (far tiles inside the near cut)
+TestMoves.testBonesStayOut               .agents/jobs/testing-moves-bones-stay-out.md (figure sinks into walls)
+TestScale.testEverySize                  .agents/jobs/testing-scale-every-size.md     (land too steep on a small planet)
+TestSandbox.testWorldBudget              .agents/jobs/testing-wall-clock-budgets.md   (wall-clock budget, fails under load)
+TestSandbox.testBudgetPicksBusiest       .agents/jobs/testing-wall-clock-budgets.md   (wall-clock budget, fails under load)

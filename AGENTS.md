@@ -244,6 +244,7 @@ bun run stage           # refresh resources in the runtime tree
 cd apps/game/ui && bun run typecheck
 ./.output/bin/luanti --server --gameid terrafirma --world <tmp dir> --port <n>   # headless boot: catches Lua errors
 ./.output/bin/luanti --test-module TestTerragen                                  # one test module; --run-unittests for all
+bun run test [Module...]  # every unit test module in parallel, slowest listed first; skips (scripts/test/skip.txt) cite their job
 
 bun check:land          # after a generation change: check:terragen, its unit tests and check:far side by side (~1 min); --quick: probe and default world only (~25 s)
 bun check:terragen      # probed world == standalone terragen, plus unit tests
