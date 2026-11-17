@@ -1854,6 +1854,7 @@ Channels::Read Channels::readWith(const Place &p, fix range, int64_t least, cons
 			}
 			// the ground: this channel's height here and its side rising to the place
 			if (m_land && gone < ONE) {
+				out.gone = std::min(out.gone, gone);
 				const int64_t gap = mulShift(dist(), m_radius, PLACE_FRAC);
 				const fix hill = mul(seg.hill, vary);
 				int64_t floor = seg.floor, wall_run = seg.wall_run;

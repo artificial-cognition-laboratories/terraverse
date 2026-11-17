@@ -96,6 +96,10 @@ public:
 		// the ground as the drainage shapes it (blocks, fixed; INT64_MAX none):
 		// the lowest of each channel near's height plus its hillside
 		int64_t land = INT64_MAX;
+		// how far even the channel nearest its reach has faded out here (0 in
+		// reach .. ONE past every one's): the land past them all is the noise
+		// land's, so whoever reads `land` eases to that by this
+		fix gone = ONE;
 		// the water there, from the channel whose valley it is (the land's
 		// lowest): its level (blocks, fixed), how far off its line, how wide
 		int64_t water = INT64_MIN, water_gap = INT64_MAX, water_width = 0;

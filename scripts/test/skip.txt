@@ -4,6 +4,5 @@
 TestAtlasRender.testViewsMatchThePlanet  .agents/jobs/testing-atlas-render-fails.md   (holes near the pole)
 TestAtlasRender.testWithinBudget         .agents/jobs/testing-atlas-render-fails.md   (a view over its time budget)
 TestMoves.testBonesStayOut               .agents/jobs/testing-moves-bones-stay-out.md (figure sinks into walls)
-TestScale.testEverySize                  .agents/jobs/testing-scale-every-size.md     (land too steep on a small planet)
 TestSandbox.testWorldBudget              .agents/jobs/testing-wall-clock-budgets.md   (wall-clock budget, fails under load)
 TestSandbox.testBudgetPicksBusiest       .agents/jobs/testing-wall-clock-budgets.md   (wall-clock budget, fails under load)

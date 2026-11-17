@@ -970,6 +970,7 @@ int32_t World::surface(fix e, const Place &d) const
 		valley = std::min<fix>(mul(cut, depth), (base + mul(detail, amplitude) + ridge + gully + crests) / 2); // (never to the sea)
 		valley = std::max<fix>(valley, 0);
 	}
+	const int32_t noise_land = floorInt(base + mul(detail, amplitude) + ridge + gully + crests - valley);
 	// Sprint 108's prototype: the land from the drainage, the channels'
 	// heights and their sides (never flipping land to sea)
 	if (m_land && m_channels && base > 0) {
@@ -1002,10 +1003,16 @@ int32_t World::surface(fix e, const Place &d) const
 				if (drop > 0 && read.land - drop < toFix(1))
 					return (int32_t)((read.land - drop) >> FRAC);
 			}
-			return std::max(1, (int32_t)(read.land >> FRAC));
+			// where every channel near is fading out, its hillside climbing
+			// away, eased to the land past them all, the noise's: a place
+			// none reaches stood a cliff of hundreds of blocks below the
+			// last one's ramp (the smallest planets, whose finer lattice
+			// is a few blocks and leaves gaps between the trunk's runs)
+			const int64_t land = read.gone > 0 ? read.land + mulShift(toFix(noise_land) - read.land, read.gone, FRAC) : read.land;
+			return std::max(1, (int32_t)(land >> FRAC));
 		}
 	}
-	return floorInt(base + mul(detail, amplitude) + ridge + gully + crests - valley);
+	return noise_land;
 }
 
 
