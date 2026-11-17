@@ -182,12 +182,15 @@ std::optional<f32> meet(const v3f &dir, const Triangle &t, f32 *edge = nullptr)
 	if (std::fabs(det) < 1e-9f)
 		return std::nullopt;
 	const v3f s = -t.a;
+	// (a hair over its edges: a ray down the diagonal two triangles share
+	// missed both by a float's rounding, and a whole face read as a hole)
+	constexpr f32 HAIR = 1e-5f;
 	const f32 u = s.dotProduct(p) / det;
-	if (u < 0 || u > 1)
+	if (u < -HAIR || u > 1 + HAIR)
 		return std::nullopt;
 	const v3f q = s.crossProduct(e1);
 	const f32 v = dir.dotProduct(q) / det;
-	if (v < 0 || u + v > 1)
+	if (v < -HAIR || u + v > 1 + HAIR)
 		return std::nullopt;
 	const f32 t_ = e2.dotProduct(q) / det;
 	if (edge)
