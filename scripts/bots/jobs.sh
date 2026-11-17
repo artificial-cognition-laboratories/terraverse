@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # The nightly jobs bot: runs the `jobs` skill (.agents/skills/jobs) headless in
 # this repo, working through .agents/jobs. Started by the systemd timer that
-# install.sh sets up; safe to run by hand. It shares the release bot's lock, so
-# the two never work in the checkout at once; the release bot, later in the
-# night, waits for it and ships what it committed.
+# install.sh sets up; safe to run by hand. It shares one lock with every bot, so
+# only one works in the checkout at a time (it waits up to 2h for its turn).
+# The release bot, later in the night, ships what it committed.
 set -euo pipefail
 
 repo="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -14,7 +14,7 @@ mkdir -p "$logs"
 cd "$repo"
 
 exec 9>"$logs/release.lock"
-flock -n 9 || { echo "jobs bot: a bot is already running" | tee -a "$log"; exit 0; }
+flock -w 7200 9 || { echo "jobs bot: another bot held the lock for 2h" | tee -a "$log"; exit 0; }
 
 notify() { notify-send -a "Terraverse jobs" "$1" "$2" 2>/dev/null || true; }
 

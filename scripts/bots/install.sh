@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Installs the nightly bots as systemd user timers, each also run at the next
-# boot if the machine was off: jobs at 23:00 (works through .agents/jobs), then
-# release at 03:00 (ships what changed, waiting for jobs if it's still going).
+# boot if the machine was off. In order: the owners (testing 19:00, CI 21:00)
+# improve their areas and file jobs, jobs (23:00) works through .agents/jobs,
+# release (03:00) ships what changed. They share one lock and wait their turn.
 # Re-run after changing a schedule.
 #   bash scripts/bots/install.sh            install and start the timers
 #   bash scripts/bots/install.sh --remove   stop and remove them
@@ -10,14 +11,16 @@ set -euo pipefail
 repo="$(cd "$(dirname "$0")/../.." && pwd)"
 units="$HOME/.config/systemd/user"
 
-# bot  time  timeout (release includes up to 4h waiting for the jobs bot)
+# unit  time  timeout  script [args]   (timeouts include waiting for the lock)
 bots=(
-    "jobs 23:00 4h"
-    "release 03:00 10h"
+    "owner-testing 19:00 6h owner.sh testing"
+    "owner-ci 21:00 6h owner.sh ci"
+    "jobs 23:00 6h jobs.sh"
+    "release 03:00 10h release.sh"
 )
 
 for entry in "${bots[@]}"; do
-    read -r bot at timeout <<<"$entry"
+    read -r bot at timeout script <<<"$entry"
     name="terraverse-$bot"
 
     if [[ "${1:-}" == "--remove" ]]; then
@@ -36,7 +39,7 @@ Description=Terraverse nightly $bot bot
 [Service]
 Type=oneshot
 WorkingDirectory=$repo
-ExecStart=$SHELL -lc '$repo/scripts/bots/$bot.sh'
+ExecStart=$SHELL -lc '$repo/scripts/bots/$script'
 TimeoutStartSec=$timeout
 UNIT
 
