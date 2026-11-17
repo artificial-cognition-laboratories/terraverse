@@ -20,3 +20,10 @@ or void along seams, from above.
 Look at how each seam block's territory edge is placed (planet/ atlas cut planes, client
 `bendOntoAtlas` in mapblock_mesh.cpp): the two sides should share one edge, or overlap by a hair.
 Skipped by name in `scripts/test/skip.txt` (TestAtlasRender.testViewsMatchThePlanet) until then.
+
+Likely shape of it (not verified): block (374,-1,-1336)'s edge lies exactly on a node boundary
+(x = -23.1177 constant, unclipped), while block (-642,-1,-1336)'s is clipped to the seam plane
+(`clipToTerritory`). So the strip between B's last whole node and the seam is drawn by neither: either B's
+partial (cut) cell there isn't drawn, or A's territory stops short of it. Check `atlas.cut()` for the
+cells either side at that point, and the test's `seam` (airlike) node, which the test's ClientWorld puts
+where a block's slot is outside its territory.
