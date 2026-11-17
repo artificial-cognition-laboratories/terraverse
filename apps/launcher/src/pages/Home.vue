@@ -10,6 +10,8 @@ const store = useStore()
 const { state } = store
 const TITLE = "Terraverse"
 
+const running = computed(() => state.game?.state === "running")
+
 const failure = computed(() => {
     const target = store.target.value
     const standing = target ? store.standing(target.id) : null
@@ -34,6 +36,14 @@ const failure = computed(() => {
             <div v-if="state.launcherUpdate" class="launcher-update">
                 <span>Launcher {{ state.launcherUpdate.version }} is ready.</span>
                 <Button size="sm" @click="store.updateLauncher()">Restart to update</Button>
+            </div>
+            <div v-if="store.newerThanPinned.value" class="launcher-update">
+                <span>Terraverse {{ store.newerThanPinned.value.id }} is out. You're pinned to {{ store.target.value?.id }}.</span>
+                <Button size="sm" @click="store.pin(null)">Play the latest</Button>
+            </div>
+            <div v-if="store.previous.value && !running" class="launcher-update">
+                <span>Update to {{ store.target.value?.id }}, or keep playing {{ store.previous.value.id }} for now.</span>
+                <Button size="sm" @click="store.play(store.previous.value.id)">Play {{ store.previous.value.id }}</Button>
             </div>
             <div class="controls">
                 <VersionPicker />

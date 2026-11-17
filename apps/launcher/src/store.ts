@@ -110,11 +110,30 @@ export function LauncherStore({ backend }: { backend: Backend }) {
     const betaLatest = computed(() => !!state.settings?.beta)
     const visible = computed<Version[]>(() => state.manifest?.versions ?? [])
 
-    /** What Play launches: the pinned version, else the newest (stable, unless betas are asked for). */
+    /** The newest version (stable, unless betas are asked for). */
+    const newest = computed<Version | null>(() => visible.value.find(v => v.channel === "stable" || betaLatest.value) ?? null)
+
+    /** What Play launches: the pinned version, else the newest. */
     const target = computed<Version | null>(() => {
         const pinned = state.settings?.pinned
         if (pinned) return visible.value.find(v => v.id === pinned) ?? null
-        return visible.value.find(v => v.channel === "stable" || betaLatest.value) ?? null
+        return newest.value
+    })
+
+    /** A newer version than the pinned one, to offer switching to. */
+    const newerThanPinned = computed<Version | null>(() => {
+        const pinned = target.value
+        if (!state.settings?.pinned || !pinned || !newest.value) return null
+        const newer = visible.value.indexOf(newest.value) < visible.value.indexOf(pinned)
+        return newer ? newest.value : null
+    })
+
+    /** While the newest isn't installed yet: the newest installed version older than it, still playable. */
+    const previous = computed<Version | null>(() => {
+        const wanted = target.value
+        if (!wanted || standing(wanted.id).state === "installed") return null
+        const older = visible.value.slice(visible.value.indexOf(wanted) + 1)
+        return older.find(v => standing(v.id).state === "installed") ?? null
     })
 
     function standing(id: string): Standing {
@@ -146,7 +165,10 @@ export function LauncherStore({ backend }: { backend: Backend }) {
         social: computed(() => social.value),
         betaLatest,
         visible,
+        newest,
         target,
+        newerThanPinned,
+        previous,
         used,
         standing,
         load,

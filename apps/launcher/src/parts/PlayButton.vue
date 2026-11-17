@@ -4,12 +4,13 @@ import { Button, Progress } from "@game/kit/index.ts"
 import type { Version } from "../backend/index.ts"
 import { bytes, since, useStore } from "../use.ts"
 
-/** One button that follows the version's standing: install, download, play, playing. */
+/** One button that follows the version's standing: install (update, when an older one is installed), download, play, playing. */
 const props = defineProps<{ version: Version }>()
 const store = useStore()
 const { state } = store
 
 const standing = computed(() => store.standing(props.version.id))
+const updating = computed(() => !!state.installed?.length)
 const running = computed(() => state.game?.state === "running" ? state.game : null)
 
 // the time played, ticking by the minute: no faster repaint than that
@@ -33,7 +34,7 @@ onBeforeUnmount(() => clearInterval(clock))
             Play
         </Button>
         <Button v-else variant="primary" size="lg" class="go" @click="store.install(version.id)">
-            {{ standing.state === "failed" ? "Retry" : "Install" }}
+            {{ standing.state === "failed" ? "Retry" : updating ? "Update" : "Install" }}
             <small class="size">{{ bytes(version.size) }}</small>
         </Button>
     </div>

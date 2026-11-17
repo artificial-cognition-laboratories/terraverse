@@ -11,7 +11,6 @@ const root = ref<HTMLElement | null>(null)
 useDismiss(root, open)
 
 const pinned = computed(() => state.settings?.pinned ?? null)
-const newest = computed(() => store.visible.value.find(v => v.channel === "stable" || store.betaLatest.value) ?? null)
 
 async function choose(id: string | null) {
     open.value = false
@@ -29,7 +28,7 @@ async function choose(id: string | null) {
         <div v-if="open" class="menu" role="listbox">
             <button role="option" :aria-selected="!pinned" :class="{ on: !pinned }" @click="choose(null)">
                 <span class="name">Latest</span>
-                <small>Always the newest{{ store.betaLatest.value ? ", betas included" : " stable" }}{{ newest ? ` · ${newest.id}` : "" }}</small>
+                <small>Always the newest{{ store.betaLatest.value ? ", betas included" : " stable" }}{{ store.newest.value ? ` · ${store.newest.value.id}` : "" }}</small>
             </button>
             <div class="rule" />
             <button v-for="v in store.visible.value" :key="v.id" role="option" :aria-selected="pinned === v.id"
