@@ -11,3 +11,9 @@ Reproduce: `bun check:budgets` (or `TF_BUDGETS=1 ATLAS_BUDGET=1 ./.output/bin/lu
 Unknown whether it regressed or was always so: planet/ hasn't changed since e7bdd1d87 (Nov 4).
 Profile `blocksAt` there (cut planes at the cap, `prepare`?) and bring it under the budget, or argue the
 budget up in the test with a reason.
+
+Profile (perf, `ATLAS_BUDGET=1 --test-module TestAtlasRender`, all four eyes): hypot 14%,
+`terragen::Atlas::at` 11%, `Atlas::retained` 8.5%, `Atlas::inside` 7.3%, `Atlas::grid` 1.7%,
+`planet::Atlas::cell` 1.5%, `cellsAround` 1.3%. So it's geometry asked again and again per slot
+(`blocksAt` for every slot in range, each locating cells through `at`/`inside`), not one hot loop:
+caching a slot's cells or locating them once per block would be the first thing to try.
