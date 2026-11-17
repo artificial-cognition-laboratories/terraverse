@@ -12,9 +12,10 @@ log="$logs/release-$day.log"
 mkdir -p "$logs"
 cd "$repo"
 
-# One bot at a time; a run still going when the next fires is left alone.
+# One bot at a time (the jobs bot shares this lock): wait up to 4h for a
+# running one to finish, then skip the night rather than pile up.
 exec 9>"$logs/release.lock"
-flock -n 9 || { echo "release bot: already running" | tee -a "$log"; exit 0; }
+flock -w 14400 9 || { echo "release bot: another bot held the lock for 4h" | tee -a "$log"; exit 0; }
 
 notify() { notify-send -a "Terraverse release" "$1" "$2" 2>/dev/null || true; }
 
