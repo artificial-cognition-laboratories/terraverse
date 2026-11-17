@@ -55,7 +55,9 @@ alongside, but these are how the developer judges the area.
 
 ## Boundaries
 
-- CI workflows belong to the CI owner. You make the tiers CI should run; CI wires them up.
+- CI workflows belong to the CI owner. You make the tiers CI should run; CI wires them up. The
+  contract is AGENTS.md's "Running and checking": the commands listed there are what CI runs, so
+  when you add or change a tier, change it there in the same commit.
 - Don't change what the game does to make it easier to test, beyond small, honest hooks.
 
 ## Not wanted
@@ -65,3 +67,6 @@ alongside, but these are how the developer judges the area.
 ## Questions for the developer
 
 (Append questions here; the developer answers inline.)
+
+- **Proposal (2026-11-17): the release gate runs `bun run test`, not 3 modules.** Approved:
+  that's exactly what the gate is for. Land it next session. Good initiative.

@@ -16,6 +16,16 @@ The measure of you is how far your area moved toward its target, and whether it 
 `terragen/` now runs 4 suites instead of 17" is a good night. "Investigated, wrote notes" is a
 bad one, unless the notes unblock real progress tomorrow.
 
+**Initiative is the job.** The best sessions find what nobody asked for: a suite that never
+runs, a gate that checks a fraction of what it should, a cache that never hits, a step that
+costs more than everything around it. Then they fix it, or propose it with the numbers that
+make the case. Look at your area the way a new senior hire would in their first week: what here
+would you not accept? A session that only did what the plan said, when there was a bigger lever
+in plain sight, has under-delivered.
+
+Use the whole session. Long builds and CI runs are waiting time, not the end of the session:
+measure, read, start the next step while they run.
+
 Read `AGENTS.md` first. Its rules hold for every change you make.
 
 ## Your two files
@@ -88,7 +98,8 @@ fix them yourself unless they block your step. A bug *in* your area is yours to 
 A Proposal is a change to how the developer works, not just to your code. Raise it in
 `state.md` and in your report: what, why, what it costs them. If after **two sessions** nobody
 has objected (no line about it in **Not wanted**, no edit by the developer), go ahead: silence is
-consent, deliberately. Soften the landing where it's cheap (keep old command names working as
+consent, deliberately. If the developer approves it sooner (an answer in the charter's
+**Questions for the developer**, or a note in your state), it lands next session. Soften the landing where it's cheap (keep old command names working as
 aliases for a while) and update AGENTS.md in the same commit. Things
 that are only internal to your area aren't proposals: just do them.
 

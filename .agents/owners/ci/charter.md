@@ -66,6 +66,14 @@ alongside, but these are how the developer judges the area. Measure from `gh run
 - Runner minutes are real money: at most about four hours of dispatched or branch runs per
   session. Iterate locally (`act`, the scripts themselves) where you can.
 
+## Done means green in CI
+
+A CI change isn't done when it's pushed; it's done when the run on it is green (`gh run watch`).
+Watch your own runs through to the end within the session, and if one fails, fixing it is your
+next step. Builds are long, so use the wait: measure the Scoreboard, work on the next step. Don't
+end a session with your own run still pending unless you've hit the runner budget, and then
+say so in the report.
+
 ## Boundaries
 
 - Tests belong to the testing owner: you run their tiers; you don't write or restructure tests

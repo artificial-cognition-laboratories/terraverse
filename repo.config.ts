@@ -15,6 +15,7 @@ type Release = { target(input: { cwd: string; rationale: string }): Target; scri
 
 export default {
     releaseBranch: "master",
+
     deploy: {
         terraverse(release: Release) {
             const game = release.target({
