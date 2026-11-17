@@ -187,6 +187,9 @@ fn outside_appimage(
 
 #[cfg(test)]
 mod tests {
+    // AppImages are Linux-only, and the path lists here are ':'-separated as
+    // split_paths reads them on unix; on Windows it splits on ';' instead
+    #[cfg(unix)]
     #[test]
     fn leaves_the_appimage_behind() {
         let vars = [
