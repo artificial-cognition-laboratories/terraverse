@@ -4,9 +4,11 @@ SRC := $(ROOT)/apps/game/src
 TERRAGEN := $(wildcard $(SRC)/terragen/*.cpp)
 OBJS := $(patsubst $(SRC)/terragen/%.cpp,$(OBJ)/%.o,$(TERRAGEN))
 CXXFLAGS := -std=c++17 -O2 -I$(SRC) -MMD -MP
+# the tool alone may add more (include paths: the oracle's fastscapelib)
+EXTRA ?=
 
 $(OUT): $(OBJS) $(TOOL)
-	$(CXX) $(CXXFLAGS) $(TOOL) $(OBJS) -o $@ -lpthread
+	$(CXX) $(CXXFLAGS) $(EXTRA) $(TOOL) $(OBJS) -o $@ -lpthread
 
 $(OBJ)/%.o: $(SRC)/terragen/%.cpp
 	@mkdir -p $(OBJ)

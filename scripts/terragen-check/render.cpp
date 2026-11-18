@@ -2,7 +2,7 @@
 // shaded relief, lakes, rivers by flow — and prints how long the grid took and
 // what share is land. For tuning generation by eye:
 //   scripts/terragen-tool.sh render scripts/terragen-check/render.cpp
-//   ./render TF24.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents|sediment|soil]
+//   ./render TF24.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents|sediment|soil|uplift]
 #include "terragen/world.h"
 #include "terragen/worlds.h"
 #include "terragen/sphere.h"
@@ -12,56 +12,8 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+#include "png.h"
 using namespace terragen;
-
-// A minimal PNG writer: RGB, deflate "stored" blocks (no compression).
-static uint32_t crc(const unsigned char *p, size_t n, uint32_t c = 0xffffffffu)
-{
-	for (size_t i = 0; i < n; i++) {
-		c ^= p[i];
-		for (int k = 0; k < 8; k++)
-			c = (c >> 1) ^ (0xedb88320u & (0u - (c & 1)));
-	}
-	return c;
-}
-static void be32(std::vector<unsigned char> &o, uint32_t v) { for (int s = 24; s >= 0; s -= 8) o.push_back((v >> s) & 255); }
-static void chunk(FILE *f, const char *type, const std::vector<unsigned char> &data)
-{
-	std::vector<unsigned char> b;
-	be32(b, data.size());
-	b.insert(b.end(), type, type + 4);
-	b.insert(b.end(), data.begin(), data.end());
-	be32(b, ~crc(b.data() + 4, b.size() - 4));
-	fwrite(b.data(), 1, b.size(), f);
-}
-static void png(const char *path, int w, int h, const std::vector<unsigned char> &rgb)
-{
-	std::vector<unsigned char> raw;
-	for (int y = 0; y < h; y++) {
-		raw.push_back(0);
-		raw.insert(raw.end(), rgb.begin() + (size_t)y * w * 3, rgb.begin() + (size_t)(y + 1) * w * 3);
-	}
-	std::vector<unsigned char> z = { 0x78, 0x01 };
-	for (size_t i = 0; i < raw.size(); i += 65535) {
-		size_t n = std::min<size_t>(65535, raw.size() - i);
-		z.push_back(i + n == raw.size());
-		z.push_back(n & 255); z.push_back(n >> 8); z.push_back(~n & 255); z.push_back((~n >> 8) & 255);
-		z.insert(z.end(), raw.begin() + i, raw.begin() + i + n);
-	}
-	uint32_t a = 1, b = 0;
-	for (unsigned char c : raw) { a = (a + c) % 65521; b = (b + a) % 65521; }
-	be32(z, (b << 16) | a);
-	std::vector<unsigned char> ihdr;
-	be32(ihdr, w); be32(ihdr, h);
-	ihdr.insert(ihdr.end(), { 8, 2, 0, 0, 0 });
-	FILE *f = fopen(path, "wb");
-	const unsigned char sig[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
-	fwrite(sig, 1, 8, f);
-	chunk(f, "IHDR", ihdr);
-	chunk(f, "IDAT", z);
-	chunk(f, "IEND", {});
-	fclose(f);
-}
 
 int main(int argc, char **argv)
 {
@@ -183,6 +135,10 @@ int main(int argc, char **argv)
 				// placers (gold, tin) in red, by how rich
 				const double pl = g->placer[i] / 65536.0;
 				if (pl > 0) { r = 160 + 95 * pl; gg = 40; b = 40; }
+			} else if (mode == "uplift") {
+				// how fast the land's pushed up now (the history's belt): black none, red the most
+				const double u = g->tectonics.belt[i] / 65536.0;
+				r = e < 0 ? 30 : 40 + 215 * u; gg = e < 0 ? 40 : 40 + 60 * (1 - u); b = e < 0 ? 80 : 40;
 			} else if (mode == "age") {
 				// how long the crust has stood still: shields deep violet, young belts and rifts orange
 				const double st = g->tectonics.stable[i] / 65536.0;

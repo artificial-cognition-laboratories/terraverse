@@ -3,7 +3,10 @@
 // contours, and the land's hypsometry (how much of it stands how high), whole
 // planet and region. For tuning the shape of the land by eye:
 //   scripts/terragen-tool.sh /tmp/region scripts/terragen-check/region.cpp
-//   [SIZE=628320] [BIOMES=1 | KINDS=1 | SEABED=1] [COARSE=1] /tmp/region <code> out.png [u,v | peak | belt | plain | lake | pan | mouth | fjord | river] [span km] [pixels]
+//   [SIZE=628320] [BIOMES=1 | KINDS=1 | SEABED=1] [COARSE=1] [PROTO=1] /tmp/region <code> out.png [u,v | peak | belt | plain | lake | pan | mouth | fjord | river] [span km] [pixels]
+// PROTO=1 (sprint 116, phase 6): not the game's columns but the prototype
+// below the grid: the grid's smooth surface and an erosion filter on it
+// (amplify, below), to set beside them.
 // u, v: the region's middle (0..1 round, north to south); span: across it.
 // peak: the highest land; belt: the most-rising range; plain: the lowest
 // broad interior (the land furthest from both sea and range); lake: the biggest lake; river: the biggest river, inland.
@@ -93,6 +96,84 @@ static void hypsometry(const char *what, std::vector<double> h)
 	}
 }
 
+/*
+	The prototype of the land below the grid (sprint 116, phase 6): the
+	grid's smooth surface, gullied by an erosion filter, after runevision's
+	erosion filter and Phacelle noise (2025–26) and clayjohn's eroded terrain
+	noise (2018), from their descriptions, not their code. Octaves from half
+	a cell down to a few blocks; in each, stripes run down the slope as it
+	stands so far: each point of a jittered lattice sends a wave across the
+	slope, the waves blended as a phasor (normalised: even amplitude, no
+	beating), so the ground is grooved downhill. Each octave steers by the
+	slope the ones before made, so small gullies bend into bigger ones and
+	branch as drainage does. How deep: as stream power at its balance
+	cuts, a drainage L across falls k_s · cell / L a block (k_s the
+	grid's channel steepness, S·√A), so each octave adds about the same,
+	RELIEF · k_s · cell, till the wave's slope would pass a hillside's
+	critical gradient (CRITICAL), where the finest octaves are held. Below
+	a hillside's length (HILLSIDE_M) nothing's gullied: soil creeps smooth
+	faster than water cuts. (The octaves' own grooves steer the next, but
+	never deepen it.)
+	`base` and `ks` on an N × N lattice `step` blocks apart.
+*/
+static std::vector<double> amplify(const std::vector<double> &base, const std::vector<double> &ks, int N, double step, double cell, double perM, uint32_t seed)
+{
+	const double RELIEF = std::getenv("RELIEF") ? std::stod(std::getenv("RELIEF")) : 0.3;
+	const double HILLSIDE_M = std::getenv("HILLSIDE") ? std::stod(std::getenv("HILLSIDE")) : 400;
+	const double FALL = std::getenv("FALL") ? std::stod(std::getenv("FALL")) : 0.35; // smaller octaves' share, as (L / the top's)^FALL
+	const double CRITICAL = std::getenv("CRITICAL") ? std::stod(std::getenv("CRITICAL")) : 0.5, SMALLEST = std::max(4.0, HILLSIDE_M * perM); // a hillside's steepest gradient; blocks
+	std::vector<double> h = base, gx((size_t)N * N), gy((size_t)N * N);
+	const auto at = [&](const std::vector<double> &f, int x, int y) { return f[(size_t)std::clamp(y, 0, N - 1) * N + std::clamp(x, 0, N - 1)]; };
+	for (int y = 0; y < N; y++)
+		for (int x = 0; x < N; x++) {
+			gx[(size_t)y * N + x] = (at(base, x + 1, y) - at(base, x - 1, y)) / (2 * step);
+			gy[(size_t)y * N + x] = (at(base, x, y + 1) - at(base, x, y - 1)) / (2 * step);
+		}
+	const auto hash = [&](int64_t i, int64_t j, uint32_t k) {
+		uint64_t v = (uint64_t)i * 0x9e3779b97f4a7c15ull ^ (uint64_t)j * 0xc2b2ae3d27d4eb4full ^ (uint64_t)(seed + k) * 0x165667b19e3779f9ull;
+		v ^= v >> 29; v *= 0xbf58476d1ce4e5b9ull; v ^= v >> 32;
+		return (double)(v >> 11) / (double)(1ull << 53);
+	};
+	uint32_t octave = 0;
+	for (double L = cell / 2; L >= std::max(SMALLEST, 2 * step); L /= 2, octave++) {
+		for (int y = 0; y < N; y++)
+			for (int x = 0; x < N; x++) {
+				const size_t k = (size_t)y * N + x;
+				const double px = x * step, py = y * step;
+				const double slope = std::hypot(gx[k], gy[k]);
+				if (slope < 1e-6)
+					continue;
+				const double dx = gx[k] / slope, dy = gy[k] / slope, ux = -dy, uy = dx; // down the slope, and across it
+				const int64_t cx = (int64_t)std::floor(px / L), cy = (int64_t)std::floor(py / L);
+				double c = 0, sn = 0;
+				for (int j = -1; j <= 1; j++)
+					for (int i = -1; i <= 1; i++) {
+						const double qx = (cx + i + hash(cx + i, cy + j, octave * 2)) * L, qy = (cy + j + hash(cx + i, cy + j, octave * 2 + 1)) * L;
+						const double ox = px - qx, oy = py - qy, r = std::hypot(ox, oy) / L;
+						const double w = r < 1.5 ? (1 - r / 1.5) * (1 - r / 1.5) : 0;
+						const double phase = 2 * M_PI * (ox * ux + oy * uy) / L;
+						c += w * std::cos(phase);
+						sn += w * std::sin(phase);
+					}
+				const double m = std::hypot(c, sn);
+				if (m < 1e-9)
+					continue;
+				c /= m;
+				sn /= m;
+				const double a = std::min(RELIEF * ks[k] * cell * std::pow(L / (cell / 2), FALL), CRITICAL * L / (2 * M_PI));
+				h[k] += a * c;
+				// the slope it leaves for the next octave: this one's grooves across it
+				const double across = -a * sn * 2 * M_PI / L;
+				gx[k] += across * ux;
+				gy[k] += across * uy;
+			}
+	}
+	for (size_t k = 0; k < h.size(); k++)
+		if (base[k] <= 0)
+			h[k] = base[k]; // (the sea's as the grid has it)
+	return h;
+}
+
 int main(int argc, char **argv)
 {
 	if (argc < 3) {
@@ -163,7 +244,7 @@ int main(int argc, char **argv)
 		if (score > best) { best = score; pick = i; }
 	}
 	std::printf("land %.0f%% of cells · %.2f blocks a metre · radius %.0f blocks\n", 100.0 * land.size() / g->size(), perM, R);
-	{
+	if (!std::getenv("PROTO")) { // (the prototype doesn't build the game's columns)
 		std::vector<double> blocks;
 		for (int32_t i = 0; i < g->size(); i += 7)
 			if (g->base[i] >= 0)
@@ -200,12 +281,64 @@ int main(int argc, char **argv)
 			const double la = (0.5 - v) * M_PI, lo = (u - 0.5) * 2 * M_PI;
 			const Place at((int32_t)std::llround(std::cos(la) * std::cos(lo) * PLACE_ONE), (int32_t)std::llround(std::sin(la) * PLACE_ONE),
 					(int32_t)std::llround(std::cos(la) * std::sin(lo) * PLACE_ONE));
+			if (std::getenv("PROTO"))
+				continue; // (its own lattice, below)
 			const Ground gr = world.ground(at, world.sunlight(at, std::nullopt)); // (the year's mean sun)
 			h[(size_t)y * N + x] = gr.terrain;
 			biome[(size_t)y * N + x] = (uint8_t)gr.column.biome;
 			kind[(size_t)y * N + x] = (uint8_t)gr.kind;
 			wet[(size_t)y * N + x] = gr.kind != Water::None && gr.water > gr.terrain ? gr.water : -1e9;
 		}
+	if (std::getenv("PROTO")) {
+		const double cellBlocks = World::cellBlocksOf(code) / 65536.0;
+		std::vector<double> base((size_t)N * N), ks((size_t)N * N);
+		for (int y = 0; y < N; y++)
+			for (int x = 0; x < N; x++) {
+				const double dv = (y - N / 2) * step / (M_PI * R), du = (x - N / 2) * step / (2 * M_PI * R * std::max(0.05, std::cos(lat)));
+				const double u = u0 + du - std::floor(u0 + du), v = std::clamp(v0 + dv, 0.0, 1.0);
+				const double la = (0.5 - v) * M_PI, lo = (u - 0.5) * 2 * M_PI;
+				const Place at((int32_t)std::llround(std::cos(la) * std::cos(lo) * PLACE_ONE), (int32_t)std::llround(std::sin(la) * PLACE_ONE),
+						(int32_t)std::llround(std::cos(la) * std::sin(lo) * PLACE_ONE));
+				const double grid = world.gridHeight(at) / 65536.0; // (blocks, fixed)
+				kind[(size_t)y * N + x] = (uint8_t)(grid <= 0 ? Water::Sea : Water::None);
+				base[(size_t)y * N + x] = grid <= 0 ? -1 : grid;
+				// the cell's channel steepness: its fall to its receiver over the
+				// way, × √ what it drains (in cells)
+				const int32_t c = world.cell(at.dir()), r = g->receiver[c];
+				double gap = 1;
+				const fix *d = sphere.distancesBegin(c);
+				for (const int32_t *p = sphere.neighboursBegin(c); p != sphere.neighboursEnd(c); p++, d++)
+					if (*p == r)
+						gap = *d / (double)sphere.spacing();
+				const double fall = r < 0 ? 0 : std::max(0.0, real(g->filled[c] - std::max<fix>(0, g->filled[r]))) * real(heightScale(code));
+				ks[(size_t)y * N + x] = fall / (gap * cellBlocks) * std::sqrt(std::max(1.0, real((fix)std::min<int64_t>(g->drained[c], INT32_MAX))));
+			}
+		// smooth (the grid's triangles and cells show as facets): three box blurs half a cell wide
+		const auto blur = [&](std::vector<double> &f) {
+			const int r = std::max(1, (int)(cellBlocks / 4 / step));
+			for (int pass = 0; pass < 3; pass++)
+				for (int axis = 0; axis < 2; axis++) {
+					const std::vector<double> was = f;
+					for (int y = 0; y < N; y++)
+						for (int x = 0; x < N; x++) {
+							double sum = 0;
+							int n = 0;
+							for (int o = -r; o <= r; o++) {
+								const int xx = axis ? x : std::clamp(x + o, 0, N - 1), yy = axis ? std::clamp(y + o, 0, N - 1) : y;
+								sum += was[(size_t)yy * N + xx];
+								n++;
+							}
+							f[(size_t)y * N + x] = sum / n;
+						}
+				}
+		};
+		blur(base);
+		blur(ks);
+		h = amplify(base, ks, N, step, cellBlocks, perM, code.seed_hash);
+		for (size_t k = 0; k < h.size(); k++)
+			if (kind[k] != (uint8_t)Water::Sea)
+				wet[k] = -1e9;
+	}
 	std::printf("columns: %.1f µs each (one thread, the region's %d²)\n",
 		std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - started).count() / ((double)N * N), N);
 	hypsometry("region, blocks", h);

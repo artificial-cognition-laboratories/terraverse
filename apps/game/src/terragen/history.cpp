@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "drainage.h"
+#include "erosion.h"
 #include "geology.h"
 #include "grid.h"
 #include "noise.h"
@@ -122,36 +123,15 @@ std::vector<int32_t> spread(const std::vector<int32_t> &sites, const std::vector
 	return out;
 }
 
-// One round of rivers wearing the land (heights relative to the sea).
+// One round of rivers wearing the land (heights relative to the sea). (The
+// plates move the cells between rounds, so creep's crumbs aren't kept.)
 void wear(std::vector<fix> &h)
 {
-	const Sphere &sphere = gridSphere();
-	const size_t n = h.size();
-	const std::vector<fix> surface = fill(h);
-	const std::vector<int32_t> down = receivers(surface);
-	const std::vector<int32_t> order = upstreamOrder(down);
-	const std::vector<int64_t> area = accumulate(down, order, std::vector<fix>(n, ONE));
-	for (int32_t c : order) {
-		const int32_t r = down[c];
-		if (r < 0 || surface[c] > h[c])
-			continue;
-		const fix F = mul(ERODIBILITY, sqrtWide64(area[c]));
-		const fix floor = std::max<fix>(surface[r], 0);
-		h[c] = std::max(div(h[c] + mul(F, floor), ONE + F), floor + 1);
-	}
-	std::vector<fix> moved(n, 0);
-	for (int32_t i = 0; i < (int32_t)n; i++) {
-		if (h[i] < 0)
-			continue;
-		for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++)
-			if (*p > i && h[*p] >= 0) {
-				const fix q = mul(CREEP, h[*p] - h[i]);
-				moved[i] += q;
-				moved[*p] -= q;
-			}
-	}
-	for (size_t i = 0; i < n; i++)
-		h[i] += moved[i];
+	const Routing way = route(h);
+	streamPower(h, way, accumulate(way.receiver, way.order, std::vector<fix>(h.size(), ONE)),
+			std::vector<fix>(h.size(), ERODIBILITY));
+	std::vector<int64_t> crumbs(h.size(), 0);
+	creep(h, CREEP, crumbs);
 }
 
 } // namespace

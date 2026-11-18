@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "amplify.h"
 #include "channels.h"
 #include "code.h"
 #include "fixed.h"
@@ -277,8 +278,7 @@ public:
 	// What the soil is made of here (soil.cpp), and how far a rock at height
 	// `y` blends toward its neighbour (0 .. ROCK_BLENDS − 1).
 	Soil soil(const Place &d, const Ground &ground, const Strata &strata) const;
-	// The slope soil reads here: the drainage's hillside where it's drawn,
-	// else the cover's (blocks per block)
+	// The slope soil reads here (blocks per block)
 	fix soilSlope(const Place &d, const Ground &ground) const;
 	// The soil each grid cell's land mostly has (sprint 111), for maps: from
 	// the grid alone (its height, climate, rock and rivers; no streams below
@@ -343,7 +343,6 @@ private:
 		int arms;              // its distributaries
 	};
 	std::vector<int32_t> m_upstream; // each drawn cell's main stem in: the one draining most into it (−1 none)
-	std::vector<uint8_t> m_sea_cells; // each cell's steps to the sea (0 at sea; capped at 255)
 	// A drawn run's shape, the same for every column that reads it
 	struct RunShape
 	{
@@ -374,7 +373,8 @@ private:
 	void profileRun(int32_t c) const;
 
 	// the soil from what the column says and, if any, the channel nearest (soil.cpp)
-	Soil soilWith(const Place &at, const Ground &ground, const Strata &strata, const Channels::Read *read) const;
+	// (`hillside`: −1 a valley floor .. 1 a ridge, where the drainage below the grid says; null none)
+	Soil soilWith(const Place &at, const Ground &ground, const Strata &strata, const fix *hillside) const;
 	mutable RegionalSoil m_regional_soil;
 	mutable std::once_flag m_regional_soiled;
 
@@ -387,7 +387,8 @@ private:
 	fix m_detail;          // the detail's amplitude at a cell's wavelength, blocks, where ruggedness is 1
 	int m_detail_octaves;  // from a cell's wavelength down to 16 blocks
 	std::optional<Channels> m_channels; // the drainage below the grid, where water ever ran
-	bool m_land = false; // the land from the drainage (sprint 108; TERRAGEN_LAND=noise: the old)
+	// the land below the grid gullied by the erosion filter, where water wears it (sprint 116)
+	std::optional<Amplifier> m_amplifier;
 	Craters m_craters;     // impacts: the grid holds the wide ones, a column finds the rest
 	// the ground at a place before volcanoes and water (blocks): the land
 	// and its detail, the old craters, the maria's lava over them, the young
@@ -424,13 +425,8 @@ private:
 		std::array<fix, 3> warp{}; // the rivers' warp there, in cells
 	};
 	const ChannelsAt &channelsAt(const Place &at) const;
-	// Gullies: the drainage finer than the grid, as erosion leaves it on a
-	// slope (blocks, fixed, about 0); `strength` 0..1 how deeply it's cut
-	fix gullies(const Place &at, fix strength) const;
 	// wind-blown sand: raises `out` by its dunes and makes them sand
 	void dunes(const Place &at, fix surf, int32_t strand, Ground &out) const;
-	// small relief on steep hillsides, blocks (sprint 112)
-	int32_t crags(const Place &at, fix slope) const;
 	// its sinkholes' depth at a place, blocks (karst())
 	int32_t dolines(const Place &at, fix karst) const;
 	// fold ridges at a place (planning/sprint-101-ranges.md)

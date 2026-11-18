@@ -4,6 +4,7 @@
 #include "test.h"
 
 #include <map>
+#include <queue>
 #include <tuple>
 #include "terragen/channels.h"
 #include "terragen/body.h"
@@ -22,6 +23,8 @@
 #include "terragen/grid.h"
 #include "terragen/sphere.h"
 #include "terragen/climate.h"
+#include "terragen/drainage.h"
+#include "terragen/erosion.h"
 #include "matter/grains.h"
 #include "porting.h"
 #include <algorithm>
@@ -55,6 +58,8 @@ public:
 	void testCoordinates();
 	void testLandShareExact();
 	void testWaterDrainsToSea();
+	void testRoute();
+	void testStreamPower();
 	void testWaterFlowsDownhill();
 	void testRiversOnLand();
 	void testLakesAreFlat();
@@ -115,6 +120,8 @@ void TestTerragen::runTests(IGameDef *gamedef)
 	TEST(testCoordinates);
 	TEST(testLandShareExact);
 	TEST(testWaterDrainsToSea);
+	TEST(testRoute);
+	TEST(testStreamPower);
 	TEST(testWaterFlowsDownhill);
 	TEST(testSediment);
 	TEST(testRiversOnLand);
@@ -934,6 +941,102 @@ void TestTerragen::testWaterFlowsDownhill()
 // What the plates push up and rivers wear away is laid down or carried out
 // to the deep sea (creep only moves it): nothing is made or lost, and some
 // of it builds land. Gold and tin settle out below the mountains.
+// Rough land full of pits, a third of it sea: noise at a few scales.
+static std::vector<fix> pittedLand()
+{
+	const Sphere &sphere = gridSphere();
+	std::vector<fix> h(sphere.size());
+	for (int32_t i = 0; i < sphere.size(); i++)
+		h[i] = fbm(sphere.centre(i), 1234, 9, 5, HALF) + ratio(15, 100);
+	return h;
+}
+
+// Cordonnier et al.'s routing (drainage.h): every cell reaches the sea, the
+// order puts each after its receiver, and the lakes stand where a flood from
+// the sea would leave them (a priority-flood without its epsilon).
+void TestTerragen::testRoute()
+{
+	const Sphere &sphere = gridSphere();
+	const std::vector<fix> h = pittedLand();
+	const int32_t n = (int32_t)h.size();
+	const Routing way = route(h);
+	UASSERTEQ(size_t, way.order.size(), (size_t)n);
+	std::vector<int32_t> at(n, -1);
+	for (int32_t k = 0; k < n; k++)
+		at[way.order[k]] = k;
+	int32_t pits = 0, lakes = 0;
+	for (int32_t i = 0; i < n; i++) {
+		const int32_t r = way.receiver[i];
+		UASSERT((r < 0) == (h[i] < 0)); // only the sea ends
+		if (r < 0)
+			continue;
+		UASSERT(at[r] < at[i]);
+		// water's surface never rises downstream
+		UASSERT(way.surface[r] <= way.surface[i]);
+		bool neighbour = false;
+		for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++)
+			neighbour = neighbour || *p == r;
+		UASSERT(neighbour);
+		lakes += way.surface[i] > h[i];
+		bool lower = false;
+		for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++)
+			lower = lower || std::max<fix>(h[*p], 0) < h[i];
+		pits += !lower;
+	}
+	UASSERT(pits > 50 && lakes > pits); // (the land has pits to route, and lakes over them)
+
+	using Entry = std::pair<fix, int32_t>;
+	std::priority_queue<Entry, std::vector<Entry>, std::greater<Entry>> open;
+	std::vector<fix> flooded = h;
+	std::vector<uint8_t> seen(n, 0);
+	for (int32_t i = 0; i < n; i++)
+		if (h[i] < 0) {
+			seen[i] = 1;
+			open.push({ 0, i });
+		}
+	while (!open.empty()) {
+		const auto [level, c] = open.top();
+		open.pop();
+		for (const int32_t *p = sphere.neighboursBegin(c); p != sphere.neighboursEnd(c); p++)
+			if (!seen[*p]) {
+				seen[*p] = 1;
+				flooded[*p] = std::max(h[*p], level);
+				open.push({ flooded[*p], *p });
+			}
+	}
+	for (int32_t i = 0; i < n; i++)
+		if (h[i] >= 0)
+			UASSERTEQ(fix, way.surface[i], flooded[i]);
+}
+
+// Braun & Willett's stream power (erosion.h): land wears toward what it
+// drains to and never below it, nothing under a lake wears, the sea stays,
+// and more water or a softer rock wears faster.
+void TestTerragen::testStreamPower()
+{
+	const std::vector<fix> start = pittedLand();
+	const int32_t n = (int32_t)start.size();
+	const Routing way = route(start);
+	const std::vector<int64_t> area = accumulate(way.receiver, way.order, std::vector<fix>(n, ONE));
+	std::vector<fix> soft = start, hard = start;
+	streamPower(soft, way, area, std::vector<fix>(n, ratio(10, 100)));
+	streamPower(hard, way, area, std::vector<fix>(n, ratio(2, 100)));
+	int64_t soft_worn = 0, hard_worn = 0;
+	for (int32_t i = 0; i < n; i++) {
+		const int32_t r = way.receiver[i];
+		if (r < 0 || way.surface[i] > start[i]) {
+			UASSERTEQ(fix, soft[i], start[i]);
+			continue;
+		}
+		const bool lake = way.surface[r] > start[r];
+		UASSERT(soft[i] <= start[i] && soft[i] >= std::max<fix>(lake ? way.surface[r] : soft[r], 0));
+		UASSERT(hard[i] + 8 >= soft[i]); // (fixed point's rounding, a unit or two down a river: under a millimetre)
+		soft_worn += start[i] - soft[i];
+		hard_worn += start[i] - hard[i];
+	}
+	UASSERT(hard_worn > 0 && soft_worn > hard_worn * 2);
+}
+
 void TestTerragen::testSediment()
 {
 	const Sphere &sphere = gridSphere();
@@ -1949,7 +2052,7 @@ void TestTerragen::testChannels()
 	code.grid_key += "@wide"; // (what the grid's kept by)
 	terragen::World world(code);
 	const std::shared_ptr<const terragen::Grid> grid = terragen::gridFor(code);
-	terragen::Channels channels(code, *grid, world, terragen::World::radiusOf(code), terragen::World::cellBlocksOf(code), false);
+	terragen::Channels channels(code, *grid, world, terragen::World::radiusOf(code), terragen::World::cellBlocksOf(code));
 	UASSERT(channels.levels() >= 4);
 	// every drawn run's water falls downstream, and meets the next where it ends (sprint 107)
 	parallelFor(grid->size(), [&](int32_t c) { world.profile(c); }); // (each run's read once, on every core)

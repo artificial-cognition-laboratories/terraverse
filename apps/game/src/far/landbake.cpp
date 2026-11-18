@@ -15,6 +15,7 @@ using namespace terragen;
 static constexpr int SIDE = 64;        // columns a side
 static constexpr int MOST_PATH = 40;   // cells from the range to the sea: the whole river fits in the view
 static constexpr int BLOCKS = 160;     // of the grid's height unit
+static constexpr int FRAMES = 12;      // the erosion's rounds shown, as many apart (and the start)
 
 static double toDouble(fix v) { return (double)v / ONE; }
 static fix fromDouble(double v) { return (fix)std::lround(v * ONE); }
@@ -30,11 +31,21 @@ Json::Value bakeRiverPatch()
 	const WorldCode code = WorldCode::decode("TF24.dGVycmE");
 	std::vector<std::vector<fix>> land, sediment;
 	std::vector<std::vector<int64_t>> flow;
+	std::vector<std::vector<fix>> every_land, every_sediment;
+	std::vector<std::vector<int64_t>> every_flow;
 	const std::shared_ptr<const Grid> built = watchErosion(code, [&](const ErosionRound &r) {
-		land.push_back(r.land);
-		sediment.push_back(r.sediment);
-		flow.push_back(r.area);
+		every_land.push_back(r.land);
+		every_sediment.push_back(r.sediment);
+		every_flow.push_back(r.area);
 	});
+	// the start and FRAMES rounds evenly through the run, the last among them
+	const size_t rounds = every_land.size() - 1;
+	for (int k = 0; k <= FRAMES; k++) {
+		const size_t r = rounds * k / FRAMES;
+		land.push_back(every_land[r]);
+		sediment.push_back(every_sediment[r]);
+		flow.push_back(every_flow[r]);
+	}
 	const Grid &g = *built;
 	const Sphere &sphere = gridSphere();
 

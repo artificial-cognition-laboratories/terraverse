@@ -266,13 +266,14 @@ Soil soilPoint(uint8_t index)
 
 Soil World::soil(const Place &at, const Ground &ground, const Strata &strata) const
 {
-	// the channel nearest, if the drainage is drawn below the grid
-	return soilWith(at, ground, strata, m_channels ? &channelsAt(at).read : nullptr);
+	// how far up its hillside, if the drainage is drawn below the grid
+	const fix relief = m_channels ? channelsAt(at).read.relief : 0;
+	return soilWith(at, ground, strata, m_channels ? &relief : nullptr);
 }
 
 fix World::soilSlope(const Place &at, const Ground &ground) const
 {
-	return m_channels ? channelsAt(at).read.slope : cover(at, ground).slope;
+	return cover(at, ground).slope;
 }
 
 const World::RegionalSoil &World::regionalSoil() const
@@ -304,7 +305,7 @@ const World::RegionalSoil &World::regionalSoil() const
 	return m_regional_soil;
 }
 
-Soil World::soilWith(const Place &at, const Ground &ground, const Strata &strata, const Channels::Read *read) const
+Soil World::soilWith(const Place &at, const Ground &ground, const Strata &strata, const fix *hillside) const
 {
 	const Column &c = ground.column;
 	const Cover cover = this->cover(at, ground);
@@ -313,8 +314,8 @@ Soil World::soilWith(const Place &at, const Ground &ground, const Strata &strata
 	const int32_t cell = this->cell(at);
 	const fix wobble = noise(at, m_code.seed_hash + SOIL_NOISE, m_code.size / 48); // −1..1
 
-	const fix slope = read ? read->slope : cover.slope;
-	const fix relief = read ? read->relief : 0; // −1 valley floor .. 1 ridge
+	const fix slope = cover.slope;
+	const fix relief = hillside ? *hillside : 0; // −1 valley floor .. 1 ridge
 
 	// how far weathering has gone: the climate's rate, the time it's had
 	const fix celsius = std::max(celsiusOf(c.heat), toFix(-25));
@@ -336,7 +337,7 @@ Soil World::soilWith(const Place &at, const Ground &ground, const Strata &strata
 	// water: what the rivers and lakes laid here, sorted by size. The
 	// nearest water says how wide it is, how far off its line this is, how
 	// high over it, and how steeply it runs: a grid river's (ground()'s) or
-	// a stream's below the grid (the channels'), whichever's bank is nearer
+	// (the streams below the grid are their channels' beds, below)
 	fix laid = 0;
 	fix sorted[GRAIN_BANDS] = {};
 	int64_t width = 0, gap = INT64_MAX, clear = INT64_MAX;
@@ -347,15 +348,8 @@ Soil World::soilWith(const Place &at, const Ground &ground, const Strata &strata
 		clear = (int64_t)(ground.terrain - ground.river_level) << FRAC;
 		grade = ground.river_slope;
 	}
-	const bool in_river = width > 0 && gap <= width / 2; // a grid river's own channel: it's what runs here
-	if (read && read->water_width > 0 && !in_river && (width == 0 || read->water_gap - read->water_width / 2 < gap - width / 2)) {
-		width = read->water_width;
-		gap = read->water_gap;
-		clear = read->clear;
-		grade = read->slope;
-	}
-	const bool lake = ground.kind == Water::Lake || (read && read->pond);
-	const bool channel = ground.kind == Water::River || (read && read->wash) || (width > 0 && gap <= width / 2);
+	const bool lake = ground.kind == Water::Lake;
+	const bool channel = ground.kind == Water::River || (width > 0 && gap <= width / 2);
 	if (channel && width == 0) // a world too small for channels below the grid: the cell's river
 		width = riverWidth((m_grid->drained[cell] * (m_cell_blocks >> FRAC) >> FRAC) * (m_cell_blocks >> FRAC));
 	const Current flow = currentOf(std::max<int64_t>(width, ONE), grade, c.rain, m_radius, m_metre);
@@ -387,17 +381,17 @@ Soil World::soilWith(const Place &at, const Ground &ground, const Strata &strata
 		for (int b = 0; b < GRAIN_BANDS; b++)
 			sorted[b] = lerp(silt[b], clay[b], out_t);
 		laid = ONE;
-	} else if (!read && cover.bank && c.elevation < ratio(15, 100)) {
+	} else if (!hillside && cover.bank && c.elevation < ratio(15, 100)) {
 		// low ground in a river's or lake's cell, with nothing finer to say: its plain, on average
 		deposit(SILT, sorted);
 		laid = HALF;
 	}
-	// till: what the ice dropped, unsorted
-	if (read && read->ice > 0 && laid == 0) {
+	// till: what the ice dropped, unsorted, where glaciers ran
+	if (const fix ice = glacial(cell, (int64_t)ground.terrain << FRAC); ice > 0 && laid == 0) {
 		const fix till[GRAIN_BANDS] = { ratio(15, 100), ratio(20, 100), ratio(30, 100), ratio(25, 100), ratio(10, 100) };
 		for (int b = 0; b < GRAIN_BANDS; b++)
 			sorted[b] = till[b];
-		laid = mul(read->ice, ratio(7, 10));
+		laid = mul(ice, ratio(7, 10));
 	}
 	// and the grid's sediment where nothing finer says (fans, filled lakes, deltas)
 	const fix fan = alluvium(between(m_grid->sediment, at));

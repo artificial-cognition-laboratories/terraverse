@@ -11,7 +11,7 @@ balance over the whole planet at world creation.
 - **Our own erosion, in fixed point,** from the papers, on our icosphere.
   Clients rebuild the land from the code, so it must be identical on every
   machine; fixed point gives that for free, deterministic floating point
-  doesn't. fastscapelib (BSD-3) is the reference we check our results
+  doesn't. fastscapelib (GPL-3, so a reference only, never copied) is the reference we check our results
   against, never a dependency.
 - **Places to the block first** (sprint 87).
 - **Small streams are carved into the block terrain**; finer shaping with

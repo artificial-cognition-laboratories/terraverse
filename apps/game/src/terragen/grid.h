@@ -150,6 +150,6 @@ constexpr fix VEIN_CORE = ratio(1, 2);
 inline fix alluvium(fix sediment) { return clamp(sediment * 16, 0, ONE); }
 
 // Distinct noise streams, so the fields are independent.
-enum Stream : uint32_t { CONTINENT = 0, COAST = 3, RIDGE = 7, HEAT = 13, DETAIL = 41, SOIL_NOISE = 53, BLEND = 59, MEANDER = 71, SHORE = 79, SCOURED = 83, GULLIES = 89, BASINS = 97, RIFTS = 419, ALPINE = 431, RIVER_BEDS = 467, RIVERS_WANDER = 479, PROVINCE_EDGES = 491, BRAIDS = 503, DUNES = 509, RAVINES = 521, CRAGS = 523, LAVA_PLAINS = 541, KARST = 547 };
+enum Stream : uint32_t { CONTINENT = 0, COAST = 3, RIDGE = 7, HEAT = 13, DETAIL = 41, SOIL_NOISE = 53, BLEND = 59, MEANDER = 71, SHORE = 79, SCOURED = 83, GULLIES = 89, BASINS = 97, RIFTS = 419, ALPINE = 431, RIVER_BEDS = 467, PROVINCE_EDGES = 491, BRAIDS = 503, DUNES = 509, RAVINES = 521, CRAGS = 523, LAVA_PLAINS = 541, KARST = 547 }; // (479 was the rivers' wander)
 
 } // namespace terragen
