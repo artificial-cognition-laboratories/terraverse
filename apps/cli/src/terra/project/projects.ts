@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readdirSync, realpathSync, writeFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { err } from "../../errors"
 import { KINDS, detectKind, type ProjectKind } from "./kinds"
@@ -15,13 +15,24 @@ export type ServerProjectT = Omit<ProjectT, "kind" | "server" | "prepare"> & {
     prepare(e?: PrepareInput): Promise<PreparedServer>
 }
 
+/**
+ * A folder by its real name: symlinks followed and, on Windows, 8.3 short names (RUNNER~1)
+ * made long. bun install resolves file: dependencies against the real name, so a project
+ * opened by another name sends it looking somewhere that isn't there. A path that doesn't
+ * exist is left as it is, for the caller to refuse.
+ */
+function real(path: string): string {
+    const absolute = resolve(path)
+    return existsSync(absolute) ? realpathSync.native(absolute) : absolute
+}
+
 /** Projects — finds and opens projects of every kind: which folder, and what kind it is. */
 export function Projects(opts: { bun: string }) {
     const opened = new Map<string, ProjectT>()
 
     /** The project at `root`. */
     function open(root: string): ProjectT {
-        const absolute = resolve(root)
+        const absolute = real(root)
         const kind = detectKind(absolute)
         if (!kind) throw err("PROJECT_NOT_FOUND", { detail: `${absolute} has no package.json and project config` })
         const existing = opened.get(absolute)
@@ -33,7 +44,7 @@ export function Projects(opts: { bun: string }) {
 
     /** The nearest project at or above `from`. */
     function find(from: string): ProjectT {
-        const start = resolve(from)
+        const start = real(from)
         for (let dir = start; ; dir = dirname(dir)) {
             if (detectKind(dir)) return open(dir)
             if (dirname(dir) === dir) throw err("PROJECT_NOT_FOUND", { detail: `nothing at or above ${start}` })

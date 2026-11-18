@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { serverFixture } from "../fixtures"
 
@@ -21,6 +22,17 @@ describe("projects", () => {
     test("the same root is the same project", () => {
         const { root, terra } = serverFixture()
         expect(terra.projects.open(root)).toBe(terra.projects.open(`${root}/.`))
+    })
+
+    test("a project reached by another name opens by its real one", () => {
+        // a symlink here; on Windows the same holds for an 8.3 short name (RUNNER~1), which
+        // bun install resolves file: dependencies against by the long name
+        const { root, terra } = serverFixture()
+        const alias = join(mkdtempSync(join(realpathSync.native(tmpdir()), "terra-alias-")), "server")
+        symlinkSync(root, alias, "junction")
+        expect(terra.projects.open(alias).root).toBe(root)
+        expect(terra.projects.open(alias)).toBe(terra.projects.open(root))
+        expect(terra.projects.find(`${alias}/mods/hello`).root).toBe(join(root, "mods", "hello"))
     })
 })
 
