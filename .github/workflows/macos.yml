@@ -1,7 +1,7 @@
 # macOS on Apple silicon, while it's brought up: run by hand only, never on a push
-# or a tag, and never published. It configures and builds the engine and lists
-# every compile error in the job summary. When it builds, tests and boots, its job
-# moves into release.yml beside Linux and Windows, and this file goes.
+# or a tag, and never published. It configures and builds the engine, lists every
+# compile error in the job summary, then runs the unit tests. When it builds, tests
+# and boots, its job moves into release.yml beside Linux and Windows, and this file goes.
 # The plan: .agents/owners/ci/state.md.
 name: macos
 
@@ -63,7 +63,13 @@ jobs:
         run: |
           set -o pipefail
           cmake --build .output/build -- -k 0 2>&1 | tee build.log
+          bash scripts/stage-runtime.sh
 
       - name: List the errors
         if: failure()
         run: scripts/release/build-errors.sh build.log
+
+      # The same modules as Linux and Windows. TestTerragen is fixed point: any
+      # difference from Linux is a bug, not a platform tolerance.
+      - name: Unit tests
+        run: BUILT=1 bash scripts/test.sh TestOnline TestRelease TestTerragen
