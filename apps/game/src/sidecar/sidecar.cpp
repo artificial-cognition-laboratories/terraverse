@@ -242,8 +242,17 @@ void Sidecar::start()
 {
 	auto process = std::make_unique<Process>();
 	int sv[2];
+#ifdef SOCK_CLOEXEC
 	if (::socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) != 0)
 		throw Error(std::string("socketpair: ") + std::strerror(errno));
+#else
+	// macOS has no SOCK_CLOEXEC: set it just after (a process another thread started in
+	// between could inherit the pair; the engine starts none but this one).
+	if (::socketpair(AF_UNIX, SOCK_STREAM, 0, sv) != 0)
+		throw Error(std::string("socketpair: ") + std::strerror(errno));
+	::fcntl(sv[0], F_SETFD, FD_CLOEXEC);
+	::fcntl(sv[1], F_SETFD, FD_CLOEXEC);
+#endif
 	process->fd = sv[0];
 	// The sidecar's end becomes its fd 3. dup2 onto itself would keep close-on-exec.
 	int child = sv[1];
