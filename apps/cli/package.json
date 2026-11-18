@@ -7,7 +7,7 @@
     "terra": "bin/terra.ts"
   },
   "scripts": {
-    "build": "bun build --compile --minify bin/terra.ts --outfile ../../.output/bin/terra",
+    "build": "mkdir -p ../../.output/bin && bun build --compile --minify bin/terra.ts --outfile ../../.output/bin/terra",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "gen": "bun scripts/ops.ts && bun scripts/globals.ts",
