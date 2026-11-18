@@ -89,7 +89,9 @@ Ship in this order: `terraverse`, `launcher`, `site`.
   `scripts/release/notes/<tag>.md` from the commits since the last tag (see the README there):
   a bold line naming the release, then what a player will notice. Skip internal refactors.
   Commit it.
-- `arc deploy <target>`. This runs the gate again, publishes, and verifies (for terraverse and
+- `arc deploy <target>`, with a shell timeout of at least 60 minutes (or in the background):
+  it builds, tags, and waits on CI, and killing it partway leaves a tag pushed with nobody
+  watching. This runs the gate again, publishes, and verifies (for terraverse and
   launcher, it pushes a tag and waits for GitHub Actions to attach every platform's package).
 - If `release:wait` gives up while CI is still building, run `bun run release:wait` again.
 - **If CI or the deploy fails**: `gh run view <id> --log-failed`, fix it, commit, and ship a new
