@@ -13,6 +13,8 @@
 #include "threading/mutex_auto_lock.h"
 #include "util/timetaker.h"
 #include "util/basic_macros.h"
+#include "trace/trace.h"
+#include <optional>
 
 // Global profiler
 class Profiler;
@@ -121,4 +123,6 @@ private:
 	u64 m_time1;
 	ScopeProfilerType m_type;
 	TimePrecision m_precision;
+	// Terra Firma: every profiled scope is a zone in the debugger's Perf tab too
+	std::optional<trace::Zone> m_zone;
 };

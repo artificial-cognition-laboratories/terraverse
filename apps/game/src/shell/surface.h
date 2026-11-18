@@ -4,6 +4,7 @@
 #pragma once
 
 #include "irrlichttypes.h"
+#include <position2d.h>
 
 namespace video { class IVideoDriver; class ITexture; }
 
@@ -18,7 +19,8 @@ public:
 	explicit Surface(video::IVideoDriver *driver);
 	~Surface();
 
-	void draw(Pixels &pixels);
+	// With its top-left corner here on the screen.
+	void draw(Pixels &pixels, core::position2di at = { 0, 0 });
 
 private:
 	void upload(Pixels &pixels);

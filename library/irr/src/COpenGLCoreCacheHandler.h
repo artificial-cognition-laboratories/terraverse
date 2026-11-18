@@ -482,6 +482,30 @@ public:
 		}
 	}
 
+	// Terra Firma: the screen (framebuffer 0) may be only a part of the window,
+	// this far from its bottom-left corner, so a debugger can sit beside it.
+	void setScreenOffset(GLint x, GLint y)
+	{
+		if (FrameBufferID == 0) {
+			// what's bound now moves with it
+			const GLint vx = ViewportX - ScreenOffsetX + x, vy = ViewportY - ScreenOffsetY + y;
+			GL.Viewport(vx, vy, ViewportWidth, ViewportHeight);
+			ViewportX = vx;
+			ViewportY = vy;
+		}
+		ScreenOffsetX = x;
+		ScreenOffsetY = y;
+	}
+
+	// A position in the bound framebuffer to one GL can draw at.
+	void toWindow(GLint &x, GLint &y) const
+	{
+		if (FrameBufferID == 0) {
+			x += ScreenOffsetX;
+			y += ScreenOffsetY;
+		}
+	}
+
 	// FBO calls.
 
 	void getFBO(GLuint &frameBufferID) const
@@ -539,6 +563,7 @@ public:
 
 	void setViewport(GLint viewportX, GLint viewportY, GLsizei viewportWidth, GLsizei viewportHeight)
 	{
+		toWindow(viewportX, viewportY);
 		if (ViewportX != viewportX || ViewportY != viewportY || ViewportWidth != viewportWidth || ViewportHeight != viewportHeight) {
 			GL.Viewport(viewportX, viewportY, viewportWidth, viewportHeight);
 			ViewportX = viewportX;
@@ -596,6 +621,8 @@ protected:
 
 	GLint ViewportX;
 	GLint ViewportY;
+	GLint ScreenOffsetX = 0;
+	GLint ScreenOffsetY = 0;
 	GLsizei ViewportWidth;
 	GLsizei ViewportHeight;
 };

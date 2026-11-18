@@ -21,6 +21,8 @@
 
 #else
 
+#include "trace/trace.h"
+
 // Copied from Tracy.hpp
 
 #define TracyNoop
@@ -33,8 +35,9 @@
 #define ZoneTransient(x,y)
 #define ZoneTransientN(x,y,z)
 
-#define ZoneScoped
-#define ZoneScopedN(x)
+// Terra Firma: without Tracy, Luanti's annotations are zones in the debugger's recorder
+#define ZoneScoped TF_ZONE(__func__)
+#define ZoneScopedN(x) TF_ZONE(x)
 #define ZoneScopedC(x)
 #define ZoneScopedNC(x,y)
 

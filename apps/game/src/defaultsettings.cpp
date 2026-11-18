@@ -84,6 +84,9 @@ void set_default_settings()
 	// Client
 	settings->setDefault("address", "");
 	settings->setDefault("shell_url", "terra://ui/index.html");
+	// Terra Firma: the debugger beside the game (shell/debugger.h); CSS pixels across
+	settings->setDefault("debugger_dock", "right");
+	settings->setDefault("debugger_size", "420");
 	// TEMP(2026-10-27): new worlds as the debug sphere: no terrain, every
 	// cell painted by its region and seams (sprint 30)
 	settings->setDefault("planet_atlas_debug", "false");
@@ -207,7 +210,7 @@ void set_default_settings()
 #else
 	settings->setDefault("keymap_toggle_update_camera", "");
 #endif
-	settings->setDefault("keymap_toggle_debug", "SYSTEM_SCANCODE_60"); // KEY_F3 (Terra Firma, as Minecraft)
+	settings->setDefault("keymap_toggle_debug", "SYSTEM_SCANCODE_60"); // KEY_F3 (Terra Firma: the debugger, on every screen)
 	settings->setDefault("keymap_toggle_profiler", "SYSTEM_SCANCODE_63"); // KEY_F6
 	settings->setDefault("keymap_camera_mode", "SYSTEM_SCANCODE_6"); // KEY_KEY_C (Terra Firma; with Ctrl while building, copy)
 	settings->setDefault("keymap_camera_yaw_left", "GAMEPAD_AXIS_MINUS_2"); // Right Joystick

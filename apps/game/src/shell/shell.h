@@ -90,6 +90,8 @@ public:
 	Entering &entering();
 
 private:
+	void frameUi();
+
 	struct Impl;
 	std::unique_ptr<Impl> m;
 };

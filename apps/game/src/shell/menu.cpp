@@ -1,6 +1,7 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include "trace/trace.h"
 #include "release/release.h"
 #include "online/http.h"
 #include "settings.h"
@@ -320,12 +321,20 @@ std::optional<Choice> Menu::run(const std::string &error)
 		m_planetarium.pointer(cursor->getPosition());
 		m_planetarium.tick((start - last) / 1000.0); // the universe's clock (the page may stop it, or set it)
 		last = start;
-		m_planetarium.draw(driver); // always shown: the backdrop when no page asks for another
+		{
+			TF_ZONE("Planetarium");
+			m_planetarium.draw(driver); // always shown: the backdrop when no page asks for another
+		}
 		m_shell.frame();
-		driver->endScene();
+		{
+			TF_ZONE("Present"); // the swap: where waiting on the GPU shows
+			driver->endScene();
+		}
 		u64 spent = porting::getTimeMs() - start;
-		if (spent < frame_ms)
+		if (spent < frame_ms) {
+			TF_ZONE("Wait");
 			sleep_ms(frame_ms - spent);
+		}
 	}
 	m_receiver.capture = nullptr;
 	return m_choice;

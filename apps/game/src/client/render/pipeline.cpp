@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2022 x2048, Dmitry Kostenko <codeforsmile@gmail.com>
 
+#include "trace/trace.h"
 #include "pipeline.h"
 #include "client/client.h"
 #include "client/hud.h"
@@ -299,8 +300,11 @@ void RenderPipeline::run(PipelineContext &context)
 	for (auto &object : m_objects)
 		object->reset(context);
 
-	for (auto &step: m_pipeline)
+	// Terra Firma: each step a zone, named by its class (a pipeline nests its own)
+	for (auto &step: m_pipeline) {
+		trace::Zone zone(trace::internType(typeid(*step)));
 		step->run(context);
+	}
 
 	context.target_size = original_size;
 }

@@ -378,6 +378,12 @@ export function MockBridge() {
         "planetarium.time": () => null,
         "planetarium.seams": () => null,
         capture: () => null,
+        "debugger.dock": () => null,
+        "debugger.drag": () => null,
+        "debugger.close": () => null,
+        // the gallery's debugger keeps its own made-up recorder (debugger/perf/mock.ts)
+        "perf.capture": () => ({ names: [], tracks: [] }),
+        "perf.export": () => ({ path: "/home/you/.terraverse/traces/trace.json" }),
         "update.check": () => ({ current: "v0.1.1", latest: "0.1.2", available: true, launcher: false }),
         "worlds.list": () => worlds,
         "worlds.create": ({ name, code, settings }) => {

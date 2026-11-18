@@ -1053,8 +1053,9 @@ void COpenGLDriver::draw2DImage(const video::ITexture *texture, const core::rect
 
 		glEnable(GL_SCISSOR_TEST);
 		const core::dimension2d<u32> &renderTargetSize = getCurrentRenderTargetSize();
-		glScissor(clipRect->UpperLeftCorner.X, renderTargetSize.Height - clipRect->LowerRightCorner.Y,
-				clipRect->getWidth(), clipRect->getHeight());
+		GLint x = clipRect->UpperLeftCorner.X, y = renderTargetSize.Height - clipRect->LowerRightCorner.Y;
+		CacheHandler->toWindow(x, y);
+		glScissor(x, y, clipRect->getWidth(), clipRect->getHeight());
 	}
 
 	Quad2DVertices[0].Color = useColor[0];
@@ -2255,6 +2256,11 @@ bool COpenGLDriver::needsTransparentRenderPass(const video::SMaterial &material)
 
 //! Only used by the internal engine. Used to notify the driver that
 //! the window was resized.
+void COpenGLDriver::setScreenOffset(const core::vector2di &offset)
+{
+	CacheHandler->setScreenOffset(offset.X, offset.Y);
+}
+
 void COpenGLDriver::OnResize(const core::dimension2d<u32> &size)
 {
 	CNullDriver::OnResize(size);
@@ -2574,7 +2580,9 @@ IImage *COpenGLDriver::createScreenShot()
 	if (newImage)
 		pixels = static_cast<u8 *>(newImage->getData());
 	if (pixels) {
-		glReadPixels(0, 0, screenshotSize.Width, screenshotSize.Height, fmt, type, pixels);
+		GLint x = 0, y = 0;
+		CacheHandler->toWindow(x, y);
+		glReadPixels(x, y, screenshotSize.Width, screenshotSize.Height, fmt, type, pixels);
 		testGLError(__LINE__);
 	}
 

@@ -774,8 +774,9 @@ void COpenGL3DriverBase::draw2DImage(const video::ITexture *texture, const core:
 			return;
 
 		GL.Enable(GL_SCISSOR_TEST);
-		GL.Scissor(clipRect->UpperLeftCorner.X, renderTargetSize.Height - clipRect->LowerRightCorner.Y,
-				clipRect->getWidth(), clipRect->getHeight());
+		GLint x = clipRect->UpperLeftCorner.X, y = renderTargetSize.Height - clipRect->LowerRightCorner.Y;
+		CacheHandler->toWindow(x, y);
+		GL.Scissor(x, y, clipRect->getWidth(), clipRect->getHeight());
 	}
 
 	f32 left  = (f32)destRect.UpperLeftCorner.X;
@@ -852,8 +853,9 @@ void COpenGL3DriverBase::draw2DImageBatch(const video::ITexture *texture,
 			return;
 
 		GL.Enable(GL_SCISSOR_TEST);
-		GL.Scissor(clipRect->UpperLeftCorner.X, renderTargetSize.Height - clipRect->LowerRightCorner.Y,
-				clipRect->getWidth(), clipRect->getHeight());
+		GLint x = clipRect->UpperLeftCorner.X, y = renderTargetSize.Height - clipRect->LowerRightCorner.Y;
+		CacheHandler->toWindow(x, y);
+		GL.Scissor(x, y, clipRect->getWidth(), clipRect->getHeight());
 	}
 
 	const u32 drawCount = core::min_<u32>(positions.size(), sourceRects.size());
@@ -1575,6 +1577,11 @@ void COpenGL3DriverBase::OnResize(const core::dimension2d<u32> &size)
 	Transformation3DChanged = true;
 }
 
+void COpenGL3DriverBase::setScreenOffset(const core::vector2di &offset)
+{
+	CacheHandler->setScreenOffset(offset.X, offset.Y);
+}
+
 //! Returns type of video driver
 E_DRIVER_TYPE COpenGL3DriverBase::getDriverType() const
 {
@@ -1831,7 +1838,9 @@ IImage *COpenGL3DriverBase::createScreenShot()
 		return 0;
 	}
 
-	GL.ReadPixels(0, 0, screenshotSize.Width, screenshotSize.Height, internalformat, type, pixels);
+	GLint x = 0, y = 0;
+	CacheHandler->toWindow(x, y);
+	GL.ReadPixels(x, y, screenshotSize.Width, screenshotSize.Height, internalformat, type, pixels);
 	if (TEST_GL_ERROR(this)) {
 		newImage->drop();
 		return 0;

@@ -9,6 +9,7 @@
 #include "porting.h"
 #include "exceptions.h"
 #include "filesys.h"
+#include "trace/trace.h"
 
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -188,6 +189,7 @@ void Logger::registerThread(std::string_view name)
 	std::thread::id id = std::this_thread::get_id();
 	MutexAutoLock lock(m_mutex);
 	m_thread_names[id] = name;
+	trace::nameThread(name); // Terra Firma: the debugger's tracks are named as the log's
 }
 
 void Logger::deregisterThread()

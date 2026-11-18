@@ -8,6 +8,7 @@
 #include "app.h"
 #include "bridge.h"
 #include "client.h"
+#include "debugger.h"
 #include "entering.h"
 #include "ime.h"
 #include "options.h"
@@ -21,6 +22,8 @@
 #include "filesys.h"
 #include "log.h"
 #include "settings.h"
+#include "client/keycode.h"
+#include "trace/trace.h"
 #include <IVideoDriver.h>
 #include <json/json.h>
 #include <cctype>
@@ -79,6 +82,10 @@ struct Shell::Impl
 	CefRefPtr<CefBrowser> browser;
 	std::unique_ptr<Planetarium> planetarium; // its verbs come off before the rest goes
 	std::unique_ptr<Entering> entering;
+	std::unique_ptr<Debugger> debugger;
+	// The window, and the game's part of it (the driver's screen) beside the debugger.
+	core::dimension2du window, screen;
+	core::vector2di offset;
 
 	// Page state, as far as the engine knows it. Reset on every navigation:
 	// a reloaded page has to announce itself again before it is spoken to.
@@ -97,6 +104,7 @@ struct Shell::Impl
 	{
 		auto size = o.driver->getScreenSize();
 		viewport = { size.Width, size.Height, o.scale };
+		window = screen = size;
 	}
 
 	void sendMode()
@@ -266,6 +274,8 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(opts))
 	});
 	m->planetarium = std::make_unique<Planetarium>(Planetarium::Opts{ *this });
 	m->entering = std::make_unique<Entering>(Entering::Opts{ *this, opts.driver, opts.cursor });
+	m->debugger = std::make_unique<Debugger>(Debugger::Opts{ opts.driver, opts.cursor, opts.url, opts.scale,
+			[this](bool on) { m->ime.capture(on); } });
 	m->router = CefMessageRouterBrowserSide::Create(routerConfig());
 	m->router->AddHandler(&m->bridge, true);
 	m->client = new Client(m->pixels, m->viewport, m->router, [this] { m->onNavigate(); });
@@ -289,6 +299,7 @@ Shell::~Shell()
 {
 	g_shell = nullptr;
 	m->planetarium.reset();
+	m->debugger.reset(); // its page closes while Chromium is still up
 
 	m->browser->GetHost()->CloseBrowser(true);
 	while (!m->client->closed())
@@ -305,11 +316,38 @@ Shell::~Shell()
 
 void Shell::frame()
 {
-	CefDoMessageLoopWork();
+	{
+		TF_ZONE("UI");
+		frameUi();
+	}
+	// every screen's frame ends here: menu, loading and game alike
+	trace::frame();
+}
+
+void Shell::frameUi()
+{
+	{
+		TF_ZONE("Chromium");
+		CefDoMessageLoopWork();
+	}
 	m->account->step();
 	m->social->step();
 
-	auto size = m->opts.driver->getScreenSize();
+	// The device tells the driver when the window changes; any other size it
+	// holds is the screen set here, the game's part of the window.
+	video::IVideoDriver *driver = m->opts.driver;
+	if (driver->getScreenSize() != m->screen)
+		m->window = driver->getScreenSize();
+	const core::dimension2du screen = m->debugger->screen(m->window);
+	const core::vector2di offset = m->debugger->offset(m->window);
+	if (screen != driver->getScreenSize())
+		driver->OnResize(screen);
+	if (offset != m->offset)
+		driver->setScreenOffset(offset);
+	m->screen = screen;
+	m->offset = offset;
+
+	auto size = driver->getScreenSize();
 	if (size.Width != m->viewport.width || size.Height != m->viewport.height) {
 		m->viewport.width = size.Width;
 		m->viewport.height = size.Height;
@@ -319,10 +357,30 @@ void Shell::frame()
 	if (m->underlayDraw)
 		m->underlayDraw(m->opts.driver);
 	m->surface.draw(m->pixels);
+
+	if (m->debugger->open()) {
+		TF_ZONE("Debugger");
+		// the whole window for it, then the game's part back for the next frame
+		driver->setScreenOffset({ 0, 0 });
+		driver->OnResize(m->window);
+		m->debugger->draw(m->window);
+		driver->OnResize(screen);
+		driver->setScreenOffset(offset);
+	}
 }
 
 bool Shell::onEvent(const SEvent &event)
 {
+	// The debugger's key works on every screen, typing or not, as a browser's devtools do.
+	if (event.EventType == EET_KEY_INPUT_EVENT &&
+			keySettingHasMatch("keymap_toggle_debug", KeyPress(event.KeyInput))) {
+		if (event.KeyInput.PressedDown)
+			m->debugger->toggle();
+		return true;
+	}
+	if (m->debugger->onEvent(event, m->window))
+		return true;
+
 	const bool took = m->input.handle(event, m->browser->GetHost(), m->keyboard);
 	if (!m->underlayMouse || event.EventType != EET_MOUSE_INPUT_EVENT)
 		return took;

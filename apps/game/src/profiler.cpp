@@ -52,6 +52,7 @@ ScopeProfiler::ScopeProfiler(Profiler *profiler, const std::string &name,
 	m_profiler(profiler),
 	m_name(name), m_type(type), m_precision(prec)
 {
+	m_zone.emplace(trace::intern(name));
 	m_name.append(" [").append(TimePrecision_units[prec]).append("]");
 	m_time1 = porting::getTime(prec);
 }
@@ -60,6 +61,7 @@ void ScopeProfiler::stop() noexcept
 {
 	if (!m_profiler)
 		return;
+	m_zone.reset();
 
 	float duration = porting::getTime(m_precision) - m_time1;
 

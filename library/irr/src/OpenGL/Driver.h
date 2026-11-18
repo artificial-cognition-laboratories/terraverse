@@ -139,6 +139,7 @@ public:
 
 	//! Only used internally by the engine
 	void OnResize(const core::dimension2d<u32> &size) override;
+	void setScreenOffset(const core::vector2di &offset) override;
 
 	//! Returns type of video driver
 	E_DRIVER_TYPE getDriverType() const override;

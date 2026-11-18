@@ -1,6 +1,7 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include "trace/trace.h"
 #include "surface.h"
 #include "pixels.h"
 #include "exceptions.h"
@@ -19,7 +20,7 @@ Surface::~Surface()
 		m_driver->removeTexture(m_texture);
 }
 
-void Surface::draw(Pixels &pixels)
+void Surface::draw(Pixels &pixels, core::position2di at)
 {
 	if (pixels.dirty)
 		upload(pixels);
@@ -28,11 +29,12 @@ void Surface::draw(Pixels &pixels)
 
 	core::dimension2du size = m_texture->getOriginalSize();
 	core::rect<s32> rect(0, 0, size.Width, size.Height);
-	m_driver->draw2DImage(m_texture, rect, rect, nullptr, nullptr, true);
+	m_driver->draw2DImage(m_texture, rect + at, rect, nullptr, nullptr, true);
 }
 
 void Surface::upload(Pixels &pixels)
 {
+	TF_ZONE("Page upload");
 	core::dimension2du size(pixels.width, pixels.height);
 	if (m_texture && m_texture->getOriginalSize() != size) {
 		m_driver->removeTexture(m_texture);

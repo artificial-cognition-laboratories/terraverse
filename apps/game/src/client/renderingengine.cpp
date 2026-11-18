@@ -5,6 +5,7 @@
 
 #include <optional>
 #include <irrlicht.h>
+#include "trace/trace.h"
 #include "IMeshCache.h"
 #include "fontengine.h"
 #include "client.h"
@@ -317,6 +318,7 @@ void RenderingEngine::draw_load_screen(const std::wstring &text,
 			auto *driver = get_video_driver();
 			driver->beginScene(true, true, video::SColor(255, 12, 14, 12));
 			g_shell->frame();
+			TF_ZONE("Present");
 			driver->endScene();
 		}
 		return;
@@ -414,7 +416,10 @@ void RenderingEngine::draw_load_screen(const std::wstring &text,
 	if (g_shell)
 		g_shell->frame();
 #endif
-	driver->endScene();
+	{
+		TF_ZONE("Present");
+		driver->endScene();
+	}
 	guitext->remove();
 	if (gui_bottom_text)
 		gui_bottom_text->remove();

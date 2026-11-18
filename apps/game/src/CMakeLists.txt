@@ -538,6 +538,7 @@ add_subdirectory(workshop)
 add_subdirectory(physics)
 add_subdirectory(planetarium)
 add_subdirectory(matter)
+add_subdirectory(trace)
 add_subdirectory(fluid)
 add_subdirectory(orbit)
 add_subdirectory(weather)
@@ -661,6 +662,7 @@ set(common_SRCS
 	${workshop_SRCS}
 	${physics_SRCS}
 	${matter_SRCS}
+	${trace_SRCS}
 	${fluid_SRCS}
 	${orbit_SRCS}
 	${weather_SRCS}

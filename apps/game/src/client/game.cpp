@@ -577,7 +577,10 @@ void Game::run()
 		// Calculate dtime =
 		//    m_rendering_engine->run() from this iteration
 		//  + Sleep time until the wanted FPS are reached
-		draw_times.limit(device, &dtime);
+		{
+			TF_ZONE("Wait"); // the frame cap, and the driver's vsync
+			draw_times.limit(device, &dtime);
+		}
 
 		framemarker.start();
 
@@ -617,7 +620,10 @@ void Game::run()
 		// since it's invisible to the user. But it needs to be consistent.
 		updateCameraOffset();
 
-		processUserInput(dtime);
+		{
+			TF_ZONE("Input");
+			processUserInput(dtime);
+		}
 		// Terra Firma: carried over a planet's edge, the view turns with the ground
 		if (const f32 turn = client->getEnv().getLocalPlayer()->takePlanetTurn()) {
 			cam_view_target.camera_yaw += turn;
@@ -647,14 +653,20 @@ void Game::run()
 		if (m_is_paused)
 			dtime = 0.0f;
 
-		step(dtime);
+		{
+			TF_ZONE("Step");
+			step(dtime);
+		}
 
 		processClientEvents(&cam_view_target);
 		updateDebugState();
 		// Update camera here so it is in-sync with CAO position
 		updateCamera(dtime);
 		updateSound(dtime);
-		processPlayerInteraction(dtime, m_game_ui->m_flags.show_hud);
+		{
+			TF_ZONE("Interaction");
+			processPlayerInteraction(dtime, m_game_ui->m_flags.show_hud);
+		}
 		{
 			ScopeProfiler timed(g_profiler, "Update frame [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
 			updateFrame(&graph, &stats, dtime, cam_view);
@@ -6621,7 +6633,10 @@ void Game::drawScene(ProfilerGraph *graph, RunStats *stats)
 	// Must be called immediately before endScene() to capture the rendered frame
 	this->client->takeScreenshotIfRequested();
 
-	this->driver->endScene();
+	{
+		TF_ZONE("Present"); // the swap: where waiting on the GPU shows
+		this->driver->endScene();
+	}
 
 	stats->drawtime = tt_draw.stop(true);
 	g_profiler->graphAdd("Draw scene [us]", stats->drawtime);
@@ -6690,6 +6705,7 @@ void Game::readSettings()
  extern function for launching the game
  ****************************************************************************/
 /****************************************************************************/
+
 
 void the_game(volatile std::sig_atomic_t *kill,
 		InputHandler *input,

@@ -1,6 +1,7 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include "trace/trace.h"
 #include "shell/entering.h"
 #include "shell/planetarium.h"
 #include "shell/shell.h"
@@ -108,8 +109,12 @@ void Entering::frame()
 	planet.pointer(m_opts.cursor->getPosition());
 	planet.tick(std::min(t - m_last, 0.25)); // (a long step, a blocking one, isn't a jump)
 	m_last = t;
-	planet.draw(driver);
+	{
+		TF_ZONE("Planetarium");
+		planet.draw(driver);
+	}
 	m_opts.shell.frame();
+	TF_ZONE("Present");
 	driver->endScene();
 }
 

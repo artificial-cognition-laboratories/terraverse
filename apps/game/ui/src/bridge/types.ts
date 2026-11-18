@@ -559,8 +559,33 @@ export type PlanetariumMessage =
     | { kind: "planetarium"; event: "making"; loading: Loading | null }
 
 /** Engine → UI */
+/** Where the debugger sits beside the game. */
+export type DockSide = "right" | "bottom"
+export type LogLevel = "error" | "warning" | "action" | "info" | "verbose"
+/** One line of the engine's log. `seq` counts from the engine's start; `time` is ms since the epoch. */
+export type LogLine = { seq: number; time: number; level: LogLevel; thread: string; text: string }
+/**
+ * One frame, from the recorder (trace/trace.h). Times are ms since the engine
+ * started. `threads` is each thread's time in each zone it closed during the
+ * frame, by name, nested ones included (a zone's time is in its parent's too).
+ */
+export type PerfFrame = { id: number; start: number; end: number; threads: Record<string, Record<string, number>> }
+/**
+ * Every thread's zones over a range, whole. `spans` is flat, four numbers a
+ * zone: name (an index into names), depth, start ms, end ms. `since` is the
+ * oldest zone the thread still had; before it, its ring had moved on. Every
+ * thread is listed, idle ones too.
+ */
+export type PerfCapture = { names: string[]; tracks: { thread: string; since: number; spans: number[] }[] }
+
 export type EngineMessage =
     | { kind: "mode"; mode: Mode }
+    /** The debugger's page only: the side it's docked on, sent when ready and on every change. */
+    | { kind: "debugger.dock"; side: DockSide }
+    /** The debugger's page only: what the engine has logged since it last sent (all it kept, to a fresh page). */
+    | { kind: "debugger.log"; lines: LogLine[] }
+    /** The debugger's page only: frames ended since the last, ~10 times a second (all kept, to a fresh page). */
+    | { kind: "perf.frames"; frames: PerfFrame[] }
     /** How far the world being entered has got, by stage; null once it's there (or it never got there). */
     | { kind: "entering"; loading: Loading | null }
     | { kind: "error"; message: string }
@@ -576,6 +601,15 @@ export type EngineMessage =
 export type Intents = {
     ready: { request: {}; response: null }
     capture: { request: { keyboard: boolean }; response: null }
+    /** The debugger's page only (debugger.html), from here to debugger.close. */
+    "debugger.dock": { request: { side: DockSide }; response: null }
+    /** Its edge is held: the engine sizes it by the mouse until the button comes up. */
+    "debugger.drag": { request: {}; response: null }
+    "debugger.close": { request: {}; response: null }
+    /** Every thread's zones over [from, to] ms, whole: what the recorder still has of them. Answered off the game's thread. */
+    "perf.capture": { request: { from: number; to: number }; response: PerfCapture }
+    /** Everything the recorder has, written as a Chrome trace (Perfetto, chrome://tracing). */
+    "perf.export": { request: {}; response: { path: string } }
     "update.check": { request: {}; response: UpdateCheck }
     "worlds.list": { request: {}; response: World[] }
     "worlds.pin": { request: { path: string; pinned: boolean }; response: null }

@@ -175,6 +175,7 @@ public:
 	//! Only used by the internal engine. Used to notify the driver that
 	//! the window was resized.
 	void OnResize(const core::dimension2d<u32> &size) override;
+	void setScreenOffset(const core::vector2di &offset) override;
 
 	//! Returns type of video driver
 	E_DRIVER_TYPE getDriverType() const override;

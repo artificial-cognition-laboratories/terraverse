@@ -8,7 +8,11 @@ const gaia = fileURLToPath(new URL("../../../assets/music/if-gaia-was-one-of-us-
 // Relative base so the built app loads from file:// inside the engine.
 export default defineConfig({
     base: "./",
-    build: { outDir: "../../../.output/ui/dist", emptyOutDir: true },
+    // Two pages in the engine: the game's, and the debugger's beside it (shell/debugger.h).
+    build: {
+        outDir: "../../../.output/ui/dist", emptyOutDir: true,
+        rollupOptions: { input: { index: "index.html", debugger: "debugger.html" } },
+    },
     plugins: [vue(), {
         name: "local-menu-music",
         configureServer(server) {

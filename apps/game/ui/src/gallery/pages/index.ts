@@ -3,6 +3,7 @@ import Account from "./Account.vue"
 import Controls from "./Controls.vue"
 import Create from "./Create.vue"
 import Creative from "./Creative.vue"
+import Debugger from "./Debugger.vue"
 import Hud from "./Hud.vue"
 import Inventory from "./Inventory.vue"
 import Making from "./Making.vue"
@@ -22,6 +23,7 @@ export const PAGES = [
     { id: "create", label: "Create", component: Create },
     { id: "account", label: "Account", component: Account },
     { id: "screens", label: "Screens", component: Screens },
+    { id: "debugger", label: "Debugger", component: Debugger },
 ] as const satisfies readonly { id: string; label: string; component: Component }[]
 
 export type PageId = (typeof PAGES)[number]["id"]
