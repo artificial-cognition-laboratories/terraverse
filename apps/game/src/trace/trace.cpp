@@ -9,8 +9,10 @@
 #include <mutex>
 #include <unordered_map>
 #include <typeindex>
-#include <cxxabi.h>
 #include <cstdlib>
+#ifndef _MSC_VER
+#include <cxxabi.h>
+#endif
 
 namespace trace {
 
@@ -166,10 +168,18 @@ u32 internType(const std::type_info &type)
 	thread_local std::unordered_map<std::type_index, u32> cache;
 	if (auto it = cache.find(type); it != cache.end())
 		return it->second;
+#ifdef _MSC_VER
+	// MSVC's ABI names types readably already: "class shell::Menu"
+	std::string name = type.name();
+	for (const char *kind : { "class ", "struct " })
+		if (name.rfind(kind, 0) == 0)
+			name = name.substr(std::char_traits<char>::length(kind));
+#else
 	int status = 0;
 	char *plain = abi::__cxa_demangle(type.name(), nullptr, nullptr, &status);
 	std::string name = status == 0 && plain ? plain : type.name();
 	std::free(plain);
+#endif
 	// a class's own name reads as a zone; its namespaces don't
 	if (const size_t colon = name.rfind("::"); colon != std::string::npos)
 		name = name.substr(colon + 2);
