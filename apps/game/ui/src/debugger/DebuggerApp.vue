@@ -13,7 +13,7 @@ import { PerfStore } from "./perf/store.ts"
 const bridge = useBridge()
 const side = ref<DockSide | null>(null)
 const log = TableFeed<LogLine>({ key: (line) => String(line.seq), max: 20_000 })
-const perf = PerfStore({ zones: (from, to, px) => bridge.send("perf.zones", { from: from, to: to, px: px }) })
+const perf = PerfStore({ capture: (from, to) => bridge.send("perf.capture", { from: from, to: to }) })
 const exportTrace = async () => (await bridge.send("perf.export", {})).path
 const off = bridge.on((message) => {
     if (message.kind === "debugger.dock") side.value = message.side

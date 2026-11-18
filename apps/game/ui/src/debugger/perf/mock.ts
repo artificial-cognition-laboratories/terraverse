@@ -1,4 +1,4 @@
-import type { PerfFrame, PerfZones } from "../../bridge/index.ts"
+import type { PerfCapture, PerfFrame } from "../../bridge/index.ts"
 
 /**
  * A recorder's output for the gallery: frames and zones made up the same way
@@ -46,27 +46,38 @@ function layout(id: number, start: number) {
 
 export function mockFrame(id: number, start: number): PerfFrame {
     const { spans, end } = layout(id, start)
-    const parts: Record<string, number> = {}
-    for (const [name, , a, b] of spans) parts[name] = (parts[name] ?? 0) + (b - a)
-    return { id: id, start: start, end: end, parts: parts }
+    const main: Record<string, number> = {}
+    for (const [name, , a, b] of spans) main[name] = (main[name] ?? 0) + (b - a)
+    const threads: PerfFrame["threads"] = {
+        Main: main,
+        Server: { "Server::AsyncRunStep": 3, "ServerEnv: Run SAO::step": 1.1 * (0.8 + wobble(id, 3) * 0.4), Receive: 11 },
+    }
+    if (id % 3 === 0) threads.MeshUpdate = { "Client: Mesh making (sum)": 7 * (0.7 + wobble(id, 5) * 0.6) }
+    if (id % 3 === 1) threads["MeshUpdate 2"] = { "Client: Mesh making (sum)": 6 * (0.7 + wobble(id, 6) * 0.6) }
+    return { id: id, start: start, end: end, threads: threads }
 }
 
-export function mockZones(frames: readonly PerfFrame[], from: number, to: number): PerfZones {
+export function mockCapture(frames: readonly PerfFrame[], from: number, to: number): PerfCapture {
     const names: string[] = []
     const index = (name: string) => {
         const i = names.indexOf(name)
         return i >= 0 ? i : names.push(name) - 1
     }
-    const since = (frames[Math.max(0, frames.length - 600)]?.start ?? 0) // the engine keeps ~10 s
-    const main: PerfZones["tracks"][number] = { thread: "Main", since: since, spans: [] }
-    const server: PerfZones["tracks"][number] = { thread: "Server", since: since, spans: [] }
-    const mesh: PerfZones["tracks"][number] = { thread: "MeshUpdateWorker1", since: since, spans: [] }
+    const since = frames[Math.max(0, frames.length - 600)]?.start ?? 0 // the engine keeps ~10 s
+    const track = (thread: string) => ({ thread: thread, since: since, spans: [] as number[] })
+    const main = track("Main")
+    const server = track("Server")
+    const mesh = track("MeshUpdate")
+    const mesh2 = track("MeshUpdate 2")
+    const emerge = track("Emerge-0") // idle here: its rail stays
     for (const f of frames) {
         if (f.end < from || f.start > to || f.start < since) continue
-        for (const [name, depth, a, b] of layout(f.id, f.start).spans) main.spans.push([index(name), depth, a, b])
-        server.spans.push([index("Server::AsyncRunStep"), 0, f.start + 1, f.start + 4])
-        server.spans.push([index("ServerEnv: Run SAO::step"), 1, f.start + 1.5, f.start + 2.6])
-        if (f.id % 3 === 0) mesh.spans.push([index("Client: Mesh making (sum)"), 0, f.start + 2, f.start + 9])
+        for (const [name, depth, a, b] of layout(f.id, f.start).spans) main.spans.push(index(name), depth, a, b)
+        server.spans.push(index("Server::AsyncRunStep"), 0, f.start + 1, f.start + 4)
+        server.spans.push(index("ServerEnv: Run SAO::step"), 1, f.start + 1.5, f.start + 2.6)
+        server.spans.push(index("Receive"), 0, f.start + 4.2, f.start + 15)
+        if (f.id % 3 === 0) mesh.spans.push(index("Client: Mesh making (sum)"), 0, f.start + 2, f.start + 9)
+        if (f.id % 3 === 1) mesh2.spans.push(index("Client: Mesh making (sum)"), 0, f.start + 3, f.start + 9)
     }
-    return { names: names, tracks: [main, server, mesh].filter((t) => t.spans.length) }
+    return { names: names, tracks: [main, server, mesh, mesh2, emerge] }
 }

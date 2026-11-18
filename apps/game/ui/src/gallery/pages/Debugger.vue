@@ -2,7 +2,7 @@
 import { onUnmounted, ref } from "vue"
 import type { DockSide, LogLevel, LogLine } from "../../bridge/index.ts"
 import { TableFeed } from "../../table/feed.ts"
-import { mockFrame, mockZones } from "../../debugger/perf/mock.ts"
+import { mockCapture, mockFrame } from "../../debugger/perf/mock.ts"
 import { PerfStore } from "../../debugger/perf/store.ts"
 import DebuggerPanel from "../../debugger/DebuggerPanel.vue"
 import Specimen from "../Specimen.vue"
@@ -30,7 +30,7 @@ log.append(Array.from({ length: 400 }, line))
 const ticking = setInterval(() => log.append([line()]), 700)
 
 // Frames as the recorder streams them, ten times a second.
-const perf = PerfStore({ zones: async (from, to) => mockZones(perf.frames.value, from, to) })
+const perf = PerfStore({ capture: async (from, to) => mockCapture(perf.frames.value, from, to) })
 let frameId = 0
 let clock = 0
 const frames = (n: number) => Array.from({ length: n }, () => {

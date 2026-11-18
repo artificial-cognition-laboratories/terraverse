@@ -1,8 +1,7 @@
 <script setup lang="ts">
 /**
- * Every frame the page has, always, in a strip above the flame graph: frame
- * time as a line, and the chosen zones' time per frame as thinner lines
- * behind it, under the 60 and 30 fps budgets. The bright window is what the
+ * Every frame of the capture, always, in a strip above the flame graph: frame
+ * time as a line (and any other lines asked for), under the 60 and 30 fps budgets. The bright window is what the
  * graph below shows. Ported from Axon Fleet's minimap: it never zooms, only
  * the window moves; drag it, drag its edges, or click to jump there.
  *
@@ -17,7 +16,7 @@ import type { Window } from "./view.ts"
 export type Line = { name: string; color: string; value: (frame: PerfFrame) => number; bold?: boolean }
 
 const props = defineProps<{ frames: readonly PerfFrame[]; bounds: Window; window: Window; lines: readonly Line[] }>()
-const emit = defineEmits<{ show: [startMs: number, endMs: number] }>()
+const emit = defineEmits<{ show: [startMs: number, endMs: number]; zoom: [scale: number, anchor: number] }>()
 
 const HEIGHT = 72
 const HANDLE_PX = 5
@@ -204,6 +203,14 @@ function onMouseMove(event: MouseEvent) {
 
 const onMouseUp = () => (drag = null)
 
+// The wheel zooms the window about the time under the pointer, as over the graph.
+function onWheel(event: WheelEvent) {
+    const ms = toMs(localX(event))
+    const span = props.window.endMs - props.window.startMs
+    const anchor = Math.min(1, Math.max(0, (ms - props.window.startMs) / span))
+    emit("zoom", Math.exp(event.deltaY * 0.0015), anchor)
+}
+
 onMounted(() => {
     const parent = canvas.value?.parentElement
     if (!parent) throw new Error("perf: the minimap isn't mounted")
@@ -227,7 +234,7 @@ onUnmounted(() => {
 
 <template>
     <div class="minimap" :style="{ height: `${HEIGHT}px` }">
-        <canvas ref="canvas" @mousedown.left="onMouseDown" />
+        <canvas ref="canvas" @mousedown.left="onMouseDown" @wheel.prevent="onWheel" />
     </div>
 </template>
 
