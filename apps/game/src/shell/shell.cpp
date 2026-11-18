@@ -146,7 +146,18 @@ struct Shell::Impl
 	}
 };
 
-Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(opts))
+// On macOS, CEF's functions exist only once its framework is loaded from the app bundle
+// (CefScopedLibraryLoader), and the bundle isn't built yet: any CEF call would crash, so
+// the shell refuses before making one. The engine runs without it (tests, --server).
+static const Shell::Opts &wired(const Shell::Opts &opts)
+{
+#ifdef __APPLE__
+	throw BaseException("shell: not wired on macOS yet (it needs the app bundle and CEF's loader)");
+#endif
+	return opts;
+}
+
+Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(wired(opts)))
 {
 	CefSettings settings;
 	settings.windowless_rendering_enabled = true;

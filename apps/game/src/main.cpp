@@ -163,8 +163,9 @@ static void keepTerrainGrids()
 
 int main(int argc, char *argv[])
 {
-#if CHECK_CLIENT_BUILD() && USE_SHELL
-	// Chromium's renderer and GPU helpers are this same executable.
+#if CHECK_CLIENT_BUILD() && USE_SHELL && !defined(__APPLE__)
+	// Chromium's renderer and GPU helpers are this same executable. (On macOS they're
+	// their own executables in the app bundle, which isn't wired yet: shell.cpp.)
 	if (int code = shell::runHelper(argc, argv); code >= 0)
 		return code;
 #endif
