@@ -42,7 +42,14 @@ public:
 		w = (w & ~(uint64_t(0xFFFF) << (at % 64))) | uint64_t(row) << (at % 64);
 	}
 	bool empty() const;
-	size_t count() const;
+	// (inline: the wiki check builds melt.cpp without the engine's shape.cpp)
+	size_t count() const
+	{
+		size_t n = 0;
+		for (const uint64_t w : m_words)
+			n += (size_t)__builtin_popcountll(w);
+		return n;
+	}
 	bool isWhole() const;
 	// At least half of it is there.
 	bool half() const { return count() * 2 >= CELLS; }

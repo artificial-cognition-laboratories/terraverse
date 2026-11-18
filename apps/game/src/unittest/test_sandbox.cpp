@@ -44,6 +44,13 @@ public:
 	void testPitOverflows();
 	void testSoilHoldsWater();
 	void testRiverKeepsFull();
+	void testViscosity();
+	void testThickPour();
+	void testPlumeRises();
+	void testPressureEvens();
+	void testFlameFront();
+	void testTooLeanToBurn();
+	void testFrontLimits();
 };
 
 static TestSandbox g_test_instance;
@@ -97,6 +104,13 @@ void TestSandbox::runTests(IGameDef *gamedef)
 	TEST(testPitFills);
 	TEST(testPitOverflows);
 	TEST(testSoilHoldsWater);
+	TEST(testViscosity);
+	TEST(testThickPour);
+	TEST(testPlumeRises);
+	TEST(testPressureEvens);
+	TEST(testFlameFront);
+	TEST(testTooLeanToBurn);
+	TEST(testFrontLimits);
 }
 
 void TestSandbox::testRejects()
@@ -347,6 +361,7 @@ double peak(Plot &m, double seconds)
 void TestSandbox::testWorldFire()
 {
 	Plot m;
+	m.floor(8); // ground round it: what it gives off and rains back lands (off a bare hole it falls for ever)
 	m.hole("granite");
 	m.nodes[{ 0, 0, 0 }] = "log";
 	m.matter->heat({ 0, 0, 0 }, 900);
@@ -355,23 +370,28 @@ void TestSandbox::testWorldFire()
 			<< "; " << m.matter->awakeCount() << " blocks awake" << std::endl;
 	UASSERT(hottest > 1000);                   // a flame over it
 	UASSERT(m.matter->awakeCount() > 1);       // and warmed the ground around it
-	// buried with no air, the same log only chars
+	// buried with no air, or on a body with none (sprint 96: the Moon), the
+	// same log only chars: its charcoal stays. (Sprint 117: told by what's
+	// left, not by how hot it got: wood charring gives off heat of its own,
+	// so a buried log runs as hot as an open fire's steady burn, and only the
+	// first moments of the lighting ever told them apart)
 	Plot buried;
+	buried.floor(8);
 	buried.hole("granite");
 	buried.nodes[{ 0, 1, 0 }] = "granite";
 	buried.nodes[{ 0, 0, 0 }] = "log";
 	buried.matter->heat({ 0, 0, 0 }, 900);
-	double smothered = peak(buried, 900);
-	infostream << "world: buried, it peaked at " << smothered << " K" << std::endl;
-	UASSERT(smothered < hottest - 100);
-	// on a body with no air (sprint 96: the Moon), lit in the open, it only chars
+	peak(buried, 900);
 	Plot airless({ { 0, 1.62, {} } });
+	airless.floor(8);
 	airless.hole("granite");
 	airless.nodes[{ 0, 0, 0 }] = "log";
 	airless.matter->heat({ 0, 0, 0 }, 900);
-	double starved = peak(airless, 900);
-	infostream << "world: with no air, it peaked at " << starved << " K" << std::endl;
-	UASSERT(starved < hottest - 100);
+	peak(airless, 900);
+	const double open = m.held("carbon", 1), smothered = buried.held("carbon", 1), starved = airless.held("carbon", 1);
+	infostream << "world: charcoal left: " << open << " mol in the open, " << smothered << " buried, " << starved << " with no air" << std::endl;
+	UTEST(open < smothered * 0.95, "in the open %.0f mol of charcoal is left, buried %.0f", open, smothered);
+	UTEST(open < starved * 0.95, "in the open %.0f mol of charcoal is left, with no air %.0f", open, starved);
 }
 
 // Clay insulates: a hot core walled in clay keeps its heat longer than one
@@ -776,7 +796,7 @@ void TestSandbox::testPitOverflows()
 void TestSandbox::testSoilHoldsWater()
 {
 	Plot m;
-	m.floor(2);
+	m.floor(8); // wide enough that what its steam rains back lands (sprint 118: off a narrow one it falls for ever)
 	m.nodes[{ 0, 0, 0 }] = "loam";
 	const size_t water = table().index("water");
 	auto in = [&](int x) {
@@ -809,4 +829,199 @@ void TestSandbox::testSoilHoldsWater()
 			<< m.matter->temperature({ 0, 0, 0 }) << " K" << std::endl;
 	UASSERT(dried < wet * 0.5);
 	UASSERT(m.at(0, 0, 0) == "loam");
+}
+
+// ---- sprint 117: viscosity, and gas with momentum (planning/gas-and-fire.md, phase 1)
+
+// A liquid's viscosity is the substance's, thinning as it warms: water's is
+// a millipascal second, glass stiffens by orders of magnitude as it cools.
+void TestSandbox::testViscosity()
+{
+	const matter::Substance &water = table().substances()[table().index("water")];
+	UTEST(std::fabs(water.viscosity(298) - 0.00089) < 1e-5, "water at 25 °C: %g Pa·s", water.viscosity(298));
+	UASSERT(water.viscosity(353) < water.viscosity(293)); // hot water runs thinner
+	const matter::Substance &glass = table().substances()[table().index("glass")];
+	UTEST(glass.viscosity(1200) > 100 * glass.viscosity(1500), "glass: %g Pa·s at 1200 K, %g at 1500 K",
+			glass.viscosity(1200), glass.viscosity(1500));
+	// a block's, from what's in it (none: 0)
+	sandbox::Physics physics({ table(), 101325, 1 });
+	matter::Mixture b(table());
+	b.temperature = 298;
+	UASSERT(physics.runniness(b) == 0);
+	b.add(table().index("water"), matter::State::Liquid, 1000);
+	UTEST(std::fabs(physics.runniness(b) - 0.89e-6) < 0.05e-6, "water's kinematic viscosity: %g m²/s", physics.runniness(b));
+}
+
+// The same volume let go on a floor: water runs out to a thin sheet, molten
+// glass (a hundred thousand times as viscous) slumps as fast (a metre of
+// anything falls) but its thin edge creeps: viscosity holds a sheet by 3ν/d².
+void TestSandbox::testThickPour()
+{
+	auto reach = [](const char *id, double temperature) {
+		Plot m;
+		m.floor(8);
+		const size_t s = table().index(id);
+		const matter::Substance &sub = table().substances()[s];
+		const double moles = sub.density_liquid / (sub.molar_mass / 1000.0); // a cubic metre
+		m.matter->add({ 0, 0, 0 }, s, moles, temperature);
+		for (int k = 0; k < 20; k++)
+			m.matter->step(0.5);
+		double out = 0; // the share of it three blocks or more from where it landed: its thin edge
+		for (int x = -8; x <= 8; x++)
+			for (int z = -8; z <= 8; z++)
+				if (std::abs(x) + std::abs(z) >= 3)
+					if (auto mix = m.matter->mixture({ x, 0, z }))
+						out += mix->in(s, matter::State::Liquid) / moles;
+		return out;
+	};
+	const double water = reach("water", 293.15), thick = reach("glass", 1400);
+	infostream << "world: ten seconds after a cubic metre is let go, " << water * 100 << "% of water has run three blocks or more, "
+			<< thick * 100 << "% of molten glass" << std::endl;
+	UTEST(thick < water / 2, "glass: %.0f%% ran three blocks, water: %.0f%%", thick * 100, water * 100);
+}
+
+// Heat on a floor in open air: the air over it warms and rises as a plume,
+// air beside it is drawn in, and the plume stays a few blocks high, not the sky.
+void TestSandbox::testPlumeRises()
+{
+	Plot m;
+	m.floor(6);
+	m.nodes[{ 0, 0, 0 }] = "air";
+	for (int k = 0; k < 60; k++) {
+		m.matter->touch({ 0, 0, 0 }, 700); // air held hot, as over a bed of coals
+		m.matter->step(1);
+	}
+	auto hot = [&](int x, int y, int z) { return m.matter->temperature({ x, y, z }); };
+	infostream << "world: a plume: " << hot(0, 0, 0) << " K at its foot, " << hot(0, 2, 0) << " K two blocks up, "
+			<< hot(2, 0, 0) << " K two beside; " << m.matter->awakeCount() << " awake" << std::endl;
+	UTEST(hot(0, 2, 0) > hot(2, 0, 0) + 10, "two up: %.0f K, two beside: %.0f K", hot(0, 2, 0), hot(2, 0, 0));
+	UTEST(m.matter->awakeCount() < 200, "%zu blocks awake for one plume", m.matter->awakeCount());
+	// the heat off, it settles and sleeps
+	for (int k = 0; k < 300; k++)
+		m.matter->step(1);
+	UTEST(m.matter->awakeCount() < 10, "%zu blocks still awake five minutes after", m.matter->awakeCount());
+}
+
+// Gas pushed into one end of a sealed box evens out along it, and none is lost.
+void TestSandbox::testPressureEvens()
+{
+	Plot m;
+	for (int x = -1; x <= 5; x++)
+		for (int y = -1; y <= 1; y++)
+			for (int z = -1; z <= 1; z++)
+				if (x < 0 || x > 4 || y || z)
+					m.nodes[{ x, y, z }] = "granite";
+	for (int x = 0; x <= 4; x++)
+		m.matter->touch({ x, 0, 0 }, 293.15); // the whole box awake
+	const size_t n2 = table().index("nitrogen");
+	m.matter->add({ 0, 0, 0 }, n2, 8, 293.15); // a fifth again of the block's gas
+	auto gas = [&] {
+		double n = 0;
+		for (int x = 0; x <= 4; x++)
+			n += m.matter->mixture({ x, 0, 0 })->in(n2, matter::State::Gas);
+		return n;
+	};
+	const double before = gas();
+	for (int k = 0; k < 10; k++)
+		m.matter->step(1);
+	sandbox::Physics physics({ table(), 101325, 1 });
+	const double near = physics.excess(*m.matter->mixture({ 0, 0, 0 })), far = physics.excess(*m.matter->mixture({ 4, 0, 0 }));
+	infostream << "world: a sealed box, pressure over at its ends " << near << " and " << far << "; nitrogen "
+			<< before << " → " << gas() << " mol" << std::endl;
+	UTEST(far > 0.01, "the far end is %f over", far);
+	UTEST(std::fabs(near - far) < 0.02, "its ends %f and %f over", near, far);
+	UTEST(std::fabs(gas() - before) < before * 1e-6, "nitrogen %f → %f mol", before, gas());
+}
+
+// ---- sprint 118: flame fronts (planning/gas-and-fire.md, phase 2)
+
+namespace {
+
+// A sealed stone tube along x, 0..n−1, every block of it air with `methane`
+// moles more (about 4 is just enough for its oxygen), lit at x = 0. When the
+// flame reached each block (it passed 1000 K; −1: never), stepping `dt` at a
+// time. (Not by its methane: burnt gas expanding pushes fresh mixture on ahead
+// of the front, as it does in a real tube.)
+std::vector<double> burnAlong(int n, double methane, double seconds, double dt = 0.25)
+{
+	Plot m;
+	for (int x = -1; x <= n; x++)
+		for (int y = -1; y <= 1; y++)
+			for (int z = -1; z <= 1; z++)
+				if (x < 0 || x >= n || y || z)
+					m.nodes[{ x, y, z }] = "granite";
+	const size_t ch4 = table().index("methane");
+	for (int x = 0; x < n; x++)
+		m.matter->add({ x, 0, 0 }, ch4, methane, 293.15);
+	m.matter->touch({ 0, 0, 0 }, 1200); // a spark
+	std::vector<double> when(n, -1);
+	for (double t = 0; t < seconds; t += dt) {
+		m.matter->step(dt);
+		for (int x = 0; x < n; x++)
+			if (when[x] < 0 && m.matter->temperature({ x, 0, 0 }) > 1000)
+				when[x] = t + dt;
+	}
+	return when;
+}
+
+} // namespace
+
+// Lit at one end, a tube of methane and air burns along it at about its flame
+// speed: block by block over seconds, not all at once.
+void TestSandbox::testFlameFront()
+{
+	const int n = 10;
+	const std::vector<double> when = burnAlong(n, 4, 120);
+	std::string line;
+	for (double w : when)
+		line += std::to_string((int)std::round(w * 10) / 10.0).substr(0, 4) + " ";
+	infostream << "world: methane in a tube, the flame reached each block at (s): " << line << std::endl;
+	UASSERT(when[n - 1] > 0); // the far end burned
+	UTEST(when[1] > 0 && when[n - 1] - when[1] > 1, "it burned all at once: %f s, %f s", when[1], when[n - 1]);
+	// metres a second, from the second block to the last (past the spark)
+	const double speed = (n - 2) / (when[n - 1] - when[1]);
+	infostream << "world: the front ran at " << speed << " m/s" << std::endl;
+	UTEST(speed > 0.1 && speed < 5, "the front ran at %f m/s", speed);
+	for (int x = 1; x < n; x++)
+		UTEST(when[x] >= when[x - 1], "the flame reached block %d before block %d", x, x - 1);
+}
+
+// Too lean (a third as much methane as its oxygen burns), the spark burns its own
+// block, but the flame can't carry: the far end keeps its methane.
+void TestSandbox::testTooLeanToBurn()
+{
+	const std::vector<double> when = burnAlong(10, 1.2, 120);
+	infostream << "world: too lean, the far end " << (when[9] < 0 ? "never burned" : "burned") << std::endl;
+	UTEST(when[9] < 0, "a lean mixture's far end burned at %f s", when[9]);
+}
+
+// The front's own rule: none outside its limits, fastest near its peak, faster warmer and stirred.
+void TestSandbox::testFrontLimits()
+{
+	const matter::Reaction *burns = nullptr;
+	for (const matter::Reaction &r : table().reactions())
+		if (r.id == "methane_burns")
+			burns = &r;
+	UASSERT(burns && burns->front);
+	const size_t ch4 = table().index("methane"), o2 = table().index("oxygen"), n2 = table().index("nitrogen");
+	auto rate = [&](double methane, double t, double stir) {
+		matter::Mixture b(table());
+		b.temperature = t;
+		b.add(o2, matter::State::Gas, 2);
+		b.add(n2, matter::State::Gas, 8);
+		b.add(ch4, matter::State::Gas, methane);
+		matter::Conditions c{ t, 101325, 0, 0, 0 };
+		c.across = 1;
+		c.stir = stir;
+		b.run(1e-9, c); // its states known
+		return b.frontRate(*burns, c);
+	};
+	UASSERT(rate(0.3, 293, 0) == 0);           // φ 0.3: too lean
+	UASSERT(rate(2, 293, 0) == 0);             // φ 2: too rich
+	UASSERT(rate(1, 293, 0) > rate(0.6, 293, 0)); // near its peak, faster
+	UASSERT(rate(1, 500, 0) > rate(1, 293, 0));   // warmer, faster
+	UASSERT(rate(1, 293, 2) > rate(1, 293, 0));   // stirred, faster
+	// a metre of it at its peak, at room temperature, takes about 1/0.38 s
+	const double seconds = 1 / (rate(1.05, 298, 0) / 1.05);
+	UTEST(std::fabs(seconds - 1 / 0.38) < 0.1, "a metre of methane at its best burns in %f s", seconds);
 }

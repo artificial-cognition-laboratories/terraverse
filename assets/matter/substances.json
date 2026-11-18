@@ -29,6 +29,11 @@
     "liquid": 0.6,
     "gas": 0.025
    },
+   "viscosity": {
+    "liquid": 0.00089,
+    "at": 298,
+    "activation": 16
+   },
    "heat_capacity": 4186,
    "structure": {
     "type": "molecule",
@@ -98,6 +103,11 @@
     "solid": 0.2,
     "liquid": 0.087,
     "gas": 0.0166
+   },
+   "viscosity": {
+    "liquid": 7e-05,
+    "at": 273,
+    "activation": 10
    },
    "heat_capacity": 840,
    "structure": {
@@ -169,6 +179,11 @@
     "solid": 0.3,
     "liquid": 0.19,
     "gas": 0.034
+   },
+   "viscosity": {
+    "liquid": 0.00012,
+    "at": 111,
+    "activation": 3
    },
    "heat_capacity": 2220,
    "structure": {
@@ -262,6 +277,11 @@
     "liquid": 0.5,
     "gas": 0.025
    },
+   "viscosity": {
+    "liquid": 0.00026,
+    "at": 240,
+    "activation": 7
+   },
    "heat_capacity": 4700,
    "structure": {
     "type": "molecule",
@@ -347,6 +367,11 @@
     "liquid": 0.14,
     "gas": 0.026
    },
+   "viscosity": {
+    "liquid": 0.00016,
+    "at": 77,
+    "activation": 3
+   },
    "heat_capacity": 1040,
    "structure": {
     "type": "molecule",
@@ -404,6 +429,11 @@
     "solid": 0.3,
     "liquid": 0.15,
     "gas": 0.026
+   },
+   "viscosity": {
+    "liquid": 0.00019,
+    "at": 90,
+    "activation": 3
    },
    "heat_capacity": 918,
    "structure": {
@@ -463,6 +493,11 @@
     "liquid": 0.1,
     "gas": 0.18
    },
+   "viscosity": {
+    "liquid": 1.3e-05,
+    "at": 20,
+    "activation": 1
+   },
    "heat_capacity": 14300,
    "structure": {
     "type": "molecule",
@@ -521,6 +556,11 @@
     "solid": 0.2,
     "liquid": 0.2,
     "gas": 0.0096
+   },
+   "viscosity": {
+    "liquid": 0.00037,
+    "at": 263,
+    "activation": 8
    },
    "heat_capacity": 640,
    "structure": {
@@ -597,6 +637,11 @@
     "solid": 0.3,
     "liquid": 0.3,
     "gas": 0.02
+   },
+   "viscosity": {
+    "liquid": 0.024,
+    "at": 298,
+    "activation": 25
    },
    "heat_capacity": 1340,
    "approximate": true,
@@ -711,6 +756,11 @@
     "liquid": 40,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.0055,
+    "at": 1811,
+    "activation": 41
+   },
    "heat_capacity": 449,
    "approximate": true,
    "structure": {
@@ -752,6 +802,11 @@
     "solid": 400,
     "liquid": 165,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.004,
+    "at": 1358,
+    "activation": 30
    },
    "heat_capacity": 385,
    "approximate": true,
@@ -795,6 +850,11 @@
     "liquid": 30,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.0018,
+    "at": 505,
+    "activation": 6
+   },
    "heat_capacity": 228,
    "approximate": true,
    "structure": {
@@ -836,6 +896,11 @@
     "solid": 318,
     "liquid": 105,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.005,
+    "at": 1337,
+    "activation": 16
    },
    "heat_capacity": 129,
    "approximate": true,
@@ -879,6 +944,11 @@
     "liquid": 90,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.0013,
+    "at": 933,
+    "activation": 16
+   },
    "heat_capacity": 897,
    "approximate": true,
    "structure": {
@@ -920,6 +990,11 @@
     "solid": 35,
     "liquid": 16,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.0026,
+    "at": 600,
+    "activation": 8.6
    },
    "heat_capacity": 129,
    "approximate": true,
@@ -963,6 +1038,11 @@
     "liquid": 8.3,
     "gas": 0.01
    },
+   "viscosity": {
+    "liquid": 0.0015,
+    "at": 298,
+    "activation": 2.5
+   },
    "heat_capacity": 140,
    "structure": {
     "type": "crystal",
@@ -1003,6 +1083,11 @@
     "solid": 150,
     "liquid": 56,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.0008,
+    "at": 1687,
+    "activation": 20
    },
    "heat_capacity": 705,
    "approximate": true,
@@ -1045,6 +1130,11 @@
     "solid": 150,
     "liquid": 10,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.001,
+    "at": 4800,
+    "activation": 20
    },
    "heat_capacity": 710,
    "approximate": true,
@@ -1089,6 +1179,11 @@
     "solid": 6.5,
     "liquid": 0.5,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.0015,
+    "at": 1074,
+    "activation": 30
    },
    "heat_capacity": 880,
    "approximate": true,
@@ -1137,6 +1232,11 @@
     "solid": 3,
     "liquid": 0.5,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 10000000.0,
+    "at": 2000,
+    "activation": 515
    },
    "heat_capacity": 740,
    "approximate": true,
@@ -1231,6 +1331,11 @@
     "liquid": 0.15,
     "gas": 0.025
    },
+   "viscosity": {
+    "liquid": 0.0002,
+    "at": 81,
+    "activation": 3
+   },
    "heat_capacity": 1040,
    "structure": {
     "type": "molecule",
@@ -1290,6 +1395,11 @@
     "liquid": 1,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.03,
+    "at": 1838,
+    "activation": 100
+   },
    "heat_capacity": 650,
    "approximate": true,
    "structure": {
@@ -1336,6 +1446,11 @@
     "liquid": 1,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.01,
+    "at": 400,
+    "activation": 30
+   },
    "heat_capacity": 760,
    "approximate": true,
    "structure": {
@@ -1378,6 +1493,11 @@
     "solid": 3,
     "liquid": 1,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.03,
+    "at": 1500,
+    "activation": 80
    },
    "heat_capacity": 540,
    "approximate": true,
@@ -1423,6 +1543,11 @@
     "solid": 3.6,
     "liquid": 1,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.01,
+    "at": 1600,
+    "activation": 80
    },
    "heat_capacity": 840,
    "approximate": true,
@@ -1470,6 +1595,11 @@
     "liquid": 1,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.02,
+    "at": 2886,
+    "activation": 100
+   },
    "heat_capacity": 750,
    "approximate": true,
    "structure": {
@@ -1513,6 +1643,11 @@
     "solid": 0.3,
     "liquid": 0.2,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 10,
+    "at": 430,
+    "activation": 150
    },
    "heat_capacity": 1240,
    "approximate": true,
@@ -1623,6 +1758,11 @@
     "liquid": 1.5,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.1,
+    "at": 2163,
+    "activation": 200
+   },
    "heat_capacity": 840,
    "structure": {
     "type": "molecule",
@@ -1718,6 +1858,11 @@
     "solid": 4,
     "liquid": 1.5,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 1,
+    "at": 1800,
+    "activation": 250
    },
    "heat_capacity": 800,
    "structure": {
@@ -1816,6 +1961,11 @@
     "liquid": 1.2,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 100000.0,
+    "at": 1800,
+    "activation": 400
+   },
    "heat_capacity": 710,
    "structure": {
     "type": "crystal",
@@ -1865,6 +2015,11 @@
     "solid": 2,
     "liquid": 1.2,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 1000.0,
+    "at": 1800,
+    "activation": 350
    },
    "heat_capacity": 710,
    "structure": {
@@ -1917,6 +2072,11 @@
     "liquid": 0.5,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 1000.0,
+    "at": 1600,
+    "activation": 300
+   },
    "heat_capacity": 760,
    "structure": {
     "type": "crystal",
@@ -1966,6 +2126,11 @@
     "liquid": 0.5,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 1000.0,
+    "at": 2000,
+    "activation": 300
+   },
    "heat_capacity": 940,
    "structure": {
     "type": "crystal",
@@ -2010,6 +2175,11 @@
     "liquid": 0.5,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 1000.0,
+    "at": 2000,
+    "activation": 300
+   },
    "heat_capacity": 900,
    "structure": {
     "type": "crystal",
@@ -2051,6 +2221,11 @@
     "solid": 5,
     "liquid": 1.5,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.05,
+    "at": 1870,
+    "activation": 100
    },
    "heat_capacity": 650,
    "structure": {
@@ -2102,6 +2277,11 @@
     "liquid": 1.2,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.05,
+    "at": 1640,
+    "activation": 100
+   },
    "heat_capacity": 630,
    "structure": {
     "type": "crystal",
@@ -2146,6 +2326,11 @@
     "solid": 1.4,
     "liquid": 1.0,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.05,
+    "at": 1900,
+    "activation": 100
    },
    "heat_capacity": 760,
    "structure": {
@@ -2194,6 +2379,11 @@
     "liquid": 1.5,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.01,
+    "at": 1200,
+    "activation": 60
+   },
    "heat_capacity": 540,
    "structure": {
     "type": "crystal",
@@ -2236,6 +2426,11 @@
     "solid": 30,
     "liquid": 2,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.05,
+    "at": 1900,
+    "activation": 100
    },
    "heat_capacity": 350,
    "structure": {
@@ -2280,6 +2475,11 @@
     "liquid": 1,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.005,
+    "at": 1390,
+    "activation": 40
+   },
    "heat_capacity": 210,
    "structure": {
     "type": "crystal",
@@ -2323,6 +2523,11 @@
     "liquid": 1,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.5,
+    "at": 1161,
+    "activation": 120
+   },
    "heat_capacity": 230,
    "structure": {
     "type": "crystal",
@@ -2365,6 +2570,11 @@
     "solid": 20,
     "liquid": 2,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.01,
+    "at": 1450,
+    "activation": 60
    },
    "heat_capacity": 520,
    "structure": {
@@ -2413,6 +2623,11 @@
     "liquid": 0.15,
     "gas": 0.02
    },
+   "viscosity": {
+    "liquid": 0.011,
+    "at": 393,
+    "activation": 15
+   },
    "heat_capacity": 710,
    "structure": {
     "type": "crystal",
@@ -2454,6 +2669,11 @@
     "solid": 50,
     "liquid": 30,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.004,
+    "at": 1250,
+    "activation": 30
    },
    "heat_capacity": 380,
    "structure": {
@@ -2499,6 +2719,11 @@
     "liquid": 30,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.006,
+    "at": 1450,
+    "activation": 40
+   },
    "heat_capacity": 460,
    "structure": {
     "type": "crystal",
@@ -2542,6 +2767,11 @@
     "solid": 45,
     "liquid": 30,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.006,
+    "at": 1800,
+    "activation": 41
    },
    "heat_capacity": 470,
    "structure": {
@@ -2587,6 +2817,11 @@
     "liquid": 25,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.002,
+    "at": 520,
+    "activation": 8
+   },
    "heat_capacity": 220,
    "structure": {
     "type": "crystal",
@@ -2629,6 +2864,11 @@
     "solid": 116,
     "liquid": 50,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.0035,
+    "at": 693,
+    "activation": 13
    },
    "heat_capacity": 388,
    "structure": {
@@ -2673,6 +2913,11 @@
     "solid": 0.15,
     "liquid": 0.2,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 1000000.0,
+    "at": 600,
+    "activation": 100
    },
    "heat_capacity": 1700,
    "structure": {
@@ -2768,6 +3013,11 @@
     "liquid": 0.5,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.003,
+    "at": 1124,
+    "activation": 50
+   },
    "heat_capacity": 1040,
    "structure": {
     "type": "crystal",
@@ -2811,6 +3061,11 @@
     "solid": 1,
     "liquid": 1,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 100,
+    "at": 1400,
+    "activation": 300
    },
    "heat_capacity": 840,
    "structure": {
@@ -2907,6 +3162,11 @@
     "liquid": 0.5,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.01,
+    "at": 850,
+    "activation": 60
+   },
    "heat_capacity": 1180,
    "structure": {
     "type": "crystal",
@@ -2948,6 +3208,11 @@
     "solid": 0.13,
     "liquid": 0.15,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 10000.0,
+    "at": 450,
+    "activation": 60
    },
    "heat_capacity": 1900,
    "structure": {
@@ -3041,6 +3306,11 @@
     "liquid": 86,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.00068,
+    "at": 371,
+    "activation": 6.5
+   },
    "heat_capacity": 1230,
    "note": "Soft, silvery and furious with water: it tears hydrogen out of it, hot enough to light it.",
    "approximate": false,
@@ -3074,6 +3344,11 @@
     "solid": 102,
     "liquid": 53,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.00054,
+    "at": 337,
+    "activation": 6
    },
    "heat_capacity": 757,
    "note": "Sodium's wilder cousin: on water it lights its own hydrogen with a lilac flame.",
@@ -3109,6 +3384,11 @@
     "liquid": 80,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.0012,
+    "at": 923,
+    "activation": 30
+   },
    "heat_capacity": 1023,
    "note": "A light metal that burns blinding white once it's hot enough.",
    "approximate": true,
@@ -3143,6 +3423,11 @@
     "liquid": 40,
     "gas": 0.05
    },
+   "viscosity": {
+    "liquid": 0.0045,
+    "at": 1768,
+    "activation": 40
+   },
    "heat_capacity": 421,
    "note": "A hard metal; its oxide turns glass deep blue.",
    "approximate": true,
@@ -3176,6 +3461,11 @@
     "solid": 0.5,
     "liquid": 0.13,
     "gas": 0.009
+   },
+   "viscosity": {
+    "liquid": 0.00034,
+    "at": 239,
+    "activation": 6
    },
    "heat_capacity": 480,
    "note": "A yellow-green choking gas.",
@@ -3212,6 +3502,11 @@
     "solid": 0.4,
     "liquid": 0.2,
     "gas": 0.014
+   },
+   "viscosity": {
+    "liquid": 0.0004,
+    "at": 188,
+    "activation": 6
    },
    "heat_capacity": 800,
    "note": "Dissolved in water, it's hydrochloric acid: it eats metals and gives off hydrogen.",
@@ -3254,6 +3549,11 @@
     "liquid": 0.28,
     "gas": 0.015
    },
+   "viscosity": {
+    "liquid": 0.00088,
+    "at": 298,
+    "activation": 15
+   },
    "heat_capacity": 1720,
    "note": "A fuming acid; it makes nitrates, the oxygen in gunpowder.",
    "approximate": true,
@@ -3288,6 +3588,11 @@
     "solid": 0.3,
     "liquid": 0.13,
     "gas": 0.015
+   },
+   "viscosity": {
+    "liquid": 0.00042,
+    "at": 294,
+    "activation": 8
    },
    "heat_capacity": 800,
    "note": "The brown fumes off nitric acid at work.",
@@ -3325,6 +3630,11 @@
     "solid": 1.0,
     "liquid": 0.8,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.004,
+    "at": 593,
+    "activation": 30
    },
    "heat_capacity": 1490,
    "note": "A strong base: it neutralises acids and eats grease and aluminium.",
@@ -3367,6 +3677,11 @@
     "liquid": 0.8,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.004,
+    "at": 680,
+    "activation": 30
+   },
    "heat_capacity": 1180,
    "note": "Lye from wood ash: a strong base.",
    "approximate": true,
@@ -3407,6 +3722,11 @@
     "liquid": 6,
     "gas": 0.05
    },
+   "viscosity": {
+    "liquid": 0.05,
+    "at": 2345,
+    "activation": 120
+   },
    "heat_capacity": 880,
    "note": "Aluminium's oxide: corundum, sapphire, and thermite's ash.",
    "approximate": true,
@@ -3441,6 +3761,11 @@
     "solid": 0.5,
     "liquid": 0.2,
     "gas": 0.01
+   },
+   "viscosity": {
+    "liquid": 0.0004,
+    "at": 470,
+    "activation": 10
    },
    "heat_capacity": 680,
    "note": "What aluminium becomes in hydrochloric acid.",
@@ -3483,6 +3808,11 @@
     "liquid": 0.5,
     "gas": 0.02
    },
+   "viscosity": {
+    "liquid": 0.02,
+    "at": 580,
+    "activation": 40
+   },
    "heat_capacity": 600,
    "note": "What iron becomes in hydrochloric acid: a green solution.",
    "approximate": true,
@@ -3524,6 +3854,11 @@
     "liquid": 0.5,
     "gas": 0.02
    },
+   "viscosity": {
+    "liquid": 4,
+    "at": 600,
+    "activation": 100
+   },
    "heat_capacity": 520,
    "note": "What zinc becomes in hydrochloric acid; a soldering flux.",
    "approximate": true,
@@ -3564,6 +3899,11 @@
     "liquid": 5,
     "gas": 0.05
    },
+   "viscosity": {
+    "liquid": 0.03,
+    "at": 2247,
+    "activation": 100
+   },
    "heat_capacity": 494,
    "note": "White zinc ash; zinc burns to it with a blue-green flame.",
    "approximate": true,
@@ -3599,6 +3939,11 @@
     "liquid": 5,
     "gas": 0.05
    },
+   "viscosity": {
+    "liquid": 0.04,
+    "at": 3098,
+    "activation": 100
+   },
    "heat_capacity": 877,
    "note": "Magnesium's white ash; a furnace lining that won't melt.",
    "approximate": true,
@@ -3633,6 +3978,11 @@
     "solid": 7,
     "liquid": 3,
     "gas": 0.05
+   },
+   "viscosity": {
+    "liquid": 0.03,
+    "at": 2100,
+    "activation": 100
    },
    "heat_capacity": 735,
    "note": "A pinch makes glass cobalt blue.",
@@ -3670,6 +4020,11 @@
     "liquid": 2,
     "gas": 0.05
    },
+   "viscosity": {
+    "liquid": 0.03,
+    "at": 2100,
+    "activation": 100
+   },
    "heat_capacity": 630,
    "note": "Pyrolusite: glassmakers' soap (it clears iron's green) and, more of it, purple.",
    "approximate": true,
@@ -3706,6 +4061,11 @@
     "solid": 0.5,
     "liquid": 0.4,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.003,
+    "at": 610,
+    "activation": 20
    },
    "heat_capacity": 950,
    "note": "Gives up its oxygen when hot: with charcoal and sulfur it's gunpowder.",
@@ -3748,6 +4108,11 @@
     "liquid": 0.6,
     "gas": 0.03
    },
+   "viscosity": {
+    "liquid": 0.005,
+    "at": 1170,
+    "activation": 40
+   },
    "heat_capacity": 830,
    "note": "Wood ash leached and dried: a flux for glass, and gunpowder's ash.",
    "approximate": true,
@@ -3782,6 +4147,11 @@
     "solid": 1,
     "liquid": 0.5,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.005,
+    "at": 1100,
+    "activation": 40
    },
    "heat_capacity": 800,
    "note": "Part of gunpowder's smoke.",
@@ -3818,6 +4188,11 @@
     "solid": 1,
     "liquid": 0.6,
     "gas": 0.03
+   },
+   "viscosity": {
+    "liquid": 0.005,
+    "at": 1170,
+    "activation": 40
    },
    "heat_capacity": 900,
    "note": "The salt left when caustic soda meets sulfuric acid.",
@@ -3859,6 +4234,11 @@
     "liquid": 0.13,
     "gas": 0.015
    },
+   "viscosity": {
+    "liquid": 0.00011,
+    "at": 231,
+    "activation": 7
+   },
    "heat_capacity": 2500,
    "note": "Bottled gas: a blowtorch's fuel, about 2000 °C burning in air.",
    "approximate": false,
@@ -3895,6 +4275,11 @@
     "liquid": 0.17,
     "gas": 0.015
    },
+   "viscosity": {
+    "liquid": 0.0011,
+    "at": 298,
+    "activation": 13
+   },
    "heat_capacity": 2440,
    "note": "Alcohol: a fuel that burns with a clean blue flame.",
    "approximate": false,
@@ -3929,6 +4314,11 @@
     "solid": 0.2,
     "liquid": 0.13,
     "gas": 0.015
+   },
+   "viscosity": {
+    "liquid": 0.00051,
+    "at": 298,
+    "activation": 9
    },
    "heat_capacity": 2230,
    "note": "The heart of petrol: a lot of energy in a little liquid.",

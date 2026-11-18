@@ -6,5 +6,6 @@ set(sandbox_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/sandbox.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pouring.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/wind.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/stage.cpp
 	PARENT_SCOPE)

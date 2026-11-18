@@ -234,6 +234,13 @@ private:
 		uint32_t fill_colour = 0;
 		double owed = 0;              // s of chemistry not yet run (the budget passed it over)
 		double moved = 0;             // m³ flowed in or out last step: how busy it is
+		// sprint 117: the wind through each side (+x −x +y −y +z −z), m/s
+		// outward, kept between steps (gas has momentum). A face two awake
+		// blocks share is the lower one's, the other holding its negative
+		double wind[6] = { 0, 0, 0, 0, 0, 0 };
+		// sprint 118: how far a flame front has crossed it, 0..1 (−1: none in
+		// it). Reaching 1 it lights its neighbours
+		double front = -1;
 		int carved = 4096;            // the sixteenths of it left, melting
 		double carved_at = -1e9;      // s (the world's clock): when
 	};
@@ -271,6 +278,9 @@ private:
 	int32_t airForm() const; // the air a liquid lies in (sprint 81) // a liquid's plain (unlevelled) block, −1: none
 	void flow(const std::vector<int64_t> &ids, double dt); // liquids and powders: sprint 80 (flow.cpp)
 	void evaporate(Cell &c, double dt);
+	// gas moving by pressure and buoyancy, into and out of the room's air (sprint 117: wind.cpp)
+	void winds(const std::vector<int64_t> &ids, double dt);
+	bool windy(const Cell &c) const; // its gas moves by wind (open, in an air): not a solid's pores
 	double surface(Pos p, int depth = 0) const; // the height a liquid's surface stands at there, or NAN: a wall
 	void volumes(Cell &c) const;
 	double taken(const Cell &c) const; // m³ of its open space taken (sprint 81)

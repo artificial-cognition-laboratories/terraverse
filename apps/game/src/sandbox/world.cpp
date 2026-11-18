@@ -28,6 +28,8 @@ static const double REDRAW_EVERY = 0.5;      // s: the most often a running leve
 static const int CARVE_CELLS = 48;           // sixteenths melted before a block's cut again (each cut remeshes its map block)
 static const double DROP = 1e-4;          // of a block: less liquid than this in the air is a drop falling, not a puddle
 static const double STIRRED = 1e-5;
+static const double OVERPRESSED = 0.25;   // share over the pressure past which a windy block beside open air vents into it
+static const double CALM = 0.05;          // m/s: air with winds slower than this can sleep
 static const double VACUUM = 1.0;         // Pa: the least pressure a body's air is run at       // m³ flowed in a step that keeps a block awake
 
 WorldMatter::WorldMatter(const Opts &opts) :
@@ -619,7 +621,10 @@ bool WorldMatter::settled(const Cell &c) const
 	Physics::Main m = sky(c).physics.main(c.mix);
 	if (k.vessel)
 		return c.moved <= STIRRED; // it sleeps holding what it holds (sprint 80: kept)
-	if (k.air) { // air settles once its gas is the room's again
+	if (k.air) { // air settles once its gas is the room's again, and still
+		for (double w : c.wind)
+			if (std::fabs(w) > CALM)
+				return false;
 		double gas = sky(c).physics.gasMoles(c.mix);
 		for (size_t s = 0; s < sky(c).air.size(); s++)
 			if (gas > 0 && std::fabs(c.mix.in(s, State::Gas) / gas - sky(c).air[s]) > 0.02)
@@ -696,7 +701,10 @@ void WorldMatter::step(double seconds)
 			// time it was passed over is made up (to the longest step: past that, it's lost)
 			const double run = std::min(dt + c.owed, LONGEST_STEP);
 			c.owed = 0;
-			c.activity = sky(c).physics.react(c.mix, run, &rates);
+			double stir = 0;
+			for (double w : c.wind)
+				stir = std::max(stir, std::fabs(w));
+			c.activity = sky(c).physics.react(c.mix, run, &rates, stir, c.front >= 0);
 			std::vector<bool> &seen = m_seen[id];
 			seen.resize(reactions, false);
 			double fastest = NOTICED;
@@ -710,6 +718,27 @@ void WorldMatter::step(double seconds)
 					fastest = rates[j];
 					c.flame = m_matter.reactions()[j].flame;
 				}
+				// a premixed gas set burning by heat (a spark, a hot wall) starts a front
+				if (c.front < 0 && rates[j] > NOTICED && m_matter.reactions()[j].front)
+					c.front = 0;
+			}
+			// the front crosses it at its mixture's speed, and goes out where the
+			// mixture can't carry it (burnt, or too lean or rich)
+			if (c.front >= 0) {
+				const double speed = sky(c).physics.frontSpeed(c.mix, stir);
+				c.front = speed > 0 ? c.front + speed * run / sky(c).physics.block() : -1;
+			}
+		}
+		// a front across a block lights the blocks beside it (sprint 118): they
+		// burn from then at their own front's pace, however cold they are
+		for (int64_t id : ids) {
+			Cell &c = m_cells.at(id);
+			if (c.front < 1)
+				continue;
+			for (const Pos &d : SIDES) {
+				auto it = m_cells.find(key({ c.pos.x + d.x, c.pos.y + d.y, c.pos.z + d.z }));
+				if (it != m_cells.end() && it->second.front < 0 && sky(it->second).physics.frontSpeed(it->second.mix, 0) > 0)
+					it->second.front = 0;
 			}
 		}
 		// awake neighbours with each other (each pair once), then with the asleep
@@ -723,6 +752,9 @@ void WorldMatter::step(double seconds)
 				if (c.dense && it->second.dense)
 					continue; // no light or gas between two solids
 				sky(c).physics.radiate(c.mix, it->second.mix, dt);
+				// stirring, and warm gas trading places with cool above it: the counterflow
+				// within one face (a fire's smoke up the middle, fresh air down its edges)
+				// that a face's one wind can't carry (sprint 117)
 				sky(c).physics.mix(c.mix, it->second.mix, d.y > 0, dt);
 			}
 		}
@@ -735,10 +767,30 @@ void WorldMatter::step(double seconds)
 		// (a still solid, its chemistry not run: nothing in it changed but its
 		// temperature, so it has no gas to shed, nothing to become or pour)
 		auto quiet = [](const Cell &c) { return c.dense && c.mix.still(); };
+		// gas moving by pressure and buoyancy (sprint 117). A block with wind is
+		// left to it, except that one far over its pressure with the open air
+		// beside it vents there (a boiler's surge, a reaction making gas faster
+		// than any wind would carry). Never into its awake neighbours (sprint
+		// 118: evening out block after block in one pass ran a spark's
+		// expansion down a whole tube at once)
+		winds(ids, dt);
 		for (int64_t id : ids) {
 			Cell &c = m_cells.at(id);
 			if (quiet(c))
 				continue;
+			if (windy(c)) {
+				if (sky(c).physics.excess(c.mix) < OVERPRESSED)
+					continue;
+				for (const Pos &d : SIDES) {
+					const Pos n{ c.pos.x + d.x, c.pos.y + d.y, c.pos.z + d.z };
+					const int32_t kind = m_cells.count(key(n)) ? -1 : m_ground.kind(n);
+					if (kind >= 0 && m_kinds[kind].air) {
+						sky(c).physics.balance(c.mix, sky(c).air, m_ground.ambient(n));
+						break;
+					}
+				}
+				continue;
+			}
 			for (const Pos &d : { Pos{ 0, 1, 0 }, Pos{ 1, 0, 0 }, Pos{ -1, 0, 0 }, Pos{ 0, 0, 1 }, Pos{ 0, 0, -1 }, Pos{ 0, -1, 0 } }) {
 				Pos n{ c.pos.x + d.x, c.pos.y + d.y, c.pos.z + d.z };
 				auto it = m_cells.find(key(n));
@@ -914,7 +966,9 @@ std::vector<std::pair<Pos, size_t>> WorldMatter::happened()
 // each is loose, its amounts by state, its flow and owed time, and the
 // asleep blocks that hold their own matter (3 was this sprint's, in progress).
 
-static const char MAGIC[8] = { 'T', 'F', 'W', 'M', 0, 0, 0, 4 };
+static const char MAGIC[8] = { 'T', 'F', 'W', 'M', 0, 0, 0, 6 };
+static const char MAGIC_5[8] = { 'T', 'F', 'W', 'M', 0, 0, 0, 5 }; // before flame fronts (sprint 118)
+static const char MAGIC_4[8] = { 'T', 'F', 'W', 'M', 0, 0, 0, 4 }; // before winds (sprint 117)
 static const char MAGIC_3[8] = { 'T', 'F', 'W', 'M', 0, 0, 0, 3 };
 static const char MAGIC_2[8] = { 'T', 'F', 'W', 'M', 0, 0, 0, 2 };
 static const char MAGIC_1[8] = { 'T', 'F', 'W', 'M', 0, 0, 0, 1 };
@@ -966,6 +1020,9 @@ std::string WorldMatter::save() const
 		block(c.pos, c.kind, c.mix, c.loose);
 		for (double f : c.flux) // where it was running: a pool loaded sloshes on as it was
 			put(out, f);
+		for (double w : c.wind)
+			put(out, w);
+		put(out, c.front);
 		put(out, c.owed);
 	}
 	put(out, (uint32_t)m_held.size());
@@ -987,7 +1044,9 @@ void WorldMatter::load(const std::string &in)
 	if (in.size() >= sizeof MAGIC_3 && std::memcmp(in.data(), MAGIC_3, sizeof MAGIC_3) == 0)
 		throw SandboxError("world matter: saved by a sprint 80 build in progress (version 3), whose layout "
 				"never shipped; delete the world's matter.bin to start its matter afresh");
-	if (!first && !second && (in.size() < sizeof MAGIC || std::memcmp(in.data(), MAGIC, sizeof MAGIC) != 0))
+	const bool fourth = in.size() >= sizeof MAGIC_4 && std::memcmp(in.data(), MAGIC_4, sizeof MAGIC_4) == 0;
+	const bool fifth = in.size() >= sizeof MAGIC_5 && std::memcmp(in.data(), MAGIC_5, sizeof MAGIC_5) == 0;
+	if (!first && !second && !fourth && !fifth && (in.size() < sizeof MAGIC || std::memcmp(in.data(), MAGIC, sizeof MAGIC) != 0))
 		throw SandboxError("world matter: not a world matter file (or an older version)");
 	size_t at = sizeof MAGIC;
 	// where each saved substance is in the table now
@@ -1062,6 +1121,11 @@ void WorldMatter::load(const std::string &in)
 		if (!first && !second) {
 			for (double &f : c.flux)
 				f = take<double>(in, at);
+			if (!fourth)
+				for (double &w : c.wind)
+					w = take<double>(in, at);
+			if (!fourth && !fifth)
+				c.front = take<double>(in, at);
 			c.owed = take<double>(in, at);
 		}
 		cells.emplace(key(p), std::move(c));

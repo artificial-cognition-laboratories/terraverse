@@ -16,6 +16,15 @@ struct Conditions
 	double power;        // watts of electric current through it
 	double light;        // watts of light on it
 	double exchange = 50; // W/K with the surroundings (a crucible's; a cell of a sandbox exchanges with its neighbours instead: 0)
+	// sprint 118: how far a flame must travel to cross it (m: a block's edge),
+	// and how fast it's stirred (m/s: its wind). 0: no fronts, a premixed gas
+	// burns as fast as its chemistry goes (a test tube, a lab's flask)
+	double across = 0;
+	double stir = 0;
+	// a flame front is in it (it reached it from a neighbour, or a spark lit
+	// it): a premixed gas burns at the front's pace whatever its average
+	// temperature, the flame's thin zone being hot however cold the rest is
+	bool lit = false;
 };
 
 /*
@@ -37,6 +46,12 @@ class Mixture
 {
 public:
 	explicit Mixture(const Matter &table);
+	// Reactions per second a flame front allows a premixed gas (sprint 118):
+	// the front crossing `across` at its speed here, by mixture, warmth and
+	// stirring. 0 outside its limits: it can't carry a flame.
+	double frontRate(const Reaction &r, const Conditions &c) const;
+	// The speed of that front, m/s (0: it can't carry one here).
+	double frontSpeed(const Reaction &r, const Conditions &c) const;
 
 	std::vector<double> amounts; // moles, by substance index
 	double temperature;          // kelvin

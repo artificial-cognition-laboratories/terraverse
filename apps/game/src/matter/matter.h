@@ -58,6 +58,10 @@ struct Substance
 	double heat_capacity;                    // J/(kg·K)
 	double density_solid, density_liquid;    // kg/m³
 	double conductivity[3];                  // W/(m·K): solid, liquid, gas
+	// Its liquid's viscosity, Pa·s, at `viscosity_at` K, thinning as it warms
+	// by Andrade's law (an activation energy, kJ/mol): water runs, glass
+	// creeps, and cooling lava stiffens
+	double viscosity_liquid, viscosity_at, viscosity_activation;
 	bool approximate;                        // some anchors are estimates
 	// Sprint 79, from thermo.json (scripts/matter-data): its enthalpy of
 	// formation, kJ/mol, in its standard state (as it is at 298.15 K and
@@ -114,6 +118,8 @@ struct Substance
 	double density(State s, double t, double p) const;
 	// W/(m·K) in a state (a supercritical fluid conducts like its gas).
 	double conducts(State s) const;
+	// Pa·s of its liquid at t.
+	double viscosity(double t) const;
 };
 
 constexpr double ATMOSPHERE = 101325.0;
@@ -153,6 +159,24 @@ struct Reaction
 	Energy energy;
 	uint32_t flame = 0; // what colour it burns (0xrrggbb), 0: it has no flame
 	std::vector<Requirement> needs;
+	/*
+		A gas burning premixed (sprint 118): its flame travels through the
+		mixture at a speed of its own, so a body of it burns as fast as the
+		front crosses it, never all at once. `speed` (m/s) is its laminar flame
+		speed at its fastest mixture, `peak`, an equivalence ratio (fuel to
+		oxidiser against what the equation burns: 1 is just enough); between
+		`lean` and `rich` it carries a flame, outside them it can't: it burns
+		only where something else holds it above `ignites` (K, its
+		autoignition temperature: a torch over a spirit's thin vapour), and
+		slowly. The oxidiser is the reaction's other reactant.
+	*/
+	struct Front
+	{
+		size_t fuel, oxidiser;
+		double fuel_count, oxidiser_count; // in the equation
+		double speed, peak, lean, rich, ignites;
+	};
+	std::optional<Front> front;
 };
 
 /*

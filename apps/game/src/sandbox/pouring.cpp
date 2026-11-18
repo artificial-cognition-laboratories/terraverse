@@ -34,7 +34,7 @@ using matter::State;
 static const double SUBSTEP = 0.1;          // s: the longest step liquids take
 static const double THINNEST = 1.0 / 16;    // of a block: a liquid spreads no thinner
 static const double FALLING = 8;            // per s: how fast what's over space falls into it
-static const double DAMPING = 2;            // per s: a pipe's flow lost to viscosity (an arcade's: it settles)
+static const double DAMPING = 2;            // per s: a pipe's flow lost to eddies and the ground (an arcade's: it settles); its liquid's viscosity adds its own
 static const double LEVEL = 1.0 / 128;      // of a block: a difference smaller than drawn wakes nothing asleep
 static const double REPOSE = 0.7;           // a heap's steepest, rise over run (about 35°)
 static const double SLIDING = 4;            // per s: how fast a heap too steep slides
@@ -275,6 +275,13 @@ void WorldMatter::flow(const std::vector<int64_t> &ids, double dt)
 				std::fill(std::begin(c.flux), std::end(c.flux), 0.0);
 			} else {
 				const double mine = surface(c.pos);
+				// sprint 117: a liquid's own viscosity holds it back. A sheet of
+				// depth d down a slope carries g·Δ·d³/(3ν) through a face (slow,
+				// laminar flow); a pipe's flow settles at g·Δ·L/drag, so the drag
+				// that matches is 3νL/d³. Water barely feels it, honey crawls, a
+				// cooling glass stops where it is; a metre of anything still slumps
+				const double depth = std::max(THINNEST * base().block(), c.liquid / base().area());
+				const double viscous = 3 * sky(c).physics.runniness(c.mix) * base().block() / (depth * depth * depth);
 				double out = 0;
 				for (int d = 0; d < 4; d++) {
 					const Pos n = at(c.pos, sides()[d].x, 0, sides()[d].z);
@@ -315,7 +322,7 @@ void WorldMatter::flow(const std::vector<int64_t> &ids, double dt)
 						c.flux[d] = 0;
 						continue;
 					}
-					c.flux[d] = std::max(0.0, c.flux[d] * std::max(0.0, 1 - DAMPING * h) + h * sky(c).gravity * difference * base().block());
+					c.flux[d] = std::max(0.0, c.flux[d] * std::max(0.0, 1 - DAMPING * h) + h * sky(c).gravity * difference * base().block()) / (1 + h * viscous);
 					out += c.flux[d] * h;
 				}
 				if (out > c.liquid)

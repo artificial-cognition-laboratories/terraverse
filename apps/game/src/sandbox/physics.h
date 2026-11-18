@@ -59,7 +59,11 @@ public:
 
 	// Run a block's reactions (and changes of state) for dt; the heat they
 	// gave off (+) or took (−), in watts; each reaction's rate into `rates` if given.
-	double react(matter::Mixture &b, double dt, std::vector<double> *rates = nullptr) const;
+	// A premixed gas burns no faster than a flame front crosses the block
+	// (sprint 118), the faster for `stir`, its wind (m/s).
+	double react(matter::Mixture &b, double dt, std::vector<double> *rates = nullptr, double stir = 0, bool lit = false) const;
+	// How fast a flame front crosses it (m/s), the fastest of its gases'; 0: none can.
+	double frontSpeed(const matter::Mixture &b, double stir) const;
 	// Heat between two neighbouring blocks for dt (conductivities given, so
 	// a caller computes each block's once per step).
 	void conduct(matter::Mixture &a, matter::Mixture &b, double ka, double kb, double dt) const;
@@ -84,12 +88,34 @@ public:
 	void balance(matter::Mixture &b, matter::Mixture &to) const;
 	// The same against the room: excess vents, a shortfall draws in air.
 	void balance(matter::Mixture &b, const std::vector<double> &air, double ambient) const;
+	// Sprint 117 (gas and flow, planning/gas-and-fire.md): gas with momentum.
+	// How far its gas is over (+) or under (−) what its free space holds at
+	// the pressure: a share, 0 for a block with no free space.
+	double excess(const matter::Mixture &b) const;
+	// kg/m³ of its gas, in its free space (0: none).
+	double gasDensity(const matter::Mixture &b) const;
+	// The air's, at a temperature: what a reservoir face pushes against.
+	double airDensity(const std::vector<double> &air, double t) const;
+	// Kinematic viscosity of its liquid, m²/s (0: no liquid): by mole share, in log.
+	double runniness(const matter::Mixture &b) const;
+	// The wind through a face from a to b (m/s, + toward b) after dt:
+	// pushed by their difference in pressure (excess), lifted by buoyancy
+	// where b is above (up +1) or below (−1), slowed by drag. Pressure waves
+	// travel at SOUND here, not at the real 340 m/s: slow enough to step a
+	// tick at a time, fast next to anything a player sees air do.
+	double drive(double u, double ea, double eb, double ra, double rb, int up, double gravity, double dt) const;
+	// A share of a block's gas, as it was (`gas`: moles by substance), moved
+	// into another (null: let go into the room), carrying its heat: one sum
+	// for all of it, not one per substance. Heat capacities (J/K) kept by the
+	// caller, if given, are used and kept up to date instead of summed afresh.
+	void carry(matter::Mixture &from, matter::Mixture *to, const std::vector<double> &gas, double share,
+			double *from_capacity = nullptr, double *to_capacity = nullptr) const;
+	// The room's air drawn into a block: moles of it by share, warming or cooling it.
+	void admit(matter::Mixture &b, const std::vector<double> &air, double moles, double ambient, double *capacity = nullptr) const;
 	// The longest step heat can take without overshooting between these blocks.
 	double stable(const matter::Mixture &b, double k) const;
 
 private:
-	void admit(matter::Mixture &b, const std::vector<double> &air, double moles, double ambient) const;
-
 	const matter::Matter &m_matter;
 	double m_pressure, m_block;
 };

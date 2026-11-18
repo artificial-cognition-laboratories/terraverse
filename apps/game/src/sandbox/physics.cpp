@@ -126,10 +126,26 @@ void Physics::fill(matter::Mixture &b, const std::vector<std::pair<size_t, doubl
 		throw SandboxError("a gas's shares must sum to 1");
 }
 
-double Physics::react(matter::Mixture &b, double dt, std::vector<double> *out) const
+double Physics::frontSpeed(const matter::Mixture &b, double stir) const
+{
+	matter::Conditions c{ b.temperature, std::max(m_pressure, 1.0), 0, 0, 0 };
+	c.across = m_block;
+	c.stir = stir;
+	double fastest = 0;
+	for (const matter::Reaction &r : m_matter.reactions())
+		if (r.front)
+			fastest = std::max(fastest, b.frontSpeed(r, c));
+	return fastest;
+}
+
+double Physics::react(matter::Mixture &b, double dt, std::vector<double> *out, double stir, bool lit) const
 {
 	const auto &reactions = m_matter.reactions();
-	std::vector<double> rates = b.run(dt, matter::Conditions{ b.temperature, std::max(m_pressure, 1.0), 0, 0, 0 });
+	matter::Conditions c{ b.temperature, std::max(m_pressure, 1.0), 0, 0, 0 };
+	c.across = m_block;
+	c.stir = stir;
+	c.lit = lit;
+	std::vector<double> rates = b.run(dt, c);
 	if (out)
 		*out = rates;
 	double released = 0;
@@ -156,11 +172,16 @@ void Physics::conduct(matter::Mixture &a, matter::Mixture &b, double ka, double 
 	b.temperature = std::max(1.0, b.temperature - q / b.heatCapacity());
 }
 
+static const double SURFACE = 0.01; // share of a block solid or liquid that gives light something to land on
 static const double FLAME_EMISSIVITY = 0.5; // a gas shining on a surface: between a clear and a sooty flame
 
 void Physics::radiate(matter::Mixture &a, matter::Mixture &b, double dt) const
 {
 	if (condensed(a) > volume() / 2 && condensed(b) > volume() / 2)
+		return;
+	// clear gas barely takes in light (sprint 117): a flame shines on the
+	// wood and stone round it, not on the air beside it
+	if (condensed(a) < SURFACE * volume() && condensed(b) < SURFACE * volume())
 		return;
 	double ta = a.temperature, tb = b.temperature;
 	double q = FLAME_EMISSIVITY * STEFAN * area() * (ta * ta * ta * ta - tb * tb * tb * tb) * dt;
@@ -210,16 +231,21 @@ void Physics::mix(matter::Mixture &a, matter::Mixture &b, bool b_above, double d
 	}
 }
 
-void Physics::admit(matter::Mixture &b, const std::vector<double> &air, double moles, double ambient) const
+void Physics::admit(matter::Mixture &b, const std::vector<double> &air, double moles, double ambient, double *kept) const
 {
 	double per_kelvin = 0;
+	const double capacity = kept ? *kept : b.heatCapacity();
 	for (size_t s = 0; s < air.size(); s++) {
+		if (air[s] <= 0)
+			continue;
 		const matter::Substance &sub = m_matter.substances()[s];
 		per_kelvin += air[s] * moles * sub.molar_mass / 1000.0 * sub.heat_capacity;
 		b.add(s, State::Gas, air[s] * moles);
 	}
-	double capacity = b.heatCapacity() - per_kelvin;
-	b.temperature = (capacity * b.temperature + per_kelvin * ambient) / (capacity + per_kelvin);
+	if (capacity + per_kelvin > 0)
+		b.temperature = (capacity * b.temperature + per_kelvin * ambient) / (capacity + per_kelvin);
+	if (kept)
+		*kept = capacity + per_kelvin;
 }
 
 void Physics::breathe(matter::Mixture &b, const std::vector<double> &air, double ambient, bool rising, double dt) const
@@ -249,6 +275,32 @@ void Physics::move(matter::Mixture &from, matter::Mixture &to, size_t s, State s
 	to.add(s, state, moles);
 }
 
+void Physics::carry(matter::Mixture &from, matter::Mixture *to, const std::vector<double> &gas, double share,
+		double *from_capacity, double *to_capacity) const
+{
+	double per_kelvin = 0;
+	const double capacity = to ? (to_capacity ? *to_capacity : to->heatCapacity()) : 0;
+	for (size_t s = 0; s < gas.size(); s++) {
+		if (gas[s] <= 0)
+			continue;
+		const double moles = std::min(gas[s] * share, from.in(s, State::Gas));
+		if (moles <= 0)
+			continue;
+		from.take(s, State::Gas, moles);
+		const matter::Substance &sub = m_matter.substances()[s];
+		per_kelvin += moles * sub.molar_mass / 1000.0 * sub.heat_capacity;
+		if (to)
+			to->add(s, State::Gas, moles);
+	}
+	if (from_capacity)
+		*from_capacity -= per_kelvin;
+	if (to && per_kelvin > 0) {
+		to->temperature = (capacity * to->temperature + per_kelvin * from.temperature) / (capacity + per_kelvin);
+		if (to_capacity)
+			*to_capacity = capacity + per_kelvin;
+	}
+}
+
 void Physics::balance(matter::Mixture &b, matter::Mixture &to) const
 {
 	double have = gasMoles(b), holds = room(b);
@@ -276,6 +328,65 @@ void Physics::balance(matter::Mixture &b, const std::vector<double> &air, double
 	} else if (have < holds * 0.9999) {
 		admit(b, air, holds - have, ambient);
 	}
+}
+
+static const double SOUND = 10;  // m/s: how fast pressure evens out between blocks (see drive)
+static const double DRAG = 0.5;  // per s: still air's hold on a wind
+static const double EDDIES = 1.0; // per m: the drag that grows with speed (a plume rises at metres a second, no faster)
+
+double Physics::excess(const matter::Mixture &b) const
+{
+	const double holds = room(b);
+	return holds > 0 ? gasMoles(b) / holds - 1 : 0;
+}
+
+double Physics::gasDensity(const matter::Mixture &b) const
+{
+	const double free = volume() - condensed(b);
+	if (free <= 0)
+		return 0;
+	double kg = 0;
+	for (size_t s = 0; s < b.amounts.size(); s++)
+		if (b.amounts[s] > 0)
+			kg += b.in(s, State::Gas) * m_matter.substances()[s].molar_mass / 1000.0;
+	return kg / free;
+}
+
+double Physics::airDensity(const std::vector<double> &air, double t) const
+{
+	double molar = 0;
+	for (size_t s = 0; s < air.size(); s++)
+		molar += air[s] * m_matter.substances()[s].molar_mass / 1000.0;
+	return m_pressure * molar / (matter::GAS_CONSTANT * t);
+}
+
+double Physics::runniness(const matter::Mixture &b) const
+{
+	double n = 0, log_mu = 0, kg = 0, m3 = 0;
+	for (size_t s = 0; s < b.amounts.size(); s++) {
+		if (b.amounts[s] <= 0)
+			continue;
+		const double l = b.in(s, State::Liquid);
+		if (l <= 0)
+			continue;
+		const matter::Substance &sub = m_matter.substances()[s];
+		n += l;
+		log_mu += l * std::log(sub.viscosity(b.temperature));
+		kg += l * sub.molar_mass / 1000.0;
+		m3 += l * sub.molar_mass / 1000.0 / sub.density(State::Liquid, b.temperature, m_pressure);
+	}
+	if (n <= 0)
+		return 0;
+	return std::exp(log_mu / n) / (kg / m3);
+}
+
+double Physics::drive(double u, double ea, double eb, double ra, double rb, int up, double gravity, double dt) const
+{
+	double accel = SOUND * SOUND * (ea - eb) / m_block;
+	if (up && ra + rb > 0)
+		accel += up * gravity * (rb - ra) / ((ra + rb) / 2);
+	// semi-implicit: the drag can't turn a wind round, however long the step
+	return (u + dt * accel) / (1 + dt * (DRAG + EDDIES * std::fabs(u)));
 }
 
 double Physics::stable(const matter::Mixture &b, double k) const

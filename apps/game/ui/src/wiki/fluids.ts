@@ -70,6 +70,12 @@ export const FLUID_DEMOS: FluidDemo[] = [
         wet: [],
     },
     {
+        id: "glass", group: "Other liquids", title: "Molten glass", speed: 1,
+        note: "The same mould, filled with glass at 1500 K: about as thick as honey, ten thousand times thicker than water. It piles where it lands and creeps out to the walls, slower the thinner it spreads and the cooler it gets.",
+        spec: scene([5, 5, 5], pit(5, 5, 1), [{ at: [2, 4, 2], substance: "glass", rate: 940, temperature: 1500, until: 10 }]),
+        wet: [],
+    },
+    {
         id: "onwater", group: "Other liquids", title: "Hot metal into water", speed: 1,
         note: "The same pour into a pool. Whatever touches it boils, and the metal sets far sooner than it did in air.",
         spec: scene([5, 6, 5], [...pit(5, 5, 2), ...span([1, 1, 1], [3, 1, 3], WATER)], [{ at: [2, 5, 2], substance: "copper", rate: 8000, temperature: 1500, until: 10 }]),

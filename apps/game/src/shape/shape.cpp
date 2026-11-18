@@ -27,14 +27,6 @@ bool Shape::empty() const
 	return true;
 }
 
-size_t Shape::count() const
-{
-	size_t n = 0;
-	for (const uint64_t w : m_words)
-		n += (size_t)__builtin_popcountll(w);
-	return n;
-}
-
 bool Shape::isWhole() const
 {
 	for (const uint64_t w : m_words)

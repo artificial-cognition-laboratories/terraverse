@@ -99,6 +99,15 @@ double Substance::conducts(State s) const
 	return conductivity[s == State::Solid ? 0 : s == State::Liquid ? 1 : 2];
 }
 
+double Substance::viscosity(double t) const
+{
+	// Andrade: ln μ falls linearly in 1/T. Clamped so a melt far past its
+	// data stays a number (no liquid is thinner than a hundredth of water's,
+	// none stiffer than glass at its strain point)
+	const double mu = viscosity_liquid * std::exp(viscosity_activation * 1000 / GAS_CONSTANT * (1 / std::max(t, 1.0) - 1 / viscosity_at));
+	return std::clamp(mu, 1e-5, 1e13);
+}
+
 State Substance::state(double t, double p) const
 {
 	if (t >= critical.t)
@@ -199,6 +208,12 @@ Matter Matter::load(const std::string &dir)
 		for (double v : { x.density_solid, x.density_liquid, x.conductivity[0], x.conductivity[1], x.conductivity[2] })
 			if (v <= 0)
 				throw MatterError(where + ": densities and conductivities must be positive");
+		const Json::Value &viscous = field(s, "viscosity", where);
+		x.viscosity_liquid = number(viscous, "liquid", where + ".viscosity");
+		x.viscosity_at = number(viscous, "at", where + ".viscosity");
+		x.viscosity_activation = number(viscous, "activation", where + ".viscosity");
+		if (x.viscosity_liquid <= 0 || x.viscosity_at <= 0 || x.viscosity_activation < 0)
+			throw MatterError(where + ": viscosity is a positive Pa·s at a positive temperature, its activation not negative");
 		x.approximate = s["approximate"].asBool();
 		const std::string colour = field(s, "colour", where).asString();
 		if (colour.size() != 7 || colour[0] != '#' ||
@@ -346,6 +361,33 @@ Matter Matter::load(const std::string &dir)
 		if (x.energy != Energy::None && x.heat >= 0)
 			throw MatterError(where + ": a reaction driven by electricity or light takes heat (negative heat)");
 
+		if (r.isMember("front")) {
+			const Json::Value &f = r["front"];
+			const std::string at = where + ".front";
+			Reaction::Front front{};
+			front.fuel = m.index(field(f, "fuel", at).asString());
+			if (x.reactants.size() != 2)
+				throw MatterError(at + ": a flame front burns a fuel in an oxidiser: two reactants");
+			bool found = false;
+			for (const Reaction::Term &term : x.reactants)
+				if (term.substance == front.fuel) {
+					found = true;
+					front.fuel_count = term.count;
+				} else {
+					front.oxidiser = term.substance;
+					front.oxidiser_count = term.count;
+				}
+			if (!found)
+				throw MatterError(at + ": its fuel must be one of the reactants");
+			front.speed = number(f, "speed", at);
+			front.peak = number(f, "peak", at);
+			front.lean = number(f, "lean", at);
+			front.rich = number(f, "rich", at);
+			front.ignites = number(f, "ignites", at);
+			if (front.speed <= 0 || !(front.lean < front.peak && front.peak < front.rich) || front.lean <= 0 || front.ignites <= 0)
+				throw MatterError(at + ": a positive speed and autoignition, and lean < peak < rich (equivalence ratios)");
+			x.front = front;
+		}
 		for (const Json::Value &q : r["requires"]) {
 			std::string state = q["state"].asString();
 			int found = -1;

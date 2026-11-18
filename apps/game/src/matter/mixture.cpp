@@ -221,6 +221,42 @@ double Mixture::rate(const Reaction &r, const Conditions &c) const
 	return 0;
 }
 
+static constexpr double PREHEAT = 600;   // K: the warmest unburnt gas ahead of a front counts as (past it, a front's own heat)
+static constexpr double HELD = 0.1;      // of its flame speed: a mixture outside its limits, held hot, burns at
+static constexpr double STIRRING = 0.2;  // of a wind's speed: what its eddies add to a flame's (turbulent flame speed)
+
+double Mixture::frontSpeed(const Reaction &r, const Conditions &c) const
+{
+	const Reaction::Front &f = *r.front;
+	const double fuel = in(f.fuel, State::Gas), oxidiser = in(f.oxidiser, State::Gas);
+	if (fuel <= 0 || oxidiser <= 0)
+		return 0;
+	// how rich: fuel to oxidiser against the equation's
+	const double phi = fuel / oxidiser / (f.fuel_count / f.oxidiser_count);
+	if (phi <= f.lean || phi >= f.rich) {
+		// it can't carry a flame, but held hot by something else it burns where
+		// it meets the air, as a torch's flame over a spirit does: slowly
+		if (temperature < f.ignites)
+			return 0;
+		return HELD * f.speed + STIRRING * c.stir;
+	}
+	// fastest at its peak, falling to nothing at either limit
+	const double edge = phi < f.peak ? f.lean : f.rich, off = (phi - f.peak) / (edge - f.peak);
+	double speed = f.speed * (1 - off * off);
+	// a warmer mixture burns faster (laminar speed ∝ T^1.75), up to the
+	// warmth of the unburnt gas ahead of a front: a burning block's own heat
+	// is behind its front, not ahead of it
+	speed *= std::pow(std::clamp(temperature, 200.0, PREHEAT) / 298.0, 1.75);
+	return speed + STIRRING * c.stir;
+}
+
+double Mixture::frontRate(const Reaction &r, const Conditions &c) const
+{
+	// the front crosses it in across/speed: its fuel burns at that pace
+	const double speed = frontSpeed(r, c);
+	return speed > 0 ? in(r.front->fuel, State::Gas) / r.front->fuel_count * speed / c.across : 0;
+}
+
 uint32_t Mixture::colour() const
 {
 	// mixed as light is: in linear terms, not sRGB's
@@ -294,6 +330,8 @@ std::vector<double> Mixture::run(double seconds, const Conditions &c)
 		std::fill(fast.begin(), fast.end(), false);
 		for (size_t j : candidates()) {
 			rates[j] = rate(reactions[j], c);
+			if (reactions[j].front && c.across > 0)
+				rates[j] = c.lit ? frontRate(reactions[j], c) : std::min(rates[j], frontRate(reactions[j], c));
 			fast[j] = rates[j] > 0 && room(reactions[j]) / rates[j] < FAST;
 			if (rates[j] > 0 && !fast[j]) {
 				dt = std::min(dt, 0.1 * room(reactions[j]) / rates[j] + 1e-6);
