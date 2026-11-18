@@ -14,13 +14,18 @@ const CAPTURES = 8
  */
 export function PerfStore(opts: { capture: (from: number, to: number) => Promise<PerfCapture> }) {
     const frames = shallowRef<PerfFrame[]>([])
+    /** Each counter's unit as the engine named it ("#", "us", "%"), or "". */
+    const units = shallowRef<Record<string, string>>({})
+    /** Counters pinned from Stats: drawn together in Live. */
+    const pinned = ref<string[]>([])
     const captures = shallowRef<Capture[]>([])
     const current = shallowRef<Capture | null>(null)
     const capturing = ref(false)
     const problem = ref<string | null>(null)
     let next = 1
 
-    function append(incoming: readonly PerfFrame[]) {
+    function append(incoming: readonly PerfFrame[], named: Record<string, string> = {}) {
+        if (Object.keys(named).some((name) => !(name in units.value))) units.value = { ...units.value, ...named }
         const joined = frames.value.concat(incoming)
         frames.value = joined.length > KEEP ? joined.slice(joined.length - KEEP) : joined
     }
@@ -42,13 +47,17 @@ export function PerfStore(opts: { capture: (from: number, to: number) => Promise
         }
     }
 
+    function pin(name: string) {
+        pinned.value = pinned.value.includes(name) ? pinned.value.filter((n) => n !== name) : [...pinned.value, name]
+    }
+
     function clear() {
         frames.value = []
         captures.value = []
         current.value = null
     }
 
-    return { frames, captures, current, capturing, problem, append, capture, clear }
+    return { frames, units, pinned, captures, current, capturing, problem, append, pin, capture, clear }
 }
 
 export type PerfStoreHandle = ReturnType<typeof PerfStore>

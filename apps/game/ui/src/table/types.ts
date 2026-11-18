@@ -9,6 +9,8 @@ export interface Column<T> {
     /** Fixed width in px; leave it out and set flex for a fluid column. */
     width?: number
     flex?: number
+    /** The least a fluid column narrows to; past it the table scrolls sideways. */
+    minWidth?: number
     mono?: boolean
     muted?: boolean
     /** This row's text colour in this column. */

@@ -568,8 +568,20 @@ export type LogLine = { seq: number; time: number; level: LogLevel; thread: stri
  * One frame, from the recorder (trace/trace.h). Times are ms since the engine
  * started. `threads` is each thread's time in each zone it closed during the
  * frame, by name, nested ones included (a zone's time is in its parent's too).
+ * `counters` is each value reported during the frame (blocks drawn, draw
+ * calls, packets: the old profiler's pages), folded as its kind says.
  */
-export type PerfFrame = { id: number; start: number; end: number; threads: Record<string, Record<string, number>> }
+export type PerfFrame = {
+    id: number; start: number; end: number
+    threads: Record<string, Record<string, number>>
+    counters: Record<string, number>
+    /** What the client sent and received, flat, five numbers a type: type, 0 in / 1 out, count, bytes, largest. */
+    net: number[]
+}
+/** The client's messages over a range: `messages` flat, six numbers each (time ms, 0 in / 1 out, type, channel, reliable, bytes); `heads` each incoming one's first payload bytes, as hex. */
+export type NetCapture = { messages: number[]; heads: string[] }
+/** A moment on the connection; `command` set when it's the first arrival of that message type since connecting. */
+export type NetEvent = { time: number; what: string; command: number }
 /**
  * Every thread's zones over a range, whole. `spans` is flat, four numbers a
  * zone: name (an index into names), depth, start ms, end ms. `since` is the
@@ -585,7 +597,11 @@ export type EngineMessage =
     /** The debugger's page only: what the engine has logged since it last sent (all it kept, to a fresh page). */
     | { kind: "debugger.log"; lines: LogLine[] }
     /** The debugger's page only: frames ended since the last, ~10 times a second (all kept, to a fresh page). */
-    | { kind: "perf.frames"; frames: PerfFrame[] }
+    | { kind: "perf.frames"; frames: PerfFrame[]; units: Record<string, string> }
+    /** The debugger's page only: message types' names by number, each way, once per page. */
+    | { kind: "net.names"; names: { in: string[]; out: string[] } }
+    /** The debugger's page only: connection events as they happen (all kept, to a fresh page). */
+    | { kind: "net.events"; events: NetEvent[] }
     /** How far the world being entered has got, by stage; null once it's there (or it never got there). */
     | { kind: "entering"; loading: Loading | null }
     | { kind: "error"; message: string }
@@ -610,6 +626,8 @@ export type Intents = {
     "perf.capture": { request: { from: number; to: number }; response: PerfCapture }
     /** Everything the recorder has, written as a Chrome trace (Perfetto, chrome://tracing). */
     "perf.export": { request: {}; response: { path: string } }
+    /** The client's messages over [from, to] ms, whole. Answered off the game's thread. */
+    "net.capture": { request: { from: number; to: number }; response: NetCapture }
     "update.check": { request: {}; response: UpdateCheck }
     "worlds.list": { request: {}; response: World[] }
     "worlds.pin": { request: { path: string; pinned: boolean }; response: null }

@@ -34,6 +34,7 @@ const columnDefs = computed<ColDef<T>[]>(() => props.columns.map((column) => ({
     valueGetter: (params) => (params.data ? column.value(params.data) : ""),
     width: column.width,
     flex: column.flex,
+    minWidth: column.minWidth,
     suppressSizeToFit: column.width !== undefined,
     cellClass: [column.mono ? "cell-mono" : "", column.muted ? "cell-muted" : ""].filter(Boolean),
     cellRenderer: column.swatch ? (params: { data?: T; value: string }) => swatched(params, column) : undefined,

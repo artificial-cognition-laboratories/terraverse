@@ -2,75 +2,112 @@
 /**
  * The Live tab: what the frames cost as they stream, smooth because it's drawn
  * from the frames alone (no zones fetched). Frame time on top, then a chart
- * per kind of thread (Main, Server, the emerge and mesh workers, each kind
- * summed) with its costliest zones as lines. All share one window: wheel
- * zooms, drag pans back through the minute kept, and against the newest frame
- * it rides along. Click a moment to capture it for the Flame tab.
+ * per kind of thread (each kind summed) with its costliest zones as lines, then
+ * the counters by group. Always the newest frames: the wheel only sets how
+ * many seconds that is. Click a moment to capture it for the Flame tab.
+ *
+ * Charts and their lines hold still. A chart, once shown, stays, in a fixed
+ * order; a line, once chosen, stays, and new ones only fill a chart's free
+ * places. A line with nothing for a while is a gap, not a reason to move.
  */
-import { computed, ref } from "vue"
+import { computed, ref, watch } from "vue"
 import type { PerfFrame } from "../../bridge/index.ts"
 import { threadOrder } from "./capture.ts"
 import { colorOf, IDLE } from "./colors.ts"
+import { formatValue, GROUPS, groupOf, TIME_UNITS } from "./counters.ts"
 import LineChart, { type Series } from "./LineChart.vue"
-import { View, type Window } from "./view.ts"
+import type { Window } from "./view.ts"
 
-const props = defineProps<{ frames: readonly PerfFrame[] }>()
-const emit = defineEmits<{ capture: [at: number] }>()
+const props = defineProps<{ frames: readonly PerfFrame[]; units: Record<string, string>; pinned: readonly string[] }>()
+const emit = defineEmits<{ capture: [at: number]; span: [ms: number] }>()
 
 const BUDGETS = [{ ms: 1000 / 60, label: "60 fps" }, { ms: 1000 / 30, label: "30 fps" }] as const
-const LINES = 5 // zones a chart draws
+const ZONE_LINES = 5
+const COUNTER_LINES = 6
+const SPAN = { least: 500, most: 15_000 }
 
-const bounds = (): Window => {
-    const first = props.frames[0]
-    const last = props.frames[props.frames.length - 1]
-    return first && last ? { startMs: first.start, endMs: last.end } : { startMs: 0, endMs: 1 }
-}
-const view = View({ bounds: bounds, initialSpanMs: 10_000 })
-const moved = ref(0) // bumped by every gesture: the view itself isn't reactive
+// The window: always ending at the newest frame; the wheel sets its width.
+const span = ref(SPAN.most)
+emit("span", span.value)
 const win = computed<Window>(() => {
-    void moved.value
-    void props.frames
-    return view.current
+    const last = props.frames[props.frames.length - 1]
+    const end = last ? last.end : 1
+    return { startMs: end - span.value, endMs: end }
 })
-const live = computed(() => {
-    void moved.value
-    return view.following
-})
-const gesture = (act: () => void) => {
-    act()
-    moved.value++
+
+/**
+ * Charts kept: key → their lines' names, in the order first given. Only ever
+ * added to, by the frames as they come (over the last two seconds, so a new
+ * chart or line finds its place within a moment of starting to matter).
+ */
+type Kept = { title: string; order: number; names: string[]; kind: "zones" | "counters"; threads: Set<string> }
+const kept = ref(new Map<string, Kept>())
+const kindOf = (thread: string) => thread.replace(/[-\s]?\d+$/, "") // "Emerge-3" with "Emerge-0"
+const counterOrder = (id: string) => 100 + Math.max(0, GROUPS.findIndex((g) => g.id === id)) + (id === "other" ? 50 : 0)
+
+function chart(key: string, make: () => Kept) {
+    let k = kept.value.get(key)
+    if (!k) kept.value.set(key, (k = make()))
+    return k
+}
+function fill(k: Kept, ranked: [string, number][], room: number) {
+    for (const [name] of ranked.sort((a, b) => b[1] - a[1])) {
+        if (k.names.length >= room) return
+        if (!k.names.includes(name)) k.names.push(name)
+    }
 }
 
-// Threads of a kind are charted together: "Emerge-3" with "Emerge-0", "MeshUpdate 2" with "MeshUpdate".
-const kindOf = (thread: string) => thread.replace(/[-\s]?\d+$/, "")
-const groups = computed(() => {
-    const totals = new Map<string, Map<string, number>>()
-    const members = new Map<string, Set<string>>()
-    // ranked over the last ten seconds or so: what costs now, and cheap to redo as frames stream
-    for (const f of props.frames.slice(-600)) {
+watch(() => props.frames, (frames) => {
+    const last = frames[frames.length - 1]
+    if (!last) return
+    const zoneSums = new Map<string, Map<string, number>>()
+    const counterPeaks = new Map<string, Map<string, number>>()
+    for (let i = frames.length - 1; i >= 0 && frames[i]!.end > last.end - 2000; i--) {
+        const f = frames[i]!
         for (const [thread, parts] of Object.entries(f.threads)) {
             const kind = kindOf(thread)
-            let sums = totals.get(kind)
-            if (!sums) totals.set(kind, (sums = new Map()))
-            let threads = members.get(kind)
-            if (!threads) members.set(kind, (threads = new Set()))
-            threads.add(thread)
+            chart(`zones:${kind}`, () => ({ title: kind, order: 0, names: [], kind: "zones", threads: new Set() })).threads.add(thread)
+            let sums = zoneSums.get(kind)
+            if (!sums) zoneSums.set(kind, (sums = new Map()))
             for (const [name, ms] of Object.entries(parts)) if (!IDLE.has(name)) sums.set(name, (sums.get(name) ?? 0) + ms)
         }
+        for (const [name, v] of Object.entries(f.counters)) {
+            if (TIME_UNITS.has(props.units[name] ?? "")) continue // a zone already, charted above
+            const group = groupOf(name).id
+            let peaks = counterPeaks.get(group)
+            if (!peaks) counterPeaks.set(group, (peaks = new Map()))
+            peaks.set(name, Math.max(peaks.get(name) ?? 0, v))
+        }
     }
-    return [...totals.entries()]
-        .sort(([a], [b]) => threadOrder(a, b))
-        .map(([kind, sums]) => {
-            const threads = [...(members.get(kind) ?? [])]
-            const series: Series[] = [...sums.entries()].sort((a, b) => b[1] - a[1]).slice(0, LINES).map(([name]) => ({
-                name: name,
-                color: colorOf(name),
-                value: (f: PerfFrame) => threads.reduce((sum, t) => sum + (f.threads[t]?.[name] ?? 0), 0),
-            }))
-            return { kind: kind, title: threads.length > 1 ? `${kind} ×${threads.length}` : kind, series: series }
-        })
-        .filter((g) => g.series.length)
-})
+    for (const [kind, sums] of zoneSums) {
+        const k = kept.value.get(`zones:${kind}`)
+        if (k) fill(k, [...sums.entries()], ZONE_LINES)
+    }
+    for (const [group, peaks] of counterPeaks) {
+        const title = group === "other" ? "Other" : (GROUPS.find((g) => g.id === group)?.title ?? group)
+        fill(chart(`counters:${group}`, () => ({ title: title, order: counterOrder(group), names: [], kind: "counters", threads: new Set() })),
+            [...peaks.entries()], COUNTER_LINES)
+    }
+    kept.value = new Map(kept.value) // what's kept changed: the charts below follow
+}, { immediate: true })
+
+const zoneValue = (k: Kept, name: string) => (f: PerfFrame) => {
+    let sum = 0
+    for (const t of k.threads) sum += f.threads[t]?.[name] ?? 0
+    return sum
+}
+const counterValue = (name: string) => (f: PerfFrame) => f.counters[name] ?? Number.NaN
+const charts = computed(() => [...kept.value.entries()]
+    .filter(([, k]) => k.names.length)
+    .sort(([a, ka], [b, kb]) => ka.order - kb.order || (ka.kind === "zones" ? threadOrder(ka.title, kb.title) : a.localeCompare(b)))
+    .map(([key, k]) => ({
+        key: key,
+        title: k.kind === "zones" && k.threads.size > 1 ? `${k.title} ×${k.threads.size}` : k.title,
+        counters: k.kind === "counters",
+        series: k.names.map((name): Series => ({ name: name, color: colorOf(name), value: k.kind === "zones" ? zoneValue(k, name) : counterValue(name) })),
+    })))
+const pinnedSeries = computed<Series[]>(() => props.pinned.map((name) => ({ name: name, color: colorOf(name), value: counterValue(name) })))
+const asCount = (v: number) => formatValue(v, "")
 const FRAME: Series[] = [{ name: "frame", color: "#e6e6ee", value: (f) => f.end - f.start, bold: true }]
 
 const box = ref<HTMLElement | null>(null)
@@ -78,72 +115,31 @@ const cursor = ref<number | null>(null)
 const msAt = (event: MouseEvent) => {
     const rect = box.value?.getBoundingClientRect()
     if (!rect) return null
-    const { startMs, endMs } = win.value
-    return startMs + ((event.clientX - rect.left) / rect.width) * (endMs - startMs)
+    return win.value.startMs + ((event.clientX - rect.left) / rect.width) * (win.value.endMs - win.value.startMs)
 }
-let drag: { x: number; moved: boolean } | null = null
-function onDown(event: MouseEvent) {
-    drag = { x: event.clientX, moved: false }
-}
-function onMove(event: MouseEvent) {
-    if (drag && event.buttons & 1) {
-        const dx = event.clientX - drag.x
-        if (Math.abs(dx) > 2 || drag.moved) {
-            drag.moved = true
-            gesture(() => view.pan(-dx, box.value?.clientWidth ?? 1))
-            drag.x = event.clientX
-        }
-    }
-    cursor.value = msAt(event)
-}
-function onUp(event: MouseEvent) {
-    if (drag && !drag.moved) {
-        const at = msAt(event)
-        if (at !== null) emit("capture", at)
-    }
-    drag = null
+function onClick(event: MouseEvent) {
+    const at = msAt(event)
+    if (at !== null) emit("capture", at)
 }
 function onWheel(event: WheelEvent) {
-    const width = box.value?.clientWidth ?? 1
-    if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
-        gesture(() => view.pan(event.shiftKey ? event.deltaY : event.deltaX, width))
-        return
-    }
-    const x = event.clientX - (box.value?.getBoundingClientRect().left ?? 0)
-    const anchor = x >= width - 4 ? 1 : Math.min(1, Math.max(0, x / width))
-    gesture(() => view.zoom(Math.exp(event.deltaY * 0.0015), anchor))
+    span.value = Math.min(SPAN.most, Math.max(SPAN.least, span.value * Math.exp(event.deltaY * 0.0015)))
+    emit("span", span.value)
 }
-const spanLabel = computed(() => {
-    const s = (win.value.endMs - win.value.startMs) / 1000
-    return s >= 1 ? `${s.toFixed(s >= 10 ? 0 : 1)} s` : `${(s * 1000).toFixed(0)} ms`
-})
 </script>
 
 <template>
-    <div class="live">
-        <div class="bar">
-            <button class="mode" :class="{ live: live }" @click="gesture(() => view.follow())"><i />{{ live ? "Following" : "Go live" }}</button>
-            <span class="faint">{{ spanLabel }} · wheel zooms · drag pans · click captures that moment</span>
-        </div>
-        <div v-if="frames.length" ref="box" class="charts" @mousedown.left="onDown" @mousemove="onMove" @mouseup.left="onUp"
-            @mouseleave="cursor = null; drag = null" @wheel.prevent="onWheel">
-            <LineChart title="Frame" :frames="frames" :window="win" :series="FRAME" :height="92" :budgets="BUDGETS" :cursor="cursor" />
-            <LineChart v-for="g in groups" :key="g.kind" :title="g.title" :frames="frames" :window="win" :series="g.series" :height="70"
-                :cursor="cursor" />
-        </div>
-        <p v-else class="waiting">Waiting for frames from the engine…</p>
+    <div v-if="frames.length" ref="box" class="live" @mousemove="(e: MouseEvent) => (cursor = msAt(e))" @mouseleave="cursor = null"
+        @click="onClick" @wheel.prevent="onWheel">
+        <LineChart title="Frame" :frames="frames" :window="win" :series="FRAME" :height="92" :budgets="BUDGETS" :cursor="cursor" />
+        <LineChart v-if="pinnedSeries.length" title="Pinned" :frames="frames" :window="win" :series="pinnedSeries" :height="80"
+            :cursor="cursor" :format="asCount" />
+        <LineChart v-for="c in charts" :key="c.key" :title="c.title" :frames="frames" :window="win" :series="c.series" :height="70"
+            :cursor="cursor" :format="c.counters ? asCount : undefined" />
     </div>
+    <p v-else class="waiting">Waiting for frames from the engine…</p>
 </template>
 
 <style scoped>
-.live { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-.bar { display: flex; align-items: center; gap: 10px; flex: none; height: 28px; padding: 0 6px; border-bottom: 1px solid var(--dt-line); font-size: 12px; }
-button { display: flex; align-items: center; border: 0; background: none; color: var(--dt-ink); font: inherit; cursor: default; }
-.mode { gap: 6px; height: 22px; padding: 0 8px; border-radius: 4px; }
-.mode:hover { background: var(--dt-hover); }
-.mode i { width: 8px; height: 8px; border-radius: 50%; background: var(--dt-faint); }
-.mode.live i { background: #5fd17a; box-shadow: 0 0 6px #5fd17a; }
-.faint { min-width: 0; overflow: hidden; color: var(--dt-faint); white-space: nowrap; text-overflow: ellipsis; }
-.charts { flex: 1; min-height: 0; overflow-y: auto; cursor: crosshair; }
-.waiting { flex: 1; display: grid; place-items: center; margin: 0; color: var(--dt-faint); }
+.live { height: 100%; min-height: 0; overflow-y: auto; cursor: crosshair; }
+.waiting { height: 100%; display: grid; place-items: center; margin: 0; color: var(--dt-faint); }
 </style>

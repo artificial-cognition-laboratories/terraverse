@@ -2,7 +2,8 @@
 import { onUnmounted, ref } from "vue"
 import type { DockSide, LogLevel, LogLine } from "../../bridge/index.ts"
 import { TableFeed } from "../../table/feed.ts"
-import { mockCapture, mockFrame } from "../../debugger/perf/mock.ts"
+import { MOCK_NAMES, MOCK_UNITS, mockCapture, mockEvents, mockFrame, mockMessages } from "../../debugger/perf/mock.ts"
+import { NetStore } from "../../debugger/net/store.ts"
 import { PerfStore } from "../../debugger/perf/store.ts"
 import DebuggerPanel from "../../debugger/DebuggerPanel.vue"
 import Specimen from "../Specimen.vue"
@@ -38,7 +39,10 @@ const frames = (n: number) => Array.from({ length: n }, () => {
     clock = frame.end
     return frame
 })
-perf.append(frames(600))
+perf.append(frames(600), MOCK_UNITS)
+const net = NetStore({ capture: async (from, to) => mockMessages(perf.frames.value, from, to) })
+net.names.value = MOCK_NAMES
+net.addEvents(mockEvents(perf.frames.value[perf.frames.value.length - 1]?.end ?? 0))
 const streaming = setInterval(() => perf.append(frames(6)), 100)
 const exportTrace = async () => "/home/you/.terraverse/traces/trace-1795000000.json"
 onUnmounted(() => {
@@ -51,7 +55,7 @@ onUnmounted(() => {
     <Specimen name="Debugger" note="devtools dress, not the kit: it's a tool beside the game" wide>
         <div class="window" :class="side">
             <div class="game">game</div>
-            <DebuggerPanel :side="side" :log="log" :perf="perf" :export-trace="exportTrace" class="panel" @dock="(to) => side = to" />
+            <DebuggerPanel :side="side" :log="log" :perf="perf" :net="net" :export-trace="exportTrace" class="panel" @dock="(to) => side = to" />
         </div>
     </Specimen>
 </template>

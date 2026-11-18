@@ -15,6 +15,8 @@
 #include "filesys.h"
 #include "porting.h"
 #include "trace/trace.h"
+#include "network/clientopcodes.h"
+#include "network/serveropcodes.h"
 #include <fstream>
 #include <unordered_map>
 #include <IEventReceiver.h>
@@ -89,6 +91,48 @@ static Json::Value zonesOver(u64 from, u64 to)
 	return out;
 }
 
+// The message types' names, by number, each way ("" where a number is unused).
+static Json::Value messageNames()
+{
+	Json::Value out;
+	Json::Value &in = out["in"] = Json::Value(Json::arrayValue);
+	for (const ToClientCommandHandler &h : toClientCommandTable)
+		in.append(h.name ? h.name : "");
+	Json::Value &sent = out["out"] = Json::Value(Json::arrayValue);
+	for (const ServerCommandFactory &f : serverCommandFactoryTable)
+		sent.append(f.name ? f.name : "");
+	return out;
+}
+
+// The client's messages in [from, to], for the page to look through: six
+// numbers each (time ms, direction 0 in / 1 out, type, channel, reliable,
+// bytes), and each incoming one's payload head as hex.
+static Json::Value messagesOver(u64 from, u64 to)
+{
+	static const char HEX[] = "0123456789abcdef";
+	Json::Value out;
+	Json::Value &list = out["messages"] = Json::Value(Json::arrayValue);
+	Json::Value &heads = out["heads"] = Json::Value(Json::arrayValue);
+	for (const trace::net::Entry &e : trace::net::between(from, to)) {
+		list.append(ms(e.time));
+		list.append(e.dir == trace::net::Dir::In ? 0 : 1);
+		list.append(e.command);
+		list.append(e.channel);
+		list.append(e.reliable ? 1 : 0);
+		list.append(e.bytes);
+		std::string hex;
+		if (e.dir == trace::net::Dir::In) {
+			const size_t kept = std::min<size_t>(e.bytes, trace::net::HEAD);
+			for (size_t i = 0; i < kept; i++) {
+				hex += HEX[e.head[i] >> 4];
+				hex += HEX[e.head[i] & 15];
+			}
+		}
+		heads.append(hex);
+	}
+	return out;
+}
+
 // Everything kept, as Chrome's trace format: opens in Perfetto and chrome://tracing.
 static std::string exportTrace()
 {
@@ -148,6 +192,7 @@ struct Debugger::Impl
 	Console console;
 	u64 sent = 0; // the last log line the page has
 	u64 frame = 0; // the last frame the page has
+	u64 netEvent = 0; // the last connection event the page has
 	u64 perf_at = 0; // when frames were last sent
 	CefRefPtr<CefMessageRouterBrowserSide> router;
 	CefRefPtr<Client> client;
@@ -201,9 +246,14 @@ struct Debugger::Impl
 	{
 		bridge.on("ready", [this](const Json::Value &) {
 			ready = true;
-			sent = 0; // a fresh page has none of the log, or the frames
+			sent = 0; // a fresh page has none of the log, the frames, or the events
 			frame = 0;
+			netEvent = 0;
 			sendDock();
+			Json::Value names;
+			names["kind"] = "net.names";
+			names["names"] = messageNames();
+			bridge.send(browser, names);
 			return Json::Value();
 		});
 		// Both read the recorder under its own locks: answered off the main
@@ -215,6 +265,14 @@ struct Debugger::Impl
 			if (from < 0 || to < from)
 				throw Refused("perf.capture needs 0 <= from <= to");
 			return zonesOver((u64)(from * 1e6), (u64)(to * 1e6));
+		});
+		bridge.onAsync("net.capture", [](const Json::Value &intent) {
+			if (!intent["from"].isNumeric() || !intent["to"].isNumeric())
+				throw Refused("net.capture needs numbers 'from' and 'to' (ms)");
+			const double from = intent["from"].asDouble(), to = intent["to"].asDouble();
+			if (from < 0 || to < from)
+				throw Refused("net.capture needs 0 <= from <= to");
+			return messagesOver((u64)(from * 1e6), (u64)(to * 1e6));
 		});
 		bridge.onAsync("perf.export", [](const Json::Value &) {
 			Json::Value out;
@@ -287,18 +345,19 @@ struct Debugger::Impl
 		bridge.send(browser, message);
 	}
 
-	// The frames ended since the page last heard: ten times a second is
-	// plenty to draw, and a small message.
+	// The frames ended since the page last heard, about 27 times a second:
+	// often enough that the Live charts move smoothly, each message a frame or two.
 	void sendPerf()
 	{
 		const u64 at = trace::now();
-		if (!ready || at - perf_at < 100'000'000)
+		if (!ready || at - perf_at < 37'000'000)
 			return;
 		perf_at = at;
 		const std::vector<trace::Frame> frames = trace::framesSince(frame);
 		if (frames.empty())
 			return;
 		Json::Value list(Json::arrayValue);
+		Json::Value units(Json::objectValue);
 		for (const trace::Frame &f : frames) {
 			Json::Value out;
 			out["id"] = (Json::UInt64)f.id;
@@ -310,13 +369,46 @@ struct Debugger::Impl
 				for (const auto &[name, took] : thread.parts)
 					parts[trace::nameOf(name)] = ms(took);
 			}
+			// what the client sent and received: five numbers a type (type, 0 in / 1 out, count, bytes, largest)
+			Json::Value &net = out["net"] = Json::Value(Json::arrayValue);
+			for (const trace::net::Total &t : f.net) {
+				net.append(t.command);
+				net.append(t.dir == trace::net::Dir::In ? 0 : 1);
+				net.append(t.count);
+				net.append((Json::UInt64)t.bytes);
+				net.append(t.largest);
+			}
+			Json::Value &counters = out["counters"] = Json::Value(Json::objectValue);
+			for (const auto &[id, value] : f.counters) {
+				const std::string &name = trace::nameOf(id);
+				counters[name] = value;
+				if (!units.isMember(name))
+					units[name] = trace::unitOf(id);
+			}
 			list.append(std::move(out));
 		}
 		frame = frames.back().id;
 		Json::Value message;
 		message["kind"] = "perf.frames";
 		message["frames"] = std::move(list);
+		message["units"] = std::move(units);
 		bridge.send(browser, message);
+
+		const std::vector<trace::net::Event> events = trace::net::eventsSince(netEvent);
+		if (!events.empty()) {
+			Json::Value said;
+			said["kind"] = "net.events";
+			Json::Value &list = said["events"] = Json::Value(Json::arrayValue);
+			for (const trace::net::Event &e : events) {
+				Json::Value one;
+				one["time"] = ms(e.time);
+				one["what"] = e.what;
+				one["command"] = e.command;
+				list.append(std::move(one));
+			}
+			netEvent = events.back().seq;
+			bridge.send(browser, said);
+		}
 	}
 
 	void hide()

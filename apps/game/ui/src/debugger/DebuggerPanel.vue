@@ -5,6 +5,8 @@ import type { TableFeedHandle } from "../table/types.ts"
 import ConsoleTab from "./console/ConsoleTab.vue"
 import PerfTab from "./perf/PerfTab.vue"
 import type { PerfStoreHandle } from "./perf/store.ts"
+import NetworkTab from "./net/NetworkTab.vue"
+import type { NetStoreHandle } from "./net/store.ts"
 import Menu, { type MenuItem } from "./Menu.vue"
 import { TABS, type TabId } from "./tabs.ts"
 
@@ -14,7 +16,7 @@ import { TABS, type TabId } from "./tabs.ts"
  * a dark rail of labelled tabs, those that don't fit folded behind », and its
  * own buttons at the end.
  */
-const props = defineProps<{ side: DockSide; log: TableFeedHandle<LogLine>; perf: PerfStoreHandle; exportTrace: () => Promise<string> }>()
+const props = defineProps<{ side: DockSide; log: TableFeedHandle<LogLine>; perf: PerfStoreHandle; net: NetStoreHandle; exportTrace: () => Promise<string> }>()
 const emit = defineEmits<{ dock: [side: DockSide]; grab: []; close: [] }>()
 const tab = ref<TabId>(TABS[0].id)
 const shown = computed(() => TABS.find((t) => t.id === tab.value) ?? TABS[0])
@@ -132,6 +134,7 @@ function pickFolded(id: TabId) {
             <main>
                 <ConsoleTab v-if="tab === 'console'" :feed="log" />
                 <PerfTab v-else-if="tab === 'perf'" :perf="perf" :export-trace="exportTrace" />
+                <NetworkTab v-else-if="tab === 'net'" :perf="perf" :net="net" />
                 <div v-else class="empty">
                     <svg viewBox="0 0 16 16" aria-hidden="true"><path :d="shown.icon" /></svg>
                     <h2>{{ shown.label }}</h2>
@@ -205,7 +208,7 @@ svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; s
 .dots { stroke-width: 2.6; }
 
 main { flex: 1; min-height: 0; overflow: auto; }
-main:has(.console, .perf) { overflow: hidden; }
+main:has(.console, .perf, .network) { overflow: hidden; }
 .empty { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 380px; margin: 0 auto; padding: 48px 20px; text-align: center; }
 .empty svg { width: 28px; height: 28px; stroke: var(--dt-faint); stroke-width: 1; }
 h2 { margin: 4px 0 0; font-size: 14px; font-weight: 600; }

@@ -1,14 +1,16 @@
 <script setup lang="ts">
 /**
- * Where the time goes, two ways. Live: charts of every frame as it streams,
+ * Where the time goes, three ways. Live: charts of every frame as it streams,
  * smooth because they're drawn from the frames alone. Flame: a capture (every
  * thread's zones over a few seconds, fetched once) to look through without
- * waiting on the engine. The recorder is always on, so capturing is just
+ * waiting on the engine. Stats: every value the old profiler reported, as a
+ * table, any of them pinned to chart in Live. The recorder is always on, so capturing is just
  * saying when: the last few seconds, or a moment clicked on a Live chart.
  */
 import { ref } from "vue"
 import FlamePane from "./FlamePane.vue"
 import LiveCharts from "./LiveCharts.vue"
+import StatsTab from "./StatsTab.vue"
 import type { PerfStoreHandle } from "./store.ts"
 
 const props = defineProps<{ perf: PerfStoreHandle; exportTrace: () => Promise<string> }>()
@@ -16,7 +18,10 @@ const perf = props.perf
 
 /** What a capture covers: the engine keeps about ten seconds of a busy thread. */
 const CAPTURE_MS = 3000
-const view = ref<"live" | "flame">("live")
+const view = ref<"live" | "flame" | "stats">("live")
+/** How much time Live shows; the wheel over it sets this. */
+const liveSpan = ref(15_000)
+const spanLabel = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(ms >= 10_000 ? 0 : 1)} s` : `${Math.round(ms)} ms`)
 
 async function captureAt(at: number | null) {
     const list = perf.frames.value
@@ -46,8 +51,10 @@ async function saveTrace() {
             <nav role="tablist" aria-label="Perf views">
                 <button role="tab" :aria-selected="view === 'live'" :class="{ on: view === 'live' }" @click="view = 'live'">Live</button>
                 <button role="tab" :aria-selected="view === 'flame'" :class="{ on: view === 'flame' }" @click="view = 'flame'">Flame</button>
+                <button role="tab" :aria-selected="view === 'stats'" :class="{ on: view === 'stats' }" @click="view = 'stats'">Stats</button>
             </nav>
             <span class="gap" />
+            <span v-if="view === 'live'" class="span" title="The time Live shows: the wheel over the charts sets it">{{ spanLabel(liveSpan) }}</span>
             <button class="action" :disabled="perf.capturing.value || !perf.frames.value.length" title="Every thread's zones over the last 3 seconds"
                 @click="captureAt(null)">
                 <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" /><circle cx="8" cy="8" r="2.2" class="dot" /></svg>
@@ -61,7 +68,9 @@ async function saveTrace() {
         <p v-if="exportProblem" class="note bad" @click="exportProblem = null">{{ exportProblem }}</p>
         <p v-if="perf.problem.value" class="note bad" @click="perf.problem.value = null">{{ perf.problem.value }}</p>
 
-        <LiveCharts v-if="view === 'live'" class="view" :frames="perf.frames.value" @capture="captureAt" />
+        <LiveCharts v-if="view === 'live'" class="view" :frames="perf.frames.value" :units="perf.units.value" :pinned="perf.pinned.value"
+            @capture="captureAt" @span="(ms: number) => (liveSpan = ms)" />
+        <StatsTab v-else-if="view === 'stats'" class="view" :perf="perf" />
         <template v-else>
             <FlamePane v-if="perf.current.value" class="view" :capture="perf.current.value" />
             <div v-else class="empty">
@@ -82,6 +91,7 @@ button { display: flex; align-items: center; border: 0; background: none; color:
 [role=tab].on { color: var(--dt-ink); }
 [role=tab].on::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 0; height: 2px; background: var(--dt-accent); }
 .gap { flex: 1; }
+.span { color: var(--dt-faint); font: 11px ui-monospace, monospace; white-space: nowrap; }
 .action { gap: 6px; height: 24px; padding: 0 8px; border-radius: 4px; color: var(--dt-ink); }
 .action:hover:not(:disabled) { background: var(--dt-hover); }
 .action:disabled { opacity: 0.5; }

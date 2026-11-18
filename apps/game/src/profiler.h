@@ -47,11 +47,13 @@ public:
 
 	void graphSet(const std::string &id, float value)
 	{
+		trace::count(id, value, trace::Fold::Last); // Terra Firma: the debugger's counters
 		MutexAutoLock lock(m_mutex);
 		m_graphvalues[id] = value;
 	}
 	void graphAdd(const std::string &id, float value)
 	{
+		trace::count(id, value, trace::Fold::Sum);
 		MutexAutoLock lock(m_mutex);
 		auto it = m_graphvalues.find(id);
 		if (it == m_graphvalues.end())

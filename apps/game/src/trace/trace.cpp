@@ -95,6 +95,24 @@ Ring &ring()
 	return *t_ring;
 }
 
+struct Counter
+{
+	double value = 0;
+	u32 reports = 0;
+	Fold fold = Fold::Sum;
+};
+struct Counters
+{
+	std::mutex lock;
+	std::unordered_map<u32, Counter> frame; // this frame's, so far
+	std::unordered_map<u32, std::string> units;
+};
+Counters &counters()
+{
+	static Counters c;
+	return c;
+}
+
 struct Frames
 {
 	std::mutex lock;
@@ -112,11 +130,13 @@ Frames &frames()
 
 u32 intern(std::string_view name)
 {
-	// The old profiler names its units: "Client step [us]". Ours are the debugger's.
-	if (!name.empty() && name.back() == ']') {
+	// The old profiler names its units: "Client step [us]", sometimes twice
+	// over ("[us] [us]", a timed scope's own unit added). Ours are the debugger's.
+	while (!name.empty() && name.back() == ']') {
 		const size_t open = name.rfind(" [");
-		if (open != std::string_view::npos)
-			name = name.substr(0, open);
+		if (open == std::string_view::npos)
+			break;
+		name = name.substr(0, open);
 	}
 	// A name already met by this thread is found without the lock: dynamic
 	// names (the old profiler's) are interned on every call.
@@ -156,6 +176,37 @@ u32 internType(const std::type_info &type)
 	const u32 id = intern(name);
 	cache.emplace(type, id);
 	return id;
+}
+
+void count(std::string_view name, double value, Fold fold)
+{
+	std::string_view unit;
+	if (!name.empty() && name.back() == ']') {
+		if (const size_t open = name.rfind(" ["); open != std::string_view::npos)
+			unit = name.substr(open + 2, name.size() - open - 3);
+	}
+	const u32 id = intern(name); // drops the unit
+	Counters &c = counters();
+	std::lock_guard<std::mutex> guard(c.lock);
+	if (!unit.empty())
+		c.units.try_emplace(id, unit);
+	Counter &counter = c.frame[id];
+	counter.fold = fold;
+	counter.reports++;
+	switch (fold) {
+	case Fold::Sum:
+	case Fold::Mean: counter.value += value; break;
+	case Fold::Max: counter.value = counter.reports == 1 ? value : std::max(counter.value, value); break;
+	case Fold::Last: counter.value = value; break;
+	}
+}
+
+std::string unitOf(u32 id)
+{
+	Counters &c = counters();
+	std::lock_guard<std::mutex> guard(c.lock);
+	auto it = c.units.find(id);
+	return it == c.units.end() ? "" : it->second;
 }
 
 void nameThread(std::string_view name)
@@ -224,6 +275,14 @@ void frame()
 		if (!thread.parts.empty())
 			done.threads.push_back(std::move(thread));
 	}
+	{
+		Counters &c = counters();
+		std::lock_guard<std::mutex> cguard(c.lock);
+		for (const auto &[id, counter] : c.frame)
+			done.counters.emplace_back(id, counter.fold == Fold::Mean ? counter.value / counter.reports : counter.value);
+		c.frame.clear();
+	}
+	done.net = net::takeFrame();
 	f.kept.push_back(std::move(done));
 	if (f.kept.size() > FRAMES)
 		f.kept.pop_front();

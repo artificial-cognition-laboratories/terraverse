@@ -64,6 +64,8 @@ export interface ViewOpts {
      * Clamped to the session, so a short run just shows all of itself.
      */
     initialSpanMs?: number
+    /** The widest it zooms out to: a view over more than this is never drawn. */
+    maxSpanMs?: number
 }
 
 export function View(opts: ViewOpts) {
@@ -103,7 +105,8 @@ export function View(opts: ViewOpts) {
     const clamp = (window: Window): Window => {
         const limit = opts.bounds()
         const full = limit.endMs - limit.startMs
-        const span = Math.min(Math.max(window.endMs - window.startMs, MIN_SPAN_MS), Math.max(full, MIN_SPAN_MS))
+        const widest = Math.min(Math.max(full, MIN_SPAN_MS), opts.maxSpanMs ?? Infinity)
+        const span = Math.min(Math.max(window.endMs - window.startMs, MIN_SPAN_MS), widest)
         // Slide rather than squash: a window pushed past an edge keeps its
         // width and stops, the way every map and timeline behaves.
         const start = Math.min(Math.max(window.startMs, limit.startMs), Math.max(limit.startMs, limit.endMs - span))

@@ -90,6 +90,7 @@ Profiler::Profiler()
 
 void Profiler::add(const std::string &name, float value)
 {
+	trace::count(name, value, trace::Fold::Sum); // Terra Firma: the debugger's counters
 	MutexAutoLock lock(m_mutex);
 
 	auto it = m_data.find(name);
@@ -104,6 +105,7 @@ void Profiler::add(const std::string &name, float value)
 
 void Profiler::max(const std::string &name, float value)
 {
+	trace::count(name, value, trace::Fold::Max); // Terra Firma: the debugger's counters
 	MutexAutoLock lock(m_mutex);
 
 	auto it = m_data.find(name);
@@ -118,6 +120,7 @@ void Profiler::max(const std::string &name, float value)
 
 void Profiler::avg(const std::string &name, float value)
 {
+	trace::count(name, value, trace::Fold::Mean); // Terra Firma: the debugger's counters
 	MutexAutoLock lock(m_mutex);
 
 	auto it = m_data.find(name);

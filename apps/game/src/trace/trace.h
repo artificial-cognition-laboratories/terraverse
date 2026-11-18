@@ -4,6 +4,7 @@
 #pragma once
 
 #include "irrlichttypes.h"
+#include "net.h"
 #include <string>
 #include <string_view>
 #include <typeinfo>
@@ -29,6 +30,16 @@ u32 intern(std::string_view name);
 const std::string &nameOf(u32 id);
 // A class's name as a zone's: "Draw3D" for a render step. Cached, so a hot loop can call it.
 u32 internType(const std::type_info &type);
+
+// How a counter's reports within one frame make its value for that frame.
+enum class Fold : u8 { Sum, Mean, Max, Last };
+
+// A value reported by any thread (blocks drawn, draw calls, packets): the
+// debugger shows each counter per frame. A trailing unit, "[#]" or "[us]",
+// is kept apart from the name (unitOf).
+void count(std::string_view name, double value, Fold fold);
+// A counter's unit, as its name gave it ("#", "us", "%"), or "" when none.
+std::string unitOf(u32 id);
 
 // The calling thread's name in the debugger (a thread unnamed is "Thread <n>").
 void nameThread(std::string_view name);
@@ -70,6 +81,10 @@ struct Frame
 		std::vector<std::pair<u32, u64>> parts;
 	};
 	std::vector<Thread> threads;
+	// Each counter reported during the frame, folded (Fold).
+	std::vector<std::pair<u32, double>> counters;
+	// The messages the client sent and received during the frame, by type.
+	std::vector<net::Total> net;
 };
 
 // Frames ended after `id`, oldest first (as many as are kept).

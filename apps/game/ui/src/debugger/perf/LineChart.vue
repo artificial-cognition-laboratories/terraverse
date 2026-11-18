@@ -3,7 +3,8 @@
  * One chart of the Live tab: a few series over the shared window, as lines,
  * each pixel column drawing the most of its frames (a one-frame spike shows at
  * any width). Its title and each line's value sit in the corner: the newest
- * frame's, or the one under the cursor.
+ * frame's, or the one under the cursor. A series with nothing for a frame
+ * (a counter that wasn't reported) leaves a gap there.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from "vue"
 import type { PerfFrame } from "../../bridge/index.ts"
@@ -20,22 +21,31 @@ const props = defineProps<{
     /** ms lines to draw across: the frame budgets, on the frame chart. */
     budgets?: readonly { ms: number; label: string }[]
     cursor: number | null
+    /** How a value reads in the corner: ms by default. */
+    format?: (value: number) => string
 }>()
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const width = ref(0)
 
-/** The frame the corner reads: under the cursor, or the newest in view. */
-const reading = computed(() => {
+/**
+ * What the corner reads for each series: its value at the cursor, or at the
+ * newest frame in view; for a counter not reported every frame, the last it was.
+ */
+const readings = computed(() => {
     const list = props.frames
-    if (props.cursor !== null) {
-        const at = props.cursor
-        return list.find((f) => f.end >= at) ?? list[list.length - 1] ?? null
-    }
-    for (let i = list.length - 1; i >= 0; i--) if (list[i]!.end <= props.window.endMs) return list[i]!
-    return null
+    const at = props.cursor ?? props.window.endMs
+    let i = list.length - 1
+    while (i >= 0 && list[i]!.start > at) i--
+    return props.series.map((s) => {
+        for (let k = i; k >= 0 && k > i - 600; k--) {
+            const v = s.value(list[k]!)
+            if (!Number.isNaN(v)) return v
+        }
+        return Number.NaN
+    })
 })
-const fmt = (ms: number) => (ms >= 10 ? ms.toFixed(1) : ms.toFixed(2))
+const fmt = (v: number) => (Number.isNaN(v) ? "–" : props.format ? props.format(v) : v >= 10 ? v.toFixed(1) : v.toFixed(2))
 
 function draw() {
     const el = canvas.value
@@ -54,20 +64,47 @@ function draw() {
 
     const { startMs, endMs } = props.window
     const span = Math.max(endMs - startMs, 1e-6)
-    const cols = Math.max(1, Math.floor(width.value))
-    const columns = props.series.map(() => new Float32Array(cols).fill(Number.NaN))
-    for (const f of props.frames) {
-        if (f.end < startMs || f.start > endMs) continue
-        const x = Math.min(cols - 1, Math.max(0, Math.floor(((f.end - startMs) / span) * width.value)))
-        props.series.forEach((s, k) => {
-            const col = columns[k]!
-            const v = s.value(f)
-            const was = col[x]!
-            col[x] = Number.isNaN(was) ? v : Math.max(was, v)
+    const xOf = (ms: number) => ((ms - startMs) / span) * width.value
+
+    // Points, per series. Grouped a pixel's worth of time at a time, the most
+    // in each group, with the groups cut on absolute time, never on the
+    // window: as the window slides, the same frames stay together and the line
+    // moves whole, rather than regrouping (and changing shape) every update.
+    // Zoomed in past a frame a pixel, each frame is its own point.
+    const msPerPixel = span / Math.max(width.value, 1)
+    // A group's point sits at its newest frame's end: fixed in time (so it
+    // doesn't jitter), and the newest of all exactly at the right border. A
+    // few groups past the left edge are drawn too, and cut by it, so the line
+    // runs in from beyond the border rather than starting short of it.
+    const points = props.series.map(() => [] as [number, number][])
+    let group = Number.NaN
+    let most: number[] = []
+    let groupEnd = 0
+    const flush = () => {
+        if (Number.isNaN(group)) return
+        most.forEach((v, k) => {
+            if (!Number.isNaN(v)) points[k]!.push([xOf(groupEnd), v])
         })
     }
+    for (const f of props.frames) {
+        if (f.end < startMs - msPerPixel * 4 || f.start > endMs) continue
+        const at = Math.floor(f.end / msPerPixel)
+        if (at !== group) {
+            flush()
+            group = at
+            most = props.series.map(() => Number.NaN)
+        }
+        groupEnd = f.end
+        props.series.forEach((s, k) => {
+            const v = s.value(f)
+            if (Number.isNaN(v)) return // not reported that frame: a gap, not a zero
+            const was = most[k]!
+            most[k] = Number.isNaN(was) ? v : Math.max(was, v)
+        })
+    }
+    flush()
     let top = 0
-    for (const col of columns) for (const v of col) if (!Number.isNaN(v)) top = Math.max(top, v)
+    for (const list of points) for (const [, v] of list) top = Math.max(top, v)
     for (const b of props.budgets ?? []) top = Math.max(top, b.ms)
     top = Math.max(top * 1.15, 0.05)
     const pad = 3
@@ -89,16 +126,10 @@ function draw() {
     }
 
     props.series.forEach((s, k) => {
-        const col = columns[k]!
+        const list = points[k]!
+        if (!list.length) return
         g.beginPath()
-        let pen = false
-        col.forEach((v, x) => {
-            if (Number.isNaN(v)) return
-            if (pen) g.lineTo(x + 0.5, y(v))
-            else g.moveTo(x + 0.5, y(v))
-            pen = true
-        })
-        if (!pen) return
+        list.forEach(([x, v], i) => (i ? g.lineTo(x, y(v)) : g.moveTo(x, y(v))))
         g.strokeStyle = s.color
         g.lineWidth = s.bold ? 1.5 : 1.2
         g.lineJoin = "round"
@@ -142,8 +173,8 @@ onUnmounted(() => {
         <canvas ref="canvas" />
         <div class="read">
             <b>{{ title }}</b>
-            <span v-for="s in series" :key="s.name"><i :style="{ background: s.color }" />{{ s.name }}
-                <em>{{ reading ? fmt(s.value(reading)) : "–" }}</em></span>
+            <span v-for="(s, k) in series" :key="s.name"><i :style="{ background: s.color }" />{{ s.name }}
+                <em>{{ fmt(readings[k] ?? Number.NaN) }}</em></span>
         </div>
     </div>
 </template>

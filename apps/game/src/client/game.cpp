@@ -528,6 +528,7 @@ bool Game::startup(volatile std::sig_atomic_t *kill,
 	// the world's there: the menu's planet let go, the game's page up
 	g_shell->setMode(shell::Mode::Game);
 	g_shell->entering().end();
+	trace::net::event("In the world");
 #endif
 
 	return true;

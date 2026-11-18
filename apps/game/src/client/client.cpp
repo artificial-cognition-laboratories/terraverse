@@ -57,6 +57,9 @@
 
 // Network
 #include "network/clientopcodes.h"
+#include "network/serveropcodes.h"
+#include "trace/net.h"
+#include "trace/trace.h"
 #include "network/connection.h"
 #include "network/networkexceptions.h"
 #include "network/networkpacket.h"
@@ -513,6 +516,7 @@ void Client::connect(const Address &address, const std::string &address_name)
 
 void Client::connect(const Address &address, const std::string &address_name, UDPSocket &&socket)
 {
+	trace::net::event("Connecting");
 	if (m_con) {
 		// can't do this if the connection has entered auth phase
 		sanity_check(m_state == LC_Created && m_proto_ver == 0);
@@ -542,6 +546,19 @@ void Client::step(float dtime)
 		dtime = DTIME_LIMIT;
 
 	m_animation_time = fmodf(m_animation_time + dtime, 60.0f);
+
+	// Terra Firma: the connection as the debugger's Network tab charts it
+	// (rates in KiB/s, the way the connection counts them; times in seconds)
+	if (m_con) {
+		const float rtt = m_con->getPeerStat(PEER_ID_SERVER, con::AVG_RTT);
+		if (rtt >= 0) {
+			trace::count("Net: RTT [ms]", rtt * 1000, trace::Fold::Last);
+			trace::count("Net: jitter [ms]", m_con->getPeerStat(PEER_ID_SERVER, con::AVG_JITTER) * 1000, trace::Fold::Last);
+		}
+		trace::count("Net: receive [KiB/s]", m_con->getLocalStat(con::CUR_INC_RATE), trace::Fold::Last);
+		trace::count("Net: send [KiB/s]", m_con->getLocalStat(con::CUR_DL_RATE), trace::Fold::Last);
+		trace::count("Net: lost [KiB/s]", m_con->getLocalStat(con::CUR_LOSS_RATE), trace::Fold::Last);
+	}
 
 	ReceiveAll();
 
@@ -1190,6 +1207,13 @@ void Client::ProcessData(NetworkPacket *pkt)
 {
 	ToClientCommand command = (ToClientCommand) pkt->getCommand();
 
+	// Terra Firma: the debugger's Network tab. The server's table says which
+	// channel, and whether reliably, it sent this kind on.
+	if (command < TOCLIENT_NUM_MSG_TYPES) {
+		const ClientCommandFactory &sent = clientCommandFactoryTable[command];
+		trace::net::message(trace::net::Dir::In, command, sent.channel, sent.reliable, pkt->getSize(), pkt->getRemainingNoCopy());
+	}
+
 	m_packetcounter.add(static_cast<u16>(command));
 	g_profiler->graphAdd("client_received_packets", 1);
 
@@ -1235,6 +1259,7 @@ void Client::Send(NetworkPacket* pkt)
 {
 	auto &scf = serverCommandFactoryTable[pkt->getCommand()];
 	FATAL_ERROR_IF(!scf.name, "packet type missing in table");
+	trace::net::message(trace::net::Dir::Out, pkt->getCommand(), scf.channel, scf.reliable, pkt->getSize());
 	m_con->Send(PEER_ID_SERVER, scf.channel, pkt, scf.reliable);
 }
 
@@ -2300,6 +2325,7 @@ void Client::showUpdateProgressTexture(void *args, float progress)
 void Client::afterContentReceived()
 {
 	infostream<<"Client::afterContentReceived() started"<<std::endl;
+	trace::net::event("Content ready");
 	assert(m_itemdef_received); // pre-condition
 	assert(m_nodedef_received); // pre-condition
 	assert(mediaReceived()); // pre-condition
