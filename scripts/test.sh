@@ -7,9 +7,12 @@
 # themselves against the wall clock, so they run alone, after the rest. Tests in scripts/test/skip.txt are skipped
 # by name and listed, each citing the job that tracks it.
 set -euo pipefail
-# Portable to macOS (bash 5, as its CI runners have): no nproc, no date +%N there.
+# Portable to macOS: no nproc or date +%N there, and its bash 3.2 has no EPOCHREALTIME (perl does).
 cpus="$(getconf _NPROCESSORS_ONLN)"
-usecs() { local t="${EPOCHREALTIME/[.,]/}"; echo "$t"; }
+usecs() {
+	if [[ -n "${EPOCHREALTIME:-}" ]]; then echo "${EPOCHREALTIME/[.,]/}"
+	else perl -MTime::HiRes=time -e 'printf "%d\n", time * 1e6'; fi
+}
 export -f usecs
 root="$(cd "$(dirname "$0")/.." && pwd)"
 bin="$root/.output/bin/luanti"
