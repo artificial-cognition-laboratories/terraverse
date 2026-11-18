@@ -126,11 +126,9 @@ jobs:
           SCCACHE_GHA_ENABLED: "true"
         run: cmake --build .output/build -j"$(nproc)" -- -k && bash scripts/stage-runtime.sh
 
+      # bun run test's script (built above): tests in scripts/test/skip.txt are skipped by name.
       - name: Unit tests
-        run: |
-          ./.output/bin/luanti --test-module TestOnline
-          ./.output/bin/luanti --test-module TestRelease
-          ./.output/bin/luanti --test-module TestTerragen
+        run: BUILT=1 bash scripts/test.sh TestOnline TestRelease TestTerragen
 
       - name: Package
         run: scripts/release/package-linux.sh "$VERSION"
@@ -247,9 +245,11 @@ jobs:
       - name: Build the engine
         run: cmake --build .output/build -- -k 0 && bash scripts/stage-runtime.sh
 
-      # Through cmd: Git Bash refused to run luanti.exe directly.
+      # Through cmd: Git Bash refused to run luanti.exe directly. Tests in
+      # scripts/test/skip.txt are skipped by name, as bun run test does.
       - name: Unit tests
         run: |
+          export TF_TEST_SKIP="$(bash scripts/test/skips.sh)"
           cd .output/bin
           for module in TestOnline TestRelease TestTerragen; do
             cmd.exe //C "luanti.exe --test-module $module"

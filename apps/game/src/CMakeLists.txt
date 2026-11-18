@@ -902,11 +902,19 @@ if(BUILD_CLIENT)
 			COMPILE_OPTIONS "${shell_std}"
 			SKIP_PRECOMPILE_HEADERS ON)
 		target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE "${CEF_ROOT}")
-		target_link_libraries(${PROJECT_NAME} libcef_dll_wrapper "${CEF_LIB_RELEASE}")
-		# libcef and its resources sit next to the executable.
-		set_target_properties(${PROJECT_NAME} PROPERTIES BUILD_RPATH "$ORIGIN")
-		add_cef_runtime("${EXECUTABLE_OUTPUT_PATH}")
-		add_dependencies(${PROJECT_NAME} cef_runtime)
+		if(APPLE)
+			# On macOS the wrapper loads the framework at run time (CefScopedLibraryLoader),
+			# from an app bundle with its helper apps. Neither is wired yet: this build
+			# compiles and links, and its shell won't start.
+			message(WARNING "macOS: the app bundle and CEF's loader aren't wired yet; the shell won't start")
+			target_link_libraries(${PROJECT_NAME} libcef_dll_wrapper)
+		else()
+			target_link_libraries(${PROJECT_NAME} libcef_dll_wrapper "${CEF_LIB_RELEASE}")
+			# libcef and its resources sit next to the executable.
+			set_target_properties(${PROJECT_NAME} PROPERTIES BUILD_RPATH "$ORIGIN")
+			add_cef_runtime("${EXECUTABLE_OUTPUT_PATH}")
+			add_dependencies(${PROJECT_NAME} cef_runtime)
+		endif()
 	endif()
 	if(NOT USE_LUAJIT)
 		set_target_properties(${PROJECT_NAME} PROPERTIES

@@ -11,7 +11,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 bin="$root/.output/bin/luanti"
 [[ -n "${BUILT:-}" ]] || bash "$root/scripts/build.sh" -j"$(nproc)" > /dev/null
 
-skips="$(grep -vE '^\s*(#|$)' "$root/scripts/test/skip.txt" | awk '{print $1}' | tr '\n' ' ')"
+skips="$(bash "$root/scripts/test/skips.sh")"
 export TF_TEST_SKIP="$skips"
 
 if [[ $# -gt 0 ]]; then modules=("$@"); else mapfile -t modules < <("$bin" --list-test-modules 2>&1 | grep -E '^Test'); modules+=(Catch); fi

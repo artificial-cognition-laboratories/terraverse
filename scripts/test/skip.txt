@@ -3,3 +3,5 @@
 # One per line: Module.test  job  (what fails). Remove the line when the job is fixed.
 TestAtlasRender.testViewsMatchThePlanet  .agents/jobs/atlas-seam-crack.md             (a crack along a seam)
 TestMoves.testBonesStayOut               .agents/jobs/testing-moves-bones-stay-out.md (figure sinks into walls)
+TestTerragen.testRanges            .agents/jobs/terragen-sprint-116-red-tests.md  (plateaus cut by rivers, sprint 116 phase 4)
+TestTerragen.testDeterminismGolden .agents/jobs/terragen-sprint-116-red-tests.md  (golden rebaked at TF25, sprint 116's end)

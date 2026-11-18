@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { join } from "node:path"
 import { serverFixture } from "../fixtures"
 
 describe("projects", () => {
@@ -7,7 +8,7 @@ describe("projects", () => {
         const { root, terra } = serverFixture()
         mkdirSync(`${root}/save/worlds`, { recursive: true })
         expect(terra.projects.find(`${root}/save/worlds`)).toMatchObject({ root: root, kind: "server" })
-        expect(terra.projects.find(`${root}/mods/hello/server`)).toMatchObject({ root: `${root}/mods/hello`, kind: "mod" })
+        expect(terra.projects.find(`${root}/mods/hello/server`)).toMatchObject({ root: join(root, "mods", "hello"), kind: "mod" })
         expect(() => terra.projects.find("/")).toThrow(expect.objectContaining({ code: "PROJECT_NOT_FOUND" }))
     })
 
@@ -33,7 +34,7 @@ describe("preparing a server", () => {
         expect(prepared).toMatchObject({ kind: "server", name: "@check/server", installed: true })
         expect(prepared.mods.map(m => m.name)).toEqual(["@check/hello", "@check/greeter"])
         // a local mod is used where it is, not bun's copy
-        expect(prepared.mods[0]?.root).toEndWith("/mods/hello")
+        expect(prepared.mods[0]?.root).toBe(join(root, "mods", "hello"))
         expect(await project.server.manifest.read()).toEqual(prepared.manifest)
 
         // greeter's import of hello is hello's loaded module, not a copy of its code
