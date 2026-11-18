@@ -22,11 +22,14 @@ on:
     branches: [master]
     paths:
       - 'apps/game/**'
+      - 'apps/cli/**'
+      - 'packages/types/**'
       - 'assets/**'
       - 'library/**'
       - 'cmake/**'
       - 'CMakeLists.txt'
       - 'vcpkg.json'
+      - '.gitignore'
       - 'scripts/release/**'
       - 'scripts/stage-runtime.sh'
       - '.github/workflows/release.yml'
