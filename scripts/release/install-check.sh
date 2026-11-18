@@ -47,6 +47,15 @@ mkdir -p "$TERRAVERSE_HOME/worlds/mine" "$TERRAVERSE_HOME/versions/0.1.2"
 publish 0.1.0
 sh "$work/install.sh" >/dev/null 2>&1
 expect "the command runs the launcher" "$(terraverse)" "launcher 0.1.0"
+expect "terra alone runs the launcher too" "$(terra)" "launcher 0.1.0"
+if terra dev >"$work/out" 2>&1; then echo "install-check: terra ran a CLI no version brought" >&2; exit 1; fi
+grep -q "play a version from the launcher once first" "$work/out" || { cat "$work/out"; exit 1; }
+echo "ok: terra <command> says to play a version first"
+mkdir -p "$TERRAVERSE_HOME/bin"
+printf '#!/bin/sh\necho "cli $*"\n' > "$TERRAVERSE_HOME/bin/terra" && chmod +x "$TERRAVERSE_HOME/bin/terra"
+expect "terra <command> runs the linked CLI" "$(terra dev --fresh)" "cli dev --fresh"
+expect "terraverse <command> is the same" "$(terraverse prepare)" "cli prepare"
+rm "$TERRAVERSE_HOME/bin/terra"
 grep -q "^Exec=.*/.terraverse/launcher/Terraverse.AppImage" "$desktop" || { cat "$desktop"; exit 1; }
 grep -q "^Icon=$TERRAVERSE_HOME/launcher/terraverse.png" "$desktop" || { cat "$desktop"; exit 1; }
 echo "ok: a menu entry with its icon"

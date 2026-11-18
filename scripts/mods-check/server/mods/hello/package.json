@@ -1,0 +1,6 @@
+{
+    "name": "@check/hello",
+    "version": "0.1.0",
+    "type": "module",
+    "exports": { ".": "./server/main.ts" }
+}

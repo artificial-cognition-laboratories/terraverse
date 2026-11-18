@@ -37,6 +37,10 @@ struct CameraOrientation {
 #define GAME_FALLBACK_TIMEOUT 1.8f
 #define GAME_CONNECTION_TIMEOUT 10.0f
 
+// Terra Firma: the game's own server stopped because its mods' content changed (src/sidecar):
+// whoever started the game starts it again (main returns sidecar::EXIT_RESTART)
+extern bool g_game_restart_for_mods;
+
 void the_game(volatile std::sig_atomic_t *kill,
 		InputHandler *input,
 		RenderingEngine *rendering_engine,

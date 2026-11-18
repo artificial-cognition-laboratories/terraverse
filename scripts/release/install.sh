@@ -5,7 +5,8 @@
 #
 #   ~/.terraverse/launcher/Terraverse.AppImage   the launcher; it updates itself after this
 #   ~/.terraverse/launcher/terraverse.png        its icon
-#   a menu entry, and `terraverse` on your PATH when ~/.local/bin is on it
+#   a menu entry, and `terra` and `terraverse` on your PATH when ~/.local/bin is on it:
+#   alone they open the launcher; `terra <command>` runs the CLI of the version last played
 #
 # The launcher installs and runs game versions (into ~/.terraverse/versions).
 # Everything else in ~/.terraverse is the player's and is never touched here.
@@ -91,9 +92,19 @@ echo "The Terraverse launcher $version is installed. Open Terraverse from your a
 bin="$HOME/.local/bin"
 case ":${PATH:-}:" in
 	*":$bin:"*)
-		printf '#!/bin/sh\nexec %s "$@"\n' "$run" > "$bin/.terraverse.new"
-		chmod +x "$bin/.terraverse.new"
-		mv -f "$bin/.terraverse.new" "$bin/terraverse"
+		# alone, the launcher; with a command, the terra CLI the launcher links for the
+		# version last played (launcher/src-tauri/src/game.rs: point_cli)
+		for name in terra terraverse; do
+			cat > "$bin/.$name.new" <<SHIM
+#!/bin/sh
+[ \$# -eq 0 ] && exec $run
+cli="$home/bin/terra"
+[ -x "\$cli" ] || { echo "$name: play a version from the launcher once first: its terra comes with it" >&2; exit 1; }
+exec "\$cli" "\$@"
+SHIM
+			chmod +x "$bin/.$name.new"
+			mv -f "$bin/.$name.new" "$bin/$name"
+		done
 		echo "  terraverse"
 		;;
 	*) echo "  $run" ;;

@@ -3,7 +3,7 @@
         v-if="item.path"
         :to="item.path"
         class="nav-item"
-        :class="{ active: route.path === item.path, folder: !!item.items, command: !!item.flavor }"
+        :class="{ active: route.path === item.path, folder: !!item.items, command: !!item.flavor, muted: !!item.muted }"
         :style="{ '--depth': depth }"
     >
         <Icon v-if="item.icon" :name="item.icon" class="nav-icon" />
@@ -67,6 +67,10 @@ $indent: 0.85rem;
     &.folder {
         font-weight: 600;
         color: $text-tertiary;
+    }
+
+    &.muted:not(.active) {
+        opacity: 0.5;
     }
 
     &.static:hover {

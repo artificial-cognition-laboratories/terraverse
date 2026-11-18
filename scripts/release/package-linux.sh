@@ -19,6 +19,7 @@ name="terraverse-${version}-linux-x86_64"
 stage="$out/$name"
 
 [ -x "$root/.output/bin/luanti" ] || { echo "package: no .output/bin/luanti — build first" >&2; exit 1; }
+[ -x "$root/.output/bin/terra" ] || { echo "package: no .output/bin/terra — cd apps/cli && bun run build" >&2; exit 1; }
 [ -f "$root/.output/ui/dist/index.html" ] || { echo "package: no .output/ui/dist — cd apps/game/ui && bun run build" >&2; exit 1; }
 
 mkdir -p "$out"
@@ -33,6 +34,7 @@ for f in "$root"/.output/bin/*; do
 	cp -a "$f" "$stage/bin/"
 done
 strip --strip-unneeded "$stage/bin/luanti"
+# never strip terra: a compiled Bun program keeps its code past the end of the ELF
 
 for d in builtin client fonts locale matter textures misc; do
 	cp -a "$root/.output/$d" "$stage/"

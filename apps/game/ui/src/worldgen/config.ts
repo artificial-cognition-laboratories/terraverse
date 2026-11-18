@@ -3,7 +3,7 @@
 // The page owns this shape until terragen exists; then the engine does.
 // The code carries the land only — how a world is *played* (rules) is separate.
 
-import type { BodyLandWire, SystemBodyWire } from "../bridge"
+import type { BodyLandWire, SystemBodyWire } from "../bridge/types"
 import { SPIN_WIRES } from "../bridge/types"
 import { Companion, COMPANION_KINDS, lifetime, separationByte, separationOf, spanned, spannedByte, STAR_CLASSES, starClass, type CompanionWire, type StarClass } from "../system/stars"
 

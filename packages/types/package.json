@@ -1,0 +1,8 @@
+{
+  "name": "@terraverse/types",
+  "version": "0.1.0",
+  "description": "The engine's globals for Terraverse mods and servers, as the engine implements them.",
+  "type": "module",
+  "types": "./index.d.ts",
+  "files": ["*.d.ts"]
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@terraverse/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "terra": "bin/terra.ts"
+  },
+  "scripts": {
+    "build": "bun build --compile --minify bin/terra.ts --outfile ../../.output/bin/terra",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "gen": "bun scripts/ops.ts && bun scripts/globals.ts",
+    "gen:check": "bun scripts/ops.ts --check && bun scripts/globals.ts --check"
+  },
+  "dependencies": {
+    "@arcforge/arcline": "2.0.244",
+    "@babel/parser": "8.1.0",
+    "msgpackr": "2.1.4"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.4",
+    "typescript": "7.0.2"
+  }
+}

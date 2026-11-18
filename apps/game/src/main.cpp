@@ -21,6 +21,9 @@
 #include "gameparams.h"
 #if CHECK_CLIENT_BUILD()
 #include "far/export.h" // Terra Firma
+#include "server/universe.h" // Terra Firma
+#include "sidecar/ops.h" // Terra Firma
+#include "terragen/code.h" // Terra Firma
 #include "planetarium/standalone.h" // Terra Firma
 #include "planetarium/shot.h" // Terra Firma
 #include "planetarium/camera.h" // Terra Firma
@@ -41,6 +44,7 @@
 #endif
 #if CHECK_CLIENT_BUILD()
 #include "client/clientlauncher.h"
+#include "client/game.h" // Terra Firma: g_game_restart_for_mods
 #if USE_SHELL
 #include "shell/shell.h"
 #endif
@@ -127,6 +131,7 @@ static bool game_configure_subgame(GameParams *game_params, const Settings &cmd_
 static bool get_game_from_cmdline(GameParams *game_params, const Settings &cmd_args);
 static bool determine_subgame(GameParams *game_params);
 
+static bool make_universe(const GameParams &game_params);
 static bool run_dedicated_server(const GameParams &game_params, const Settings &cmd_args);
 static bool migrate_map_database(const GameParams &game_params, const Settings &cmd_args);
 static bool recompress_map_database(const GameParams &game_params, const Settings &cmd_args);
@@ -135,6 +140,8 @@ static bool recompress_map_database(const GameParams &game_params, const Setting
 
 
 static FileLogOutput file_log_output;
+// Terra Firma: the dedicated server's exit code when it ran and stopped cleanly
+static int g_dedicated_exit = 0;
 
 static OptionList allowed_options;
 
@@ -342,6 +349,9 @@ int main(int argc, char *argv[])
 
 	sanity_check(!game_params.world_path.empty());
 
+	if (!make_universe(game_params))
+		return 1;
+
 #if CHECK_CLIENT_BUILD()
 	// Terra Firma: the game's baked palette (far/export.h), then out: nothing
 	// of this run is kept (its video driver is the NULL one)
@@ -352,10 +362,13 @@ int main(int argc, char *argv[])
 #endif
 
 	if (game_params.is_dedicated_server)
-		return run_dedicated_server(game_params, cmd_args) ? 0 : 1;
+		return run_dedicated_server(game_params, cmd_args) ? g_dedicated_exit : 1;
 
 #if CHECK_CLIENT_BUILD()
 	retval = ClientLauncher().run(game_params, cmd_args) ? 0 : 1;
+	// Terra Firma: its mods' content changed; whoever started it starts it again
+	if (g_game_restart_for_mods)
+		retval = sidecar::EXIT_RESTART;
 #else
 	retval = 0;
 #endif
@@ -471,6 +484,10 @@ static void set_allowed_options(OptionList *allowed_options)
 			_("Same as --world (deprecated)"))));
 	allowed_options->insert(std::make_pair("world", ValueSpec(VALUETYPE_STRING,
 			_("Set world path" LOCAL_GAME))));
+	allowed_options->insert(std::make_pair("server-folder", ValueSpec(VALUETYPE_STRING,
+			_("Run the TypeScript mods of this server folder (terra host passes it)"))));
+	allowed_options->insert(std::make_pair("world-code", ValueSpec(VALUETYPE_STRING,
+			_("Make the world from this star system if it's new, and refuse it if it was made from another"))));
 	allowed_options->insert(std::make_pair("worldname", ValueSpec(VALUETYPE_STRING,
 			_("Set world by name" LOCAL_GAME))));
 	allowed_options->insert(std::make_pair("worldlist", ValueSpec(VALUETYPE_STRING,
@@ -1015,6 +1032,15 @@ static void init_log_streams(const Settings &cmd_args)
 static bool game_configure(GameParams *game_params, const Settings &cmd_args)
 {
 	game_configure_port(game_params, cmd_args);
+	if (cmd_args.exists("server-folder"))
+		game_params->server_folder = fs::AbsolutePath(cmd_args.get("server-folder"));
+	if (cmd_args.exists("world-code")) {
+		game_params->world_code = cmd_args.get("world-code");
+		// a code alone (terra <code>): its universe kept with the game's others, by its code
+		if (!cmd_args.exists("world") && !cmd_args.exists("worldname"))
+			game_params->world_path = porting::path_user + DIR_DELIM "worlds" DIR_DELIM +
+					sanitizeDirName(game_params->world_code, "universe_");
+	}
 
 	if (!game_configure_world(game_params, cmd_args)) {
 		errorstream << "No world path specified or found." << std::endl;
@@ -1041,6 +1067,10 @@ static void game_configure_port(GameParams *game_params, const Settings &cmd_arg
 
 static bool game_configure_world(GameParams *game_params, const Settings &cmd_args)
 {
+	// Terra Firma: already chosen, by a world code alone (game_configure)
+	if (!game_params->world_path.empty())
+		return true;
+
 	if (get_world_from_cmdline(game_params, cmd_args))
 		return true;
 
@@ -1250,6 +1280,34 @@ static bool determine_subgame(GameParams *game_params)
 }
 
 
+// Terra Firma: a TypeScript server's universe, made from its system on its first boot, and
+// refused if it was made from another (--world-code; terra passes server.config.ts's system).
+// Before either a dedicated server or the game opens the world: both read it as they start.
+static bool make_universe(const GameParams &game_params)
+{
+	if (game_params.world_code.empty())
+		return true;
+	const std::string &path = game_params.world_path;
+	if (!fs::PathExists(path + DIR_DELIM "map_meta.txt")) {
+		if (!game_params.game_spec.isValid()) {
+			errorstream << "--world-code makes a world, and needs --gameid to know which game's" << std::endl;
+			return false;
+		}
+		try {
+			universe::make(path, fs::GetFilenameFromPath(path.c_str()), game_params.game_spec, game_params.world_code);
+		} catch (const terragen::CodeError &e) {
+			errorstream << "The server's system isn't a world code: " << e.what() << std::endl;
+			return false;
+		}
+		actionstream << "Made a universe from " << game_params.world_code << " at " << path << std::endl;
+	} else if (const std::string made = universe::codeOf(path); made != game_params.world_code) {
+		errorstream << "This universe was made from " << (made.empty() ? "no system" : made) << ", not "
+				<< game_params.world_code << ": a server's system is fixed once its universe is made." << std::endl;
+		return false;
+	}
+	return true;
+}
+
 /*****************************************************************************
  * Dedicated server
  *****************************************************************************/
@@ -1322,6 +1380,7 @@ static bool run_dedicated_server(const GameParams &game_params, const Settings &
 		try {
 			Server server(game_params.world_path, game_params.game_spec,
 					false, UDPSocket::Create(bind_addr), true, &iface);
+			server.setServerFolder(game_params.server_folder);
 
 			g_term_console.setup(&iface, &kill, admin_nick);
 
@@ -1330,6 +1389,9 @@ static bool run_dedicated_server(const GameParams &game_params, const Settings &
 			server.start();
 			// Run server
 			dedicated_server_loop(server, kill);
+			// Terra Firma: its mods' content changed; whoever started it starts it again
+			if (server.restartForMods())
+				g_dedicated_exit = sidecar::EXIT_RESTART;
 		} catch (const ModError &e) {
 			g_term_console.stopAndWaitforThread();
 			errorstream << "ModError: " << e.what() << std::endl;
@@ -1360,11 +1422,15 @@ static bool run_dedicated_server(const GameParams &game_params, const Settings &
 			// Create server
 			Server server(game_params.world_path, game_params.game_spec, false,
 					UDPSocket::Create(bind_addr), true);
+			server.setServerFolder(game_params.server_folder);
 			server.start();
 
 			// Run server
 			volatile auto &kill = *porting::signal_handler_killstatus();
 			dedicated_server_loop(server, kill);
+			// Terra Firma: its mods' content changed; whoever started it starts it again
+			if (server.restartForMods())
+				g_dedicated_exit = sidecar::EXIT_RESTART;
 
 		} catch (const ModError &e) {
 			errorstream << "ModError: " << e.what() << std::endl;

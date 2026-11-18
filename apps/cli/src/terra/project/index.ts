@@ -1,0 +1,13 @@
+// project — finding, opening and preparing projects of every kind: servers, mods, and
+// what comes after (texture packs, shaders, skins) as rows in KINDS.
+export { Projects, type ProjectsT, type ServerProjectT } from "./projects"
+export { type ProjectT } from "./project"
+export { KINDS, type ProjectKind } from "./kinds"
+export { names } from "./names"
+export { templates } from "./create/templates"
+export { freshSystem } from "./create/system"
+export { Packages } from "./packages"
+export type { ConfigValue, ConfigEditorT } from "./editor"
+export { settings, type SettingDeclaration, type SettingDeclarations, type SettingValue } from "./settings"
+export { MODS_GLOBAL, MOD_OF } from "./server"
+export type { ManifestData, ManifestMod, Mod, PrepareInput, PrepareStep, Prepared, PreparedMod, PreparedServer, ServerConfigData } from "./types"

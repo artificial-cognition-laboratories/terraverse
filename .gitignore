@@ -25,6 +25,8 @@ Testing/*
 # Output
 .output/
 node_modules/
+# a server folder's generated state (terra prepare)
+.terra/
 
 # GNU Global
 tags

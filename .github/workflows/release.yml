@@ -89,6 +89,16 @@ jobs:
           bun install --frozen-lockfile
           bun run build
 
+      # terra: the CLI, and the sidecar that runs TypeScript mods beside the engine
+      - name: Build terra
+        working-directory: apps/cli
+        run: |
+          bun install --frozen-lockfile
+          bun run gen:check
+          bunx tsc --noEmit -p .
+          bun test
+          bun run build
+
       # Compiled objects kept between runs: the engine is ~1000 files.
       - uses: mozilla-actions/sccache-action@v0.0.9
 
@@ -181,6 +191,16 @@ jobs:
         working-directory: apps/game/ui
         run: |
           bun install --frozen-lockfile
+          bun run build
+
+      # terra: the CLI, and the sidecar that runs TypeScript mods beside the engine
+      - name: Build terra
+        working-directory: apps/cli
+        run: |
+          bun install --frozen-lockfile
+          bun run gen:check
+          bunx tsc --noEmit -p .
+          bun test
           bun run build
 
       # Compiled objects kept between runs: the engine is ~1000 files.

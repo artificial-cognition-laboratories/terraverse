@@ -763,6 +763,8 @@ void Game::shutdown()
 	soundmaker.reset();
 	sound_manager.reset();
 
+	if (server && server->restartForMods())
+		g_game_restart_for_mods = true;
 	auto stop_thread = runInThread([=] {
 		delete server;
 		server = nullptr;
@@ -899,6 +901,8 @@ bool Game::createServer(GameStartData &start_data)
 	server = new Server(start_data.world_spec.path, start_data.game_spec,
 		simple_singleplayer_mode, std::move(server_socket),
 		false, nullptr, &(errordata->message));
+	// Terra Firma: a TypeScript server's mods run beside it (src/sidecar, sprint 119)
+	server->setServerFolder(start_data.server_folder);
 #if USE_SHELL
 	if (m_online_host) {
 		server->setGate(std::make_unique<online::Gate>(online::Gate::Opts{
@@ -6706,6 +6710,7 @@ void Game::readSettings()
  ****************************************************************************/
 /****************************************************************************/
 
+bool g_game_restart_for_mods = false;
 
 void the_game(volatile std::sig_atomic_t *kill,
 		InputHandler *input,

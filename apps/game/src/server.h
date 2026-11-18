@@ -10,6 +10,7 @@ class LuaEntitySAO;
 namespace pile { class Piles; }
 namespace workshop { class Workshop; class Materials; }
 namespace orbit { class Field; }
+namespace sidecar { class Sidecar; }
 #include "hud_element.h" // HudElementStat
 #include "gamedef.h"
 #include "content/subgames.h"
@@ -467,6 +468,10 @@ public:
 
 	// Terra Firma: what core.terra keeps for this server.
 	ServerTerra &terra() { return *m_terra; }
+	// Terra Firma: run this TypeScript server folder's mods (sprint 119). Before start().
+	void setServerFolder(const std::string &folder) { m_server_folder = folder; }
+	// Terra Firma: it stopped because the mods' content changed, to be started again
+	bool restartForMods() const { return m_restart_for_mods; }
 	// Terra Firma: what the far view needs of a terra world (TOCLIENT_HORIZON);
 	// none for another map generator
 	std::optional<far::Horizon> horizon();
@@ -913,6 +918,12 @@ private:
 	// ModChannel manager
 	std::unique_ptr<ModChannelMgr> m_modchannel_mgr;
 	std::unique_ptr<ServerTerra> m_terra; // Terra Firma: what core.terra keeps (server/terra.h)
+	// Terra Firma: TypeScript mods, run beside the server (src/sidecar, sprint 119)
+	std::string m_server_folder;
+	std::unique_ptr<sidecar::Sidecar> m_sidecar;
+	double m_sidecar_now = 0; // game time, as mods see it
+	bool m_restart_for_mods = false;
+	void startSidecar();
 	std::optional<planet::Atlas> m_atlas; // Terra Firma: from the world's planet_atlas
 	std::vector<terragen::BodyWorld> m_body_worlds; // Terra Firma: its bodies (terragen/worlds.h)
 	std::optional<planet::Pager> m_pager; // Terra Firma: the atlas's window, which tiles are in the map

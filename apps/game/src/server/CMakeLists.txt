@@ -15,4 +15,5 @@ set(common_server_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/serverinventorymgr.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/serverlist.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/unit_sao.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/universe.cpp
 	PARENT_SCOPE)

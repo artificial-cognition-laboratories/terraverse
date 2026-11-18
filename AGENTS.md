@@ -67,6 +67,8 @@ threading these together. Known gaps belong in `TODO.md`.
 apps/game/src/      the Luanti fork, plus our systems in their own folders (below)
 apps/game/ui/       the Vue app: menus, HUD, inventory, wiki, gallery
 apps/game/game/     the game in Lua (mods/tf_*), and baked data: palette.json, moves.json, vehicles.json, ground.json
+apps/cli/           terra: the CLI, and the sidecar that runs TypeScript mods (sprint 119)
+packages/types/     @terraverse/types: the TypeScript mod API's globals, as implemented
 assets/             shipped static files; assets/matter/ holds elements, substances, reactions and thermo data
 registry/           shaders, textures, upstream client mods, devtest; registry/worlds is user data, never clean it up
 library/            vendored dependencies (library/jolt: MIT; irr and lua are upstream, leave alone)
@@ -96,6 +98,13 @@ Our folders in `apps/game/src/`:
 | `fluid/`, `weather/` | Atmosphere layer on a sphere, and live weather |
 | `online/` | STUN, hole punching, UPnP, ticket gate, joining |
 | `client/body`, `figure`, `liquids`, `shallow.h` | Our client parts: the player's body and fine water |
+| `sidecar/` | TypeScript mods: spawns `terra runtime`, a window each step, answers its calls |
+
+TypeScript mods are replacing Lua (sprint 119, `planning/sprint-119-ts-mods.md`). The API is
+designed in `apps/site/content/docs/mods/`; `terra` prepares a server folder into `.terra/`, and
+the engine runs its mods in a sidecar process, beside Lua until the `tf_*` mods are ported.
+The wire's ops live in `apps/cli/src/runtime/wire/ops.ts`: change them there and run `bun run ops`
+in apps/cli, which writes `sidecar/ops.h`.
 
 Lua mods: `tf_world` (blocks, biomes, materials), `tf_matter`, `tf_player`, `tf_sky`,
 `tf_weather`, `tf_planet`, `tf_flight`, `tf_lab`, `tf_craft` (making: forms, processes, stations).
@@ -105,8 +114,8 @@ engine uses as its share directory.
 
 ## How we differ from Luanti
 
-Our code lives in our folders. Upstream files get **small hooks** guarded by `#if USE_SHELL`,
-so merges stay cheap. Upstream C++ keeps upstream style. Find the hooks with
+We've diverged hard from Luanti and don't track upstream. Our systems live in our own
+folders; where they reach into engine files, change those files as the design needs. Find them with
 `git log` or by grepping for the system's name; the main divergences:
 
 | Replaced | With | Hook points |
@@ -253,6 +262,8 @@ bun check:wiki          # every wiki scene in the engine sandbox
 bun check:moves         # every Movement, Vehicles and Flow scene through the real code
 bun check:matter        # a real fire on a live server
 bun check:far           # far view against generated chunks
+bun check:mods          # TypeScript mods: terra's unit tests, terra prepare, then the sidecar in a headless server
+bun check:dev           # terra dev on a new mod: reloads, a content restart, a broken save, Ctrl-C
 bun perf:gen            # where making a world spends its time, by step, cold and warm at 50k and 100k (SIZES=, CODE=)
 bun palette             # re-bake palette.json after changing blocks, textures or species
 bun check:palette       # fails if palette.json is stale

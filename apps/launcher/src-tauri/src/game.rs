@@ -79,6 +79,9 @@ impl Runner {
             return refused(format!("{id} isn't installed properly (it has no {ENTRY}). Remove it and install it again."));
         }
 
+        // `terra <command>` is the CLI of the version being played
+        point_cli(home, &dir)?;
+
         let since = now_ms();
         let session = session_name(since);
         std::fs::create_dir_all(home.logs()).context(|| format!("creating {}", home.logs().display()))?;
@@ -140,6 +143,31 @@ fn set(game: &Mutex<Game>, app: &tauri::AppHandle, next: Game) {
 }
 
 /// The exit code, or for a signal the shell's 128 + its number.
+/// Points home's CLI at this version's terra, or takes it away for a version without one
+/// (anything from before the CLI shipped): a `terra` that's from another version would
+/// prepare folders for an engine that isn't the one played.
+fn point_cli(home: &Home, version: &std::path::Path) -> Result<()> {
+    let link = home.cli();
+    let target = version.join("bin").join(if cfg!(windows) { "terra.exe" } else { "terra" });
+    if let Some(dir) = link.parent() {
+        std::fs::create_dir_all(dir).context(|| format!("creating {}", dir.display()))?;
+    }
+    match std::fs::symlink_metadata(&link) {
+        Ok(_) => std::fs::remove_file(&link).context(|| format!("replacing {}", link.display()))?,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e).context(|| format!("reading {}", link.display())),
+    }
+    if !target.is_file() {
+        return Ok(());
+    }
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&target, &link).context(|| format!("linking {}", link.display()))?;
+    // no symlinks without privileges on Windows: a copy, refreshed on every launch
+    #[cfg(windows)]
+    std::fs::copy(&target, &link).map(|_| ()).context(|| format!("copying {}", link.display()))?;
+    Ok(())
+}
+
 fn exit_code(status: &std::process::ExitStatus) -> i32 {
     #[cfg(unix)]
     {

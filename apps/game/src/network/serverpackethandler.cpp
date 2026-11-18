@@ -5,6 +5,7 @@
 #include "chatmessage.h"
 #include "server.h"
 #include "online/gate.h"
+#include "sidecar/sidecar.h"
 #include <json/json.h>
 #include <sstream>
 #include "serverenvironment.h"
@@ -404,6 +405,8 @@ void Server::handleCommand_ClientReady(NetworkPacket* pkt)
 	s64 last_login;
 	m_script->getAuth(playersao->getPlayer()->getName(), nullptr, nullptr, &last_login);
 	m_script->on_joinplayer(playersao, last_login);
+	if (m_sidecar) // Terra Firma: TypeScript mods (sprint 119)
+		m_sidecar->joined(playersao->getPlayer()->getName());
 	SendBlueprints(peer_id, playersao->getPlayer()->getName()); // Terra Firma
 	SendMaterials(peer_id); // Terra Firma
 

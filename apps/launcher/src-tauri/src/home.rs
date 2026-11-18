@@ -47,6 +47,11 @@ impl Home {
     pub fn version(&self, id: &str) -> Result<PathBuf> {
         Ok(self.versions().join(checked(id)?))
     }
+    /// The terra CLI of the version last played: what `terra <command>` on PATH runs
+    /// (scripts/release/install.sh writes those shims).
+    pub fn cli(&self) -> PathBuf {
+        self.root.join("bin").join(if cfg!(windows) { "terra.exe" } else { "terra" })
+    }
     pub fn logs(&self) -> PathBuf {
         self.root.join("logs")
     }

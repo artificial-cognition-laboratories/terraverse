@@ -1,4 +1,3 @@
-import { reactive } from "vue"
 
 /**
  * Stars by spectral class, coolest first as the world code stores them (must
@@ -61,7 +60,8 @@ export const separationOf = (kind: keyof typeof SEPARATIONS, byte: number) => {
 }
 
 export type CompanionWire = { kind: CompanionKind; class: StarClass; mass: number; separation: number }
-/** The second star (src/terragen/code.h Companion). */
+/** The second star (src/terragen/code.h Companion). Plain data: reactive once it's in a
+ *  reactive draft, and this module stays free of Vue for anything else that encodes codes. */
 export function Companion(): CompanionWire {
-    return reactive({ kind: "none", class: "K", mass: 0.75, separation: 0.2 })
+    return { kind: "none", class: "K", mass: 0.75, separation: 0.2 }
 }

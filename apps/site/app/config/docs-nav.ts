@@ -10,6 +10,8 @@ export interface DocsNavItem {
     icon?: string
     /** Drawn as a shell command: the program in one colour, its flags in another */
     flavor?: "bash"
+    /** Drawn dimmed: there, but nothing you write (node_modules) */
+    muted?: boolean
     items?: DocsNavItem[]
 }
 
@@ -28,19 +30,86 @@ export interface DocsSection {
     side?: "left" | "right"
 }
 
-/** A mod as it sits on disk: each entry links to the page about that file. */
+/**
+ * A server as it sits on disk. Source at the top level, the save in one visible folder (never
+ * edited, never deleted), and everything regenerable in .terra/.
+ *
+ * A server is one universe under one set of rules: the mods
+ * every world in it runs, its players, and the worlds themselves (one planet each). A world's
+ * own folder is opaque, an implementation detail, so it has no tree of its own in the docs.
+ * Singleplayer is a server too, made for you.
+ */
+const serverFolder: DocsNavItem = {
+    title: "my_server",
+    icon: "vscode-icons:default-folder-opened",
+    path: "/docs/server/structure",
+    items: [
+        { title: ".terra", icon: "vscode-icons:folder-type-typings", path: "/docs/server/structure/dot-terra" },
+        { title: "mods", icon: "vscode-icons:folder-type-plugin", path: "/docs/server/structure/mods" },
+        {
+            title: "save",
+            icon: "vscode-icons:folder-type-db",
+            path: "/docs/server/structure/save",
+            items: [
+                { title: "worlds", icon: "vscode-icons:default-folder", path: "/docs/server/structure/worlds" },
+                { title: "players", icon: "vscode-icons:default-folder", path: "/docs/server/structure/players" },
+                { title: "store", icon: "vscode-icons:default-folder", path: "/docs/server/structure/store" },
+            ],
+        },
+        { title: "start", icon: "vscode-icons:folder-type-images", path: "/docs/server/structure/start" },
+        { title: "package.json", icon: "vscode-icons:file-type-json", path: "/docs/server/structure/package" },
+        { title: "server.config.ts", icon: "vscode-icons:file-type-typescript", path: "/docs/server/structure/config" },
+    ],
+}
+
+/**
+ * A mod as it sits on disk: each entry links to the page about that file.
+ *
+ * A mod IS a TypeScript project: package.json, tsconfig, a bun install and a generated
+ * type frame. That is what gives server/main.ts and client/main.ts autocomplete on the engine's globals with no
+ * imports, and why it gets a folder tree like any other project.
+ */
 const modFolder: DocsNavItem = {
     title: "my_mod",
     icon: "vscode-icons:default-folder-opened",
-    path: "/docs/mods/folder",
+    path: "/docs/mods/structure",
     items: [
-        { title: "textures", icon: "vscode-icons:folder-type-images", path: "/docs/mods/textures" },
-        { title: "init.lua", icon: "vscode-icons:file-type-lua", path: "/docs/mods/init" },
-        { title: "lab.json", icon: "vscode-icons:file-type-json", path: "/docs/mods/lab" },
-        { title: "lab.lua", icon: "vscode-icons:file-type-lua", path: "/docs/mods/lab-lua" },
-        { title: "mod.conf", icon: "vscode-icons:file-type-config", path: "/docs/mods/conf" },
+        { title: ".terra", icon: "vscode-icons:folder-type-typings", path: "/docs/mods/structure/dot-terra" },
+        { title: "assets", icon: "vscode-icons:folder-type-images", path: "/docs/mods/structure/assets" },
+        { title: "server", icon: "vscode-icons:folder-type-server", path: "/docs/mods/structure/server" },
+        { title: "client", icon: "vscode-icons:folder-type-client", path: "/docs/mods/structure/client" },
+        { title: "mod.config.ts", icon: "vscode-icons:file-type-typescript", path: "/docs/mods/structure/config" },
+        { title: "package.json", icon: "vscode-icons:file-type-json", path: "/docs/mods/structure/package" },
     ],
 }
+
+/**
+ * The server half's globals: what things are (declared at load), what's being played, the
+ * other half, and the mod's own. Few and nested: each names a real thing. `server` and `client`
+ * only ever mean the other half; `game` is what's being played, as each side sees it.
+ */
+const serverApi: DocsNavItem[] = [
+    { title: "content", path: "/docs/mods/api/content" },
+    {
+        title: "game",
+        path: "/docs/mods/api/game",
+        items: [
+            { title: "worlds", path: "/docs/mods/api/game/worlds" },
+            { title: "players", path: "/docs/mods/api/game/players" },
+            { title: "commands", path: "/docs/mods/api/game/commands" },
+        ],
+    },
+    { title: "client", path: "/docs/mods/api/client" },
+    { title: "mod", path: "/docs/mods/api/mod" },
+    { title: "types", path: "/docs/mods/api/types" },
+]
+
+/** The client half's globals: one player's view. It presents and asks, never decides. Panels need none: they are files. */
+const clientApi: DocsNavItem[] = [
+    { title: "game", path: "/docs/mods/api/client/game" },
+    { title: "player", path: "/docs/mods/api/client/player" },
+    { title: "server", path: "/docs/mods/api/client/server" },
+]
 
 function cli(title: string, path: string): DocsNavItem {
     return { title, path, flavor: "bash" }
@@ -48,60 +117,74 @@ function cli(title: string, path: string): DocsNavItem {
 
 export const docsSections: DocsSection[] = [
     {
-        id: "play",
-        label: "Play",
+        id: "introduction",
+        label: "Introduction",
         path: "/docs",
         groups: [
             {
-                title: "Getting Started",
+                title: "Introduction",
                 items: [
                     { title: "What is Terraverse?", path: "/docs" },
-                    { title: "Installation", path: "/docs/play/install" },
-                    { title: "Controls", path: "/docs/play/controls" },
+                    { title: "Installation", path: "/docs/install" },
                 ],
             },
         ],
     },
     {
-        id: "worlds",
-        label: "Worlds",
-        path: "/docs/worlds",
+        id: "server",
+        label: "Server",
+        path: "/docs/server",
         groups: [
             {
-                title: "Worlds",
+                title: "Server",
                 items: [
-                    { title: "Planets", path: "/docs/worlds" },
-                    { title: "World codes", path: "/docs/worlds/codes" },
+                    { title: "Overview", path: "/docs/server" },
+                    { title: "Lifecycle", path: "/docs/server/lifecycle" },
+                    { title: "Setup", path: "/docs/server/setup" },
+                    { title: "Mods", path: "/docs/server/mods" },
+                    { title: "Publish", path: "/docs/server/publish" },
                 ],
             },
+            { title: "Server structure", items: [serverFolder] },
         ],
-    },
-    {
-        id: "matter",
-        label: "Matter",
-        path: "/docs/matter",
-        groups: [{ title: "Matter", items: [{ title: "Substances and heat", path: "/docs/matter" }] }],
-    },
-    {
-        id: "machines",
-        label: "Machines",
-        path: "/docs/machines",
-        groups: [{ title: "Machines", items: [{ title: "Parts and joints", path: "/docs/machines" }] }],
     },
     {
         id: "mods",
         label: "Mods",
         path: "/docs/mods",
-        side: "right",
         groups: [
             {
                 title: "Mods",
                 items: [
                     { title: "Overview", path: "/docs/mods" },
-                    { title: "Your first mod", path: "/docs/mods/first-mod" },
+                    { title: "Lifecycle", path: "/docs/mods/lifecycle" },
+                    { title: "Server", path: "/docs/mods/server" },
+                    { title: "Client", path: "/docs/mods/client" },
+                    { title: "Publish", path: "/docs/mods/publish" },
                 ],
             },
             { title: "Mod structure", items: [modFolder] },
+            // Placeholders: the namespaces are placed, their contents not yet designed
+            { title: "Server API", items: serverApi },
+            { title: "Client API", items: clientApi },
+        ],
+    },
+    {
+        id: "deploy",
+        label: "Deploy",
+        path: "/docs/deploy",
+        side: "right",
+        // Managed hosting: the same server folder, run by us. Not built yet; the pages say so
+        groups: [
+            {
+                title: "Deploy",
+                items: [
+                    { title: "Overview", path: "/docs/deploy" },
+                    { title: "Lifecycle", path: "/docs/deploy/lifecycle" },
+                    { title: "Updates", path: "/docs/deploy/updates" },
+                    { title: "Saves", path: "/docs/deploy/saves" },
+                ],
+            },
         ],
     },
     {
@@ -113,21 +196,21 @@ export const docsSections: DocsSection[] = [
             {
                 title: "CLI API",
                 items: [
-                    cli("terraverse", "/docs/cli"),
-                    cli("terraverse <ref>", "/docs/cli/ref"),
-                    cli("terraverse host", "/docs/cli/host"),
-                    cli("terraverse version", "/docs/cli/version"),
-                    cli("terraverse publish", "/docs/cli/publish"),
+                    cli("terra", "/docs/cli"),
+                    cli("terra <ref>", "/docs/cli/ref"),
+                    cli("terra init", "/docs/cli/init"),
+                    cli("terra dev", "/docs/cli/dev"),
+                    cli("terra host", "/docs/cli/host"),
+                    cli("terra prepare", "/docs/cli/prepare"),
+                    cli("terra install", "/docs/cli/install"),
+                    cli("terra uninstall", "/docs/cli/uninstall"),
+                    cli("terra snapshot", "/docs/cli/snapshot"),
+                    cli("terra publish", "/docs/cli/publish"),
+                    cli("terra deploy", "/docs/cli/deploy"),
+                    cli("terra version", "/docs/cli/version"),
                 ],
             },
         ],
-    },
-    {
-        id: "hosting",
-        label: "Hosting",
-        path: "/docs/hosting",
-        side: "right",
-        groups: [{ title: "Hosting", items: [{ title: "Hosting a world", path: "/docs/hosting" }] }],
     },
 ]
 

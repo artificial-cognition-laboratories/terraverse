@@ -1,0 +1,6 @@
+{
+    "name": "@check/greeter",
+    "version": "0.1.0",
+    "type": "module",
+    "dependencies": { "@check/hello": "file:../hello" }
+}

@@ -1,0 +1,61 @@
+/** What a scaffold needs: the package's name and its title. */
+export type ScaffoldInput = {
+    readonly name: string
+    readonly title: string
+    /** A fresh star system, as a world code: what a new server is made from. */
+    readonly system: string
+}
+
+/** A new project's files, by path from its root. Only what the author owns: prepare writes the rest. */
+export type Scaffold = { readonly files: Readonly<Record<string, string>>; readonly dirs: readonly string[] }
+
+const json = (value: unknown) => JSON.stringify(value, null, 4) + "\n"
+const GITIGNORE = "node_modules/\n.terra/\n"
+
+/** Templates — what `terra <kind> init` writes, per kind. Pure: input in, files out. */
+export const templates = {
+    server(input: ScaffoldInput): Scaffold {
+        return {
+            files: {
+                "package.json": json({ name: input.name, version: "0.1.0", private: true, type: "module", dependencies: {} }),
+                "server.config.ts": `export default defineServer({
+    title: ${JSON.stringify(input.title)},
+
+    // The star system, as a world code: every planet in it is a world here. Fixed once
+    // the universe is made: a different system is a different universe.
+    system: ${JSON.stringify(input.system)},
+
+    access: {
+        join: "friends",
+    },
+})
+`,
+                "tsconfig.json": json({ extends: "./.terra/types/root.json" }),
+                ".gitignore": GITIGNORE,
+            },
+            dirs: ["mods"],
+        }
+    },
+
+    mod(input: ScaffoldInput): Scaffold {
+        return {
+            files: {
+                "package.json": json({ name: input.name, version: "0.1.0", type: "module", exports: { ".": "./server/main.ts" } }),
+                "mod.config.ts": `export default defineMod({
+    title: ${JSON.stringify(input.title)},
+})
+`,
+                "server/main.ts": `// The server half: runs once as the universe loads, then reacts to what happens.
+// What's available here: https://terraverse.arclabs.it/docs/mods/server
+
+game.players.on("join", player => player.tell(\`Welcome, \${player.name}.\`))
+`,
+                "server/tsconfig.json": json({ extends: "../.terra/types/server.json" }),
+                "client/tsconfig.json": json({ extends: "../.terra/types/client.json" }),
+                "tsconfig.json": json({ extends: "./.terra/types/root.json" }),
+                ".gitignore": GITIGNORE,
+            },
+            dirs: ["assets/textures"],
+        }
+    },
+}

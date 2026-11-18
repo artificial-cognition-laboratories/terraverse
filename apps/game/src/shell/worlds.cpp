@@ -7,6 +7,7 @@
 #include "filesys.h"
 #include "log.h"
 #include "porting.h"
+#include "server/universe.h"
 #include "settings.h"
 #include "terragen/atlas.h"
 #include "terragen/code.h"
@@ -15,10 +16,6 @@
 #include <ctime>
 
 namespace shell {
-
-// The highest sky a new world gets (layers): what the map holds above the
-// sea with room to spare (planet::Atlas: 30,912 up).
-static constexpr int SKY_MOST = 28000;
 
 std::vector<WorldSpec> Worlds::list() const
 {
@@ -70,7 +67,7 @@ static std::string settingText(const Json::Value &value)
 WorldSpec Worlds::create(const std::string &name, const std::string &code,
 		const Json::Value &settings) const
 {
-	const terragen::WorldCode world_code = readWorldCode(code);
+	readWorldCode(code); // refused before anything is written
 	if (!settings.isObject())
 		throw Refused("world settings must be an object");
 	for (const auto &key : settings.getMemberNames())
@@ -89,32 +86,10 @@ WorldSpec Worlds::create(const std::string &name, const std::string &code,
 	if (fs::PathExists(path))
 		throw Refused("A world called \"" + trimmed + "\" already exists.");
 
-	loadGameConfAndInitWorld(path, trimmed, game, true);
-	// The map generator's settings: terragen, this code, the engine's own
-	// seed (ores, decorations) tied to the code's seed, and the planet the
-	// world is: an atlas (planet.paper.md) as many blocks round as the code's
-	// world (radius size / 2π), so the world is laid on it block for block.
-	{
-		Settings meta("[end_of_params]");
-		meta.set("mg_name", "terra");
-		meta.set("mgterra_code", code);
-		// Its sky reaches a radius up (sprint 59): the air there is ten scale
-		// heights thin (terragen::sphere's), clear for an orbit, so you can
-		// fly to one and build up to it; as high as the map holds on the
-		// largest worlds.
-		terragen::Atlas::Params atlas = terragen::Atlas::standard(world_code.size / (2 * M_PI));
-		atlas.height = (int)std::min(atlas.radius, (double)SKY_MOST);
-		meta.set("planet_atlas", terragen::Atlas(atlas).code());
-		// chunks of 2³ map blocks: an 80-node chunk would be mostly seam and
-		// other tiles' storage, generated for nothing; a single block is made
-		// inside a border 27 blocks' worth and reaches for its neighbours'
-		// trees over 25 times its own columns (2 made a place 12% sooner than 1)
-		meta.set("chunksize", "2");
-		if (g_settings->getBool("planet_atlas_debug"))
-			meta.setBool("planet_atlas_debug", true);
-		meta.set("seed", std::to_string(world_code.seed_hash));
-		if (!meta.updateConfigFile((path + DIR_DELIM "map_meta.txt").c_str()))
-			throw BaseException("shell: could not write the map settings for " + path);
+	try {
+		universe::make(path, trimmed, game, code);
+	} catch (const terragen::CodeError &e) {
+		throw Refused(e.what());
 	}
 	if (!settings.empty()) {
 		std::string conf = path + DIR_DELIM "world.mt";

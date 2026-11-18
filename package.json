@@ -20,6 +20,8 @@
     "check:moves": "bun run stage && .output/bin/luanti --test-module TestMoves",
     "check:matter": "bash scripts/matter-check.sh",
     "check:far": "bash scripts/far-check.sh",
+    "check:mods": "bash scripts/mods-check.sh",
+    "check:dev": "bash scripts/dev-check.sh",
     "perf:gen": "bash scripts/perf-gen.sh",
     "shots:map": "bash scripts/map-shots.sh",
     "check:palette": "bash scripts/palette.sh --check",

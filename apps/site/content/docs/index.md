@@ -9,8 +9,18 @@ Terraverse is an open-source voxel universe. Its planets are generated from plat
 
 On top of that universe you play games: survival, racing, or whatever the community makes. Every world starts from a **world code**, so anyone can stand on the same planet.
 
+## Three things
+
+Everything here is one of three things, each inside the last:
+
+| | Is | You |
+|---|---|---|
+| **[Server](/docs/server)** | A universe under one set of rules: the mods it runs, and its worlds | Host it, configure it |
+| **World** | One planet in it, from its own world code, and what has happened on it | Play in it, share it |
+| **[Mod](/docs/mods)** | Code that says what things are and how they behave. A game is a mod | Write it, publish it |
+
 ## Where next
 
-- [Install it](/docs/play/install)
-- [Learn the controls](/docs/play/controls)
+- [Install it](/docs/install)
+- [Run a server](/docs/server)
 - [Make a mod](/docs/mods)

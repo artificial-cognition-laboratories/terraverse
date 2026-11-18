@@ -62,6 +62,7 @@
 #include "script/common/c_types.h" // LuaError
 #include "scripting_server.h"
 #include "script/lua_api/l_matter.h"
+#include "sidecar/sidecar.h"
 #include "server/mods.h" // ServerModManager
 
 // Network
@@ -461,6 +462,7 @@ Server::~Server()
 		m_piles.reset();
 		m_workshop.reset();
 		m_inventory_mgr.reset();
+		m_sidecar.reset();
 		m_script.reset();
 		ModApiMatter::shutdown(); // Terra Firma: it points at this server
 		took("closing its systems");
@@ -647,6 +649,10 @@ void Server::init()
 
 	m_script->saveGlobals();
 
+	// Terra Firma: TypeScript mods declare their content beside Lua's (sprint 119)
+	if (!m_server_folder.empty())
+		startSidecar();
+
 	// Read Textures and calculate sha1 sums
 	fillMediaCache();
 
@@ -739,6 +745,7 @@ void Server::init()
 	servermap.addEventReceiver(this);
 
 	m_env->loadMeta();
+	m_sidecar_now = m_env->getGameTime();
 
 	// Those settings can be overwritten in world.mt, they are
 	// intended to be cached after environment loading.
@@ -902,6 +909,17 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 
 		// Step environment
 		m_env->step(dtime);
+
+		// Terra Firma: a window for TypeScript mods (sprint 119)
+		if (m_sidecar) {
+			m_sidecar_now += dtime;
+			m_sidecar->step(dtime, m_sidecar_now);
+			// new content can't be swapped into a running universe: stop, to be started again
+			if (m_sidecar->needsRestart() && !isShutdownRequested()) {
+				m_restart_for_mods = true;
+				requestShutdown("The mods changed what's in the universe: restarting it.", true);
+			}
+		}
 
 		// Terra Firma: the rivers round each player, as the weather fills them (sprint 115)
 		if ((m_rivers_timer -= dtime) <= 0) {
@@ -3013,6 +3031,68 @@ bool Server::addMediaFile(const std::string &filename,
 	return true;
 }
 
+// Terra Firma: start `terra runtime` on the server folder, and make what its mods
+// declared into items and nodes, before registration closes (sprint 119).
+void Server::startSidecar()
+{
+	char exe[1024];
+	if (!porting::getCurrentExecPath(exe, sizeof exe))
+		throw ServerError("TypeScript mods: can't tell where this engine is, to find terra beside it");
+	const std::string terra = fs::RemoveLastPathComponent(exe) + DIR_DELIM + "terra";
+	if (!fs::PathExists(terra))
+		throw ServerError("TypeScript mods need terra beside the engine, and there's none at " + terra +
+				" (build it: cd apps/cli && bun run build)");
+
+	sidecar::Host host;
+	host.tell = [this](const std::string &name, const std::string &text) {
+		RemotePlayer *player = m_env->getPlayer(name);
+		if (player && player->getPeerId() != PEER_ID_INEXISTENT)
+			SendChatMessage(player->getPeerId(), ChatMessage(utf8_to_wide(text)));
+	};
+	host.announce = [this](const std::string &text) {
+		SendChatMessage(PEER_ID_INEXISTENT, ChatMessage(CHATMESSAGE_TYPE_ANNOUNCE, utf8_to_wide(text)));
+	};
+	host.players = [this]() { return m_clients.getPlayerNames(); };
+
+	try {
+		m_sidecar = std::make_unique<sidecar::Sidecar>(terra, m_server_folder, std::move(host));
+	} catch (const sidecar::Error &e) {
+		throw ServerError(std::string("TypeScript mods: ") + e.what());
+	}
+
+	const sidecar::Content &content = m_sidecar->content();
+	for (const sidecar::Content::Media &m : content.media)
+		if (!addMediaFile(m.name, m.path))
+			throw ServerError("TypeScript mods: " + m.path + " can't be sent to players (a PNG, 16 × 16 for a block face)");
+
+	IWritableItemDefManager *idef = m_itemdef;
+	for (const sidecar::Content::Block &b : content.blocks) {
+		if (idef->isKnown(b.name))
+			throw ServerError("TypeScript mods: " + b.name + " is already a block or item");
+		ItemDefinition item;
+		item.type = ITEM_NODE;
+		item.name = b.name;
+		item.description = b.description;
+		item.node_placement_prediction = b.name;
+		// TEMP(2026-11-18): every block digs like stone until matter decides it (stage 6)
+		item.groups["cracky"] = 3;
+		idef->registerItem(item);
+
+		ContentFeatures f;
+		f.name = b.name;
+		f.groups = item.groups;
+		for (size_t i = 0; i < 6; i++) {
+			f.tiledef[i].name = b.tiles[i];
+			f.tiledef[i].backface_culling = true;
+		}
+		f.setDefaultAlphaMode();
+		const content_t id = m_nodedef->set(f.name, std::move(f));
+		if (id == CONTENT_IGNORE || id >= MAX_REGISTERED_CONTENT)
+			throw ServerError("TypeScript mods: too many blocks to register " + b.name);
+	}
+	actionstream << "mods: " << content.blocks.size() << " blocks from " << m_server_folder << std::endl;
+}
+
 void Server::fillMediaCache()
 {
 	infostream << "Server: Calculating media file checksums" << std::endl;
@@ -3505,6 +3585,8 @@ void Server::DeleteClient(session_t peer_id, ClientDeletionReason reason)
 			m_clients.sendToAll(&notice);
 			// run scripts
 			m_script->on_leaveplayer(playersao, reason == CDR_TIMEOUT);
+			if (m_sidecar)
+				m_sidecar->left(player_name);
 
 			playersao->disconnected();
 		}
