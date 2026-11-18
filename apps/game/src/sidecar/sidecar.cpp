@@ -216,7 +216,12 @@ std::string Sidecar::manifestTime() const
 	struct stat st;
 	if (::stat((m_folder + "/.terra/manifest.json").c_str(), &st) != 0)
 		return "";
-	return std::to_string(st.st_mtim.tv_sec) + "." + std::to_string(st.st_mtim.tv_nsec);
+#ifdef __APPLE__
+	const timespec &mtime = st.st_mtimespec; // Darwin's name for st_mtim
+#else
+	const timespec &mtime = st.st_mtim;
+#endif
+	return std::to_string(mtime.tv_sec) + "." + std::to_string(mtime.tv_nsec);
 }
 
 // Prepared again: a new sidecar on the new build. Same content, and the universe never
