@@ -1,0 +1,69 @@
+# macOS on Apple silicon, while it's brought up: run by hand only, never on a push
+# or a tag, and never published. It configures and builds the engine and lists
+# every compile error in the job summary. When it builds, tests and boots, its job
+# moves into release.yml beside Linux and Windows, and this file goes.
+# The plan: .agents/owners/ci/state.md.
+name: macos
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    runs-on: macos-15 # arm64
+    timeout-minutes: 150
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.output/vcpkg-cache
+      SCCACHE_GHA_ENABLED: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      # vcpkg's ports build with autotools; Ninja drives the engine.
+      - name: Install build tools
+        run: brew install ninja autoconf autoconf-archive automake libtool pkg-config
+
+      # vcpkg builds every dependency from source: keep what it built, even when a
+      # later step fails, so every run builds on the last.
+      - name: Restore vcpkg builds
+        uses: actions/cache/restore@v4
+        with:
+          path: .output/vcpkg-cache
+          key: vcpkg-arm64-osx-${{ hashFiles('vcpkg.json') }}-${{ github.run_id }}
+          restore-keys: vcpkg-arm64-osx-${{ hashFiles('vcpkg.json') }}-
+
+      - name: Cache CEF
+        uses: actions/cache@v4
+        with:
+          path: .output/build/_deps
+          key: cef-macosarm64-${{ hashFiles('cmake/Modules/CEF.cmake') }}
+
+      - uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Configure
+        run: |
+          mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+          scripts/release/configure-macos.sh dev
+
+      - name: Save vcpkg builds
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .output/vcpkg-cache
+          key: vcpkg-arm64-osx-${{ hashFiles('vcpkg.json') }}-${{ github.run_id }}
+
+      # -k 0: one run reports every compile error, not just the first.
+      - name: Build the engine
+        run: |
+          set -o pipefail
+          cmake --build .output/build -- -k 0 2>&1 | tee build.log
+
+      - name: List the errors
+        if: failure()
+        run: scripts/release/build-errors.sh build.log
