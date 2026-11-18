@@ -239,7 +239,7 @@ export function MockBridge() {
             ],
         },
         {
-            id: "sky.sun", mod: "tf_sky", title: "The sun's path", size: { x: 9, y: 6, z: 9 },
+            id: "sky.sun", mod: "tf_world", title: "The sun's path", size: { x: 9, y: 6, z: 9 },
             description: "The solar sky for any latitude and day.",
             controls: [
                 { id: "latitude", kind: "slider", label: "Latitude", min: -90, max: 90, step: 1, default: 50, unit: "°" },

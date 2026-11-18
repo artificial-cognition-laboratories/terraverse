@@ -2,7 +2,8 @@
 # TypeScript mods, headless (sprint 119): `terra prepare` on scripts/mods-check/server,
 # then the engine runs it with its sidecar. The fixture's mods load in order (one
 # importing the other), declare blocks, run timers in game time, throw from a handler,
-# and crash the sidecar once; each is checked in the server's log.
+# and crash the sidecar once; each is checked in the server's log. The game's own mods
+# (registry/mods) are prepared and type-checked too.
 # Runs terra's unit tests and builds it (apps/cli); needs .output/bin/luanti.
 set -euo pipefail
 
@@ -19,6 +20,16 @@ cp -r "$root/scripts/mods-check/server/." "$work/"
 tsc="$root/apps/cli/node_modules/.bin/tsc"
 for frame in tsconfig.json mods/hello/tsconfig.json mods/hello/server/tsconfig.json mods/greeter/tsconfig.json mods/greeter/server/tsconfig.json; do
 	"$tsc" -p "$work/$frame"
+done
+
+# the game's own mods (registry/mods, run by apps/game/server) compile against theirs too
+"$root/.output/bin/terra" prepare "$root/apps/game/server" > /dev/null
+"$tsc" -p "$root/apps/game/server/tsconfig.json"
+for mod in "$root"/registry/mods/*/mod.config.ts; do
+	dir="$(dirname "$mod")"
+	"$root/.output/bin/terra" prepare "$dir" > /dev/null
+	"$tsc" -p "$dir/tsconfig.json"
+	[[ ! -f "$dir/server/tsconfig.json" ]] || "$tsc" -p "$dir/server/tsconfig.json"
 done
 
 world="$work/save/worlds/main"

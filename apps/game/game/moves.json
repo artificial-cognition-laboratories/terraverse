@@ -467,7 +467,7 @@
      ]
     },
     {
-     "node": "tf_world:timber",
+     "node": "materials:timber",
      "from": [
       0,
       1,
@@ -546,7 +546,7 @@
      ]
     },
     {
-     "node": "tf_world:timber",
+     "node": "materials:timber",
      "from": [
       0,
       1,
@@ -603,7 +603,7 @@
      ]
     },
     {
-     "node": "tf_world:timber",
+     "node": "materials:timber",
      "from": [
       0,
       1,
@@ -675,7 +675,7 @@
      ]
     },
     {
-     "node": "tf_world:timber",
+     "node": "materials:timber",
      "from": [
       0,
       1,
@@ -748,7 +748,7 @@
      ]
     },
     {
-     "node": "tf_world:timber",
+     "node": "materials:timber",
      "from": [
       0,
       1,
@@ -825,7 +825,7 @@
      ]
     },
     {
-     "node": "tf_world:timber",
+     "node": "materials:timber",
      "from": [
       0,
       1,
@@ -902,7 +902,7 @@
      ]
     },
     {
-     "node": "tf_world:timber",
+     "node": "materials:timber",
      "from": [
       0,
       1,
@@ -973,7 +973,7 @@
      ]
     },
     {
-     "node": "tf_world:timber",
+     "node": "materials:timber",
      "from": [
       0,
       1,
@@ -1047,7 +1047,7 @@
      ]
     },
     {
-     "node": "tf_world:timber",
+     "node": "materials:timber",
      "from": [
       0,
       1,
@@ -1131,7 +1131,7 @@
      ]
     },
     {
-     "node": "tf_world:timber",
+     "node": "materials:timber",
      "from": [
       0,
       1,
@@ -1206,7 +1206,7 @@
      ]
     },
     {
-     "node": "tf_world:timber",
+     "node": "materials:timber",
      "from": [
       0,
       1,
@@ -1276,7 +1276,7 @@
      ]
     },
     {
-     "node": "tf_world:timber",
+     "node": "materials:timber",
      "from": [
       0,
       1,

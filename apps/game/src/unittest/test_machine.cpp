@@ -664,7 +664,7 @@ void TestMachine::testStarters()
 	EXCEPTION_CHECK(std::runtime_error, workshop::starter(&g.gamedef, "Wheel"));
 	workshop::Materials materials;
 	materials.set(g.planks, { 600, 0.6f });
-	for (const char *name : { "tf_world:steel", "tf_world:rubber" }) {
+	for (const char *name : { "materials:steel", "materials:rubber" }) {
 		ContentFeatures f;
 		f.name = name;
 		f.walkable = true;

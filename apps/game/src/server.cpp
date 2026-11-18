@@ -647,13 +647,21 @@ void Server::init()
 
 	m_gamespec.checkAndLog();
 	m_materials = std::make_unique<workshop::Materials>();
-	m_modmgr->loadMods(*m_script);
+	// Terra Firma: TypeScript mods declare their content beside Lua's, once Lua's mods have
+	// run and before their on_mods_loaded, which then sees it (sprint 119)
+	// A world given no server folder runs the game's own (apps/game/server, staged prepared
+	// into the share): the official TypeScript mods
+	if (m_server_folder.empty()) {
+		const std::string game = porting::path_share + DIR_DELIM "server";
+		if (fs::PathExists(game + DIR_DELIM ".terra" DIR_DELIM "manifest.json"))
+			m_server_folder = game;
+	}
+	m_modmgr->loadMods(*m_script, [this] {
+		if (!m_server_folder.empty())
+			startSidecar();
+	});
 
 	m_script->saveGlobals();
-
-	// Terra Firma: TypeScript mods declare their content beside Lua's (sprint 119)
-	if (!m_server_folder.empty())
-		startSidecar();
 
 	// Read Textures and calculate sha1 sums
 	fillMediaCache();
@@ -922,6 +930,9 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 				requestShutdown("The mods changed what's in the universe: restarting it.", true);
 			}
 		}
+
+		// Terra Firma: each player's sky, from the real sun where they stand (sprint 119: was tf_sky)
+		terraStepSkies(this, dtime);
 
 		// Terra Firma: the rivers round each player, as the weather fills them (sprint 115)
 		if ((m_rivers_timer -= dtime) <= 0) {
@@ -3060,13 +3071,26 @@ bool Server::addMediaFile(const std::string &filename,
 // declared into items and nodes, before registration closes (sprint 119).
 void Server::startSidecar()
 {
-	char exe[1024];
-	if (!porting::getCurrentExecPath(exe, sizeof exe))
-		throw ServerError("TypeScript mods: can't tell where this engine is, to find terra beside it");
-	const std::string terra = fs::RemoveLastPathComponent(exe) + DIR_DELIM + "terra";
-	if (!fs::PathExists(terra))
-		throw ServerError("TypeScript mods need terra beside the engine, and there's none at " + terra +
-				" (build it: cd apps/cli && bun run build)");
+	// TERRA_CLI: the terra that started this engine, when it isn't the one beside it
+	// (terral, terra from source, which then runs the sidecar from source too)
+	std::string terra;
+	if (const char *given = std::getenv("TERRA_CLI"); given && *given) {
+		terra = given;
+		if (!fs::PathExists(terra))
+			throw ServerError("TypeScript mods: TERRA_CLI names " + terra + ", and there's nothing there");
+	} else {
+		char exe[1024];
+		if (!porting::getCurrentExecPath(exe, sizeof exe))
+			throw ServerError("TypeScript mods: can't tell where this engine is, to find terra beside it");
+#ifdef _WIN32
+		terra = fs::RemoveLastPathComponent(exe) + DIR_DELIM + "terra.exe";
+#else
+		terra = fs::RemoveLastPathComponent(exe) + DIR_DELIM + "terra";
+#endif
+		if (!fs::PathExists(terra))
+			throw ServerError("TypeScript mods need terra beside the engine, and there's none at " + terra +
+					" (build it: cd apps/cli && bun run build)");
+	}
 
 	sidecar::Host host;
 	host.tell = [this](const std::string &name, const std::string &text) {
@@ -3090,30 +3114,13 @@ void Server::startSidecar()
 		if (!addMediaFile(m.name, m.path))
 			throw ServerError("TypeScript mods: " + m.path + " can't be sent to players (a PNG, 16 × 16 for a block face)");
 
-	IWritableItemDefManager *idef = m_itemdef;
+	// TEMP(2026-11-18): through Lua while Lua runs (stage 7 registers them natively): its
+	// on_mods_loaded hands each block's matter to the world and its weight to machines, and
+	// the creative catalogue offers it, as for any block of Lua's
 	for (const sidecar::Content::Block &b : content.blocks) {
-		if (idef->isKnown(b.name))
+		if (m_itemdef->isKnown(b.name))
 			throw ServerError("TypeScript mods: " + b.name + " is already a block or item");
-		ItemDefinition item;
-		item.type = ITEM_NODE;
-		item.name = b.name;
-		item.description = b.description;
-		item.node_placement_prediction = b.name;
-		// TEMP(2026-11-18): every block digs like stone until matter decides it (stage 6)
-		item.groups["cracky"] = 3;
-		idef->registerItem(item);
-
-		ContentFeatures f;
-		f.name = b.name;
-		f.groups = item.groups;
-		for (size_t i = 0; i < 6; i++) {
-			f.tiledef[i].name = b.tiles[i];
-			f.tiledef[i].backface_culling = true;
-		}
-		f.setDefaultAlphaMode();
-		const content_t id = m_nodedef->set(f.name, std::move(f));
-		if (id == CONTENT_IGNORE || id >= MAX_REGISTERED_CONTENT)
-			throw ServerError("TypeScript mods: too many blocks to register " + b.name);
+		m_script->register_mod_block(b.name, b.description, b.tiles, b.matter, b.share);
 	}
 	actionstream << "mods: " << content.blocks.size() << " blocks from " << m_server_folder << std::endl;
 }

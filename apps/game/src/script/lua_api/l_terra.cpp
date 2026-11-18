@@ -358,6 +358,32 @@ int ModApiTerra::l_skip_days(lua_State *L)
 	return 0;
 }
 
+std::optional<TerraSun> terraSun(Server *server, const v3f &pos)
+{
+	if (mapgenName(server) != "terra" || !server->atlas())
+		return std::nullopt;
+	const std::optional<Place> place = placeOf(server, pos);
+	if (!place)
+		return std::nullopt;
+	const World &w = worldAt(server, pos);
+	const fix latitude = latitudeOf(place->dir());
+	const Calendar c = today(server, w);
+	const fix decl = declination(w.code().tilt, c.date);
+	const fix hour = localHour(server, pos);
+	const fix up = elevation(latitude, decl, hour);
+	terragen::System::Clock body_clock = clockFromStart(server, pos);
+	body_clock.at -= std::floor(body_clock.at);
+	TerraSun sun;
+	sun.latitude = toDegrees(latitude);
+	sun.declination = toDegrees(decl);
+	sun.elevation = toDegrees(up);
+	sun.daylight = w.code().processes.facing_star ? (up > 0 ? 1 : 0) : toDouble(dayShare(latitude, decl));
+	sun.turns = body_clock.turns;
+	sun.at = body_clock.at;
+	sun.season = SEASON_NAMES[(int)season(c.date, latitude)];
+	return sun;
+}
+
 // core.terra.sun(pos) → { latitude, declination, elevation (degrees),
 // daylight (share of the day the sun is up), season, turns, at (this
 // body's clock: the time of day is at + turns × the engine's) }
@@ -365,22 +391,18 @@ int ModApiTerra::l_sun(lua_State *L)
 {
 	NO_MAP_LOCK_REQUIRED;
 	const v3f pos = check_v3f(L, 1);
-	const World &w = worldAt(getServer(L), pos);
-	fix latitude = latitudeOf(placeAt(getServer(L), pos).dir());
-	Calendar c = today(getServer(L), w);
-	fix decl = declination(w.code().tilt, c.date);
-	const fix hour = localHour(getServer(L), pos);
-	const fix up = elevation(latitude, decl, hour);
-	terragen::System::Clock body_clock = clockFromStart(getServer(L), pos);
-	body_clock.at -= std::floor(body_clock.at);
+	atlasOf(getServer(L)); // raises, naming why, where terra didn't make this world
+	const std::optional<TerraSun> sun = terraSun(getServer(L), pos);
+	if (!sun)
+		throw LuaError("core.terra: the position is seam: on no column of the planet");
 	lua_createtable(L, 0, 7);
-	setNumber(L, "latitude", toDegrees(latitude));
-	setNumber(L, "declination", toDegrees(decl));
-	setNumber(L, "elevation", toDegrees(up));
-	setNumber(L, "daylight", w.code().processes.facing_star ? (up > 0 ? 1 : 0) : toDouble(dayShare(latitude, decl)));
-	setNumber(L, "turns", body_clock.turns);
-	setNumber(L, "at", body_clock.at);
-	setstringfield(L, -1, "season", SEASON_NAMES[(int)season(c.date, latitude)]);
+	setNumber(L, "latitude", sun->latitude);
+	setNumber(L, "declination", sun->declination);
+	setNumber(L, "elevation", sun->elevation);
+	setNumber(L, "daylight", sun->daylight);
+	setNumber(L, "turns", sun->turns);
+	setNumber(L, "at", sun->at);
+	setstringfield(L, -1, "season", sun->season);
 	return 1;
 }
 

@@ -18,8 +18,8 @@ namespace workshop {
 	and Scrap Mechanic's suspension blocks, here built). A wheel; a corner
 	(a steel hub on a spring, a rubber wheel on it) that steers, is driven,
 	both or neither. Every player's library starts with them; theirs of the
-	same name is theirs. Made from the game's tf_world:steel and
-	tf_world:rubber: without them there are none.
+	same name is theirs. Made from the game's materials:steel and
+	materials:rubber: without them there are none.
 */
 struct Starter
 {

@@ -29,7 +29,7 @@ ServerModManager::ServerModManager(const std::string &worldpath, SubgameSpec gam
 }
 
 // This function cannot be currently easily tested but it should be ASAP
-void ServerModManager::loadMods(ServerScripting &script)
+void ServerModManager::loadMods(ServerScripting &script, const std::function<void()> &before_loaded)
 {
 	// Print mods
 	infostream << "Server: Loading mods: ";
@@ -51,6 +51,9 @@ void ServerModManager::loadMods(ServerScripting &script)
 		infostream << "Mod \"" << mod.name << "\" loaded after "
 			<< (porting::getTimeMs() - t1) << " ms" << std::endl;
 	}
+
+	if (before_loaded)
+		before_loaded();
 
 	// Run a callback when mods are loaded
 	script.on_mods_loaded();

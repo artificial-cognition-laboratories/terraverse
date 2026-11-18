@@ -42,6 +42,10 @@ Several leaf and plant textures are greyscale in the pack (meant to be tinted pe
 
 `tf_matter_substance.png`, `tf_matter_liquid.png`, `tf_matter_heat_gun.png` and `tf_matter_probe.png` (in `games/terrafirma/mods/tf_matter/textures`) are original to Terra Firma, drawn for this game in sprint 18; substance blocks tint the first two per substance.
 
+## Building materials
+
+The textures of `@terraverse/materials` (in `registry/mods/materials/assets/textures`), sprint 119, are baked from the tints `tf_world` gave them at runtime: flint, aluminium, steel, rubber and glass multiply Terra Firma's own `tf_matter_substance.png` (glass also made see-through); timber is the Good Vibes oak log turned a quarter and coloured, and canvas the Good Vibes sandstone top coloured (derived, as above).
+
 `tf_flight_pack.png` (in `games/terrafirma/mods/tf_flight/textures`) is original to Terra Firma, drawn for this game in sprint 20.
 
 ## tf_tools item icons

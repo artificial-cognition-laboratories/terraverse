@@ -10,7 +10,7 @@ export type ContentTable = { readonly blocks: readonly BlockRow[]; readonly medi
 /** Content — what things are, declared while mods load and sealed after: the `content` global. */
 export function Content(opts: { running: RunningT; channel: ChannelT }) {
     const media = Media({})
-    const blocks = Blocks({ running: opts.running, media: media, channel: opts.channel })
+    const blocks = Blocks({ running: opts.running, media: media })
 
     const api = Object.freeze({
         blocks: Object.freeze({

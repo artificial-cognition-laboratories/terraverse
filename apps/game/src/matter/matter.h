@@ -79,6 +79,16 @@ struct Substance
 	// oxide's tens: a pinch turns glass blue)
 	uint32_t colour = 0;
 	double tint = 1;
+	bool transparent = false; // light passes through it: its block is drawn as glass (sprint 119)
+	// What it takes before it fails, as a solid (Pa), and how much energy breaking it takes
+	// (J/m²): a block of it holds a share of that, by how much of it is matter. None: it's
+	// judged by how it breaks (sprint 119: from tf_world's building materials)
+	struct Strength
+	{
+		double tension, compression, toughness;
+	};
+	std::optional<Strength> strength;
+	std::optional<double> friction; // how it grips, where it isn't most things' 0.6
 	// What it dissolves in (sprint 79): a gas or solid held in that liquid,
 	// up to `most` moles of it per mole of the solvent (hydrogen chloride
 	// in water is hydrochloric acid; salt in water, brine), counted as

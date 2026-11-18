@@ -342,6 +342,19 @@ int ModApiMatter::l_substances(lua_State *L)
 			lua_pushstring(L, hex);
 			lua_setfield(L, -2, "colour");
 			setNumber(L, "molar_mass", s.molar_mass);
+			if (s.transparent) {
+				lua_pushboolean(L, true);
+				lua_setfield(L, -2, "transparent");
+			}
+			if (s.strength) {
+				lua_createtable(L, 0, 3);
+				setNumber(L, "tension", s.strength->tension);
+				setNumber(L, "compression", s.strength->compression);
+				setNumber(L, "toughness", s.strength->toughness);
+				lua_setfield(L, -2, "strength");
+			}
+			if (s.friction)
+				setNumber(L, "friction", *s.friction);
 			setNumber(L, "density", s.density(s.state(293.15, matter::ATMOSPHERE), 293.15, matter::ATMOSPHERE));
 			setNumber(L, "melts", s.meltingPoint(std::max(matter::ATMOSPHERE, s.triple.p)));
 			if (std::optional<double> b = s.boilingPoint(matter::ATMOSPHERE))

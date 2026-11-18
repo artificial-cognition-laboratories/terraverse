@@ -9,6 +9,8 @@ import pkg from "../../package.json"
 type CliOpts = {
     /** Where terra is: process.execPath. The engine is beside it, and it is bun. */
     exec: string
+    /** The folder the engine is in, when it isn't beside exec: a build tree, for terral. */
+    engine?: string
     /** Where output goes. A test passes arcline's Renderer.capture(). */
     renderer?: RendererHandle
 }
@@ -18,7 +20,7 @@ type CliOpts = {
  * The work is Terra's, and the sidecar is Runtime's.
  */
 export function Cli(opts: CliOpts) {
-    const terra = Terra({ exec: opts.exec })
+    const terra = Terra({ exec: opts.exec, ...(opts.engine ? { engine: opts.engine } : {}) })
     const presentation = Presentation({ renderer: opts.renderer })
     const boundary = Boundary({ presentation: presentation })
     const commands = Commands({ terra: terra, presentation: presentation, version: pkg.version })

@@ -36,7 +36,7 @@ done
 strip --strip-unneeded "$stage/bin/luanti"
 # never strip terra: a compiled Bun program keeps its code past the end of the ELF
 
-for d in builtin client fonts locale matter textures misc; do
+for d in builtin client fonts locale matter textures misc server; do
 	cp -a "$root/.output/$d" "$stage/"
 done
 cp -a "$root/.output/games/terrafirma" "$stage/games/"

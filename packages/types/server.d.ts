@@ -5,7 +5,7 @@ declare global {
     // ── content ─────────────────────────────────────────────────────────────
 
     interface BlockDef {
-        /** What it's made of. Not simulated yet: blocks are drawn, and dig like stone. */
+        /** What it's made of: its weight, strength, grip and whether light passes come from it. Every block digs like stone for now. */
         matter: string
         /** 0–1: how much of the block is matter. Default 1. */
         share?: number

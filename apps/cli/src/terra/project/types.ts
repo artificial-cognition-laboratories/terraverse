@@ -8,7 +8,7 @@ export type ManifestMod = {
     readonly name: string           // "@you/kilns"
     readonly prefix: string         // "kilns"
     readonly version: string
-    /** The mod's folder: its assets/ are here. A local mod's own folder, never bun's copy. */
+    /** Its built folder, .terra/build/<prefix>: its assets/ are copied here. */
     readonly root: string
     /** Its server half, bundled. null for a mod with no server/main.ts. */
     readonly server: string | null

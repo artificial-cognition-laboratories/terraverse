@@ -109,6 +109,15 @@ struct ServerTerra
 	std::unique_ptr<weather::Weather> weather; // after world, matter and rivers: it refers to them
 	std::vector<std::unique_ptr<far::Generator>> surfaces; // by body
 	std::unique_ptr<terragen::System> system; // the world's, for its bodies' clocks
+	// each player's sky as last sent (server/sky.cpp), by name: a new one is sent
+	// only when it's moved enough to see
+	struct SkySent
+	{
+		double latitude, declination, thin, turns, at;
+	};
+	std::unordered_map<std::string, SkySent> skies;
+	float skies_timer = 0; // s to the next look
+
 	// The weather being opened, and the rivers with it: a new world's settles
 	// a year of it, seconds, on a worker so the server goes on meanwhile
 	// (handed over whole: neither's seen half made). Last, so it's let go
@@ -142,6 +151,22 @@ std::pair<s32, s32> terraRiverRun(Server *server, v3s16 node);
 // The first open block over a column's ground or water as generated
 // (rivers::Basin::UNKNOWN: no place on the home world)
 s32 terraGeneratedTop(Server *server, s32 x, s32 z);
+
+// The real sun over a position (script/lua_api/l_terra.cpp, as core.terra.sun): degrees,
+// its body's clock (the time of day there is at + turns × the engine's). None where
+// terra didn't make the world, or on seam (no column of the planet).
+struct TerraSun
+{
+	double latitude = 0, declination = 0, elevation = 0;
+	double daylight = 0; // the share of the day the sun is up
+	double turns = 1, at = 0;
+	const char *season = "";
+};
+std::optional<TerraSun> terraSun(Server *server, const v3f &pos);
+
+// Each player's sky (server/sky.cpp): the real sun where they stand, and on a world
+// that isn't a planet, the air's blue thinning to black as they climb.
+void terraStepSkies(Server *server, float dtime);
 
 struct MapEditEvent;
 // The lakes (server/lakes.cpp): edits are noted, then looked at each step

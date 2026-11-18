@@ -66,11 +66,13 @@ threading these together. Known gaps belong in `TODO.md`.
 ```
 apps/game/src/      the Luanti fork, plus our systems in their own folders (below)
 apps/game/ui/       the Vue app: menus, HUD, inventory, wiki, gallery
+apps/game/server/   the game's own server folder: the official TypeScript mods every world runs
 apps/game/game/     the game in Lua (mods/tf_*), and baked data: palette.json, moves.json, vehicles.json, ground.json
 apps/cli/           terra: the CLI, and the sidecar that runs TypeScript mods (sprint 119)
 packages/types/     @terraverse/types: the TypeScript mod API's globals, as implemented
 assets/             shipped static files; assets/matter/ holds elements, substances, reactions and thermo data
 registry/           shaders, textures, upstream client mods, devtest; registry/worlds is user data, never clean it up
+registry/mods/      the game's own TypeScript mods (@terraverse/*), run by apps/game/server
 library/            vendored dependencies (library/jolt: MIT; irr and lua are upstream, leave alone)
 scripts/            dev loop, staging, palette bake, the check:* harnesses, release packaging
 planning/           sprint plans, arcs and design notes
@@ -106,7 +108,13 @@ the engine runs its mods in a sidecar process, beside Lua until the `tf_*` mods 
 The wire's ops live in `apps/cli/src/runtime/wire/ops.ts`: change them there and run `bun run ops`
 in apps/cli, which writes `sidecar/ops.h`.
 
-Lua mods: `tf_world` (blocks, biomes, materials), `tf_matter`, `tf_player`, `tf_sky`,
+The game's own TypeScript mods live in `registry/mods/` (`@terraverse/materials` is the first)
+and run through `apps/game/server`, which staging prepares into `.output/server`. The engine
+runs that folder in every world not given another. While Lua lives, their blocks register
+through Lua (`builtin/game/sidecar.lua`), so tf_matter, machines and the catalogue see them.
+A block's weight, strength, grip and transparency come from its substance (`assets/matter`).
+
+Lua mods: `tf_world` (blocks, biomes), `tf_matter`, `tf_player`,
 `tf_weather`, `tf_planet`, `tf_flight`, `tf_lab`, `tf_craft` (making: forms, processes, stations).
 
 `scripts/stage-runtime.sh` mirrors shipped resources into `.output/`, which the run-in-place
@@ -264,6 +272,7 @@ bun check:matter        # a real fire on a live server
 bun check:far           # far view against generated chunks
 bun check:mods          # TypeScript mods: terra's unit tests, terra prepare, then the sidecar in a headless server
 bun check:dev           # terra dev on a new mod: reloads, a content restart, a broken save, Ctrl-C
+terral <args>           # terra from apps/cli source, against .output/bin's engine; the sidecar runs from source too (TERRA_CLI)
 bun perf:gen            # where making a world spends its time, by step, cold and warm at 50k and 100k (SIZES=, CODE=)
 bun palette             # re-bake palette.json after changing blocks, textures or species
 bun check:palette       # fails if palette.json is stale

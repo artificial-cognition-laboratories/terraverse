@@ -46,7 +46,7 @@ Lua is replaced by a TypeScript mod API. The API is designed docs-first in
 5. **Client halves** in the CEF page, sandboxed per mod: client bundles sent on join,
    panels, messages.
 6. **Port `tf_*`**, with matter on blocks and reactions' `on`.
-7. **Remove Lua.** Windows named pipes before the first Windows release with mods.
+7. **Remove Lua.**
 
 ## Stage 1: the sidecar runs
 
@@ -213,3 +213,74 @@ Blocks, the whole Runtime on a MemoryWire. `check:mods` runs them first; CI runs
 - No typechecking in `terra prepare`: the editor checks; prepare bundles.
 - `install`, `uninstall`, `--in`, `--fresh`, PATH.
 - Windows: the sidecar needs named pipes; `terra` is built there, the engine refuses.
+
+## Stage 2a: the sky in the engine, and the first official mod
+
+### Sorting tf_* (against the API in apps/site/content/docs/mods)
+
+Most of the Lua is mechanism, which the docs put in the engine (no tick event, nothing that
+reads engine state back and forth); the policy that's left mostly waits on items. Into the
+engine: the sky, gravity by altitude, the weather readout, snow and ice, matter's running and
+effects, movement, seams, loose ground, and the natural blocks (rock, soil, ore, flora) as
+`core:` content. Ported: building materials (done), then `/travel` and felling once
+`game.worlds` is wired. Waiting on design: items and inventory (tf_craft, fire tools, pouring),
+biomes. Decisions, not ports: `_machine.friction` (now matter's), `set_timeofday` in the Lab
+(`time.skip`/`pause`/`step`), the Lab's server-driven camera, the mod menu's live world settings.
+
+### Built
+
+- **`terral`** (`apps/cli/bin/terral`, linked into `~/.local/bin`): terra from source against
+  `.output/bin`'s engine. `TERRA_ENGINE` says where the engine is; `TERRA_CLI` tells the engine
+  which terra to spawn, so the sidecar runs from source too.
+- **The sky is the engine's** (`server/sky.cpp`): tf_sky's loop, the same thresholds, from
+  `terraSun` (shared with `core.terra.sun`). tf_sky is gone; its Lab scene moved to tf_world.
+- **`@terraverse/materials`** (`registry/mods/materials`): flint, timber, aluminium, steel, rubber,
+  canvas, glass, each only matter and share. tf_world's `materials.lua` is gone; its names are
+  aliased (`tf_world:steel` → `materials:steel`) and the engine's starters, showcase, moves and
+  vehicles use the new ones.
+- **The game is a server folder** (`apps/game/server`): `@terraverse/game`, depending on the
+  official mods. Staging prepares it and stages `.output/server`; the engine runs it in every
+  world it isn't given another folder for; packages carry it.
+- **`.terra/` is self-contained**: each mod's assets are copied beside its bundle, and the
+  manifest's paths are relative, so a prepared folder runs wherever it's moved.
+- **Matter on TypeScript blocks is real**: the sidecar starts between Lua's mod scripts and
+  their `on_mods_loaded`, and its blocks register through `core.register_mod_block`
+  (`builtin/game/sidecar.lua`, TEMP until Lua goes). tf_matter, machines, the catalogue and the
+  palette bake see them as their own.
+- **Substances say how strong and grippy they are** (`strength`, `friction`, `transparent` in
+  `substances.json`, parsed and in `core.matter.substances()`). tf_matter takes a block's
+  strength from its substance by its share, after `_machine` and before dig groups; a
+  transparent substance's block is drawn as glass.
+- **Wiki scenes find a mod's media** (`prefix--file.png`) in the staged server folder.
+- **`check:mods`** prepares and type-checks `apps/game/server` and every mod in `registry/mods`.
+
+### Found on the way
+
+- Lua's `on_mods_loaded` ran before the sidecar started, so tf_matter never saw a TypeScript
+  block's matter: `loadMods` takes a step between the scripts and that callback.
+- A manifest of absolute paths couldn't be staged or shipped.
+
+### Windows
+
+- **The sidecar runs on Windows** over a named pipe. The engine makes it (one instance, local
+  clients only), starts `terra.exe runtime <folder> --pipe <name>` with no window and only its
+  output handles inherited, and checks the client that connects is that process. Its end is
+  overlapped, so reads wait with the same deadlines; before the sidecar connects the engine
+  watches its process too, so a sidecar that dies loading says why. `terra runtime` opens the
+  pipe by name; elsewhere it's still fd 3 of a socket pair.
+- `sidecar.cpp` is one implementation over a per-platform `Child` (spawn, send, receive with
+  a timeout, exited); framing, windows and the watchdog are shared.
+- Windows worlds run the game's folder like any other; the engine finds `terra.exe` beside it.
+- **Verified:** Linux only (build, check:mods, check:dev): nothing here has Windows headers.
+  The Windows code is checked by the release workflow, whose package smoke test now fails
+  unless a world logs the game's blocks loading. Bun opening `\\.\pipe\…` with `openSync`
+  and reading it with `readSync` is the part most likely to need a fix there.
+
+### Not doing (yet)
+
+- **Digging**: every TypeScript block digs like stone (`cracky = 3`) until matter decides it.
+- **Canvas is wood** at a third of a block until there's a fibre substance.
+- **A server folder of your own** doesn't get the official mods: it lists them, once the
+  registry can install them.
+- **Strength by substance** also reaches Lua blocks of those substances (planks, substance
+  blocks): checked by check:moves and TestMachine, not tuned by hand.

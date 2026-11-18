@@ -27,7 +27,7 @@ content_t idOf(IGameDef *gamedef, const char *name)
 piece::Machine car(IGameDef *gamedef)
 {
 	constexpr s16 WIDE = 2, LONG = 4;
-	const content_t timber = idOf(gamedef, "tf_world:timber");
+	const content_t timber = idOf(gamedef, "materials:timber");
 	piece::Object deck(gamedef);
 	shape::Shape plate; // the corners' hubs meet it at their middles; the fittings stand on top
 	for (s16 x = 0; x < 16; x++)

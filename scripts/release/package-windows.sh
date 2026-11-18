@@ -42,7 +42,7 @@ crt=$(cygpath -u "$VCToolsRedistDir")/x64
 crt=$(command ls -d "$crt"/Microsoft.VC*.CRT | head -1)
 cp "$crt"/*.dll "$stage/bin/"
 
-for d in builtin client fonts locale matter textures misc; do
+for d in builtin client fonts locale matter textures misc server; do
 	cp -a "$root/.output/$d" "$stage/"
 done
 cp -a "$root/.output/games/terrafirma" "$stage/games/"

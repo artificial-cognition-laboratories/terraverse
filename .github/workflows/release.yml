@@ -276,6 +276,8 @@ jobs:
           if (-not (Select-String -Path boot.out, boot.log -SimpleMatch 'listening on' -Quiet)) { throw "the server didn't start" }
           if (Select-String -Path boot.out, boot.log -SimpleMatch 'ERROR[' -Quiet) { throw "errors booting a world" }
           if (-not (Test-Path "$env:TERRAVERSE_HOME\logs\debug.txt")) { throw "player data didn't leave the package" }
+          # the game's TypeScript mods ran: terra.exe started over its named pipe
+          if (-not (Select-String -Path boot.out, boot.log, "$env:TERRAVERSE_HOME\logs\debug.txt" -SimpleMatch 'blocks from' -Quiet)) { throw "the game's TypeScript mods didn't load" }
 
       - uses: actions/upload-artifact@v4
         with:

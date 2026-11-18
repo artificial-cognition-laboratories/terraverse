@@ -157,7 +157,11 @@ core.register_craft({
 })
 dofile(core.get_modpath("tf_world") .. "/lab.lua")
 dofile(core.get_modpath("tf_world") .. "/pieces.lua")
-dofile(core.get_modpath("tf_world") .. "/materials.lua")
+-- Building materials moved to @terraverse/materials, a TypeScript mod (sprint 119): worlds
+-- that have them under their old names keep them. TEMP(2026-11-18): aliases go native with Lua.
+for _, m in ipairs({ "flint", "timber", "aluminium", "steel", "rubber", "canvas", "glass" }) do
+	core.register_alias("tf_world:" .. m, "materials:" .. m)
+end
 dofile(core.get_modpath("tf_world") .. "/ground.lua")
 dofile(core.get_modpath("tf_world") .. "/drops.lua")
 dofile(core.get_modpath("tf_world") .. "/felling.lua")

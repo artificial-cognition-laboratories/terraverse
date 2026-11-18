@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+#
+# terral — terra from this checkout's source, against this checkout's build.
+#
+# `terra` is whatever the launcher installed. This runs apps/cli/src through bun, so a change
+# to the CLI or the sidecar is live without `bun run build`, and starts the engine in
+# .output/bin (TERRA_ENGINE). The engine runs mods by spawning terra; TERRA_CLI points it back
+# here, so the sidecar is the source one too. Build the engine first (bun run build).
+SCRIPT=$(realpath "$0")
+DIR=$(dirname "$SCRIPT")
+ROOT=$(realpath "$DIR/../../..")
+TERRA_ENGINE="$ROOT/.output/bin" TERRA_CLI="$SCRIPT" exec bun "$DIR/terra.ts" "$@"

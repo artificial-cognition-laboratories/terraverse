@@ -3,8 +3,6 @@ import type { ManifestMod } from "../../../terra"
 import type { RunningT } from "../../running"
 import { checks } from "../checks"
 import type { MediaT } from "./media"
-import { Level } from "../../wire"
-import type { ChannelT } from "../../channel"
 
 /** One block as the engine is sent it. */
 export type BlockRow = {
@@ -19,7 +17,6 @@ export type BlockRow = {
 type BlocksOpts = {
     running: RunningT
     media: MediaT
-    channel: ChannelT
 }
 
 const NAME = /^[a-z0-9_]+:[a-z0-9_]+$/
@@ -28,7 +25,6 @@ const NAME = /^[a-z0-9_]+:[a-z0-9_]+$/
 export function Blocks(opts: BlocksOpts) {
     const rows = new Map<string, BlockRow>()
     let sealed = false
-    let matterNoted = false
 
     function create(name: unknown, def: unknown): { readonly name: string } {
         const mod = opts.running.loadingMod()
@@ -37,10 +33,6 @@ export function Blocks(opts: BlocksOpts) {
         if (!name.startsWith(`${mod.prefix}:`)) throw err("NAME_NOT_YOURS", { detail: `${mod.name} creates ${mod.prefix}:…, not ${name}` })
         if (rows.has(name)) throw err("NAME_TAKEN", { detail: `${name} was already declared` })
         const row = shape(mod, name, def)
-        if (!matterNoted) {
-            matterNoted = true
-            opts.channel.log(Level.warn, mod.name, "matter on blocks isn't wired yet: blocks are drawn, not simulated")
-        }
         rows.set(name, row)
         return Object.freeze({ name: name })
     }

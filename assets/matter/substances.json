@@ -961,7 +961,9 @@
    "note": "Common in rock but locked in oxides: it takes electricity to free.",
    "kind": "element",
    "hardness": 2.75,
-   "colour": "#c8ccd2"
+   "colour": "#c8ccd2",
+   "strength": { "tension": 2e8, "compression": 2e8, "toughness": 1e5 },
+   "friction": 0.5
   },
   {
    "id": "lead",
@@ -1300,7 +1302,8 @@
    "note": "Sand and most rock; melted, glass. (Drawn as one SiO₄ tetrahedron of its network.)",
    "kind": "compound",
    "hardness": 7,
-   "colour": "#e9e2d0"
+   "colour": "#e9e2d0",
+   "strength": { "tension": 5e7, "compression": 5e8, "toughness": 50 }
   },
   {
    "id": "carbon_monoxide",
@@ -2786,7 +2789,9 @@
    "approximate": true,
    "kind": "compound",
    "hardness": 5.5,
-   "colour": "#9aa0a6"
+   "colour": "#9aa0a6",
+   "strength": { "tension": 4e8, "compression": 4e8, "toughness": 2e5 },
+   "friction": 0.5
   },
   {
    "id": "pewter",
@@ -2981,7 +2986,8 @@
    "approximate": true,
    "kind": "compound",
    "hardness": 2,
-   "colour": "#9c6b3c"
+   "colour": "#9c6b3c",
+   "strength": { "tension": 1e8, "compression": 7.5e7, "toughness": 1e4 }
   },
   {
    "id": "soda_ash",
@@ -3130,7 +3136,9 @@
    "approximate": true,
    "kind": "compound",
    "hardness": 5.5,
-   "colour": "#dfeeea"
+   "colour": "#dfeeea",
+   "strength": { "tension": 3e7, "compression": 5e8, "toughness": 10 },
+   "transparent": true
   },
   {
    "id": "slaked_lime",
@@ -3276,7 +3284,9 @@
    "approximate": true,
    "kind": "compound",
    "hardness": 1,
-   "colour": "#222224"
+   "colour": "#222224",
+   "strength": { "tension": 1.5e7, "compression": 1.5e7, "toughness": 1e4 },
+   "friction": 1.0
   },
   {
    "id": "sodium",

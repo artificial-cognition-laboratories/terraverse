@@ -67,9 +67,23 @@ core.register_on_mods_loaded(function()
 		{ "crumbly", function() return 3e4, 3e5, 100 end },
 		{ "snappy", function() return 1e5, 1e5, 1e3 end },
 	}
+	-- a substance's own strength and grip (substances.json, sprint 119): a block of it holds
+	-- the share of its load that's matter; breaking it takes the substance's toughness
+	local substance = {}
+	for _, s in ipairs(core.matter.substances()) do substance[s.id] = s end
+	local function made_of(def)
+		local m = def._matter
+		local id = type(m) == "table" and m.matter or m
+		return substance[id], type(m) == "table" and m.share or 1
+	end
 	local function strength(def, machine)
 		if machine.tension then
 			return machine.tension, machine.compression or machine.tension, machine.toughness
+		end
+		local s, share = made_of(def)
+		-- (loose ground is held by being damp, whatever its grains are)
+		if s and s.strength and not (def.groups and def.groups.pile_yield) then
+			return s.strength.tension * share, s.strength.compression * share, s.strength.toughness
 		end
 		for _, g in ipairs(BY_GROUP) do
 			local level = def.groups and def.groups[g[1]]
@@ -87,7 +101,8 @@ core.register_on_mods_loaded(function()
 				local machine = def._machine or {}
 				-- (what tyres get from it too, workshop::surfaceGrip: loose ground gives under them)
 				local loose = def.groups and def.groups.pile_bearing
-				local friction = machine.friction or (slippery and 0.1 or loose and 0.35 or 0.6)
+				local s = made_of(def)
+				local friction = machine.friction or (slippery and 0.1 or loose and 0.35 or s and s.friction or 0.6)
 				-- a fitting weighs what it says (sprint 78: an engine is a
 				-- made thing, not a cubic metre of iron): its block's a metre
 				-- cubed, so its mass is its density

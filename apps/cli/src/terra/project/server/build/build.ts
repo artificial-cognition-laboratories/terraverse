@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, renameSync, rmSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, renameSync, rmSync } from "node:fs"
 import { err } from "../../../../errors"
 import type { FrameT } from "../../frame"
 import type { SettingValue } from "../../settings"
@@ -6,7 +6,9 @@ import type { ManifestMod, Mod } from "../../types"
 import { Imports, MOD_OF, type ImportsT } from "./imports"
 
 /**
- * Build — bundles each mod's server half into .terra/build/<prefix>/server.js.
+ * Build — bundles each mod's server half into .terra/build/<prefix>/server.js, with a copy
+ * of its assets/ beside it, so .terra/ alone is what runs: a server folder can be moved or
+ * shipped prepared (the game's own is), with nothing pointing back at where its mods were.
  *
  * Built beside the last build and swapped in whole, so nothing reads half of one.
  */
@@ -21,7 +23,10 @@ export function Build(opts: { frame: FrameT }) {
         const built: ManifestMod[] = []
         for (const mod of mods) {
             const server = await half(mod, imports)
-            built.push({ name: mod.name, prefix: mod.prefix, version: mod.version, root: mod.root, server: server, settings: chosen.get(mod.name) ?? {} })
+            const assets = `${mod.root}/assets`
+            mkdirSync(`${next}/${mod.prefix}`, { recursive: true })
+            if (existsSync(assets)) cpSync(assets, `${next}/${mod.prefix}/assets`, { recursive: true })
+            built.push({ name: mod.name, prefix: mod.prefix, version: mod.version, root: `${build}/${mod.prefix}`, server: server, settings: chosen.get(mod.name) ?? {} })
         }
         rmSync(build, { recursive: true, force: true })
         renameSync(next, build)

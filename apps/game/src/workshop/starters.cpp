@@ -49,7 +49,7 @@ piece::Machine starter(IGameDef *gamedef, const std::string &name)
 			which = &s;
 	if (!which)
 		throw std::out_of_range("no starter part \"" + name + "\"");
-	const content_t steel = material(gamedef, "tf_world:steel"), rubber = material(gamedef, "tf_world:rubber");
+	const content_t steel = material(gamedef, "materials:steel"), rubber = material(gamedef, "materials:rubber");
 	piece::Machine m(gamedef);
 	// what it's grown from: a hub, six sixteenths of steel in its node's middle
 	piece::Object hub(gamedef);

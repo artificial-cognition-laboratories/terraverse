@@ -50,6 +50,22 @@ video::ITexture *Scene::texture(const std::string &name)
 			throw BaseException("scene: couldn't read " + path);
 		return m_textures[name] = t;
 	}
+	// the game's TypeScript mods' (sprint 119): media named <prefix>--<file in assets/textures>,
+	// in its server folder as staged (.terra/build/<prefix>/assets/textures)
+	const size_t cut = name.find("--");
+	if (cut != std::string::npos) {
+		std::string file = name.substr(cut + 2);
+		for (size_t at; (at = file.find("--")) != std::string::npos;)
+			file.replace(at, 2, DIR_DELIM);
+		const std::string path = porting::path_share + DIR_DELIM "server" DIR_DELIM ".terra" DIR_DELIM "build" DIR_DELIM +
+				name.substr(0, cut) + DIR_DELIM "assets" DIR_DELIM "textures" DIR_DELIM + file + ".png";
+		if (fs::PathExists(path)) {
+			video::ITexture *t = m_driver->getTexture(path.c_str());
+			if (!t)
+				throw BaseException("scene: couldn't read " + path);
+			return m_textures[name] = t;
+		}
+	}
 	throw BaseException("scene: no texture " + name);
 }
 

@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <functional>
+
 #include "content/mod_configuration.h"
 
 class ServerScripting;
@@ -32,7 +34,9 @@ public:
 	*/
 	explicit ServerModManager(std::nullptr_t) {};
 
-	void loadMods(ServerScripting &script);
+	// Terra Firma: `before_loaded` runs after every mod's script and before on_mods_loaded
+	// (sprint 119: TypeScript mods' blocks are registered there, so Lua sees them as its own)
+	void loadMods(ServerScripting &script, const std::function<void()> &before_loaded = {});
 	const ModSpec *getModSpec(const std::string &modname) const;
 	void getModNames(std::vector<std::string> &modlist) const;
 

@@ -25,6 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # staging prepares the game's own server folder with terra, from source (sprint 119)
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
       # vcpkg's ports build with autotools; Ninja drives the engine.
       - name: Install build tools
         run: brew install ninja autoconf autoconf-archive automake libtool pkg-config

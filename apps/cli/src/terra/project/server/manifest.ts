@@ -1,14 +1,21 @@
+import { dirname, isAbsolute, relative, resolve } from "node:path"
 import { err } from "../../../errors"
 import type { FrameT } from "../frame"
 import type { SettingValue } from "../settings"
 import type { ManifestData, ManifestMod } from "../types"
 
-/** Manifest — .terra/manifest.json: what prepare made, and what the sidecar loads. */
+/**
+ * Manifest — .terra/manifest.json: what prepare made, and what the sidecar loads. Its paths
+ * are written relative to .terra/ and read back whole, so a prepared folder can be moved.
+ */
 export function Manifest(opts: { frame: FrameT }) {
     const path = opts.frame.path("manifest")
+    const dir = dirname(path)
 
     async function write(data: ManifestData): Promise<void> {
-        await Bun.write(path, JSON.stringify(data, null, 2) + "\n")
+        const inside = (p: string) => relative(dir, p)
+        const mods = data.mods.map(m => ({ ...m, root: inside(m.root), server: m.server === null ? null : inside(m.server) }))
+        await Bun.write(path, JSON.stringify({ ...data, mods: mods }, null, 2) + "\n")
     }
 
     async function read(): Promise<ManifestData> {
@@ -17,7 +24,9 @@ export function Manifest(opts: { frame: FrameT }) {
         const data: unknown = await file.json().catch((e: unknown) => {
             throw err("MANIFEST_INVALID", { detail: `${path} isn't JSON`, cause: e })
         })
-        return shape(path, data)
+        const read = shape(path, data)
+        const whole = (p: string) => (isAbsolute(p) ? p : resolve(dir, p))
+        return { ...read, mods: read.mods.map(m => ({ ...m, root: whole(m.root), server: m.server === null ? null : whole(m.server) })) }
     }
 
     return { path: path, write: write, read: read }

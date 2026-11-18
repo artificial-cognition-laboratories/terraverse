@@ -44,15 +44,18 @@ const MODES: Record<EngineMode, (port: number) => string[]> = {
     game: () => ["--go"],
 }
 
-/** Engine — the game's engine, installed beside terra: a dedicated server, or the game itself. */
-export function Engine(opts: { beside: string }) {
+/**
+ * Engine — the game's engine: a dedicated server, or the game itself. `bin` is the folder it's
+ * in: beside terra when installed, or a build tree's for terra run from source (terral).
+ */
+export function Engine(opts: { bin: string }) {
     /**
-     * The engine beside terra. An installed version starts it through its `terraverse`
+     * The engine in its folder. An installed version starts it through its `terraverse`
      * wrapper, one folder up, which finds its bundled libraries first; the build tree has
      * none, and runs it as it is.
      */
     function binary(): string {
-        const bin = dirname(opts.beside)
+        const bin = opts.bin
         const wrapper = `${dirname(bin)}/terraverse`
         if (process.platform !== "win32" && existsSync(wrapper)) return wrapper
         const path = `${bin}/${process.platform === "win32" ? "luanti.exe" : "luanti"}`

@@ -225,6 +225,19 @@ Matter Matter::load(const std::string &dir)
 			if (x.tint <= 0)
 				throw MatterError(where + ": tint must be positive");
 		}
+		x.transparent = s["transparent"].asBool();
+		if (s.isMember("strength")) {
+			const Json::Value &st = s["strength"];
+			x.strength = Substance::Strength{ number(st, "tension", where + ".strength"),
+				number(st, "compression", where + ".strength"), number(st, "toughness", where + ".strength") };
+			if (!(x.strength->tension > 0 && x.strength->compression > 0 && x.strength->toughness > 0))
+				throw MatterError(where + ": strength is positive: tension and compression (Pa), toughness (J/m²)");
+		}
+		if (s.isMember("friction")) {
+			x.friction = number(s, "friction", where);
+			if (!(*x.friction >= 0 && *x.friction <= 2))
+				throw MatterError(where + ": friction is 0..2");
+		}
 		if (x.triple.t >= x.critical.t || x.triple.p >= x.critical.p)
 			throw MatterError(where + ": the triple point must lie below the critical point");
 		if (x.boil && (*x.boil <= x.triple.t || *x.boil >= x.critical.t))
