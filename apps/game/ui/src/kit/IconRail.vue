@@ -30,5 +30,11 @@ button.on { border-color: var(--edge); background: var(--accent-lo); color: var(
 button svg { flex: none; }
 .push { margin-top: auto; }
 .foot { display: grid; place-items: center; padding-top: 6px; }
+/* short: icons only, the label stays in the tooltip, so every page fits without scrolling */
+@media (max-height: 400px) {
+    .icon-rail { gap: 4px; padding: 8px 7px; }
+    button { padding: 6px 2px; }
+    button span { display: none; }
+}
 span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

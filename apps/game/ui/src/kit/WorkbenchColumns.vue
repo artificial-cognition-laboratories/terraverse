@@ -67,4 +67,8 @@ const searchQuery = computed({
     .workbench-columns { grid-template-columns: 200px minmax(0, 1fr) !important; }
     .workbench-facts { display: none; }
 }
+@media (max-width: 560px) {
+    .workbench-columns { grid-template-columns: 140px minmax(0, 1fr) !important; }
+    .workbench-content { padding: 14px; }
+}
 </style>

@@ -44,6 +44,7 @@ onBeforeUnmount(() => clearInterval(clock))
 .play-button { display: flex; align-items: stretch; width: 100%; min-width: 0; height: var(--play-height, 56px); }
 .go { flex: 1; height: 100%; font-size: 20px; }
 .size { font: 10px var(--font); letter-spacing: 0; text-transform: none; opacity: 0.75; }
+@media (max-width: 520px) { .size { display: none; } }
 .downloading { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .downloading > :first-child { flex: 1; min-width: 0; }
 .playing {

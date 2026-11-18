@@ -92,9 +92,11 @@ h2 { margin: 0; font: 400 24px var(--font-display); text-transform: uppercase; }
 .tag.pinned { background: var(--stone-4); }
 .meta { margin: 0; color: var(--ink-dim); font-size: 12px; }
 .actions { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
-.play { min-width: 200px; --play-height: 34px; }
+.play { min-width: min(200px, 100%); --play-height: 34px; }
 .actions > :deep(.btn) { height: 34px; }
 .play :deep(.go) { font-size: 13px; }
 h3 { margin: 0 0 12px; font: 11px var(--font-display); text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); }
 .dim { margin: 0; color: var(--ink-faint); font-size: 11px; }
+/* narrow: the icon gives its room to the name and the buttons */
+@media (max-width: 720px) { .icon { display: none; } }
 </style>

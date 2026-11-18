@@ -50,6 +50,8 @@ async function choose(id: string | null) {
     min-width: 220px; height: 56px; padding: 0 14px; text-align: left;
     border: var(--b) solid var(--edge); background: var(--stone-2); box-shadow: var(--raised), var(--ledge);
 }
+/* narrow: the picker sits at the stage's left edge, so its menu opens rightward */
+@media (max-width: 640px) { .current { min-width: 0; width: clamp(130px, 30vw, 220px); } .menu { right: auto; left: 0; } }
 .current:hover, .current.open { background: var(--stone-3); }
 .kind { grid-column: 1; font: 9px var(--font-display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-hi); }
 .id { grid-column: 1; font: 700 14px var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -57,7 +59,7 @@ async function choose(id: string | null) {
 
 .menu {
     position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 5; display: flex; flex-direction: column;
-    width: 300px; max-height: 360px; overflow-y: auto; padding: 6px;
+    width: 300px; max-width: calc(100vw - 28px); max-height: min(360px, calc(100vh - 100px)); overflow-y: auto; padding: 6px;
     border: var(--b) solid var(--edge); background: var(--stone-2); box-shadow: var(--raised), 6px 6px 0 rgb(0 0 0 / 0.4);
 }
 .menu button {
