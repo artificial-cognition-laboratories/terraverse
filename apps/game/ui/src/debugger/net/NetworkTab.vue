@@ -172,7 +172,7 @@ const text = ref("")
 
 <style scoped>
 .network { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-.bar { display: flex; align-items: center; gap: 8px; flex: none; height: 30px; padding: 0 6px 0 10px; border-bottom: 1px solid var(--dt-line); font-size: 12px; }
+.bar { display: flex; align-items: center; gap: 8px; flex: none; height: 30px; padding: 0 6px 0 10px; border-bottom: 1px solid var(--dt-line); font-size: 12px; background: var(--dt-rail); }
 .read { display: flex; gap: 14px; min-width: 0; overflow: hidden; color: var(--dt-dim); white-space: nowrap; }
 .read b { font: 500 12px ui-monospace, monospace; color: var(--dt-ink); }
 .read .down { color: var(--dt-accent); }

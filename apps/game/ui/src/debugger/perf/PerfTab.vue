@@ -21,6 +21,7 @@ const perf = props.perf
 const CAPTURE_MS = 3000
 const VIEWS = [{ id: "live", label: "Live" }, { id: "flame", label: "Flame" }, { id: "stats", label: "Stats" }] as const
 const view = ref<(typeof VIEWS)[number]["id"]>("live")
+const statsText = ref("")
 /** How much time Live shows; the wheel over it sets this. */
 const liveSpan = ref(15_000)
 const spanLabel = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(ms >= 10_000 ? 0 : 1)} s` : `${Math.round(ms)} ms`)
@@ -51,6 +52,10 @@ async function saveTrace() {
     <div class="perf">
         <div class="bar">
             <SubTabs v-model="view" :tabs="VIEWS" label="Performance views" />
+            <label v-if="view === 'stats'" class="search" title="Click a row to pin it in Live">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12l-4.5 5.5V13l-3-1.5v-3z" /></svg>
+                <input v-model="statsText" type="search" placeholder="Filter values" aria-label="Filter values" spellcheck="false" />
+            </label>
             <span class="gap" />
             <span v-if="view === 'live'" class="span" title="The time Live shows: the wheel over the charts sets it">{{ spanLabel(liveSpan) }}</span>
             <button class="action" :disabled="perf.capturing.value || !perf.frames.value.length" title="Every thread's zones over the last 3 seconds"
@@ -68,7 +73,7 @@ async function saveTrace() {
 
         <LiveCharts v-if="view === 'live'" class="view" :frames="perf.frames.value" :units="perf.units.value" :pinned="perf.pinned.value"
             @capture="captureAt" @span="(ms: number) => (liveSpan = ms)" />
-        <StatsTab v-else-if="view === 'stats'" class="view" :perf="perf" />
+        <StatsTab v-else-if="view === 'stats'" class="view" :perf="perf" :text="statsText" />
         <template v-else>
             <FlamePane v-if="perf.current.value" class="view" :capture="perf.current.value" />
             <div v-else class="empty">
@@ -81,7 +86,11 @@ async function saveTrace() {
 
 <style scoped>
 .perf { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-.bar { display: flex; align-items: center; gap: 6px; flex: none; height: 30px; padding: 0 6px 0 0; border-bottom: 1px solid var(--dt-line); }
+.bar { display: flex; align-items: center; gap: 6px; flex: none; height: 30px; padding: 0 6px 0 0; border-bottom: 1px solid var(--dt-line); background: var(--dt-rail); }
+.search { display: flex; align-items: center; gap: 4px; width: 170px; min-width: 0; height: 22px; padding: 0 6px; border-radius: 4px; color: var(--dt-faint); }
+.search:focus-within { background: var(--dt-hover); outline: 1px solid var(--dt-accent); }
+input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--dt-ink); font: inherit; font-size: 12px; }
+input::placeholder { color: var(--dt-faint); }
 button { display: flex; align-items: center; border: 0; background: none; color: var(--dt-dim); font: inherit; font-size: 12px; cursor: default; }
 .gap { flex: 1; }
 .span { color: var(--dt-faint); font: 11px ui-monospace, monospace; white-space: nowrap; }

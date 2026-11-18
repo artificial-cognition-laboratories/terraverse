@@ -20,7 +20,9 @@ const props = withDefaults(defineProps<{
     /** A class for the whole row (a level's tint). */
     rowClass?: (row: T) => string | undefined
     theme?: TableTheme
-}>(), { theme: "devtools" })
+    /** No header row: for a list that reads on its own, like a console. */
+    headless?: boolean
+}>(), { theme: "devtools", headless: false })
 
 const emit = defineEmits<{
     select: [row: T]
@@ -35,6 +37,8 @@ const columnDefs = computed<ColDef<T>[]>(() => props.columns.map((column) => ({
     width: column.width,
     flex: column.flex,
     minWidth: column.minWidth,
+    wrapText: column.wrap,
+    autoHeight: column.wrap,
     suppressSizeToFit: column.width !== undefined,
     cellClass: [column.mono ? "cell-mono" : "", column.muted ? "cell-muted" : ""].filter(Boolean),
     cellRenderer: column.swatch ? (params: { data?: T; value: string }) => swatched(params, column) : undefined,
@@ -111,7 +115,9 @@ function atBottom() {
     if (!api) return true
     const last = api.getDisplayedRowCount() - 1
     if (last < 0) return true
-    const bottom = (last + 1) * (api.getSizesForCurrentTheme().rowHeight ?? 22)
+    // the last row's own bottom: rows that wrap aren't all one height
+    const row = api.getDisplayedRowAtIndex(last)
+    const bottom = (row?.rowTop ?? 0) + (row?.rowHeight ?? 22)
     return bottom - api.getVerticalPixelRange().bottom < 4
 }
 
@@ -146,7 +152,7 @@ onUnmounted(() => {
 <template>
     <AgGridVue class="data-table" :theme="TABLE_THEMES[theme]" :column-defs="columnDefs" :default-col-def="defaultColDef"
         :get-row-id="getRowId" :get-row-class="getRowClass" :animate-rows="false"
-        :row-selection="{ mode: 'singleRow', checkboxes: false }" :is-external-filter-present="() => filter !== undefined"
+        :row-selection="{ mode: 'singleRow', checkboxes: false }" :header-height="headless ? 0 : undefined" :is-external-filter-present="() => filter !== undefined"
         :does-external-filter-pass="(node: IRowNode<T>) => (node.data && filter ? filter(node.data) : true)" suppress-cell-focus
         @grid-ready="onGridReady" @row-clicked="onRowClicked" @filter-changed="counted" @model-updated="counted"
         @body-scroll="onBodyScroll" />
@@ -160,6 +166,8 @@ onUnmounted(() => {
 .data-table .ag-header-cell-label { justify-content: flex-start; }
 .data-table .cell-mono { font-family: ui-monospace, "JetBrains Mono", Menlo, monospace; }
 .data-table .cell-muted { color: var(--dt-dim); }
+/* a wrapping cell: its text breaks where it must, at the grid's own line height */
+.data-table .ag-cell-wrap-text { padding-top: 3px; padding-bottom: 3px; line-height: 16px; word-break: break-word; white-space: pre-wrap; }
 .data-table .cell-swatch { display: inline-block; width: 8px; height: 8px; margin-right: 7px; border-radius: 2px; vertical-align: 0; }
 /* No grid animations: in a tool they read as lag. */
 .data-table *, .data-table *::before, .data-table *::after { animation: none !important; transition: none !important; }

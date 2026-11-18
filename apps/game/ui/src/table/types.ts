@@ -11,6 +11,8 @@ export interface Column<T> {
     flex?: number
     /** The least a fluid column narrows to; past it the table scrolls sideways. */
     minWidth?: number
+    /** Long values wrap onto more lines, and the row grows to hold them. */
+    wrap?: boolean
     mono?: boolean
     muted?: boolean
     /** This row's text colour in this column. */
