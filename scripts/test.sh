@@ -26,12 +26,14 @@ trap 'rm -rf "$logs"' EXIT
 start=$(usecs)
 # Each process writes its log, its status and its milliseconds. "Catch" is
 # the Catch2 tests, which --run-unittests also runs after the modules.
+# The module comes as the last argument ($2), not through -I{}: BSD xargs (macOS) caps
+# what -I substitutes at 255 bytes, and this script is longer.
 run() { # <jobs>, module names on stdin
-	xargs -r -P "$1" -I{} bash -c '
+	xargs -r -n 1 -P "$1" bash -c '
 		s=$(usecs)
-		if [[ "{}" == Catch ]]; then cmd=(--run-tests); else cmd=(--test-module "{}"); fi
-		if "$0" "${cmd[@]}" > "$1/{}.log" 2>&1; then r=0; else r=$?; fi
-		echo "$r $(( ($(usecs) - s) / 1000 ))" > "$1/{}.status"
+		if [[ "$2" == Catch ]]; then cmd=(--run-tests); else cmd=(--test-module "$2"); fi
+		if "$0" "${cmd[@]}" > "$1/$2.log" 2>&1; then r=0; else r=$?; fi
+		echo "$r $(( ($(usecs) - s) / 1000 ))" > "$1/$2.status"
 	' "$bin" "$logs"
 }
 serial="$(sed 's/#.*//' "$root/scripts/test/serial.txt" | awk 'NF {print $1}')"
