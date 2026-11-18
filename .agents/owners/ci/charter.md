@@ -94,3 +94,10 @@ say so in the report.
 ## Questions for the developer
 
 (Append questions here; the developer answers inline.)
+
+- **2026-11-18, macOS signing.** A macOS app downloaded from the web must be signed with a Developer ID
+  and notarised by Apple, or Gatekeeper refuses it (the player has to right-click → Open, or clear the
+  quarantine flag in a terminal). That needs an Apple Developer Program membership ($99/year) and its
+  certificate and an App Store Connect API key as GitHub secrets. Until then I'll ship ad-hoc signed
+  builds (they run on Apple silicon after that one manual step). Do you want to enrol, and if so, which
+  account? The launcher (Tauri) needs the same for its updates.
