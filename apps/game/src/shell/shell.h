@@ -88,6 +88,8 @@ public:
 	Planetarium &planetarium();
 	// A world being entered, Play to its first frame (entering.h).
 	Entering &entering();
+	// What the debugger's Server tab shows of the server, while in a world (shell/serverinfo.h); null when leaving it.
+	void serverInfo(std::function<Json::Value()> describe);
 
 private:
 	void frameUi();

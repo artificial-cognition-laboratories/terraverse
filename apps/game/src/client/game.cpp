@@ -43,6 +43,9 @@
 #include "particles.h"
 #include "porting.h"
 #include "profiler.h"
+#if USE_SHELL
+#include "shell/serverinfo.h"
+#endif
 #include "raycast.h"
 #include "server.h"
 #include "settings.h"
@@ -529,6 +532,7 @@ bool Game::startup(volatile std::sig_atomic_t *kill,
 	g_shell->setMode(shell::Mode::Game);
 	g_shell->entering().end();
 	trace::net::event("In the world");
+	g_shell->serverInfo([this] { return shell::describeServer(server, *client); });
 #endif
 
 	return true;
@@ -696,6 +700,7 @@ void Game::run()
 void Game::shutdown()
 {
 #if USE_SHELL
+	g_shell->serverInfo(nullptr); // it reads the server and client, about to go
 	input->capture({}); // its callback holds the session
 	if (m_shell_session) {
 		m_shell_session.reset();

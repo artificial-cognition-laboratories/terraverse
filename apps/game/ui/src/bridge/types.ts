@@ -580,6 +580,18 @@ export type PerfFrame = {
 }
 /** The client's messages over a range: `messages` flat, six numbers each (time ms, 0 in / 1 out, type, channel, reliable, bytes); `heads` each incoming one's first payload bytes, as hex. */
 export type NetCapture = { messages: number[]; heads: string[] }
+/** A player on the local server, as the Server tab lists them. `rtt` ms, null unknown; `connected` seconds. */
+export type ServerPlayer = { name: string; position: [number, number, number]; hp: number; rtt: number | null; connected: number; protocol: number }
+/** A mod the local server runs: `source` the game's own or one the player added. */
+export type ServerMod = { name: string; author: string; description: string; path: string; source: "game" | "user"; depends: string[] }
+/** The server the game's connected to. Local: all of it; remote: `local` false and its address alone. */
+export type ServerSummary =
+    | { local: true; address: string; version: string; game: string; world: string; uptime: number; lag: number; players: ServerPlayer[]; mods: ServerMod[] }
+    | { local: false; address: string }
+/** The game process: CPU as a share of one core (%), resident memory (bytes), and each thread where the OS says. */
+export type ProcessSample = { pid: number; cpu: number; rss: number; threads: { name: string; cpu: number }[] }
+/** A span kept for a waterfall: `lane` "startup" for the server's start (its init, each mod's load). ms since the engine started. */
+export type TraceMark = { lane: string; what: string; start: number; end: number }
 /** A moment on the connection; `command` set when it's the first arrival of that message type since connecting. */
 export type NetEvent = { time: number; what: string; command: number }
 /**
@@ -602,6 +614,10 @@ export type EngineMessage =
     | { kind: "net.names"; names: { in: string[]; out: string[] } }
     /** The debugger's page only: connection events as they happen (all kept, to a fresh page). */
     | { kind: "net.events"; events: NetEvent[] }
+    /** The debugger's page only, once a second: the server (null outside a world) and the process. */
+    | { kind: "server.summary"; server: ServerSummary | null; process: ProcessSample }
+    /** The debugger's page only: marks made since the last (all kept, to a fresh page). */
+    | { kind: "server.marks"; marks: TraceMark[] }
     /** How far the world being entered has got, by stage; null once it's there (or it never got there). */
     | { kind: "entering"; loading: Loading | null }
     | { kind: "error"; message: string }

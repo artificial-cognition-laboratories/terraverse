@@ -5,6 +5,7 @@
 #include "release/release.h" // Terra Firma
 #include "version.h" // Terra Firma
 #include "server.h"
+#include "trace/marks.h"
 #include "workshop/workshop.h"
 #include "orbit/field.h"
 #include "terragen/planet.h"
@@ -512,6 +513,7 @@ Server::~Server()
 
 void Server::init()
 {
+	trace::Marking marking("startup", "Server init"); // Terra Firma: the debugger's Startup waterfall
 	infostream << "Server created for gameid \"" << m_gamespec.id << "\"";
 	if (m_simple_singleplayer_mode)
 		infostream << " in simple singleplayer mode" << std::endl;
@@ -1633,6 +1635,29 @@ void Server::deletingPeer(con::IPeer *peer, bool timeout)
 
 	m_clients.event(peer->id, CSE_Disconnect);
 	DeleteClient(peer->id, timeout ? CDR_TIMEOUT : CDR_LEAVE);
+}
+
+std::vector<Server::PlayerReport> Server::reportPlayers()
+{
+	std::vector<PlayerReport> out;
+	EnvAutoLock envlock(this);
+	for (RemotePlayer *player : m_env->getPlayers()) {
+		if (player->getPeerId() == PEER_ID_INEXISTENT)
+			continue;
+		PlayerReport r{ player->getName(), player->getPeerId(), v3f(), 0, -1, 0, 0 };
+		if (PlayerSAO *sao = player->getPlayerSAO()) {
+			r.position = sao->getBasePosition() / BS;
+			r.hp = sao->getHP();
+		}
+		getClientConInfo(r.peer, con::AVG_RTT, &r.rtt);
+		ClientInfo info;
+		if (getClientInfo(r.peer, info)) {
+			r.connected = info.uptime;
+			r.protocol = info.prot_vers;
+		}
+		out.push_back(std::move(r));
+	}
+	return out;
 }
 
 bool Server::getClientConInfo(session_t peer_id, con::rtt_stat_type type, float* retval)

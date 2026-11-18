@@ -7,6 +7,7 @@
 #include <dimension2d.h>
 #include <vector2d.h>
 #include <functional>
+#include <json/json.h>
 #include <memory>
 #include <string>
 
@@ -50,6 +51,8 @@ public:
 	void draw(core::dimension2du window);
 	// True when the event was the debugger's. Mouse positions are the window's.
 	bool onEvent(const SEvent &event, core::dimension2du window);
+	// What its Server tab shows of the server (shell/serverinfo.h), while in a world; null when not.
+	void serverInfo(std::function<Json::Value()> describe);
 
 private:
 	struct Impl;

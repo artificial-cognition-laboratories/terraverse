@@ -62,6 +62,7 @@ export function mockFrame(id: number, start: number): PerfFrame {
         "Game::updateFrame(): update frame": 6.4 * (0.8 + wobble(id, 12) * 0.4),
     }
     if (id % 5 === 0) Object.assign(counters, { "ServerEnv: ABMs run": 30 + Math.round(wobble(id, 13) * 20), "ServerEnv: active blocks": 380 })
+    Object.assign(counters, { "Process: CPU": 34 + wobble(id, 16) * 8, "Process: memory": 1210 + id * 0.01, "ActiveObjectMgr: SAO count": 57 })
     Object.assign(counters, { "Net: RTT": 1.2 + wobble(id, 14) * 0.6, "Net: jitter": 0.3 + wobble(id, 15) * 0.2, "Net: lost": id % 211 < 3 ? 4 : 0 })
     return { id: id, start: start, end: end, threads: threads, counters: counters, net: mockNet(id) }
 }

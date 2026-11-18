@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2018 nerzhul, Loic Blot <loic.blot@unix-experience.fr>
 
+#include "trace/marks.h"
 #include "mods.h"
 #include "filesys.h"
 #include "log.h"
@@ -39,9 +40,11 @@ void ServerModManager::loadMods(ServerScripting &script)
 
 	// Load and run "mod" scripts
 	auto t0 = porting::getTimeMs();
+	trace::Marking all("startup", "Mods"); // Terra Firma: the debugger's Startup waterfall
 	for (const ModSpec &mod : configuration.getMods()) {
 		mod.checkAndLog();
 
+		trace::Marking one("startup", "mod " + mod.name);
 		auto t1 = porting::getTimeMs();
 		std::string script_path = mod.path + DIR_DELIM + "init.lua";
 		script.loadMod(script_path, mod.name);

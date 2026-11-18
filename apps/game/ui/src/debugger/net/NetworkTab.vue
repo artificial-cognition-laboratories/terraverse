@@ -14,6 +14,7 @@ import LineChart, { type Series } from "../perf/LineChart.vue"
 import type { PerfStoreHandle } from "../perf/store.ts"
 import type { Window } from "../perf/view.ts"
 import { CATEGORIES, formatBytes, OTHER } from "./categories.ts"
+import SubTabs from "../kit/SubTabs.vue"
 import EventLane from "./EventLane.vue"
 import JoinView from "./JoinView.vue"
 import MessagesView from "./MessagesView.vue"
@@ -97,7 +98,8 @@ const msAt = (event: MouseEvent) => {
 }
 const newest = () => frames.value[frames.value.length - 1]?.end ?? null
 const CAPTURE_MS = 3000
-const view = ref<"messages" | "packets" | "join">("messages")
+const VIEWS = [{ id: "messages", label: "Messages" }, { id: "packets", label: "Packets" }, { id: "join", label: "Join" }] as const
+const view = ref<(typeof VIEWS)[number]["id"]>("messages")
 async function captureAt(at: number | null) {
     const last = frames.value[frames.value.length - 1]
     if (!last) return
@@ -152,11 +154,7 @@ const text = ref("")
         <div class="split" title="Drag to resize" @mousedown.left.prevent="grab" />
 
         <div class="detail-bar">
-            <nav role="tablist" aria-label="Network views">
-                <button role="tab" :aria-selected="view === 'messages'" :class="{ on: view === 'messages' }" @click="view = 'messages'">Messages</button>
-                <button role="tab" :aria-selected="view === 'packets'" :class="{ on: view === 'packets' }" @click="view = 'packets'">Packets</button>
-                <button role="tab" :aria-selected="view === 'join'" :class="{ on: view === 'join' }" @click="view = 'join'">Join</button>
-            </nav>
+            <SubTabs v-model="view" :tabs="VIEWS" label="Network views" />
             <span class="gap" />
             <label class="search">
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12l-4.5 5.5V13l-3-1.5v-3z" /></svg>
@@ -193,11 +191,6 @@ svg .dot { fill: #ff6b6b; stroke: none; }
 .split:hover { background: var(--dt-accent); }
 
 .detail-bar { display: flex; align-items: center; gap: 8px; flex: none; min-width: 0; height: 30px; padding-right: 6px; border-bottom: 1px solid var(--dt-line); background: var(--dt-rail); }
-nav { display: flex; align-self: stretch; flex: none; }
-[role=tab] { position: relative; padding: 0 12px; }
-[role=tab]:hover { color: var(--dt-ink); background: var(--dt-hover); }
-[role=tab].on { color: var(--dt-ink); }
-[role=tab].on::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 0; height: 2px; background: var(--dt-accent); }
 .search { display: flex; flex: none; align-items: center; gap: 4px; width: 150px; height: 22px; padding: 0 6px; border-radius: 4px; color: var(--dt-faint); }
 .search:focus-within { background: var(--dt-hover); outline: 1px solid var(--dt-accent); }
 input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--dt-ink); font: inherit; font-size: 12px; }

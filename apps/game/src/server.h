@@ -506,6 +506,20 @@ public:
 	void acceptAuth(session_t peer_id, bool forSudoMode);
 	void DisconnectPeer(session_t peer_id);
 	bool getClientConInfo(session_t peer_id, con::rtt_stat_type type, float *retval);
+
+	// Terra Firma: each connected player as the debugger's Server tab lists
+	// them, read under the environment's lock.
+	struct PlayerReport
+	{
+		std::string name;
+		session_t peer;
+		v3f position; // nodes
+		u16 hp;
+		float rtt; // seconds, or -1 unknown
+		u32 connected; // seconds
+		u16 protocol;
+	};
+	std::vector<PlayerReport> reportPlayers();
 	bool getClientInfo(session_t peer_id, ClientInfo &ret);
 	const ClientDynamicInfo *getClientDynamicInfo(session_t peer_id);
 

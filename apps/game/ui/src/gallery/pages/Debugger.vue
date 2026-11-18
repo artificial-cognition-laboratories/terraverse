@@ -4,6 +4,7 @@ import type { DockSide, LogLevel, LogLine } from "../../bridge/index.ts"
 import { TableFeed } from "../../table/feed.ts"
 import { MOCK_NAMES, MOCK_UNITS, mockCapture, mockEvents, mockFrame, mockMessages } from "../../debugger/perf/mock.ts"
 import { NetStore } from "../../debugger/net/store.ts"
+import { ServerStore } from "../../debugger/server/store.ts"
 import { PerfStore } from "../../debugger/perf/store.ts"
 import DebuggerPanel from "../../debugger/DebuggerPanel.vue"
 import Specimen from "../Specimen.vue"
@@ -43,11 +44,35 @@ perf.append(frames(600), MOCK_UNITS)
 const net = NetStore({ capture: async (from, to) => mockMessages(perf.frames.value, from, to) })
 net.names.value = MOCK_NAMES
 net.addEvents(mockEvents(perf.frames.value[perf.frames.value.length - 1]?.end ?? 0))
+// A local server as the engine would describe it, and how it started.
+const server = ServerStore()
+const describe = () => server.described({
+    local: true, address: "", version: "5.18.0-dev", game: "Terraverse", world: "/home/you/.terraverse/worlds/moon", uptime: 734 + clock / 1000, lag: 0.121,
+    players: [{ name: "wren", position: [-1616.4, 2.1, -1873.9], hp: 20, rtt: 1.1, connected: 734, protocol: 48 }],
+    mods: [
+        { name: "tf_world", author: "ArcLabs", description: "Blocks, biomes and materials.", path: "/game/mods/tf_world", source: "game", depends: [] },
+        { name: "tf_matter", author: "ArcLabs", description: "Substances, heat and state.", path: "/game/mods/tf_matter", source: "game", depends: ["tf_world"] },
+        { name: "tf_player", author: "ArcLabs", description: "The physical player.", path: "/game/mods/tf_player", source: "game", depends: ["tf_world"] },
+        { name: "lanterns", author: "Wren", description: "Small placeable lanterns.", path: "/mods/lanterns", source: "user", depends: ["tf_world"] },
+    ],
+}, { pid: 41233, cpu: 34 + Math.sin(clock / 900) * 6, rss: 1.21e9, threads: [{ name: "luanti", cpu: 22 }, { name: "Server", cpu: 7 }, { name: "Emerge-0", cpu: 3 }, { name: "MeshUpdate", cpu: 2 }] })
+describe()
+const t0 = 120
+server.marked([
+    { lane: "startup", what: "Server init", start: t0, end: t0 + 1840 },
+    { lane: "startup", what: "Mods", start: t0 + 310, end: t0 + 1620 },
+    { lane: "startup", what: "mod tf_world", start: t0 + 312, end: t0 + 905 },
+    { lane: "startup", what: "mod tf_matter", start: t0 + 906, end: t0 + 1280 },
+    { lane: "startup", what: "mod tf_player", start: t0 + 1281, end: t0 + 1500 },
+    { lane: "startup", what: "mod lanterns", start: t0 + 1501, end: t0 + 1610 },
+])
+const describing = setInterval(describe, 1000)
 const streaming = setInterval(() => perf.append(frames(6)), 100)
 const exportTrace = async () => "/home/you/.terraverse/traces/trace-1795000000.json"
 onUnmounted(() => {
     clearInterval(ticking)
     clearInterval(streaming)
+    clearInterval(describing)
 })
 </script>
 
@@ -55,7 +80,7 @@ onUnmounted(() => {
     <Specimen name="Debugger" note="devtools dress, not the kit: it's a tool beside the game" wide>
         <div class="window" :class="side">
             <div class="game">game</div>
-            <DebuggerPanel :side="side" :log="log" :perf="perf" :net="net" :export-trace="exportTrace" class="panel" @dock="(to) => side = to" />
+            <DebuggerPanel :side="side" :log="log" :perf="perf" :net="net" :server="server" :export-trace="exportTrace" class="panel" @dock="(to) => side = to" />
         </div>
     </Specimen>
 </template>

@@ -456,6 +456,11 @@ Entering &Shell::entering()
 	return *m->entering;
 }
 
+void Shell::serverInfo(std::function<Json::Value()> describe)
+{
+	m->debugger->serverInfo(std::move(describe));
+}
+
 float Shell::scale() const
 {
 	return m->viewport.scale;

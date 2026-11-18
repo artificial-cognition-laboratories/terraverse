@@ -8,6 +8,7 @@
  * saying when: the last few seconds, or a moment clicked on a Live chart.
  */
 import { ref } from "vue"
+import SubTabs from "../kit/SubTabs.vue"
 import FlamePane from "./FlamePane.vue"
 import LiveCharts from "./LiveCharts.vue"
 import StatsTab from "./StatsTab.vue"
@@ -18,7 +19,8 @@ const perf = props.perf
 
 /** What a capture covers: the engine keeps about ten seconds of a busy thread. */
 const CAPTURE_MS = 3000
-const view = ref<"live" | "flame" | "stats">("live")
+const VIEWS = [{ id: "live", label: "Live" }, { id: "flame", label: "Flame" }, { id: "stats", label: "Stats" }] as const
+const view = ref<(typeof VIEWS)[number]["id"]>("live")
 /** How much time Live shows; the wheel over it sets this. */
 const liveSpan = ref(15_000)
 const spanLabel = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(ms >= 10_000 ? 0 : 1)} s` : `${Math.round(ms)} ms`)
@@ -48,11 +50,7 @@ async function saveTrace() {
 <template>
     <div class="perf">
         <div class="bar">
-            <nav role="tablist" aria-label="Perf views">
-                <button role="tab" :aria-selected="view === 'live'" :class="{ on: view === 'live' }" @click="view = 'live'">Live</button>
-                <button role="tab" :aria-selected="view === 'flame'" :class="{ on: view === 'flame' }" @click="view = 'flame'">Flame</button>
-                <button role="tab" :aria-selected="view === 'stats'" :class="{ on: view === 'stats' }" @click="view = 'stats'">Stats</button>
-            </nav>
+            <SubTabs v-model="view" :tabs="VIEWS" label="Performance views" />
             <span class="gap" />
             <span v-if="view === 'live'" class="span" title="The time Live shows: the wheel over the charts sets it">{{ spanLabel(liveSpan) }}</span>
             <button class="action" :disabled="perf.capturing.value || !perf.frames.value.length" title="Every thread's zones over the last 3 seconds"
@@ -84,12 +82,7 @@ async function saveTrace() {
 <style scoped>
 .perf { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .bar { display: flex; align-items: center; gap: 6px; flex: none; height: 30px; padding: 0 6px 0 0; border-bottom: 1px solid var(--dt-line); }
-nav { display: flex; align-self: stretch; }
 button { display: flex; align-items: center; border: 0; background: none; color: var(--dt-dim); font: inherit; font-size: 12px; cursor: default; }
-[role=tab] { position: relative; padding: 0 12px; }
-[role=tab]:hover { color: var(--dt-ink); background: var(--dt-hover); }
-[role=tab].on { color: var(--dt-ink); }
-[role=tab].on::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 0; height: 2px; background: var(--dt-accent); }
 .gap { flex: 1; }
 .span { color: var(--dt-faint); font: 11px ui-monospace, monospace; white-space: nowrap; }
 .action { gap: 6px; height: 24px; padding: 0 8px; border-radius: 4px; color: var(--dt-ink); }

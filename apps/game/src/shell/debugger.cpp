@@ -6,6 +6,8 @@
 #include "bridge.h"
 #include "client.h"
 #include "console.h"
+#include "process.h"
+#include "trace/marks.h"
 #include "input.h"
 #include "pixels.h"
 #include "surface.h"
@@ -193,6 +195,10 @@ struct Debugger::Impl
 	u64 sent = 0; // the last log line the page has
 	u64 frame = 0; // the last frame the page has
 	u64 netEvent = 0; // the last connection event the page has
+	u64 markSeq = 0; // the last startup mark the page has
+	u64 server_at = 0; // when the server was last described
+	Process process;
+	std::function<Json::Value()> describeServer;
 	u64 perf_at = 0; // when frames were last sent
 	CefRefPtr<CefMessageRouterBrowserSide> router;
 	CefRefPtr<Client> client;
@@ -249,6 +255,8 @@ struct Debugger::Impl
 			sent = 0; // a fresh page has none of the log, the frames, or the events
 			frame = 0;
 			netEvent = 0;
+			markSeq = 0;
+			server_at = 0;
 			sendDock();
 			Json::Value names;
 			names["kind"] = "net.names";
@@ -411,6 +419,38 @@ struct Debugger::Impl
 		}
 	}
 
+	// Once a second: the server (local, or what's known of a remote one), the
+	// process, and any startup marks the page hasn't had.
+	void sendServer()
+	{
+		const u64 at = trace::now();
+		if (!ready || (server_at && at - server_at < 1'000'000'000))
+			return;
+		server_at = at;
+		Json::Value message;
+		message["kind"] = "server.summary";
+		message["server"] = describeServer ? describeServer() : Json::Value();
+		message["process"] = process.sample();
+		bridge.send(browser, message);
+
+		const std::vector<trace::Mark> marks = trace::marksSince(markSeq);
+		if (marks.empty())
+			return;
+		Json::Value said;
+		said["kind"] = "server.marks";
+		Json::Value &list = said["marks"] = Json::Value(Json::arrayValue);
+		for (const trace::Mark &m : marks) {
+			Json::Value one;
+			one["lane"] = m.lane;
+			one["what"] = m.what;
+			one["start"] = ms(m.start);
+			one["end"] = ms(m.end);
+			list.append(std::move(one));
+		}
+		markSeq = marks.back().seq;
+		bridge.send(browser, said);
+	}
+
 	void hide()
 	{
 		open = false;
@@ -436,6 +476,11 @@ Debugger::~Debugger()
 	m->router = nullptr;
 	m->bridge.stop();
 	m->client = nullptr;
+}
+
+void Debugger::serverInfo(std::function<Json::Value()> describe)
+{
+	m->describeServer = std::move(describe);
 }
 
 bool Debugger::open() const
@@ -484,6 +529,7 @@ void Debugger::draw(core::dimension2du window)
 	}
 	m->sendLog();
 	m->sendPerf();
+	m->sendServer();
 	// what its page hasn't painted yet (opening, or growing) is its own ground
 	m->opts.driver->draw2DRectangle(video::SColor(255, 12, 14, 16), panel);
 	m->surface.draw(m->pixels, panel.UpperLeftCorner);
