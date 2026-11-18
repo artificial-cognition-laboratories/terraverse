@@ -100,6 +100,13 @@ if(ENABLE_CURL)
 	if (CURL_FOUND)
 		message(STATUS "cURL support enabled.")
 		set(USE_CURL TRUE)
+		# The target where there is one: a static curl (vcpkg on macOS) carries what it
+		# needs on it, and curl's own CMake config sets nothing else.
+		if(TARGET CURL::libcurl)
+			set(CURL_LINK CURL::libcurl)
+		else()
+			set(CURL_LINK ${CURL_LIBRARY})
+		endif()
 	endif()
 else()
 	mark_as_advanced(CLEAR CURL_LIBRARY CURL_INCLUDE_DIR)
@@ -160,6 +167,13 @@ endif()
 
 if(BUILD_CLIENT)
 	find_package(Freetype REQUIRED)
+	# The target where there is one: a static FreeType (vcpkg on macOS) hangs its own
+	# dependencies (bzip2, brotli, png) on it, which FREETYPE_LIBRARY alone lacks.
+	if(TARGET Freetype::Freetype)
+		set(FREETYPE_LINK Freetype::Freetype)
+	else()
+		set(FREETYPE_LINK ${FREETYPE_LIBRARY})
+	endif()
 	find_package(Libzip 1.7.2 REQUIRED)
 endif()
 
@@ -883,7 +897,7 @@ if(BUILD_CLIENT)
 		${LUA_BIT_LIBRARY}
 		lstrpack
 		sha256
-		${FREETYPE_LIBRARY}
+		${FREETYPE_LINK}
 		${PLATFORM_LIBS}
 		# on Android, Luanti depends on SDL2 directly
 		# on other platforms, only IrrlichtMt depends on SDL2
@@ -933,7 +947,7 @@ if(BUILD_CLIENT)
 	if(USE_CURL)
 		target_link_libraries(
 			${PROJECT_NAME}
-			${CURL_LIBRARY}
+			${CURL_LINK}
 		)
 	endif()
 	if(USE_UPNP)
@@ -1044,7 +1058,7 @@ if(BUILD_SERVER)
 	if(USE_CURL)
 		target_link_libraries(
 			${PROJECT_NAME}server
-			${CURL_LIBRARY}
+			${CURL_LINK}
 		)
 	endif()
 	if(BUILD_UNITTESTS OR BUILD_BENCHMARKS)

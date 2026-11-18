@@ -15,6 +15,8 @@ if command -v sccache >/dev/null; then
 	launcher=(-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache)
 fi
 
+# OpenAL: the system framework, which the engine's <OpenAL/al.h> includes on Apple (vcpkg's
+# static openal-soft would need its own fmt and frameworks).
 # 13.0: the oldest macOS this CEF supports (its CEF_TARGET_SDK).
 cmake -S "$root" -B "$root/.output/build" -G Ninja \
 	-DCMAKE_BUILD_TYPE=Release \
@@ -28,4 +30,6 @@ cmake -S "$root" -B "$root/.output/build" -G Ninja \
 	-DENABLE_REDIS=OFF -DENABLE_SPATIAL=OFF -DENABLE_PROMETHEUS=OFF \
 	-DENABLE_UPDATE_CHECKER=OFF \
 	-DENABLE_LTO=OFF \
+	-DOPENAL_LIBRARY="$(xcrun --show-sdk-path)/System/Library/Frameworks/OpenAL.framework" \
+	-DOPENAL_INCLUDE_DIR="$(xcrun --show-sdk-path)/System/Library/Frameworks/OpenAL.framework/Headers" \
 	-DTERRAFIRMA_VERSION="$version"
