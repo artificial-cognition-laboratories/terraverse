@@ -7,9 +7,13 @@
 # themselves against the wall clock, so they run alone, after the rest. Tests in scripts/test/skip.txt are skipped
 # by name and listed, each citing the job that tracks it.
 set -euo pipefail
+# Portable to macOS (bash 5, as its CI runners have): no nproc, no date +%N there.
+cpus="$(getconf _NPROCESSORS_ONLN)"
+usecs() { local t="${EPOCHREALTIME/[.,]/}"; echo "$t"; }
+export -f usecs
 root="$(cd "$(dirname "$0")/.." && pwd)"
 bin="$root/.output/bin/luanti"
-[[ -n "${BUILT:-}" ]] || bash "$root/scripts/build.sh" -j"$(nproc)" > /dev/null
+[[ -n "${BUILT:-}" ]] || bash "$root/scripts/build.sh" -j"$cpus" > /dev/null
 
 skips="$(bash "$root/scripts/test/skips.sh")"
 export TF_TEST_SKIP="$skips"
@@ -19,21 +23,21 @@ if [[ $# -gt 0 ]]; then modules=("$@"); else mapfile -t modules < <("$bin" --lis
 
 logs="$(mktemp -d)"
 trap 'rm -rf "$logs"' EXIT
-start=$(date +%s%N)
+start=$(usecs)
 # Each process writes its log, its status and its milliseconds. "Catch" is
 # the Catch2 tests, which --run-unittests also runs after the modules.
 run() { # <jobs>, module names on stdin
 	xargs -r -P "$1" -I{} bash -c '
-		s=$(date +%s%N)
+		s=$(usecs)
 		if [[ "{}" == Catch ]]; then cmd=(--run-tests); else cmd=(--test-module "{}"); fi
 		if "$0" "${cmd[@]}" > "$1/{}.log" 2>&1; then r=0; else r=$?; fi
-		echo "$r $(( ($(date +%s%N) - s) / 1000000 ))" > "$1/{}.status"
+		echo "$r $(( ($(usecs) - s) / 1000 ))" > "$1/{}.status"
 	' "$bin" "$logs"
 }
 serial="$(sed 's/#.*//' "$root/scripts/test/serial.txt" | awk 'NF {print $1}')"
-printf '%s\n' "${modules[@]}" | grep -vxF -f <(echo "$serial" | grep .) | run "$(nproc)" || true
+printf '%s\n' "${modules[@]}" | grep -vxF -f <(echo "$serial" | grep .) | run "$cpus" || true
 printf '%s\n' "${modules[@]}" | grep -xF -f <(echo "$serial" | grep .) | run 1 || true
-wall=$(( ($(date +%s%N) - start) / 1000000000 ))
+wall=$(( ($(usecs) - start) / 1000000 ))
 
 for m in "${modules[@]}"; do
 	read -r r t < "$logs/$m.status"
