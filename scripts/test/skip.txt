@@ -5,3 +5,5 @@ TestAtlasRender.testViewsMatchThePlanet  .agents/jobs/atlas-seam-crack.md       
 TestMoves.testBonesStayOut               .agents/jobs/testing-moves-bones-stay-out.md (figure sinks into walls)
 TestTerragen.testRanges            .agents/jobs/terragen-sprint-116-red-tests.md  (plateaus cut by rivers, sprint 116 phase 4)
 TestTerragen.testDeterminismGolden .agents/jobs/terragen-sprint-116-red-tests.md  (golden rebaked at TF25, sprint 116's end)
+TestFar.testNoHolesFromAbove       .agents/jobs/testing-far-scale-red.md          (a slit at a steep tile corner, 1 ray of 40000)
+TestScale.testEverySize            .agents/jobs/testing-far-scale-red.md          (block-wide gorges at radius 1M, sprint 116)
