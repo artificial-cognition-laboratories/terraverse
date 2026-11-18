@@ -25,6 +25,7 @@
     "perf:gen": "bash scripts/perf-gen.sh",
     "shots:map": "bash scripts/map-shots.sh",
     "check:palette": "bash scripts/palette.sh --check",
+    "ci:status": "bun scripts/ci/status.ts",
     "release:gate": "bash scripts/release/gate.sh",
     "release:tag": "bun scripts/release/tag.ts",
     "release:wait": "bun scripts/release/wait.ts",
