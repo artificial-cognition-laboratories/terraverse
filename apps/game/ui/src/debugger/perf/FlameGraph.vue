@@ -9,11 +9,12 @@
  * thinner than a pixel are drawn once per pixel column, so a wide view costs
  * its width, not its zones.
  *
- * Wheel zooms about the pointer, Shift-wheel or drag pans, double-click a zone
+ * Shift-wheel zooms about the pointer (the wheel scrolls), drag pans, double-click a zone
  * to fill the view with it, click one to pick it out. Gaps in Main's top row
  * are hatched (time no zone covers: a place to add one), as is any stretch a
  * thread's ring had already moved past when it was captured.
  */
+import { wheelDelta } from "./wheel.ts"
 import { computed, onMounted, onUnmounted, ref, watch } from "vue"
 import { type Capture, firstEndingAfter, zoneAt } from "./capture.ts"
 import { colorOf } from "./colors.ts"
@@ -237,14 +238,13 @@ function onUp(event: MouseEvent) {
     }
     drag = null
 }
+// Shift-wheel zooms; the wheel alone scrolls the page (the browser's, untouched).
 function onWheel(event: WheelEvent) {
+    if (!event.shiftKey) return
+    event.preventDefault()
     const at = local(event)
-    if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
-        emit("pan", event.shiftKey ? event.deltaY : event.deltaX, width.value)
-        return
-    }
     const anchor = at.x >= width.value - 4 ? 1 : Math.min(1, Math.max(0, at.x / width.value))
-    emit("zoom", Math.exp(event.deltaY * 0.0015), anchor)
+    emit("zoom", Math.exp(wheelDelta(event) * 0.0015), anchor)
 }
 function onDouble(event: MouseEvent) {
     const at = local(event)
@@ -275,7 +275,7 @@ onUnmounted(() => {
         <canvas ref="ruler" class="ruler" />
         <div class="body">
             <canvas ref="canvas" @mousedown.left="onDown" @mousemove="onMove" @mouseup.left="onUp"
-                @mouseleave="hover = null; drag = null" @wheel.prevent="onWheel" @dblclick="onDouble" />
+                @mouseleave="hover = null; drag = null" @wheel="onWheel" @dblclick="onDouble" />
         </div>
         <div v-if="hover" class="tip" :class="{ flip: hover.x > width / 2 }" :style="{ left: `${hover.x}px`, top: `${hover.y + RULER + 14}px` }">
             <strong><i :style="{ background: colorOf(hover.name) }" />{{ hover.name }}</strong>

@@ -3,5 +3,6 @@
 set(trace_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/marks.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/net.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/report.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/trace.cpp
 	PARENT_SCOPE)

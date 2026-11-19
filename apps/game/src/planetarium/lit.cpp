@@ -13,6 +13,9 @@ struct Lit::Uniforms : public IShaderUniformSetterRC
 	CachedPixelShaderSetting<float> m_share{"litShare"}, m_on{"litOn"}, m_penumbra{"litPenumbra"}, m_contour{"litContour"},
 		m_textured{"litTextured"};
 	CachedPixelShaderSetting<float, 4> m_occ[OCCLUDERS] = { {"litOcc0"}, {"litOcc1"}, {"litOcc2"}, {"litOcc3"} };
+	float behind = 0, parts = 2;
+	CachedVertexShaderSetting<float> m_behind{"litBehind"};
+	CachedPixelShaderSetting<float> m_parts{"litParts"};
 
 	void onSetUniforms(video::IMaterialRendererServices *s) override
 	{
@@ -28,6 +31,8 @@ struct Lit::Uniforms : public IShaderUniformSetterRC
 		m_textured.set(&textured, s);
 		for (int i = 0; i < OCCLUDERS; i++)
 			m_occ[i].set(light.occluders[i], s);
+		m_behind.set(&behind, s);
+		m_parts.set(&parts, s);
 	}
 };
 
@@ -37,12 +42,22 @@ Lit::Lit(IShaderSource *ssrc) : m_uniforms(make_irr<Uniforms>())
 	m_material.MaterialType = ssrc->getShaderInfo(shader).material;
 	m_material.FogEnable = false;
 	m_material.BackfaceCulling = false;
-	// colour only: the mesh's vertex alpha marks its layers (far/mesh.cpp:
-	// 0 a liquid's top), and a window can show alpha
+	// colour only: the mesh's vertex alpha marks its skirts (far/mesh.cpp),
+	// and a window can show alpha
 	m_material.ColorMask = video::ECP_RGB;
 }
 
 Lit::~Lit() = default;
+
+void Lit::parts(int which)
+{
+	m_uniforms->parts = (float)which;
+}
+
+void Lit::standIns(bool on)
+{
+	m_uniforms->behind = on ? 1 : 0;
+}
 
 const video::SMaterial &Lit::material(const Light &light)
 {

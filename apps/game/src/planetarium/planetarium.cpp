@@ -770,24 +770,39 @@ void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 			m_globe->draw(driver, m_system.lit(m_tiled, m_day, v3f((float)-ground.x, (float)-ground.y, (float)-ground.z) * BS,
 					m_spin, true, 0, true), world);
 		}
-		driver->setMaterial(m_system.lit(m_tiled, m_day, v3f((float)-ground.x, (float)-ground.y, (float)-ground.z) * BS,
-				m_spin, !m_layer, contour()));
-		// what isn't built yet shows a coarser tile behind the finer ones that
-		// are (Eye::keep_fine), not instead of them all: drawn first, so the
-		// fine land is drawn over it and it only shows through the holes
-		std::vector<far::Tiles::Drawn> tiles;
+		video::SMaterial lit = m_system.lit(m_tiled, m_day, v3f((float)-ground.x, (float)-ground.y, (float)-ground.z) * BS,
+				m_spin, !m_layer, contour());
+		// What isn't built yet shows a coarser tile behind the finer ones that
+		// are (Eye::keep_fine), not instead of them all: drawn after them, its
+		// depth squeezed to just short of the far plane (Lit::standIns), so it
+		// shows only where nothing is. (Drawn level with them, a coarse quarter
+		// standing higher hid the finer land: slabs flickering over the craters.)
+		const auto draw = [&](const std::vector<far::Tiles::Drawn> &tiles) {
+			for (const far::Tiles::Drawn &tile : tiles) {
+				core::matrix4 world;
+				world.setTranslation(v3f((float)(tile.middle.x - ground.x), (float)(tile.middle.y - ground.y),
+						(float)(tile.middle.z - ground.z)) * BS);
+				driver->setTransform(video::ETS_WORLD, world);
+				for (const auto &part : tile.parts)
+					driver->drawMeshBuffer(part.get());
+			}
+		};
+		// The land first, without its skirts; then, squeezed to the back, the
+		// stand-ins and the skirts: both only fill gaps (drawn in front, a skirt
+		// showed as a dark line wherever the land beside it didn't quite meet)
 		if (!m_globed) {
-			tiles = m_tiles.behind();
-			for (far::Tiles::Drawn &tile : m_tiles.drawn())
-				tiles.push_back(std::move(tile));
-		}
-		for (const far::Tiles::Drawn &tile : tiles) {
-			core::matrix4 world;
-			world.setTranslation(v3f((float)(tile.middle.x - ground.x), (float)(tile.middle.y - ground.y),
-					(float)(tile.middle.z - ground.z)) * BS);
-			driver->setTransform(video::ETS_WORLD, world);
-			for (const auto &part : tile.parts)
-				driver->drawMeshBuffer(part.get());
+			m_system.parts(0);
+			driver->setMaterial(lit);
+			draw(m_tiles.drawn());
+			m_system.standIns(true);
+			m_system.parts(2);
+			driver->setMaterial(lit);
+			draw(m_tiles.behind());
+			m_system.parts(1);
+			driver->setMaterial(lit);
+			draw(m_tiles.drawn());
+			m_system.standIns(false);
+			m_system.parts(2);
 		}
 		if (m_seamsShown)
 			m_seams.draw(driver, ground);

@@ -238,7 +238,7 @@ private:
 	float m_fov = OrbitCamera::FOV;
 	v2f m_shift;       // where the view's middle is drawn (frame)
 	v2f m_aim;         // where the body's centre is drawn (aim)
-	std::unordered_set<const scene::SMeshBuffer *> m_warmed; // (warm)
+	std::unordered_set<const far::TileBuffer *> m_warmed; // (warm)
 	v2f lens() const; // the projection's shift: the frame's, and the aim's
 	std::optional<Layer> m_layer;
 	// the land's colours under a layer, from that body's world model (an atlas body's)

@@ -8,6 +8,7 @@
 #include "far/palette.h"
 #include "far/terrain.h"
 #include "irrlichttypes_bloated.h"
+#include <CMeshBuffer.h>
 #include <S3DVertex.h>
 #include <unordered_map>
 #include <vector>
@@ -18,11 +19,17 @@ namespace far {
 // BS; vertex colours carry each face's colour and shade (as the near mesh's
 // do in daylight). Split into parts that fit 16-bit indices, each within a
 // quarter: a coarse tile standing in for one finer one is drawn only over it.
+// A far tile's vertex: its first texture coordinate is its height over the sea
+// (blocks), its second where it is in the tile's grid (finest cells from the
+// tile's corner, x and z), so the far view knows which map block column it's in.
+using Vertex = video::S3DVertex2TCoords;
+using TileBuffer = scene::SMeshBufferLightMap;
+
 struct Mesh
 {
 	struct Part
 	{
-		std::vector<video::S3DVertex> vertices;
+		std::vector<Vertex> vertices;
 		std::vector<u16> indices;
 		u8 quarter = 0; // which of the tile's children it lies in (TileKey's: bit 0 x, bit 1 z)
 	};

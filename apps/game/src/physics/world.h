@@ -238,6 +238,11 @@ public:
 		std::function<float(const v3d &)> surface;
 		float live = 48, freeze = 56;
 		float step_up = 0.6f; // nodes a character walks up without jumping
+		// Or the ground read in two halves: taken here (cheap, the map's thread)
+		// and worked out wherever it's run, on a worker for ground ahead. None:
+		// it isn't loaded. Given, `ground` isn't asked (and may be none), and far more is read ahead.
+		using GroundRead = std::function<std::vector<aabb3f>()>;
+		std::function<std::optional<GroundRead>(v3s16 block)> read;
 	};
 	explicit World(const Opts &opts);
 	~World();

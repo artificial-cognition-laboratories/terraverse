@@ -1,6 +1,7 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include "workshop/ground_read.h"
 #include "body.h"
 #include "physics/tuning.h"
 #include "profiler.h"
@@ -83,7 +84,7 @@ bool Body::standIn(v3s16 block, std::vector<aabb3f> &boxes)
 		if (m_standins.size() > 4096) // a bound: the made ones let go, the rest still coming
 			for (auto i = m_standins.begin(); i != m_standins.end();)
 				i = i->second.wait_for(std::chrono::seconds(0)) == std::future_status::ready ? m_standins.erase(i) : std::next(i);
-		m_standins.emplace(block, std::async(std::launch::async, [this, block] { terragen::background(); return buildStandIn(block); }).share());
+		m_standins.emplace(block, m_standin_workers.run([this, block] { TF_ZONE("Body: stand-in"); return buildStandIn(block); }).share());
 		return false;
 	}
 	if (it->second.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
@@ -196,20 +197,30 @@ bool Body::ensureWorld()
 	waitStandIns();
 	m_lands.clear();
 	Client *client = m_client;
-	m_world = std::make_unique<physics::World>(physics::World::Opts{
+	physics::World::Opts opts{
 			[this](const v3d &at, const v3f &velocity) { return here(at, velocity); },
-			[this, client](v3s16 block, std::vector<aabb3f> &boxes) {
-				if (workshop::groundBoxes(client->getEnv().getMap(), client->ndef(), block, boxes)) {
-					// the block's own now: its stand-in's let go (one still being
-					// made is left to finish: let go, its future waits for it)
-					if (auto it = m_standins.find(block); it != m_standins.end() &&
-							it->second.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
-						m_standins.erase(it);
-					return true;
-				}
-				return standIn(block, boxes);
-			},
-			[client](const v3d &at) { return workshop::surfaceGrip(client->getEnv().getMap(), client->ndef(), client->getMaterials(), at); } });
+			nullptr, // the ground's `read`, below
+			[client](const v3d &at) { return workshop::surfaceGrip(client->getEnv().getMap(), client->ndef(), client->getMaterials(), at); } };
+	// The ground read off the frame's thread: a copy of the block here, its
+	// boxes worked out on physics' workers (on the frame's thread a forest's or
+	// a shore's block took up to 20 ms, and flying fast it was several a frame)
+	opts.read = [this, client](v3s16 block) -> std::optional<physics::World::Opts::GroundRead> {
+		Map &map = client->getEnv().getMap();
+		if (std::optional<workshop::GroundSnapshot> snap = workshop::GroundSnapshot::take(map, block)) {
+			// the block's own now: its stand-in's let go (one still being made is left to finish)
+			if (auto it = m_standins.find(block); it != m_standins.end() &&
+					it->second.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+				m_standins.erase(it);
+			const NodeDefManager *ndef = client->ndef();
+			const planet::Atlas *atlas = map.getAtlas();
+			return [snap = std::move(*snap), ndef, atlas]() { return snap.boxes(ndef, atlas); };
+		}
+		std::vector<aabb3f> boxes;
+		if (!standIn(block, boxes))
+			return std::nullopt;
+		return [boxes = std::move(boxes)]() { return boxes; };
+	};
+	m_world = std::make_unique<physics::World>(opts);
 	if (m_carrying)
 		m_carrying.reset(); // its mirror's gone with the world; Game lets it go
 	m_grabbing.reset();
@@ -438,7 +449,7 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 		}
 		if (m_sky_check <= 0 && !m_sky_answer.valid()) {
 			m_sky_check = 0.25f;
-			m_sky_answer = std::async(std::launch::async, [this, here = at / BS, v = p.getSpeed() / BS] { return landBelow(here, v); });
+			m_sky_answer = m_sky_worker.run([this, here = at / BS, v = p.getSpeed() / BS] { TF_ZONE("Body: land below"); return landBelow(here, v); });
 		}
 	}
 	m_world->unknownIsAir(me, m_clear_of_land);

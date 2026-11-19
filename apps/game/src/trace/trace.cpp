@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "trace.h"
+#include "report.h"
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <deque>
 #include <memory>
@@ -52,6 +54,9 @@ struct Ring
 	size_t next = 0;  // where the next span goes
 	size_t count = 0; // spans kept, up to SPANS
 	u16 depth = 0;    // zones open now: only its thread touches it
+	std::atomic<bool> ended{ false }; // its thread's gone: let go once its spans are older than any frame kept
+
+	u64 newest() const { return count ? spans[(next + SPANS - 1) % SPANS].end : 0; }
 
 	void push(const Span &span)
 	{
@@ -75,7 +80,9 @@ struct Ring
 struct Rings
 {
 	std::mutex lock;
-	std::vector<std::unique_ptr<Ring>> all; // kept when a thread ends: its history still counts
+	// kept a while when a thread ends (its history still counts), then let go:
+	// a ring is most of a megabyte, and threads that came and went piled up
+	std::vector<std::unique_ptr<Ring>> all;
 };
 Rings &rings()
 {
@@ -85,6 +92,17 @@ Rings &rings()
 
 thread_local Ring *t_ring = nullptr;
 
+// Marks its thread's ring ended as the thread goes.
+struct Owner
+{
+	~Owner()
+	{
+		if (t_ring)
+			t_ring->ended = true;
+	}
+};
+thread_local Owner t_owner;
+
 Ring &ring()
 {
 	if (t_ring)
@@ -93,6 +111,7 @@ Ring &ring()
 	std::lock_guard<std::mutex> guard(r.lock);
 	r.all.push_back(std::make_unique<Ring>());
 	t_ring = r.all.back().get();
+	(void)&t_owner; // made with the ring, so it marks it as the thread goes
 	t_ring->thread = "Thread " + std::to_string(r.all.size());
 	return *t_ring;
 }
@@ -264,6 +283,14 @@ void frame()
 	{
 		Rings &rs = rings();
 		std::lock_guard<std::mutex> rsguard(rs.lock);
+		// an ended thread's ring goes once nothing kept could show it
+		const u64 oldest = f.kept.empty() ? done.start : f.kept.front().start;
+		rs.all.erase(std::remove_if(rs.all.begin(), rs.all.end(), [&](const std::unique_ptr<Ring> &ring) {
+			if (!ring->ended)
+				return false;
+			std::lock_guard<std::mutex> rguard(ring->lock);
+			return ring->newest() < oldest;
+		}), rs.all.end());
 		for (const auto &ring : rs.all)
 			all.push_back(ring.get());
 	}
@@ -293,6 +320,7 @@ void frame()
 		c.frame.clear();
 	}
 	done.net = net::takeFrame();
+	report::add(done);
 	f.kept.push_back(std::move(done));
 	if (f.kept.size() > FRAMES)
 		f.kept.pop_front();

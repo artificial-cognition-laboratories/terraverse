@@ -916,3 +916,16 @@ void bendOntoAtlas(MeshCollector &collector, const planet::Atlas &atlas, v3s16 b
 			}
 	collector.m_bounding_radius_sq = radius_sq;
 }
+
+// Terra Firma (mapblock_mesh.h)
+void MapBlockMesh::upload(video::IVideoDriver *driver) const
+{
+	for (const auto &mesh : m_mesh)
+		if (mesh)
+			for (u32 i = 0; i < mesh->getMeshBufferCount(); i++) {
+				// (one never mapped to the GPU has no link: the driver passes it by)
+				scene::IMeshBuffer *buf = mesh->getMeshBuffer(i);
+				driver->updateHardwareBuffer(buf->getVertexBuffer());
+				driver->updateHardwareBuffer(buf->getIndexBuffer());
+			}
+}

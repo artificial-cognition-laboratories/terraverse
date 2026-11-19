@@ -472,6 +472,7 @@ void ClientMap::updateDrawList()
 	const v3s16 camera_block = getContainerPos(cam_pos_nodes, MAP_BLOCKSIZE);
 	assert(m_drawlist.empty());
 	m_drawlist = decltype(m_drawlist)(MapBlockComparer(camera_block));
+	m_coverage.clear();
 
 	auto is_frustum_culled = m_client->getCamera()->getFrustumCuller();
 
@@ -550,6 +551,9 @@ void ClientMap::updateDrawList()
 				// Keep the block alive as long as it is in range.
 				block->resetUsageTimer();
 				blocks_in_range++;
+				// Terra Firma: the near world's here (once it has what to draw), the far view's past it
+				if (atlas && (mesh || block->isAir()))
+					m_coverage.add(block_pos);
 
 				// Frustum culling
 				// Only do coarse culling here, to account for fast camera movement.
@@ -593,6 +597,7 @@ void ClientMap::updateDrawList()
 
 		g_profiler->avg("MapBlocks in range [#]", blocks_in_range);
 		g_profiler->avg("MapBlocks loaded [#]", blocks_loaded);
+		m_coverage.done();
 	} else {
 		// Blocks visited by the algorithm
 		u32 blocks_visited = 0;

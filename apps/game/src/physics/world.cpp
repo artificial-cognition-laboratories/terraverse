@@ -49,6 +49,7 @@
 #include <cmath>
 #include <limits>
 #include <map>
+#include "threading/pool.h"
 #include <future>
 #include <mutex>
 #include <tuple>
@@ -535,12 +536,14 @@ struct World::Impl
 	int making = 0; // shapes being made, abandoned ones too
 	// a block's boxes are read here (the map's this thread's), up to tens
 	// of ms in a forest: one block a step is read ahead, no more
-	bool read_ahead = false;
+	int reads_ahead = 0; // this step's
 	// a block's shape took up to a quarter of a second (a forest's leaves,
 	// a hillside's hulls): made ahead on workers, where a character's going,
 	// so it's there when it's needed. What's needed now is waited for (the
 	// steps stay deterministic: ground is never late). Only so many at once
 	static constexpr int MAKING_AHEAD = 4;
+	// With Opts::read a read's the map's thread a copy, the rest a worker's: much more ahead
+	static constexpr int MAKING_AHEAD_SPLIT = 16, READS_AHEAD_SPLIT = 8;
 	enum class Want { NOW, AHEAD }; // NOW: built before it returns
 
 	struct Char
@@ -617,7 +620,7 @@ struct World::Impl
 			return all;
 		};
 		const bool here = each(p, p, Want::NOW);
-		read_ahead = false;
+		reads_ahead = 0;
 		// half a second on, so it's made before it's stood in; no further
 		// than AHEAD_MOST (a placing far off, a teleport or one moved off a
 		// seam, is a speed of millions spread over a step: read ahead by it,
@@ -1131,27 +1134,26 @@ struct World::Impl
 	{
 		auto it = ground.find(key(block));
 		if (it == ground.end()) {
-			std::vector<aabb3f> boxes;
-			if (!readGround(block, want, boxes))
+			std::optional<Opts::GroundRead> read = readGround(block, want);
+			if (!read)
 				return false;
 			Ground &g = ground[key(block)];
-			if (boxes.empty())
-				return true;
 			if (want == Want::NOW) {
-				g.body = addGround(block, shapeOf(boxes));
+				std::vector<aabb3f> boxes = (*read)();
+				if (!boxes.empty())
+					g.body = addGround(block, shapeOf(boxes));
 				return true;
 			}
 			// (a block started ahead but not needed yet: an empty entry
 			// marks it seen, its shape comes later)
-			make(g, std::move(boxes));
+			make(g, std::move(*read));
 			return false;
 		}
 		Ground &g = it->second;
 		g.unused = 0;
 		if (g.stale && !g.making.valid()) {
-			std::vector<aabb3f> boxes;
-			if (readGround(block, Want::AHEAD, boxes))
-				make(g, std::move(boxes));
+			if (std::optional<Opts::GroundRead> read = readGround(block, Want::AHEAD))
+				make(g, std::move(*read));
 			return true; // (unloaded since: it stays as it was)
 		}
 		if (!g.making.valid())
@@ -1172,23 +1174,33 @@ struct World::Impl
 		return true;
 	}
 
-	// A block's boxes, read here (the map's this thread's). Only so much is
-	// read ahead a step; what's needed now always is. False: not read
-	bool readGround(v3s16 block, Want want, std::vector<aabb3f> &boxes)
+	// A block's ground, to be worked out (the map's read here, this thread's).
+	// Only so much is read ahead a step; what's needed now always is. None:
+	// not read (not loaded, or not this step)
+	std::optional<Opts::GroundRead> readGround(v3s16 block, Want want)
 	{
-		if (want == Want::AHEAD && (making >= MAKING_AHEAD || read_ahead))
-			return false;
-		read_ahead = read_ahead || want == Want::AHEAD;
+		const bool split = (bool)opts.read;
+		if (want == Want::AHEAD && (making >= (split ? MAKING_AHEAD_SPLIT : MAKING_AHEAD)
+				|| reads_ahead >= (split ? READS_AHEAD_SPLIT : 1)))
+			return std::nullopt;
+		if (want == Want::AHEAD)
+			reads_ahead++;
 		ScopeProfiler read(g_profiler, "Physics: ground read [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
-		return opts.ground(block, boxes);
+		if (split)
+			return opts.read(block);
+		std::vector<aabb3f> boxes;
+		if (!opts.ground(block, boxes))
+			return std::nullopt;
+		return [boxes = std::move(boxes)]() { return boxes; };
 	}
 
-	// Its shape made on a worker (none: nothing solid's left in it)
-	void make(Ground &g, std::vector<aabb3f> boxes)
+	// Its shape made on a worker, the read worked out there too (none: nothing solid's left in it)
+	void make(Ground &g, Opts::GroundRead read)
 	{
 		making++;
-		g.making = std::async(std::launch::async, [this, boxes = std::move(boxes)]() mutable {
-			terragen::background();
+		g.making = pool.run([this, read = std::move(read)]() {
+			TF_ZONE("Physics: ground shape");
+			std::vector<aabb3f> boxes = read();
 			return boxes.empty() ? RefConst<Shape>() : shapeOf(boxes);
 		});
 	}
@@ -1648,6 +1660,9 @@ struct World::Impl
 			}
 		}
 	}
+
+	// where ground's shapes are made (make): last, so it's gone before what its work reads
+	threading::Pool pool{ { "Physics ground", 2 } };
 };
 
 Balance balanceOf(const Assembly &a)
@@ -1680,7 +1695,7 @@ Field uniform(v3f gravity)
 // Jolt's allocator is registered before Impl's members use it.
 World::World(const Opts &opts) : m((startJolt(), std::make_unique<Impl>()))
 {
-	if (!opts.ground || !opts.field)
+	if ((!opts.ground && !opts.read) || !opts.field)
 		throw PhysicsError("physics: a world needs its ground and its field");
 	m->opts = opts;
 	m->system.Init(65536, 0, 65536, 16384, m->layers, m->layer_vs_broad, m->pairs);

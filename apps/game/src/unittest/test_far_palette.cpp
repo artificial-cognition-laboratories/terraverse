@@ -33,7 +33,7 @@ public:
 	void testTilesForAnEye();
 	void testSeaIsWater();
 	void testTintPaintsTheLand();
-	void testNothingInsideTheCut();
+	void testInsideTheCutIsFine();
 };
 
 static TestFarPalette g_test_instance;
@@ -46,7 +46,7 @@ void TestFarPalette::runTests(IGameDef *gamedef)
 	TEST(testTilesForAnEye);
 	TEST(testSeaIsWater);
 	TEST(testTintPaintsTheLand);
-	TEST(testNothingInsideTheCut);
+	TEST(testInsideTheCutIsFine);
 }
 
 namespace {
@@ -221,7 +221,7 @@ void TestFarPalette::testSeaIsWater()
 	const video::SColor least = b.palette.look(water.getContent()).over_black.toSColor();
 	size_t tops = 0;
 	for (const Mesh::Part &p : m.parts)
-		for (const video::S3DVertex &v : p.vertices)
+		for (const far::Vertex &v : p.vertices)
 			if (v.Normal.Y > 0.5f && v.Pos.Y > 0) { // a liquid's top: up, above the floor (at 1.5, the floor's at -9.5)
 				tops++;
 				UASSERT(v.Color.getRed() + v.Color.getGreen() + v.Color.getBlue() > 60);
@@ -258,7 +258,7 @@ void TestFarPalette::testTintPaintsTheLand()
 		red = blue = other = 0;
 		for (const Tiles::Drawn &t : drawn)
 			for (const auto &part : t.parts)
-				for (const video::S3DVertex &v : part->Vertices->Data) {
+				for (const far::Vertex &v : part->Vertices->Data) {
 					const video::SColor c = v.Color;
 					if (c.getRed() == 255 && c.getGreen() == 0 && c.getBlue() == 0)
 						red++;
@@ -285,7 +285,7 @@ void TestFarPalette::testTintPaintsTheLand()
 // nearer than the cut), so it isn't split there once BACKDROP_LEVEL or finer
 // (level 0 is finest): a fine tile inside comes only from a parent that
 // reached past the cut. One reaching past it is drawn as fine as anywhere.
-void TestFarPalette::testNothingInsideTheCut()
+void TestFarPalette::testInsideTheCutIsFine()
 {
 	const Baked b = shipped();
 	const Horizon h{ "TF24.dGVycmE", 1, b.content };
@@ -315,20 +315,25 @@ void TestFarPalette::testNothingInsideTheCut()
 		}
 		return out;
 	};
+	// Inside the near world's range the far land is as fine as without one:
+	// what the near world hasn't loaded shows it, a column at a time
+	// (far/mask.h), and it must be the ground's own shape, not coarse cells
+	// (it once stopped at cells of 8 blocks there, a checkerboard in every gap).
 	const auto whole = drawnFor(0), cut = drawnFor(CUT);
-	size_t within = 0, across = 0;
-	const s32 BACKDROP = 3; // tiles.cpp's BACKDROP_LEVEL
-	size_t fine_within = 0;
-	for (const auto &[near, far, level, parent] : whole)
-		fine_within += far + 300 < CUT && level < BACKDROP; // all well inside it, peaks and all
-	for (const auto &[near, far, level, parent] : cut) {
-		UTEST(far + 300 >= CUT || level >= BACKDROP || parent + 300 >= CUT,
-				"a tile at level %d reaching %.0f blocks off, split from one inside the cut (%.0f), is drawn", level, far, CUT);
-		within += far + 300 < CUT;
-		across += near < CUT;
-	}
-	UTEST(fine_within > 0, "with no cut, none of %zu tiles inside where it would be is finer than the backdrop", whole.size());
-	UTEST(within > 0, "with a cut, no backdrop is drawn inside it (%zu tiles)", cut.size());
-	UTEST(across > 0, "none of %zu tiles drawn reaches inside the cut: the ring past it may be open", cut.size());
+	const auto finestWithin = [&](const auto &tiles) {
+		s32 finest = 99;
+		size_t n = 0;
+		for (const auto &[near, far, level, parent] : tiles)
+			if (far + 300 < CUT) {
+				finest = std::min(finest, level);
+				n++;
+			}
+		return std::pair{ finest, n };
+	};
+	const auto [finest_whole, n_whole] = finestWithin(whole);
+	const auto [finest_cut, n_cut] = finestWithin(cut);
+	UTEST(n_cut > 0, "with a cut, nothing's drawn inside it (%zu tiles): the near world's gaps would be open", cut.size());
+	UTEST(finest_cut == finest_whole, "inside the cut the finest tile is level %d, without one %d", finest_cut, finest_whole);
+	UTEST(n_cut >= n_whole / 2, "inside the cut %zu tiles, without one %zu: it's coarser there", n_cut, n_whole);
 }
 

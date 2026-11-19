@@ -58,6 +58,9 @@ public:
 	void frame();
 	// True when the page took the event and the engine must not see it.
 	bool onEvent(const SEvent &event);
+	// Whether the debugger's open: the window keeps its full frame rate unfocused
+	// then (it shares the game's loop, and a capped game measures as sleep).
+	bool debuggerOpen() const;
 	void setMode(Mode mode);
 	// How many times the page has announced itself. A change means a fresh
 	// page that holds nothing it was sent before (a reload).

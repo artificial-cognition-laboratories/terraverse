@@ -10,24 +10,26 @@
  * order; a line, once chosen, stays, and new ones only fill a chart's free
  * places. A line with nothing for a while is a gap, not a reason to move.
  */
+import { wheelDelta } from "./wheel.ts"
 import { computed, ref, watch } from "vue"
 import type { PerfFrame } from "../../bridge/index.ts"
 import { threadOrder } from "./capture.ts"
 import { colorOf, IDLE } from "./colors.ts"
-import { formatValue, GROUPS, groupOf, TIME_UNITS } from "./counters.ts"
+import { GROUPS, groupOf, TIME_UNITS } from "./counters.ts"
+import FrameChart from "./FrameChart.vue"
+import { SYSTEMS, systemTime } from "./systems.ts"
 import LineChart, { type Series } from "./LineChart.vue"
 import type { Window } from "./view.ts"
 
 const props = defineProps<{ frames: readonly PerfFrame[]; units: Record<string, string>; pinned: readonly string[] }>()
 const emit = defineEmits<{ capture: [at: number]; span: [ms: number] }>()
 
-const BUDGETS = [{ ms: 1000 / 60, label: "60 fps" }, { ms: 1000 / 30, label: "30 fps" }] as const
 const ZONE_LINES = 5
 const COUNTER_LINES = 6
 const SPAN = { least: 500, most: 15_000 }
 
-// The window: always ending at the newest frame; the wheel sets its width.
-const span = ref(SPAN.most)
+// The window: always ending at the newest frame; Shift-wheel sets its width.
+const span = ref(6000) // opens on six seconds: frame by frame at the panel's width; Shift-wheel goes out to fifteen
 emit("span", span.value)
 const win = computed<Window>(() => {
     const last = props.frames[props.frames.length - 1]
@@ -45,16 +47,30 @@ const kept = ref(new Map<string, Kept>())
 const kindOf = (thread: string) => thread.replace(/[-\s]?\d+$/, "") // "Emerge-3" with "Emerge-0"
 const counterOrder = (id: string) => 100 + Math.max(0, GROUPS.findIndex((g) => g.id === id)) + (id === "other" ? 50 : 0)
 
+// Whether this message changed what's kept: only then do the charts below
+// remake (remade every message, every chart redrew every frame's worth).
+let changed = false
 function chart(key: string, make: () => Kept) {
     let k = kept.value.get(key)
-    if (!k) kept.value.set(key, (k = make()))
+    if (!k) {
+        kept.value.set(key, (k = make()))
+        changed = true
+    }
     return k
 }
 function fill(k: Kept, ranked: [string, number][], room: number) {
     for (const [name] of ranked.sort((a, b) => b[1] - a[1])) {
         if (k.names.length >= room) return
-        if (!k.names.includes(name)) k.names.push(name)
+        if (!k.names.includes(name)) {
+            k.names.push(name)
+            changed = true
+        }
     }
+}
+function addThread(k: Kept, thread: string) {
+    if (k.threads.has(thread)) return
+    k.threads.add(thread)
+    changed = true
 }
 
 watch(() => props.frames, (frames) => {
@@ -66,7 +82,7 @@ watch(() => props.frames, (frames) => {
         const f = frames[i]!
         for (const [thread, parts] of Object.entries(f.threads)) {
             const kind = kindOf(thread)
-            chart(`zones:${kind}`, () => ({ title: kind, order: 0, names: [], kind: "zones", threads: new Set() })).threads.add(thread)
+            addThread(chart(`zones:${kind}`, () => ({ title: kind, order: 0, names: [], kind: "zones", threads: new Set() })), thread)
             let sums = zoneSums.get(kind)
             if (!sums) zoneSums.set(kind, (sums = new Map()))
             for (const [name, ms] of Object.entries(parts)) if (!IDLE.has(name)) sums.set(name, (sums.get(name) ?? 0) + ms)
@@ -88,7 +104,8 @@ watch(() => props.frames, (frames) => {
         fill(chart(`counters:${group}`, () => ({ title: title, order: counterOrder(group), names: [], kind: "counters", threads: new Set() })),
             [...peaks.entries()], COUNTER_LINES)
     }
-    kept.value = new Map(kept.value) // what's kept changed: the charts below follow
+    if (changed) kept.value = new Map(kept.value) // the charts below follow
+    changed = false
 }, { immediate: true })
 
 const zoneValue = (k: Kept, name: string) => (f: PerfFrame) => {
@@ -104,11 +121,29 @@ const charts = computed(() => [...kept.value.entries()]
         key: key,
         title: k.kind === "zones" && k.threads.size > 1 ? `${k.title} ×${k.threads.size}` : k.title,
         counters: k.kind === "counters",
-        series: k.names.map((name): Series => ({ name: name, color: colorOf(name), value: k.kind === "zones" ? zoneValue(k, name) : counterValue(name) })),
+        series: k.names.map((name): Series => k.kind === "zones"
+            ? { name: name, color: colorOf(name), value: zoneValue(k, name) }
+            : { name: name, color: colorOf(name), value: counterValue(name), unit: props.units[name] ?? "" }),
     })))
-const pinnedSeries = computed<Series[]>(() => props.pinned.map((name) => ({ name: name, color: colorOf(name), value: counterValue(name) })))
-const asCount = (v: number) => formatValue(v, "")
-const FRAME: Series[] = [{ name: "frame", color: "#e6e6ee", value: (f) => f.end - f.start, bold: true }]
+const pinnedSeries = computed<Series[]>(() => props.pinned.map((name) => ({ name: name, color: colorOf(name), value: counterValue(name), unit: props.units[name] ?? "" })))
+/**
+ * A chart a system (systems.ts), once it's shown up: one that never runs here
+ * isn't drawn. Only the newest frames are looked at, and once shown it stays.
+ */
+const shownSystems = ref(new Set<string>())
+watch(() => props.frames, (frames) => {
+    let added = false
+    for (let i = Math.max(0, frames.length - 30); i < frames.length; i++)
+        for (const sys of SYSTEMS)
+            if (!shownSystems.value.has(sys.title) && systemTime(sys, frames[i]!) > 0) {
+                shownSystems.value.add(sys.title)
+                added = true
+            }
+    if (added) shownSystems.value = new Set(shownSystems.value)
+}, { immediate: true })
+const systemCharts = computed(() => SYSTEMS
+    .filter((sys) => shownSystems.value.has(sys.title))
+    .map((sys) => ({ title: sys.title, series: [{ name: "time", color: colorOf(sys.title), value: (f: PerfFrame) => systemTime(sys, f) }] as Series[] })))
 
 const box = ref<HTMLElement | null>(null)
 const cursor = ref<number | null>(null)
@@ -121,20 +156,25 @@ function onClick(event: MouseEvent) {
     const at = msAt(event)
     if (at !== null) emit("capture", at)
 }
+// Shift-wheel sets the span; the wheel alone scrolls the charts.
 function onWheel(event: WheelEvent) {
-    span.value = Math.min(SPAN.most, Math.max(SPAN.least, span.value * Math.exp(event.deltaY * 0.0015)))
+    if (!event.shiftKey) return
+    event.preventDefault()
+    span.value = Math.min(SPAN.most, Math.max(SPAN.least, span.value * Math.exp(wheelDelta(event) * 0.0015)))
     emit("span", span.value)
 }
 </script>
 
 <template>
     <div v-if="frames.length" ref="box" class="live" @mousemove="(e: MouseEvent) => (cursor = msAt(e))" @mouseleave="cursor = null"
-        @click="onClick" @wheel.prevent="onWheel">
-        <LineChart title="Frame" :frames="frames" :window="win" :series="FRAME" :height="92" :budgets="BUDGETS" :cursor="cursor" />
+        @click="onClick" @wheel="onWheel">
+        <FrameChart :frames="frames" :window="win" :cursor="cursor" :height="140" />
+        <LineChart v-for="s in systemCharts" :key="s.title" :title="s.title" :frames="frames" :window="win" :series="s.series" :height="72"
+            :cursor="cursor" bounds />
         <LineChart v-if="pinnedSeries.length" title="Pinned" :frames="frames" :window="win" :series="pinnedSeries" :height="80"
-            :cursor="cursor" :format="asCount" />
+            :cursor="cursor" />
         <LineChart v-for="c in charts" :key="c.key" :title="c.title" :frames="frames" :window="win" :series="c.series" :height="70"
-            :cursor="cursor" :format="c.counters ? asCount : undefined" />
+            :cursor="cursor" />
     </div>
     <p v-else class="waiting">Waiting for frames from the engine…</p>
 </template>

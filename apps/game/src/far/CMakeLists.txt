@@ -11,8 +11,10 @@ set(far_SRCS
 	PARENT_SCOPE)
 
 set(far_client_SRCS
+	${CMAKE_CURRENT_SOURCE_DIR}/coverage.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/export.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/landbake.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/mask.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/mesh.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/palette_live.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/tilecache.cpp

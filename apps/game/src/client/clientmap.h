@@ -8,6 +8,7 @@
 
 #include "irrlichttypes_bloated.h"
 #include "map.h"
+#include "far/coverage.h"
 #include <ISceneNode.h>
 #include <map>
 #include <functional>
@@ -103,6 +104,8 @@ public:
 	// Terra Firma: an atlas planet's view from the camera, up to date (null
 	// on any other world): how its blocks, and the far view's tiles, are drawn
 	AtlasView *atlasView();
+	// Terra Firma: the blocks the near world draws, by column (made with the draw list)
+	const far::Coverage &coverage() const { return m_coverage; }
 
 	/// @brief Calculate statistics about the map and keep the blocks alive
 	void touchMapBlocks();
@@ -182,6 +185,7 @@ private:
 	// Terra Firma: an atlas planet's blocks as the eye sees them (null on any
 	// other world); atlasView() keeps it up to the camera
 	std::unique_ptr<AtlasView> m_atlas_view;
+	far::Coverage m_coverage;
 	video::SColor m_camera_light_color = video::SColor(0xFFFFFFFF);
 	bool m_needs_update_transparent_meshes = true;
 

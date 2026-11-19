@@ -9,6 +9,7 @@
  * mean: a minute of frames is thousands wide, and a one-frame hitch must
  * still show at any width.
  */
+import { wheelDelta } from "./wheel.ts"
 import { onMounted, onUnmounted, ref, watch } from "vue"
 import type { PerfFrame } from "../../bridge/index.ts"
 import type { Window } from "./view.ts"
@@ -203,12 +204,14 @@ function onMouseMove(event: MouseEvent) {
 
 const onMouseUp = () => (drag = null)
 
-// The wheel zooms the window about the time under the pointer, as over the graph.
+// Shift-wheel zooms the window about the time under the pointer, as over the graph.
 function onWheel(event: WheelEvent) {
+    if (!event.shiftKey) return
+    event.preventDefault()
     const ms = toMs(localX(event))
     const span = props.window.endMs - props.window.startMs
     const anchor = Math.min(1, Math.max(0, (ms - props.window.startMs) / span))
-    emit("zoom", Math.exp(event.deltaY * 0.0015), anchor)
+    emit("zoom", Math.exp(wheelDelta(event) * 0.0015), anchor)
 }
 
 onMounted(() => {
@@ -234,7 +237,7 @@ onUnmounted(() => {
 
 <template>
     <div class="minimap" :style="{ height: `${HEIGHT}px` }">
-        <canvas ref="canvas" @mousedown.left="onMouseDown" @wheel.prevent="onWheel" />
+        <canvas ref="canvas" @mousedown.left="onMouseDown" @wheel="onWheel" />
     </div>
 </template>
 

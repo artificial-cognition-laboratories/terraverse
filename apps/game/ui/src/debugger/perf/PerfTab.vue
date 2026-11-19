@@ -57,7 +57,7 @@ async function saveTrace() {
                 <input v-model="statsText" type="search" placeholder="Filter values" aria-label="Filter values" spellcheck="false" />
             </label>
             <span class="gap" />
-            <span v-if="view === 'live'" class="span" title="The time Live shows: the wheel over the charts sets it">{{ spanLabel(liveSpan) }}</span>
+            <span v-if="view === 'live'" class="span" title="The time Live shows: Shift-wheel over the charts sets it">{{ spanLabel(liveSpan) }}</span>
             <button class="action" :disabled="perf.capturing.value || !perf.frames.value.length" title="Every thread's zones over the last 3 seconds"
                 @click="captureAt(null)">
                 <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" /><circle cx="8" cy="8" r="2.2" class="dot" /></svg>

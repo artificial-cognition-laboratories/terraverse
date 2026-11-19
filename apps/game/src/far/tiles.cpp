@@ -33,7 +33,7 @@ static constexpr double PAINT_MS = 3;
 // recently wanted go. (Dropped after ten seconds unwanted, a spot panned away
 // from and back to was built again, coarse meanwhile; sprint 114)
 static constexpr size_t KEEP_BYTES = (size_t)256 << 20;
-static constexpr s32 BACKDROP_LEVEL = 3; // cells of 8 blocks
+static constexpr u32 KEEP_UPDATES = 120; // a tile wanted this lately isn't evicted (about two seconds)
 static constexpr float STAY_WHOLE = 0.85f;
 // How many levels finer a tile not built yet looks for finer ones to stand in for it.
 static constexpr s32 FINER_DEPTH = 3;
@@ -158,13 +158,15 @@ public:
 private:
 	// The tile's mesh put on the planet (Tiling::place); its height over
 	// the sea (blocks) in the first texture coordinate, for the haze (and the
-	// Planetarium's contours).
+	// Planetarium's contours), and its place in the tile's grid in the second.
 	Mesh onPlanet(const Tile &tile) const
 	{
 		Mesh m = far::mesh(tile, m_palette);
 		for (Mesh::Part &part : m.parts)
-			for (video::S3DVertex &v : part.vertices)
+			for (Vertex &v : part.vertices) {
 				v.TCoords = v2f(v.Pos.Y / BS + 0.5f - (m_horizon.water_level + 1), 0);
+				v.TCoords2 = v2f(v.Pos.X / BS, v.Pos.Z / BS); // (far/mesh.h: which column it's in)
+			}
 		m_tiling.place(m, tile.key);
 		return m;
 	}
@@ -346,20 +348,6 @@ float Tiles::distance(const TileKey &key, const Eye &eye) const
 	return (float)std::max(d - at.half, 0.0);
 }
 
-bool Tiles::inside(const TileKey &key, const Eye &eye) const
-{
-	if (eye.cut <= 0)
-		return false;
-	// its farthest point from the eye, at the sea, and its land's highest a
-	// tile's relief over that (a peak could be farther off than the sea under it)
-	const Place &at = place(Key(key));
-	const Tiling::Vec &p = at.middle;
-	const double r = m_tiling.radius(), sea = r + m_horizon.water_level + 1;
-	const double d = std::hypot(p.x * sea / r - eye.at.x, p.y * sea / r - eye.at.y, p.z * sea / r - eye.at.z) + at.half;
-	const double far = std::hypot(d, (double)eye.altitude) + Tiles::RELIEF;
-	return far < eye.cut;
-}
-
 const Tiles::Place &Tiles::place(const Key &key) const
 {
 	auto it = m_places.find(key);
@@ -405,15 +393,15 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 		return true; // beyond the eye's reach: nothing to draw
 	if (!seen(key.tile(), eye))
 		return true; // off screen: nothing to draw (drawn, a coarse planet's worth of it went to the GPU each frame)
-	// all within the near world's range: its blocks are the land there, and this is
-	// only what shows where they haven't arrived, so it needn't be fine
-	const bool only_backdrop = inside(key.tile(), eye) && key.level <= BACKDROP_LEVEL;
+	// Within the near world's range as fine as at its edge: what it hasn't loaded
+	// yet shows this, a column at a time (far/mask.h), and must be the ground's
+	// own shape, not the coarse planet's cells.
 	// high up, a tile's size on screen goes by how far it is through the air
 	float seen = std::sqrt(d * d + eye.altitude * eye.altitude);
 	// (once whole a tile stays whole a little longer: on the line, it flipped between two details)
 	const auto held = m_tiles.find(key);
 	const float stay = held != m_tiles.end() && held->second.whole == m_frame - 1 ? STAY_WHOLE : 1.0f;
-	bool split = !only_backdrop && key.level > 0 && seen - eye.cut < (float)key.tile().span() * eye.split * stay;
+	bool split = key.level > 0 && seen - eye.cut < (float)key.tile().span() * eye.split * stay;
 
 	if (!split) {
 		Entry &e = m_tiles[key];
@@ -428,7 +416,11 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 			const double to[3] = { m.x - eye.at.x, m.y - eye.at.y, m.z - eye.at.z };
 			const double len = std::max(1.0, std::hypot(to[0], to[1], to[2]));
 			const double ahead = (to[0] * eye.heading.x + to[1] * eye.heading.y + to[2] * eye.heading.z) / len;
-			want.emplace_back(d * (float)(1 - 0.6 * ahead), key);
+			// by distance in its own spans, so coarse tiles come before fine ones
+			// at the same place: a missing tile's stand-in is then its parent,
+			// not an ancestor kilometres wide (flying fast, hundreds wanted at
+			// once, the flat planes that flickered were those ancestors)
+			want.emplace_back(d * (float)(1 - 0.6 * ahead) / (float)key.tile().span(), key);
 		}
 		// meanwhile, finer tiles from before, if all of them are there
 		size_t mark = draw.size();
@@ -510,7 +502,7 @@ void Tiles::install()
 		for (const Mesh::Part &part : result->mesh.parts)
 			all += part.vertices.size();
 		if (all <= 65536) {
-			auto buffer = make_irr<scene::SMeshBuffer>();
+			auto buffer = make_irr<TileBuffer>();
 			auto &vertices = buffer->Vertices->Data;
 			auto &indices = buffer->Indices->Data;
 			vertices.reserve(all);
@@ -531,10 +523,10 @@ void Tiles::install()
 			}
 			std::vector<video::SColor> own;
 			own.reserve(vertices.size());
-			for (const video::S3DVertex &v : vertices)
+			for (const Vertex &v : vertices)
 				own.push_back(v.Color);
 			e.own.push_back(std::move(own));
-			e.bytes += vertices.size() * sizeof(video::S3DVertex) + indices.size() * sizeof(u16);
+			e.bytes += vertices.size() * sizeof(Vertex) + indices.size() * sizeof(u16);
 			buffer->recalculateBoundingBox();
 			buffer->setHardwareMappingHint(scene::EHM_STATIC);
 			e.parts.push_back(std::move(buffer));
@@ -543,13 +535,13 @@ void Tiles::install()
 		for (Mesh::Part &part : result->mesh.parts) {
 			if (e.merged)
 				break;
-			auto buffer = make_irr<scene::SMeshBuffer>();
+			auto buffer = make_irr<TileBuffer>();
 			std::vector<video::SColor> own;
 			own.reserve(part.vertices.size());
-			for (const video::S3DVertex &v : part.vertices)
+			for (const Vertex &v : part.vertices)
 				own.push_back(v.Color);
 			e.own.push_back(std::move(own));
-			e.bytes += part.vertices.size() * sizeof(video::S3DVertex) + part.indices.size() * sizeof(u16);
+			e.bytes += part.vertices.size() * sizeof(Vertex) + part.indices.size() * sizeof(u16);
 			buffer->Vertices->Data = std::move(part.vertices);
 			buffer->Indices->Data = std::move(part.indices);
 			buffer->recalculateBoundingBox();
@@ -575,8 +567,8 @@ void Tiles::quarter(Entry &e, s32 child)
 	const Entry::Range &r = e.ranges[child];
 	if (r.v1 == r.v0)
 		return; // nothing of it there
-	const scene::SMeshBuffer &all = *e.parts.front();
-	auto buffer = make_irr<scene::SMeshBuffer>();
+	const TileBuffer &all = *e.parts.front();
+	auto buffer = make_irr<TileBuffer>();
 	buffer->Vertices->Data.assign(all.Vertices->Data.begin() + r.v0, all.Vertices->Data.begin() + r.v1);
 	for (u32 i = r.i0; i < r.i1; i++)
 		buffer->Indices->Data.push_back((u16)(all.Indices->Data[i] - r.v0));
@@ -633,14 +625,14 @@ void Tiles::paint(const Key &key, Entry &e) const
 		auto &vertices = e.parts[p]->Vertices->Data;
 		const std::vector<video::SColor> &own = e.own.at(p);
 		for (size_t i = 0; i < vertices.size(); i++) {
-			video::S3DVertex &v = vertices[i];
+			Vertex &v = vertices[i];
 			if (!m_tint) {
 				v.Color = own[i];
 				continue;
 			}
 			const Tiling::Vec at{ mid.x + v.Pos.X / BS, mid.y + v.Pos.Y / BS, mid.z + v.Pos.Z / BS };
 			video::SColor c = (*m_tint)(own[i], at);
-			c.setAlpha(255); // the land is opaque
+			c.setAlpha(own[i].getAlpha()); // (the alpha marks a skirt: far/mesh.cpp)
 			v.Color = c;
 		}
 		e.parts[p]->setDirty(scene::EBT_VERTEX);
@@ -655,10 +647,13 @@ void Tiles::evict()
 	if (m_bytes <= KEEP_BYTES)
 		return;
 	// the least recently wanted first, down to the budget; nothing wanted
-	// this update (the roots are wanted every update: kept)
+	// lately (the roots are wanted every update: kept). Not just this update's:
+	// a tile drawn whole for an update doesn't want its children, and over the
+	// budget they went, so the next it split again and found them gone: its
+	// oldest kept ancestor stood in, a kilometre-wide tile flashing at the horizon.
 	std::vector<std::pair<u32, Key>> old;
 	for (const auto &[key, e] : m_tiles)
-		if (e.used != m_frame)
+		if (e.used + KEEP_UPDATES < m_frame)
 			old.emplace_back(e.used, key);
 	std::sort(old.begin(), old.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
 	for (const auto &[used, key] : old) {

@@ -42,6 +42,12 @@ public:
 	};
 	// The material to draw land with, for this body. Set again per body.
 	const video::SMaterial &material(const Light &light);
+	// What's drawn now is stand-ins (far::Tiles::behind): their depth squeezed
+	// to just short of the far plane, in order, so they show only where
+	// nothing's been drawn, and still hide their own walls. Drawn after the land.
+	void standIns(bool on);
+	// Which of a tile's parts are drawn: 0 its land, 1 its skirts, 2 both (the default)
+	void parts(int which);
 
 private:
 	struct Uniforms;

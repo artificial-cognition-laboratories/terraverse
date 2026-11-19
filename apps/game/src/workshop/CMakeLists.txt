@@ -2,6 +2,7 @@
 set(workshop_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/entities.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/fracture.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ground_read.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/rubble.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/library.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/motion.cpp

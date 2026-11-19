@@ -74,6 +74,9 @@ public:
 	// `textured`: its colours its texture's (planetarium/globe.h)
 	const video::SMaterial &lit(size_t body, double day, const v3f &centre, double turn, bool on, float contour = 0,
 			bool textured = false);
+	// The land drawn next is stand-ins (Lit::standIns)
+	void standIns(bool on);
+	void parts(int which); // Lit::parts
 	using Surface = std::function<bool(size_t body, const terragen::System::Vec &at, double pixels, float near, float far)>;
 	void draw(video::IVideoDriver *driver, const Camera &camera, double day,
 			const std::function<void(float near, float far)> &focused, const Surface &surface = nullptr);

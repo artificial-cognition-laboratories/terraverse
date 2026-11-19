@@ -286,6 +286,20 @@ void SystemLayer::shaders(IShaderSource *ssrc)
 	m_galaxy = std::make_unique<Galaxy>(ssrc, m_sphere.get());
 }
 
+void SystemLayer::parts(int which)
+{
+	if (!m_lit)
+		throw BaseException("planetarium: bodies drawn before SystemLayer::shaders");
+	m_lit->parts(which);
+}
+
+void SystemLayer::standIns(bool on)
+{
+	if (!m_lit)
+		throw BaseException("planetarium: bodies drawn before SystemLayer::shaders");
+	m_lit->standIns(on);
+}
+
 const video::SMaterial &SystemLayer::lit(size_t body, double day, const v3f &centre_at, double turn, bool on, float contour,
 		bool textured)
 {

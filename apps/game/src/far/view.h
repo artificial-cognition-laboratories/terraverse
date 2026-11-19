@@ -24,14 +24,7 @@ namespace planet { class Atlas; }
 
 namespace far {
 
-// The near world's edge this frame (scene units, from the eye; 0: no far view,
-// none): the far view draws past it and the near world's blocks only short
-// of it (nodes_shader's nearCut), so the two never overlap. Blocks past the
-// near range were drawn whole for a few frames (the draw list isn't remade
-// every frame, nor cut finer than a block), and the far land's coarser banks
-// and cliffs stood up through them.
-float nearCut();
-
+class Mask;
 class Palette;
 class Tiles;
 struct DrawState;
@@ -44,9 +37,9 @@ class Uniforms;
 	(AtlasView), so the two are one surface; up through the air the haze
 	gives way to the whole planet.
 
-	It draws only past the near world's range (the cut, from the eye):
-	nearer, the near world's blocks are the land; a tile wholly inside it
-	isn't drawn at all.
+	It draws everywhere but the map block columns the near world draws
+	(far/coverage.h, far/mask.h), so the two meet at the blocks' own square
+	edge and never overlap: a column not loaded yet shows the far land.
 
 	Drawn right after the sky with the camera's depth projection. Its depth
 	remains for near blocks and clouds, so a cloud behind distant terrain is
@@ -80,9 +73,11 @@ public:
 private:
 	const s16 m_water_level;
 	const double m_radius; // blocks
+	const std::vector<terragen::Atlas::Grid> &m_grids; // the body's (the atlas outlives the view)
 	std::unique_ptr<Palette> m_palette;
 	std::unique_ptr<Tiles> m_tiles; // after the palette it reads
 	std::shared_ptr<DrawState> m_state;
+	std::unique_ptr<Mask> m_mask;
 	irr_ptr<Uniforms> m_uniforms;
 	video::SMaterial m_material;
 	aabb3f m_box{ -1e7f, -1e7f, -1e7f, 1e7f, 1e7f, 1e7f };
@@ -91,14 +86,19 @@ private:
 	bool m_enabled = true;
 	float m_split = 2; // a tile splits while nearer than this many of its spans past the cut
 	bool m_debug_levels = false; // far_view_debug_levels: each tile tinted by its level
+	bool m_debug_mask = false;   // far_view_debug_mask: the mask's drops shown, not made
 	float m_max = 0; // past the eye's own horizon, it draws no farther than this
 
 	float m_cut = 0;      // blocks
+	float m_detail_cut = 0; // the cut tiles' detail goes by: the viewing range, steady
+	float m_open = 0;     // blocks: the nearest column the near world doesn't draw
 	float m_reach = 0;    // scene units
+	float m_range = 0;    // blocks from the eye: what's farther isn't drawn
 	bool m_showing = false;
 	float m_altitude = 0; // m above the sea
 	float m_share = 0;    // 0 in the air's haze .. 1 above the air
 	AtlasView *m_view = nullptr; // where it draws the planet, this frame
+	ClientMap *m_map = nullptr;  // the near world's, this frame
 	v3f m_eye;                   // where it's drawn from then, in blocks
 };
 

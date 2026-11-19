@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "far/mesh.h"
 #include "far/tiling.h"
 #include "far/terrain.h"
 #include "irr_ptr.h"
@@ -31,7 +32,7 @@ struct Eye
 {
 	Tiling::Vec at;   // the eye's point over the sea, from the planet's centre
 	float altitude;  // above the sea: counts toward how far a tile is seen
-	float cut;       // nearer than this from the eye, someone else draws (the near world); 0 for none
+	float cut;       // the near world's range (blocks; 0 none): tiles are finest from the eye out to it
 	float range;     // farther than this along the ground, nothing is drawn
 	float split;     // a tile splits while nearer than this many of its spans past the cut
 	bool keep_fine = false; // what isn't built yet shows a coarser tile behind the rest (behind()), not instead of it
@@ -82,7 +83,7 @@ public:
 	{
 		TileKey key;
 		Tiling::Vec middle; // where its mesh is from, on the planet
-		const std::vector<irr_ptr<scene::SMeshBuffer>> &parts;
+		const std::vector<irr_ptr<TileBuffer>> &parts;
 	};
 	// What update() chose, ready to draw.
 	std::vector<Drawn> drawn() const;
@@ -99,8 +100,8 @@ public:
 	bool based() const;
 
 	// A layer over the land: the colour a vertex is drawn, from its own and
-	// where it is (blocks from the planet's centre). Its alpha is ignored:
-	// the land is opaque.
+	// where it is (blocks from the planet's centre). Its alpha is kept: it
+	// marks a skirt (far/mesh.cpp), the land itself is opaque.
 	using Tint = std::function<video::SColor(video::SColor own, const Tiling::Vec &at)>;
 	// The land recoloured by it (none: their own colours), a few tiles each
 	// update (the drawn first) so no frame stalls; each as it's built.
@@ -124,11 +125,11 @@ private:
 	};
 	struct Entry
 	{
-		std::vector<irr_ptr<scene::SMeshBuffer>> parts;
+		std::vector<irr_ptr<TileBuffer>> parts;
 		// the same land by the child it lies in, for standing in behind it
 		// (behind()): made when it's first wanted, from its range of `parts`
 		// (one buffer, merged), and again after it's repainted
-		std::array<std::vector<irr_ptr<scene::SMeshBuffer>>, 4> quarters;
+		std::array<std::vector<irr_ptr<TileBuffer>>, 4> quarters;
 		struct Range
 		{
 			u32 v0 = 0, v1 = 0, i0 = 0, i1 = 0; // its vertices and indices in the merged buffer
@@ -157,8 +158,6 @@ private:
 
 	// how far a tile is from the eye along the ground (blocks, less half its size)
 	float distance(const TileKey &key, const Eye &eye) const;
-	// whether all of a tile is within the eye's cut (the near world's range)
-	bool inside(const TileKey &key, const Eye &eye) const;
 	// whether any of a tile is within what the eye sees (Eye::look)
 	bool seen(const TileKey &key, const Eye &eye) const;
 	bool choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::vector<std::pair<float, Key>> &want);

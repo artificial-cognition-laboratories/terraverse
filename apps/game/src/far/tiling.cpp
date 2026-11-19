@@ -96,7 +96,7 @@ void Tiling::place(Mesh &mesh, const TileKey &key) const
 	};
 	const v3f ex = axis(0.5, 0, 0), ez = axis(0, 0, 0.5);
 	for (Mesh::Part &part : mesh.parts)
-		for (video::S3DVertex &v : part.vertices) {
+		for (Vertex &v : part.vertices) {
 			const v3f t = v.Pos / BS;
 			const Vec p = point(key, t.X, t.Y, t.Z);
 			v.Pos = v3f(p.x - mid.x, p.y - mid.y, p.z - mid.z) * BS;

@@ -1,6 +1,7 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include "trace/trace.h"
 #include "planetarium/sky.h"
 #include "planetarium/camera.h"
 #include "planetarium/planetarium.h"
@@ -226,6 +227,7 @@ void Sky::OnRegisterSceneNode()
 
 void Sky::render()
 {
+	TF_ZONE("Space render"); // Terra Firma: inside Draw3D, timed (the debugger)
 	scene::ICameraSceneNode *camera = SceneManager->getActiveCamera();
 	if (!m_eye || !camera || SceneManager->getSceneNodeRenderPass() != scene::ESNRP_SKY_BOX)
 		return;

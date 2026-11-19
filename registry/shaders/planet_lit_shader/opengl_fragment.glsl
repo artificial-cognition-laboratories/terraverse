@@ -14,6 +14,8 @@ uniform vec4 litOcc2;
 uniform vec4 litOcc3;
 
 VARYING_ lowp vec4 varColor;
+VARYING_ lowp float varSkirt;
+uniform float litParts; // what's drawn: 0 the land, 1 the skirts, 2 both (a globe's all land)
 VARYING_ highp vec3 varWorld;
 VARYING_ mediump vec3 varNormal;
 VARYING_ highp float varHeight;
@@ -52,6 +54,8 @@ float contour(float step)
 
 void main(void)
 {
+	if ((litParts < 0.5 && varSkirt > 0.5) || (litParts > 0.5 && litParts < 1.5 && varSkirt < 0.5))
+		discard;
 	vec3 up = normalize(varWorld - litCentre);
 	// the land's slope, steeper as RELIEF says; walls (and spheres) keep their own
 	vec3 n = normalize(varNormal);

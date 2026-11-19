@@ -61,6 +61,7 @@
 #include <AnimatedMeshSceneNode.h>
 #include <ICameraSceneNode.h>
 #include "util/tracy_wrapper.h"
+#include "trace/report.h"
 #include "item_visuals_manager.h"
 #include "config.h"
 #if USE_SHELL
@@ -587,6 +588,7 @@ void Game::run()
 		}
 
 		framemarker.start();
+		trace::report::tick(porting::path_user + "/perf-reports"); // Terra Firma: the session's report (trace/report.h)
 
 		g_fontengine->handleReload();
 
@@ -677,7 +679,11 @@ void Game::run()
 		}
 		updateProfilerGraphs(&graph);
 
-		if (m_does_lost_focus_pause_game && !device->isWindowFocused() && !isMenuActive()) {
+		if (m_does_lost_focus_pause_game && !device->isWindowFocused() && !isMenuActive()
+#if USE_SHELL
+				&& !(g_shell && g_shell->debuggerOpen()) // Terra Firma: profiling a game that paused itself measures a menu
+#endif
+				) {
 #if USE_SHELL
 			m_shell_session->screens().open("pause");
 #else
@@ -698,6 +704,8 @@ void Game::run()
 
 void Game::shutdown()
 {
+	trace::report::finish(porting::path_user + "/perf-reports"); // Terra Firma: read after a run
+
 #if USE_SHELL
 	g_shell->serverInfo(nullptr); // it reads the server and client, about to go
 	input->capture({}); // its callback holds the session
@@ -2544,7 +2552,11 @@ inline void Game::step(f32 dtime)
 	ZoneScoped;
 
 	if (server) {
-		float fps_max = !device->isWindowFocused() && simple_singleplayer_mode ?
+		bool unfocused = !device->isWindowFocused();
+#if USE_SHELL
+		unfocused = unfocused && !(g_shell && g_shell->debuggerOpen()); // Terra Firma: the debugger keeps the pace
+#endif
+		float fps_max = unfocused && simple_singleplayer_mode ?
 				g_settings->getFloat("fps_max_unfocused") :
 				g_settings->getFloat("fps_max");
 		fps_max = std::max(fps_max, 1.0f);

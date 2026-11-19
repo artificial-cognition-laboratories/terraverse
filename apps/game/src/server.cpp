@@ -809,6 +809,19 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 		}
 	}
 
+	// Terra Firma: the players' report (reportPlayers), each half second
+	m_players_report_age += dtime;
+	if (m_players_report_age >= 0.5f) {
+		m_players_report_age = 0;
+		std::vector<PlayerReport> report;
+		{
+			EnvAutoLock envlock(this);
+			report = collectPlayers();
+		}
+		std::lock_guard<std::mutex> hold(m_players_report_lock);
+		m_players_report = std::move(report);
+	}
+
 	// If paused, this function is called with a 0.0f literal
 	if ((dtime == 0.0f) && !initial_step)
 		return;
@@ -868,18 +881,18 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 
 		// Terra Firma: machines move by physics, then the environment steps (sprint 57)
 		if (m_workshop)
-			m_workshop->step(dtime);
+			{ TF_ZONE("Server: machines"); m_workshop->step(dtime); }
 		// Terra Firma: what that pressed into loose ground, and how it slides (sprint 84)
 		if (m_piles)
 			pressGround(dtime);
 
 		// Step environment
-		m_env->step(dtime);
+		{ TF_ZONE("Server: environment"); m_env->step(dtime); }
 
 		// Terra Firma: a window for TypeScript mods (sprint 119)
 		if (m_sidecar) {
 			m_sidecar_now += dtime;
-			m_sidecar->step(dtime, m_sidecar_now);
+			{ TF_ZONE("Server: mods (sidecar)"); m_sidecar->step(dtime, m_sidecar_now); }
 			// new content can't be swapped into a running universe: stop, to be started again
 			if (m_sidecar->needsRestart() && !isShutdownRequested()) {
 				m_restart_for_mods = true;
@@ -892,14 +905,14 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 			m_probe->step(dtime);
 
 		// Terra Firma: each player's sky, from the real sun where they stand (sprint 119: was tf_sky)
-		terraStepSkies(this, dtime);
+		{ TF_ZONE("Server: sky"); terraStepSkies(this, dtime); }
 		// Terra Firma: each player's weight, and standing on the planet (sprint 119: were
 		// tf_flight's and tf_planet's)
-		terraStepGravity(this);
-		terraStepPlanet(this, dtime);
-		terraStepWeather(this, dtime);
-		terraStepPlayers(this, dtime);
-		terraStepMatter(this, dtime);
+		{ TF_ZONE("Server: gravity"); terraStepGravity(this); }
+		{ TF_ZONE("Server: planet"); terraStepPlanet(this, dtime); }
+		{ TF_ZONE("Server: weather"); terraStepWeather(this, dtime); }
+		{ TF_ZONE("Server: players"); terraStepPlayers(this, dtime); }
+		{ TF_ZONE("Server: matter"); terraStepMatter(this, dtime); }
 		// Terra Firma: the shore's smoothed ground holds water as a fill (sprint 81; sprint
 		// 119: was tf_world's on_generated)
 		{
@@ -919,7 +932,7 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 		// Terra Firma: dammed rivers' lakes rise (sprint 115)
 		m_lakes_dtime += dtime;
 		if (m_lakes_dtime >= 0.5f) {
-			terraStepLakes(this, m_lakes_dtime);
+			{ TF_ZONE("Server: lakes"); terraStepLakes(this, m_lakes_dtime); }
 			m_lakes_dtime = 0;
 		}
 
@@ -1319,7 +1332,8 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 
 void Server::Receive(float min_time)
 {
-	ZoneScoped;
+	// (no zone of its own: it's mostly waiting, shown as Wait, and the packets
+	// it handles are their own zone)
 	auto framemarker = FrameMarker("Server::Receive()-frame").started();
 
 	const u64 t0 = porting::getTimeUs();
@@ -1339,7 +1353,12 @@ void Server::Receive(float min_time)
 			// by calling ReceiveTimeoutMs(.., 0) repeatedly.
 			const u32 cur_timeout_ms = std::ceil(remaining_time_us() / 1000.0f);
 
-			if (!m_con->ReceiveTimeoutMs(&pkt, cur_timeout_ms)) {
+			bool got;
+			{
+				TF_ZONE("Wait"); // the step's rest, idle till a packet comes
+				got = m_con->ReceiveTimeoutMs(&pkt, cur_timeout_ms);
+			}
+			if (!got) {
 				// No incoming data.
 				if (remaining_time_us() > 0.0f)
 					continue;
@@ -1616,8 +1635,13 @@ void Server::deletingPeer(con::IPeer *peer, bool timeout)
 
 std::vector<Server::PlayerReport> Server::reportPlayers()
 {
+	std::lock_guard<std::mutex> hold(m_players_report_lock);
+	return m_players_report;
+}
+
+std::vector<Server::PlayerReport> Server::collectPlayers()
+{
 	std::vector<PlayerReport> out;
-	EnvAutoLock envlock(this);
 	for (RemotePlayer *player : m_env->getPlayers()) {
 		if (player->getPeerId() == PEER_ID_INEXISTENT)
 			continue;

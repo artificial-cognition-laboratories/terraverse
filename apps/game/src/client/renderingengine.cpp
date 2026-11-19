@@ -30,7 +30,6 @@
 #if USE_SHELL
 #include "shell/shell.h"
 #include "shell/entering.h"
-#include "far/view.h"
 #endif
 
 RenderingEngine *RenderingEngine::s_singleton = nullptr;
@@ -44,7 +43,12 @@ void FpsControl::reset()
 
 void FpsControl::limit(IrrlichtDevice *device, f32 *dtime)
 {
-	const float fps_limit = device->isWindowFocused()
+	// Terra Firma: not while the debugger's open (Shell::debuggerOpen)
+	bool keep_pace = device->isWindowFocused();
+#if USE_SHELL
+	keep_pace = keep_pace || (g_shell && g_shell->debuggerOpen());
+#endif
+	const float fps_limit = keep_pace
 			? g_settings->getFloat("fps_max")
 			: g_settings->getFloat("fps_max_unfocused");
 	const u64 frametime_min = 1000000.0f / std::max(fps_limit, 1.0f);
@@ -80,9 +84,6 @@ class FogShaderUniformSetter : public IShaderUniformSetter
 	CachedPixelShaderSetting<float, 4> m_fog_color{"fogColor"};
 	CachedPixelShaderSetting<float> m_fog_distance{"fogDistance"};
 	CachedPixelShaderSetting<float> m_fog_shading_parameter{"fogShadingParameter"};
-#if USE_SHELL
-	CachedPixelShaderSetting<float> m_near_cut{"nearCut"};
-#endif
 
 public:
 	void onSetUniforms(video::IMaterialRendererServices *services) override
@@ -109,11 +110,6 @@ public:
 		if (fog_end > 0)
 			parameter = 1.0f / (1.0f - fog_start / fog_end);
 		m_fog_shading_parameter.set(&parameter, services);
-#if USE_SHELL
-		// Terra Firma: where the far view takes over (far::nearCut)
-		const float cut = far::nearCut();
-		m_near_cut.set(&cut, services);
-#endif
 	}
 };
 

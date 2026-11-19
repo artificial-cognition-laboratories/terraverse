@@ -1,6 +1,7 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include "trace/trace.h"
 #include "client/liquids.h"
 #include "client/clientmap.h"
 #include "client/shader.h"
@@ -643,10 +644,12 @@ void Layer::update(const std::unordered_set<v3s16> &changed, const std::unordere
 	fall(map, dtime);
 	const s64 grids = micros();
 
-	// (at speed a new block's flat mesh could take 20 ms a frame: the rest wait for the next)
-	constexpr s64 HURRIED_FLAT_US = 2000;
+	// So much a frame, the rest waiting for the next (at speed a new block's flat
+	// mesh could take 20 ms a frame; a river rising rebuilt 98 blocks in one, 65 ms)
+	constexpr s64 HURRIED_FLAT_US = 2000, FLAT_US = 3000;
+	const s64 flat_budget = hurrying ? HURRIED_FLAT_US : FLAT_US;
 	for (v3s16 bp : rebuild) {
-		if (hurrying && micros() - grids > HURRIED_FLAT_US) {
+		if (micros() - grids > flat_budget) {
 			m_reflat.insert(bp);
 			continue;
 		}
@@ -1757,6 +1760,7 @@ void Layer::OnRegisterSceneNode()
 
 void Layer::render()
 {
+	TF_ZONE("Water render"); // Terra Firma: inside Draw3D, timed (the debugger)
 	video::IVideoDriver *driver = SceneManager->getVideoDriver();
 	if (SceneManager->getSceneNodeRenderPass() != scene::ESNRP_TRANSPARENT)
 		return;

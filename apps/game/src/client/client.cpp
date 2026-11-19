@@ -563,14 +563,21 @@ void Client::step(float dtime)
 		std::vector<v3s16> blocks_to_ack;
 		bool force_update_shadows = false;
 		MeshUpdateResult r;
-		// Terra Firma: only so many new meshes a frame. Each is uploaded to
-		// the GPU when it's first drawn, and a burst of them (a ring of
-		// detail crossed, a world arriving) was a frame of tens of ms; the
-		// rest wait a frame or two
+		// Terra Firma: only so much new mesh a frame. Each is uploaded to the
+		// GPU when it's first drawn, and a burst of them (a ring of detail
+		// crossed, a world arriving) was a frame of tens of ms; the rest wait
+		// a frame or two. By vertices, not meshes: a forest block's plants are
+		// hundreds of thousands, and twelve of them was 7 million vertices in
+		// one frame, 1.5 s. One mesh always goes, however big.
 		constexpr int MESHES_A_FRAME = 12;
-		while (num_processed_meshes < MESHES_A_FRAME && m_mesh_update_manager->getNextResult(r))
+		constexpr u32 VERTICES_A_FRAME = 400'000;
+		u32 vertices_taken = 0;
+		while (num_processed_meshes < MESHES_A_FRAME && (num_processed_meshes == 0 || vertices_taken < VERTICES_A_FRAME)
+				&& m_mesh_update_manager->getNextResult(r))
 		{
 			num_processed_meshes++;
+			if (r.mesh)
+				vertices_taken += r.mesh->vertexCount();
 
 			std::vector<MinimapMapblock*> minimap_mapblocks;
 			bool do_mapper_update = true;
@@ -601,7 +608,8 @@ void Client::step(float dtime)
 						do_mapper_update = false;
 
 					if (!r.mesh->isEmpty()) {
-						// Replace with the new mesh
+						// Replace with the new mesh (Terra Firma: on the GPU now, in this frame's budget)
+						r.mesh->upload(m_rendering_engine->get_video_driver());
 						block->mesh = r.mesh.release();
 						if (r.urgent)
 							force_update_shadows = true;
@@ -635,6 +643,7 @@ void Client::step(float dtime)
 
 			r.dropBlocks();
 		}
+		g_profiler->avg("Client: mesh vertices taken [#]", vertices_taken); // Terra Firma: what the GPU's given this frame
 		if (blocks_to_ack.size() > 0) {
 				// Acknowledge block(s)
 				sendGotBlocks(blocks_to_ack);

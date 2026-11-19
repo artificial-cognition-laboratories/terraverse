@@ -2,15 +2,23 @@
 /**
  * One chart of the Live tab: a few series over the shared window, as lines,
  * each pixel column drawing the most of its frames (a one-frame spike shows at
- * any width). Its title and each line's value sit in the corner: the newest
+ * any width). Its title and each line's value sit in the corner, with its
+ * unit (a zone's time in µs under a millisecond, ms over): the newest
  * frame's, or the one under the cursor. A series with nothing for a frame
  * (a counter that wasn't reported) leaves a gap there.
+ *
+ * Drawn only while on screen, and only the frames in the window: the panel
+ * shares the game's frame, so every chart redrawn every message, all of the
+ * kept frames each, was the game's time too.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from "vue"
 import type { PerfFrame } from "../../bridge/index.ts"
+import { formatValue } from "./counters.ts"
+import { forget, markStale } from "./drawLoop.ts"
 import type { Window } from "./view.ts"
 
-export type Series = { name: string; color: string; value: (frame: PerfFrame) => number; bold?: boolean }
+/** `unit`: a counter's, as the engine names it ("#", "%"); none: a time in ms. */
+export type Series = { name: string; color: string; value: (frame: PerfFrame) => number; bold?: boolean; unit?: string }
 
 const props = defineProps<{
     title: string
@@ -21,8 +29,12 @@ const props = defineProps<{
     /** ms lines to draw across: the frame budgets, on the frame chart. */
     budgets?: readonly { ms: number; label: string }[]
     cursor: number | null
-    /** How a value reads in the corner: ms by default. */
-    format?: (value: number) => string
+    /**
+     * As Luanti's graphs: one series on a scale from zero to its most in the
+     * window, that most at the top right and its least (the work it does
+     * every frame, whatever happens) at the bottom right.
+     */
+    bounds?: boolean
 }>()
 
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -38,18 +50,37 @@ const readings = computed(() => {
     let i = list.length - 1
     while (i >= 0 && list[i]!.start > at) i--
     return props.series.map((s) => {
-        for (let k = i; k >= 0 && k > i - 600; k--) {
+        for (let k = i; k >= 0 && k > i - 120; k--) {
             const v = s.value(list[k]!)
             if (!Number.isNaN(v)) return v
         }
         return Number.NaN
     })
 })
-const fmt = (v: number) => (Number.isNaN(v) ? "–" : props.format ? props.format(v) : v >= 10 ? v.toFixed(1) : v.toFixed(2))
+/** A time (ms) in the unit that reads best: µs under a millisecond. */
+function time(ms: number) {
+    if (ms === 0) return "0"
+    if (ms < 1) return `${Math.round(ms * 1000)} µs`
+    return `${ms >= 10 ? ms.toFixed(1) : ms.toFixed(2)} ms`
+}
+const fmt = (s: Series, v: number) => (Number.isNaN(v) ? "–" : s.unit === undefined ? time(v) : formatValue(v, s.unit))
+
+/** The first frame that could show in the window (frames are in order). */
+function firstFrom(ms: number) {
+    const list = props.frames
+    let lo = 0
+    let hi = list.length
+    while (lo < hi) {
+        const mid = (lo + hi) >> 1
+        if (list[mid]!.end < ms) lo = mid + 1
+        else hi = mid
+    }
+    return lo
+}
 
 function draw() {
     const el = canvas.value
-    if (!el || width.value === 0) return
+    if (!el || width.value === 0 || !visible) return
     const dpr = window.devicePixelRatio || 1
     const w = Math.round(width.value * dpr)
     const h = Math.round(props.height * dpr)
@@ -71,12 +102,14 @@ function draw() {
     // window: as the window slides, the same frames stay together and the line
     // moves whole, rather than regrouping (and changing shape) every update.
     // Zoomed in past a frame a pixel, each frame is its own point.
-    const msPerPixel = span / Math.max(width.value, 1)
+    const msPerPixel = span / Math.max(width.value * dpr, 1) // a group a device pixel
     // A group's point sits at its newest frame's end: fixed in time (so it
     // doesn't jitter), and the newest of all exactly at the right border. A
     // few groups past the left edge are drawn too, and cut by it, so the line
     // runs in from beyond the border rather than starting short of it.
     const points = props.series.map(() => [] as [number, number][])
+    let least = Number.POSITIVE_INFINITY // the first series', frame by frame, in the window
+    let most_ = 0
     let group = Number.NaN
     let most: number[] = []
     let groupEnd = 0
@@ -86,8 +119,9 @@ function draw() {
             if (!Number.isNaN(v)) points[k]!.push([xOf(groupEnd), v])
         })
     }
-    for (const f of props.frames) {
-        if (f.end < startMs - msPerPixel * 4 || f.start > endMs) continue
+    for (let n = firstFrom(startMs - msPerPixel * 4); n < props.frames.length; n++) {
+        const f = props.frames[n]!
+        if (f.start > endMs) break
         const at = Math.floor(f.end / msPerPixel)
         if (at !== group) {
             flush()
@@ -98,6 +132,10 @@ function draw() {
         props.series.forEach((s, k) => {
             const v = s.value(f)
             if (Number.isNaN(v)) return // not reported that frame: a gap, not a zero
+            if (k === 0 && f.start >= startMs) {
+                least = Math.min(least, v)
+                most_ = Math.max(most_, v)
+            }
             const was = most[k]!
             most[k] = Number.isNaN(was) ? v : Math.max(was, v)
         })
@@ -106,7 +144,7 @@ function draw() {
     let top = 0
     for (const list of points) for (const [, v] of list) top = Math.max(top, v)
     for (const b of props.budgets ?? []) top = Math.max(top, b.ms)
-    top = Math.max(top * 1.15, 0.05)
+    top = props.bounds ? Math.max(most_, 1e-6) : Math.max(top * 1.15, 0.05)
     const pad = 3
     const y = (v: number) => props.height - pad - (v / top) * (props.height - pad * 2 - 12)
 
@@ -136,23 +174,32 @@ function draw() {
         g.stroke()
     })
 
+    if (props.bounds && Number.isFinite(least)) {
+        // the scale's ends, fixed in the corners (riding the line, they moved as it did)
+        const unit = props.series[0]?.unit
+        const say = (v: number) => (unit === undefined ? time(v) : formatValue(v, unit))
+        g.font = "9px ui-monospace, monospace"
+        g.textAlign = "right"
+        g.fillStyle = "rgb(255 255 255 / 0.45)"
+        g.textBaseline = "top"
+        g.fillText(say(most_), width.value - 4, 3)
+        g.textBaseline = "bottom"
+        g.fillText(say(least), width.value - 4, props.height - 2)
+        g.textAlign = "left"
+    }
     if (props.cursor !== null && props.cursor >= startMs && props.cursor <= endMs) {
         g.fillStyle = "rgb(255 255 255 / 0.35)"
         g.fillRect(Math.round(((props.cursor - startMs) / span) * width.value), 0, 1, props.height)
     }
 }
 
-let pending: number | null = null
-function redraw() {
-    if (pending !== null) return
-    pending = requestAnimationFrame(() => {
-        pending = null
-        draw()
-    })
-}
+// drawn with the rest of the panel's charts (drawLoop.ts)
+const redraw = () => markStale(draw)
 watch(() => [props.frames, props.series, props.window.startMs, props.window.endMs, props.cursor, props.height], redraw)
 
 let observer: ResizeObserver | null = null
+let seen: IntersectionObserver | null = null
+let visible = false
 onMounted(() => {
     const el = canvas.value?.parentElement
     if (!el) throw new Error("perf: a chart isn't mounted")
@@ -161,10 +208,17 @@ onMounted(() => {
         redraw()
     })
     observer.observe(el)
+    // scrolled out of the panel, it isn't drawn; back in, it catches up at once
+    seen = new IntersectionObserver((entries) => {
+        visible = entries.some((e) => e.isIntersecting)
+        if (visible) redraw()
+    })
+    seen.observe(el)
 })
 onUnmounted(() => {
     observer?.disconnect()
-    if (pending !== null) cancelAnimationFrame(pending)
+    seen?.disconnect()
+    forget(draw)
 })
 </script>
 
@@ -174,7 +228,7 @@ onUnmounted(() => {
         <div class="read">
             <b>{{ title }}</b>
             <span v-for="(s, k) in series" :key="s.name"><i :style="{ background: s.color }" />{{ s.name }}
-                <em>{{ fmt(readings[k] ?? Number.NaN) }}</em></span>
+                <em>{{ fmt(s, readings[k] ?? Number.NaN) }}</em></span>
         </div>
     </div>
 </template>

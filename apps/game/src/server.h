@@ -486,7 +486,9 @@ public:
 	bool getClientConInfo(session_t peer_id, con::rtt_stat_type type, float *retval);
 
 	// Terra Firma: each connected player as the debugger's Server tab lists
-	// them, read under the environment's lock.
+	// them: the server's own copy, made each half second under its lock, so
+	// any thread reads it without waiting (the debugger asking under the lock
+	// itself waited out SendBlocks, a game frame of up to 380 ms).
 	struct PlayerReport
 	{
 		std::string name;
@@ -498,6 +500,12 @@ public:
 		u16 protocol;
 	};
 	std::vector<PlayerReport> reportPlayers();
+private:
+	std::vector<PlayerReport> collectPlayers(); // under the environment's lock
+	std::mutex m_players_report_lock;
+	std::vector<PlayerReport> m_players_report;
+	float m_players_report_age = 1e9f;
+public:
 	bool getClientInfo(session_t peer_id, ClientInfo &ret);
 	const ClientDynamicInfo *getClientDynamicInfo(session_t peer_id);
 

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "motion.h"
+#include "ground_read.h"
 #include "entities.h"
 #include "fracture.h"
 #include "rubble.h"
@@ -433,111 +434,10 @@ float surfaceGrip(Map &map, const NodeDefManager *, const Materials &materials, 
 
 bool groundBoxes(Map &map, const NodeDefManager *ndef, v3s16 block, std::vector<aabb3f> &boxes)
 {
-	MapBlock *b = map.getBlockNoCreateNoEx(block);
-	if (!b)
+	const std::optional<GroundSnapshot> snap = GroundSnapshot::take(map, block);
+	if (!snap)
 		return false;
-	std::vector<aabb3f> nb;
-	const v3s16 base = block * MAP_BLOCKSIZE;
-	// Smoothed ground's shape is read from the columns round it: ~300
-	// nodes for each loose node at the surface, every one a lookup in the
-	// map (sprint 107: 15–20 ms a block on the frame's thread, more by a
-	// shore). Each node's read once here, into the block and what's round
-	// it that a column reaches, and each top's found once
-	constexpr int MARGIN = 1 + ground::REACH + 2;
-	constexpr int SIDE = MAP_BLOCKSIZE + 2 * MARGIN;
-	std::vector<MapNode> seen(SIDE * SIDE * SIDE);
-	std::vector<s8> seen_known(SIDE * SIDE * SIDE, -1); // -1 unread; else whether it's a cube (atlas's cut)
-	const planet::Atlas *atlas = map.getAtlas();
-	auto cell = [&](v3s16 q) -> int {
-		const v3s16 r = q - base + v3s16(MARGIN);
-		if (r.X < 0 || r.Y < 0 || r.Z < 0 || r.X >= SIDE || r.Y >= SIDE || r.Z >= SIDE)
-			return -1;
-		const int i = (r.Z * SIDE + r.Y) * SIDE + r.X;
-		if (seen_known[i] < 0) {
-			seen[i] = ground::seen(map.getNode(q), map.getShape(q));
-			seen_known[i] = atlas && atlas->cut({ q.X, q.Y, q.Z }).has_value();
-		}
-		return i;
-	};
-	auto get = [&](v3s16 q) {
-		const int i = cell(q);
-		return i < 0 ? ground::seen(map.getNode(q), map.getShape(q)) : seen[i];
-	};
-	auto cube = [&](v3s16 q) {
-		const int i = cell(q);
-		return i < 0 ? atlas && atlas->cut({ q.X, q.Y, q.Z }).has_value() : seen_known[i] == 1;
-	};
-	const ground::Ground smoothing(*ndef);
-	std::unordered_map<v3s16, std::optional<ground::Top>> tops;
-	// as Map::groundTop, from what's read here
-	auto top = [&](v3s16 p) -> const std::optional<ground::Top> & {
-		auto it = tops.find(p);
-		if (it == tops.end()) {
-			std::optional<ground::Top> t;
-			if (!map.getShape(p) && !map.getShape(p + v3s16(0, 1, 0)))
-				t = smoothing.top(get, cube, p);
-			it = tops.emplace(p, t).first;
-		}
-		return it->second;
-	};
-	// a plain whole block: inside the ground, it's left out. Asked of each
-	// node and its six neighbours, so each is weighed once (sprint 85: a
-	// loose node's smoothing read the columns round it, seven times a node,
-	// and a block of sand or soil took tens of ms each time it changed)
-	constexpr int SPAN = MAP_BLOCKSIZE + 2;
-	std::array<s8, SPAN * SPAN * SPAN> known;
-	known.fill(-1);
-	auto whole = [&](v3s16 rel) {
-		s8 &k = known[((rel.Z + 1) * SPAN + rel.Y + 1) * SPAN + rel.X + 1];
-		if (k >= 0)
-			return k == 1;
-		const v3s16 p = base + rel;
-		const MapNode n = map.getNode(p);
-		const ContentFeatures &f = ndef->get(n);
-		bool is = f.walkable && f.drawtype == NDT_NORMAL && !map.getShape(p);
-		// loose ground is smoothed only at its surface: under something
-		// walkable (not cut) it's whole, no columns to read
-		if (is && f.loose) {
-			const v3s16 up = p + v3s16(0, 1, 0);
-			const ContentFeatures &over = ndef->get(map.getNode(up));
-			if (!(over.walkable && !map.getShape(up)))
-				is = !top(p); // (not cut: `is` says so)
-		}
-		k = is ? 1 : 0;
-		return is;
-	};
-	for (s16 x = 0; x < MAP_BLOCKSIZE; x++)
-		for (s16 y = 0; y < MAP_BLOCKSIZE; y++)
-			for (s16 z = 0; z < MAP_BLOCKSIZE; z++) {
-				const v3s16 rel(x, y, z);
-				const MapNode n = b->getNodeNoCheck(rel);
-				if (n.getContent() == CONTENT_IGNORE)
-					return false;
-				if (!ndef->get(n).walkable)
-					continue;
-				const bool inner = x > 0 && y > 0 && z > 0 && x < MAP_BLOCKSIZE - 1 && y < MAP_BLOCKSIZE - 1
-						&& z < MAP_BLOCKSIZE - 1;
-				if (inner && whole(rel) && whole(rel + v3s16(1, 0, 0)) && whole(rel - v3s16(1, 0, 0))
-						&& whole(rel + v3s16(0, 1, 0)) && whole(rel - v3s16(0, 1, 0))
-						&& whole(rel + v3s16(0, 0, 1)) && whole(rel - v3s16(0, 0, 1)))
-					continue;
-				const v3s16 p = base + rel;
-				nb.clear();
-				if (whole(rel))
-					nb.push_back(aabb3f(v3f(-0.5f * BS), v3f(0.5f * BS))); // buried, at the block's edge: no columns read
-				else if (const shape::Shape *cut = map.getShape(p))
-					cut->boxes(nb);
-				else if (const std::optional<ground::Top> &t = top(p))
-					t->boxes(nb);
-				else
-					n.getCollisionBoxes(ndef, &nb, n.getNeighbors(p, &map));
-				for (aabb3f box : nb) {
-					box.MinEdge = box.MinEdge / BS + v3f::from(rel);
-					box.MaxEdge = box.MaxEdge / BS + v3f::from(rel);
-					if (box.getVolume() > 0)
-						boxes.push_back(box);
-				}
-			}
+	boxes = snap->boxes(ndef, map.getAtlas());
 	return true;
 }
 

@@ -16,6 +16,7 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include "threading/pool.h"
 #include <optional>
 #include <utility>
 #include <vector>
@@ -221,4 +222,8 @@ private:
 	float m_push_age = 0;
 	bool m_moved = false; // move() stepped the world since stepObjects() last looked
 	double m_idle = 0;    // s not yet stepped without them
+	// Last, so they're gone before what their work reads: stand-ins (standIn),
+	// and the land under a flight (landBelow) on its own, never queued behind them.
+	threading::Pool m_standin_workers{ { "Body: stand-ins", 2 } };
+	threading::Pool m_sky_worker{ { "Body: land below", 1 } };
 };

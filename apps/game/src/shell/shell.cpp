@@ -325,6 +325,11 @@ Shell::~Shell()
 	CefShutdown();
 }
 
+bool Shell::debuggerOpen() const
+{
+	return m->debugger && m->debugger->open();
+}
+
 void Shell::frame()
 {
 	{

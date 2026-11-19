@@ -1,7 +1,9 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include "trace/trace.h"
 #include "view.h"
+#include "far/mask.h"
 #include "far/mesh.h"
 #include "far/tiles.h"
 #include "client/atlas_view.h"
@@ -41,8 +43,16 @@ struct DrawState
 	float place[4] = {}; // the eye: map x, z (blocks), altitude (m), unused
 	float air = 1;      // m: the air's scale height
 	float behind = 0;   // 1: a stand-in, behind everything
+	float parts = 0;    // what of a tile's drawn: 0 the land, 1 its skirts, 2 both (far/mesh.cpp)
 	float level = -1;   // with far_view_debug_levels: the tile being drawn's level, to tint it by (−1: none)
-	float cell = 1;     // the tile being drawn's cells, blocks: how far off the true ground its land may be
+	// the near world's columns in the tile's region (far/mask.h): 0 none
+	float mask = 0;
+	float mask_shift[2] = {}; // the tile's grid position to the mask's, cells (+½: a cell's edge)
+	float mask_size[2] = { 1, 1 }; // texels
+	float mask_base = 0;     // the block the mask's heights are from
+	float layer = 0;         // a height over the sea (blocks) to the map's y, just under a face on it
+	float range = 0;         // scene units: past this from the eye nothing's drawn, whatever the tile's level
+	float show_mask = 0;     // far_view_debug_mask: what the mask drops painted magenta, not dropped
 };
 
 class Uniforms : public IShaderUniformSetterRC
@@ -52,7 +62,6 @@ public:
 
 	void onSetUniforms(video::IMaterialRendererServices *services) override
 	{
-		m_cut_vertex.set(&m_state->cut, services);
 		m_cut_pixel.set(&m_state->cut, services);
 		m_share.set(&m_state->share, services);
 		m_sea.set(&m_state->sea, services);
@@ -60,13 +69,19 @@ public:
 		m_place_pixel.set(m_state->place, services);
 		m_air.set(&m_state->air, services);
 		m_behind.set(&m_state->behind, services);
+		m_parts.set(&m_state->parts, services);
 		m_level.set(&m_state->level, services);
-		m_cell.set(&m_state->cell, services);
+		m_mask.set(&m_state->mask, services);
+		m_mask_shift.set(m_state->mask_shift, services);
+		m_mask_size.set(m_state->mask_size, services);
+		m_mask_base.set(&m_state->mask_base, services);
+		m_layer.set(&m_state->layer, services);
+		m_range.set(&m_state->range, services);
+		m_show_mask.set(&m_state->show_mask, services);
 	}
 
 private:
 	std::shared_ptr<const DrawState> m_state;
-	CachedVertexShaderSetting<float> m_cut_vertex{"farCut"};
 	CachedPixelShaderSetting<float> m_cut_pixel{"farCut"};
 	CachedPixelShaderSetting<float> m_share{"farShare"};
 	CachedVertexShaderSetting<float> m_sea{"farSea"};
@@ -74,32 +89,84 @@ private:
 	CachedPixelShaderSetting<float, 4> m_place_pixel{"farPlace"};
 	CachedPixelShaderSetting<float> m_air{"farAir"};
 	CachedPixelShaderSetting<float> m_behind{"farBehind"};
+	CachedPixelShaderSetting<float> m_parts{"farParts"};
 	CachedPixelShaderSetting<float> m_level{"farLevel"};
-	CachedVertexShaderSetting<float> m_cell{"farCell"};
+	CachedPixelShaderSetting<float> m_mask{"farMask"};
+	CachedPixelShaderSetting<float, 2> m_mask_shift{"farMaskShift"};
+	CachedPixelShaderSetting<float, 2> m_mask_size{"farMaskSize"};
+	CachedPixelShaderSetting<float> m_mask_base{"farMaskBase"};
+	CachedPixelShaderSetting<float> m_layer{"farLayer"};
+	CachedPixelShaderSetting<float> m_range{"farRange"};
+	CachedPixelShaderSetting<float> m_show_mask{"farShowMask"};
 };
-
-static float g_near_cut = 0; // (main thread: set in update, read as the frame's drawn)
-
-float nearCut()
-{
-	return g_near_cut;
-}
 
 static void settingChanged(const std::string &, void *data)
 {
 	static_cast<View *>(data)->readSettings();
 }
 
-static const char *const SETTINGS[] = { "far_view", "far_view_detail", "far_view_max", "far_view_debug_levels" };
+static const char *const SETTINGS[] = { "far_view", "far_view_detail", "far_view_max", "far_view_debug_levels", "far_view_debug_mask" };
+
+// How far from the eye (blocks) the nearest part of a map block column is
+// that the near world doesn't draw, up to `most`: none of the far land is
+// nearer. A column it draws is open at every block of it it doesn't have
+// (flying, the air round the eye is loaded before the ground under it).
+static float openFrom(const Coverage &coverage, v3f eye, float most)
+{
+	const auto &columns = coverage.columns();
+	const s32 reach = (s32)std::ceil(most / MAP_BLOCKSIZE) + 1;
+	const s32 ex = (s32)std::floor(eye.X / MAP_BLOCKSIZE), ez = (s32)std::floor(eye.Z / MAP_BLOCKSIZE);
+	float open = most;
+	for (s32 dz = -reach; dz <= reach; dz++)
+		for (s32 dx = -reach; dx <= reach; dx++) {
+			const v2s16 c((s16)(ex + dx), (s16)(ez + dz));
+			// the nearest point of its square (a node's centre is whole: its edge ±½)
+			const float x0 = c.X * MAP_BLOCKSIZE - 0.5f, z0 = c.Y * MAP_BLOCKSIZE - 0.5f;
+			const float nx = std::clamp(eye.X, x0, x0 + MAP_BLOCKSIZE), nz = std::clamp(eye.Z, z0, z0 + MAP_BLOCKSIZE);
+			const float across = std::hypot(eye.X - nx, eye.Z - nz);
+			// up or down to the nearest block of it the near world doesn't have
+			float up = 0;
+			const auto it = columns.find(c);
+			if (it != columns.end()) {
+				const std::vector<s16> &ys = it->second;
+				const auto has = [&](s32 y) { return std::find(ys.begin(), ys.end(), y) != ys.end(); };
+				const s32 own = (s32)std::floor((eye.Y + 0.5f) / MAP_BLOCKSIZE);
+				if (has(own)) {
+					s32 below = own, above = own;
+					while (has(below - 1))
+						below--;
+					while (has(above + 1))
+						above++;
+					up = std::min(eye.Y - (below * MAP_BLOCKSIZE - 0.5f), (above + 1) * MAP_BLOCKSIZE - 0.5f - eye.Y);
+				}
+			}
+			open = std::min(open, std::hypot(across, up));
+		}
+	return open;
+}
+
+// The share of the way to the nearest far land the near plane may sit at.
+// `m_open` is a distance from the eye; the near plane cuts by depth along the
+// view, and land at a screen corner is only cos(its angle) as deep: taken as
+// half the distance, far land off to the side was clipped, the stand-ins
+// behind showing through it as flat slabs as you flew.
+static float nearShare(const scene::ICameraSceneNode *camera)
+{
+	const float tan_y = std::tan(camera->getFOV() / 2), tan_x = tan_y * camera->getAspectRatio();
+	const float corner = std::atan(std::hypot(tan_x, tan_y)); // the widest angle on screen
+	return 0.9f * std::cos(corner);
+}
 
 View::View(scene::ISceneManager *smgr, IShaderSource *ssrc, ITextureSource *tsrc,
 		const NodeDefManager *ndef, const Horizon &horizon, const planet::Atlas &atlas, int body) :
 	scene::ISceneNode(smgr->getRootSceneNode(), smgr, -1),
 	m_water_level(horizon.water_level),
 	m_radius(atlas.body(body).params().radius),
+	m_grids(atlas.body(body).grids()),
 	m_palette(std::make_unique<Palette>(Palette::live(ndef, tsrc, blocksIn(horizon.content)))),
 	m_tiles(std::make_unique<Tiles>(atlas, body, horizon, *m_palette, Tiles::threadsFor(0.5f))), // half the machine: the horizon is what a world is first seen by
-	m_state(std::make_shared<DrawState>())
+	m_state(std::make_shared<DrawState>()),
+	m_mask(std::make_unique<Mask>(smgr->getVideoDriver(), atlas, body))
 {
 	m_uniforms = make_irr<Uniforms>(m_state);
 	u32 shader = ssrc->getShader("far_globe_shader", ShaderConstants{}, video::EMT_SOLID, m_uniforms.get());
@@ -107,8 +174,13 @@ View::View(scene::ISceneManager *smgr, IShaderSource *ssrc, ITextureSource *tsrc
 	m_material.BackfaceCulling = false;
 	m_material.FogEnable = false; // the shader fogs to the horizon itself
 	m_material.UseMipMaps = false;
+	// the mask (far/mask.h): a texel a column, never blended
+	video::SMaterialLayer &layer = m_material.TextureLayers[0];
+	layer.MinFilter = video::ETMINF_NEAREST_MIPMAP_NEAREST;
+	layer.MagFilter = video::ETMAGF_NEAREST;
+	layer.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+	layer.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
 
-	// the mask: rewritten as the near world loads, so no mipmaps to go stale
 	// drawn whatever the camera looks at: the tiles surround it
 	setAutomaticCulling(scene::EAC_OFF);
 
@@ -132,6 +204,7 @@ void View::readSettings()
 	m_split = SPLIT[detail - 1];
 	m_max = g_settings->getFloat("far_view_max");
 	m_debug_levels = g_settings->getBool("far_view_debug_levels");
+	m_debug_mask = g_settings->getBool("far_view_debug_mask");
 }
 
 void View::update(const Camera &camera, ClientMap &map, float near_range, bool range_all,
@@ -141,7 +214,6 @@ void View::update(const Camera &camera, ClientMap &map, float near_range, bool r
 	m_view = map.atlasView();
 	const std::optional<planet::Atlas::Frame> frame = m_view ? m_view->eye() : std::nullopt;
 	m_showing = false;
-	g_near_cut = 0;
 	if (!frame)
 		return; // the eye has no grid this frame (seam): nothing is drawn from it
 
@@ -166,14 +238,20 @@ void View::update(const Camera &camera, ClientMap &map, float near_range, bool r
 	if (fog_limit)
 		range = std::min(range, *fog_limit);
 	m_cut = near_range;
+	m_range = std::hypot(range, m_altitude);
 	m_reach = std::max(range, horizon) * BS + m_altitude * BS;
 	m_showing = m_enabled && !range_all && range > m_cut;
 	if (!m_showing)
 		return;
-	g_near_cut = m_cut * BS;
+	m_map = &map; // the mask's made from it as it's drawn (render)
 
 	// a block is a metre: the height counts toward a tile's distance as is
-	const Eye at{ { o.x / centre * sea, o.y / centre * sea, o.z / centre * sea }, m_altitude, m_cut, range, m_split, true };
+	// The detail goes by the player's viewing range, never the near world's
+	// range this frame: that jumps as a flight changes tier (Body::nearRange),
+	// and tiles chosen by it flipped between whole and split, a coarse one
+	// standing over the land and gone again (held a few seconds, in bursts).
+	m_detail_cut = std::max(m_cut, (float)g_settings->getS16("viewing_range"));
+	const Eye at{ { o.x / centre * sea, o.y / centre * sea, o.z / centre * sea }, m_altitude, m_detail_cut, range, m_split, true };
 	Eye moving = at;
 	if (const float pace = velocity.getLength(); pace > 1)
 		for (int i = 0; i < 3; i++) {
@@ -184,6 +262,10 @@ void View::update(const Camera &camera, ClientMap &map, float near_range, bool r
 		}
 	ScopeProfiler timed(g_profiler, "Far view update [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
 	m_tiles->update(moving);
+	// what it chose (the debugger's counters): stand-ins mean holes the backdrop shows through
+	g_profiler->avg("Far view: tiles drawn [#]", m_tiles->drawn().size());
+	g_profiler->avg("Far view: stand-ins [#]", m_tiles->behind().size());
+	g_profiler->avg("Far view: tiles wanted [#]", m_tiles->pending());
 	m_eye = eye;
 }
 
@@ -196,12 +278,20 @@ void View::OnRegisterSceneNode()
 
 void View::render()
 {
+	TF_ZONE("Far view render"); // Terra Firma: inside Draw3D, timed (the debugger)
 	video::IVideoDriver *driver = SceneManager->getVideoDriver();
 	scene::ICameraSceneNode *camera = SceneManager->getActiveCamera();
 	if (!camera || SceneManager->getSceneNodeRenderPass() != scene::ESNRP_SKY_BOX)
 		return;
 
 	const v3f origin = camera->getAbsolutePosition() - m_eye * BS; // the scene position of map node (0, 0, 0)
+	// The near world's columns as they are now, not at update(): the draw list
+	// is made again after it (Game), and a frame behind, a block just drawn by
+	// the near world was drawn by this too, its land a few blocks off over it,
+	// and one just let go was drawn by neither, a hole.
+	m_material.setTexture(0, nullptr); // (the material lets go of the mask's old textures before they go)
+	m_mask->update(m_map->coverage(), (s16)std::floor((m_eye.Y + 0.5f) / MAP_BLOCKSIZE));
+	m_open = openFrom(m_map->coverage(), m_eye, m_cut);
 	// The camera's frustum as it draws this frame (its sides; the near and far
 	// planes aren't the far view's). Not Camera::getFrustumCuller's, taken in
 	// update(): the node's frustum is made as it renders, so that was the last
@@ -217,6 +307,8 @@ void View::render()
 		return false;
 	};
 	m_state->cut = m_cut * BS;
+	m_state->range = m_range * BS;
+	m_state->show_mask = m_debug_mask ? 1 : 0;
 	m_state->share = m_share;
 	m_state->sea = origin.Y + m_water_level * BS;
 	m_state->place[0] = m_eye.X;
@@ -224,7 +316,33 @@ void View::render()
 	m_state->place[2] = m_altitude;
 	m_state->air = (float)terragen::sphere(m_radius).scale_height;
 
-	const auto draw = [&](const std::vector<Tiles::Drawn> &tiles, bool only_near) {
+	// The near world's columns aren't drawn (far/mask.h): it draws them after,
+	// and the far land shows wherever it doesn't, a column at a time.
+	m_state->layer = m_water_level + 0.99f;
+	const video::ITexture *bound = nullptr;
+	bool set = false;
+	const auto masked = [&](const TileKey &key) {
+		const Mask::Face *f = m_mask->face(key.face);
+		m_state->mask = f ? 1 : 0;
+		video::ITexture *texture = f ? f->texture : nullptr;
+		if (f) {
+			const terragen::Atlas::Grid &g = m_grids.at(key.face);
+			// in double: grid positions are large, their differences small
+			m_state->mask_shift[0] = (float)((double)g.low[0] + (double)key.x * key.span() + 0.5 - (double)f->i0);
+			m_state->mask_shift[1] = (float)((double)g.low[1] + (double)key.z * key.span() + 0.5 - (double)f->j0);
+			m_state->mask_size[0] = (float)f->width;
+			m_state->mask_size[1] = (float)f->height;
+			m_state->mask_base = f->base;
+		}
+		if (!set || texture != bound) {
+			m_material.setTexture(0, texture);
+			driver->setMaterial(m_material);
+			bound = texture;
+			set = true;
+		}
+	};
+	// `under`: the near world's ground, unmasked, for the backdrop (only near it)
+	const auto draw = [&](const std::vector<Tiles::Drawn> &tiles, bool under) {
 		for (const Tiles::Drawn &tile : tiles) {
 			const std::optional<core::matrix4> world = m_view->place(tile.middle);
 			if (!world)
@@ -239,41 +357,50 @@ void View::render()
 			const float reach = box.getExtent().getLength() / 2;
 			if (culled(box.getCenter(), reach))
 				continue;
-			if (only_near && box.getCenter().getDistanceFrom(camera->getAbsolutePosition()) - reach > m_state->cut)
+			if (under && box.getCenter().getDistanceFrom(camera->getAbsolutePosition()) - reach > m_state->cut)
 				continue;
 			driver->setTransform(video::ETS_WORLD, *world);
+			masked(tile.key);
+			if (under)
+				m_state->mask = 0;
 			m_state->level = m_debug_levels ? (float)tile.key.level : -1; // (the shader's told at each draw)
-			m_state->cell = (float)tile.key.cell();
 			for (const auto &part : tile.parts)
 				driver->drawMeshBuffer(part.get());
 		}
 	};
-	// The backdrop: what shows where the near blocks or a finer tile haven't arrived.
-	// Drawn with true depth, so it hides itself properly, then its depth is dropped:
-	// everything after draws over it, and nothing of it can cover a pit or a lake bed.
-	driver->setMaterial(m_material);
-	m_state->behind = 1;
-	draw(m_tiles->behind(), false);
-	draw(m_tiles->drawn(), true);
-	driver->clearBuffers(video::ECBF_DEPTH);
-	// The land past the cut, with its own depth: the camera's near plane is a
-	// tenth of a block (blocks at the eye), and against it the depth buffer
-	// kilometres off can't tell surfaces blocks apart: a tile's walls behind
-	// the ground in front came through it, flickering as the eye moved. Here
-	// the near plane is half the cut (nothing nearer is drawn), and the depth
-	// is dropped after: the near world is all nearer than the cut (nodes_shader's
-	// nearCut), so nothing after needs to be tested against it (clouds draw over it).
+	// The backdrop: what shows only through gaps in the land, its depth dropped
+	// after, so it can never cover any. The stand-ins (where a finer tile isn't
+	// built yet) and every tile's skirts (far/mesh.cpp), in the far view's own
+	// depth (in the camera's, a tenth of a block near, kilometres off their own
+	// walls came through their tops, flickering); then, in the camera's, the
+	// land under the near world, which shows only through the cracks between
+	// its blocks' meshes.
 	const core::matrix4 projection = driver->getTransform(video::ETS_PROJECTION);
 	core::matrix4 own;
 	own.buildProjectionMatrixPerspectiveFovLH(camera->getFOV(), camera->getAspectRatio(),
-			std::max(m_state->cut * 0.5f, 0.1f * BS), std::max(camera->getFarValue(), m_reach));
+			std::max(m_open * nearShare(camera) * BS, 0.1f * BS), std::max(camera->getFarValue(), m_reach));
+	driver->setMaterial(m_material);
 	driver->setTransform(video::ETS_PROJECTION, own);
-	m_state->behind = 0; // (the shader's told at each draw)
-	// the stand-ins again, in this depth: a finer tile's skirt beside one hangs
-	// under its ground and must be hidden by it (drawn over its dropped depth,
-	// it stood as a wall over the land while the finer ones came in). Only
-	// over their holes (Tiles::behind), so they cover nothing that's there.
+	m_state->behind = 1;
+	m_state->parts = 2;
 	draw(m_tiles->behind(), false);
+	m_state->behind = 0;
+	m_state->parts = 1;
+	draw(m_tiles->drawn(), false);
+	driver->clearBuffers(video::ECBF_DEPTH);
+	driver->setTransform(video::ETS_PROJECTION, projection);
+	m_state->parts = 2;
+	draw(m_tiles->drawn(), true);
+	m_state->mask = 0;
+	driver->clearBuffers(video::ECBF_DEPTH);
+	// The land, alone (no stand-ins, no skirts: a stand-in drawn level with it
+	// stood higher than the finer land beside it and hid it, flat slabs coming
+	// and going as tiles were built; a skirt, a wall round a tile not built
+	// yet), in its own depth: against the camera's near plane, a tenth of a
+	// block, kilometres off a tile's walls behind its ground came through.
+	// The near world draws over it, and only where it has land.
+	driver->setTransform(video::ETS_PROJECTION, own);
+	m_state->parts = 0;
 	draw(m_tiles->drawn(), false);
 	driver->setTransform(video::ETS_PROJECTION, projection);
 	driver->clearBuffers(video::ECBF_DEPTH);

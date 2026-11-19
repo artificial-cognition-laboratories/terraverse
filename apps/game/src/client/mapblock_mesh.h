@@ -240,6 +240,23 @@ public:
 	}
 
 	/// @return true if the mesh contains nothing to draw
+	// Terra Firma: every vertex it has, every layer: what drawing it the first
+	// time uploads to the GPU (Client takes new meshes by this, a frame's worth at a time)
+	u32 vertexCount() const
+	{
+		u32 n = 0;
+		for (const auto &mesh : m_mesh)
+			if (mesh)
+				for (u32 i = 0; i < mesh->getMeshBufferCount(); i++)
+					n += mesh->getMeshBuffer(i)->getVertexCount();
+		return n;
+	}
+
+	// Terra Firma: to the GPU now, rather than when first drawn: a mesh taken
+	// out of sight went up later with everything else turned to (a forest
+	// behind you, all at once)
+	void upload(video::IVideoDriver *driver) const;
+
 	bool isEmpty() const
 	{
 		if (!m_transparent_triangles.empty())

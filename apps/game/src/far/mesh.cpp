@@ -6,6 +6,7 @@
 #include "exceptions.h"
 #include "light.h"
 #include <algorithm>
+#include <limits>
 #include <cmath>
 
 namespace far {
@@ -23,10 +24,11 @@ class Builder
 public:
 	Mesh mesh;
 	u8 quarter = 0; // the quarter the cell being built lies in
+	bool skirt = false; // what's built now hangs below the ground to fill a crack
 
-	// a quad from four corners (in blocks), wound to face `face`. A liquid's
-	// faces carry alpha 0: the shader drops them where the near world draws
-	// its own liquid there.
+	// a quad from four corners (in blocks), wound to face `face`. A skirt's
+	// carry alpha 0 (skirt, below): the far view draws them only behind the
+	// land, where a crack or a tile not built yet shows through.
 	void quad(const v3f (&corner)[4], Face face, video::SColorf colour)
 	{
 		quad(corner, face, { 1, 1, 1, 1 }, colour);
@@ -47,7 +49,8 @@ public:
 		for (int k = 0; k < 4; k++) {
 			float s = SHADE[face] * lit[k];
 			video::SColor c = video::SColorf(colour.r * s, colour.g * s, colour.b * s, 1).toSColor();
-			p.vertices.emplace_back(corner[k] * BS, normal, c, v2f(0, 0));
+			c.setAlpha(skirt ? 0 : 255);
+			p.vertices.emplace_back(corner[k] * BS, normal, c, v2f(0, 0), v2f(0, 0));
 		}
 		p.indices.insert(p.indices.end(), { base, (u16)(base + 1), (u16)(base + 2), base, (u16)(base + 2), (u16)(base + 3) });
 	}
@@ -81,8 +84,8 @@ public:
 		const u16 base = p.vertices.size();
 		const video::SColor c = video::SColorf(colour.r * SHADE[UP], colour.g * SHADE[UP], colour.b * SHADE[UP], 1).toSColor();
 		for (float x : xs) {
-			p.vertices.emplace_back(v3f(x, y, z0) * BS, normal, c, v2f(0, 0));
-			p.vertices.emplace_back(v3f(x, y, z1) * BS, normal, c, v2f(0, 0));
+			p.vertices.emplace_back(v3f(x, y, z0) * BS, normal, c, v2f(0, 0), v2f(0, 0));
+			p.vertices.emplace_back(v3f(x, y, z1) * BS, normal, c, v2f(0, 0), v2f(0, 0));
 		}
 		// as flat()'s UP quad winds: (x0, z0), (x0, z1), (x1, z1), (x1, z0)
 		for (size_t k = 0; k + 1 < n; k++) {
@@ -256,6 +259,9 @@ Mesh mesh(const Tile &tile, const Palette &palette)
 			for (int k = 0; k < 4; k++) {
 				const s32 ni = i + DI[k], nj = j + DJ[k];
 				Cell n = tile.at(ni, nj);
+				// below this the wall is skirt, not land: the neighbour's own ground
+				// (toward a seam, all of it)
+				const float real = n.space ? std::numeric_limits<float>::infinity() : top(n.ground);
 				const bool within = !n.space && ni >= 0 && ni < TILE && nj >= 0 && nj < TILE;
 				// at the tile's edge, a skirt: the next tile may be coarser or finer,
 				// its edge not meeting ours vertex for vertex; a wall hung below the
@@ -283,8 +289,15 @@ Mesh mesh(const Tile &tile, const Palette &palette)
 					bool under = n.water > n.ground;
 					for (int band = 0; band < 3 && upper > low; band++) {
 						float lower = std::max(bands[band], low);
-						b.side(x0, x1, z0, z1, lower, upper, face, palette.face(nodes[band], face),
-								under ? lightAt(lower, n.water) : 1.0f, under ? lightAt(upper, n.water) : 1.0f);
+						// the part of it over the neighbour's ground is land; under, skirt
+						const float cut = std::clamp(real, lower, upper);
+						for (int part = 0; part < 2; part++) {
+							const float y0 = part ? lower : cut, y1 = part ? cut : upper;
+							b.skirt = part == 1;
+							b.side(x0, x1, z0, z1, y0, y1, face, palette.face(nodes[band], face),
+									under ? lightAt(y0, n.water) : 1.0f, under ? lightAt(y1, n.water) : 1.0f);
+						}
+						b.skirt = false;
 						upper = std::min(upper, lower);
 					}
 				}
