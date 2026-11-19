@@ -5,7 +5,7 @@
 #     terraverse         the launcher: run this. Player data goes in ~/.terraverse
 #     bin/               the engine and Chromium (run in place)
 #     lib/               the libraries it needs that a desktop may not have
-#     builtin client fonts games/terrafirma locale matter world textures ui/dist misc
+#     client fonts games/terrafirma locale matter world textures ui/dist misc
 #     licenses/
 #
 # Needs a Release build with RUN_IN_PLACE=TRUE and the staged .output tree.
@@ -36,7 +36,7 @@ done
 strip --strip-unneeded "$stage/bin/luanti"
 # never strip terra: a compiled Bun program keeps its code past the end of the ELF
 
-for d in builtin client fonts locale matter textures misc server world; do
+for d in client fonts locale matter textures misc server world; do
 	cp -a "$root/.output/$d" "$stage/"
 done
 cp -a "$root/.output/games/terrafirma" "$stage/games/"
