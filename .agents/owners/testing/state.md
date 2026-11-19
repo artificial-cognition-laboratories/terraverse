@@ -21,8 +21,10 @@ atlas-debug, atlas-dig. Folders without a command: `air-check`, `milkyway-check`
 Timings not yet measured.
 
 **Release gate** (`scripts/release/gate.sh` via `arc gate terraverse`): key checks, build,
-TestOnline + TestRelease + TestTerragen only, UI typecheck+build, 20 s headless boot. Does
-**not** run the other 82 modules, which is how 6 failures sat unseen on master.
+every unit module via `BUILT=1 bash scripts/test.sh` (since 2026-11-19; before, only TestOnline,
+TestRelease, TestTerragen), UI typecheck+build, 20 s headless boot.
+81 modules today (incl. Catch), 6 tests skipped by name (skip.txt). `bun run test`: 227 s wall.
+`serial.txt` is empty; time budgets are held by `bun check:budgets` (someone else's, 2026-11-18).
 
 **UI tests**: none. **Tests on push**: none (CI owner's area).
 
@@ -33,12 +35,14 @@ Scoreboard (charter definitions):
 | Date | Fast tier | Full tier | Suites/typical change | Systems w/o tests | Escaped bugs |
 |---|---|---|---|---|---|
 | 2026-11-17 | none defined; all unit modules 579 s sequential, see below parallel | none defined (gate ≈ build + TestTerragen ~5 min + UI) | no selection exists: all or by memory | not yet audited | 0 counted (6 red unit tests found on master, pre-release-report baseline) |
+| 2026-11-19 | none defined (all modules 227 s) | gate ≈ build + 227 s tests + UI (not timed end to end) | no selection: all | not yet audited | 0 counted |
 
 Own numbers:
 
 | Date | All unit modules, wall | Failing unit tests on master |
 |---|---|---|
 | 2026-11-17 | 579 s sequential → 326 s `bun run test` | 6 wrong + 2 load-flaky (5 jobs, 8 skipped by name) |
+| 2026-11-19 | 227 s (others' terragen work shortened it, not me) | 0 failing, 6 skipped; TestFarPalette load-flake fixed |
 
 ## Plan
 
@@ -58,7 +62,7 @@ Own numbers:
    shared server-boot/world-staging lives in one helper used by ≥ 4 harnesses.
 5. **Coverage audit.** Done when "systems without tests" is counted from AGENTS.md's folder
    table and is 0 for player-visible systems (shell UI and online likely first gaps).
-6. **Full tier in the gate.** Proposal: gate runs `bun run test` instead of 3 modules.
+6. ~~Full tier in the gate.~~ Landed 2026-11-19 (approved).
 
 ## Tried
 
@@ -66,12 +70,14 @@ Own numbers:
 
 ## Proposals
 
-- 2026-11-17: **The release gate runs every unit module** (`bun run test`) instead of TestOnline,
-  TestRelease and TestTerragen only. Why: 6 failing tests in 4 modules reached master unseen.
-  Cost: none in wall time once TestTerragen is split (it's already in the gate and dominates);
-  today the parallel run is about the same as TestTerragen alone. Lands 2026-11-19 on silence.
+- (none open; the gate proposal was approved and landed 2026-11-19)
 
 ## Log
+
+- 2026-11-19: the gate runs every unit module (approved proposal). Fixed TestFarPalette's
+  load flake (fixed 15 s tile wait → wait until built, 180 s hang guard). `bun run test` green,
+  227 s. Next: milestone 1's ≤ 120 s (re-profile TestTerragen; the tree had uncommitted
+  streams work, so measure again on a clean master).
 
 - 2026-11-17: first session. Mapped the suites; found 6 failing unit tests on master (jobs
   `testing-atlas-render-fails`, `testing-far-palette-fails`, `testing-moves-bones-stay-out`,

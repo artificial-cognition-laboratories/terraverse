@@ -109,6 +109,19 @@ Baked shipped()
 	return Baked::load("terrafirma");
 }
 
+// Updates the tiles for an eye until every tile it wants is built (at least
+// 50 updates). Bounded only against a hang: a deadline that's a budget made
+// the test fail on a busy machine (every module runs side by side), and how
+// fast tiles build is not what these tests check.
+void settle(Tiles &tiles, const Eye &eye)
+{
+	const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(180);
+	for (int i = 0; i < 50 || (tiles.pending() > 0 && std::chrono::steady_clock::now() < until); i++) {
+		tiles.update(eye);
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	}
+}
+
 } // namespace
 
 // Written and read back, every role is the same block (by name) and every
@@ -176,12 +189,7 @@ void TestFarPalette::testTilesForAnEye()
 	const double sea = 300 + h.water_level + 1;
 	const Eye eye{ { sea, 0, 0 }, 40, 0, 500, 2 };
 	std::vector<Tiles::Drawn> drawn;
-	// (until every tile wanted is built: stopped after a fixed time, a busy
-	// machine still showed the coarse stand-ins everywhere)
-	for (int i = 0; i < 1500 && (i < 50 || tiles.pending() > 0); i++) {
-		tiles.update(eye);
-		std::this_thread::sleep_for(std::chrono::milliseconds(10));
-	}
+	settle(tiles, eye);
 	UTEST(tiles.pending() == 0, "%zu tiles still being built", tiles.pending());
 	drawn = tiles.drawn();
 	UASSERT(!drawn.empty());
@@ -296,10 +304,7 @@ void TestFarPalette::testInsideTheCutIsFine()
 		Tiles tiles(atlas, planet::Atlas::HOME, h, b.palette, 2);
 		const Eye eye{ { sea, 0, 0 }, 10, cut, 1500, 2 };
 		std::vector<Tiles::Drawn> drawn;
-		for (int i = 0; i < 1500 && (i < 50 || tiles.pending() > 0); i++) {
-			tiles.update(eye);
-			std::this_thread::sleep_for(std::chrono::milliseconds(10));
-		}
+		settle(tiles, eye);
 		UTEST(tiles.pending() == 0, "%zu tiles still being built", tiles.pending());
 		// each drawn tile's nearest and farthest, at the sea, its level, and its parent's farthest
 		std::vector<std::tuple<double, double, s32, double>> out;

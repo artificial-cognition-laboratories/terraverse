@@ -18,11 +18,10 @@ cmake --build .output/build -j"$(nproc)"
 # terra runs the game's TypeScript mods beside the engine; the boot below needs it, as CI builds it.
 (cd apps/cli && bun install --frozen-lockfile && bun run build)
 bash scripts/stage-runtime.sh
-# Tests skipped by name pending their job, as CI's release run skips them.
-export TF_TEST_SKIP="$(bash scripts/test/skips.sh)"
-./.output/bin/luanti --test-module TestOnline
-./.output/bin/luanti --test-module TestRelease
-./.output/bin/luanti --test-module TestTerragen
+# Every unit module, side by side (scripts/test.sh), skipping by name what
+# scripts/test/skip.txt cites a job for, as CI's release run does. Three modules
+# alone let 6 failing tests reach master unseen (2026-11-17).
+BUILT=1 bash scripts/test.sh
 (cd apps/game/ui && bun run typecheck && bun run build)
 
 world=$(mktemp -d)

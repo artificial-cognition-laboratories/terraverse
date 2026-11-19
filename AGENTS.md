@@ -299,7 +299,7 @@ bun pose-sheet          # the figure's moves as PNGs
 .output/bin/luanti --planetarium TF9.dGVycmE                                     # the planet viewer alone
 
 bun ci:status           # CI now: what's running, what's red on master and at which step, and the CI Scoreboard (--since <date>)
-arc gate terraverse     # build, tests, UI and a headless world
+arc gate terraverse     # build, every unit module (bun run test), UI and a headless world
 arc deploy terraverse   # package.json version → tag → CI attaches every platform's package
 arc deploy launcher     # apps/launcher, on its own release track (version in tauri.conf.json)
 arc deploy site         # apps/site and install.sh to Cloud Run
