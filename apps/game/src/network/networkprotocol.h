@@ -10,10 +10,10 @@ extern const u16 LATEST_PROTOCOL_VERSION;
 
 // Server's supported network protocol range. Terra Firma: only our own
 // protocol; stock Luanti peers are refused cleanly.
-constexpr u16 SERVER_PROTOCOL_VERSION_MIN = 105;
+constexpr u16 SERVER_PROTOCOL_VERSION_MIN = 106;
 
 // Client's supported network protocol range
-constexpr u16 CLIENT_PROTOCOL_VERSION_MIN = 105;
+constexpr u16 CLIENT_PROTOCOL_VERSION_MIN = 106;
 
 extern const u16 FORMSPEC_API_VERSION;
 
@@ -589,22 +589,7 @@ enum ToClientCommand : u16
 			u8[len] player name
 	*/
 
-	TOCLIENT_MODCHANNEL_MSG = 0x57,
-	/*
-		u16 channel name length
-	 	std::string channel name
-	 	u16 channel name sender
-	 	std::string channel name
-	 	u16 message length
-	 	std::string message
-	*/
-
-	TOCLIENT_MODCHANNEL_SIGNAL = 0x58,
-	/*
-		u8 signal id
-	 	u16 channel name length
-	 	std::string channel name
-	*/
+	// 0x57, 0x58: mod channels (gone with Lua, protocol 106)
 
 	TOCLIENT_NODEMETA_CHANGED = 0x59,
 	/*
@@ -814,25 +799,7 @@ enum ToServerCommand : u16
 		After this, the server can send data.
 	*/
 
-	TOSERVER_MODCHANNEL_JOIN = 0x17,
-	/*
-		u16 channel name length
-	 	std::string channel name
-	 */
-
-	TOSERVER_MODCHANNEL_LEAVE = 0x18,
-	/*
-		u16 channel name length
-	 	std::string channel name
-	 */
-
-	TOSERVER_MODCHANNEL_MSG = 0x19,
-	/*
-		u16 channel name length
-	 	std::string channel name
-	 	u16 message length
-	 	std::string message
-	 */
+	// 0x17..0x19: mod channels (gone with Lua, protocol 106)
 
 	TOSERVER_PLAYERPOS = 0x23,
 	/*

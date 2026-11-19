@@ -297,11 +297,6 @@ struct ContentFeatures
 	// write checks that depend directly on the protocol version instead.
 	static const u8 CONTENTFEATURES_VERSION = 13;
 
-	// Server-side cached callback existence for fast skipping
-	bool has_on_construct;
-	bool has_on_destruct;
-	bool has_after_destruct;
-
 	// "float" group
 	bool floats;
 	// Terra Firma: natural ground of it takes the ground's shape (the `loose`
@@ -444,6 +439,14 @@ struct ContentFeatures
 	std::optional<MatterFamily> family; // param2 picks which composition
 	bool matter_generated = false;       // the generator's own: registered after the world's
 	std::optional<MatterMachine> machine;
+
+	// --- DIGGING AND PLACING (Terra Firma, sprint 119): server only, never sent ---
+
+	// What digging it gives: itself (with its colour) when unset, nothing when "", else
+	// the item named (server/interact.cpp).
+	std::optional<std::string> drop;
+	// Placed facing the way it's put down (a log on its side).
+	bool rotates = false;
 
 	/*
 		Methods

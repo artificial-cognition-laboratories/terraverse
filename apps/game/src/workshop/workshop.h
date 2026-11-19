@@ -18,7 +18,7 @@
 #include <vector>
 
 class IGameDef;
-class LuaEntitySAO;
+class EntitySAO;
 class PlayerSAO;
 class ServerEnvironment;
 
@@ -159,7 +159,7 @@ private:
 	// A fitting fitted whole on a machine's part, a part of its own welded
 	// flat against the face the stroke's on (at any sixteenth), facing the
 	// way its fitter looks. Taken off as a part is (its menu's delete).
-	void fit(PlayerSAO &who, LuaEntitySAO &obj, piece::Machine &m, u64 part, const sculpt::Stroke &s,
+	void fit(PlayerSAO &who, EntitySAO &obj, piece::Machine &m, u64 part, const sculpt::Stroke &s,
 			content_t fitting);
 
 	ServerEnvironment &m_env;

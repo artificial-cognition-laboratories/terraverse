@@ -4,7 +4,6 @@
 // Copyright (C) 2013-2020 Luanti core developers & community
 
 #include "unit_sao.h"
-#include "scripting_server.h"
 #include "serverenvironment.h"
 #include "util/serialize.h"
 
@@ -297,12 +296,6 @@ void UnitSAO::onAttach(ServerActiveObject *parent)
 	assert(parent);
 
 	parent->addAttachmentChild(m_id);
-
-	// Do not try to notify soon gone parent
-	if (!parent->isGone()) {
-		if (parent->getType() == ACTIVEOBJECT_TYPE_LUAENTITY)
-			m_env->getScriptIface()->luaentity_on_attach_child(parent->getId(), this);
-	}
 }
 
 void UnitSAO::onDetach(ServerActiveObject *parent)
@@ -310,16 +303,6 @@ void UnitSAO::onDetach(ServerActiveObject *parent)
 	assert(parent);
 
 	parent->removeAttachmentChild(m_id);
-
-	if (getType() == ACTIVEOBJECT_TYPE_LUAENTITY)
-		m_env->getScriptIface()->luaentity_on_detach(m_id, parent);
-
-	// callback could affect the parent
-	if (parent->isGone())
-		return;
-
-	if (parent->getType() == ACTIVEOBJECT_TYPE_LUAENTITY)
-		m_env->getScriptIface()->luaentity_on_detach_child(parent->getId(), this);
 }
 
 ObjectProperties *UnitSAO::accessObjectProperties()

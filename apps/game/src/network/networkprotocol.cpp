@@ -202,10 +202,13 @@
 		No passwords (sprint 119): AUTH_MECHANISM_LOCAL for a world played alone, TICKET for
 		one hosted for friends; the SRP and sudo-mode packets are gone, and TOCLIENT_AUTH_ACCEPT
 		no longer carries sudo methods. Only 105 is accepted on either side.
+	PROTOCOL VERSION 106 (Terra Firma)
+		No Lua (sprint 119): a player who dies is sent TOCLIENT_DEATHSCREEN_LEGACY (the
+		client's own death screen) and respawns by TOSERVER_RESPAWN_LEGACY; blocks, items and
+		entities are the engine's own. Only 106 is accepted on either side.
 */
 
-// Note: Also update core.protocol_versions in builtin when bumping
-const u16 LATEST_PROTOCOL_VERSION = 105;
+const u16 LATEST_PROTOCOL_VERSION = 106;
 
 // See also formspec [Version History] in doc/lua_api.md
 const u16 FORMSPEC_API_VERSION = 12;

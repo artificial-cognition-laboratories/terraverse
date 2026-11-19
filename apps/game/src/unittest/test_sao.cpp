@@ -5,7 +5,7 @@
 #include "test.h"
 
 #include "mock_server.h"
-#include "server/luaentity_sao.h"
+#include "server/entity_sao.h"
 #include "serverenvironment.h"
 #include "servermap.h"
 #include "emerge.h"
@@ -26,7 +26,6 @@ public:
 	void testStaticSave(ServerEnvironment *env);
 	void testNotSaved(ServerEnvironment *env);
 	void testActivate(ServerEnvironment *env);
-	void testStaticToFalse(ServerEnvironment *env);
 	void testStaticToTrue(ServerEnvironment *env);
 
 private:
@@ -37,43 +36,15 @@ private:
 
 static TestSAO g_test_instance;
 
-const static char *helper_lua_src = R"(
-local function assert_objectref(self)
-	assert(self.object:is_valid(), "ObjectRef is not valid in callback")
-end
-local def = {
-	on_activate = assert_objectref,
-	on_deactivate = assert_objectref,
-	on_step = assert_objectref,
-	get_staticdata = assert_objectref,
-}
-core.register_entity(":test:static", table.copy(def))
-def.initial_properties = { static_save = false }
-core.register_entity(":test:non_static", table.copy(def))
-)";
-
+// Terra Firma (sprint 119): an entity's kind is native (server/kinds.h); these are of no
+// kind, kept as they were saved, so whether they're saved is set by hand.
 void TestSAO::runTests(IGameDef *gamedef)
 {
 	MockServer server(getTestTempDirectory());
-
-	const auto helper_lua = getTestTempFile();
 	{
-		std::ofstream ofs(helper_lua, std::ios::out | std::ios::binary);
-		ofs << helper_lua_src;
 		std::ofstream ofs2(server.getWorldPath() + DIR_DELIM "world.mt",
 			std::ios::out | std::ios::binary);
 		ofs2 << "backend = dummy\n";
-	}
-
-	server.createScripting();
-	try {
-		auto script = server.getScriptIface();
-		script->loadBuiltin();
-		script->loadMod(helper_lua, BUILTIN_MOD_NAME);
-	} catch (ModError &e) {
-		rawstream << e.what() << std::endl;
-		num_tests_failed = 1;
-		return;
 	}
 
 	// unfortunately we have to create a lot since a DummyMap doesn't cut it.
@@ -91,16 +62,16 @@ void TestSAO::runTests(IGameDef *gamedef)
 	TEST(testStaticSave, &env);
 	TEST(testNotSaved, &env);
 	TEST(testActivate, &env);
-	TEST(testStaticToFalse, &env);
 	TEST(testStaticToTrue, &env);
 
 	env.deactivateBlocksAndObjects();
 }
 
-static LuaEntitySAO *add_entity(ServerEnvironment *env, v3f pos, const char *name)
+static EntitySAO *add_entity(ServerEnvironment *env, v3f pos, const char *name)
 {
-	auto obj_u = std::make_unique<LuaEntitySAO>(env, pos, name, "");
+	auto obj_u = std::make_unique<EntitySAO>(env, pos, name, "");
 	auto obj = obj_u.get();
+	obj->accessObjectProperties()->static_save = std::string(name) != "test:non_static";
 	u16 id = env->addActiveObject(std::move(obj_u));
 	if (!id || obj->isGone())
 		return nullptr;
@@ -197,7 +168,7 @@ void TestSAO::testActivate(ServerEnvironment *env)
 	// this time insert the static object manually
 	StaticObject s_obj;
 	{
-		auto obj = std::make_unique<LuaEntitySAO>(env, testpos, "test:static", "");
+		auto obj = std::make_unique<EntitySAO>(env, testpos, "test:static", "");
 		s_obj = StaticObject(obj.get(), obj->getBasePosition());
 	}
 
@@ -220,65 +191,6 @@ void TestSAO::testActivate(ServerEnvironment *env)
 	// MapBlocks in further tests otherwise
 	// FIXME: figure out if this is a bug that needs to be fixed
 	env->step(m_step_interval);
-}
-
-void TestSAO::testStaticToFalse(ServerEnvironment *env)
-{
-	Map &map = env->getMap();
-
-	const v3f testpos(0, 0, -22 * BS);
-	const v3s16 testblockpos = getNodeBlockPos(floatToInt(testpos, BS));
-
-	/*
-	 * This test represents an edge case where static_save changed from true
-	 * to false while the server was off.
-	 */
-
-	StaticObject s_obj;
-	{
-		auto obj = std::make_unique<LuaEntitySAO>(env, testpos, "test:non_static", "");
-		// since the object is not added, it doesn't read info from Lua and retains
-		// the default value. This is what allows us to do this.
-		UASSERT(obj->isStaticAllowed());
-		s_obj = StaticObject(obj.get(), obj->getBasePosition());
-	}
-
-	auto *block = map.emergeBlock(testblockpos, true);
-	UASSERT(block);
-	block->m_static_objects.insert(0, s_obj);
-
-	env->forceActivateBlock(block);
-
-	const u16 obj_id = assert_active_in_block(block);
-	auto *obj = env->getActiveObject(obj_id);
-	UASSERT(obj);
-
-	// environment must remember place of static data
-	UASSERT(obj->m_static_exists);
-	UASSERTEQ(auto, obj->m_static_block, testblockpos);
-
-#if 0
-	/*
-	 * FIXME: needs investigation
-	 * When using this code path the test fails and there's also a warning.
-	 * The problem is that the block is unloaded while the object is still in the
-	 * active list, removeFarObjects() has no chance at doing something.
-	 * This seems to be a general issue that in practice only applies with static_save=false.
-	 */
-	map.timerUpdate(10.0f, 5.0f, -1);
-	env->step(m_step_interval);
-#else
-	obj->markForRemoval();
-	env->step(m_step_interval);
-#endif
-
-	block = nullptr;
-	obj = nullptr;
-	UASSERT(!env->getActiveObject(obj_id));
-	// static data must have been deleted
-	block = map.emergeBlock(testblockpos, false);
-	if (block)
-		UASSERTEQ(size_t, block->m_static_objects.size(), 0);
 }
 
 void TestSAO::testStaticToTrue(ServerEnvironment *env)

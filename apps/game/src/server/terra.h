@@ -224,6 +224,39 @@ struct TerraWorldFacts
 };
 std::optional<TerraWorldFacts> terraWorldFacts(Server *server);
 
+// What the world model says, for the checks' probes (src/probe; sprint 119: were
+// core.terra's). Each throws BaseException on seam, or where terra didn't make the world.
+struct TerraCalendar
+{
+	int year, day; // from 1
+	double date;   // 0..1 through the year (0: the northern spring equinox)
+	int year_days;
+};
+TerraCalendar terraCalendar(Server *server);
+struct TerraClimate
+{
+	double temperature; // °C, now
+	std::string biome;
+};
+TerraClimate terraClimate(Server *server, const v3f &pos);
+// The geological province under a position.
+std::string terraProvince(Server *server, const v3f &pos);
+// A column as the generator makes it, without making it: its top solid block's y and
+// name, and the surface of any water or lava over it. What the far view draws.
+struct TerraSurface
+{
+	int ground;
+	std::string top;
+	std::optional<int> water;
+	std::string liquid;
+};
+TerraSurface terraSurface(Server *server, v3s16 column);
+// The block the generator places at each node of an area (x inner, then y, then z), before
+// what's planted after; none where it stores no cell (seam). At most 2^24 nodes.
+std::vector<std::optional<content_t>> terraLand(Server *server, v3s16 minp, v3s16 maxp);
+// Whether a body (by its number) keeps one face to its star.
+bool terraFacingStar(Server *server, int body);
+
 // The weather at a position (script/lua_api/l_terra.cpp, as core.terra.weather):
 // `moving`, whether it's src/fluid's moving air (else a still body's climate). None
 // where terra didn't make the world, on seam, or while the weather settles as the

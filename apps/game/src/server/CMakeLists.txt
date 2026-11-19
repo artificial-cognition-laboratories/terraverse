@@ -8,15 +8,19 @@ set(common_server_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/blockmodifier.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/clientiface.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/commands.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/defs.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/interact.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/kinds.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/registry.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/lakes.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/luaentity_sao.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/mods.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/entity_sao.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/player_sao.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/rollback.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/serveractiveobject.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/serverinventorymgr.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/serverlist.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/sky.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/terra.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/gravity.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/planet.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/weather.cpp

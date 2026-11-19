@@ -239,7 +239,6 @@ if(NOT CUSTOM_LOCALEDIR STREQUAL "")
 endif()
 
 
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/builtin" DESTINATION "${SHAREDIR}")
 if(RUN_IN_PLACE)
 	install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/mods/mods_here.txt" DESTINATION "${SHAREDIR}/mods")
 	install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/registry/textures/texture_packs_here.txt" DESTINATION "${SHAREDIR}/textures")
@@ -254,9 +253,6 @@ if(BUILD_CLIENT)
 endif()
 
 install(FILES "README.md" DESTINATION "${DOCDIR}" COMPONENT "Docs")
-install(FILES "doc/lua_api.md" DESTINATION "${DOCDIR}" COMPONENT "Docs")
-install(FILES "doc/client_lua_api.md" DESTINATION "${DOCDIR}" COMPONENT "Docs")
-install(FILES "doc/menu_lua_api.md" DESTINATION "${DOCDIR}" COMPONENT "Docs")
 install(FILES "doc/texture_packs.md" DESTINATION "${DOCDIR}" COMPONENT "Docs")
 install(FILES "doc/world_format.md" DESTINATION "${DOCDIR}" COMPONENT "Docs")
 install(FILES "minetest.conf.example" DESTINATION "${EXAMPLE_CONF_DIR}")
@@ -283,11 +279,6 @@ endif()
 # Library pack
 find_package(GMP REQUIRED)
 find_package(Json 1.0.0 REQUIRED)
-find_package(Lua REQUIRED)
-if(NOT USE_LUAJIT)
-	add_subdirectory(library/bitop)
-endif()
-add_subdirectory(library/lstrpack)
 add_subdirectory(library/sha256)
 
 if(BUILD_UNITTESTS OR BUILD_BENCHMARKS)
@@ -296,13 +287,6 @@ endif()
 
 add_subdirectory(library/tiniergltf)
 add_subdirectory(library/jolt)
-
-# Builtin
-add_subdirectory(apps/game/src/builtin)
-
-list(TRANSFORM BUILTIN_SRCS
-	PREPEND "${BUILTIN_BASE_PATH}/"
-	OUTPUT_VARIABLE BUILTIN_SRCS_ABS)
 
 # Subdirectories
 # Be sure to add all relevant definitions above this

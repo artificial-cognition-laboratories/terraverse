@@ -5,7 +5,7 @@
 #pragma once
 
 /******************************************************************/
-/* may only be included by emerge.cpp or emerge scripting related */
+/* may only be included by emerge.cpp */
 /******************************************************************/
 
 #include "emerge.h"
@@ -20,7 +20,6 @@ class ServerMap;
 class Mapgen;
 
 class EmergeManager;
-class EmergeScripting;
 
 class EmergeThread : public Thread {
 public:
@@ -53,14 +52,10 @@ private:
 	EmergeManager *m_emerge;
 	Mapgen *m_mapgen;
 
-	std::unique_ptr<EmergeScripting> m_script;
-	// read from scripting:
 	UniqueQueue<v3s16> *m_trans_liquid; //< non-null only when generating a mapblock
 
 	Event m_queue_event;
 	std::queue<v3s16> m_block_queue;
-
-	bool initScripting();
 
 	bool popBlockEmerge(v3s16 *pos, BlockEmergeData *bedata);
 
@@ -82,8 +77,6 @@ private:
 		std::map<v3s16, MapBlock *> *modified_blocks);
 
 	friend class EmergeManager;
-	friend class EmergeScripting;
-	friend class ModApiMapgen;
 };
 
 // Scoped helper to set Server::m_ignore_map_edit_events_area

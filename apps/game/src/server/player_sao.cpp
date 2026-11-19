@@ -8,7 +8,6 @@
 #include "planet/atlas.h" // Terra Firma
 #include "nodedef.h"
 #include "remoteplayer.h"
-#include "scripting_server.h"
 #include "server.h"
 #include "serverenvironment.h"
 #include "settings.h"
@@ -231,7 +230,6 @@ void PlayerSAO::step(float dtime, bool send_recommended)
 		std::string str = getPropertyPacket();
 		// create message and add to list
 		m_messages_out.emplace(getId(), true, str);
-		m_env->getScriptIface()->player_event(this, "properties_changed");
 	}
 
 	// If attached, check that our parent is still there. If it isn't, detach.
@@ -499,19 +497,8 @@ u32 PlayerSAO::punch(v3f dir,
 	HitParams hitparams = getHitParams(m_armor_groups, toolcap,
 			time_from_last_punch, initial_wear);
 
-	PlayerSAO *playersao = m_player->getPlayerSAO();
-
-	bool damage_handled = m_env->getScriptIface()->on_punchplayer(playersao,
-				puncher, time_from_last_punch, toolcap, dir,
-				hitparams.hp);
-
-	if (!damage_handled) {
-		setHP((s32)getHP() - (s32)hitparams.hp,
-				PlayerHPChangeReason(PlayerHPChangeReason::PLAYER_PUNCH, puncher));
-	} else { // override client prediction
-		if (puncher_is_player)
-			sendPunchCommand();
-	}
+	setHP((s32)getHP() - (s32)hitparams.hp,
+			PlayerHPChangeReason(PlayerHPChangeReason::PLAYER_PUNCH, puncher));
 
 	if (puncher) {
 		actionstream << puncher->getDescription() << " (id=" << puncher->getId() <<
@@ -521,15 +508,14 @@ u32 PlayerSAO::punch(v3f dir,
 	}
 	actionstream << " punched " <<
 			getDescription() << " (id=" << m_id << ", hp=" << m_hp <<
-			"), damage=" << (old_hp - (s32)getHP()) <<
-			(damage_handled ? " (handled by Lua)" : "") << std::endl;
+			"), damage=" << (old_hp - (s32)getHP()) << std::endl;
 
 	return hitparams.wear;
 }
 
-void PlayerSAO::rightClick(ServerActiveObject *clicker)
+void PlayerSAO::rightClick(ServerActiveObject *)
 {
-	m_env->getScriptIface()->on_rightclickplayer(this, clicker);
+	// nothing's done by right-clicking a player yet
 }
 
 void PlayerSAO::setHP(s32 target_hp, const PlayerHPChangeReason &reason, bool from_client)
@@ -540,7 +526,6 @@ void PlayerSAO::setHP(s32 target_hp, const PlayerHPChangeReason &reason, bool fr
 	// Protect against overflow.
 	s32 hp_change = std::max<s64>((s64)target_hp - (s64)m_hp, S32_MIN);
 
-	hp_change = m_env->getScriptIface()->on_player_hpchange(this, hp_change, reason);
 	hp_change = std::min<s32>(hp_change, U16_MAX); // Protect against overflow
 
 	s32 hp = (s32)m_hp + hp_change;
@@ -582,11 +567,8 @@ void PlayerSAO::respawn()
 	setHP(m_prop.hp_max, PlayerHPChangeReason(PlayerHPChangeReason::RESPAWN));
 	setBreath(m_prop.breath_max);
 
-	bool repositioned = m_env->getScriptIface()->on_respawnplayer(this);
-	if (!repositioned) {
-		// setPos will send the new position to client
-		setPos(m_env->getServer()->findSpawnPos());
-	}
+	// setPos will send the new position to client
+	setPos(m_env->getServer()->findSpawnPos());
 }
 
 Inventory *PlayerSAO::getInventory() const

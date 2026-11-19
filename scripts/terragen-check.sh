@@ -15,9 +15,8 @@ code="TF24.dGVycmE"
 
 "$root/scripts/terragen-tool.sh" "$work/predict" "$root/scripts/terragen-check/predict.cpp"
 world="$work/world"
-mkdir -p "$world/worldmods"
+mkdir -p "$world"
 "$work/predict" "$code" "$world/points.txt"
-cp -r "$root/scripts/terragen-check/probe" "$world/worldmods/probe"
 printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$world/world.mt"
 # TF24.dGVycmE: the default size, 16384 round: an atlas of radius 8192 / 2π, the standard layout
 atlas="atlas-v2 radius=2607.5945876176133 segments=24 capLatitude=85 core=651.8986469044033 rounding=0.95 height=256"
@@ -25,7 +24,7 @@ printf 'mg_name = terra\nmgterra_code = %s\nseed = 1\nchunksize = 1\nplanet_atla
 
 port=$((30200 + RANDOM % 500))
 # no settings but the world's: a check can't depend on the minetest.conf of whoever runs it
-timeout 180 "$root/.output/bin/luanti" --server --config /dev/null --world "$world" --port "$port" 2>&1 | tee "$work/server.txt" | grep -oE '(MAP|PROBE|TERRA|WEATHER|ACT) .*' > "$work/log.txt" || true
+timeout 180 "$root/.output/bin/luanti" --server --config /dev/null --world "$world" --probe terragen --port "$port" 2>&1 | tee "$work/server.txt" | grep -oE '(MAP|PROBE|TERRA|WEATHER|ACT) .*' > "$work/log.txt" || true
 grep '^PROBE' "$work/log.txt" > "$work/probed.txt" || true
 # predicted for the places the probed nodes actually are
 "$work/predict" --columns "$code" "$work/log.txt" > "$work/predicted.txt"

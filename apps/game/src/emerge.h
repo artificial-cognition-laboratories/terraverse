@@ -31,7 +31,6 @@ class OreManager;
 class DecorationManager;
 class SchematicManager;
 class Server;
-class ModApiMapgen;
 struct MapDatabaseAccessor;
 
 // Structure containing inputs/outputs for chunk generation
@@ -124,7 +123,6 @@ class EmergeManager {
 	 * - using decomgr or oremgr to place decos/ores
 	 * - using schemmgr to load and place schematics
 	 */
-	friend class ModApiMapgen;
 public:
 	const NodeDefManager *ndef;
 	bool enable_mapgen_debug_info;

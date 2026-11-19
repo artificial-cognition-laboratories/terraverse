@@ -26,7 +26,6 @@ class RemotePlayer;
 class Server;
 class ServerActiveObject;
 class ServerEnvironment;
-class ServerScripting;
 class Settings;
 struct ActiveObjectMessage;
 struct GameParams;
@@ -87,16 +86,6 @@ public:
 };
 
 /*
-	ServerEnvironment::m_on_mapblocks_changed_receiver
-*/
-struct OnMapblocksChangedReceiver : public MapEventReceiver {
-	std::unordered_set<v3s16> modified_blocks;
-	bool receiving = false;
-
-	void onMapEditEvent(const MapEditEvent &event) override;
-};
-
-/*
 	Operation mode for ServerEnvironment::clearObjects()
 */
 enum ClearObjectsMode {
@@ -121,8 +110,6 @@ public:
 	ServerMap & getServerMap();
 
 	//TODO find way to remove this fct!
-	ServerScripting* getScriptIface()
-	{ return m_script; }
 
 	Server *getServer()
 	{ return m_server; }
@@ -363,14 +350,10 @@ private:
 
 	// The map
 	std::unique_ptr<ServerMap> m_map;
-	// Lua state
-	ServerScripting *m_script = nullptr;
 	// Server definition
 	Server *m_server = nullptr;
 	// Active Object Manager
 	server::ActiveObjectMgr m_ao_manager;
-	// on_mapblocks_changed map event receiver
-	OnMapblocksChangedReceiver m_on_mapblocks_changed_receiver;
 	GUIDGenerator m_guid_generator;
 	// Outgoing network message buffer for active objects
 	std::queue<ActiveObjectMessage> m_active_object_messages;

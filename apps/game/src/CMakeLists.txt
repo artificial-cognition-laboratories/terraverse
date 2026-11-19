@@ -374,9 +374,6 @@ if(WIN32)
 		if(USE_GETTEXT)
 			set(GETTEXT_DLL "" CACHE FILEPATH "Path to Intl/Iconv DLLs for installation (optional)")
 		endif()
-		if(USE_LUAJIT)
-			set(LUA_DLL "" CACHE FILEPATH "Path to luajit-5.1.dll for installation (optional)")
-		endif()
 	endif()
 else()
 	# Unix probably
@@ -457,24 +454,6 @@ add_custom_target(GenerateVersion
 	WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 
 
-# Command for builtin_files.cpp
-add_custom_command(
-	OUTPUT "${PROJECT_BINARY_DIR}/builtin_files.cpp"
-	COMMAND ${CMAKE_COMMAND}
-	-D "PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
-	-D "PROJECT_BINARY_DIR=${PROJECT_BINARY_DIR}"
-	-D "BUILTIN_BASE_PATH=${BUILTIN_BASE_PATH}"
-	-D "BUILTIN_SRCS=\"${BUILTIN_SRCS}\"" # (relative paths, so should work without escaping)
-	-P "${CMAKE_SOURCE_DIR}/cmake/Modules/HashBuiltinFiles.cmake"
-	DEPENDS
-		${BUILTIN_SRCS_ABS}
-		"${PROJECT_SOURCE_DIR}/builtin_files.cpp.in"
-		"${CMAKE_SOURCE_DIR}/cmake/Modules/HashBuiltinFiles.cmake"
-	WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
-
-# Target to generate just builtin_files.cpp (used by util/ci/clang-tidy.sh)
-add_custom_target(GenerateBuiltinFilesCpp
-	DEPENDS "${PROJECT_BINARY_DIR}/builtin_files.cpp")
 
 
 add_subdirectory(threading)
@@ -547,6 +526,7 @@ add_subdirectory(fill)
 add_subdirectory(sprig)
 add_subdirectory(pile)
 add_subdirectory(sidecar)
+add_subdirectory(probe)
 add_subdirectory(sculpt)
 add_subdirectory(piece)
 add_subdirectory(workshop)
@@ -561,7 +541,6 @@ add_subdirectory(rivers)
 add_subdirectory(sandbox)
 add_subdirectory(online)
 add_subdirectory(network)
-add_subdirectory(script)
 add_subdirectory(util)
 add_subdirectory(server)
 
@@ -593,7 +572,6 @@ set(independent_SRCS
 	lighting.cpp
 	log.cpp
 	metadata.cpp
-	modchannels.cpp
 	nameidmapping.cpp
 	nodemetadata.cpp
 	nodetimer.cpp
@@ -610,7 +588,6 @@ set(independent_SRCS
 	texture_override.cpp
 	tileanimation.cpp
 	tool.cpp
-	${PROJECT_BINARY_DIR}/builtin_files.cpp
 	${PROJECT_BINARY_DIR}/terragen_grid_sources.cpp
 	${PROJECT_BINARY_DIR}/far_sources.cpp
 	${PROJECT_BINARY_DIR}/terragen_sources.cpp
@@ -659,7 +636,6 @@ set(common_SRCS
 	voxel.cpp
 	voxelalgorithms.cpp
 	${benchmark_SRCS}
-	${common_SCRIPT_SRCS}
 	${common_server_SRCS}
 	${mapgen_SRCS}
 	${terragen_SRCS}
@@ -673,6 +649,7 @@ set(common_SRCS
 	${sprig_SRCS}
 	${pile_SRCS}
 	${sidecar_SRCS}
+	${probe_SRCS}
 	${sculpt_SRCS}
 	${piece_SRCS}
 	${workshop_SRCS}
@@ -740,7 +717,6 @@ list(APPEND client_SRCS
 	${online_client_SRCS}
 	${far_client_SRCS}
 	${planetarium_client_SRCS}
-	${client_SCRIPT_SRCS}
 	${test_client_SRCS}
 	${unittest_client_SRCS}
 )
@@ -761,16 +737,13 @@ endif()
 include_directories(
 	${PROJECT_BINARY_DIR}
 	${PROJECT_SOURCE_DIR}
-	${PROJECT_SOURCE_DIR}/script
 )
 include_directories(SYSTEM
 	${ZLIB_INCLUDE_DIR}
 	${ZSTD_INCLUDE_DIR}
 	${SQLITE3_INCLUDE_DIR}
-	${LUA_INCLUDE_DIR}
 	${GMP_INCLUDE_DIR}
 	${JSON_INCLUDE_DIR}
-	${LUA_BIT_INCLUDE_DIR}
 	# on Android, Luanti depends on SDL2 directly
 	# on other platforms, only IrrlichtMt depends on SDL2
 	"$<$<PLATFORM_ID:Android>:${SDL2_INCLUDE_DIRS}>"
@@ -805,7 +778,7 @@ endif()
 add_library(EngineCommon OBJECT
 	${independent_SRCS}
 )
-add_dependencies(EngineCommon GenerateVersion GenerateBuiltinFilesCpp)
+add_dependencies(EngineCommon GenerateVersion)
 target_link_libraries(EngineCommon
 	sha256
 )
@@ -891,11 +864,8 @@ if(BUILD_CLIENT)
 		${ZSTD_LIBRARY}
 		${SOUND_LIBRARIES}
 		${SQLITE3_LIBRARY}
-		${LUA_LIBRARY}
 		${GMP_LIBRARY}
 		${JSON_LIBRARY}
-		${LUA_BIT_LIBRARY}
-		lstrpack
 		sha256
 		${FREETYPE_LINK}
 		${PLATFORM_LIBS}
@@ -929,13 +899,6 @@ if(BUILD_CLIENT)
 			add_cef_runtime("${EXECUTABLE_OUTPUT_PATH}")
 			add_dependencies(${PROJECT_NAME} cef_runtime)
 		endif()
-	endif()
-	if(NOT USE_LUAJIT)
-		set_target_properties(${PROJECT_NAME} PROPERTIES
-			# This is necessary for dynamic Lua modules
-			# to work when Lua is statically linked (issue #10806)
-			ENABLE_EXPORTS 1
-		)
 	endif()
 
 	if(USE_GETTEXT)
@@ -1015,21 +978,11 @@ if(BUILD_SERVER)
 		${ZSTD_LIBRARY}
 		${SQLITE3_LIBRARY}
 		${JSON_LIBRARY}
-		${LUA_LIBRARY}
-		${LUA_BIT_LIBRARY}
-		lstrpack
 		sha256
 		${GMP_LIBRARY}
 		${PLATFORM_LIBS}
 	)
 	target_compile_definitions(${PROJECT_NAME}server PRIVATE "MT_BUILDTARGET=2")
-	if(NOT USE_LUAJIT)
-		set_target_properties(${PROJECT_NAME}server PROPERTIES
-			# This is necessary for dynamic Lua modules
-			# to work when Lua is statically linked (issue #10806)
-			ENABLE_EXPORTS 1
-		)
-	endif()
 
 	if (USE_GETTEXT)
 		target_link_libraries(${PROJECT_NAME}server ${GETTEXT_LIBRARY})
@@ -1094,27 +1047,6 @@ endif()
 # Set some optimizations and tweaks
 
 include(CheckCSourceCompiles)
-
-if(USE_LUAJIT)
-	set(CMAKE_REQUIRED_INCLUDES ${LUA_INCLUDE_DIR})
-	set(CMAKE_REQUIRED_LIBRARIES ${LUA_LIBRARY} ${PLATFORM_LIBS})
-	# Require a somewhat recent LuaJIT version
-	# Why?
-	# - there are known concrete issues with old versions on macOS or aarch64 (see e.g. #9614)
-	# - we think there's no excuse to expose our users to old bugs in general
-	# How?
-	# LuaJIT only started reporting a rolling version number in August 2023.
-	# Before that the only statically detectable change is the addition of the
-	# string buffer library (which we don't actually use) in March 2021.
-	# That's recent enough for our purposes, so check for that.
-	unset(HAVE_RECENT_LJ CACHE)
-	check_symbol_exists(luaopen_string_buffer "lualib.h" HAVE_RECENT_LJ)
-	if(NOT HAVE_RECENT_LJ)
-		message(FATAL_ERROR "You are using a LuaJIT version older than March 2021, "
-			"which is not supported for ${PROJECT_NAME_CAPITALIZED} due to known bugs.\n"
-			"To continue, either install a recent version or disable it (-DENABLE_LUAJIT=0).")
-	endif()
-endif()
 
 if(MSVC)
 	# Visual Studio
@@ -1290,9 +1222,6 @@ if(WIN32)
 		endif()
 		if(LEVELDB_DLL)
 			install(FILES ${LEVELDB_DLL} DESTINATION ${BINDIR})
-		endif()
-		if(LUA_DLL)
-			install(FILES ${LUA_DLL} DESTINATION ${BINDIR})
 		endif()
 		if(BUILD_CLIENT AND USE_GETTEXT AND GETTEXT_DLL)
 			install(FILES ${GETTEXT_DLL} DESTINATION ${BINDIR})

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
-#include <common/c_internal.h>
 #include "content/subgames.h"
 #include "constants.h"
 #include "porting.h"
@@ -98,17 +97,13 @@ std::string getWorldPathEnv()
 void SubgameSpec::checkAndLog() const
 {
 	// Log deprecation messages
-	auto handling_mode = get_deprecated_handling_mode();
-	if (!deprecation_msgs.empty() && handling_mode != DeprecatedHandlingMode::Ignore) {
+	if (!deprecation_msgs.empty()) {
 		std::ostringstream os;
 		os << "Game " << title << " at " << path << ":" << std::endl;
 		for (auto msg : deprecation_msgs)
 			os << "\t" << msg << std::endl;
 
-		if (handling_mode == DeprecatedHandlingMode::Error)
-			throw ModError(os.str());
-		else
-			warningstream << os.str();
+		warningstream << os.str();
 	}
 }
 

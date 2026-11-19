@@ -17,7 +17,7 @@
 #include "serverenvironment.h"
 #include "map.h"
 #include "emerge.h"
-#include "server/luaentity_sao.h"
+#include "server/entity_sao.h"
 #include "server/player_sao.h"
 #include "log.h"
 #include "util/pointedthing.h"
@@ -69,13 +69,13 @@ RemoteClient::RemoteClient() :
 {
 }
 
-static LuaEntitySAO *getAttachedObject(PlayerSAO *sao, ServerEnvironment *env)
+static EntitySAO *getAttachedObject(PlayerSAO *sao, ServerEnvironment *env)
 {
 	ServerActiveObject *ao = sao;
 	while (ao->getParent())
 		ao = ao->getParent();
 
-	return ao == sao ? nullptr : dynamic_cast<LuaEntitySAO*>(ao);
+	return ao == sao ? nullptr : dynamic_cast<EntitySAO*>(ao);
 }
 
 void RemoteClient::GetNextBlocks (
@@ -115,7 +115,7 @@ void RemoteClient::GetNextBlocks (
 
 	v3f playerpos = sao->getBasePosition();
 	// if the player is attached, get the velocity from the attached object
-	LuaEntitySAO *lsao = getAttachedObject(sao, env);
+	EntitySAO *lsao = getAttachedObject(sao, env);
 	const v3f &playerspeed = lsao? lsao->getVelocity() : player->getSpeed();
 	v3f playerspeeddir(0,0,0);
 	if (playerspeed.getLength() > 1.0f * BS)

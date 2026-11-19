@@ -10,7 +10,6 @@
 #include <memory>
 #include "nodedef.h"
 #include "craftdef.h"
-#include "content/mods.h"
 #include "database/database-dummy.h"
 #if CHECK_CLIENT_BUILD()
 #include "client/node_visuals.h"
@@ -21,14 +20,12 @@ public:
 	DummyGameDef():
 		m_itemdef(createItemDefManager()),
 		m_nodedef(createNodeDefManager()),
-		m_craftdef(createCraftDefManager()),
-		m_mod_storage_database(new Database_Dummy())
+		m_craftdef(createCraftDefManager())
 	{
 	}
 
 	~DummyGameDef()
 	{
-		delete m_mod_storage_database;
 		delete m_craftdef;
 		delete m_nodedef;
 		delete m_itemdef;
@@ -45,25 +42,9 @@ public:
 		return m_nodedef->allocateDummy(name);
 	}
 
-	const std::vector<ModSpec> &getMods() const override
-	{
-		const static std::vector<ModSpec> emptymodspec;
-		return emptymodspec;
-	}
-	const ModSpec* getModSpec(const std::string &modname) const override { return nullptr; }
-	ModStorageDatabase *getModStorageDatabase() override { return m_mod_storage_database; }
-
-	bool joinModChannel(const std::string &channel) override { return false; }
-	bool leaveModChannel(const std::string &channel) override { return false; }
-	bool sendModChannelMessage(const std::string &channel, const std::string &message) override
-	{
-		return false;
-	}
-	ModChannel *getModChannel(const std::string &channel) override { return nullptr; }
 
 protected:
 	IItemDefManager *m_itemdef = nullptr;
 	NodeDefManager *m_nodedef = nullptr;
 	ICraftDefManager *m_craftdef = nullptr;
-	ModStorageDatabase *m_mod_storage_database = nullptr;
 };

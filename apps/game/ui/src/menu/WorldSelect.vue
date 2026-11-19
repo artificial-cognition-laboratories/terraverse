@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
-import { BridgeError, type CommunityCatalog, type Friend, type Invite, type Loading, type Player, type World } from "../bridge/index.ts"
+import { BridgeError, type Friend, type Invite, type Loading, type Player, type World } from "../bridge/index.ts"
 import { useBridge } from "../bridge/use.ts"
 import PixelIcon from "../game/PixelIcon.vue"
 import { useStore } from "../game/store.ts"
@@ -26,7 +26,6 @@ const copier = Copier()
 const section = ref<Section>("mine")
 const query = ref("")
 const worlds = ref<World[] | null>(null)
-const catalog = ref<CommunityCatalog | null>(null)
 const selected = ref<string | null>(null)
 const details = ref(false) // the selected world's own page, in the panel
 const confirming = ref(false)
@@ -90,9 +89,6 @@ const planet = usePlanetarium({
     body: computed(() => ({ code: code.value ?? "" })),
     frame: covers,
 })
-const installedMods = computed(() => catalog.value?.mods.filter((mod) =>
-    mod.source === "installed" && local.value && mod.enabledWorlds.includes(local.value.path)) ?? null)
-const modsOf = (world: World) => catalog.value?.mods.filter((mod) => mod.source === "installed" && mod.enabledWorlds.includes(world.path)).length ?? 0
 function planetSize(world: World) {
     if (!world.code) return null
     try { return sizeLabel(decodeWorldCode(world.code).size) }
@@ -157,7 +153,6 @@ watch(() => store.mode, (mode, was) => {
 onMounted(() => {
     void orbits(false)
     void refreshWorlds()
-    void bridge.send("community.list", {}).then((value) => { catalog.value = value }).catch(report)
 })
 onBeforeUnmount(() => { void orbits(true) })
 </script>
@@ -205,12 +200,6 @@ onBeforeUnmount(() => { void orbits(true) })
                     <Notice v-if="copier.state.value === 'failed'" tone="warn">Clipboard access failed. Select the code to copy it.</Notice>
                 </section>
 
-                <section v-if="installedMods">
-                    <h3>Mods</h3>
-                    <p class="dim">{{ installedMods.length ? installedMods.map((mod) => mod.title).join(" · ") : "Base game only." }}</p>
-                    <Button size="sm" @click="emit('go', 'community')">Browse mods »</Button>
-                </section>
-
                 <section class="danger">
                     <h3>Delete</h3>
                     <p class="dim">Removes this world and everything built in it from this device.</p>
@@ -241,7 +230,7 @@ onBeforeUnmount(() => { void orbits(true) })
                                 <span class="line"><strong>{{ entry.label }}</strong>
                                     <PixelIcon v-if="entry.world.pinned" class="pin" v-bind="PIN" aria-label="Pinned" /></span>
                                 <span class="chips">
-                                    <span v-for="chip in chipsOf(entry.world, modsOf(entry.world))" :key="chip.label" class="chip" :title="chip.label">
+                                    <span v-for="chip in chipsOf(entry.world)" :key="chip.label" class="chip" :title="chip.label">
                                         <PixelIcon class="chip-icon" :rows="chip.rows" :palette="chip.palette" />{{ chip.text }}
                                     </span>
                                 </span>

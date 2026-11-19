@@ -80,102 +80,10 @@ void Database_Dummy::listPlayers(std::vector<std::string> &res)
 	}
 }
 
-void Database_Dummy::getModEntries(const std::string &modname, StringMap *storage)
-{
-	auto lock = std::lock_guard(m_mutex);
 
-	const auto mod_pair = m_mod_storage_database.find(modname);
-	if (mod_pair != m_mod_storage_database.cend()) {
-		for (const auto &pair : mod_pair->second) {
-			(*storage)[pair.first] = pair.second;
-		}
-	}
-}
 
-void Database_Dummy::getModKeys(const std::string &modname, std::vector<std::string> *storage)
-{
-	auto lock = std::lock_guard(m_mutex);
 
-	const auto mod_pair = m_mod_storage_database.find(modname);
-	if (mod_pair != m_mod_storage_database.cend()) {
-		storage->reserve(storage->size() + mod_pair->second.size());
-		for (const auto &pair : mod_pair->second)
-			storage->push_back(pair.first);
-	}
-}
 
-bool Database_Dummy::getModEntry(const std::string &modname,
-	const std::string &key, std::string *value)
-{
-	auto lock = std::lock_guard(m_mutex);
 
-	auto mod_pair = m_mod_storage_database.find(modname);
-	if (mod_pair == m_mod_storage_database.end())
-		return false;
-	const StringMap &meta = mod_pair->second;
 
-	auto pair = meta.find(key);
-	if (pair != meta.end()) {
-		*value = pair->second;
-		return true;
-	}
-	return false;
-}
 
-bool Database_Dummy::hasModEntry(const std::string &modname, const std::string &key)
-{
-	auto lock = std::lock_guard(m_mutex);
-
-	auto mod_pair = m_mod_storage_database.find(modname);
-	if (mod_pair == m_mod_storage_database.end())
-		return false;
-	const StringMap &meta = mod_pair->second;
-
-	return meta.find(key) != meta.cend();
-}
-
-bool Database_Dummy::setModEntry(const std::string &modname,
-	const std::string &key, std::string_view value)
-{
-	auto lock = std::lock_guard(m_mutex);
-
-	auto mod_pair = m_mod_storage_database.find(modname);
-	if (mod_pair == m_mod_storage_database.end()) {
-		auto &map = m_mod_storage_database[modname];
-		map[key] = value;
-	} else {
-		mod_pair->second[key] = value;
-	}
-	return true;
-}
-
-bool Database_Dummy::removeModEntry(const std::string &modname, const std::string &key)
-{
-	auto lock = std::lock_guard(m_mutex);
-
-	auto mod_pair = m_mod_storage_database.find(modname);
-	if (mod_pair != m_mod_storage_database.end())
-		return mod_pair->second.erase(key) > 0;
-	return false;
-}
-
-bool Database_Dummy::removeModEntries(const std::string &modname)
-{
-	auto lock = std::lock_guard(m_mutex);
-
-	auto mod_pair = m_mod_storage_database.find(modname);
-	if (mod_pair != m_mod_storage_database.end() && !mod_pair->second.empty()) {
-		mod_pair->second.clear();
-		return true;
-	}
-	return false;
-}
-
-void Database_Dummy::listMods(std::vector<std::string> *res)
-{
-	auto lock = std::lock_guard(m_mutex);
-
-	for (const auto &pair : m_mod_storage_database) {
-		res->push_back(pair.first);
-	}
-}

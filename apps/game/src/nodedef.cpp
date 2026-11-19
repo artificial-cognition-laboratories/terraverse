@@ -317,9 +317,6 @@ void ContentFeatures::reset()
 	/*
 		Cached stuff
 	*/
-	has_on_construct = false;
-	has_on_destruct = false;
-	has_after_destruct = false;
 	floats = false;
 
 	/*

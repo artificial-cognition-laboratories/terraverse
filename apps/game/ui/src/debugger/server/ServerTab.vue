@@ -43,7 +43,6 @@ const startup = computed(() => {
     const loads = new Map(run.filter((m) => m.what.startsWith("mod ")).map((m) => [m.what.slice(4), m.end - m.start]))
     return { steps: steps, loads: loads, summary: `Started in ${took >= 1000 ? `${(took / 1000).toFixed(2)} s` : `${Math.round(took)} ms`}` }
 })
-const noLoads: ReadonlyMap<string, number> = new Map()
 </script>
 
 <template>
@@ -65,7 +64,7 @@ const noLoads: ReadonlyMap<string, number> = new Map()
                 <p class="empty">{{ summary ? "Only for a server this game runs." : "Enter a world to see its server." }}</p>
             </template>
             <PlayersView v-else-if="view === 'players'" :players="local.players" :text="text" />
-            <ModsView v-else-if="view === 'mods'" :mods="local.mods" :loads="startup?.loads ?? noLoads" :text="text" />
+            <ModsView v-else-if="view === 'mods'" :mods="local.mods" :text="text" />
             <template v-else>
                 <Waterfall v-if="startup" :steps="startup.steps" :summary="startup.summary" />
                 <p v-else class="empty">No start recorded: the debugger keeps marks from when this game started a server.</p>

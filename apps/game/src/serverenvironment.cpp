@@ -7,7 +7,6 @@
 #include <utility>
 #include <iterator>
 #include "serverenvironment.h"
-#include "common/c_types.h"
 #include "irr_aabb3d.h"
 #include "settings.h"
 #include "log.h"
@@ -19,7 +18,7 @@
 #include "profiler.h"
 #include "raycast.h"
 #include "remoteplayer.h"
-#include "scripting_server.h"
+#include "server/interact.h"
 #include "server.h"
 #include "servermap.h"
 #include "util/numeric.h"
@@ -36,7 +35,7 @@
 #if USE_LEVELDB
 #include "database/database-leveldb.h"
 #endif
-#include "server/luaentity_sao.h"
+#include "server/entity_sao.h"
 #include "server/player_sao.h"
 
 // A number that is much smaller than the timeout for particle spawners should/could ever be
@@ -160,18 +159,6 @@ void ActiveBlockList::update(std::vector<PlayerSAO*> &active_players,
 }
 
 /*
-	OnMapblocksChangedReceiver
-*/
-
-void OnMapblocksChangedReceiver::onMapEditEvent(const MapEditEvent &event)
-{
-	assert(receiving);
-	for (const v3s16 &p : event.modified_blocks) {
-		modified_blocks.insert(p);
-	}
-}
-
-/*
 	ServerEnvironment
 */
 
@@ -179,7 +166,6 @@ ServerEnvironment::ServerEnvironment(std::unique_ptr<ServerMap> map,
 		Server *server, MetricsBackend *mb):
 	Environment(server),
 	m_map(std::move(map)),
-	m_script(server->getScriptIface()),
 	m_server(server)
 {
 	m_cache_active_block_mgmt_interval = g_settings->getFloat("active_block_mgmt_interval");
@@ -243,11 +229,6 @@ void ServerEnvironment::init()
 	}
 
 	m_player_database = openPlayerDatabase(player_backend_name, world_path, conf);
-
-	if (m_map && m_script->has_on_mapblocks_changed()) {
-		m_map->addEventReceiver(&m_on_mapblocks_changed_receiver);
-		m_on_mapblocks_changed_receiver.receiving = true;
-	}
 }
 
 void ServerEnvironment::deactivateBlocksAndObjects()
@@ -265,7 +246,6 @@ void ServerEnvironment::deactivateBlocksAndObjects()
 
 ServerEnvironment::~ServerEnvironment()
 {
-	m_script = nullptr;
 	assert(m_active_blocks.size() == 0); // deactivateBlocksAndObjects does this
 
 	// Drop/delete map
@@ -551,10 +531,8 @@ void ServerEnvironment::activateBlock(MapBlock *block)
 	if (block->isOrphan())
 		return;
 
-	// Run node timers
-	block->step((float)dtime_s, [&](v3s16 p, MapNode n, NodeTimer t) -> bool {
-		return m_script->node_on_timer(p, n, t.elapsed, t.timeout);
-	});
+	// Run node timers: nothing keeps one yet (Terra Firma, sprint 119: they were Lua's)
+	block->step((float)dtime_s, [](v3s16, MapNode, NodeTimer) { return false; });
 }
 
 void ServerEnvironment::addActiveBlockModifier(ActiveBlockModifier *abm)
@@ -569,59 +547,20 @@ void ServerEnvironment::addLoadingBlockModifierDef(LoadingBlockModifierDef *lbm)
 
 bool ServerEnvironment::setNode(v3s16 p, const MapNode &n)
 {
-	const NodeDefManager *ndef = m_server->ndef();
-	MapNode n_old = m_map->getNode(p);
-
-	const ContentFeatures &cf_old = ndef->get(n_old);
-
-	// Call destructor
-	if (cf_old.has_on_destruct)
-		m_script->node_on_destruct(p, n_old);
-
-	// Replace node
 	if (!m_map->addNodeWithEvent(p, n))
 		return false;
-
 	// Update active VoxelManipulator if a mapgen thread
 	m_map->updateVManip(p);
-
-	// Call post-destructor
-	if (cf_old.has_after_destruct)
-		m_script->node_after_destruct(p, n_old);
-
-	// Retrieve node content features
-	// if new node is same as old, reuse old definition to prevent a lookup
-	const ContentFeatures &cf_new = n_old == n ? cf_old : ndef->get(n);
-
-	// Call constructor
-	if (cf_new.has_on_construct)
-		m_script->node_on_construct(p, n);
-
 	return true;
 }
 
 bool ServerEnvironment::removeNode(v3s16 p)
 {
-	const NodeDefManager *ndef = m_server->ndef();
-	MapNode n_old = m_map->getNode(p);
-
-	// Call destructor
-	if (ndef->get(n_old).has_on_destruct)
-		m_script->node_on_destruct(p, n_old);
-
-	// Replace with air
 	// This is slightly optimized compared to addNodeWithEvent(air)
 	if (!m_map->removeNodeWithEvent(p))
 		return false;
-
 	// Update active VoxelManipulator if a mapgen thread
 	m_map->updateVManip(p);
-
-	// Call post-destructor
-	if (ndef->get(n_old).has_after_destruct)
-		m_script->node_after_destruct(p, n_old);
-
-	// Air doesn't require constructor
 	return true;
 }
 
@@ -967,10 +906,8 @@ void ServerEnvironment::step(float dtime)
 					MOD_REASON_BLOCK_EXPIRED);
 			}
 
-			// Run node timers
-			block->step(dtime, [&](v3s16 p, MapNode n, NodeTimer t) -> bool {
-				return m_script->node_on_timer(p, n, t.elapsed, t.timeout);
-			});
+			// Run node timers: nothing keeps one yet
+			block->step(dtime, [](v3s16, MapNode, NodeTimer) { return false; });
 		}
 	}
 
@@ -1028,13 +965,6 @@ void ServerEnvironment::step(float dtime)
 
 		timer.stop(true);
 	}
-
-	/*
-		Step script environment (run global on_step())
-	*/
-	m_script->environment_Step(dtime);
-
-	m_script->stepAsync();
 
 	/*
 		Step active objects
@@ -1105,14 +1035,6 @@ void ServerEnvironment::step(float dtime)
 	// Send outdated detached inventories
 	if (!m_players.empty())
 		m_server->sendDetachedInventories();
-
-	// Notify mods of modified mapblocks
-	if (m_on_mapblocks_changed_receiver.receiving &&
-			!m_on_mapblocks_changed_receiver.modified_blocks.empty()) {
-		std::unordered_set<v3s16> modified_blocks;
-		std::swap(modified_blocks, m_on_mapblocks_changed_receiver.modified_blocks);
-		m_script->on_mapblocks_changed(modified_blocks);
-	}
 
 	const auto end_time = porting::getTimeUs();
 	m_step_time_counter->increment(end_time - start_time);
@@ -1208,7 +1130,7 @@ void ServerEnvironment::getAddedActiveObjects(PlayerSAO *playersao, s16 radius,
 		player_radius_f = 0.0f;
 
 	if (!playersao->isEffectivelyObservedBy(playersao->getPlayer()->getName()))
-		throw ModError("Player does not observe itself");
+		throw BaseException("Player does not observe itself");
 
 	m_ao_manager.getAddedActiveObjectsAroundPos(
 		playersao->getBasePosition(), playersao->getPlayer()->getName(),
@@ -1235,7 +1157,7 @@ void ServerEnvironment::getRemovedActiveObjects(PlayerSAO *playersao, s16 radius
 	const std::string &player_name = playersao->getPlayer()->getName();
 
 	if (!playersao->isEffectivelyObservedBy(player_name))
-		throw ModError("Player does not observe itself");
+		throw BaseException("Player does not observe itself");
 
 	/*
 		Go through current_objects; object is removed if:
@@ -1341,7 +1263,7 @@ void ServerEnvironment::getSelectedActiveObjects(
 
 		PointabilityType pointable;
 		if (pointabilities) {
-			if (LuaEntitySAO* lsao = dynamic_cast<LuaEntitySAO*>(obj)) {
+			if (EntitySAO* lsao = dynamic_cast<EntitySAO*>(obj)) {
 				pointable = pointabilities->matchObject(lsao->getName(),
 						usao->getArmorGroups()).value_or(props->pointable);
 			} else if (PlayerSAO* psao = dynamic_cast<PlayerSAO*>(obj)) {
@@ -1385,16 +1307,13 @@ u16 ServerEnvironment::addActiveObjectRaw(std::unique_ptr<ServerActiveObject> ob
 		return 0;
 	}
 
-	// Register reference in scripting api (must be done before post-init)
-	m_script->addObjectReference(object);
-
 	// Post-initialize object
-	// Note that this can change the value of isStaticAllowed() in case of LuaEntitySAO
+	// Note that this can change the value of isStaticAllowed() in case of EntitySAO
 	try {
 		object->addedToEnvironment(dtime_s);
-	} catch (const LuaError &e) {
+	} catch (const BaseException &e) {
 		errorstream << "ServerEnvironment::addActiveObjectRaw(): "
-				<< "object could not be added due to a Lua error" << std::endl;
+				<< "object could not be added: " << e.what() << std::endl;
 		// Don't add the object on a error to not duplicate static objects
 		// Need to remove the object again, since registerObject already added it
 		object->markForRemoval();
@@ -1542,7 +1461,7 @@ std::unique_ptr<ServerActiveObject> ServerEnvironment::createSAO(ActiveObjectTyp
 {
 	switch (type) {
 		case ACTIVEOBJECT_TYPE_LUAENTITY:
-			return std::make_unique<LuaEntitySAO>(this, pos, data);
+			return std::make_unique<EntitySAO>(this, pos, data);
 		default:
 			warningstream << "ServerActiveObject: No factory for type=" << type << std::endl;
 	}
@@ -1732,7 +1651,7 @@ void ServerEnvironment::deactivateFarObjects(const bool _force_delete)
 		}
 
 		// Regardless of what happens to the object at this point, deactivate it first.
-		// This ensures that LuaEntity on_deactivate is always called.
+		// This ensures every entity is told it is going.
 		obj->markForDeactivation();
 
 		// If known by some client, don't delete yet.
@@ -1811,8 +1730,6 @@ void ServerEnvironment::processActiveObjectRemove(ServerActiveObject *obj)
 
 	// Tell the object about removal
 	obj->removingFromEnvironment();
-	// Deregister in scripting api
-	m_script->removeObjectReference(obj);
 }
 
 std::vector<std::string> ServerEnvironment::getPlayerDatabaseBackends()

@@ -7,7 +7,7 @@
 #include <string>
 
 class IGameDef;
-class LuaEntitySAO;
+class EntitySAO;
 class PlayerSAO;
 class ServerEnvironment;
 namespace piece { class Machine; }
@@ -24,14 +24,14 @@ public:
 	Entities(ServerEnvironment &env, IGameDef *gamedef) : m_env(env), m_gamedef(gamedef) {}
 
 	// Throws Refused on an id that isn't a machine's entity.
-	LuaEntitySAO &object(u16 id);
+	EntitySAO &object(u16 id);
 	// The entity carrying machine `machine`, round `who`; nothing if it's gone.
-	LuaEntitySAO *find(PlayerSAO &who, u64 machine);
-	piece::Machine read(LuaEntitySAO &obj) const;
+	EntitySAO *find(PlayerSAO &who, u64 machine);
+	piece::Machine read(EntitySAO &obj) const;
 	// Back on its entity (sent); nothing designed or built, it's gone.
-	void store(LuaEntitySAO &obj, const piece::Machine &m);
+	void store(EntitySAO &obj, const piece::Machine &m);
 	// A new entity carrying it, at `at` (BS) turned `rotation` (degrees).
-	LuaEntitySAO &spawn(v3f at, v3f rotation, const piece::Machine &m);
+	EntitySAO &spawn(v3f at, v3f rotation, const piece::Machine &m);
 
 private:
 	ServerEnvironment &m_env;

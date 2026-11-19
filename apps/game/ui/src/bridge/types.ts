@@ -31,10 +31,6 @@ export type World = {
 }
 
 /** Local content: reported by src/shell/community.cpp, not a remote catalog. */
-export type CommunityMod = {
-    id: string; name: string; title: string; description: string; author: string
-    source: "builtIn" | "installed"; depends: string[]; enabledWorlds: string[]; configurable: boolean; issue?: string
-}
 export type CommunityTexture = {
     id: string; name: string; description: string; author: string; active: boolean
 }
@@ -47,7 +43,7 @@ export type PublicServer = {
 }
 export type ServerDirectory = { status: "ready" | "unavailable"; servers: PublicServer[] }
 export type CommunityCatalog = {
-    mods: CommunityMod[]; textures: CommunityTexture[]; worlds: CommunityWorld[]
+    textures: CommunityTexture[]; worlds: CommunityWorld[]
 }
 
 /** How to show an item; icon is null when it has nothing to draw. */
@@ -465,7 +461,8 @@ export type NetCapture = { messages: number[]; heads: string[] }
 /** A player on the local server, as the Server tab lists them. `rtt` ms, null unknown; `connected` seconds. */
 export type ServerPlayer = { name: string; position: [number, number, number]; hp: number; rtt: number | null; connected: number; protocol: number }
 /** A mod the local server runs: `source` the game's own or one the player added. */
-export type ServerMod = { name: string; author: string; description: string; path: string; source: "game" | "user"; depends: string[] }
+/** A TypeScript mod the local server runs (its server folder's .terra/manifest.json). */
+export type ServerMod = { name: string; version: string; source: "game" | "user" }
 /** The server the game's connected to. Local: all of it; remote: `local` false and its address alone. */
 export type ServerSummary =
     | { local: true; address: string; version: string; game: string; world: string; uptime: number; lag: number; players: ServerPlayer[]; mods: ServerMod[] }
@@ -535,7 +532,6 @@ export type Intents = {
     "servers.favorite.set": { request: { id: string; favorite: boolean }; response: null }
     "community.list": { request: {}; response: CommunityCatalog }
     /** User-installed mods are selected per world; built-ins are required by this build. */
-    "community.mod.set": { request: { id: string; world: string; enabled: boolean }; response: null }
     /** A local texture pack is used after restarting Terraverse; empty id restores defaults. */
     "community.texture.set": { request: { id: string }; response: null }
     /** settings: written to the world's world.mt — creative_mode, enable_damage, tf_* (src/shell/worlds.cpp) */

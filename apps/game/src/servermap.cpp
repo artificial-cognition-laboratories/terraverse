@@ -3,6 +3,7 @@
 // Copyright (C) 2010-2024 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "servermap.h"
+#include "server/interact.h"
 #include "config.h" // USE_SHELL
 #include "database/database-planet.h"
 #include "planet/atlas.h"
@@ -31,7 +32,6 @@
 #include "database/database.h"
 #include "database/database-dummy.h"
 #include "database/database-sqlite3.h"
-#include "script/scripting_server.h"
 #if USE_LEVELDB
 #include "database/database-leveldb.h"
 #endif
@@ -1268,12 +1268,6 @@ void ServerMap::transformLiquidsLocal(std::map<v3s16, MapBlock*> &modified_block
 		// change the node.
 		n0.setContent(new_node_content);
 
-		// on_flood() the node
-		if (floodable_node != CONTENT_AIR) {
-			if (env->getScriptIface()->node_on_flood(p0, n00, n0))
-				continue;
-		}
-
 		// Ignore light (because calling voxalgo::update_lighting_nodes)
 		ContentLightingFlags f0 = m_nodedef->getLightingFlags(n0);
 		n0.setLight(LIGHTBANK_DAY, 0, f0);
@@ -1338,11 +1332,9 @@ void ServerMap::transformLiquidsLocal(std::map<v3s16, MapBlock*> &modified_block
 
 	voxalgo::update_lighting_nodes(this, changed_nodes, modified_blocks);
 
-	for (const v3s16 &p : check_for_falling) {
-		env->getScriptIface()->check_for_falling(p);
-	}
-
-	env->getScriptIface()->on_liquid_transformed(changed_nodes);
+	// what the liquid took the support from falls (Terra Firma, sprint 119: was builtin's)
+	for (const v3s16 &p : check_for_falling)
+		interact::settle(*env, p);
 }
 
 void ServerMap::transformLiquids(std::map<v3s16, MapBlock*> &modified_blocks,

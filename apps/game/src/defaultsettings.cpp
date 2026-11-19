@@ -556,8 +556,6 @@ void set_default_settings()
 	settings->setDefault("emergequeue_limit_diskonly", "150");
 	settings->setDefault("emergequeue_limit_generate", "150");
 	settings->setDefault("num_emerge_threads", "0");
-	settings->setDefault("secure.trusted_mods", "");
-	settings->setDefault("secure.http_mods", "");
 
 	// Physics
 	settings->setDefault("movement_acceleration_default", "3");
@@ -572,6 +570,7 @@ void set_default_settings()
 	settings->setDefault("movement_liquid_fluidity_smooth", "0.5");
 	settings->setDefault("movement_liquid_sink", "10");
 	settings->setDefault("movement_gravity", "9.81");
+	settings->setDefault("item_entity_ttl", "900"); // Terra Firma: s a dropped item lies (server/kinds)
 
 	// Liquids
 	settings->setDefault("liquid_loop_max", "100000");

@@ -18,6 +18,7 @@
     "check:budgets": "bash scripts/budgets-check.sh",
     "check:moves": "bun run stage && .output/bin/luanti --test-module TestMoves",
     "check:matter": "bash scripts/matter-check.sh",
+    "check:interact": "bash scripts/interact-check.sh",
     "check:far": "bash scripts/far-check.sh",
     "check:mods": "bash scripts/mods-check.sh",
     "check:dev": "bash scripts/dev-check.sh",

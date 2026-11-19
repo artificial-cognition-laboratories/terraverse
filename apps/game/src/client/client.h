@@ -44,11 +44,10 @@ class ISoundManager;
 class IWritableItemDefManager;
 class IWritableShaderSource;
 class IWritableTextureSource;
-class LuaError;
+
 class MapDatabase;
 class MeshUpdateManager;
 class Minimap;
-class ModChannelMgr;
 class MtEventManager;
 class NetworkPacket;
 class NodeDefManager;
@@ -229,8 +228,6 @@ public:
 	void handleCommand_LocalPlayerAnimations(NetworkPacket* pkt);
 	void handleCommand_EyeOffset(NetworkPacket* pkt);
 	void handleCommand_UpdatePlayerList(NetworkPacket* pkt);
-	void handleCommand_ModChannelMsg(NetworkPacket *pkt);
-	void handleCommand_ModChannelSignal(NetworkPacket *pkt);
 	void handleCommand_FormspecPrepend(NetworkPacket *pkt);
 	void handleCommand_PlayerSpeed(NetworkPacket *pkt);
 	void handleCommand_MediaPush(NetworkPacket *pkt);
@@ -332,8 +329,6 @@ public:
 	ITextureSource *tsrc() { return getTextureSource(); }
 	ISoundManager *sound() { return getSoundManager(); }
 
-	const std::vector<ModSpec> &getMods() const override;
-	const ModSpec* getModSpec(const std::string &modname) const override;
 
 	// Causes urgent mesh updates (unlike Map::add/removeNodeWithEvent)
 	void removeNode(v3s16 p);
@@ -471,12 +466,10 @@ public:
 	// (the returned pointer must be dropped)
 	scene::IAnimatedMesh *getMesh(const std::string &filename, bool *is_shared = nullptr);
 
-	ModStorageDatabase *getModStorageDatabase() override { return m_mod_storage_database; }
 
 	ItemVisualsManager *getItemVisualsManager() { return m_item_visuals_manager; }
 
 	// Migrates away old files-based mod storage if necessary
-	void migrateModStorage();
 
 	// The following set of functions is used by ClientMediaDownloader
 	// Insert a media file appropriately into the appropriate manager
@@ -512,11 +505,6 @@ public:
 	}
 
 
-	bool joinModChannel(const std::string &channel) override;
-	bool leaveModChannel(const std::string &channel) override;
-	bool sendModChannelMessage(const std::string &channel,
-			const std::string &message) override;
-	ModChannel *getModChannel(const std::string &channel) override;
 
 	const std::string &getFormspecPrepend() const;
 
@@ -708,13 +696,9 @@ private:
 	u16 m_cache_save_interval;
 
 	// Client modding
-	ModStorageDatabase *m_mod_storage_database = nullptr;
-	float m_mod_storage_save_timer = 10.0f;
-	std::vector<ModSpec> m_mods;
 
 	bool m_shutdown = false;
 	bool m_take_screenshot = false;
 
 
-	std::unique_ptr<ModChannelMgr> m_modchannel_mgr;
 };

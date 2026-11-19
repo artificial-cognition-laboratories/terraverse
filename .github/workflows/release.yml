@@ -65,16 +65,6 @@ jobs:
             libogg-dev libvorbis-dev libopenal-dev libzip-dev \
             libjsoncpp-dev libminiupnpc-dev
 
-      # Ubuntu 22.04's LuaJIT is older than the engine accepts. Pinned, and static
-      # so the package has no LuaJIT library to bundle.
-      - name: Build LuaJIT
-        run: |
-          mkdir "$RUNNER_TEMP/luajit-src"
-          curl -fsSL https://github.com/LuaJIT/LuaJIT/archive/ea9eb7edb5eac4a9d175d74523db34fac0fa5180.tar.gz \
-            | tar xz --strip-components=1 -C "$RUNNER_TEMP/luajit-src"
-          make -C "$RUNNER_TEMP/luajit-src" -j"$(nproc)" CFLAGS=-fPIC PREFIX="$RUNNER_TEMP/luajit"
-          make -C "$RUNNER_TEMP/luajit-src" install PREFIX="$RUNNER_TEMP/luajit"
-
       # Chromium (CEF) is a large download: keep it between runs.
       - name: Cache CEF
         uses: actions/cache@v4
@@ -116,8 +106,6 @@ jobs:
             -DRUN_IN_PLACE=TRUE \
             -DENABLE_POSTGRESQL=OFF -DENABLE_LEVELDB=OFF \
             -DENABLE_UPDATE_CHECKER=OFF \
-            -DLUA_INCLUDE_DIR="$RUNNER_TEMP/luajit/include/luajit-2.1" \
-            -DLUA_LIBRARY="$RUNNER_TEMP/luajit/lib/libluajit-5.1.a" \
             -DTERRAFIRMA_VERSION="$VERSION"
 
       # -k: one run reports every compile error, not just the first.

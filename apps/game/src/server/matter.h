@@ -45,7 +45,7 @@ struct ServerMatter
 	};
 	Clock clock;
 	std::unordered_set<v3s16> lit;
-	std::vector<sandbox::WorldMatter::Spec> plain; // the plain blocks registered, for the bake (ModApiMatter::baked)
+	std::vector<sandbox::WorldMatter::Spec> plain; // the plain blocks registered, for the bake (serverMatterBaked)
 };
 
 ServerMatter &serverMatter(Server *server);
@@ -75,5 +75,8 @@ void terraMatterDisturb(Server *server, v3s16 p);
 // The reactions they've seen happen, for the wiki.
 class PlayerSAO;
 void terraMatterJoin(Server *server, PlayerSAO *sao);
+namespace Json { class Value; }
+// Every plain block's matter and look, for the wiki's scenes (bun palette: far/export).
+Json::Value serverMatterBaked(const NodeDefManager *ndef);
 // A chunk's wet shore (mapgenShore) filled with water where its smoothed ground is open.
 void terraFillShore(Server *server, const std::vector<v3s16> &shore);

@@ -34,13 +34,12 @@ for mod in "$root"/registry/mods/*/mod.config.ts; do
 done
 
 world="$work/save/worlds/main"
-mkdir -p "$world/worldmods"
-cp -r "$root/scripts/mods-check/probe" "$world/worldmods/mods_probe"
+mkdir -p "$world"
 printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$world/world.mt"
 printf 'mg_name = singlenode\n[end_of_params]\n' > "$world/map_meta.txt"
 port=$((31200 + RANDOM % 500))
 # no settings but the world's: a check can't depend on the minetest.conf of whoever runs it
-timeout -s INT 8 "$root/.output/bin/luanti" --server --config /dev/null --world "$world" \
+timeout -s INT 8 "$root/.output/bin/luanti" --server --config /dev/null --world "$world" --probe mods \
 	--server-folder "$work" --port "$port" > "$work/log.txt" 2>&1 || true
 
 failed=0

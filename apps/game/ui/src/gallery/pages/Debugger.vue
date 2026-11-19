@@ -50,10 +50,9 @@ const describe = () => server.described({
     local: true, address: "", version: "5.18.0-dev", game: "Terraverse", world: "/home/you/.terraverse/worlds/moon", uptime: 734 + clock / 1000, lag: 0.121,
     players: [{ name: "wren", position: [-1616.4, 2.1, -1873.9], hp: 20, rtt: 1.1, connected: 734, protocol: 48 }],
     mods: [
-        { name: "tf_world", author: "ArcLabs", description: "Blocks, biomes and materials.", path: "/game/mods/tf_world", source: "game", depends: [] },
-        { name: "tf_matter", author: "ArcLabs", description: "Substances, heat and state.", path: "/game/mods/tf_matter", source: "game", depends: ["tf_world"] },
-        { name: "tf_player", author: "ArcLabs", description: "The physical player.", path: "/game/mods/tf_player", source: "game", depends: ["tf_world"] },
-        { name: "lanterns", author: "Wren", description: "Small placeable lanterns.", path: "/mods/lanterns", source: "user", depends: ["tf_world"] },
+        { name: "@terraverse/materials", version: "0.1.0", source: "game" },
+        { name: "@terraverse/commands", version: "0.1.0", source: "game" },
+        { name: "lanterns", version: "1.2.0", source: "user" },
     ],
 }, { pid: 41233, cpu: 34 + Math.sin(clock / 900) * 6, rss: 1.21e9, threads: [{ name: "luanti", cpu: 22 }, { name: "Server", cpu: 7 }, { name: "Emerge-0", cpu: 3 }, { name: "MeshUpdate", cpu: 2 }] })
 describe()

@@ -3,7 +3,6 @@
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "config.h"
-#include "content/mods.h"
 
 #pragma once
 
@@ -17,7 +16,7 @@ void sendAnnounce(AnnounceAction, u16 port,
 		const std::vector<std::string> &clients_names = std::vector<std::string>(),
 		double uptime = 0, u32 game_time = 0, float lag = 0,
 		const std::string &gameid = "", const std::string &mg_name = "",
-		const std::vector<ModSpec> &mods = std::vector<ModSpec>(),
+		const std::vector<std::string> &mods = std::vector<std::string>(),
 		bool dedicated = false);
 #endif
 

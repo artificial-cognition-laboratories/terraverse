@@ -177,7 +177,6 @@ protected:
 	void reportMetrics(u64 save_time_us, u32 saved_blocks, u32 all_blocks) override;
 
 private:
-	friend class ModApiMapgen; // for m_transforming_liquid
 
 	// extra border area during mapgen (in blocks)
 	constexpr static v3s16 EMERGE_EXTRA_BORDER{1, 1, 1};

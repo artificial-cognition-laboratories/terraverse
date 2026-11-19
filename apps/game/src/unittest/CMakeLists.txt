@@ -18,15 +18,12 @@ set(unittest_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/test_irrptr.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_logging.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_lbmmanager.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/test_lua.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_map.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_mapblock.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_mapdatabase.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_mapgen.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_map_settings_manager.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_mapnode.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/test_modchannels.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/test_modstoragedatabase.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_moveaction.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_noderesolver.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_noise.cpp
@@ -57,7 +54,6 @@ set(unittest_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/test_random.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_sao.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_schematic.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/test_scriptapi.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_serialization.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_server_shutdown_state.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_settings.cpp

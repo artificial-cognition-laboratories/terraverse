@@ -9,7 +9,7 @@
 #include "porting.h"
 #include "piece/frame.h"
 #include "remoteplayer.h"
-#include "server/luaentity_sao.h"
+#include "server/entity_sao.h"
 #include "server/player_sao.h"
 #include "serverenvironment.h"
 #include "settings.h"
@@ -51,7 +51,7 @@ void Workshop::stroke(PlayerSAO &who, u16 id, u64 part, const sculpt::Stroke &s,
 	if (apart && s.act != sculpt::Act::Add)
 		throw Refused("Only what's added makes a part");
 	// on the world, or on a machine's part's design in its own grid
-	LuaEntitySAO *obj = id ? &m_entities.object(id) : nullptr;
+	EntitySAO *obj = id ? &m_entities.object(id) : nullptr;
 	std::optional<piece::Machine> m;
 	v3f there = intToFloat(s.at.node, BS);
 	if (obj) {
@@ -193,7 +193,7 @@ void Workshop::undo(PlayerSAO &who)
 		last->edit.restore(m_env.getMap());
 		return;
 	}
-	LuaEntitySAO *obj = m_entities.find(who, last->machine);
+	EntitySAO *obj = m_entities.find(who, last->machine);
 	if (!obj)
 		throw Refused("That object is gone");
 	piece::Machine m = m_entities.read(*obj);
@@ -217,7 +217,7 @@ u16 Workshop::start(PlayerSAO &who)
 	o.design().map().setNode({ 0, 0, 0 }, MapNode(material));
 	o.build();
 	m.add({ std::move(o), piece::Pose{ v3s32(0), 0 } });
-	LuaEntitySAO &obj = m_entities.spawn(at, v3f(0, who.getRotation().Y, 0), m);
+	EntitySAO &obj = m_entities.spawn(at, v3f(0, who.getRotation().Y, 0), m);
 	m_motion.hold(obj, true); // made held: it floats in front of them till it's let go
 	actionstream << "workshop: " << name(who) << " made machine " << m.id() << std::endl;
 	return obj.getId();
@@ -225,7 +225,7 @@ u16 Workshop::start(PlayerSAO &who)
 
 void Workshop::hold(PlayerSAO &who, u16 id, Grip grip)
 {
-	LuaEntitySAO &obj = m_entities.object(id);
+	EntitySAO &obj = m_entities.object(id);
 	within(who, obj.getBasePosition(), piece::SIDE * 2);
 	m_motion.hold(obj, grip == Grip::Still);
 	m_motion.carry(obj, grip == Grip::Carried
@@ -239,7 +239,7 @@ void Workshop::pose(PlayerSAO &who, u16 id, v3f position, v3f rotation)
 	auto finite = [](v3f v) { return std::isfinite(v.X) && std::isfinite(v.Y) && std::isfinite(v.Z); };
 	if (!finite(position) || !finite(rotation))
 		throw Refused("That's not a pose");
-	LuaEntitySAO &obj = m_entities.object(id);
+	EntitySAO &obj = m_entities.object(id);
 	// the holder sends poses ~20 times a second: one sent before they let
 	// go can arrive after; it's moot, not an error (the physics has it now)
 	if (!m_motion.held(obj) && !m_motion.carried(obj))
@@ -263,7 +263,7 @@ void Workshop::push(PlayerSAO &who, u16 id, v3f impulse)
 	constexpr float CREATIVE_PUSH = 2 * 0.25f;
 	if (!std::isfinite(impulse.X) || !std::isfinite(impulse.Y) || !std::isfinite(impulse.Z))
 		throw Refused("That's not a push");
-	LuaEntitySAO &obj = m_entities.object(id);
+	EntitySAO &obj = m_entities.object(id);
 	within(who, obj.getBasePosition(), piece::SIDE * 2);
 	if (m_motion.held(obj) || m_motion.carried(obj) || !m_motion.velocity(id))
 		return; // in someone's hands, or not moved by physics
@@ -282,7 +282,7 @@ void Workshop::push(PlayerSAO &who, u16 id, v3f impulse)
 
 void Workshop::grab(PlayerSAO &who, u16 id, std::optional<std::pair<v3f, v3f>> grip)
 {
-	LuaEntitySAO &obj = m_entities.object(id);
+	EntitySAO &obj = m_entities.object(id);
 	if (!grip) {
 		m_motion.grab(obj, who.getId(), std::nullopt);
 		return;
@@ -307,7 +307,7 @@ void Workshop::grab(PlayerSAO &who, u16 id, std::optional<std::pair<v3f, v3f>> g
 
 void Workshop::drive(PlayerSAO &who, u16 id, std::optional<physics::Drive> drive)
 {
-	LuaEntitySAO &obj = m_entities.object(id);
+	EntitySAO &obj = m_entities.object(id);
 	const std::optional<u16> driver = m_motion.driver(obj);
 	if (!drive) {
 		if (driver == who.getId()) {
@@ -338,7 +338,7 @@ void Workshop::hollow(PlayerSAO &who, u16 id, u64 part, int thickness)
 {
 	if (thickness < 1 || thickness > sculpt::MAX_SIZE)
 		throw Refused("A wall's 1 to 64 sixteenths");
-	LuaEntitySAO &obj = m_entities.object(id);
+	EntitySAO &obj = m_entities.object(id);
 	within(who, obj.getBasePosition(), piece::SIDE * 2);
 	piece::Machine m = m_entities.read(obj);
 	sculpt::Edit edit = sculpt::Sculptor(partOf(m, part).object.design().map()).hollow(piece::Piece::area(), thickness);
@@ -355,7 +355,7 @@ void Workshop::round(PlayerSAO &who, u16 id, u64 part, int radius)
 	// a block's radius at most keeps it quick
 	if (radius < 1 || radius > shape::STEPS)
 		throw Refused("A rounding's 1 to 16 sixteenths: size the tool");
-	LuaEntitySAO &obj = m_entities.object(id);
+	EntitySAO &obj = m_entities.object(id);
 	within(who, obj.getBasePosition(), piece::SIDE * 2);
 	piece::Machine m = m_entities.read(obj);
 	sculpt::Edit edit = sculpt::Sculptor(partOf(m, part).object.design().map()).round(piece::Piece::area(), radius);
@@ -369,7 +369,7 @@ void Workshop::round(PlayerSAO &who, u16 id, u64 part, int radius)
 void Workshop::relink(PlayerSAO &who, u16 id, u64 a, u64 b, std::optional<piece::Joint> joint,
 		const std::optional<piece::Machine::Face> &at, std::optional<piece::Spring> spring)
 {
-	LuaEntitySAO &obj = m_entities.object(id);
+	EntitySAO &obj = m_entities.object(id);
 	within(who, obj.getBasePosition(), piece::SIDE * 2);
 	piece::Machine m = m_entities.read(obj);
 	partOf(m, a);
@@ -393,7 +393,7 @@ void Workshop::join(PlayerSAO &who, u16 a, const piece::Machine::Face &on_a, u16
 {
 	if (a == b)
 		throw Refused("Join two things, not one to itself");
-	LuaEntitySAO &into = m_entities.object(a), &from = m_entities.object(b);
+	EntitySAO &into = m_entities.object(a), &from = m_entities.object(b);
 	within(who, into.getBasePosition(), piece::SIDE * 2);
 	within(who, from.getBasePosition(), piece::SIDE * 2);
 	piece::Machine m = m_entities.read(into), other = m_entities.read(from);
@@ -408,7 +408,7 @@ void Workshop::join(PlayerSAO &who, u16 a, const piece::Machine::Face &on_a, u16
 
 void Workshop::upright(PlayerSAO &who, u16 id)
 {
-	LuaEntitySAO &obj = m_entities.object(id);
+	EntitySAO &obj = m_entities.object(id);
 	within(who, obj.getBasePosition(), piece::SIDE * 2);
 	const piece::Machine m = m_entities.read(obj);
 	const std::optional<aabb3f> box = m.built();
@@ -422,7 +422,7 @@ void Workshop::upright(PlayerSAO &who, u16 id)
 
 void Workshop::detach(PlayerSAO &who, u16 id, u64 part)
 {
-	LuaEntitySAO &obj = m_entities.object(id);
+	EntitySAO &obj = m_entities.object(id);
 	within(who, obj.getBasePosition(), piece::SIDE * 2);
 	piece::Machine m = m_entities.read(obj);
 	if (m.parts().size() < 2)
@@ -440,7 +440,7 @@ void Workshop::detach(PlayerSAO &who, u16 id, u64 part)
 void Workshop::socket(PlayerSAO &who, u16 id, const piece::Machine::Face &face, piece::Joint joint,
 		const std::optional<sculpt::Stroke::Mirror> &mirror)
 {
-	LuaEntitySAO &obj = m_entities.object(id);
+	EntitySAO &obj = m_entities.object(id);
 	within(who, obj.getBasePosition(), piece::SIDE * 2);
 	piece::Machine m = m_entities.read(obj);
 	partOf(m, face.part);
@@ -454,7 +454,7 @@ void Workshop::socket(PlayerSAO &who, u16 id, const piece::Machine::Face &face, 
 
 void Workshop::unsocket(PlayerSAO &who, u16 id, u64 socket)
 {
-	LuaEntitySAO &obj = m_entities.object(id);
+	EntitySAO &obj = m_entities.object(id);
 	within(who, obj.getBasePosition(), piece::SIDE * 2);
 	piece::Machine m = m_entities.read(obj);
 	m.unsocket(socket);
@@ -465,7 +465,7 @@ void Workshop::plug(PlayerSAO &who, u16 a, u64 socket, u16 b, const piece::Machi
 {
 	if (a == b)
 		throw Refused("Plug one thing into another, not into itself");
-	LuaEntitySAO &into = m_entities.object(a), &from = m_entities.object(b);
+	EntitySAO &into = m_entities.object(a), &from = m_entities.object(b);
 	within(who, into.getBasePosition(), piece::SIDE * 2);
 	within(who, from.getBasePosition(), piece::SIDE * 2);
 	piece::Machine m = m_entities.read(into), other = m_entities.read(from);
@@ -489,7 +489,7 @@ void Workshop::plugAgain(PlayerSAO &who, u16 a, u64 socket)
 	const auto last = m_plugged.find(name(who));
 	if (last == m_plugged.end())
 		throw Refused("Plug something in first: then Shift-click puts another of it on a socket");
-	LuaEntitySAO &into = m_entities.object(a);
+	EntitySAO &into = m_entities.object(a);
 	within(who, into.getBasePosition(), piece::SIDE * 2);
 	piece::Machine m = m_entities.read(into);
 	if (std::none_of(m.sockets().begin(), m.sockets().end(), [&](const piece::Machine::Socket &k) { return k.id == socket; }))
@@ -506,7 +506,7 @@ void Workshop::plugAgain(PlayerSAO &who, u16 a, u64 socket)
 
 void Workshop::remove(PlayerSAO &who, u16 id, u64 part)
 {
-	LuaEntitySAO &obj = m_entities.object(id);
+	EntitySAO &obj = m_entities.object(id);
 	within(who, obj.getBasePosition(), piece::SIDE * 2);
 	piece::Machine m = m_entities.read(obj);
 	partOf(m, part);
@@ -563,7 +563,7 @@ std::vector<std::string> Workshop::blueprints(const std::string &player) const
 
 size_t Workshop::copy(PlayerSAO &who, u16 id, u64 part)
 {
-	LuaEntitySAO &obj = m_entities.object(id);
+	EntitySAO &obj = m_entities.object(id);
 	within(who, obj.getBasePosition(), piece::SIDE * 2);
 	const piece::Machine m = m_entities.read(obj);
 	if (!m.part(part))
@@ -597,7 +597,7 @@ u16 Workshop::take(PlayerSAO &who, const std::string &as)
 
 u16 Workshop::pull(PlayerSAO &who, u16 id, u64 part)
 {
-	LuaEntitySAO &obj = m_entities.object(id);
+	EntitySAO &obj = m_entities.object(id);
 	within(who, obj.getBasePosition(), piece::SIDE * 2);
 	piece::Machine m = m_entities.read(obj);
 	const piece::Machine::Part *p = m.part(part);
@@ -611,7 +611,7 @@ u16 Workshop::pull(PlayerSAO &who, u16 id, u64 part)
 			* piece::Pose{ p->pose.offset, 0 }.matrix();
 	piece::Machine off = m.pull(part);
 	m_entities.store(obj, m);
-	LuaEntitySAO &out = m_entities.spawn(world.getTranslation(), -getPitchYawRoll(world), off);
+	EntitySAO &out = m_entities.spawn(world.getTranslation(), -getPitchYawRoll(world), off);
 	m_motion.hold(out, true); // where it was, till they carry it off
 	actionstream << "workshop: " << name(who) << " pulled " << off.parts().size() << " parts off object " << id
 			<< std::endl;
@@ -626,7 +626,7 @@ u16 Workshop::spawnHeld(PlayerSAO &who, const std::string &text)
 	m.read(text);
 	m.renew();
 	m.build();
-	LuaEntitySAO &obj = m_entities.spawn(at, v3f(0, who.getRotation().Y, 0), m);
+	EntitySAO &obj = m_entities.spawn(at, v3f(0, who.getRotation().Y, 0), m);
 	m_motion.hold(obj, true); // floats in front of them till they carry it off
 	actionstream << "workshop: " << name(who) << " pasted machine " << m.id() << std::endl;
 	return obj.getId();
@@ -679,7 +679,7 @@ std::optional<content_t> Workshop::fitting(PlayerSAO &who) const
 	return c;
 }
 
-void Workshop::fit(PlayerSAO &who, LuaEntitySAO &obj, piece::Machine &m, u64 part, const sculpt::Stroke &s,
+void Workshop::fit(PlayerSAO &who, EntitySAO &obj, piece::Machine &m, u64 part, const sculpt::Stroke &s,
 		content_t fitting)
 {
 	// a part of its own, one block, set flat on the face at whatever

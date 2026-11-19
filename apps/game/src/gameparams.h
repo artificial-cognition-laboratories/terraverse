@@ -21,6 +21,7 @@ struct GameParams
 	u16 socket_port;
 	// Terra Firma: a TypeScript server folder, its mods run by the sidecar (sprint 119)
 	std::string server_folder;
+	std::string probe; // Terra Firma: a check's (src/probe)
 	// Terra Firma: the star system to make the world from if it's new, and to check it
 	// against if it isn't (terra host passes server.config.ts's `system`)
 	std::string world_code;

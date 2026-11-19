@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue"
-import { BridgeError, type CommunityCatalog, type CommunityMod, type CommunityTexture, type CommunityWorld } from "../bridge/index.ts"
+import { BridgeError, type CommunityCatalog, type CommunityTexture, type CommunityWorld } from "../bridge/index.ts"
 import { useBridge } from "../bridge/use.ts"
 import { Button, ListEmpty, ListItem, Notice, Tabs, WorkbenchPanel } from "../kit/index.ts"
 import { Copier } from "./create/copy.ts"
@@ -8,13 +8,13 @@ import CommunityMap from "./CommunityMap.vue"
 import { decodeWorldCode } from "../worldgen/config.ts"
 import type { Screen } from "./screens.ts"
 
-type Group = "mods" | "textures" | "worlds" | "seeds"
+type Group = "textures" | "worlds" | "seeds"
 type Source = "library" | "discover"
 type Entry = { id: string; name: string; note: string; status?: string }
 const emit = defineEmits<{ go: [screen: Screen]; createCode: [code: string] }>()
 const bridge = useBridge()
 const catalog = ref<CommunityCatalog | null>(null)
-const group = ref<Group>("mods")
+const group = ref<Group>("textures")
 const source = ref<Source>("library")
 const query = ref("")
 const chosen = ref<string | null>(null)
@@ -23,8 +23,6 @@ const busy = ref(false)
 const copier = Copier()
 
 const RAIL: { id: Group; label: string; rows: string[]; palette: Record<string, string> }[] = [
-    { id: "mods", label: "Mods", palette: { A: "#c9d4dc", B: "#40b8ec" },
-        rows: ["...AAA...", "...ABA...", ".AAABAAA.", ".ABBBBBA.", "AABBBBBAA", ".ABBBBBA.", ".AAABAAA.", "...ABA...", "...AAA..."] },
     { id: "textures", label: "Textures", palette: { A: "#c9d4dc", B: "#40b8ec" },
         rows: ["AAAAAAAAA", "ABBBABBBB", "ABBBABBBB", "ABBBABBBB", "AAAAAAAAA", "ABBBABBBB", "ABBBABBBB", "ABBBABBBB", "AAAAAAAAA"] },
     { id: "worlds", label: "Worlds", palette: { A: "#c9d4dc", B: "#4a9b64", C: "#40b8ec" },
@@ -37,10 +35,6 @@ const groupLabel = computed(() => RAIL.find((item) => item.id === group.value)!.
 const allEntries = computed<Entry[]>(() => {
     if (!catalog.value || source.value === "discover") return []
     switch (group.value) {
-        case "mods": return catalog.value.mods.map((mod) => ({
-            id: mod.id, name: mod.title, note: mod.source === "builtIn" ? "Terraverse built-in" : mod.author || "Installed locally",
-            status: mod.source === "builtIn" ? "Core" : mod.enabledWorlds.length ? `${mod.enabledWorlds.length} worlds` : undefined,
-        }))
         case "textures": return catalog.value.textures.map((pack) => ({
             id: pack.id, name: pack.name, note: pack.author || "Installed locally", status: pack.active ? "Active" : undefined,
         }))
@@ -58,7 +52,6 @@ watch([group, source], () => { query.value = ""; chosen.value = null })
 watch(entries, (items) => {
     if (!items.some((item) => item.id === chosen.value)) chosen.value = items[0]?.id ?? null
 }, { immediate: true })
-const selectedMod = computed<CommunityMod | null>(() => group.value === "mods" ? catalog.value?.mods.find((mod) => mod.id === chosen.value) ?? null : null)
 const selectedTexture = computed<CommunityTexture | null>(() => group.value === "textures" ? catalog.value?.textures.find((pack) => pack.id === chosen.value) ?? null : null)
 const selectedWorld = computed<CommunityWorld | null>(() => (group.value === "worlds" || group.value === "seeds")
     ? catalog.value?.worlds.find((world) => world.path === chosen.value) ?? null : null)
@@ -74,15 +67,6 @@ function report(err: unknown) {
 }
 async function refresh() {
     catalog.value = await bridge.send("community.list", {})
-}
-async function setMod(mod: CommunityMod, world: CommunityWorld, enabled: boolean) {
-    problem.value = null
-    busy.value = true
-    try {
-        await bridge.send("community.mod.set", { id: mod.id, world: world.path, enabled })
-        await refresh()
-    } catch (err) { report(err) }
-    finally { busy.value = false }
 }
 async function setTexture(id: string) {
     problem.value = null
@@ -131,28 +115,6 @@ onMounted(() => refresh().catch(report))
                     <div class="detail-empty"><span class="big-chevron">»</span><h2>Discover {{ groupLabel }}</h2>
                         <p>The local library is ready. Online publishing, search, and installation will appear here once the community catalog is wired.</p>
                     </div>
-                </template>
-                <template v-else-if="selectedMod">
-                    <div class="detail-title"><span class="eyebrow">{{ selectedMod.source === "builtIn" ? "Built-in mod" : "Installed mod" }}</span>
-                        <h2>{{ selectedMod.title }}</h2><span class="byline">{{ selectedMod.name }}<template v-if="selectedMod.author"> · by {{ selectedMod.author }}</template></span></div>
-                    <p class="description">{{ selectedMod.description || "This mod has no description in its mod.conf." }}</p>
-                    <section v-if="selectedMod.depends.length" class="detail-section">
-                        <h3>Requires</h3><div class="tags"><span v-for="dep in selectedMod.depends" :key="dep">{{ dep }}</span></div>
-                    </section>
-                    <Notice v-if="selectedMod.source === 'builtIn'">Required by this build. Built-in gameplay packs will become configurable as their platform dependencies are separated.</Notice>
-                    <Notice v-else-if="!selectedMod.configurable" tone="warn">{{ selectedMod.issue }}</Notice>
-                    <section v-else class="detail-section">
-                        <h3>Use in worlds</h3>
-                        <p class="section-copy">Install once, enable for each world. Changes take effect when that world next starts.</p>
-                        <p v-if="!catalog?.worlds.length" class="dim">Create a world before enabling mods.</p>
-                        <div v-for="world in catalog?.worlds" :key="world.path" class="world-row">
-                            <span><strong>{{ world.name }}</strong><small>{{ selectedMod.enabledWorlds.includes(world.path) ? "Enabled" : "Off" }}</small></span>
-                            <Button size="sm" :variant="selectedMod.enabledWorlds.includes(world.path) ? 'plain' : 'primary'" :disabled="busy"
-                                @click="setMod(selectedMod, world, !selectedMod.enabledWorlds.includes(world.path))">
-                                {{ selectedMod.enabledWorlds.includes(world.path) ? "Disable" : "Enable" }}
-                            </Button>
-                        </div>
-                    </section>
                 </template>
                 <template v-else-if="selectedTexture">
                     <div class="detail-title"><span class="eyebrow">Texture pack</span><h2>{{ selectedTexture.name }}</h2>
@@ -206,12 +168,6 @@ h2 { margin: 0; font: 22px var(--font-display); text-transform: uppercase; line-
 .detail-section { display: grid; gap: 12px; }
 h3 { margin: 0; font: 12px var(--font-display); text-transform: uppercase; }
 .section-copy { max-width: 64ch; margin: 0; color: var(--ink-dim); font-size: 12px; line-height: 1.55; }
-.tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.tags span { padding: 4px 8px; background: var(--stone-1); border: 1px solid var(--edge); color: var(--ink-dim); font-size: 11px; }
-.world-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--stone-4); }
-.world-row > span { display: flex; flex-direction: column; min-width: 0; }
-.world-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-.world-row small { color: var(--ink-faint); font-size: 10px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .world-code { display: block; overflow-wrap: anywhere; padding: 12px; background: var(--stone-0); border: var(--b) solid var(--edge); box-shadow: var(--sunk); color: var(--accent-hi); font-size: 12px; user-select: text; }
 .detail-empty { display: grid; justify-items: start; align-content: center; gap: 12px; min-height: 100%; max-width: 440px; }

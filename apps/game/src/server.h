@@ -6,7 +6,7 @@
 
 #include "irr_v3d.h"
 #include "map.h"
-class LuaEntitySAO;
+class EntitySAO;
 namespace pile { class Piles; }
 namespace workshop { class Workshop; class Materials; }
 namespace orbit { class Field; }
@@ -46,17 +46,14 @@ class Inventory;
 class IRollbackManager;
 class IWritableCraftDefManager;
 class IWritableItemDefManager;
-class LuaError;
 class MetricsBackend;
-class ModChannelMgr;
 class NodeDefManager;
 class Player;
 class PlayerSAO;
 class RemotePlayer;
 class ServerEnvironment;
 class ServerInventoryManager;
-class ServerModManager;
-class ServerScripting;
+namespace probe { class Context; }
 class ServerThread;
 class Settings;
 
@@ -67,7 +64,6 @@ struct CloudParams;
 struct GameParams;
 struct Lighting;
 struct MoonParams;
-struct PackedValue;
 struct ParticleParameters;
 struct ParticleSpawnerParameters;
 struct PlayerHPChangeReason;
@@ -169,24 +165,6 @@ struct ClientInfo {
 	std::string vers_string, lang_code;
 };
 
-struct ModIPCStore {
-	ModIPCStore() = default;
-	~ModIPCStore();
-
-	/// RW lock for this entire structure
-	std::shared_mutex mutex;
-	/// Signalled on any changes to the map contents
-	std::condition_variable_any condvar;
-	/**
-	 * Map storing the data
-	 *
-	 * @note Do not store `nil` data in this map, instead remove the whole key.
-	 */
-	std::unordered_map<std::string, std::unique_ptr<PackedValue>> map;
-
-	/// @note Should be called without holding the lock.
-	inline void signal() { condvar.notify_all(); }
-};
 
 class Server : public con::PeerHandler, public MapEventReceiver,
 		public IGameDef
@@ -243,9 +221,6 @@ public:
 	void handleCommand_Deprecated(NetworkPacket* pkt);
 	void handleCommand_Init(NetworkPacket* pkt);
 	void handleCommand_Init2(NetworkPacket* pkt);
-	void handleCommand_ModChannelJoin(NetworkPacket *pkt);
-	void handleCommand_ModChannelLeave(NetworkPacket *pkt);
-	void handleCommand_ModChannelMsg(NetworkPacket *pkt);
 	void handleCommand_RequestMedia(NetworkPacket* pkt);
 	void handleCommand_ClientReady(NetworkPacket* pkt);
 	void handleCommand_GotBlocks(NetworkPacket* pkt);
@@ -260,6 +235,7 @@ public:
 	void handleCommand_NodeMetaFields(NetworkPacket* pkt);
 	void handleCommand_InventoryFields(NetworkPacket* pkt);
 	void handleCommand_HaveMedia(NetworkPacket *pkt);
+	void handleCommand_Respawn(NetworkPacket *pkt); // Terra Firma (sprint 119)
 	void handleCommand_UpdateClientInfo(NetworkPacket *pkt);
 	void handleCommand_Ui(NetworkPacket *pkt);
 	void handleCommand_Ticket(NetworkPacket *pkt); // Terra Firma
@@ -375,8 +351,6 @@ public:
 	ServerInventoryManager *getInventoryMgr() const { return m_inventory_mgr.get(); }
 	void sendDetachedInventory(Inventory *inventory, const std::string &name, session_t peer_id);
 
-	// Envlock and conlock should be locked when using scriptapi
-	inline ServerScripting *getScriptIface() { return m_script.get(); }
 
 	// actions: time-reversed list
 	// Return value: success/failure
@@ -392,20 +366,19 @@ public:
 	u16 allocateUnknownNodeId(const std::string &name) override;
 	IRollbackManager *getRollbackManager() override { return m_rollback; }
 	EmergeManager *getEmergeManager() { return m_emerge.get(); }
-	ModStorageDatabase *getModStorageDatabase() override { return m_mod_storage_database; }
 
 	IWritableItemDefManager* getWritableItemDefManager();
 	NodeDefManager* getWritableNodeDefManager();
 	IWritableCraftDefManager* getWritableCraftDefManager();
 
 	// Not under envlock
-	const std::vector<ModSpec> &getMods() const override;
-	const ModSpec* getModSpec(const std::string &modname) const override;
+	// Terra Firma (sprint 119): the TypeScript mods its server folder runs, as prepared
+	struct ModReport { std::string name, version; };
+	std::vector<ModReport> modList() const;
+	std::vector<std::string> modNames() const;
 	const SubgameSpec* getGameSpec() const override { return &m_gamespec; }
-	static std::string getBuiltinLuaPath();
 	std::string getWorldPath() const override { return m_path_world; }
 	std::string getModDataPath() const override { return m_path_mod_data; }
-	ModIPCStore *getModIPCStore() override { return &m_ipcstore; }
 
 	inline bool isSingleplayer() const
 			{ return m_simple_singleplayer_mode; }
@@ -428,10 +401,8 @@ public:
 	StepSettings getStepSettings() { return m_step_settings.load(); }
 
 	void setAsyncFatalError(const std::string &error);
-	void setAsyncFatalError(const LuaError &e);
 
 	// Not thread-safe.
-	void addShutdownError(const ModError &e);
 
 	bool showFormspec(const char *name, const std::string &formspec, const std::string &formname);
 	Map &getMap();
@@ -468,6 +439,8 @@ public:
 	ServerTerra &terra() { return *m_terra; }
 	// Terra Firma: run this TypeScript server folder's mods (sprint 119). Before start().
 	void setServerFolder(const std::string &folder) { m_server_folder = folder; }
+	// Terra Firma: a check's probe to run (src/probe, sprint 119). Before start().
+	void setProbe(const std::string &name) { m_probe_name = name; }
 	// Terra Firma: it stopped because the mods' content changed, to be started again
 	bool restartForMods() const { return m_restart_for_mods; }
 	// Terra Firma: what the far view needs of a terra world (TOCLIENT_HORIZON);
@@ -534,6 +507,8 @@ public:
 	void SendPlayerHP(PlayerSAO *sao, bool effect);
 	void SendPlayerBreath(PlayerSAO *sao);
 	void SendInventory(RemotePlayer *player, bool incremental, bool skip_wield_anim = false);
+	// Terra Firma (sprint 119): they died, and choose when to respawn (the client's death screen)
+	void SendDeathscreen(session_t peer_id);
 	void SendMovePlayer(PlayerSAO *sao);
 	void SendMovePlayerRel(session_t peer_id, const v3f &added_pos);
 	void SendPlayerSpeed(session_t peer_id, const v3f &added_vel);
@@ -549,10 +524,6 @@ public:
 	// Send detached inventory updates to everyone
 	void sendDetachedInventories();
 
-	bool joinModChannel(const std::string &channel) override;
-	bool leaveModChannel(const std::string &channel) override;
-	bool sendModChannelMessage(const std::string &channel, const std::string &message) override;
-	ModChannel *getModChannel(const std::string &channel) override;
 
 	// Send block to specific player only
 	bool SendBlock(session_t peer_id, const v3s16 &blockpos);
@@ -565,26 +536,8 @@ public:
 	// map key = binary sha1, map value = file path
 	std::unordered_map<std::string, std::string> getMediaList();
 
-	static std::vector<std::string> getModStorageDatabaseBackends();
-
-	static ModStorageDatabase *openModStorageDatabase(const std::string &world_path);
-
-	static ModStorageDatabase *openModStorageDatabase(const std::string &backend,
-			const std::string &world_path, const Settings &world_mt);
-
-	static bool migrateModStorageDatabase(const GameParams &game_params,
-			const Settings &cmd_args);
-
 	static u16 getProtocolVersionMin();
 	static u16 getProtocolVersionMax();
-
-	// Lua files registered for init of async env, pair of modname + path
-	std::vector<std::pair<std::string, std::string>> m_async_init_files;
-	// Identical but for mapgen env
-	std::vector<std::pair<std::string, std::string>> m_mapgen_init_files;
-
-	// Data transferred into other Lua envs at init time
-	std::unique_ptr<PackedValue> m_lua_globals_data;
 
 	// Bind address
 	Address m_bind_addr;
@@ -600,13 +553,6 @@ public:
 
 protected:
 	/* Do not add more members here, this is only required to make unit tests work. */
-
-	// Scripting
-	// Envlock and conlock should be locked when using Lua
-	std::unique_ptr<ServerScripting> m_script;
-
-	// Mods
-	std::unique_ptr<ServerModManager> m_modmgr;
 
 private:
 	friend class EmergeThread;
@@ -688,8 +634,6 @@ private:
 	void SendOverrideDayNightRatio(session_t peer_id, bool do_override, float ratio);
 	void SendSetLighting(session_t peer_id, const Lighting &lighting);
 
-	void broadcastModChannelMessage(const std::string &channel,
-			const std::string &message, session_t from_peer);
 
 	/*
 		Send a node removal/addition event to all clients except ignore_id.
@@ -859,7 +803,6 @@ private:
 	// key = lang_code
 	std::unordered_map<std::string, Translations> server_translations;
 
-	ModIPCStore m_ipcstore;
 
 	/*
 		Threads
@@ -926,16 +869,13 @@ private:
 	s32 m_playing_sounds_id_last_used = 0; // positive values only
 	s32 nextSoundId();
 
-	ModStorageDatabase *m_mod_storage_database = nullptr;
-	float m_mod_storage_save_timer = 10.0f;
-
 	// CSM restrictions byteflag
 
-	// ModChannel manager
-	std::unique_ptr<ModChannelMgr> m_modchannel_mgr;
 	std::unique_ptr<ServerTerra> m_terra; // Terra Firma: what core.terra keeps (server/terra.h)
 	// Terra Firma: TypeScript mods, run beside the server (src/sidecar, sprint 119)
 	std::string m_server_folder;
+	std::string m_probe_name;
+	std::unique_ptr<probe::Context> m_probe;
 	std::unique_ptr<sidecar::Sidecar> m_sidecar;
 	// what its mods answer in chat: name, description, params (sidecar::Host::Command)
 	struct ModCommand { std::string name, description, params; };

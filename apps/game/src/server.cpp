@@ -11,7 +11,7 @@
 #include "terragen/planet.h"
 #include "server/commands.h"
 #include "server/access.h"
-#include "server/luaentity_sao.h"
+#include "server/entity_sao.h"
 #include "pile/piles.h"
 
 #include "activeobject.h"
@@ -61,12 +61,10 @@
 #include "far/horizon.h"
 
 // Modding
-#include "modchannels.h"
-#include "script/common/c_types.h" // LuaError
-#include "scripting_server.h"
-#include "script/lua_api/l_matter.h"
 #include "sidecar/sidecar.h"
-#include "server/mods.h" // ServerModManager
+#include "server/registry.h" // Terra Firma
+#include "probe/probe.h" // Terra Firma
+#include "server/interact.h" // Terra Firma
 
 // Network
 #include "network/connection.h"
@@ -101,15 +99,6 @@ public:
 	{}
 };
 
-ModIPCStore::~ModIPCStore()
-{
-	// we don't have to do this, it's pure debugging aid
-	if (!std::unique_lock(mutex, std::try_to_lock).owns_lock()) {
-		errorstream << FUNCTION_NAME << ": lock is still in use!" << std::endl;
-		assert(0);
-	}
-}
-
 class ServerThread : public Thread
 {
 public:
@@ -141,9 +130,8 @@ void *ServerThread::run()
 	auto framemarker = FrameMarker("ServerThread::run()-frame").started();
 	try {
 		m_server->AsyncRunStep(0.0f, true);
-	} catch (LuaError &e) {
-		m_server->setAsyncFatalError(e);
-	} catch (ModError &e) {
+	} catch (BaseException &e) {
+		// Terra Firma: what the engine refuses stops the server, said (was Lua's errors)
 		m_server->setAsyncFatalError(e.what());
 	}
 	framemarker.end();
@@ -174,9 +162,7 @@ void *ServerThread::run()
 			infostream<<"Server: PeerNotFoundException"<<std::endl;
 		} catch (ClientNotFoundException &e) {
 			infostream<<"Server: ClientNotFoundException"<<std::endl;
-		} catch (LuaError &e) {
-			m_server->setAsyncFatalError(e);
-		} catch (ModError &e) {
+		} catch (BaseException &e) {
 			m_server->setAsyncFatalError(e.what());
 		}
 
@@ -327,7 +313,6 @@ Server::Server(
 	m_clients(m_con),
 	m_admin_chat(iface),
 	m_shutdown_errmsg(shutdown_errmsg),
-	m_modchannel_mgr(new ModChannelMgr()),
 	m_terra(std::make_unique<ServerTerra>())
 {
 	if (m_path_world.empty())
@@ -426,14 +411,6 @@ Server::~Server()
 	if (m_env) {
 		EnvAutoLock envlock(this);
 
-		infostream << "Server: Executing shutdown hooks" << std::endl;
-		try {
-			m_script->on_shutdown();
-		} catch (ModError &e) {
-			addShutdownError(e);
-		}
-		took("shutdown callbacks");
-
 		infostream << "Server: Saving players" << std::endl;
 		m_env->saveLoadedPlayers();
 
@@ -451,12 +428,7 @@ Server::~Server()
 		kickAllPlayers(SERVER_ACCESSDENIED_SHUTDOWN,
 			kick_msg, reconnect);
 
-		try {
-			// Empty out the environment, this can also invoke callbacks.
-			m_env->deactivateBlocksAndObjects();
-		} catch (ModError &e) {
-			addShutdownError(e);
-		}
+		m_env->deactivateBlocksAndObjects();
 		took("saving players and emptying the world");
 
 		infostream << "Server: Saving environment metadata" << std::endl;
@@ -473,7 +445,6 @@ Server::~Server()
 		m_workshop.reset();
 		m_inventory_mgr.reset();
 		m_sidecar.reset();
-		m_script.reset();
 		serverMatterShutdown(); // Terra Firma: it points at this server
 		took("closing its systems");
 
@@ -482,10 +453,6 @@ Server::~Server()
 		m_env = nullptr;
 		took("saving the map");
 	}
-
-	// Write any changes before deletion.
-	if (m_mod_storage_database)
-		m_mod_storage_database->endSave();
 
 	// Clean up files
 	for (auto &it : m_media) {
@@ -496,6 +463,7 @@ Server::~Server()
 
 	// emerge may depend on definition managers, so destroy first
 	m_emerge.reset();
+	m_probe.reset(); // (after: what it asked emerged is answered to it)
 	took("closing map generation");
 
 	// Catch one async error that just happened while this dtor is running
@@ -507,7 +475,6 @@ Server::~Server()
 	// Delete the rest in the reverse order of creation
 	delete m_game_settings;
 	delete m_banmanager;
-	delete m_mod_storage_database;
 	delete m_rollback;
 	delete m_itemdef;
 	delete m_nodedef;
@@ -558,18 +525,6 @@ void Server::init()
 	// Create ban manager
 	std::string ban_path = m_path_world + DIR_DELIM "ipban.txt";
 	m_banmanager = new BanManager(ban_path);
-
-	// Create mod storage database and begin a save for later
-	m_mod_storage_database = openModStorageDatabase(m_path_world);
-	m_mod_storage_database->beginSave();
-
-	m_modmgr = std::make_unique<ServerModManager>(m_path_world, m_gamespec);
-
-	// complain about mods with unsatisfied dependencies
-	if (!m_modmgr->isConsistent()) {
-		std::string error = m_modmgr->getUnsatisfiedModsError();
-		throw ServerError(error);
-	}
 
 	//lock environment
 	EnvAutoLock envlock(this);
@@ -648,36 +603,24 @@ void Server::init()
 	const double radius = m_atlas ? m_atlas->body(planet::Atlas::HOME).params().radius : 0;
 	m_flight = std::make_unique<orbit::Flight>(radius > 0 ? terragen::sphere(radius) : terragen::home());
 
-	// Initialize scripting
-	infostream << "Server: Initializing Lua" << std::endl;
-
-	m_script = std::make_unique<ServerScripting>(this);
-
-	// Must be created before mod loading because we have some inventory creation
+	// Must be created before content, as the world's inventories are
 	m_inventory_mgr = std::make_unique<ServerInventoryManager>();
-
-	m_script->loadBuiltin();
 
 	m_gamespec.checkAndLog();
 	m_materials = std::make_unique<workshop::Materials>();
-	// Terra Firma: TypeScript mods declare their content beside Lua's, once Lua's mods have
-	// run and before their on_mods_loaded, which then sees it (sprint 119)
-	// A world given no server folder runs the game's own (apps/game/server, staged prepared
-	// into the share): the official TypeScript mods
+	// Terra Firma (sprint 119): what the world's made of, natively (server/registry): the
+	// engine's own blocks, then the TypeScript mods'. A world given no server folder runs the
+	// game's own (apps/game/server, staged prepared into the share): the official mods.
+	registerContent(this);
 	if (m_server_folder.empty()) {
 		const std::string game = porting::path_share + DIR_DELIM "server";
 		if (fs::PathExists(game + DIR_DELIM ".terra" DIR_DELIM "manifest.json"))
 			m_server_folder = game;
 	}
-	m_modmgr->loadMods(*m_script, [this] {
-		if (!m_server_folder.empty())
-			startSidecar();
-	});
-	// Terra Firma: what every block's made of, into the world's matter and machines
-	// (sprint 119: was tf_matter's on_mods_loaded)
+	if (!m_server_folder.empty())
+		startSidecar();
+	// what every block's made of, into the world's matter and machines
 	terraRegisterMatter(this);
-
-	m_script->saveGlobals();
 
 	// Read Textures and calculate sha1 sums
 	fillMediaCache();
@@ -761,19 +704,16 @@ void Server::init()
 		m_rollback = new RollbackManager(m_path_world, this);
 	}
 
-	// Give environment reference to scripting api
-	m_script->initializeEnvironment(m_env);
 	// Terra Firma: snow, ice and thaw (sprint 119: were tf_weather's)
 	terraAddWeatherModifiers(this);
-
-	// Do this after regular script init is done
-	m_script->initAsync();
 
 	// Register us to receive map edit events
 	servermap.addEventReceiver(this);
 
 	m_env->loadMeta();
 	m_sidecar_now = m_env->getGameTime();
+	if (!m_probe_name.empty())
+		m_probe = probe::start(m_probe_name, this);
 
 	// Those settings can be overwritten in world.mt, they are
 	// intended to be cached after environment loading.
@@ -947,6 +887,10 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 			}
 		}
 
+		// Terra Firma: a check's probe, driving the world (src/probe, sprint 119)
+		if (m_probe)
+			m_probe->step(dtime);
+
 		// Terra Firma: each player's sky, from the real sun where they stand (sprint 119: was tf_sky)
 		terraStepSkies(this, dtime);
 		// Terra Firma: each player's weight, and standing on the planet (sprint 119: were
@@ -1074,7 +1018,7 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 					m_lag_gauge->get(),
 					m_gamespec.id,
 					Mapgen::getMapgenName(m_emerge->mgparams->mgtype),
-					m_modmgr->getMods(),
+					modNames(),
 					m_dedicated);
 			counter = 0.01;
 		}
@@ -1123,14 +1067,6 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 
 				SendActiveObjectRemoveAdd(client, playersao);
 			}
-		}
-
-		// Write changes to the mod storage
-		m_mod_storage_save_timer -= dtime;
-		if (m_mod_storage_save_timer <= 0.0f) {
-			m_mod_storage_save_timer = g_settings->getFloat("server_map_save_interval");
-			m_mod_storage_database->endSave();
-			m_mod_storage_database->beginSave();
 		}
 	}
 
@@ -1530,9 +1466,6 @@ PlayerSAO *Server::StageTwoClientInit(session_t peer_id)
 		return nullptr;
 	}
 
-	if (playersao->isNewPlayer())
-		m_script->on_newplayer(playersao);
-
 	/*
 		Send complete position information
 	*/
@@ -1788,7 +1721,6 @@ void Server::SendMovement(session_t peer_id)
 
 void Server::HandlePlayerHPChange(PlayerSAO *playersao, const PlayerHPChangeReason &reason)
 {
-	m_script->player_event(playersao, "health_changed");
 	SendPlayerHP(playersao, reason.type != PlayerHPChangeReason::SET_HP_MAX);
 
 	// Send to other clients
@@ -2394,7 +2326,6 @@ void Server::SendPlayerBreath(PlayerSAO *sao)
 {
 	assert(sao);
 
-	m_script->player_event(sao, "breath_changed");
 	SendBreath(sao->getPeerID(), sao->getBreath());
 }
 
@@ -3164,14 +3095,8 @@ void Server::startSidecar()
 		if (!addMediaFile(m.name, m.path))
 			throw ServerError("TypeScript mods: " + m.path + " can't be sent to players (a PNG, 16 × 16 for a block face)");
 
-	// TEMP(2026-11-18): through Lua while Lua runs (stage 7 registers them natively): its
-	// on_mods_loaded hands each block's matter to the world and its weight to machines, and
-	// the creative catalogue offers it, as for any block of Lua's
-	for (const sidecar::Content::Block &b : content.blocks) {
-		if (m_itemdef->isKnown(b.name))
-			throw ServerError("TypeScript mods: " + b.name + " is already a block or item");
-		m_script->register_mod_block(b.name, b.description, b.tiles, b.matter, b.share);
-	}
+	// each a block of its substance, which the world's matter and machines then take up
+	registerModContent(this, content);
 	actionstream << "mods: " << content.blocks.size() << " blocks from " << m_server_folder << std::endl;
 }
 
@@ -3183,12 +3108,10 @@ void Server::fillMediaCache()
 	std::vector<std::string> paths;
 
 	// ordered in descending priority
-	paths.push_back(getBuiltinLuaPath() + DIR_DELIM "locale");
 	fs::GetRecursiveDirs(paths,
 		porting::path_user + DIR_DELIM "textures" DIR_DELIM "server");
 	fs::GetRecursiveDirs(paths,
 		m_gamespec.path + DIR_DELIM "textures");
-	m_modmgr->getModsMediaPaths(paths);
 
 	// Collect media file information from paths into cache
 	for (const std::string &mediapath : paths) {
@@ -3440,7 +3363,6 @@ void Server::stepPendingDynMediaCallbacks(float dtime)
 			fs::DeleteSingleFileOrEmptyDirectory(it->second.path, true);
 			m_media.erase(it);
 		}
-		getScriptIface()->freeDynamicMediaCallback(token);
 		return true;
 	});
 }
@@ -3540,8 +3462,15 @@ void Server::HandlePlayerDeath(PlayerSAO *playersao, const PlayerHPChangeReason 
 
 	playersao->clearParentAttachment();
 
-	// Trigger scripted stuff
-	m_script->on_dieplayer(playersao, reason);
+	// Terra Firma (sprint 119: was builtin's death_screen.lua): shown they died; they
+	// respawn when they choose (handleCommand_Respawn)
+	SendDeathscreen(playersao->getPeerID());
+}
+
+void Server::SendDeathscreen(session_t peer_id)
+{
+	NetworkPacket pkt(TOCLIENT_DEATHSCREEN_LEGACY, 0, peer_id);
+	Send(&pkt);
 }
 
 void Server::DenyAccess(session_t peer_id, AccessDeniedCode reason,
@@ -3563,7 +3492,6 @@ void Server::kickAllPlayers(AccessDeniedCode reason,
 
 void Server::DisconnectPeer(session_t peer_id)
 {
-	m_modchannel_mgr->leaveAllChannels(peer_id);
 	m_con->DisconnectPeer(peer_id);
 }
 
@@ -3639,8 +3567,6 @@ void Server::DeleteClient(session_t peer_id, ClientDeletionReason reason)
 			// (u16) 1 + std::string represents a vector serialization representation
 			notice << (u8) PLAYER_LIST_REMOVE  << (u16) 1 << player_name;
 			m_clients.sendToAll(&notice);
-			// run scripts
-			m_script->on_leaveplayer(playersao, reason == CDR_TIMEOUT);
 			// Terra Firma: was builtin's (sprint 119)
 			SendChatMessage(PEER_ID_INEXISTENT, ChatMessage(CHATMESSAGE_TYPE_ANNOUNCE, utf8_to_wide("*** " +
 					player_name + (reason == CDR_TIMEOUT ? " left the game (timed out)." : " left the game."))));
@@ -3700,12 +3626,8 @@ void Server::UpdateCrafting(RemotePlayer *player)
 
 	// Get a preview for crafting
 	ItemStack preview;
-	InventoryLocation loc;
-	loc.setPlayer(player->getName());
 	std::vector<ItemStack> output_replacements;
 	getCraftingResult(&player->inventory, preview, output_replacements, false, this);
-	m_env->getScriptIface()->item_CraftPredict(preview, player->getPlayerSAO(),
-			clist, loc);
 
 	InventoryList *plist = player->inventory.getList("craftpreview");
 	if (plist && plist->getSize() >= 1) {
@@ -4016,7 +3938,7 @@ bool Server::checkUserLimit(const std::string &player_name, const std::string &a
 		return false;
 	if (player_name == g_settings->get("name")) // admin can always join
 		return false;
-	return !m_script->can_bypass_userlimit(player_name, addr_s);
+	return true;
 }
 
 void Server::notifyPlayer(const char *name, const std::wstring &msg)
@@ -4103,7 +4025,6 @@ bool Server::hudSetFlags(RemotePlayer *player, u32 flags, u32 mask)
 	if (!playersao)
 		return false;
 
-	m_script->player_event(playersao, "hud_changed");
 	return true;
 }
 
@@ -4452,12 +4373,6 @@ bool Server::dynamicAddMedia(const DynamicMediaArgs &a)
 		}
 	}
 
-	// Run callback for players that already had the file delivered (legacy-only)
-	for (session_t peer_id : delivered) {
-		if (auto player = m_env->getPlayer(peer_id))
-			getScriptIface()->on_dynamic_media_added(a.token, player->getName());
-	}
-
 	// Save all others in our pending state
 	auto &state = m_pending_dyn_media[a.token];
 	state.waiting_players = std::move(waiting);
@@ -4550,19 +4465,28 @@ IWritableCraftDefManager *Server::getWritableCraftDefManager()
 	return m_craftdef;
 }
 
-const std::vector<ModSpec> & Server::getMods() const
+std::vector<std::string> Server::modNames() const
 {
-	return m_modmgr->getMods();
+	std::vector<std::string> out;
+	for (const ModReport &m : modList())
+		out.push_back(m.name);
+	return out;
 }
 
-const ModSpec *Server::getModSpec(const std::string &modname) const
+std::vector<Server::ModReport> Server::modList() const
 {
-	return m_modmgr->getModSpec(modname);
-}
-
-std::string Server::getBuiltinLuaPath()
-{
-	return porting::path_share + DIR_DELIM + "builtin";
+	std::vector<ModReport> out;
+	if (m_server_folder.empty())
+		return out;
+	const std::string path = m_server_folder + DIR_DELIM ".terra" DIR_DELIM "manifest.json";
+	std::ifstream in(path);
+	Json::Value root;
+	std::string errors;
+	if (!in || !Json::parseFromStream(Json::CharReaderBuilder(), in, &root, &errors))
+		throw BaseException("mods: " + path + " can't be read: " + errors);
+	for (const Json::Value &m : root["mods"])
+		out.push_back({ m["name"].asString(), m["version"].asString() });
+	return out;
 }
 
 void Server::setAsyncFatalError(const std::string &error)
@@ -4575,28 +4499,6 @@ void Server::setAsyncFatalError(const std::string &error)
 	// make sure server steps stop happening immediately
 	if (m_thread)
 		m_thread->stop();
-}
-
-void Server::setAsyncFatalError(const LuaError &e)
-{
-	setAsyncFatalError(std::string("Lua: ") + e.what());
-}
-
-// Not thread-safe.
-void Server::addShutdownError(const ModError &e)
-{
-	// DO NOT TRANSLATE the `ModError`, it's used by `ui.lua`
-	std::string msg = fmtgettext("%s while shutting down: ", "ModError") +
-			e.what() + strgettext("\nCheck debug.txt for details.");
-	errorstream << msg << std::endl;
-
-	if (m_shutdown_errmsg) {
-		if (m_shutdown_errmsg->empty()) {
-			*m_shutdown_errmsg = msg;
-		} else {
-			*m_shutdown_errmsg += "\n\n" + msg;
-		}
-	}
 }
 
 Map &Server::getMap()
@@ -4845,66 +4747,6 @@ void dedicated_server_loop(Server &server, volatile std::sig_atomic_t &kill)
  */
 
 
-bool Server::joinModChannel(const std::string &channel)
-{
-	return m_modchannel_mgr->joinChannel(channel, PEER_ID_SERVER) &&
-			m_modchannel_mgr->setChannelState(channel, MODCHANNEL_STATE_READ_WRITE);
-}
-
-bool Server::leaveModChannel(const std::string &channel)
-{
-	return m_modchannel_mgr->leaveChannel(channel, PEER_ID_SERVER);
-}
-
-bool Server::sendModChannelMessage(const std::string &channel, const std::string &message)
-{
-	if (!m_modchannel_mgr->canWriteOnChannel(channel))
-		return false;
-
-	broadcastModChannelMessage(channel, message, PEER_ID_SERVER);
-	return true;
-}
-
-ModChannel* Server::getModChannel(const std::string &channel)
-{
-	return m_modchannel_mgr->getModChannel(channel);
-}
-
-void Server::broadcastModChannelMessage(const std::string &channel,
-		const std::string &message, session_t from_peer)
-{
-	const std::vector<u16> &peers = m_modchannel_mgr->getChannelPeers(channel);
-	if (peers.empty())
-		return;
-
-	if (message.size() > STRING_MAX_LEN) {
-		warningstream << "ModChannel message too long, dropping before sending "
-				<< " (" << message.size() << " > " << STRING_MAX_LEN << ", channel: "
-				<< channel << ")" << std::endl;
-		return;
-	}
-
-	std::string sender;
-	if (from_peer != PEER_ID_SERVER) {
-		sender = getPlayerName(from_peer);
-	}
-
-	NetworkPacket resp_pkt(TOCLIENT_MODCHANNEL_MSG,
-			2 + channel.size() + 2 + sender.size() + 2 + message.size());
-	resp_pkt << channel << sender << message;
-	for (session_t peer_id : peers) {
-		// Ignore sender
-		if (peer_id == from_peer)
-			continue;
-
-		Send(peer_id, &resp_pkt);
-	}
-
-	if (from_peer != PEER_ID_SERVER) {
-		m_script->on_modchannel_message(channel, sender, message);
-	}
-}
-
 Translations *Server::getTranslationLanguage(const std::string &lang_code)
 {
 	if (lang_code.empty())
@@ -4945,129 +4787,6 @@ std::unordered_map<std::string, std::string> Server::getMediaList()
 	return ret;
 }
 
-ModStorageDatabase *Server::openModStorageDatabase(const std::string &world_path)
-{
-	std::string world_mt_path = world_path + DIR_DELIM + "world.mt";
-	Settings world_mt;
-	if (!world_mt.readConfigFile(world_mt_path.c_str()))
-		throw BaseException("Cannot read world.mt!");
-
-	std::string backend = world_mt.exists("mod_storage_backend") ?
-		world_mt.get("mod_storage_backend") : "files";
-	if (backend == "files") {
-		warningstream << "/!\\ You are using the old mod storage files backend. "
-			"This backend is deprecated and may be removed in a future release /!\\"
-			"\nSwitching to SQLite3 is advised, "
-			"please read https://docs.luanti.org/for-server-hosts/database-backends." << std::endl;
-	}
-
-	return openModStorageDatabase(backend, world_path, world_mt);
-}
-
-std::vector<std::string> Server::getModStorageDatabaseBackends()
-{
-	std::vector<std::string> ret;
-	ret.emplace_back("sqlite3");
-#if USE_POSTGRESQL
-	ret.emplace_back("postgresql");
-#endif
-	ret.emplace_back("files");
-	ret.emplace_back("dummy");
-	return ret;
-}
-
-ModStorageDatabase *Server::openModStorageDatabase(const std::string &backend,
-		const std::string &world_path, const Settings &world_mt)
-{
-	if (backend == "sqlite3")
-		return new ModStorageDatabaseSQLite3(world_path);
-
-#if USE_POSTGRESQL
-	if (backend == "postgresql") {
-		std::string connect_string;
-		world_mt.getNoEx("pgsql_mod_storage_connection", connect_string);
-		return new ModStorageDatabasePostgreSQL(connect_string);
-	}
-#endif // USE_POSTGRESQL
-
-	if (backend == "files")
-		return new ModStorageDatabaseFiles(world_path);
-
-	if (backend == "dummy")
-		return new Database_Dummy();
-
-	throw BaseException("Mod storage database backend " + backend + " not supported");
-}
-
-bool Server::migrateModStorageDatabase(const GameParams &game_params, const Settings &cmd_args)
-{
-	std::string migrate_to = cmd_args.get("migrate-mod-storage");
-	Settings world_mt;
-	std::string world_mt_path = game_params.world_path + DIR_DELIM + "world.mt";
-	if (!world_mt.readConfigFile(world_mt_path.c_str())) {
-		errorstream << "Cannot read world.mt!" << std::endl;
-		return false;
-	}
-
-	std::string backend = world_mt.exists("mod_storage_backend") ?
-		world_mt.get("mod_storage_backend") : "files";
-	if (backend == migrate_to) {
-		errorstream << "Cannot migrate: new backend is same"
-			<< " as the old one" << std::endl;
-		return false;
-	}
-
-	ModStorageDatabase *srcdb = nullptr;
-	ModStorageDatabase *dstdb = nullptr;
-
-	bool succeeded = false;
-
-	try {
-		srcdb = Server::openModStorageDatabase(backend, game_params.world_path, world_mt);
-		dstdb = Server::openModStorageDatabase(migrate_to, game_params.world_path, world_mt);
-
-		dstdb->beginSave();
-
-		std::vector<std::string> mod_list;
-		srcdb->listMods(&mod_list);
-		for (const std::string &modname : mod_list) {
-			StringMap meta;
-			srcdb->getModEntries(modname, &meta);
-			for (const auto &pair : meta) {
-				dstdb->setModEntry(modname, pair.first, pair.second);
-			}
-		}
-
-		dstdb->endSave();
-
-		succeeded = true;
-
-		actionstream << "Successfully migrated the metadata of "
-			<< mod_list.size() << " mods" << std::endl;
-		world_mt.set("mod_storage_backend", migrate_to);
-		if (!world_mt.updateConfigFile(world_mt_path.c_str()))
-			errorstream << "Failed to update world.mt!" << std::endl;
-		else
-			actionstream << "world.mt updated" << std::endl;
-
-	} catch (BaseException &e) {
-		errorstream << "An error occurred during migration: " << e.what() << std::endl;
-	}
-
-	delete srcdb;
-	delete dstdb;
-
-	if (succeeded && backend == "files") {
-		// Back up files
-		const std::string storage_path = game_params.world_path + DIR_DELIM + "mod_storage";
-		const std::string backup_path = game_params.world_path + DIR_DELIM + "mod_storage.bak";
-		if (!fs::Rename(storage_path, backup_path))
-			warningstream << "After migration, " << storage_path
-				<< " could not be renamed to " << backup_path << std::endl;
-	}
-
-	return succeeded;
-}
 
 u16 Server::getProtocolVersionMin()
 {

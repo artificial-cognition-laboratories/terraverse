@@ -4,6 +4,7 @@
 
 #include "chatmessage.h"
 #include "server.h"
+#include "server/interact.h"
 #include "server/terra.h" // Terra Firma
 #include "server/matter.h" // Terra Firma
 #include "online/gate.h"
@@ -15,16 +16,14 @@
 #include "emerge.h"
 #include "itemdef.h"
 #include "mapblock.h"
-#include "modchannels.h"
 #include "nodedef.h"
 #include "porting.h" // strcasecmp
 #include "remoteplayer.h"
 #include "rollback_interface.h"
-#include "scripting_server.h"
 #include "serialization.h"
 #include "settings.h"
 #include "sculpt/sculpt.h"
-#include "server/luaentity_sao.h"
+#include "server/entity_sao.h"
 #include "workshop/workshop.h"
 #include "tool.h"
 #include "network/connection.h"
@@ -186,18 +185,6 @@ void Server::handleCommand_Init(NetworkPacket* pkt)
 	}
 
 	client->setName(playerName);
-
-	{
-		std::string reason;
-		if (m_script->on_prejoinplayer(playername, addr_s, &reason)) {
-			actionstream << "Server: Player with the name \"" << playerName <<
-				"\" tried to connect from " << addr_s <<
-				" but was disallowed for the following reason: " << reason <<
-				std::endl;
-			DenyAccess(peer_id, SERVER_ACCESSDENIED_CUSTOM_STRING, reason);
-			return;
-		}
-	}
 
 	infostream << "Server: New connection: \"" << playerName << "\" from " <<
 		addr_s << " (peer_id=" << peer_id << ")" << std::endl;
@@ -386,7 +373,9 @@ void Server::handleCommand_ClientReady(NetworkPacket* pkt)
 	terraOffSeam(this, playersao, "joined");
 	terraJoinPlayer(this, playersao); // what they're given (sprint 119: was tf_player's)
 	terraMatterJoin(this, playersao); // what they've seen react (was tf_matter's)
-	m_script->on_joinplayer(playersao, last_login);
+	// one who left dead is still dead: they're shown it, and respawn when they choose
+	if (playersao->isDead())
+		SendDeathscreen(peer_id);
 	if (!isSingleplayer()) // Terra Firma: was builtin's (sprint 119)
 		SendChatMessage(PEER_ID_INEXISTENT, ChatMessage(CHATMESSAGE_TYPE_ANNOUNCE,
 				utf8_to_wide("*** " + playersao->getPlayer()->getName() + " joined the game.")));
@@ -499,8 +488,6 @@ void Server::process_PlayerPos(RemotePlayer *player, PlayerSAO *playersao,
 	playersao->setCameraInverted(bits & 0x01);
 
 	if (playersao->checkMovementCheat()) {
-		// Call callbacks
-		m_script->on_cheat(playersao, "moved_too_fast");
 		SendMovePlayer(playersao);
 	}
 }
@@ -858,8 +845,6 @@ bool Server::checkInteractDistance(RemotePlayer *player, const f32 d, const std:
 				<< " from too far: "
 				<< "d=" << d << ", max_d=" << max_d
 				<< "; ignoring." << std::endl;
-		// Call callbacks
-		m_script->on_cheat(player->getPlayerSAO(), "interacted_too_far");
 		return false;
 	}
 	return true;
@@ -904,7 +889,6 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 		actionstream << "Server: " << player->getName()
 				<< " tried to interact while dead; ignoring." << std::endl;
 		getClient(peer_id)->fixupNodePrediction(action, pointed, false);
-		m_script->on_cheat(playersao, "interacted_while_dead");
 		return;
 	}
 
@@ -964,7 +948,6 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 			if (playersao->getId() == pointed_object->getId()) {
 				actionstream << "Server: " << player->getName()
 					<< " attempted to interact with themselves" << std::endl;
-				m_script->on_cheat(playersao, "interacted_with_self");
 				return;
 			}
 			target_pos = pointed_object->getBasePosition();
@@ -1001,8 +984,10 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 					getNodeBlockPos(pointed.node_abovesurface), false);
 			}
 
+			// a punch shakes loose what's lost its support (Terra Firma, sprint 119: was
+			// builtin's falling.lua)
 			if (n.getContent() != CONTENT_IGNORE)
-				m_script->node_on_punch(p_under, n, playersao, pointed);
+				interact::settle(*m_env, p_under);
 
 			// Cheat prevention
 			playersao->noCheatDigStart(p_under);
@@ -1068,8 +1053,6 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 						<< nocheat_p << " and completed digging "
 						<< p_under << "; not digging." << std::endl;
 				is_valid_dig = false;
-				// Call callbacks
-				m_script->on_cheat(playersao, "finished_unknown_dig");
 			}
 
 			// Get player's wielded item
@@ -1093,8 +1076,6 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 						<< ", which is not diggable with tool; not digging."
 						<< std::endl;
 				is_valid_dig = false;
-				// Call callbacks
-				m_script->on_cheat(playersao, "dug_unbreakable");
 			}
 			// Check digging time
 			// If already invalidated, we don't have to
@@ -1118,15 +1099,13 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 						<< " completed digging " << p_under
 						<< "too fast; not digging." << std::endl;
 				is_valid_dig = false;
-				// Call callbacks
-				m_script->on_cheat(playersao, "dug_too_fast");
 			}
 		}
 
 		/* Actually dig node */
 
 		if (is_valid_dig && n.getContent() != CONTENT_IGNORE)
-			m_script->node_on_dig(p_under, n, playersao);
+			interact::dig(this, playersao, p_under); // Terra Firma (sprint 119: was builtin's item.lua)
 		// Terra Firma: liquids and heaps beside it run into the hole, and the loose ground
 		// round it keeps its shape (sprint 85; sprint 119: were tf_matter's and tf_world's)
 		if (is_valid_dig && m_env->getMap().getNode(p_under).getContent() != n.getContent()) {
@@ -1166,27 +1145,16 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 					<< pointed.object_id << ": "
 					<< pointed_object->getDescription() << std::endl;
 
-			// Do stuff
-			if (m_script->item_OnSecondaryUse(selected_item, playersao, pointed)) {
-				if (selected_item.has_value() && playersao->setWieldedItem(*selected_item))
-					SendInventory(player, true);
-			}
-
-			// on_secondary_use might have removed the object
-			if (pointed_object->isGone())
-				return;
-
 			pointed_object->rightClick(playersao);
-		} else if (m_script->item_OnPlace(selected_item, playersao, pointed)) {
-			// Placement was handled in lua
-
-			// Apply returned ItemStack
-			if (selected_item.has_value() && playersao->setWieldedItem(*selected_item))
+		} else if (selected_item.has_value() &&
+				interact::place(this, playersao, *selected_item, pointed)) {
+			// Terra Firma (sprint 119: was builtin's item.lua): what's left in hand
+			if (playersao->setWieldedItem(*selected_item))
 				SendInventory(player, true);
 		}
 		// Terra Firma: what's beside a block built runs against it, a liquid placed starts
 		// to run, and the loose ground round it keeps its shape (sprint 119: were tf_matter's
-		// and tf_world's); which of the two it went into is Lua's to say
+		// and tf_world's); whichever of the two it went into
 		if (pointed.type == POINTEDTHING_NODE) {
 			for (const auto &[p, was] : { std::pair{ pointed.node_undersurface, under }, std::pair{ pointed.node_abovesurface, above } }) {
 				if (m_env->getMap().getNode(p).getContent() == was.getContent())
@@ -1212,15 +1180,9 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 		std::optional<ItemStack> selected_item;
 		getWieldedItem(playersao, selected_item);
 
-		actionstream << player->getName() << " uses " << selected_item->name
+		// nothing's used by itself yet: a tool digs, a block is placed
+		verbosestream << player->getName() << " uses " << selected_item->name
 				<< ", pointing at " << pointed.dump() << std::endl;
-
-		if (m_script->item_OnUse(selected_item, playersao, pointed)) {
-			// Apply returned ItemStack
-			if (selected_item.has_value() && playersao->setWieldedItem(*selected_item))
-				SendInventory(player, true);
-		}
-
 		return;
 	}
 
@@ -1229,17 +1191,9 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 		std::optional<ItemStack> selected_item;
 		getWieldedItem(playersao, selected_item);
 
-		actionstream << player->getName() << " activates "
+		// nothing's done by right-clicking the air yet
+		verbosestream << player->getName() << " activates "
 				<< selected_item->name << std::endl;
-
-		pointed.type = POINTEDTHING_NOTHING; // can only ever be NOTHING
-
-		if (m_script->item_OnSecondaryUse(selected_item, playersao, pointed)) {
-			// Apply returned ItemStack
-			if (selected_item.has_value() && playersao->setWieldedItem(*selected_item))
-				SendInventory(player, true);
-		}
-
 		return;
 	}
 
@@ -1333,22 +1287,9 @@ void Server::handleCommand_NodeMetaFields(NetworkPacket* pkt)
 	if (!checkInteractDistance(player, d, "node metadata"))
 		return;
 
-	// If something goes wrong, this player is to blame
-	RollbackScopeActor rollback_scope(m_rollback,
-			"player:" + player->getName());
-
-	// Check the target node for rollback data; leave others unnoticed
-	RollbackNode rn_old(&m_env->getMap(), p, this);
-
-	m_script->node_on_receive_fields(p, formname, fields, playersao);
-
-	// Report rollback data
-	RollbackNode rn_new(&m_env->getMap(), p, this);
-	if (rollback() && rn_new != rn_old) {
-		RollbackAction action;
-		action.setSetNode(p, rn_old, rn_new);
-		rollback()->reportAction(action);
-	}
+	// Terra Firma (sprint 119): no block shows a form; the page is the UI
+	infostream << player->getName() << " sent fields for a block's form at " << p
+			<< ", which no block shows; ignoring" << std::endl;
 }
 
 void Server::handleCommand_InventoryFields(NetworkPacket* pkt)
@@ -1373,10 +1314,8 @@ void Server::handleCommand_InventoryFields(NetworkPacket* pkt)
 		return;
 	}
 
-	if (client_formspec_name.empty()) { // pass through inventory submits
-		m_script->on_playerReceiveFields(playersao, client_formspec_name, fields);
+	if (client_formspec_name.empty()) // the inventory's: nothing answers it (the page is the UI)
 		return;
-	}
 
 	// verify that we displayed the formspec to the user
 	const auto it = m_formspec_state_data.find(peer_id);
@@ -1387,8 +1326,9 @@ void Server::handleCommand_InventoryFields(NetworkPacket* pkt)
 			auto it2 = fields.find("quit");
 			if (it2 != fields.end() && it2->second == "true")
 				m_formspec_state_data.erase(it);
-
-			m_script->on_playerReceiveFields(playersao, client_formspec_name, fields);
+			// Terra Firma (sprint 119): the server shows no forms of its own; the page is the UI
+			infostream << player->getName() << " answered the form " << client_formspec_name
+					<< ", which nothing reads" << std::endl;
 			return;
 		}
 		actionstream << player->getName()
@@ -1422,83 +1362,16 @@ void Server::handleCommand_Ticket(NetworkPacket *pkt)
 	m_gate->begin(peer_id, client->getName(), ticket, build); // answered in AsyncRunStep
 }
 
-void Server::handleCommand_ModChannelJoin(NetworkPacket *pkt)
+// Terra Firma (sprint 119: was builtin's death_screen.lua): the one who died chose to
+// live again (the client's own death screen, TOCLIENT_DEATHSCREEN_LEGACY)
+void Server::handleCommand_Respawn(NetworkPacket *pkt)
 {
-	std::string channel_name;
-	*pkt >> channel_name;
-
-	session_t peer_id = pkt->getPeerId();
-	NetworkPacket resp_pkt(TOCLIENT_MODCHANNEL_SIGNAL,
-		1 + 2 + channel_name.size(), peer_id);
-
-	// Send signal to client to notify join succeed or not
-	if (g_settings->getBool("enable_mod_channels") &&
-			m_modchannel_mgr->joinChannel(channel_name, peer_id,
-					MAX_CLIENT_MOD_CHANNELS)) {
-		resp_pkt << (u8) MODCHANNEL_SIGNAL_JOIN_OK;
-		infostream << "Peer " << peer_id << " joined channel " <<
-			channel_name << std::endl;
-	}
-	else {
-		resp_pkt << (u8)MODCHANNEL_SIGNAL_JOIN_FAILURE;
-		infostream << "Peer " << peer_id << " could not join channel " <<
-			channel_name << std::endl;
-	}
-	resp_pkt << channel_name;
-	Send(&resp_pkt);
-}
-
-void Server::handleCommand_ModChannelLeave(NetworkPacket *pkt)
-{
-	std::string channel_name;
-	*pkt >> channel_name;
-
-	session_t peer_id = pkt->getPeerId();
-	NetworkPacket resp_pkt(TOCLIENT_MODCHANNEL_SIGNAL,
-		1 + 2 + channel_name.size(), peer_id);
-
-	// Send signal to client to notify join succeed or not
-	if (g_settings->getBool("enable_mod_channels") &&
-			m_modchannel_mgr->leaveChannel(channel_name, peer_id)) {
-		resp_pkt << (u8)MODCHANNEL_SIGNAL_LEAVE_OK;
-		infostream << "Peer " << peer_id << " left channel " << channel_name <<
-			std::endl;
-	} else {
-		resp_pkt << (u8) MODCHANNEL_SIGNAL_LEAVE_FAILURE;
-		infostream << "Peer " << peer_id << " left channel " << channel_name <<
-			", but was not registered." << std::endl;
-	}
-	resp_pkt << channel_name;
-	Send(&resp_pkt);
-}
-
-void Server::handleCommand_ModChannelMsg(NetworkPacket *pkt)
-{
-	std::string channel_name, channel_msg;
-	*pkt >> channel_name >> channel_msg;
-
-	session_t peer_id = pkt->getPeerId();
-	verbosestream << "Mod channel message received from peer " << peer_id <<
-		" on channel " << channel_name << " message: " << channel_msg <<
-		std::endl;
-
-	// If mod channels are not enabled, discard message
-	if (!g_settings->getBool("enable_mod_channels")) {
+	RemotePlayer *player = m_env->getPlayer(pkt->getPeerId());
+	PlayerSAO *sao = player ? player->getPlayerSAO() : nullptr;
+	if (!sao || !sao->isDead())
 		return;
-	}
-
-	// If channel not registered, signal it and ignore message
-	if (!m_modchannel_mgr->channelRegistered(channel_name)) {
-		NetworkPacket resp_pkt(TOCLIENT_MODCHANNEL_SIGNAL,
-			1 + 2 + channel_name.size(), peer_id);
-		resp_pkt << (u8)MODCHANNEL_SIGNAL_CHANNEL_NOT_REGISTERED << channel_name;
-		Send(&resp_pkt);
-		return;
-	}
-
-	// @TODO: filter, rate limit
-
-	broadcastModChannelMessage(channel_name, channel_msg, peer_id);
+	sao->respawn();
+	actionstream << player->getName() << " respawns at " << floatToInt(sao->getBasePosition(), BS) << std::endl;
 }
 
 void Server::handleCommand_HaveMedia(NetworkPacket *pkt)
@@ -1514,17 +1387,11 @@ void Server::handleCommand_HaveMedia(NetworkPacket *pkt)
 	}
 
 	const session_t peer_id = pkt->getPeerId();
-	auto player = m_env->getPlayer(peer_id);
-
 	for (const u32 token : tokens) {
 		auto it = m_pending_dyn_media.find(token);
 		if (it == m_pending_dyn_media.end())
 			continue;
-		if (it->second.waiting_players.count(peer_id)) {
-			it->second.waiting_players.erase(peer_id);
-			if (player)
-				getScriptIface()->on_dynamic_media_added(token, player->getName());
-		}
+		it->second.waiting_players.erase(peer_id);
 	}
 }
 
@@ -1574,7 +1441,8 @@ void Server::handleCommand_Ui(NetworkPacket *pkt)
 	// Terra Firma: the engine's own first (sprint 119: were tf_player's)
 	if (terraUiEvent(this, playersao, name, value))
 		return;
-	m_script->on_ui_event(playersao, name, value);
+	warningstream << "UI event \"" << name << "\" from " << player->getName()
+			<< ": nothing answers it" << std::endl;
 }
 
 // Terra Firma: the tools in hand (sprints 45–47). Creative only for now; the

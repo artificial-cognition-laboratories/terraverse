@@ -32,11 +32,9 @@ const SEASONS: Chip = { label: "Seasons", text: "", palette: { S: SNOW },
     rows: ["...S...", "S..S..S", ".S.S.S.", "..SSS..", ".S.S.S.", "S..S..S", "...S..."] }
 const WILD: Chip = { label: "Wild weather", text: "", palette: { C: STEEL, B: SUN },
     rows: ["..CCC..", ".CCCCC.", "CCCCCCC", "...BB..", "..BB...", ".BBB...", "..B...."] }
-const MODS: Icon = { palette: { M: SKY },
-    rows: ["MMM.MMM", "MMM.MMM", "MMM.MMM", ".......", "MMM.MMM", "MMM.MMM", "MMM.MMM"] }
 
 /** A world's row: always what kind of game it is; the rest only when it's out of the ordinary. */
-export function chipsOf(world: World, mods: number): Chip[] {
+export function chipsOf(world: World): Chip[] {
     const chips: Chip[] = []
     if (world.mode) chips.push(MODE[world.mode])
     const difficulty = world.rules.tf_difficulty
@@ -44,7 +42,6 @@ export function chipsOf(world: World, mods: number): Chip[] {
         chips.push({ label: `Difficulty: ${difficulty}`, text: difficulty, palette: { L: SKY, D: SHADE }, rows: rungs(DIFFICULTY[difficulty]) })
     if (world.rules.tf_seasons === "true") chips.push(SEASONS)
     if (world.rules.tf_weather === "wild") chips.push(WILD)
-    if (mods > 0) chips.push({ ...MODS, label: `${mods} added mods`, text: `${mods}` })
     return chips
 }
 

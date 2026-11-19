@@ -42,9 +42,6 @@
 #include "version.h"
 
 // CPCSM
-#include "content/mod_configuration.h"
-#include "content/mods.h"
-#include "modchannels.h"
 
 // Network
 #include "network/clientopcodes.h"
@@ -154,16 +151,10 @@ Client::Client(
 	m_password(password),
 	m_chosen_auth_mech(AUTH_MECHANISM_NONE),
 	m_media_downloader(std::make_unique<ClientMediaDownloader>()),
-	m_state(LC_Created),
-	m_modchannel_mgr(new ModChannelMgr())
+	m_state(LC_Created)
 {
 	// Add local player
 	m_env.setLocalPlayer(new LocalPlayer(this, playername));
-
-	// Make the mod storage database and begin the save for later
-	m_mod_storage_database =
-			new ModStorageDatabaseSQLite3(porting::path_user + DIR_DELIM + "client");
-	m_mod_storage_database->beginSave();
 
 	if (g_settings->getBool("enable_minimap")) {
 		m_minimap = std::make_unique<Minimap>(this);
@@ -172,44 +163,6 @@ Client::Client(
 	m_cache_save_interval = g_settings->getU16("server_map_save_interval");
 	m_mesh_grid = { g_settings->getU16("client_mesh_chunk") };
 
-}
-
-void Client::migrateModStorage()
-{
-	std::string mod_storage_dir = porting::path_user + DIR_DELIM + "client";
-	std::string old_mod_storage = mod_storage_dir + DIR_DELIM + "mod_storage";
-	if (fs::IsDir(old_mod_storage)) {
-		infostream << "Migrating client mod storage to SQLite3 database" << std::endl;
-		{
-			ModStorageDatabaseFiles files_db(mod_storage_dir);
-			std::vector<std::string> mod_list;
-			files_db.listMods(&mod_list);
-			for (const std::string &modname : mod_list) {
-				infostream << "Migrating client mod storage for mod " << modname << std::endl;
-				StringMap meta;
-				files_db.getModEntries(modname, &meta);
-				for (const auto &pair : meta) {
-					m_mod_storage_database->setModEntry(modname, pair.first, pair.second);
-				}
-			}
-		}
-		if (!fs::Rename(old_mod_storage, old_mod_storage + ".bak")) {
-			// Execution cannot move forward if the migration does not complete.
-			throw BaseException("Could not finish migrating client mod storage");
-		}
-		infostream << "Finished migration of client mod storage" << std::endl;
-	}
-}
-
-const std::vector<ModSpec>& Client::getMods() const
-{
-	static std::vector<ModSpec> client_modspec_temp;
-	return client_modspec_temp;
-}
-
-const ModSpec* Client::getModSpec(const std::string &modname) const
-{
-	return NULL;
 }
 
 void Client::Stop()
@@ -359,10 +312,6 @@ Client::~Client()
 	m_media_downloader.reset();
 
 	// Write the changes and delete
-	if (m_mod_storage_database)
-		m_mod_storage_database->endSave();
-	delete m_mod_storage_database;
-	m_mod_storage_database = nullptr;
 
 	// Free sound ids
 	for (auto &csp : m_sounds_client_to_server)
@@ -799,14 +748,6 @@ void Client::step(float dtime)
 		if (!removed_server_ids.empty()) {
 			sendRemovedSounds(removed_server_ids);
 		}
-	}
-
-	// Write changes to the mod storage
-	m_mod_storage_save_timer -= dtime;
-	if (m_mod_storage_save_timer <= 0.0f) {
-		m_mod_storage_save_timer = g_settings->getFloat("server_map_save_interval");
-		m_mod_storage_database->endSave();
-		m_mod_storage_database->beginSave();
 	}
 
 	// Write server map
@@ -2212,56 +2153,6 @@ scene::IAnimatedMesh *Client::getMesh(const std::string &filename, bool *is_shar
 /*
  * Mod channels
  */
-
-bool Client::joinModChannel(const std::string &channel)
-{
-	if (m_modchannel_mgr->channelRegistered(channel))
-		return false;
-
-	NetworkPacket pkt(TOSERVER_MODCHANNEL_JOIN, 2 + channel.size());
-	pkt << channel;
-	Send(&pkt);
-
-	m_modchannel_mgr->joinChannel(channel, 0);
-	return true;
-}
-
-bool Client::leaveModChannel(const std::string &channel)
-{
-	if (!m_modchannel_mgr->channelRegistered(channel))
-		return false;
-
-	NetworkPacket pkt(TOSERVER_MODCHANNEL_LEAVE, 2 + channel.size());
-	pkt << channel;
-	Send(&pkt);
-
-	m_modchannel_mgr->leaveChannel(channel, 0);
-	return true;
-}
-
-bool Client::sendModChannelMessage(const std::string &channel, const std::string &message)
-{
-	if (!m_modchannel_mgr->canWriteOnChannel(channel))
-		return false;
-
-	if (message.size() > STRING_MAX_LEN) {
-		warningstream << "ModChannel message too long, dropping before sending "
-				<< " (" << message.size() << " > " << STRING_MAX_LEN << ", channel: "
-				<< channel << ")" << std::endl;
-		return false;
-	}
-
-	// @TODO: do some client rate limiting
-	NetworkPacket pkt(TOSERVER_MODCHANNEL_MSG, 2 + channel.size() + 2 + message.size());
-	pkt << channel << message;
-	Send(&pkt);
-	return true;
-}
-
-ModChannel* Client::getModChannel(const std::string &channel)
-{
-	return m_modchannel_mgr->getModChannel(channel);
-}
 
 const std::string &Client::getFormspecPrepend() const
 {

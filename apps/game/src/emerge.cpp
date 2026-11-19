@@ -23,9 +23,6 @@
 #include "mapgen/mg_schematic.h"
 #include "porting.h"
 #include "profiler.h"
-#include "scripting_server.h"
-#include "scripting_emerge.h"
-#include "script/common/c_types.h" // LuaError
 #include "server.h"
 #include "serialization.h"
 #include "util/serialize.h"
@@ -641,16 +638,6 @@ MapBlock *EmergeThread::finishGen(v3s16 pos, BlockMakeData *bmdata,
 		&m_server->m_ignore_map_edit_events_area,
 		VoxelArea(minp, maxp));
 
-	/*
-		Run Lua on_generated callbacks in the server environment
-	*/
-	try {
-		m_server->getScriptIface()->environment_OnGenerated(
-			minp, maxp, m_mapgen->blockseed);
-	} catch (LuaError &e) {
-		m_server->setAsyncFatalError(e);
-	}
-
 	EMERGE_DBG_OUT("ended up with: " << analyze_block(block));
 
 	/*
@@ -661,36 +648,6 @@ MapBlock *EmergeThread::finishGen(v3s16 pos, BlockMakeData *bmdata,
 	m_mapgen->vm = nullptr;
 
 	return block;
-}
-
-
-bool EmergeThread::initScripting()
-{
-	m_script = std::make_unique<EmergeScripting>(this);
-
-	try {
-		m_script->loadMod(Server::getBuiltinLuaPath() + DIR_DELIM + "init.lua",
-			BUILTIN_MOD_NAME);
-		m_script->checkSetByBuiltin();
-	} catch (const ModError &e) {
-		errorstream << "Execution of mapgen base environment failed." << std::endl;
-		m_server->setAsyncFatalError(e.what());
-		return false;
-	}
-
-	const auto &list = m_server->m_mapgen_init_files;
-	try {
-		for (auto &it : list)
-			m_script->loadMod(it.second, it.first);
-
-		m_script->on_mods_loaded();
-	} catch (const ModError &e) {
-		errorstream << "Failed to load mod script inside mapgen environment." << std::endl;
-		m_server->setAsyncFatalError(e.what());
-		return false;
-	}
-
-	return true;
 }
 
 
@@ -707,11 +664,6 @@ void *EmergeThread::run()
 	m_emerge = m_server->getEmergeManager();
 	m_mapgen = m_emerge->m_mapgens[id];
 	enable_mapgen_debug_info = m_emerge->enable_mapgen_debug_info;
-
-	if (!initScripting()) {
-		m_script.reset();
-		stop(); // do not enter main loop
-	}
 
 	try {
 	while (!stopRequested()) {
@@ -766,18 +718,6 @@ void *EmergeThread::run()
 			// Terra Firma: the wet shore it made, for the server to fill (sprint 119)
 			m_server->queueShore(mapgenShore(*m_mapgen));
 
-			{
-				ScopeProfiler sp(g_profiler,
-					"EmergeThread: Lua on_generated", SPT_AVG);
-
-				try {
-					m_script->on_generated(&bmdata, m_mapgen->blockseed);
-				} catch (const LuaError &e) {
-					m_server->setAsyncFatalError(e);
-					error = true;
-				}
-			}
-
 			if (!error)
 				block = finishGen(pos, &bmdata, &modified_blocks);
 			else
@@ -821,13 +761,6 @@ void *EmergeThread::run()
 			<< "But it will also destroy stuff in the affected MapBlocks, do not use."
 			<< std::endl;
 		m_server->setAsyncFatalError(err.str());
-	}
-
-	try {
-		if (m_script)
-			m_script->on_shutdown();
-	} catch (const ModError &e) {
-		m_server->setAsyncFatalError(e.what());
 	}
 
 	cancelPendingItems();

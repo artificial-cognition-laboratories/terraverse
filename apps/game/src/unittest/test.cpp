@@ -10,7 +10,6 @@
 #include "itemdef.h"
 #include "dummygamedef.h"
 #include "log_internal.h"
-#include "modchannels.h"
 #include "util/numeric.h"
 #include "porting.h"
 #include "debug.h"
@@ -39,22 +38,11 @@ public:
 
 	void defineSomeNodes();
 
-	bool joinModChannel(const std::string &channel);
-	bool leaveModChannel(const std::string &channel);
-	bool sendModChannelMessage(const std::string &channel, const std::string &message);
-	ModChannel *getModChannel(const std::string &channel)
-	{
-		return m_modchannel_mgr->getModChannel(channel);
-	}
-
-private:
-	std::unique_ptr<ModChannelMgr> m_modchannel_mgr;
 };
 
 
 TestGameDef::TestGameDef() :
-	DummyGameDef(),
-	m_modchannel_mgr(new ModChannelMgr())
+	DummyGameDef()
 {
 	defineSomeNodes();
 }
@@ -204,25 +192,6 @@ void TestGameDef::defineSomeNodes()
 	f.is_ground_content = true;
 	idef->registerItem(itemdef);
 	t_CONTENT_FACEDIR = ndef->set(f.name, std::move(f));
-}
-
-bool TestGameDef::joinModChannel(const std::string &channel)
-{
-	return m_modchannel_mgr->joinChannel(channel, PEER_ID_SERVER);
-}
-
-bool TestGameDef::leaveModChannel(const std::string &channel)
-{
-	return m_modchannel_mgr->leaveChannel(channel, PEER_ID_SERVER);
-}
-
-bool TestGameDef::sendModChannelMessage(const std::string &channel,
-	const std::string &message)
-{
-	if (!m_modchannel_mgr->channelRegistered(channel))
-		return false;
-
-	return true;
 }
 
 ////

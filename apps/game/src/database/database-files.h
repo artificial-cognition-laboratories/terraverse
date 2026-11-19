@@ -38,30 +38,3 @@ private:
 };
 
 
-class ModStorageDatabaseFiles : public ModStorageDatabase
-{
-public:
-	ModStorageDatabaseFiles(const std::string &savedir);
-	virtual ~ModStorageDatabaseFiles() = default;
-
-	virtual void getModEntries(const std::string &modname, StringMap *storage);
-	virtual void getModKeys(const std::string &modname, std::vector<std::string> *storage);
-	virtual bool getModEntry(const std::string &modname,
-		const std::string &key, std::string *value);
-	virtual bool hasModEntry(const std::string &modname, const std::string &key);
-	virtual bool setModEntry(const std::string &modname,
-		const std::string &key, std::string_view value);
-	virtual bool removeModEntry(const std::string &modname, const std::string &key);
-	virtual bool removeModEntries(const std::string &modname);
-	virtual void listMods(std::vector<std::string> *res);
-
-	virtual void beginSave();
-	virtual void endSave();
-
-private:
-	Json::Value *getOrCreateJson(const std::string &modname);
-
-	std::string m_storage_dir;
-	std::unordered_map<std::string, Json::Value> m_mod_storage;
-	std::unordered_set<std::string> m_modified;
-};

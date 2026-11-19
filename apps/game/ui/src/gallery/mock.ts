@@ -67,11 +67,6 @@ export function MockBridge() {
             mods: ["tf_world"], featured: false, favorite: false, compatible: false },
     ]
     const community: CommunityCatalog = {
-        mods: [
-            { id: "games/terrafirma/mods/tf_world", name: "tf_world", title: "World", description: "Base terrain, water, biomes, and trees.", author: "ArcLabs", source: "builtIn", depends: [], enabledWorlds: [], configurable: false },
-            { id: "games/terrafirma/mods/tf_weather", name: "tf_weather", title: "Weather", description: "Climate-driven clouds, rain, snow, and ash.", author: "ArcLabs", source: "builtIn", depends: ["tf_world"], enabledWorlds: [], configurable: false },
-            { id: "mods/lanterns", name: "lanterns", title: "Lanterns", description: "Small placeable lanterns for the gallery.", author: "Wren", source: "installed", depends: ["tf_world"], enabledWorlds: ["/worlds/pine_ridge"], configurable: true },
-        ],
         textures: [
             { id: "/textures/stonework", name: "Stonework", description: "A gallery example of an installed texture pack.", author: "Ash", active: false },
             { id: "/textures/clear_skies", name: "Clear Skies", description: "A gallery example with bright skies and quieter terrain.", author: "Juno", active: false },
@@ -79,7 +74,6 @@ export function MockBridge() {
         worlds: [],
     }
     const communityView = (): CommunityCatalog => ({
-        mods: community.mods.map((mod) => ({ ...mod, enabledWorlds: [...mod.enabledWorlds] })),
         textures: community.textures.map((pack) => ({ ...pack })),
         worlds: worlds.map((world) => ({ ...world, code: worldCodes.get(world.path) ?? null })),
     })
@@ -355,13 +349,6 @@ export function MockBridge() {
             return null
         },
         "community.list": () => communityView(),
-        "community.mod.set": ({ id, world, enabled }) => {
-            const mod = community.mods.find((item) => item.id === id)
-            if (!mod || !mod.configurable) throw refuse("community.mod.set", "this mod cannot be changed")
-            if (!worlds.some((item) => item.path === world)) throw refuse("community.mod.set", "that world no longer exists")
-            mod.enabledWorlds = enabled ? [...new Set([...mod.enabledWorlds, world])] : mod.enabledWorlds.filter((path) => path !== world)
-            return null
-        },
         "community.texture.set": ({ id }) => {
             if (id && !community.textures.some((pack) => pack.id === id)) throw refuse("community.texture.set", "that texture pack is not installed")
             for (const pack of community.textures) pack.active = pack.id === id

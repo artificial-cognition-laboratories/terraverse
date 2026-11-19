@@ -412,13 +412,54 @@ ArcLabs account, roles hold permissions, a grant lasts while they're here.
 - **Not yet:** a way to give someone a role in play (`player.roles.add` in the API is designed, not
   wired), `join` (`anyone`, `friends`, a list), and mods declaring their permissions.
 
+### No Lua: content, digging and the checks, native
+
+The last of Lua went: `src/script/`, `builtin/`, the vendored Lua, LuaJIT and every hook the
+engine called into (protocol 106). What it still did is native:
+
+- **Content** (`server/registry`, `server/defs`): the hand, the world's blocks and soils, a block of
+  every substance (solid, powder, liquid, puddle), the flame and crucible, the seam and the atlas's
+  debug paints, aliases, biomes and tree species, all from `assets/world/*.json` and the matter
+  table, then the TypeScript mods' blocks. A definition is read by the fields content uses and any
+  other is refused. Where the world and the matter both define a block (`core:water_puddle`) the
+  world's wins: under Lua the substance's had quietly overwritten its shallow water.
+- **Digging and placing** (`server/interact`): a dug block falls where it was as items (its
+  `drop`, or itself with its colour); placing goes into what gives way or beside it, facing the
+  way it's put down where it `_rotates`; tools wear. TEMP: a dug block gives itself whatever digs
+  it, until breaking is tool × material. In creative what's in hand never runs out (it did only
+  for rotating blocks under Lua).
+- **What falls** (`interact::settle`): sand and gravel over nothing fall, a flower whose ground goes
+  comes off as items, after a dig, a placing, a punch, or a liquid moving.
+- **Entities** (`server/kinds`): a machine's carrier (`core:piece`), a dropped item (picked up by a
+  punch, merging with others lying close, gone after `item_entity_ttl`) and a falling block, under
+  the names worlds saved them by; an entity of no kind is kept inert. Items and falling blocks saved
+  by Lua are read back by their item or block name.
+- **Death**: the client's own death screen (TOCLIENT_DEATHSCREEN_LEGACY), and the server respawns
+  them when they choose (TOSERVER_RESPAWN_LEGACY).
+- **Inventories** answer moves by their rules alone; dropping throws the stack in front of them.
+  Node timers, node forms and formspec replies have nothing to answer them, and say so in the log.
+- **The checks' probes** (`src/probe`, `--probe <name>`): the eleven Lua probes as C++, printing
+  the lines their scripts already read; `check:interact` is new, digging, placing, dropping and
+  falling on a live server. TestLua, TestScriptApi and TestModStorageDatabase went with what they
+  tested; TestMoveAction and TestSAO keep what isn't Lua's.
+- **Gone with Lua**: mod storage (and its database backends), mod IPC, mod channels (their packets
+  null in 106), async and emerge Lua environments, Luanti's mod specs and configuration
+  (`content/mods`), `--migrate-mod-storage`, `--insecure-no-sandbox`, `secure.*_mods`, the builtin
+  locale. The Community screen keeps texture packs, worlds and seeds; its Lua mods tab went, and a
+  world's page no longer counts mods. The debugger's Mods tab lists the server folder's TypeScript
+  mods (`.terra/manifest.json`). `LuaEntitySAO` is `EntitySAO`.
+- **Checks still red, as before this**: check:bodies (no land found on the moon), check:atlas-world
+  (no solid at the equator's sea level), check:atlas-seams (water poured past a seam stays air:
+  liquids are the matter's fills now, and the check still expects Luanti's flowing water).
+
 ### Not doing (yet)
 
 - **`world` and `block` arguments** say they aren't wired: there's no `game.worlds` yet.
 - **Declaring permissions in mod.config.ts**: a permission is only named, `prefix:name`.
 - **The rest of builtin's commands** (`/ban`, `/time`, `/grant`, `/teleport`…) wait for the API
   they need: bans, `time.skip`, roles, `player.place`.
-- **Digging**: every TypeScript block digs like stone (`cracky = 3`) until matter decides it.
+- **Digging**: every TypeScript block digs like stone (`cracky = 3`) until matter decides it, and
+  every block gives itself until breaking is tool × material.
 - **Canvas is wood** at a third of a block until there's a fibre substance.
 - **A server folder of your own** doesn't get the official mods: it lists them, once the
   registry can install them.

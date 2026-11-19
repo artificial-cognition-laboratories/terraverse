@@ -20,7 +20,7 @@
 class IGameDef;
 class Map;
 class NodeDefManager;
-class LuaEntitySAO;
+class EntitySAO;
 class ServerEnvironment;
 struct MapEditEvent;
 namespace piece { class Machine; }
@@ -102,7 +102,7 @@ private:
 	their materials; each hinge a hinge, its friction rolling resistance.
 	A hinged group that's round about its axle rolls as a smooth cylinder.
 
-	It drives its entities (LuaEntitySAO::setDriven): their position,
+	It drives its entities (EntitySAO::setDriven): their position,
 	turn and velocity are the physics', and their groups' poses go to
 	clients (AO_CMD_SET_PARTS). A machine edited is rebuilt where it is;
 	held, it's kinematic, where its holder poses it. Players push.
@@ -121,13 +121,13 @@ public:
 	void mapEdited(const MapEditEvent &e);
 
 	// Its entity's machine is held (still, posed by its holder) or let go.
-	void hold(LuaEntitySAO &obj, bool held);
-	bool held(const LuaEntitySAO &obj) const;
+	void hold(EntitySAO &obj, bool held);
+	bool held(const EntitySAO &obj) const;
 	// Carried (pulled as hard as `strength`, N) or not (none).
-	void carry(LuaEntitySAO &obj, std::optional<float> strength);
-	bool carried(const LuaEntitySAO &obj) const;
+	void carry(EntitySAO &obj, std::optional<float> strength);
+	bool carried(const EntitySAO &obj) const;
 	// Where a held or carried one's to be (BS, degrees); throws if it's neither.
-	void pose(LuaEntitySAO &obj, v3f position, v3f rotation);
+	void pose(EntitySAO &obj, v3f position, v3f rotation);
 	// Grabbed by `who` (their object id) at `point` (BS, in its frame) as
 	// hard as `strength` (N), that point pulled toward `hand` (BS); or
 	// let go (none). Sprint 68.
@@ -137,14 +137,14 @@ public:
 		v3f hand;
 		float strength;
 	};
-	void grab(LuaEntitySAO &obj, u16 who, std::optional<Grab> grab);
+	void grab(EntitySAO &obj, u16 who, std::optional<Grab> grab);
 	// Whether `who` has it grabbed.
-	bool grabbing(const LuaEntitySAO &obj, u16 who) const;
+	bool grabbing(const EntitySAO &obj, u16 who) const;
 	// Driven by `who` (their object id) so, or got up from (none): a
 	// driver isn't a body in its way (sprint 69). The machine's seat, if
 	// it has one (BS, in its frame).
-	void drive(LuaEntitySAO &obj, u16 who, std::optional<physics::Drive> drive);
-	std::optional<u16> driver(const LuaEntitySAO &obj) const;
+	void drive(EntitySAO &obj, u16 who, std::optional<physics::Drive> drive);
+	std::optional<u16> driver(const EntitySAO &obj) const;
 	std::optional<v3f> seat(u16 object) const;
 
 	// For core.physics: nothing if it isn't a machine physics moves.
@@ -162,7 +162,7 @@ public:
 	// what isn't one
 	void impulse(u16 object, v3f impulse, std::optional<v3f> from = std::nullopt);
 	// Set back on its feet, lifted `lift` (nodes): physics::World::upright.
-	void upright(LuaEntitySAO &obj, float lift);
+	void upright(EntitySAO &obj, float lift);
 	// A blast at `centre` (nodes), `power` Pa·s at a node off. The pulse: objects
 	// flung and loaded by what reaches each cell, the ground cut as far as it
 	// overcomes what each block takes. The throw: chunks of what was cut, real
@@ -187,7 +187,7 @@ private:
 	// What came to rest holds itself up and what's taken a blow survives it, or
 	// it's cut into what does. The solve's off the server's thread, one at a time;
 	// its answer counts only if the thing's as it was asked about.
-	void settle(const std::map<u16, LuaEntitySAO *> &seen);
+	void settle(const std::map<u16, EntitySAO *> &seen);
 	struct Judging
 	{
 		u16 object;
@@ -199,7 +199,7 @@ private:
 	std::future<physics::StructureResult> m_answer;
 	std::vector<Judging> m_to_judge; // asked as it happened, waiting their turn
 	std::set<u16> m_rubble; // broken off something: small and weak, it crumbles where it stops
-	bool crumble(u16 id, LuaEntitySAO &e, physics::World::Id body);
+	bool crumble(u16 id, EntitySAO &e, physics::World::Id body);
 	// A blast's rim, laid a little each step: it comes down as fallout, not as a stall.
 	struct Fallout
 	{

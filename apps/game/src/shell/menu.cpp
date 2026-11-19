@@ -150,12 +150,6 @@ Menu::Menu(const Opts &opts) :
 	m_intents.onAsync("community.list", [this](const Json::Value &) {
 		return m_community.list();
 	});
-	m_intents.on("community.mod.set", [this](const Json::Value &intent) {
-		if (!intent["enabled"].isBool())
-			throw Refused("community.mod.set needs enabled");
-		m_community.setMod(stringField(intent, "id"), stringField(intent, "world"), intent["enabled"].asBool());
-		return Json::Value();
-	});
 	m_intents.on("community.texture.set", [this](const Json::Value &intent) {
 		m_community.setTexture(stringField(intent, "id"));
 		return Json::Value();

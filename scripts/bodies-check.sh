@@ -12,14 +12,13 @@ nice -n 19 ionice -c 3 bash "$root/scripts/build.sh" -j 3 > /dev/null
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 world="$work/world"
-mkdir -p "$world/worldmods"
-cp -r "$root/scripts/bodies-check/probe" "$world/worldmods/bodies_probe"
+mkdir -p "$world"
 printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$world/world.mt"
 atlas="atlas-v2 radius=250000 segments=24 capLatitude=85 core=62500 rounding=0.95 height=256"
 printf 'mg_name = terra\nmgterra_code = TF24.dGVycmE\nseed = 1\nchunksize = 1\nplanet_atlas = %s\n[end_of_params]\n' "$atlas" > "$world/map_meta.txt"
 
 port=$((30700 + RANDOM % 500))
-timeout 300 "$root/.output/bin/luanti" --server --config /dev/null --world "$world" --port "$port" 2>&1 \
+timeout 300 "$root/.output/bin/luanti" --server --config /dev/null --world "$world" --probe bodies --port "$port" 2>&1 \
 	| tee "$work/server.txt" | grep -oE 'BODIES .*' | tee "$work/log.txt" || true
 
 stored=yes

@@ -648,3 +648,36 @@ void terraFillShore(Server *server, const std::vector<v3s16> &shore)
 		if (matterRoomAt(map, server->ndef(), p).total() > 0)
 			map.setFill(p, f);
 }
+
+Json::Value serverMatterBaked(const NodeDefManager *ndef)
+{
+	ServerMatter *matter = serverMatterIfMade();
+	if (!matter)
+		throw BaseException("export: the game's matter never started");
+	Json::Value out(Json::arrayValue);
+	for (const sandbox::WorldMatter::Spec &s : matter->plain) {
+		const ContentFeatures &f = ndef->get(s.node);
+		Json::Value b;
+		b["node"] = s.node;
+		b["matter"] = s.matter;
+		b["share"] = s.share;
+		b["liquid"] = s.state == matter::State::Liquid;
+		b["form"] = s.form;
+		b["flowing"] = s.flowing;
+		b["vessel"] = s.vessel;
+		b["leveled"] = s.leveled;
+		b["loose"] = s.loose;
+		// (top, bottom, side: as tiledef's order has them)
+		for (int t : { 0, 1, 2 })
+			b["tiles"].append(f.tiledef[t].name);
+		if (f.node_box.type == NODEBOX_FIXED)
+			for (const aabb3f &box : f.node_box.fixed) {
+				Json::Value part(Json::arrayValue);
+				for (float v : { box.MinEdge.X, box.MinEdge.Y, box.MinEdge.Z, box.MaxEdge.X, box.MaxEdge.Y, box.MaxEdge.Z })
+					part.append(v / BS + 0.5f); // from the block's corner
+				b["boxes"].append(part);
+			}
+		out.append(b);
+	}
+	return out;
+}

@@ -1,0 +1,8 @@
+set(probe_SRCS
+	${CMAKE_CURRENT_SOURCE_DIR}/probe.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/small.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/atlas.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/seams.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/interact.cpp
+	PARENT_SCOPE)

@@ -143,27 +143,4 @@ private:
 };
 
 
-class ModStorageDatabasePostgreSQL : private Database_PostgreSQL, public ModStorageDatabase
-{
-public:
-	ModStorageDatabasePostgreSQL(const std::string &connect_string);
-	~ModStorageDatabasePostgreSQL() = default;
-
-	void getModEntries(const std::string &modname, StringMap *storage);
-	void getModKeys(const std::string &modname, std::vector<std::string> *storage);
-	bool getModEntry(const std::string &modname, const std::string &key, std::string *value);
-	bool hasModEntry(const std::string &modname, const std::string &key);
-	bool setModEntry(const std::string &modname,
-			const std::string &key, std::string_view value);
-	bool removeModEntry(const std::string &modname, const std::string &key);
-	bool removeModEntries(const std::string &modname);
-	void listMods(std::vector<std::string> *res);
-
-	PARENT_CLASS_FUNCS
-
-protected:
-	virtual void createDatabase();
-	virtual void initStatements();
-};
-
 #undef PARENT_CLASS_FUNCS

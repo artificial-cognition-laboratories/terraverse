@@ -23,7 +23,7 @@ void sendAnnounce(AnnounceAction action,
 		const float lag,
 		const std::string &gameid,
 		const std::string &mg_name,
-		const std::vector<ModSpec> &mods,
+		const std::vector<std::string> &mods,
 		bool dedicated)
 {
 	static const char *aa_names[] = {"start", "update", "delete"};
@@ -62,9 +62,8 @@ void sendAnnounce(AnnounceAction action,
 		server["mapgen"]            = mg_name;
 		server["can_see_far_names"] = g_settings->getS16("player_transfer_distance") <= 0;
 		server["mods"]              = Json::Value(Json::arrayValue);
-		for (const ModSpec &mod : mods) {
-			server["mods"].append(mod.name);
-		}
+		for (const std::string &mod : mods)
+			server["mods"].append(mod);
 	} else if (action == AA_UPDATE) {
 		if (lag)
 			server["lag"] = lag;

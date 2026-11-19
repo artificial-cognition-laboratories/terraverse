@@ -21,7 +21,7 @@
 #include "piece/frame.h"
 #include "piece/machine.h"
 #include "remoteplayer.h"
-#include "server/luaentity_sao.h"
+#include "server/entity_sao.h"
 #include "server/player_sao.h"
 #include "serverenvironment.h"
 #include "settings.h"
@@ -565,13 +565,13 @@ void Motion::step(float dtime)
 {
 	std::vector<ServerActiveObject *> objs;
 	m_env.getObjectsInArea(objs, aabb3f(v3f(-1e9f), v3f(1e9f)), [](ServerActiveObject *o) {
-		auto *e = dynamic_cast<LuaEntitySAO *>(o);
+		auto *e = dynamic_cast<EntitySAO *>(o);
 		return e && !o->isGone() && e->accessObjectProperties()->visual == OBJECTVISUAL_PIECE
 				&& !e->accessObjectProperties()->piece.empty();
 	});
-	std::map<u16, LuaEntitySAO *> seen;
+	std::map<u16, EntitySAO *> seen;
 	for (ServerActiveObject *o : objs) {
-		auto *e = static_cast<LuaEntitySAO *>(o);
+		auto *e = static_cast<EntitySAO *>(o);
 		const std::string &text = e->accessObjectProperties()->piece;
 		const size_t hash = std::hash<std::string>{}(text);
 		const u16 id = o->getId();
@@ -671,7 +671,7 @@ void Motion::step(float dtime)
 	m_world->step(dtime);
 
 	for (auto &[id, t] : m_tracked) {
-		LuaEntitySAO *e = seen.at(id);
+		EntitySAO *e = seen.at(id);
 		const physics::Pose p = m_world->pose(t.id);
 		e->setBasePosition(v3f::from(p.position * BS));
 		e->setRotation(rotationOf(p.rotation));
@@ -705,7 +705,7 @@ Motion::Crater Motion::blast(v3f centre, float power)
 		if ((at - centre).getLength() > BLAST_REACH * 2)
 			continue;
 		ServerActiveObject *o = m_env.getActiveObject(id);
-		auto *e = dynamic_cast<LuaEntitySAO *>(o);
+		auto *e = dynamic_cast<EntitySAO *>(o);
 		if (!e)
 			continue;
 		try {
@@ -838,7 +838,7 @@ Motion::Crater Motion::blast(v3f centre, float power)
 		m.add({ std::move(o), piece::Pose{ v3s32(0), 0 } });
 		const float turn = between(0, 6.2832f), rise = between(0.35f, 1.3f);
 		const v3f dir = v3f(std::cos(turn) * std::cos(rise), std::sin(rise), std::sin(turn) * std::cos(rise));
-		LuaEntitySAO &e = entities.spawn((centre + dir * (furthest * between(0.2f, 0.6f))) * BS, v3f(between(0, 360), between(0, 360), 0), m);
+		EntitySAO &e = entities.spawn((centre + dir * (furthest * between(0.2f, 0.6f))) * BS, v3f(between(0, 360), between(0, 360), 0), m);
 		e.setVelocity(dir * (speed * between(0.5f, 1.3f)) * BS);
 		m_rubble.insert(e.getId());
 		thrown += side * side * side;
@@ -907,7 +907,7 @@ void Motion::fall()
 	}
 }
 
-bool Motion::crumble(u16 id, LuaEntitySAO &e, physics::World::Id body)
+bool Motion::crumble(u16 id, EntitySAO &e, physics::World::Id body)
 {
 	constexpr size_t MOST_CELLS_CRUMBLED = 256; // 4 nodes' worth: bigger holds together as a lump
 	constexpr float WEAKEST = 1e5f;             // Pa: rock's past this, and stays rubble
@@ -941,7 +941,7 @@ bool Motion::crumble(u16 id, LuaEntitySAO &e, physics::World::Id body)
 	return true;
 }
 
-void Motion::settle(const std::map<u16, LuaEntitySAO *> &seen)
+void Motion::settle(const std::map<u16, EntitySAO *> &seen)
 {
 	const auto inHands = [&](u16 id) {
 		return m_held.count(id) || m_carried.count(id) || m_grabbed.count(id) || m_driven.count(id);
@@ -974,7 +974,7 @@ void Motion::settle(const std::map<u16, LuaEntitySAO *> &seen)
 			if (hit) {
 				ask(id, t.id, blow);
 			} else if (rest && !t.resting && !inHands(id)) {
-				LuaEntitySAO *e = seen.at(id);
+				EntitySAO *e = seen.at(id);
 				if (!m_rubble.count(id) || !crumble(id, *e, t.id))
 					ask(id, t.id, std::nullopt);
 			}
@@ -1012,7 +1012,7 @@ void Motion::settle(const std::map<u16, LuaEntitySAO *> &seen)
 					entities.store(*e->second, whole);
 				}
 				for (size_t i = keep ? 1 : 0; i < pieces.size(); i++) {
-					LuaEntitySAO &piece = entities.spawn(where + turned(quatOf(rot), pieces[i].by * BS), rot, pieces[i].machine);
+					EntitySAO &piece = entities.spawn(where + turned(quatOf(rot), pieces[i].by * BS), rot, pieces[i].machine);
 					piece.setVelocity(e->second->getVelocity());
 					m_rubble.insert(piece.getId());
 				}
@@ -1035,7 +1035,7 @@ void Motion::mapEdited(const MapEditEvent &e)
 		m_world->groundChanged(b);
 }
 
-void Motion::hold(LuaEntitySAO &obj, bool held)
+void Motion::hold(EntitySAO &obj, bool held)
 {
 	if (held)
 		carry(obj, std::nullopt);
@@ -1047,12 +1047,12 @@ void Motion::hold(LuaEntitySAO &obj, bool held)
 		m_world->hold(t->id, held);
 }
 
-bool Motion::held(const LuaEntitySAO &obj) const
+bool Motion::held(const EntitySAO &obj) const
 {
 	return m_held.count(obj.getId()) != 0;
 }
 
-void Motion::carry(LuaEntitySAO &obj, std::optional<float> strength)
+void Motion::carry(EntitySAO &obj, std::optional<float> strength)
 {
 	if (strength)
 		m_carried[obj.getId()] = *strength;
@@ -1062,12 +1062,12 @@ void Motion::carry(LuaEntitySAO &obj, std::optional<float> strength)
 		m_world->carry(t->id, strength);
 }
 
-bool Motion::carried(const LuaEntitySAO &obj) const
+bool Motion::carried(const EntitySAO &obj) const
 {
 	return m_carried.count(obj.getId()) != 0;
 }
 
-void Motion::pose(LuaEntitySAO &obj, v3f position, v3f rotation)
+void Motion::pose(EntitySAO &obj, v3f position, v3f rotation)
 {
 	const physics::Pose to{ v3d::from(position / BS), quatOf(rotation) };
 	if (held(obj)) {
@@ -1081,7 +1081,7 @@ void Motion::pose(LuaEntitySAO &obj, v3f position, v3f rotation)
 	}
 }
 
-void Motion::grab(LuaEntitySAO &obj, u16 who, std::optional<Grab> grab)
+void Motion::grab(EntitySAO &obj, u16 who, std::optional<Grab> grab)
 {
 	const u16 id = obj.getId();
 	if (!grab) {
@@ -1099,7 +1099,7 @@ void Motion::grab(LuaEntitySAO &obj, u16 who, std::optional<Grab> grab)
 	grip(id, who, *grab, fresh);
 }
 
-bool Motion::grabbing(const LuaEntitySAO &obj, u16 who) const
+bool Motion::grabbing(const EntitySAO &obj, u16 who) const
 {
 	auto it = m_grabbed.find(obj.getId());
 	return it != m_grabbed.end() && it->second.count(who);
@@ -1115,7 +1115,7 @@ void Motion::grip(u16 object, u16 who, const Grab &g, bool fresh)
 	m_world->grabTo(t->id, who, v3d::from(g.hand / BS));
 }
 
-void Motion::drive(LuaEntitySAO &obj, u16 who, std::optional<physics::Drive> drive)
+void Motion::drive(EntitySAO &obj, u16 who, std::optional<physics::Drive> drive)
 {
 	const u16 id = obj.getId();
 	if (drive)
@@ -1126,7 +1126,7 @@ void Motion::drive(LuaEntitySAO &obj, u16 who, std::optional<physics::Drive> dri
 		m_world->drive(t->id, drive);
 }
 
-std::optional<u16> Motion::driver(const LuaEntitySAO &obj) const
+std::optional<u16> Motion::driver(const EntitySAO &obj) const
 {
 	auto it = m_driven.find(obj.getId());
 	return it == m_driven.end() ? std::nullopt : std::optional<u16>(it->second.who);
@@ -1150,7 +1150,7 @@ std::optional<float> Motion::mass(u16 object) const
 	return it == m_tracked.end() ? std::nullopt : std::optional<float>(m_world->mass(it->second.id));
 }
 
-void Motion::upright(LuaEntitySAO &obj, float lift)
+void Motion::upright(EntitySAO &obj, float lift)
 {
 	Tracked *t = tracked(obj.getId());
 	if (!t)

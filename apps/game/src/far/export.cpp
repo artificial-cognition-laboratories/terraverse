@@ -11,7 +11,7 @@
 #include "client/inputhandler.h"
 #include "log.h"
 #include "nodedef.h"
-#include "script/lua_api/l_matter.h"
+#include "server/matter.h"
 #include "server.h"
 #include "settings.h"
 #include "util/string.h"
@@ -57,7 +57,7 @@ void exportPalette(const GameParams &params, const std::string &path)
 	Json::Value json = Baked::write(horizon->content, palette,
 			[&](content_t id) { return ndef->get(id).name; });
 
-	json["scene"] = ModApiMatter::baked(ndef);
+	json["scene"] = serverMatterBaked(ndef);
 	// what a course needs of a block beyond its looks: how tyres grip it, how it gives
 	for (Json::Value &b : json["scene"]) {
 		content_t id;

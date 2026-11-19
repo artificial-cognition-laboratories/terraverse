@@ -67,13 +67,13 @@ threading these together. Known gaps belong in `TODO.md`.
 apps/game/src/      the Luanti fork, plus our systems in their own folders (below)
 apps/game/ui/       the Vue app: menus, HUD, inventory, wiki, gallery
 apps/game/server/   the game's own server folder: the official TypeScript mods every world runs
-apps/game/game/     the game's baked data: palette.json, moves.json, vehicles.json, ground.json (its Lua mods are gone)
+apps/game/game/     the game's baked data: palette.json, moves.json, vehicles.json, ground.json
 apps/cli/           terra: the CLI, and the sidecar that runs TypeScript mods (sprint 119)
 packages/types/     @terraverse/types: the TypeScript mod API's globals, as implemented
 assets/             shipped static files; assets/matter/ holds elements, substances, reactions and thermo data
 registry/           shaders, textures; registry/worlds is user data, never clean it up
 registry/mods/      the game's own TypeScript mods (@terraverse/*), run by apps/game/server
-library/            vendored dependencies (library/jolt: MIT; irr and lua are upstream, leave alone)
+library/            vendored dependencies (library/jolt: MIT; irr is upstream, leave alone)
 scripts/            dev loop, staging, palette bake, the check:* harnesses, release packaging
 planning/           sprint plans, arcs and design notes
 cmake/Modules/CEF.cmake   fetches the pinned CEF build
@@ -101,8 +101,10 @@ Our folders in `apps/game/src/`:
 | `online/` | STUN, hole punching, UPnP, ticket gate, joining |
 | `client/body`, `figure`, `liquids`, `shallow.h` | Our client parts: the player's body and fine water |
 | `sidecar/` | TypeScript mods: spawns `terra runtime`, a window each step, answers its calls |
+| `probe/` | The checks' probes: a headless server driven by `--probe <name>` (`scripts/*-check.sh`) |
 
-TypeScript mods are replacing Lua (sprint 119, `planning/sprint-119-ts-mods.md`). The API is
+Mods are TypeScript, and only TypeScript: there's no Lua in the engine (sprint 119,
+`planning/sprint-119-ts-mods.md`). The API is
 designed in `apps/site/content/docs/mods/`; `terra` prepares a server folder into `.terra/`, and
 the engine runs its mods in a sidecar process.
 The wire's ops live in `apps/cli/src/runtime/wire/ops.ts`: change them there and run `bun run gen`
@@ -110,17 +112,20 @@ in apps/cli, which writes `sidecar/ops.h`.
 
 The game's own TypeScript mods live in `registry/mods/` (`@terraverse/materials`, `@terraverse/commands`)
 and run through `apps/game/server`, which staging prepares into `.output/server`. The engine
-runs that folder in every world not given another. While Lua lives, their blocks register
-through Lua (`builtin/game/sidecar.lua`), so the world's matter, machines and the catalogue see them.
+runs that folder in every world not given another. Their blocks register beside the engine's
+(`server/registry`), so the world's matter, machines and the catalogue see them.
 A block's weight, strength, grip and transparency come from its substance (`assets/matter`).
 
-There are no game Lua mods left, and no game yet: only the skeleton (sprint 119). What's per
+There's no game yet: only the skeleton (sprint 119). What's per
 player or per tick is the engine's (`server/`: the sky, gravity by height, spawn, seam and travel,
 the weather's readout, snow and ice, `player.cpp`: what a player's given, creative, sprinting, the
 map, and `matter.cpp`: every block's matter registered and run). The generator's own blocks,
-biomes and tree species are data (`assets/world/*.json`, `core:` names); builtin Lua registers
-them, and the matter's own blocks, while digging and placing still look blocks up in Lua
-(`builtin/game/world.lua`, `matter.lua`, TEMP). The weather finds the snow and ice it makes by
+biomes and tree species are data (`assets/world/*.json`, `core:` names), and the matter's own
+blocks come from its table: `server/registry` registers them all, reading each definition as
+`server/defs` does (an unknown field is refused). Digging, placing, drops and what falls are
+`server/interact` (a dug block gives itself, TEMP until breaking is tool × material); an entity
+off the grid is one of a few native kinds (`server/kinds`: a machine, a dropped item, a falling
+block). The weather finds the snow and ice it makes by
 alias (`weather_snow`, `weather_ice`), as the generator finds rock (`mapgen_*`).
 
 **Who may do what** is native (`server/access`): no passwords, everyone is their ArcLabs account.
@@ -148,7 +153,7 @@ folders; where they reach into engine files, change those files as the design ne
 | Liquids | The world's matter: fills, virtual pipes, fine water | `server.cpp`, `client.cpp`, map format 31 |
 | Whole-node ground | Cut, smoothed and loose ground at sixteenths | `map`, `content_mapblock`, `mesh_generator_thread` |
 | Sky, clouds | Space, seen from where you stand | `game.cpp` |
-| Entities that move by script | Machines as rigid bodies | `luaentity_sao`, `activeobject.h`, `server.cpp` |
+| Entities that move by script | Machines as rigid bodies | `entity_sao`, `activeobject.h`, `server.cpp` |
 | Auth, privileges, chat | ArcLabs tickets, roles and permissions (`server/access`), native chat | `server.cpp`, `serverpackethandler.cpp`, `network/mtp` |
 
 - Stock Luanti peers are refused. **Bump the protocol** (`network/networkprotocol.cpp`) whenever
@@ -248,7 +253,8 @@ Each file in `shell/` owns one concern.
   loudly. Verbs throw `Refused("…")` for an expected no.
 - Slow verbs use `shell.onAsync`: a worker thread, so they must be pure.
 - Messages (engine → page) carry a `kind`, so never name a payload field `kind`.
-- Game Lua talks to the page with `player:set_ui(key, value)` and `core.register_on_ui_event`.
+- The engine talks to the page with `Server::setUi(player, key, value)`, and answers its events
+  in `terraUiEvent` (`server/player.cpp`); a TypeScript mod's go through the sidecar.
 - **The server is the authority.** No optimistic updates. The store holds `null` for what the
   engine hasn't sent: render nothing rather than invent a value.
 - The page gets the keyboard only while an editable element has focus (`bridge/keyboard.ts`).
@@ -272,7 +278,7 @@ bun run build           # engine + production UI
 bash scripts/build.sh -j8              # engine only, waits its turn if another build is running (after cmake -S . -B .output/build -DRUN_IN_PLACE=TRUE)
 bun run stage           # refresh resources in the runtime tree
 cd apps/game/ui && bun run typecheck
-./.output/bin/luanti --server --gameid terrafirma --world <tmp dir> --port <n>   # headless boot: catches Lua errors
+./.output/bin/luanti --server --gameid terrafirma --world <tmp dir> --port <n>   # headless boot: catches content and start-up errors
 ./.output/bin/luanti --test-module TestTerragen                                  # one test module; --run-unittests for all
 bun run test [Module...]  # every unit test module in parallel, slowest listed first; skips (scripts/test/skip.txt) cite their job
 
@@ -304,7 +310,7 @@ To tune by eye, render a code's grid to a PNG:
 `scripts/terragen-tool.sh /tmp/render scripts/terragen-check/render.cpp && /tmp/render TF9.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents|sediment]`
 (`<code>@<body>` draws another body.)
 
-**How agents verify:** build the engine, typecheck and build the UI, boot headless for Lua errors,
+**How agents verify:** build the engine, typecheck and build the UI, boot headless for start-up errors,
 run the check for what changed, and use the gallery for UI. Agents may run the engine, the game
 client and the render tools to see their work or capture images from it. Say
 plainly what was and wasn't run. Commit only when asked.

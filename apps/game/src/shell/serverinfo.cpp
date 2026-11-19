@@ -4,7 +4,6 @@
 #include "serverinfo.h"
 #include "server.h"
 #include "client/client.h"
-#include "content/mods.h"
 #include "serverenvironment.h"
 #include "version.h"
 
@@ -41,17 +40,12 @@ Json::Value describeServer(Server *local, Client &client)
 	}
 
 	Json::Value &mods = out["mods"] = Json::Value(Json::arrayValue);
-	for (const ModSpec &mod : local->getMods()) {
+	for (const Server::ModReport &mod : local->modList()) {
 		Json::Value one;
 		one["name"] = mod.name;
-		one["author"] = mod.author;
-		one["description"] = mod.desc;
-		one["path"] = mod.path;
-		// the game's own, or one the player added
-		one["source"] = mod.path.rfind(game->path, 0) == 0 ? "game" : "user";
-		Json::Value &depends = one["depends"] = Json::Value(Json::arrayValue);
-		for (const std::string &d : mod.depends)
-			depends.append(d);
+		one["version"] = mod.version;
+		// the game's own (@terraverse/*), or one the player added
+		one["source"] = mod.name.rfind("@terraverse/", 0) == 0 ? "game" : "user";
 		mods.append(std::move(one));
 	}
 	return out;

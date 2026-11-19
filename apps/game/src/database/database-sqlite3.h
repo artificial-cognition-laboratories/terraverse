@@ -252,38 +252,4 @@ private:
 };
 
 
-class ModStorageDatabaseSQLite3 : private Database_SQLite3, public ModStorageDatabase
-{
-public:
-	ModStorageDatabaseSQLite3(const std::string &savedir);
-	virtual ~ModStorageDatabaseSQLite3();
-
-	virtual void getModEntries(const std::string &modname, StringMap *storage);
-	virtual void getModKeys(const std::string &modname, std::vector<std::string> *storage);
-	virtual bool getModEntry(const std::string &modname,
-		const std::string &key, std::string *value);
-	virtual bool hasModEntry(const std::string &modname, const std::string &key);
-	virtual bool setModEntry(const std::string &modname,
-		const std::string &key,std::string_view value);
-	virtual bool removeModEntry(const std::string &modname, const std::string &key);
-	virtual bool removeModEntries(const std::string &modname);
-	virtual void listMods(std::vector<std::string> *res);
-
-	PARENT_CLASS_FUNCS
-
-protected:
-	virtual void createDatabase();
-	virtual void initStatements();
-
-private:
-	sqlite3_stmt *m_stmt_get_mods = nullptr;
-	sqlite3_stmt *m_stmt_get_all = nullptr;
-	sqlite3_stmt *m_stmt_get_keys = nullptr;
-	sqlite3_stmt *m_stmt_get = nullptr;
-	sqlite3_stmt *m_stmt_has = nullptr;
-	sqlite3_stmt *m_stmt_set = nullptr;
-	sqlite3_stmt *m_stmt_remove = nullptr;
-	sqlite3_stmt *m_stmt_remove_all = nullptr;
-};
-
 #undef PARENT_CLASS_FUNCS

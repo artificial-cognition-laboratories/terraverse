@@ -56,15 +56,6 @@
 #include "benchmark/benchmark.h"
 #endif
 
-// for version information only
-extern "C" {
-#if USE_LUAJIT
-	#include <luajit.h>
-#else
-	#include <lua.h>
-#endif
-}
-
 #if !defined(__cpp_rtti) || !defined(__cpp_exceptions)
 #error Luanti cannot be built without exceptions or RTTI
 #endif
@@ -487,6 +478,8 @@ static void set_allowed_options(OptionList *allowed_options)
 			_("Set world path" LOCAL_GAME))));
 	allowed_options->insert(std::make_pair("server-folder", ValueSpec(VALUETYPE_STRING,
 			_("Run the TypeScript mods of this server folder (terra host passes it)"))));
+	allowed_options->insert(std::make_pair("probe", ValueSpec(VALUETYPE_STRING,
+			_("Run a check's probe in the server (src/probe: scripts/*-check.sh pass it)"))));
 	allowed_options->insert(std::make_pair("world-code", ValueSpec(VALUETYPE_STRING,
 			_("Make the world from this star system if it's new, and refuse it if it was made from another"))));
 	allowed_options->insert(std::make_pair("worldname", ValueSpec(VALUETYPE_STRING,
@@ -516,14 +509,10 @@ static void set_allowed_options(OptionList *allowed_options)
 			_("Migrate from current map backend to another" SERVER_ONLY))));
 	allowed_options->insert(std::make_pair("migrate-players", ValueSpec(VALUETYPE_STRING,
 		_("Migrate from current players backend to another" SERVER_ONLY))));
-	allowed_options->insert(std::make_pair("migrate-mod-storage", ValueSpec(VALUETYPE_STRING,
-		_("Migrate from current mod storage backend to another" SERVER_ONLY))));
 	allowed_options->insert(std::make_pair("terminal", ValueSpec(VALUETYPE_FLAG,
 			_("Enable ncurses interactive terminal" SERVER_ONLY))));
 	allowed_options->insert(std::make_pair("recompress", ValueSpec(VALUETYPE_FLAG,
 			_("Recompress the blocks of the given map database" SERVER_ONLY))));
-	allowed_options->emplace("insecure-no-sandbox", ValueSpec(VALUETYPE_FLAG,
-			_("Disable server Lua sandbox (INSECURE!)")));
 #if CHECK_CLIENT_BUILD()
 	allowed_options->insert(std::make_pair("address", ValueSpec(VALUETYPE_STRING,
 			_("Address to connect to ('' = local game)"))));
@@ -564,7 +553,6 @@ static void print_help(const OptionList &allowed_options)
 	std::pair<const char*, std::vector<std::string>> the_list[] = {
 		{"map", ServerMap::getDatabaseBackends()},
 		{"players", ServerEnvironment::getPlayerDatabaseBackends()},
-		{"mod storage", Server::getModStorageDatabaseBackends()},
 	};
 
 	std::cout << "Supported database backends:";
@@ -599,15 +587,6 @@ static void print_version(std::ostream &os)
 {
 	os << PROJECT_NAME_C " " << g_version_hash
 		<< " (" << porting::getPlatformName() << ")" << std::endl;
-#if USE_LUAJIT
-	os << "Using " << LUAJIT_VERSION
-#ifdef OPENRESTY_LUAJIT
-	<< " (OpenResty)"
-#endif
-	<< std::endl;
-#else
-	os << "Using " << LUA_RELEASE << std::endl;
-#endif
 #if defined(__clang__)
 	os << "Built by Clang " << __clang_major__ << "." << __clang_minor__ << std::endl;
 #elif defined(__GNUC__)
@@ -900,8 +879,6 @@ static bool init_common(const Settings &cmd_args, int argc, char *argv[])
 	srand(seed);
 	mysrand(seed);
 
-	g_disable_mod_security = cmd_args.getFlag("insecure-no-sandbox");
-
 	httpfetch_init(g_settings->getS32("curl_parallel_limit"));
 
 	init_gettext(porting::path_locale.c_str(),
@@ -1032,6 +1009,8 @@ static bool game_configure(GameParams *game_params, const Settings &cmd_args)
 	game_configure_port(game_params, cmd_args);
 	if (cmd_args.exists("server-folder"))
 		game_params->server_folder = fs::AbsolutePath(cmd_args.get("server-folder"));
+	if (cmd_args.exists("probe"))
+		game_params->probe = cmd_args.get("probe");
 	if (cmd_args.exists("world-code")) {
 		game_params->world_code = cmd_args.get("world-code");
 		// a code alone (terra <code>): its universe kept with the game's others, by its code
@@ -1323,9 +1302,6 @@ static bool run_dedicated_server(const GameParams &game_params, const Settings &
 	if (cmd_args.exists("migrate-players"))
 		return ServerEnvironment::migratePlayersDatabase(game_params, cmd_args);
 
-	if (cmd_args.exists("migrate-mod-storage"))
-		return Server::migrateModStorageDatabase(game_params, cmd_args);
-
 	if (cmd_args.getFlag("recompress"))
 		return recompress_map_database(game_params, cmd_args);
 
@@ -1376,6 +1352,7 @@ static bool run_dedicated_server(const GameParams &game_params, const Settings &
 			Server server(game_params.world_path, game_params.game_spec,
 					false, UDPSocket::Create(bind_addr), true, &iface);
 			server.setServerFolder(game_params.server_folder);
+			server.setProbe(game_params.probe);
 
 			g_term_console.setup(&iface, &kill, admin_nick);
 
@@ -1418,6 +1395,7 @@ static bool run_dedicated_server(const GameParams &game_params, const Settings &
 			Server server(game_params.world_path, game_params.game_spec, false,
 					UDPSocket::Create(bind_addr), true);
 			server.setServerFolder(game_params.server_folder);
+			server.setProbe(game_params.probe);
 			server.start();
 
 			// Run server
