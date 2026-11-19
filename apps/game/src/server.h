@@ -482,6 +482,12 @@ public:
 	const planet::Atlas *atlas() const { return m_atlas ? &*m_atlas : nullptr; }
 	// Terra Firma: an atlas world's bodies, by the atlas's body index (the home first)
 	const std::vector<terragen::BodyWorld> &bodyWorlds() const { return m_body_worlds; }
+	// Terra Firma: a line typed under a TypeScript mod's command, for the next window.
+	// False when there's no sidecar to answer (mods are off, or none run).
+	bool sidecarCommand(const std::string &player, const std::string &name, const std::string &text);
+	// Terra Firma: a chunk's wet shore, from the emerge thread (mapgenShore), filled with
+	// water on the server's next step where its smoothed ground is open (sprint 119)
+	void queueShore(std::vector<v3s16> &&shore);
 	// Terra Firma: the atlas's index of a body by its id (the system's); throws for none
 	int bodyIndex(const std::string &id) const;
 	// Terra Firma: a cell's node, its tile put in the map's window if it isn't
@@ -935,6 +941,8 @@ private:
 	// Terra Firma: TypeScript mods, run beside the server (src/sidecar, sprint 119)
 	std::string m_server_folder;
 	std::unique_ptr<sidecar::Sidecar> m_sidecar;
+	std::mutex m_shore_mutex;
+	std::vector<v3s16> m_shore; // Terra Firma: queueShore's, till the next step
 	double m_sidecar_now = 0; // game time, as mods see it
 	bool m_restart_for_mods = false;
 	void startSidecar();

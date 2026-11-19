@@ -15,6 +15,11 @@ set(common_server_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/serverinventorymgr.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/serverlist.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/sky.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/gravity.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/planet.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/weather.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/player.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/matter.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/unit_sao.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/universe.cpp
 	PARENT_SCOPE)

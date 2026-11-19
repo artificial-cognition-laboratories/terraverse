@@ -59,7 +59,7 @@ watch([chosen, marker], () => {
     settling = window.setTimeout(() => {
         const s = substance.value
         scene.value = s ? { size: [3, 2, 3], ambient: marker.value.t, pressure: marker.value.p, air: AIR,
-            blocks: [{ at: [1, 0, 1], node: `tf_matter:${s.id}`, temperature: marker.value.t, hold: true }] } : null
+            blocks: [{ at: [1, 0, 1], node: `core:${s.id}`, temperature: marker.value.t, hold: true }] } : null
     }, scene.value ? 150 : 0)
 }, { deep: true, immediate: true })
 const substanceName = (id: string) => table.byId.get(id)?.name ?? id

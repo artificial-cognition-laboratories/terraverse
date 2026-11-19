@@ -4,7 +4,7 @@
 -- found again by its place. Prints BODIES lines; the last is "BODIES pass"
 -- or "BODIES fail".
 local function say(...) print("BODIES " .. string.format(...)) end
-local MARK = "tf_planet:seam" -- a node the ground never has
+local MARK = "core:seam" -- a node the ground never has
 local ok = true
 local function check(cond, ...)
 	if not cond then
@@ -109,7 +109,7 @@ local function on_the_moon(on, spawn)
 	check(w.atmosphere == false, "the moon's air isn't simulated")
 	say("the moon's sun %.1f° up, its ground %d, %.1f °C", sun.elevation, surface.ground, w.temperature)
 	-- where /travel lands on the moon: on its land, by its own spawn levels
-	local landing = tf_planet.spawn_position("moon")
+	local landing = core.planet.spawn_position("moon")
 	check(core.planet.body_at(landing) == "moon", "the moon's landing is on the moon")
 	say("the moon's landing: %s", core.pos_to_string(landing))
 	mark(home, vector.offset(spawn, 0, 3, 0))
@@ -138,7 +138,7 @@ local function find_land(n, spawn)
 end
 
 core.after(0.5, function()
-	local spawn = vector.round(tf_planet.spawn_position())
+	local spawn = vector.round(core.planet.spawn_position())
 	check(core.planet.body_at(spawn) == home, "the spawn on the home")
 	core.emerge_area(vector.subtract(spawn, 16), vector.add(spawn, 16), function(_, _, left)
 		if left == 0 then find_land(1, spawn) end

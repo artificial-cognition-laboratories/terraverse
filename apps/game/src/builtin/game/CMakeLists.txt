@@ -19,6 +19,10 @@ set(BUILTIN_GAME_SRCS
 	game/privileges.lua
 	game/register.lua
 	game/sidecar.lua
+	game/matter.lua
+	game/planet.lua
+	game/rivers.lua
 	game/static_spawn.lua
 	game/voxelarea.lua
+	game/world.lua
 	PARENT_SCOPE)

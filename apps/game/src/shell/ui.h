@@ -17,8 +17,7 @@ class Shell;
 	The UI channel's client end. Values game Lua sets for this player's page
 	(player:set_ui) go to the page as they arrive; the page's events go back
 	to the server (core.register_on_ui_event). Remembers which keys are set,
-	so a screen that needs one (the Lab) opens only where it's offered, and
-	the engine-side readers (the camera director) can read them.
+	so a screen that needs one (the map, the wiki) opens only where it's offered.
 */
 class Ui
 {

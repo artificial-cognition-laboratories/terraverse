@@ -592,48 +592,13 @@ int ModApiMapgen::l_get_biome_data(lua_State *L)
 }
 
 
-// Terra Firma: the list of positions, in this chunk, of loose ground (group
-// `loose`) under water, or open above with water beside it at its level.
 static void pushShore(lua_State *L, Mapgen &mg)
 {
-	const NodeDefManager *ndef = mg.ndef;
-	const content_t water = ndef->getId("mapgen_water_source");
-	MMVManip &vm = *mg.vm;
-	const VoxelArea &area = vm.m_area;
-	const s16 margin = MAP_BLOCKSIZE;
-	const v3s16 lo = area.MinEdge + v3s16(margin, margin, margin), hi = area.MaxEdge - v3s16(margin, margin, margin);
-	thread_local const NodeDefManager *known_of = nullptr;
-	thread_local std::vector<s8> known;
-	if (known_of != ndef) {
-		known_of = ndef;
-		known.assign(65536, -1);
-	}
-	const auto loose = [&](content_t c) {
-		s8 &k = known[c];
-		if (k < 0)
-			k = itemgroup_get(ndef->get(c).groups, "loose") > 0;
-		return k > 0;
-	};
-	static const v2s16 SIDES[8] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } };
 	lua_newtable(L);
 	int n = 0;
-	for (s16 z = lo.Z; z <= hi.Z; z++)
-	for (s16 y = lo.Y; y <= hi.Y; y++)
-	for (s16 x = lo.X; x <= hi.X; x++) {
-		if (!loose(vm.m_data[area.index(x, y, z)].getContent()))
-			continue;
-		const content_t above = vm.m_data[area.index(x, y + 1, z)].getContent();
-		bool wet = above == water;
-		if (!wet && !loose(above))
-			for (const v2s16 &d : SIDES)
-				if (area.contains(v3s16(x + d.X, y, z + d.Y)) && vm.m_data[area.index(x + d.X, y, z + d.Y)].getContent() == water) {
-					wet = true;
-					break;
-				}
-		if (wet) {
-			push_v3s16(L, v3s16(x, y, z));
-			lua_rawseti(L, -2, ++n);
-		}
+	for (const v3s16 &p : mapgenShore(mg)) {
+		push_v3s16(L, p);
+		lua_rawseti(L, -2, ++n);
 	}
 }
 

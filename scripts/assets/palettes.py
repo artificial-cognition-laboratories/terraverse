@@ -18,7 +18,7 @@ import subprocess, sys, tempfile, os
 from PIL import Image
 
 root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-tex = os.path.join(root, "apps/game/game/mods/tf_world/textures")
+tex = os.path.join(root, "registry/textures/base/pack")
 
 def average(path):
     im = Image.open(path).convert("RGB")

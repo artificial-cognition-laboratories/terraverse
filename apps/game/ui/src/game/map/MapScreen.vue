@@ -150,7 +150,7 @@ watch(() => store.chosen, (id) => {
         }
     }
 })
-// creative: go to the place clicked on the shown body (tf_player checks it, and moves the player)
+// creative: go to the place clicked on the shown body (the server, server/player.cpp, checks it and moves the player)
 const problem = ref<string | null>(null)
 function goThere() {
     const p = store.picked

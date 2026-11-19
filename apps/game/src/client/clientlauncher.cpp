@@ -25,7 +25,6 @@
 #include "util/tracy_wrapper.h"
 #include "porting.h"
 #if USE_SHELL
-#include "shell/lab.h"
 #include "shell/account.h"
 #include "shell/menu.h"
 #include "shell/shell.h"
@@ -327,13 +326,13 @@ bool ClientLauncher::run(const GameParams &game_params, const Settings &cmd_args
 
 #if USE_SHELL
 // Terra Firma: a friend's world, or one of the player's own — hosted for
-// friends while signed in to ArcLabs, alone otherwise (and in the Lab).
+// friends while signed in to ArcLabs, alone otherwise.
 bool ClientLauncher::online(GameStartData &start_data, shell::Choice &choice, std::string &error_message)
 {
 	start_data.online = online::Launch();
 	const std::string username = m_shell->account().username();
 	std::optional<online::Api> api = m_shell->social().api();
-	if ((choice.join || (!choice.lab && api)) && !is_valid_player_name(username)) {
+	if ((choice.join || api) && !is_valid_player_name(username)) {
 		error_message = "Your ArcLabs username \"" + username + "\" can't be a player name here "
 			"(at most 20 letters, digits, - and _).";
 		return false;
@@ -358,7 +357,7 @@ bool ClientLauncher::online(GameStartData &start_data, shell::Choice &choice, st
 	start_data.world_spec = *choice.world;
 	start_data.world_path = choice.world->path;
 	start_data.address.clear();
-	if (choice.lab || !api) {
+	if (!api) {
 		start_data.mode = GameClientData::GM_SINGLEPLAYER;
 		return true;
 	}
@@ -527,8 +526,7 @@ bool ClientLauncher::launch_game(GameErrorData &errordata, GameStartData &start_
 #if USE_SHELL
 	if (!skip_main_menu) {
 		shell::Worlds worlds(g_settings->get("game_id"));
-		shell::Lab lab(findSubgame(g_settings->get("game_id")).gamemods_path);
-		shell::Menu menu({ *m_shell, m_rendering_engine, *receiver, worlds, lab });
+		shell::Menu menu({ *m_shell, m_rendering_engine, *receiver, worlds });
 		std::optional<shell::Choice> choice = menu.run(error_message);
 		error_message.clear(); // shown by the page
 

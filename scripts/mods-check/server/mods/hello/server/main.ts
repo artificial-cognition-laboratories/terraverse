@@ -13,3 +13,12 @@ game.time.after({ seconds: 1 }, () => {
     console.log(`CHECK after ${game.time.now.toFixed(1)} ticks=${ticks} players=${game.players.list().length}`)
     throw new Error("CHECK a handler that throws")
 })
+
+// A command, typed from the console by the check's Lua probe (scripts/mods-check/probe)
+game.commands.create("check", {
+    description: "The check's command",
+    args: { n: { type: "integer" }, text: { type: "string" } },
+    run({ player, args, reply }) {
+        reply(`CHECK command from ${player?.name ?? "console"}: ${args.n + 1} ${args.text}`)
+    },
+})

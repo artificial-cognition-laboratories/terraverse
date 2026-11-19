@@ -1,0 +1,8 @@
+{
+    "name": "@terraverse/commands",
+    "version": "0.1.0",
+    "type": "module",
+    "exports": {
+        ".": "./server/main.ts"
+    }
+}

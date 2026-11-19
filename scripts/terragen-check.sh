@@ -37,7 +37,7 @@ work = sys.argv[1]
 def table(name):
     return {l.split()[1]: l.split()[2:] for l in open(f"{work}/{name}")}
 predicted, probed = table("predicted.txt"), table("probed.txt")
-# each terragen biome's top block (games/terrafirma/mods/tf_world/biomes.lua); its bed under rivers
+# each terragen biome's top block (assets/world/biomes.json); its bed under rivers
 # and lakes, the column's soil kind (predicted: what the water laid) unless the biome names its own;
 # 20 blocks down, the rock, ore or cave terragen's geology decided
 TOP = {"deep": "gravel", "ocean": "sand", "seaice": "gravel", "beach": "sand", "desert": "sand",
@@ -57,12 +57,12 @@ for key, (terrain, water, kind, biome, deep, bed_top) in predicted.items():
     if kind == "lava":
         expect = None  # a crater's floor: whatever the rim's rock is
     elif kind in ("river", "lake") and int(water) > int(terrain):
-        expect = (f"tf_world:{BED[biome]}" if biome in BED else bed_top, "tf_world:placer_gravel")
+        expect = (f"core:{BED[biome]}" if biome in BED else bed_top, "core:placer_gravel")
     elif biome == "rock":
         expect = None  # bare peaks: the bedrock shows
     else:
-        expect = (f"tf_world:{TOP[biome]}",)
-    tree = any(t in node for t in ("log", "leaves", "needles", "tf_world:plant_"))
+        expect = (f"core:{TOP[biome]}",)
+    tree = any(t in node for t in ("log", "leaves", "needles", "core:plant_"))
     if gy != terrain and not tree:
         bad.append(f"{key} {kind}: ground {gy}, expected {terrain}")
     elif gy == terrain and expect and node not in expect:
@@ -73,7 +73,7 @@ for key, (terrain, water, kind, biome, deep, bed_top) in predicted.items():
         bad.append(f"{key} {kind}: water at {gwater}, expected {water}")
     # a storage column runs straight down its region's grid: beside a seam
     # between regions, 20 down can be no cell at all (seam), nothing to compare
-    if gy == terrain and gdeep != deep and not tree and gdeep != "tf_planet:seam":
+    if gy == terrain and gdeep != deep and not tree and gdeep != "core:seam":
         bad.append(f"{key} {kind}: 20 down {gdeep}, expected {deep}")
 summary = ", ".join(f"{n} {k}" for k, n in sorted(kinds.items()))
 print(f"terragen check: {len(predicted) - len({b.split(':')[0] for b in bad})}/{len(predicted)} columns agree ({summary})")
@@ -114,7 +114,7 @@ if not os.path.exists(f"{work}/world/weather.bin"): storm.append("weather.bin wa
 print(f"weather check: {weathered - len(storm)}/{weathered} columns sane")
 for s in storm: print("  " + s)
 
-# the weather acting on the world: what tf_weather did to each column's top, against the weather there
+# the weather acting on the world: what the engine (server/weather.cpp) did to each column's top, against the weather there
 acted, odd, counts = 0, [], {}
 for l in open(f"{work}/log.txt"):
     f = l.split()
@@ -123,11 +123,11 @@ for l in open(f"{work}/log.txt"):
     _, key, name, action, now, t, snowing, rain = f
     t, snowing, rain = float(t), snowing == "true", float(rain)
     counts[action] = counts.get(action, 0) + 1
-    expect = {"freeze": "tf_weather:ice", "snow": "tf_weather:snow", "thaw": "tf_world:water_source", "melt": "air"}.get(action)
+    expect = {"freeze": "core:lake_ice", "snow": "core:snow_cover", "thaw": "core:water_source", "melt": "air"}.get(action)
     if expect and now != expect: odd.append(f"place {key} {action}: left {now}")
-    if name == "tf_world:water_source" and t < -3 and action != "freeze": odd.append(f"place {key} water at {t:.1f} °C didn't freeze")
+    if name == "core:water_source" and t < -3 and action != "freeze": odd.append(f"place {key} water at {t:.1f} °C didn't freeze")
     if action == "snow" and not (snowing and rain > 0.05): odd.append(f"place {key} snow settled without snow falling")
-if not acted: odd.append("tf_weather: nothing acted on")
+if not acted: odd.append("the weather: nothing acted on")
 print(f"weather on the world: {acted - len(odd)}/{acted} columns right ({', '.join(f'{n} {k}' for k, n in sorted(counts.items()))})")
 for o in odd: print("  " + o)
 sys.exit(1 if bad or wrong or storm or odd else 0)

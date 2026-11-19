@@ -659,7 +659,7 @@ Json::Value Planetarium::layer(const Json::Value &intent)
 		if (layer->date && (*layer->date < 0 || *layer->date >= 1))
 			throw Refused("planetarium.layer: 'date' is 0 to 1, through the year");
 		if (intent.isMember("explored")) {
-			// survival: what the player's seen (tf_player's mask, a bit a cell)
+			// survival: what the player's seen (server/player.cpp's mask, a bit a cell)
 			const Json::Value &e = intent["explored"];
 			if (!e.isObject() || !e["grid"].isUInt() || e["grid"].asUInt() < 1 || e["grid"].asUInt() > 4096 ||
 					!e["mask"].isString() || !base64_is_valid(e["mask"].asString()))

@@ -5,7 +5,7 @@ import PauseScreen from "../../game/PauseScreen.vue"
 import MapScreen from "../../game/map/MapScreen.vue"
 import { useStore } from "../../game/store.ts"
 import { Section, Slider, Toggle } from "../../kit/index.ts"
-import { mockWorldControls, useMock } from "../mock.ts"
+import { useMock } from "../mock.ts"
 import { DEFAULTS, encodeWorldCode } from "../../worldgen/config.ts"
 import { mapUv } from "../../game/map/data.ts"
 
@@ -24,7 +24,7 @@ const explored = btoa(String.fromCharCode(...exploredBytes))
 
 const live = reactive({
     hp: 17, hpMax: 20, breath: 7, breathMax: 10, selected: 2, size: 9,
-    visible: true, crosshair: true, wear: 30000, altitude: 120, trajectory: true,
+    visible: true, crosshair: true, wear: 30000, altitude: 120,
     building: false, world: false, cursor: false,
 })
 
@@ -38,7 +38,6 @@ function push() {
         brush: "add", creating: !live.world, partJoint: "fixed",
     } : { out: false } })
     bridge.emit({ kind: "state", section: "library", value: ["small cart", "Spoked wheel"] })
-    bridge.emit({ kind: "ui", key: "world_controls", value: mockWorldControls() })
     bridge.emit({ kind: "ui", key: "map", value: {
         code, size: DEFAULTS.size, radius: DEFAULTS.size / (2 * Math.PI), sea: 1,
         star: DEFAULTS.star, tilt: DEFAULTS.tilt,
@@ -47,13 +46,6 @@ function push() {
     bridge.emit({ kind: "ui", key: "map_position", value: { x: 384, z: -128, date: 0.25 } })
     const mapPose = mapUv(384, -128, DEFAULTS.size)
     bridge.emit({ kind: "state", section: "mapPose", value: { ...mapPose, heading: 35, height: live.altitude + 1 } })
-    bridge.emit({ kind: "ui", key: "map_trajectory", value: live.trajectory ? {
-        points: Array.from({ length: 129 }, (_, i): [number, number, number] => {
-            const turn = i / 128
-            return [(mapPose.u + turn) % 1, mapPose.v + 0.035 * Math.sin(turn * 2 * Math.PI), live.altitude + 24 * Math.sin(turn * 2 * Math.PI)]
-        }),
-        ending: "time", seconds: 420,
-    } : null })
     bridge.emit({
         kind: "state",
         section: "inventory",
@@ -61,12 +53,12 @@ function push() {
             main: {
                 width: 8,
                 stacks: [
-                    { item: "tf_world:grass", count: 64, wear: 0 },
-                    { item: "tf_world:dirt", count: 12, wear: 0 },
+                    { item: "core:grass", count: 64, wear: 0 },
+                    { item: "core:dirt", count: 12, wear: 0 },
                     { item: "tf_tools:pick", count: 1, wear: live.wear },
-                    { item: "tf_world:stone", count: 1, wear: 0 },
+                    { item: "core:stone", count: 1, wear: 0 },
                     null,
-                    { item: "tf_world:sand", count: 33, wear: 0 },
+                    { item: "core:sand", count: 33, wear: 0 },
                     { item: "unknown:thing", count: 2, wear: 0 },
                     null, null, null,
                 ],
@@ -113,9 +105,8 @@ onMounted(() => {
                 <Toggle :model-value="store.screen === 'map'" label="World map (V)"
                     @update:model-value="bridge.emit({ kind: 'screen', screen: $event ? 'map' : null })" />
             </Section>
-            <Section title="Globe flight">
+            <Section title="Map">
                 <Slider v-model="live.altitude" label="Altitude" :min="0" :max="1000" :step="10" unit="m" />
-                <Toggle v-model="live.trajectory" label="Projected path" />
             </Section>
             <Section title="Flags">
                 <Toggle v-model="live.visible" label="HUD visible (F1)" />

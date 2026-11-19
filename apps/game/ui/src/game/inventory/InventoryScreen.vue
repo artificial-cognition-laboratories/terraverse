@@ -32,11 +32,9 @@ const over = ref<{ slot: SlotRef; stack: Stack | null } | { item: CreativeItem }
 
 // the catalogue's tabs, each drawn as an item from it (as Minecraft's)
 const TABS = [
-    { id: "building", label: "Building blocks", icon: "tf_world:stone_bricks" },
-    { id: "nature", label: "Nature", icon: "tf_world:grass" },
-    { id: "matter", label: "Matter: every substance", icon: "tf_matter:copper" },
-    { id: "functional", label: "Tools for finding out", icon: "tf_matter:heat_gun" },
-    { id: "tools", label: "Tools", icon: "tf_matter:fire_drill" },
+    { id: "building", label: "Building blocks", icon: "core:stone_bricks" },
+    { id: "nature", label: "Nature", icon: "core:grass" },
+    { id: "matter", label: "Matter: every substance", icon: "core:copper" },
     { id: "items", label: "Items", icon: "" },
 ]
 const tabs = computed(() => TABS.flatMap((t) => {
@@ -64,12 +62,6 @@ function choose(id: string) {
 function close() {
     carry.drop()
     bridge.send("screen.close", {})
-}
-
-// tf_craft answers with what can be made here, and the making screen takes this one's place
-function makeByHand() {
-    carry.drop()
-    bridge.send("ui.send", { name: "making.hand", payload: {} }).catch(console.error)
 }
 
 function keydown(e: KeyboardEvent) {
@@ -142,7 +134,6 @@ const tooltip = computed(() => {
 
             <Panel :title="!creative || tab === 'inventory' ? 'Inventory' : query ? 'Search' : tab === 'parts' ? 'Parts' : tabs.find((t) => t.id === tab)?.label ?? ''">
                 <template #actions>
-                    <Button size="sm" @click="makeByHand">Make by hand</Button>
                     <Button size="sm" @click="close">Close</Button>
                 </template>
                 <div class="content">

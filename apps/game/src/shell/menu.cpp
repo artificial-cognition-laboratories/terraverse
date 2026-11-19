@@ -8,7 +8,6 @@
 #include "version.h"
 #include "menu.h"
 #include "terragen/worlds.h"
-#include "lab.h"
 #include "system.h"
 #include "terragen/system.h"
 #include "far/baked.h"
@@ -136,7 +135,7 @@ static std::string stringField(const Json::Value &intent, const char *field)
 }
 
 Menu::Menu(const Opts &opts) :
-	m_shell(opts.shell), m_intents(opts.shell), m_engine(opts.engine), m_worlds(opts.worlds), m_lab(opts.lab),
+	m_shell(opts.shell), m_intents(opts.shell), m_engine(opts.engine), m_worlds(opts.worlds),
 	m_community(opts.worlds, g_settings->get("game_id")),
 	m_receiver(opts.receiver),
 	m_planetarium(opts.shell.planetarium())
@@ -230,7 +229,7 @@ Menu::Menu(const Opts &opts) :
 		WorldSpec world = m_worlds.find(stringField(intent, "path"));
 		m_worlds.select(world);
 		m_shell.social().enter(world.name, true);
-		m_choice = Choice{ world, false, std::nullopt };
+		m_choice = Choice{ world, std::nullopt };
 		return Json::Value();
 	});
 	// ~150 ms when the land changes (the water simulation): off the main
@@ -311,7 +310,7 @@ std::optional<Choice> Menu::run(const std::string &error)
 			std::lock_guard<std::mutex> lock(m_join_lock);
 			if (m_join) {
 				m_shell.social().enter(m_join->world, false); // in a friend's world
-				m_choice = Choice{ std::nullopt, false, std::move(m_join) };
+				m_choice = Choice{ std::nullopt, std::move(m_join) };
 				m_join.reset();
 				break;
 			}

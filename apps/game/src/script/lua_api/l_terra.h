@@ -34,6 +34,8 @@ private:
 	static int l_soil_kinds(lua_State *L);
 	static int l_place(lua_State *L);
 	static int l_seam(lua_State *L);
+	static int l_weather_act(lua_State *L);
+	static int l_data(lua_State *L);
 	static int l_land(lua_State *L);
 
 public:

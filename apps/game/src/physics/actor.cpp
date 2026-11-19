@@ -10,7 +10,7 @@ namespace physics {
 
 namespace {
 
-// A person, as the game's player box and tf_player's sprint have it.
+// A person, as the game's player box and server/player.cpp's sprint have it.
 constexpr float RADIUS = 0.3f, HEIGHT = 1.77f, SPRINT = 1.6f, GRAVITY = 9.81f, AIR = 1.2f;
 
 } // namespace

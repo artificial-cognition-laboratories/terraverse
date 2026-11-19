@@ -30,9 +30,7 @@ static const ScreenKind SCREENS[] = {
 	{ "pause", true, nullptr, nullptr },
 	{ "inventory", false, "keymap_inventory", nullptr },
 	{ "map", true, "keymap_minimap", "map" },
-	{ "lab", false, "keymap_lab", "lab" },
-	{ "wiki", false, "keymap_wiki", "wiki" }, // offered by tf_player where the world's rules allow it
-	{ "making", false, nullptr, "making" }, // tf_craft: at a station, or making by hand
+	{ "wiki", false, "keymap_wiki", "wiki" }, // offered where the world's rules allow it (server/player.cpp)
 };
 
 static const ScreenKind &find(const std::string &name)

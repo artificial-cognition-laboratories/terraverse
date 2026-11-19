@@ -1,10 +1,10 @@
-// The wire between the engine and the sidecar, declared once. `bun run ops` writes
+// The wire between the engine and the sidecar, declared once. `bun run gen` writes
 // apps/game/src/sidecar/ops.h from this file, so the two sides can't drift.
 //
 // A frame is a u32 (little endian) length, then a MessagePack array [op, id, payload].
 // id is 0 when no answer is wanted.
 
-export const PROTOCOL = 1
+export const PROTOCOL = 2
 
 // What a frame is.
 export const Op = {
@@ -30,12 +30,16 @@ export const Call = {
     "player.tell": 1,       // name, text
     "game.announce": 2,     // text
     "players.list": 3,      // → names
+    "commands.set": 4,      // [[name, description, params], …]: every command's first word, the whole set
+    "player.can": 5,        // name, permission → whether they may
+    "player.kick": 6,       // name, reason
 } as const
 
 // What happened since the last window.
 export const Event = {
     join: 1,                // [Event.join, name]
     leave: 2,               // [Event.leave, name]
+    command: 3,             // [Event.command, name ("" from the console), command, the rest of the line]
 } as const
 
 /**

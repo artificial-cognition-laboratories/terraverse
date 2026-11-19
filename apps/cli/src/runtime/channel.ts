@@ -5,7 +5,10 @@ type CallCode = (typeof Call)[keyof typeof Call]
 export type LevelCode = (typeof Level)[keyof typeof Level]
 
 /** What happened in the universe since the last window. */
-export type Happening = { readonly kind: "join" | "leave"; readonly player: string }
+export type Happening =
+    | { readonly kind: "join" | "leave"; readonly player: string }
+    /** Someone typed a command: its first word, and the rest of the line. player is "" from the console. */
+    | { readonly kind: "command"; readonly player: string; readonly command: string; readonly text: string }
 /** A window the engine opened: game time, and what happened. */
 export type Step = { readonly now: number; readonly dt: number; readonly happened: readonly Happening[] }
 
@@ -87,9 +90,14 @@ const parse = {
     },
 
     event(event: unknown): Happening {
-        if (!Array.isArray(event) || typeof event[1] !== "string") throw err("PROTOCOL", { detail: "an event is [kind, player]" })
+        if (!Array.isArray(event) || typeof event[1] !== "string") throw err("PROTOCOL", { detail: "an event is [kind, player, …]" })
         if (event[0] === Event.join) return { kind: "join", player: event[1] }
         if (event[0] === Event.leave) return { kind: "leave", player: event[1] }
+        if (event[0] === Event.command) {
+            if (typeof event[2] !== "string" || typeof event[3] !== "string")
+                throw err("PROTOCOL", { detail: "a command event is [kind, player, command, text]" })
+            return { kind: "command", player: event[1], command: event[2], text: event[3] }
+        }
         throw err("PROTOCOL", { detail: `an event of kind ${event[0]}` })
     },
 

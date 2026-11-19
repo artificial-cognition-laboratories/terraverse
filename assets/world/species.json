@@ -1,0 +1,299 @@
+{
+	"note": "Tree species: each a niche (heat and wet −1..1, season when its rain falls, bank, shore, the soils it takes) and a shape (an L-system). The engine chooses among them, so the far view grows the same trees the world does.",
+	"species": [
+		{
+			"heat": [
+				-0.45,
+				-0.05
+			],
+			"leaves": "core:needles",
+			"name": "spruce",
+			"on": {
+				"core:dirt": true,
+				"core:dry_grass": true,
+				"core:grass": true,
+				"core:tundra": true
+			},
+			"shape": {
+				"angle": 45,
+				"axiom": "FFFFA",
+				"iterations": 5,
+				"random_level": 2,
+				"rules_a": "[&&fff][++&&fff][++++&&fff][++++++&&fff]FFA",
+				"thin_branches": true,
+				"trunk_type": "single"
+			},
+			"trunk": "core:spruce_log",
+			"wet": [
+				-0.4,
+				1
+			]
+		},
+		{
+			"heat": [
+				-0.25,
+				0.15
+			],
+			"leaves": "core:birch_leaves",
+			"name": "birch",
+			"on": {
+				"core:dirt": true,
+				"core:dry_grass": true,
+				"core:grass": true,
+				"core:tundra": true
+			},
+			"shape": {
+				"angle": 60,
+				"axiom": "FFFFFFFA",
+				"iterations": 2,
+				"random_level": 1,
+				"rules_a": "[&&&ffff][++&&&ffff][----&&&ffff][++++++&&&fff]ff",
+				"thin_branches": true,
+				"trunk_type": "single"
+			},
+			"trunk": "core:birch_log",
+			"wet": [
+				-0.1,
+				1
+			]
+		},
+		{
+			"heat": [
+				-0.05,
+				0.45
+			],
+			"leaves": "core:leaves",
+			"name": "oak",
+			"on": {
+				"core:dirt": true,
+				"core:dry_grass": true,
+				"core:grass": true,
+				"core:tundra": true
+			},
+			"shape": {
+				"angle": 30,
+				"axiom": "FFFFFAFFBF",
+				"iterations": 2,
+				"random_level": 0,
+				"rules_a": "[&&&FFFFF&&FFFF][&&&++++FFFFF&&FFFF][&&&----FFFFF&&FFFF]",
+				"rules_b": "[&&&++FFFF&&FFFF][&&&--FFFF&&FFFF][&&&------FFFF&&FFFF]",
+				"thin_branches": true,
+				"trunk_type": "single"
+			},
+			"trunk": "core:log",
+			"wet": [
+				-0.25,
+				1
+			]
+		},
+		{
+			"bank": true,
+			"heat": [
+				-0.1,
+				0.45
+			],
+			"leaves": "core:willow_leaves",
+			"name": "willow",
+			"on": {
+				"core:dirt": true,
+				"core:dry_grass": true,
+				"core:grass": true,
+				"core:tundra": true
+			},
+			"shape": {
+				"angle": 45,
+				"axiom": "FFFFFA",
+				"iterations": 1,
+				"random_level": 1,
+				"rules_a": "[&&&FFFF&&&ffff][++&&&FFFF&&&ffff][----&&&FFFF&&&ffff][++++++&&&FFFF&&&ffff]",
+				"thin_branches": true,
+				"trunk_type": "single"
+			},
+			"trunk": "core:willow_log",
+			"wet": [
+				-1,
+				1
+			]
+		},
+		{
+			"heat": [
+				0.35,
+				1
+			],
+			"leaves": "core:jungle_leaves",
+			"name": "jungle",
+			"on": {
+				"core:dirt": true,
+				"core:dry_grass": true,
+				"core:grass": true,
+				"core:tundra": true
+			},
+			"shape": {
+				"angle": 30,
+				"axiom": "FFFFFFFFFFAFFB",
+				"iterations": 2,
+				"random_level": 1,
+				"rules_a": "[&&&FFFFFF&&ffff][&&&++++FFFFFF&&ffff][&&&----FFFFFF&&ffff]",
+				"rules_b": "[&&ffff][++&&ffff][----&&ffff]f",
+				"thin_branches": true,
+				"trunk_type": "crossed"
+			},
+			"trunk": "core:jungle_log",
+			"wet": [
+				0.15,
+				1
+			]
+		},
+		{
+			"heat": [
+				0.25,
+				1
+			],
+			"leaves": "core:acacia_leaves",
+			"name": "acacia",
+			"on": {
+				"core:dirt": true,
+				"core:dry_grass": true,
+				"core:grass": true,
+				"core:tundra": true
+			},
+			"shape": {
+				"angle": 30,
+				"axiom": "FFFF[&&&FFFA][&&&++++FFFA][&&&----FFFA]",
+				"iterations": 1,
+				"random_level": 1,
+				"rules_a": "[&fff][+&fff][-&fff][++&fff]",
+				"thin_branches": true,
+				"trunk_type": "single"
+			},
+			"trunk": "core:acacia_log",
+			"wet": [
+				-0.45,
+				0.2
+			]
+		},
+		{
+			"heat": [
+				0.3,
+				1
+			],
+			"leaves": "core:palm_leaves",
+			"name": "palm",
+			"on": {
+				"core:sand": true
+			},
+			"shape": {
+				"angle": 60,
+				"axiom": "FFFFFFFA",
+				"iterations": 1,
+				"random_level": 0,
+				"rules_a": "[&&&fff][++&&&fff][----&&&fff][++++++&&&fff][--&&&fff]",
+				"thin_branches": true,
+				"trunk_type": "single"
+			},
+			"shore": true,
+			"trunk": "core:palm_log",
+			"wet": [
+				-1,
+				1
+			]
+		},
+		{
+			"heat": [
+				0.2,
+				1
+			],
+			"leaves": "core:teak_leaves",
+			"name": "teak",
+			"on": {
+				"core:dirt": true,
+				"core:dry_grass": true,
+				"core:grass": true,
+				"core:tundra": true
+			},
+			"season": [
+				0.45,
+				1
+			],
+			"shape": {
+				"angle": 30,
+				"axiom": "FFFFFFFAFB",
+				"iterations": 2,
+				"random_level": 1,
+				"rules_a": "[&&&FFFF&&ffff][&&&++++FFFF&&ffff][&&&----FFFF&&ffff]",
+				"rules_b": "[&&fff][++&&fff][----&&fff]",
+				"thin_branches": true,
+				"trunk_type": "single"
+			},
+			"trunk": "core:jungle_log",
+			"wet": [
+				0,
+				1
+			]
+		},
+		{
+			"heat": [
+				0,
+				0.4
+			],
+			"leaves": "core:olive_leaves",
+			"name": "olive",
+			"on": {
+				"core:dirt": true,
+				"core:dry_grass": true,
+				"core:grass": true,
+				"core:tundra": true
+			},
+			"season": [
+				-1,
+				-0.25
+			],
+			"shape": {
+				"angle": 35,
+				"axiom": "FFF[&&FFA][&&++++FFA][&&----FFA]",
+				"iterations": 1,
+				"random_level": 1,
+				"rules_a": "[&ff][+&ff][-&ff][++&ff]f",
+				"thin_branches": true,
+				"trunk_type": "single"
+			},
+			"trunk": "core:log",
+			"wet": [
+				-0.7,
+				0.4
+			]
+		},
+		{
+			"heat": [
+				0,
+				0.4
+			],
+			"leaves": "core:cypress_leaves",
+			"name": "cypress",
+			"on": {
+				"core:dirt": true,
+				"core:dry_grass": true,
+				"core:grass": true,
+				"core:tundra": true
+			},
+			"season": [
+				-1,
+				-0.25
+			],
+			"shape": {
+				"angle": 60,
+				"axiom": "FFAFAFAFAF",
+				"iterations": 1,
+				"random_level": 0,
+				"rules_a": "[&f][++&f][----&f][++++++&f]",
+				"thin_branches": true,
+				"trunk_type": "single"
+			},
+			"trunk": "core:spruce_log",
+			"wet": [
+				-0.4,
+				0.4
+			]
+		}
+	]
+}

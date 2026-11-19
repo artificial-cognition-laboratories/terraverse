@@ -667,6 +667,14 @@ void Sidecar::left(const std::string &player)
 	m_events.push_back({ (u8)Event::Leave, player });
 }
 
+bool Sidecar::command(const std::string &player, const std::string &name, const std::string &text)
+{
+	if (m_off || !m_process)
+		return false;
+	m_events.push_back({ (u8)Event::Command, player, name, text });
+	return true;
+}
+
 void Sidecar::step(float dtime, double now)
 {
 	m_now = now;
@@ -703,9 +711,14 @@ void Sidecar::window(float dtime, double now)
 		w.string("events");
 		w.array((u32)events.size());
 		for (const Happened &e : events) {
-			w.array(2);
+			const bool command = e.kind == (u8)Event::Command;
+			w.array(command ? 4 : 2);
 			w.integer(e.kind);
 			w.string(e.player);
+			if (command) {
+				w.string(e.command);
+				w.string(e.text);
+			}
 		}
 	}));
 
@@ -782,6 +795,27 @@ void Sidecar::handleCall(u32 id, const mp::Value &message)
 			return;
 		case Call::GameAnnounce:
 			m_host.announce(arg(0).asString());
+			reply(true, [](mp::Writer &w) { w.nil(); });
+			return;
+		case Call::CommandsSet: {
+			std::vector<Host::Command> commands;
+			for (const mp::Value &c : arg(0).asArray()) {
+				const auto &parts = c.asArray();
+				if (parts.size() != 3)
+					throw mp::Error("a command is [name, description, params]");
+				commands.push_back({ parts[0].asString(), parts[1].asString(), parts[2].asString() });
+			}
+			m_host.commands(commands);
+			reply(true, [](mp::Writer &w) { w.nil(); });
+			return;
+		}
+		case Call::PlayerCan: {
+			const bool may = m_host.can(arg(0).asString(), arg(1).asString());
+			reply(true, [&](mp::Writer &w) { w.boolean(may); });
+			return;
+		}
+		case Call::PlayerKick:
+			m_host.kick(arg(0).asString(), arg(1).asString());
 			reply(true, [](mp::Writer &w) { w.nil(); });
 			return;
 		case Call::PlayersList: {

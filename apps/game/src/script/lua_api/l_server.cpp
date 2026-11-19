@@ -374,6 +374,15 @@ int ModApiServer::l_disconnect_player(lua_State *L)
 	return 1;
 }
 
+// Terra Firma: core.sidecar_command(player name, command, text) → whether the mods will
+// answer: a line typed under a TypeScript mod's command, for the next window (sprint 119)
+int ModApiServer::l_sidecar_command(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+	lua_pushboolean(L, getServer(L)->sidecarCommand(luaL_checkstring(L, 1), luaL_checkstring(L, 2), luaL_checkstring(L, 3)));
+	return 1;
+}
+
 int ModApiServer::l_remove_player(lua_State *L)
 {
 	GET_ENV_PTR_NO_MAP_LOCK;
@@ -713,6 +722,7 @@ void ModApiServer::Initialize(lua_State *L, int top)
 	API_FCT(get_ban_description);
 	API_FCT(ban_player);
 	API_FCT(disconnect_player);
+	API_FCT(sidecar_command);
 	API_FCT(remove_player);
 	API_FCT(unban_player_or_ip);
 	API_FCT(notify_authentication_modified);

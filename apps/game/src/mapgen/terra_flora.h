@@ -31,7 +31,7 @@ struct PlantBlocks
 };
 PlantBlocks plantBlocks(const NodeDefManager *ndef);
 
-// The plant blocks' palette: 256 colours (also drawn into tf_world's texture by scripts/flora-palette.py).
+// The plant blocks' palette: 256 colours (also drawn into the engine's tf_flora_palette.png by scripts/flora-palette.py).
 u32 paletteColour(u8 index);
 u8 paletteIndex(u32 rgb);
 

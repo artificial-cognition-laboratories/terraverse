@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# The world's matter on a live server: a clay fire pit with kindling under a
-# log, lit as the fire drill lights it, run for 30 simulated minutes. The
-# kindling must burn, flames must rise, reactions must be seen, and the
+# The world's matter on a live server: a clay fire pit with leaves (tinder)
+# under a log, lit by an ember, run for 30 simulated minutes. The
+# tinder must burn, flames must rise, reactions must be seen, and the
 # awake blocks must save. Builds the engine first.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -22,14 +22,14 @@ import sys, os, re
 work = sys.argv[1]
 log = open(f"{work}/log.txt").read()
 bad = []
-end = re.search(r"MATTER end kindling (\S+) log (\S+) hottest (\d+) awake (\d+)", log)
+end = re.search(r"MATTER end tinder (\S+) log (\S+) hottest (\d+) awake (\d+)", log)
 seen = re.search(r"MATTER seen (\S*)", log)
 if not end:
     bad.append("the probe never finished (see the server's log)")
     print(open(f"{work}/server.txt").read()[-3000:])
 else:
-    kindling, logblock, hottest = end.group(1), end.group(2), int(end.group(3))
-    if kindling == "tf_matter:kindling": bad.append("the kindling never burned")
+    tinder, logblock, hottest = end.group(1), end.group(2), int(end.group(3))
+    if tinder == "core:leaves": bad.append("the tinder never burned")
     if hottest < 800: bad.append(f"no flame: the hottest block reached only {hottest} K")
     reactions = set((seen.group(1) if seen else "").split(","))
     if not reactions & {"wood_burns", "methane_burns", "carbon_monoxide_burns"}: bad.append(f"nothing burned (seen: {sorted(reactions)})")

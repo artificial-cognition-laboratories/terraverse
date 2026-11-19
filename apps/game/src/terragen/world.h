@@ -19,7 +19,7 @@
 namespace terragen {
 
 // The biome classes terragen assigns. The game registers a Lua biome with
-// each name (games/terrafirma/mods/tf_world); the order is what the preview
+// each name (assets/world/biomes.json); the order is what the preview
 // sends, with the names alongside.
 enum class Biome : uint8_t {
 	Deep, Ocean, SeaIce, Beach, Desert, Savanna, Grassland, Forest, Jungle,

@@ -2614,7 +2614,7 @@ const char *MapblockMeshGenerator::drawtypeName(NodeDrawType t)
 /*
 	Terra Firma: each small plant footed here, grown from its sprig
 	(client/sprigs): its faces, turned as it stands, in the plant blocks'
-	look (tf_world:sprig: a tile for each flora::Part, in grey, waving)
+	look (core:sprig: a tile for each flora::Part, in grey, waving)
 	and its own colours, lit as its foot is. Past the area too: a plant's
 	drawn whole by the mesh its foot's in. Each vertex's normal is as much
 	longer than one as it stands over the foot, in blocks: the shader bends
@@ -2627,8 +2627,8 @@ void MapblockMeshGenerator::drawSprigs()
 	if (data->m_sprigs.empty() || !grain)
 		return;
 	content_t look;
-	if (!nodedef->getId("tf_world:sprig", look))
-		throw BaseException("the game has no tf_world:sprig (how small plants look)");
+	if (!nodedef->getId("core:sprig", look))
+		throw BaseException("the game has no core:sprig (how small plants look)");
 	TileSpec tiles[(int)flora::Part::Count];
 	for (int part = 0; part < (int)flora::Part::Count; part++) {
 		getNodeTileN(MapNode(look), v3s16(), part, data, tiles[part]);

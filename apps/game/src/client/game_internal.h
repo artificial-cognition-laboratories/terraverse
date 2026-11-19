@@ -163,8 +163,6 @@ protected:
 	// Input related
 	void processUserInput(f32 dtime);
 	void processKeyInput();
-	// Terra Firma: the node looked at is a station (group `station`, tf_craft)
-	bool pointsAtStation();
 	void processItemSelection(u16 *new_playeritem);
 	bool shouldShowTouchControls();
 

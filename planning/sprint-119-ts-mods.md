@@ -276,8 +276,105 @@ biomes. Decisions, not ports: `_machine.friction` (now matter's), `set_timeofday
   unless a world logs the game's blocks loading. Bun opening `\\.\pipe\…` with `openSync`
   and reading it with `readSync` is the part most likely to need a fix there.
 
+### Native: flight, planet and weather
+
+Mechanisms out of Lua, as the sky went (`tf_flight`, `tf_planet` and `tf_weather` are gone):
+
+- **Gravity by height** (`server/gravity.cpp`): R² / (R + h)², set when it changes by 1%. Only
+  gravity: speed and jump stay whatever tunes them (tf_flight's also reset those, undoing
+  sprinting).
+- **The planet** (`server/planet.cpp`): the spawn on land nearest the equator (in
+  `findSpawnPos`, so new players and respawns alike), one in seam moved to it at join and each
+  step, and travel between bodies (held still on the page's screen while the land there is
+  made, polled rather than called back). `core.planet.spawn_position` and `core.planet.travel`
+  expose them. The seam and the atlas debug paints are `core:` blocks in `builtin/game/planet.lua`,
+  with `/travel` beside them as an admin's, like `/teleport`. Old names are aliases.
+- **The weather** (`server/weather.cpp`): each player's readout for the page, and snow, ice and
+  thaw as the engine's own active block modifiers, through `terraWeather` (shared with
+  `core.terra.weather`, as `terraSun` is). The blocks stay the game's (`tf_world:snow`,
+  `tf_world:ice`), found by `weather_snow` and `weather_ice` aliases; `core.terra.weather_act`
+  is for the check. `/river` and `/rivers` are the engine's (`builtin/game/rivers.lua`).
+
+### Commands: `@terraverse/commands`
+
+- **`game.commands`** as designed: paths, typed args (string, number, integer, boolean,
+  player, position; the last string takes the rest of the line), a permission checked before
+  `run`, `Refused` as the reply, `COMMAND_TAKEN`. The engine knows only each command's first
+  word (`commands.set`, the whole set each time it changes, and always in the first window,
+  so a restarted sidecar's replace its predecessor's); every line typed under one goes to the
+  next window as an event, and the runtime finds the path, parses, checks and runs it.
+- **The chat side** is builtin's (`core.set_mod_commands` in `builtin/game/sidecar.lua`, TEMP
+  until Lua goes): a mod's command shadows builtin's of the same name while it's there, and
+  answers "the mods are off" if the sidecar is.
+- **`player.can` and `player.kick`.** TEMP: admins (the engine's `server` privilege) hold every
+  permission and nobody else any, until roles are granted permissions in the setup.
+- **`@terraverse/commands`**: `/msg`, `/players`, `/kick` (`commands:kick`), `/announce`
+  (`commands:announce`), replacing builtin's `/msg` and `/kick`. In the game's server folder.
+- **Protocol 2.** `check:mods` types a command from the console, wrong and right, before and
+  after the sidecar's forced restart.
+- **Not verified:** a connected player typing one, and the permission check against a real
+  player's privileges: the console path and the runtime's tests cover the rest.
+
+### The skeleton: cut to what's built
+
+There's no game yet, so half-built game systems went rather than be ported:
+
+- **`tf_craft`** (making: forms, processes, stations, carry weight), its making screen, the carry
+  meter, and pressing F at a station.
+- **The Lab** (`tf_lab`, every scenario, `shell/lab.*`, its worlds, the L key, the camera
+  director it drove, `check:lab`).
+- **`tf_matter`'s hand tools** (fire drill, bellows, heat gun, blowtorch, blast gun, flamethrower,
+  probe, scoop), kindling, charcoal and fired clay, pouring (the X key; bit 10 of the player's
+  keys is unused now), and the probe card. Kept: the matter mechanism, substance blocks, the
+  crucible (the wiki's chemistry scenes), and the flame (burning air's light). `check:matter`
+  lights leaves for tinder.
+- **The flight HUD** (nothing sent it since the flight pack) and **the world controls panel**
+  (its time, player, travel, world, items, tuning and view pages). `view_*` and `tune_*` stay
+  engine settings, set in the config.
+- **`tf_player` is native** (`server/player.cpp`): the body visual, the inventory's layout, the
+  hotbar, the creative catalogue's take and clear, sprinting, the map (the body, what's explored,
+  where they are, Go there), and the wiki rule. Creative is the world's, no longer switched per
+  player: it grants fly, fast, noclip, creative and give (`getPlayerEffectivePrivs`), digs
+  anything at once (the client's dig time, the server's anti-cheat), and can't be hurt.
+  **Verified** by the real client joining a creative planet world with a probe: body, inventory,
+  hotbar, privileges, immortality, no health bar, the explored map saved, gravity by height.
+  **Not verified:** sprinting, instant digging and the catalogue, which need keys pressed.
+
+### Matter native, the world as data: no game Lua left
+
+- **Blocks carry their matter natively.** `ContentFeatures` holds a block's `_matter`, `_family`
+  and `_machine` (server only, never sent); `server/matter.cpp` registers every block with the
+  world's matter and with machines once the mods have loaded (`terraRegisterMatter`), as
+  tf_matter's `on_mods_loaded` did. The world's matter left `script/lua_api/l_matter.cpp` for
+  `server/matter.cpp`; the Lua API is a thin layer over it. **Verified:** the palette, baked from
+  the registered matter, came out unchanged.
+- **The matter runs natively** (`terraStepMatter`): stepping, the weather into its cubes, flames
+  (with a flame node's light), smoke and sparks, burning in heat, what each player saw react, and
+  saving every minute and at shutdown. Digging and placing wake what's beside them. Dropped, as
+  half-built rules: hot carried items, and naming a family block's item by its composition.
+- **The world is data** (`assets/world/*.json`, staged as `world/`): every block as its
+  definition (rocks with their blends and the ores precomputed), soils as their parents and
+  stoniness (computed at load from terragen's points), the biomes, the tree species, and the
+  generator's and old names as aliases. Dumped from the Lua by running it under a stub, so
+  nothing was retyped. Names are `core:` (aliases keep `tf_world:` and `tf_matter:` worlds).
+  `builtin/game/world.lua` and `matter.lua` register them through Lua, TEMP while digging and
+  placing look blocks up in `core.registered_nodes`; `core.terra.data` hands builtin the files,
+  which mod security keeps it from reading.
+- **Native:** the shore's fills (`mapgenShore` on the emerge thread, filled on the server's next
+  step) and loose ground keeping its shape where a block's dug or built (`groundChanged`).
+  Builtin keeps the hand, drops landing on the ground, and the machine entity (`core:piece`,
+  `tf_world:piece` too: entities have no aliases).
+- **Dropped:** felling, the starter kit, crafts, sandstone bricks.
+- The game's textures are the engine's (`registry/textures/base/pack`, Good Vibes' licence
+  beside them). **Credits gap:** `matter_flame`, `_smoke`, `_steam` and `_spark` never had an
+  entry, and their history doesn't say where they came from.
+
 ### Not doing (yet)
 
+- **`world` and `block` arguments** say they aren't wired: there's no `game.worlds` yet.
+- **Declaring permissions in mod.config.ts**: a permission is only named, `prefix:name`.
+- **The rest of builtin's commands** (`/ban`, `/time`, `/grant`, `/teleport`…) wait for the API
+  they need: bans, `time.skip`, roles, `player.place`.
 - **Digging**: every TypeScript block digs like stone (`cracky = 3`) until matter decides it.
 - **Canvas is wood** at a third of a block until there's a fibre substance.
 - **A server folder of your own** doesn't get the official mods: it lists them, once the

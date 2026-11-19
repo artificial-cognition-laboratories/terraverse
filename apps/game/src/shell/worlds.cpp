@@ -105,41 +105,6 @@ WorldSpec Worlds::create(const std::string &name, const std::string &code,
 	return WorldSpec(path, trimmed, m_gameid);
 }
 
-WorldSpec Worlds::lab(const Json::Value &scenario) const
-{
-	const Json::Value &mapgen = scenario["world"]["mapgen"];
-	if (!mapgen.isNull() && !mapgen.isString())
-		throw BaseException("shell: Lab scenario " + scenario["id"].asString() + ": world.mapgen must be a name");
-	SubgameSpec game = findSubgame(m_gameid);
-	if (!game.isValid())
-		throw BaseException("shell: game '" + m_gameid + "' is not installed");
-
-	std::string path = porting::path_user + DIR_DELIM "lab";
-	if (fs::PathExists(path) && !fs::RecursiveDelete(path))
-		throw BaseException("shell: could not clear the old Lab at " + path);
-	loadGameConfAndInitWorld(path, "Lab", game, true);
-	// tf_lab lays the floor and builds the scenario
-	{
-		Settings meta("[end_of_params]");
-		meta.set("mg_name", mapgen.isNull() ? "singlenode" : mapgen.asString());
-		meta.set("tf_lab", scenario["id"].asString());
-		if (!meta.updateConfigFile((path + DIR_DELIM "map_meta.txt").c_str()))
-			throw BaseException("shell: could not write the map settings for " + path);
-	}
-	{
-		std::string conf = path + DIR_DELIM "world.mt";
-		Settings world;
-		if (!world.readConfigFile(conf.c_str()))
-			throw BaseException("shell: could not read " + conf);
-		world.set("creative_mode", "true");
-		world.set("enable_damage", "false");
-		if (!world.updateConfigFile(conf.c_str()))
-			throw BaseException("shell: could not write " + conf);
-	}
-	actionstream << "shell: built the Lab for " << scenario["id"].asString() << " at " << path << std::endl;
-	return WorldSpec(path, "Lab", m_gameid);
-}
-
 void Worlds::remove(const std::string &path) const
 {
 	WorldSpec world = find(path);

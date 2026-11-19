@@ -219,7 +219,7 @@ static void write(Server *server, ServerTerra &t, Lake &lake, size_t &budget)
 	const NodeDefManager *ndef = server->ndef();
 	lake.written = (s32)std::floor(lake.level + 1e-6);
 	const MapNode seed = map.getNode(lake.seed);
-	const content_t water = ndef->get(seed).liquid_move_physics ? seed.getContent() : ndef->getId("tf_world:water_source");
+	const content_t water = ndef->get(seed).liquid_move_physics ? seed.getContent() : ndef->getId("core:water_source");
 	auto open = [&](const MapNode &n) {
 		return n.getContent() == CONTENT_AIR || (ndef->get(n).buildable_to && !ndef->get(n).liquid_move_physics);
 	};

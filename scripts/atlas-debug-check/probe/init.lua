@@ -2,7 +2,7 @@
 -- boxes where things meet (the equator from the surface down, a segment's
 -- seam near 60°, the caps' edges), every node checked:
 --   - above the ground (layer ≥ 0), air in full sun;
---   - the ground (layer < 0), painted (tf_planet:debug_*);
+--   - the ground (layer < 0), painted (core:atlas_debug_*);
 --   - storage that is no cell, seam;
 -- and every paint is somewhere. Prints ATLAS lines; the script reads them.
 
@@ -37,13 +37,13 @@ local function inspect(box)
 				local cell = core.planet.atlas_cell(pos)
 				local name = core.get_node(pos).name
 				if not cell then
-					check(name == "tf_planet:seam", box.name .. ": no cell, but " .. name)
+					check(name == "core:seam", box.name .. ": no cell, but " .. name)
 				elseif cell.k >= 0 then
 					local light = core.get_node_light(pos, 0.5)
 					check(name == "air" and light == 15,
 						("%s: layer %d at %s is %s lit %s"):format(box.name, cell.k, core.pos_to_string(pos), name, tostring(light)))
 				else
-					local paint = name:match("^tf_planet:debug_(.+)$")
+					local paint = name:match("^core:atlas_debug_(.+)$")
 					check(paint ~= nil, ("%s: ground at %s is %s"):format(box.name, core.pos_to_string(pos), name))
 					if paint then results.paints[paint] = (results.paints[paint] or 0) + 1 end
 				end
@@ -65,7 +65,7 @@ core.after(0, function()
 				print(("ATLAS paint %s %d"):format(p, results.paints[p] or 0))
 				check((results.paints[p] or 0) > 0, "no " .. p .. " painted")
 			end
-			local spawn = tf_planet.spawn_position()
+			local spawn = core.planet.spawn_position()
 			local cell = core.planet.atlas_cell(spawn)
 			check(cell ~= nil and cell.k == 0, ("the spawn %s is at layer %s, not 0 (spawn level %s)"):format(
 				core.pos_to_string(spawn), tostring(cell and cell.k), tostring(core.get_spawn_level(spawn.x, spawn.z))))

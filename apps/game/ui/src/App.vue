@@ -6,8 +6,6 @@ import InventoryScreen from "./game/inventory/InventoryScreen.vue"
 import PauseScreen from "./game/PauseScreen.vue"
 import MapScreen from "./game/map/MapScreen.vue"
 import { useStore } from "./game/store.ts"
-import MakingScreen from "./game/making/MakingScreen.vue"
-import { openMaking } from "./game/making/open.ts"
 import MainMenu from "./menu/MainMenu.vue"
 import InviteToast from "./social/InviteToast.vue"
 import { Spinner } from "./kit/index.ts"
@@ -16,7 +14,6 @@ import { Spinner } from "./kit/index.ts"
 const WikiScreen = defineAsyncComponent(() => import("./wiki/WikiScreen.vue"))
 const bridge = useBridge()
 const store = useStore()
-openMaking({ bridge: bridge, store: store })
 </script>
 
 <template>
@@ -28,7 +25,6 @@ openMaking({ bridge: bridge, store: store })
         <PauseScreen v-if="store.screen === 'pause'" />
         <MapScreen v-else-if="store.screen === 'map'" />
         <InventoryScreen v-else-if="store.screen === 'inventory'" />
-        <MakingScreen v-else-if="store.screen === 'making'" />
         <div v-else-if="store.screen === 'wiki'" class="centred"><WikiScreen place="game" @close="bridge.send('screen.close', {})" /></div>
     </template>
     <p v-else-if="store.mode === 'leaving'" class="leaving"><Spinner label="Saving the world" /> Saving the world</p>

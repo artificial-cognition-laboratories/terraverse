@@ -66,6 +66,10 @@ extern struct EnumString es_TouchInteractionMode[];
 extern const std::array<const char *, 37> object_property_keys;
 
 void read_content_features(lua_State *L, ContentFeatures &f, int index);
+// Terra Firma (sprint 119): a block's matter, and a family's points and holds
+void read_matter_fields(lua_State *L, ContentFeatures &f, int index);
+struct MatterFamily;
+void read_matter_family(lua_State *L, int index, const std::string &node, MatterFamily &f);
 void push_content_features(lua_State *L, const ContentFeatures &c);
 
 void push_nodebox(lua_State *L, const NodeBox &box);

@@ -36,8 +36,8 @@ and ambitions worth pursuing, not simulation fidelity or feature count.
    cheapest honest tier (`planning/simulation-scales.md`).
 6. **Freedom through construction.** Players invent solutions from materials, shapes and
    joints. Most of the creative menu should eventually be shapes and mixtures, not items.
-7. **Open and moddable.** Native code supplies mechanisms, Lua supplies policy. Official
-   content uses only public APIs, so the API stays honest. With every `tf_*` gameplay mod
+7. **Open and moddable.** Native code supplies mechanisms, mods (TypeScript) supply policy. Official
+   content uses only public APIs, so the API stays honest. With every gameplay mod
    off you have a clean world to build your own game on.
 
 **The direction, not a fixed roadmap:** stone, bronze, iron, mechanical, industrial, modern,
@@ -54,7 +54,7 @@ mod and map registry. Nothing is built for that yet.
 | Machines | Parts, joints, suspension, engines, seats, driven cars, on Jolt |
 | Space | Gravity as a field, orbits, a real sky, flying to orbit in creative |
 | Online | ArcLabs accounts, friends, hosted worlds by hole punching (no relay yet) |
-| UI | Menus, HUD, inventory, wiki with native scenes, Lab, planetarium |
+| UI | Menus, HUD, inventory, wiki with native scenes, planetarium |
 
 **Not there yet:** trees (being rewritten as species), creatures, boats, aircraft, swimming
 by the body, breaking and structural strength, electricity and networks, crafting by operations,
@@ -67,7 +67,7 @@ threading these together. Known gaps belong in `TODO.md`.
 apps/game/src/      the Luanti fork, plus our systems in their own folders (below)
 apps/game/ui/       the Vue app: menus, HUD, inventory, wiki, gallery
 apps/game/server/   the game's own server folder: the official TypeScript mods every world runs
-apps/game/game/     the game in Lua (mods/tf_*), and baked data: palette.json, moves.json, vehicles.json, ground.json
+apps/game/game/     the game's baked data: palette.json, moves.json, vehicles.json, ground.json (its Lua mods are gone)
 apps/cli/           terra: the CLI, and the sidecar that runs TypeScript mods (sprint 119)
 packages/types/     @terraverse/types: the TypeScript mod API's globals, as implemented
 assets/             shipped static files; assets/matter/ holds elements, substances, reactions and thermo data
@@ -104,18 +104,25 @@ Our folders in `apps/game/src/`:
 
 TypeScript mods are replacing Lua (sprint 119, `planning/sprint-119-ts-mods.md`). The API is
 designed in `apps/site/content/docs/mods/`; `terra` prepares a server folder into `.terra/`, and
-the engine runs its mods in a sidecar process, beside Lua until the `tf_*` mods are ported.
-The wire's ops live in `apps/cli/src/runtime/wire/ops.ts`: change them there and run `bun run ops`
+the engine runs its mods in a sidecar process.
+The wire's ops live in `apps/cli/src/runtime/wire/ops.ts`: change them there and run `bun run gen`
 in apps/cli, which writes `sidecar/ops.h`.
 
-The game's own TypeScript mods live in `registry/mods/` (`@terraverse/materials` is the first)
+The game's own TypeScript mods live in `registry/mods/` (`@terraverse/materials`, `@terraverse/commands`)
 and run through `apps/game/server`, which staging prepares into `.output/server`. The engine
 runs that folder in every world not given another. While Lua lives, their blocks register
-through Lua (`builtin/game/sidecar.lua`), so tf_matter, machines and the catalogue see them.
+through Lua (`builtin/game/sidecar.lua`), so the world's matter, machines and the catalogue see them.
 A block's weight, strength, grip and transparency come from its substance (`assets/matter`).
 
-Lua mods: `tf_world` (blocks, biomes), `tf_matter`, `tf_player`,
-`tf_weather`, `tf_planet`, `tf_flight`, `tf_lab`, `tf_craft` (making: forms, processes, stations).
+There are no game Lua mods left, and no game yet: only the skeleton (sprint 119). What's per
+player or per tick is the engine's (`server/`: the sky, gravity by height, spawn, seam and travel,
+the weather's readout, snow and ice, `player.cpp`: what a player's given, creative, sprinting, the
+map, and `matter.cpp`: every block's matter registered and run). The generator's own blocks,
+biomes and tree species are data (`assets/world/*.json`, `core:` names); builtin Lua registers
+them, and the matter's own blocks, while digging and placing still look blocks up in Lua
+(`builtin/game/world.lua`, `matter.lua`, TEMP), beside the engine's admin commands (`/travel`,
+`/river`, `/rivers`). The weather finds the snow and ice it makes by alias (`weather_snow`,
+`weather_ice`), as the generator finds rock (`mapgen_*`).
 
 `scripts/stage-runtime.sh` mirrors shipped resources into `.output/`, which the run-in-place
 engine uses as its share directory.
@@ -200,29 +207,28 @@ molecular chemistry, subdividing the whole world.
   later spectacle, never something the economy depends on.
 - **Do it once, then hand it over.** Automation is two primitives: a *pattern* (a build or a run
   of processes recorded at a workplace) and a *route* (a journey recorded between workplaces). Whoever runs
-  them, a worker, a machine or the player, is policy in Lua. Away from players a route runs
+  them, a worker, a machine or the player, is policy in a mod. Away from players a route runs
   Scheduled, conserving cargo and time, and fails honestly. The economy is sites joined by routes.
 - **First slice:** sticks and stones as items, a bench with a few forms, a pick and a chisel giving
   rubble and cut blocks, placing cut blocks; then a waterwheel saw for the automation half. Prove
   that loop before creatures or rails.
 
 **Every primitive has four parts:** properties on definitions, sparse state the engine owns,
-Lua verbs (query, inject, subscribe; Lua never polls blocks), and native couplings to other
+mod verbs (query, inject, subscribe; a mod never polls blocks), and native couplings to other
 primitives. A thing is native if it's per block, per tick or across many blocks, if the client
-must predict it, or if it's a mechanism. A rule is Lua.
+must predict it, or if it's a mechanism. A rule is a mod's.
 
 **Physics.** Jolt, double precision, deterministic. Player and vehicles are predicted on their
 client and corrected by the server. Everything simulated runs Live near players, then Settled,
 Scheduled or Frozen further out; handovers conserve matter, energy and time.
 
 **Content is data.** One declaration says what something is, and the framework derives the rest.
-Variants live in tables, never `if` chains across files. Biomes: terragen decides where, Lua
-says what it's made of; the generator refuses to start if a biome is missing. World settings go
+Variants live in tables, never `if` chains across files. Biomes: terragen decides where, the
+data says what it's made of (`assets/world/biomes.json`); the generator refuses to start if a biome is missing. World settings go
 in `world.mt` as `tf_*` keys, and the engine accepts only known keys.
 
-**The Lab and the wiki.** The Lab (`tf_lab`) is one tiny world per mechanic: data in `lab.json`,
-behaviour in Lua, each with an `expect`. Wiki pages are native scenes running the real code, never
-animations, and every scene is checked by `check:wiki` or `check:moves`. Worlds scenes replay
+**The wiki.** Wiki pages are native scenes running the real code, never animations, and every
+scene is checked by `check:wiki` or `check:moves`. Worlds scenes replay
 terragen's real erosion, baked by `bun palette`.
 
 ## The shell and UI
@@ -265,7 +271,6 @@ bun run test [Module...]  # every unit test module in parallel, slowest listed f
 
 bun check:land          # after a generation change: check:terragen, its unit tests and check:far side by side (~1 min); --quick: probe and default world only (~25 s)
 bun check:terragen      # probed world == standalone terragen, plus unit tests
-bun check:lab           # every Lab scenario headless, each `expect` checked
 bun check:wiki          # every wiki scene in the engine sandbox
 bun check:moves         # every Movement, Vehicles and Flow scene through the real code
 bun check:matter        # a real fire on a live server

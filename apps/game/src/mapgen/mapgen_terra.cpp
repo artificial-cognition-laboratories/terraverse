@@ -100,13 +100,13 @@ MapgenTerra::MapgenTerra(MapgenTerraParams *params, EmergeParams *emerge) :
 	m_bodies.resize(m_bodyWorlds.size());
 	c_seam = ndef->getId("mapgen_seam");
 	if (c_seam == CONTENT_IGNORE)
-		throw BaseException("mapgen terra: an atlas world needs the mapgen_seam alias (tf_planet)");
+		throw BaseException("mapgen terra: an atlas world needs the mapgen_seam alias (builtin/game/planet.lua)");
 	m_atlasDebug = params->planet_atlas_debug;
 	if (m_atlasDebug) {
 		const auto paint = [&](const char *name) {
-			const content_t c = ndef->getId(std::string("tf_planet:debug_") + name);
+			const content_t c = ndef->getId(std::string("core:atlas_debug_") + name);
 			if (c == CONTENT_IGNORE)
-				throw BaseException(std::string("mapgen terra: the debug sphere needs tf_planet:debug_") + name);
+				throw BaseException(std::string("mapgen terra: the debug sphere needs core:atlas_debug_") + name);
 			return c;
 		};
 		m_paint = { paint("segment_a"), paint("segment_b"), paint("cap"), paint("core"), paint("segment_seam"),

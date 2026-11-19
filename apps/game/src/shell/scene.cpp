@@ -40,9 +40,9 @@ video::ITexture *Scene::texture(const std::string &name)
 	if (found != m_textures.end())
 		return found->second;
 	// the game's own files, as staged: no world's needed to read them
-	const std::string mods = porting::path_share + DIR_DELIM "games" DIR_DELIM + g_settings->get("game_id") + DIR_DELIM "mods" DIR_DELIM;
-	for (const char *mod : { "tf_world", "tf_matter" }) {
-		const std::string path = mods + mod + DIR_DELIM "textures" DIR_DELIM + name + ".png";
+	// the engine's own (the world's and the matter's: builtin/game/world.lua, matter.lua)
+	for (const std::string &dir : { porting::path_share + DIR_DELIM "textures" DIR_DELIM "base" DIR_DELIM "pack" }) {
+		const std::string path = dir + DIR_DELIM + name + ".png";
 		if (!fs::PathExists(path))
 			continue;
 		video::ITexture *t = m_driver->getTexture(path.c_str());
@@ -283,7 +283,7 @@ void Scene::rebuild()
 					const bool water = (size_t)c.fill.substance < m_water.size() && m_water[c.fill.substance];
 					const u32 v = c.fill_colour;
 					video::SColor colour = water ? video::SColor(215, 255, 255, 255) : video::SColor(215, (v >> 16) & 255, (v >> 8) & 255, v & 255);
-					addPlain(texture(water ? "tf_goodvibes_water_still" : "tf_matter_liquid"), true, corner + v3f(0.5f, deep / 2, 0.5f), v3f(1, deep, 1), glowing(colour, c.temperature));
+					addPlain(texture(water ? "tf_goodvibes_water_still" : "matter_liquid"), true, corner + v3f(0.5f, deep / 2, 0.5f), v3f(1, deep, 1), glowing(colour, c.temperature));
 				}
 				// what's loose in a vessel or in the air: a pile on its floor
 				// (not out in the open, as a slab: drawFine and drawPowder have those)
@@ -292,7 +292,7 @@ void Scene::rebuild()
 					const float inner = block->spec.vessel ? 0.64f : 1.f, floor = block->spec.vessel ? 0.1f : 0.f;
 					const float deep = std::max(1 / 16.f, sixteenth(std::min(1.0, c.filled)));
 					const video::SColor colour = m_heat ? light : glowing(m_substances[c.main], c.temperature);
-					addPlain(texture(c.state == matter::State::Liquid ? "tf_matter_liquid" : "tf_matter_substance"), c.state == matter::State::Liquid,
+					addPlain(texture(c.state == matter::State::Liquid ? "matter_liquid" : "matter_substance"), c.state == matter::State::Liquid,
 							corner + v3f(0.5f, floor + deep * 0.5f, 0.5f), v3f(inner, deep, inner), colour);
 				}
 			}

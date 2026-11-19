@@ -12,6 +12,10 @@
 #include "rivers/rivers.h"
 #include "weather/weather.h"
 #include "irr_v3d.h"
+#include "player.h"
+#include <set>
+#include <string>
+#include <json/json.h>
 #include <future>
 #include <memory>
 #include <unordered_map>
@@ -117,6 +121,43 @@ struct ServerTerra
 	};
 	std::unordered_map<std::string, SkySent> skies;
 	float skies_timer = 0; // s to the next look
+	// each player's gravity as last set (server/gravity.cpp), by name
+	std::unordered_map<std::string, double> gravity;
+	// players travelling to another body (server/planet.cpp), by name: held still on the
+	// travel screen while the land there is made, then put on it
+	struct Travel
+	{
+		PlayerPhysicsOverride had; // given back on arriving
+		v3s16 node;                // where they land
+		std::string body;
+		float hold = -1;           // s left on the screen once there (< 0: not there yet)
+	};
+	std::unordered_map<std::string, Travel> travelling;
+	// each player's map (server/player.cpp), by name: the body they're on, what they've
+	// explored of it, the cell they're in (none: not placed yet), and whether the page has it
+	struct MapState
+	{
+		int body = 0;
+		std::string explored;
+		std::optional<std::pair<int, int>> cell;
+		bool ready = false;
+	};
+	std::unordered_map<std::string, MapState> maps;
+	float maps_timer = 0;
+	// sprinting (server/player.cpp), by name: forward held, when it was last pressed, a
+	// sprint latched by a double tap, and whether the faster speed is on
+	struct Sprint
+	{
+		bool down = false, latched = false, on = false;
+		double tapped = -1;
+	};
+	std::unordered_map<std::string, Sprint> sprints;
+	// the weather on the world (server/weather.cpp): what each player was last told
+	// (its JSON), by name, and the weather read per 16-node column, for a while
+	std::unordered_map<std::string, std::string> weather_told;
+	float weather_timer = 0;
+	std::unordered_map<s64, fluid::Sample> weather_cache;
+	double weather_cached_at = -1e9;
 
 	// The weather being opened, and the rivers with it: a new world's settles
 	// a year of it, seconds, on a worker so the server goes on meanwhile
@@ -164,9 +205,85 @@ struct TerraSun
 };
 std::optional<TerraSun> terraSun(Server *server, const v3f &pos);
 
+// A position's place on its body (script/lua_api/l_terra.cpp, as core.terra.place):
+// the direction of its column from the body's centre. None on seam, or where terra
+// didn't make the world.
+struct TerraPlace
+{
+	double x, y, z;
+};
+std::optional<TerraPlace> terraPlace(Server *server, const v3f &pos);
+
+// The world's code and what it says (as core.terra.world), and the date (0..1 through
+// the year, as core.terra.calendar). None where terra didn't make the world.
+struct TerraWorldFacts
+{
+	std::string code, star;
+	int size;
+	double tilt, date;
+};
+std::optional<TerraWorldFacts> terraWorldFacts(Server *server);
+
+// The weather at a position (script/lua_api/l_terra.cpp, as core.terra.weather):
+// `moving`, whether it's src/fluid's moving air (else a still body's climate). None
+// where terra didn't make the world, on seam, or while the weather settles as the
+// world opens.
+struct TerraWeather
+{
+	fluid::Sample sample;
+	bool moving = false;
+};
+std::optional<TerraWeather> terraWeather(Server *server, const v3f &pos);
+
+// The weather on the world (server/weather.cpp): each player told what they stand in,
+// and snow, ice and thaw on the open ground round them.
+void terraStepWeather(Server *server, float dtime);
+void terraAddWeatherModifiers(Server *server);
+// What the weather does to the node at `pos` (the top of the ground or water, open to
+// the sky), done: "snow", "melt", "freeze", "thaw", or "" for nothing.
+std::string terraWeatherAct(Server *server, v3s16 pos);
+
 // Each player's sky (server/sky.cpp): the real sun where they stand, and on a world
 // that isn't a planet, the air's blue thinning to black as they climb.
 void terraStepSkies(Server *server, float dtime);
+
+// A player's own (server/player.cpp): what they're given as they join, sprinting and
+// the map each step, the page's events about them (true when handled: the catalogue,
+// the map's Go there), and what creative grants.
+class PlayerSAO;
+void terraJoinPlayer(Server *server, PlayerSAO *sao);
+void terraStepPlayers(Server *server, float dtime);
+bool terraUiEvent(Server *server, PlayerSAO *sao, const std::string &name, const Json::Value &payload);
+void terraCreativePrivs(std::set<std::string> &privs);
+
+// A player's weight (server/gravity.cpp): the planet's pull at their height.
+void terraStepGravity(Server *server);
+
+// Standing on the planet (server/planet.cpp). All but terraBodyIds want an atlas world.
+class RemotePlayer;
+class PlayerSAO;
+// A body's index by its id; −1 for none (or not an atlas world).
+int terraBody(Server *server, const std::string &id);
+// The bodies that can be stood on, by id, the home first; none on a world that isn't a planet.
+std::vector<std::string> terraBodyIds(Server *server);
+// Where one lands on a body: near a place (degrees), else its spawn. None if there's no land.
+std::optional<v3s16> terraLanding(Server *server, int body, std::optional<std::pair<double, double>> near);
+// The ground at a place on a body (radians), as one would stand on it; over water, its
+// surface. None above the atlas, or on a world that isn't a planet.
+std::optional<v3s16> terraGround(Server *server, int body, double lat, double lon);
+// A body's name, as its system names it ("Moon").
+std::string terraBodyName(Server *server, int body);
+// The home's spawn (BS units). Throws if the planet has no land to stand on.
+v3f terraSpawn(Server *server);
+// Whether a position (nodes) is seam: on no column of the planet.
+bool terraSeam(Server *server, const v3f &nodes);
+// One in seam starts again at the spawn; `how` says how they got there, for the log.
+void terraOffSeam(Server *server, PlayerSAO *sao, const char *how);
+// Send a player to a body: "" when they're on the way, else why not.
+std::string terraTravel(Server *server, RemotePlayer *player, const std::string &body,
+		std::optional<std::pair<double, double>> near);
+// Each step: the travelling are landed and let go; anyone in seam is moved out.
+void terraStepPlanet(Server *server, float dtime);
 
 struct MapEditEvent;
 // The lakes (server/lakes.cpp): edits are noted, then looked at each step

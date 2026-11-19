@@ -94,6 +94,9 @@ private:
 	// disconnect_player(name[, reason[, reconnect]]) -> success
 	static int l_disconnect_player(lua_State *L);
 
+	// Terra Firma: sidecar_command(player name, command, text) -> whether mods will answer
+	static int l_sidecar_command(lua_State *L);
+
 	// remove_player(name)
 	static int l_remove_player(lua_State *L);
 

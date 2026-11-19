@@ -344,3 +344,8 @@ protected:
 // Calculate exact edges of the outermost mapchunks that are within the set
 // mapgen_limit. Returns the minimum and maximum edges in nodes in that order.
 std::pair<v3s16, v3s16> get_mapgen_edges(s16 mapgen_limit, v3s16 chunksize);
+
+// Terra Firma: the loose ground of a chunk just made that's wet (water over it or
+// beside it), in its inner blocks: where the shore's smoothed slopes hold water as a
+// fill (sprint 81). The engine fills them (Server::queueShore); core.get_mapgen_object("shore").
+std::vector<v3s16> mapgenShore(Mapgen &mg);

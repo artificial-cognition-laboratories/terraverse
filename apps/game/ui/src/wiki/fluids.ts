@@ -10,7 +10,7 @@ export type FluidDemo = LabDemo & { wet: { at: At; min?: number; max?: number }[
 
 const ROOM = 293, ATM = 101325
 const AIR = { nitrogen: 0.79, oxygen: 0.21 }
-const STONE = "tf_world:stone", BRICK = "tf_world:stone_bricks", WATER = "tf_world:water_source"
+const STONE = "core:stone", BRICK = "core:stone_bricks", WATER = "core:water_source"
 const MOLES_M3_WATER = 55500 // moles of water in a cubic metre
 
 const span = (from: At, to: At, node: string): SandboxBlock[] => {

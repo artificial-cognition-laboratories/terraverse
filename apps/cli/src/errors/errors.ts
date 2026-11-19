@@ -175,6 +175,11 @@ const MAP = {
         description: "A mod only creates things under its own prefix.",
         source: "runtime", severity: "fatal", expected: true,
     },
+    COMMAND_TAKEN: {
+        title: "That command is taken",
+        description: "Another mod, or this one, already has a command at that path.",
+        source: "runtime", severity: "fatal", expected: true,
+    },
     NAME_TAKEN: {
         title: "Already declared",
         description: "Something with that name already exists.",

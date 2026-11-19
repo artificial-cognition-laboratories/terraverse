@@ -3,6 +3,7 @@ import type { RunningT } from "../../running"
 import { Call } from "../../wire"
 import { checks } from "../checks"
 import type { HandlersT } from "../handlers"
+import { Commands } from "./commands"
 import { Players } from "./players"
 import { Time } from "./time"
 
@@ -16,22 +17,24 @@ type GameOpts = {
 export function Game(opts: GameOpts) {
     const players = Players({ channel: opts.channel, handlers: opts.handlers })
     const time = Time({ running: opts.running })
+    const commands = Commands({ channel: opts.channel, running: opts.running, players: players.api })
 
     const api = Object.freeze({
         players: players.api,
         time: time.api,
         announce: (message: string) => opts.channel.tell(Call["game.announce"], String(message)),
         get worlds() { return checks.unwired("game.worlds") },
-        get commands() { return checks.unwired("game.commands") },
+        commands: commands.api,
         get system() { return checks.unwired("game.system") },
         snapshot: () => checks.unwired("game.snapshot"),
         reset: () => checks.unwired("game.reset"),
         stop: () => checks.unwired("game.stop"),
     })
 
-    /** A window: who came and went, then the clock. */
+    /** A window: who came and went, what they typed, then the clock. */
     function step(step: Step): void {
         players.step(step)
+        commands.step(step.happened)
         time.step(step.now)
     }
 

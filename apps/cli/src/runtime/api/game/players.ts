@@ -8,6 +8,8 @@ export type Player = {
     readonly name: string
     readonly connected: boolean
     tell(message: string): void
+    can(permission: string): boolean
+    kick(reason: string): void
 }
 
 /** Players — who's in the game: the `game.players` global, kept by each window's joins and leaves. */
@@ -42,7 +44,7 @@ export function Players(opts: { channel: ChannelT; handlers: HandlersT }) {
                 const handle = present.get(happening.player) ?? PlayerOf({ name: happening.player, channel: opts.channel })
                 present.set(happening.player, handle)
                 joins.run(handle.player)
-            } else {
+            } else if (happening.kind === "leave") {
                 const handle = present.get(happening.player)
                 if (!handle) continue
                 present.delete(happening.player)
@@ -72,6 +74,18 @@ function PlayerOf(opts: { name: string; channel: ChannelT }) {
         tell(message: string) {
             here()
             opts.channel.tell(Call["player.tell"], opts.name, String(message))
+        },
+        can(permission: string) {
+            here()
+            checks.permission(permission)
+            const may = opts.channel.ask(Call["player.can"], opts.name, permission)
+            if (typeof may !== "boolean") throw err("PROTOCOL", { detail: "player.can didn't answer yes or no" })
+            return may
+        },
+        kick(reason: string) {
+            here()
+            if (typeof reason !== "string" || reason.trim() === "") throw err("ARGUMENT_INVALID", { detail: "a kick says why" })
+            opts.channel.tell(Call["player.kick"], opts.name, reason)
         },
     })
 

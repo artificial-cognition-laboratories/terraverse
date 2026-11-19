@@ -1587,14 +1587,6 @@ void Game::processUserInput(f32 dtime)
 }
 
 
-bool Game::pointsAtStation()
-{
-	if (runData.pointed_old.type != POINTEDTHING_NODE)
-		return false;
-	const MapNode n = client->getEnv().getMap().getNode(runData.pointed_old.node_undersurface);
-	return itemgroup_get(nodedef_manager->get(n).groups, "station") > 0;
-}
-
 void Game::processKeyInput()
 {
 	// Terra Firma: one build mode (sprint 70), Tab in and out. What's
@@ -1660,8 +1652,6 @@ void Game::processKeyInput()
 		m_game_formspec.showPlayerInventory(nullptr);
 #endif
 #if USE_SHELL
-	} else if (wasKeyDown(KeyType::LAB)) {
-		m_shell_session->screens().open("lab");
 	} else if (wasKeyDown(KeyType::WIKI)) {
 		m_shell_session->screens().open("wiki");
 #endif
@@ -1674,11 +1664,6 @@ void Game::processKeyInput()
 		m_hand.ask(Hand::ACTIONS[size_t(Hand::Verb::Mirror)].id, "");
 	} else if (wasKeyDown(KeyType::UNDO)) {
 		m_hand.ask(Hand::ACTIONS[size_t(Hand::Verb::Undo)].id, "");
-	} else if (!m_driving && !m_hand.out() && wasKeyDown(KeyType::FOCUS) && pointsAtStation()) {
-		// Terra Firma: a station worked at (tf_craft says what's offered there)
-		const v3s16 &p = runData.pointed_old.node_undersurface;
-		client->sendUiEvent("making.use", "{\"x\":" + std::to_string(p.X) + ",\"y\":" + std::to_string(p.Y)
-				+ ",\"z\":" + std::to_string(p.Z) + "}");
 	} else if (!m_driving && wasKeyDown(KeyType::FOCUS)) { // (driving, F gets up)
 		m_hand.ask(Hand::ACTIONS[size_t(Hand::Verb::Focus)].id, "");
 	} else if (m_menu && input->cancelPressed()) {
@@ -2532,7 +2517,6 @@ void Game::updatePlayerControl(const CameraOrientation &cam)
 		cam.camera_yaw
 	);
 	control.setMovementFromKeys();
-	control.pour = isKeyDown(KeyType::POUR); // Terra Firma: pouring (sprint 80)
 	control.prone = m_prone && !bodyIsLoose(*player);
 
 	/* For touch, simulate holding down AUX1 (fast move) if the user has
@@ -6117,6 +6101,17 @@ void Game::handleDigging(const PointedThing &pointed, const v3s16 &nodepos,
 				&hand_item.getToolCapabilities(itemdef_manager));
 	}
 
+	// Terra Firma: in creative, whatever can be dug at all goes at once (sprint 119:
+	// was tf_player's creative hand); the server lets it (handleCommand_Interact)
+	if (client->checkPrivilege("creative")) {
+		for (const char *group : { "crumbly", "choppy", "cracky", "snappy", "oddly_breakable_by_hand", "dig_immediate" })
+			if (itemgroup_get(features.groups, group) > 0) {
+				params.diggable = true;
+				params.time = 0;
+				break;
+			}
+	}
+
 	if (!params.diggable) {
 		// I guess nobody will wait for this long
 		runData.dig_time_complete = 10000000.0;
@@ -6585,8 +6580,7 @@ void Game::drawScene(ProfilerGraph *graph, RunStats *stats)
 	const LocalPlayer *player = this->client->getEnv().getLocalPlayer();
 	bool draw_wield_tool = (this->m_game_ui->m_flags.show_hud &&
 			(player->hud_flags & HUD_FLAG_WIELDITEM_VISIBLE) &&
-			(this->camera->getCameraMode() == CAMERA_MODE_FIRST) &&
-			!this->camera->hasShot());
+			(this->camera->getCameraMode() == CAMERA_MODE_FIRST));
 	bool draw_crosshair = (
 			(player->hud_flags & HUD_FLAG_CROSSHAIR_VISIBLE) &&
 			(this->camera->getCameraMode() != CAMERA_MODE_THIRD_FRONT));

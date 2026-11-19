@@ -14,7 +14,7 @@
 	seed) and how it stands. Everyone grows the same plant from that, so the
 	server stores and sends a few bytes and the client draws it (a grass's
 	thousands of sixteenths never cross the network). It belongs to the node
-	at its foot, a tf_world:growth; whoever changes that node's content
+	at its foot, a core:growth; whoever changes that node's content
 	drops it (Map::setNode, MapBlock::copyFrom), as a cut node's shape.
 */
 namespace sprig {

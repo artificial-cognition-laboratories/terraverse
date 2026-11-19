@@ -1,0 +1,94 @@
+{
+	"note": "Soil as a composition (sprint 111). Which block a soil is says what its grains came from (its parent rock) and how stony it is; its param2 is its fine earth, one of the points terragen defines (core.terra.soil_points: sand, silt and clay with organic matter). terragen chooses all of it (src/terragen/soil.cpp), and the kinds too (core.terra.soil_kinds), so these and the generator can't disagree. builtin/game/world.lua makes a block of each parent and stoniness, each point's matter from these.",
+	"share": 0.55,
+	"groups": {
+		"loose": 1,
+		"crumbly": 3,
+		"soil": 1,
+		"pile_repose": 1
+	},
+	"parents": {
+		"granitic": {
+			"rock": "granite",
+			"grains": {
+				"silica": 0.75,
+				"feldspar": 0.25
+			},
+			"clay": {
+				"kaolinite": 1
+			},
+			"tint": "#ffffff"
+		},
+		"basaltic": {
+			"rock": "basalt",
+			"grains": {
+				"plagioclase": 0.6,
+				"pyroxene": 0.4
+			},
+			"clay": {
+				"kaolinite": 0.9,
+				"hematite": 0.1
+			},
+			"tint": "#b8afa8"
+		},
+		"limy": {
+			"rock": "limestone",
+			"grains": {
+				"calcite": 0.5,
+				"silica": 0.5
+			},
+			"clay": {
+				"kaolinite": 1
+			},
+			"tint": "#fff4e2"
+		},
+		"shaly": {
+			"rock": "shale",
+			"grains": {
+				"silica": 1
+			},
+			"clay": {
+				"kaolinite": 1
+			},
+			"tint": "#d8d4d0"
+		}
+	},
+	"stony": {
+		"": {
+			"prefix": "",
+			"groups": {
+				"pile_yield": 16,
+				"pile_bearing": 60,
+				"pile_give": 3
+			}
+		},
+		"stony": {
+			"prefix": "Stony ",
+			"pebbles": 1,
+			"groups": {
+				"pile_yield": 12,
+				"pile_bearing": 70,
+				"pile_give": 3
+			}
+		},
+		"gravelly": {
+			"prefix": "Gravelly ",
+			"pebbles": 2,
+			"groups": {
+				"pile_yield": 6,
+				"pile_bearing": 80,
+				"pile_give": 2
+			}
+		},
+		"gravel": {
+			"prefix": "",
+			"pebbles": 3,
+			"description": "Gravel",
+			"groups": {
+				"pile_yield": 0,
+				"pile_bearing": 80,
+				"pile_give": 2
+			}
+		}
+	}
+}

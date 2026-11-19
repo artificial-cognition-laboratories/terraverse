@@ -149,8 +149,6 @@ export const CATEGORIES: Category[] = [
     { key: "widget_map_zoom", label: "Map zoom", note: "Choose how much ground fits.", kind: "slider", min: 1, max: 5, step: 1, format: v => ["", "Far", "Wide", "Normal", "Close", "Near"][Math.round(v)]!, requires: yes("widget_map") },
   ] },
   { id: "world-controls", title: "World controls", group: "HUD", note: "Build and time controls when permitted.", options: [
-    { key: "widget_world_controls", label: "Show world controls", note: "Show controls while paused.", kind: "toggle" },
-    { key: "widget_world_controls_corner", label: "Controls position", note: "Choose the corner where they sit.", kind: "slider", min: 0, max: 3, step: 1, format: corner, requires: yes("widget_world_controls") },
   ] },
   { id: "targeting", title: "Targeting", group: "HUD", note: "How what you're pointing at and other players are marked.", options: [
     { key: "node_highlighting", label: "Target highlight", note: "How the block under the crosshair is identified.", kind: "choice", choices: pick(["box", "Outline"], ["halo", "Halo"], ["none", "Off"]) },

@@ -1,0 +1,2631 @@
+{
+	"note": "The generator's own blocks and the world's: each a block definition (as Lua's core.register_node takes it), registered as the engine's by builtin/game/world.lua. _matter says what it's made of, _family a block whose param2 picks its composition (a rock blending toward its neighbour), _machine what it does in a machine.",
+	"blocks": {
+		"core:stone": {
+			"_matter": {
+				"matter": "granite",
+				"share": 0.99
+			},
+			"description": "Stone",
+			"groups": {
+				"cracky": 3
+			},
+			"tiles": [
+				"tf_goodvibes_stone.png"
+			]
+		},
+		"core:dirt": {
+			"_matter": {
+				"matter": "silica",
+				"share": 0.55
+			},
+			"description": "Dirt",
+			"groups": {
+				"crumbly": 3,
+				"loose": 1,
+				"pile_bearing": 60,
+				"pile_give": 3,
+				"pile_repose": 1,
+				"pile_yield": 16
+			},
+			"tiles": [
+				"tf_goodvibes_dirt.png"
+			]
+		},
+		"core:grass": {
+			"_matter": {
+				"matter": "silica",
+				"share": 0.55
+			},
+			"description": "Grass",
+			"drop": "core:dirt",
+			"groups": {
+				"crumbly": 3,
+				"loose": 1,
+				"pile_bearing": 60,
+				"pile_give": 3,
+				"pile_repose": 1,
+				"pile_yield": 16
+			},
+			"tiles": [
+				"tf_goodvibes_grass_block_top.png",
+				"tf_goodvibes_dirt.png",
+				"tf_goodvibes_grass_block_side.png"
+			]
+		},
+		"core:sand": {
+			"_matter": {
+				"form": true,
+				"matter": "silica",
+				"share": 0.6
+			},
+			"description": "Sand",
+			"groups": {
+				"crumbly": 3,
+				"falling_node": 1,
+				"loose": 1,
+				"pile_bearing": 12,
+				"pile_give": 4,
+				"pile_repose": 1,
+				"pile_yield": 0
+			},
+			"tiles": [
+				"tf_goodvibes_sand.png"
+			]
+		},
+		"core:water_source": {
+			"_matter": {
+				"form": true,
+				"matter": "water",
+				"share": 1,
+				"state": "liquid"
+			},
+			"buildable_to": true,
+			"color": "#3a7fc4",
+			"description": "Water",
+			"diggable": false,
+			"drawtype": "liquid",
+			"drowning": 1,
+			"groups": {
+				"liquid": 3,
+				"liquid_layer": 1,
+				"water": 3
+			},
+			"liquid_move_physics": true,
+			"paramtype": "light",
+			"pointable": false,
+			"post_effect_color": {
+				"a": 110,
+				"b": 140,
+				"g": 70,
+				"r": 30
+			},
+			"special_tiles": [
+				{
+					"animation": {
+						"aspect_h": 512,
+						"aspect_w": 512,
+						"length": 4,
+						"type": "vertical_frames"
+					},
+					"backface_culling": false,
+					"name": "tf_goodvibes_water_still.png"
+				}
+			],
+			"tiles": [
+				{
+					"animation": {
+						"aspect_h": 512,
+						"aspect_w": 512,
+						"length": 4,
+						"type": "vertical_frames"
+					},
+					"name": "tf_goodvibes_water_still.png"
+				}
+			],
+			"use_texture_alpha": "blend",
+			"walkable": false
+		},
+		"core:water_puddle": {
+			"_matter": {
+				"form": true,
+				"matter": "water",
+				"share": 1,
+				"state": "liquid"
+			},
+			"buildable_to": false,
+			"description": "Shallow water",
+			"diggable": false,
+			"drawtype": "nodebox",
+			"drowning": 0,
+			"groups": {
+				"liquid": 3,
+				"matter_puddle": 1,
+				"not_in_creative_inventory": 1,
+				"water": 3
+			},
+			"leveled": 64,
+			"liquid_move_physics": false,
+			"node_box": {
+				"fixed": [
+					-0.5,
+					-0.5,
+					-0.5,
+					0.5,
+					0.5,
+					0.5
+				],
+				"type": "leveled"
+			},
+			"paramtype": "light",
+			"paramtype2": "leveled",
+			"pointable": false,
+			"special_tiles": [
+				{
+					"animation": {
+						"aspect_h": 512,
+						"aspect_w": 512,
+						"length": 4,
+						"type": "vertical_frames"
+					},
+					"backface_culling": false,
+					"name": "tf_goodvibes_water_still.png"
+				}
+			],
+			"tiles": [
+				{
+					"animation": {
+						"aspect_h": 512,
+						"aspect_w": 512,
+						"length": 4,
+						"type": "vertical_frames"
+					},
+					"backface_culling": false,
+					"name": "tf_goodvibes_water_still.png"
+				}
+			],
+			"use_texture_alpha": "blend",
+			"walkable": false
+		},
+		"core:granite": {
+			"_family": {
+				"form": false,
+				"points": [
+					{
+						"granite": 1
+					},
+					{
+						"gneiss": 0.06666666667,
+						"granite": 0.9333333333
+					},
+					{
+						"gneiss": 0.1333333333,
+						"granite": 0.8666666667
+					},
+					{
+						"gneiss": 0.2,
+						"granite": 0.8
+					},
+					{
+						"gneiss": 0.2666666667,
+						"granite": 0.7333333333
+					},
+					{
+						"gneiss": 0.3333333333,
+						"granite": 0.6666666667
+					},
+					{
+						"gneiss": 0.4,
+						"granite": 0.6
+					},
+					{
+						"gneiss": 0.4666666667,
+						"granite": 0.5333333333
+					},
+					{
+						"gneiss": 0.5333333333,
+						"granite": 0.4666666667
+					},
+					{
+						"gneiss": 0.6,
+						"granite": 0.4
+					},
+					{
+						"gneiss": 0.6666666667,
+						"granite": 0.3333333333
+					},
+					{
+						"gneiss": 0.7333333333,
+						"granite": 0.2666666667
+					},
+					{
+						"gneiss": 0.8,
+						"granite": 0.2
+					},
+					{
+						"gneiss": 0.8666666667,
+						"granite": 0.1333333333
+					},
+					{
+						"gneiss": 0.9333333333,
+						"granite": 0.06666666667
+					},
+					{
+						"gneiss": 1,
+						"granite": 0
+					}
+				],
+				"share": 0.99
+			},
+			"description": "Granite",
+			"groups": {
+				"cracky": 2,
+				"stone": 1
+			},
+			"palette": "tf_world_granite_palette.png",
+			"paramtype2": "color",
+			"tiles": [
+				"tf_goodvibes_granite.png"
+			]
+		},
+		"core:gneiss": {
+			"_family": {
+				"form": false,
+				"points": [
+					{
+						"gneiss": 1
+					},
+					{
+						"gneiss": 0.9333333333,
+						"slate": 0.06666666667
+					},
+					{
+						"gneiss": 0.8666666667,
+						"slate": 0.1333333333
+					},
+					{
+						"gneiss": 0.8,
+						"slate": 0.2
+					},
+					{
+						"gneiss": 0.7333333333,
+						"slate": 0.2666666667
+					},
+					{
+						"gneiss": 0.6666666667,
+						"slate": 0.3333333333
+					},
+					{
+						"gneiss": 0.6,
+						"slate": 0.4
+					},
+					{
+						"gneiss": 0.5333333333,
+						"slate": 0.4666666667
+					},
+					{
+						"gneiss": 0.4666666667,
+						"slate": 0.5333333333
+					},
+					{
+						"gneiss": 0.4,
+						"slate": 0.6
+					},
+					{
+						"gneiss": 0.3333333333,
+						"slate": 0.6666666667
+					},
+					{
+						"gneiss": 0.2666666667,
+						"slate": 0.7333333333
+					},
+					{
+						"gneiss": 0.2,
+						"slate": 0.8
+					},
+					{
+						"gneiss": 0.1333333333,
+						"slate": 0.8666666667
+					},
+					{
+						"gneiss": 0.06666666667,
+						"slate": 0.9333333333
+					},
+					{
+						"gneiss": 0,
+						"slate": 1
+					}
+				],
+				"share": 0.99
+			},
+			"description": "Gneiss",
+			"groups": {
+				"cracky": 2,
+				"stone": 1
+			},
+			"palette": "tf_world_gneiss_palette.png",
+			"paramtype2": "color",
+			"tiles": [
+				"tf_goodvibes_gneiss.png"
+			]
+		},
+		"core:slate": {
+			"_family": {
+				"form": false,
+				"points": [
+					{
+						"slate": 1
+					},
+					{
+						"shale": 0.06666666667,
+						"slate": 0.9333333333
+					},
+					{
+						"shale": 0.1333333333,
+						"slate": 0.8666666667
+					},
+					{
+						"shale": 0.2,
+						"slate": 0.8
+					},
+					{
+						"shale": 0.2666666667,
+						"slate": 0.7333333333
+					},
+					{
+						"shale": 0.3333333333,
+						"slate": 0.6666666667
+					},
+					{
+						"shale": 0.4,
+						"slate": 0.6
+					},
+					{
+						"shale": 0.4666666667,
+						"slate": 0.5333333333
+					},
+					{
+						"shale": 0.5333333333,
+						"slate": 0.4666666667
+					},
+					{
+						"shale": 0.6,
+						"slate": 0.4
+					},
+					{
+						"shale": 0.6666666667,
+						"slate": 0.3333333333
+					},
+					{
+						"shale": 0.7333333333,
+						"slate": 0.2666666667
+					},
+					{
+						"shale": 0.8,
+						"slate": 0.2
+					},
+					{
+						"shale": 0.8666666667,
+						"slate": 0.1333333333
+					},
+					{
+						"shale": 0.9333333333,
+						"slate": 0.06666666667
+					},
+					{
+						"shale": 1,
+						"slate": 0
+					}
+				],
+				"share": 0.99
+			},
+			"description": "Slate",
+			"groups": {
+				"cracky": 3,
+				"stone": 1
+			},
+			"palette": "tf_world_slate_palette.png",
+			"paramtype2": "color",
+			"tiles": [
+				"tf_goodvibes_slate.png"
+			]
+		},
+		"core:basalt": {
+			"_family": {
+				"form": true,
+				"points": [
+					{
+						"basalt": 1
+					},
+					{
+						"andesite": 0.06666666667,
+						"basalt": 0.9333333333
+					},
+					{
+						"andesite": 0.1333333333,
+						"basalt": 0.8666666667
+					},
+					{
+						"andesite": 0.2,
+						"basalt": 0.8
+					},
+					{
+						"andesite": 0.2666666667,
+						"basalt": 0.7333333333
+					},
+					{
+						"andesite": 0.3333333333,
+						"basalt": 0.6666666667
+					},
+					{
+						"andesite": 0.4,
+						"basalt": 0.6
+					},
+					{
+						"andesite": 0.4666666667,
+						"basalt": 0.5333333333
+					},
+					{
+						"andesite": 0.5333333333,
+						"basalt": 0.4666666667
+					},
+					{
+						"andesite": 0.6,
+						"basalt": 0.4
+					},
+					{
+						"andesite": 0.6666666667,
+						"basalt": 0.3333333333
+					},
+					{
+						"andesite": 0.7333333333,
+						"basalt": 0.2666666667
+					},
+					{
+						"andesite": 0.8,
+						"basalt": 0.2
+					},
+					{
+						"andesite": 0.8666666667,
+						"basalt": 0.1333333333
+					},
+					{
+						"andesite": 0.9333333333,
+						"basalt": 0.06666666667
+					},
+					{
+						"andesite": 1,
+						"basalt": 0
+					}
+				],
+				"share": 0.99
+			},
+			"description": "Basalt",
+			"groups": {
+				"cracky": 2,
+				"stone": 1
+			},
+			"palette": "tf_world_basalt_palette.png",
+			"paramtype2": "color",
+			"tiles": [
+				"tf_goodvibes_basalt.png"
+			]
+		},
+		"core:andesite": {
+			"_family": {
+				"form": false,
+				"points": [
+					{
+						"andesite": 1
+					},
+					{
+						"andesite": 0.9333333333,
+						"tuff": 0.06666666667
+					},
+					{
+						"andesite": 0.8666666667,
+						"tuff": 0.1333333333
+					},
+					{
+						"andesite": 0.8,
+						"tuff": 0.2
+					},
+					{
+						"andesite": 0.7333333333,
+						"tuff": 0.2666666667
+					},
+					{
+						"andesite": 0.6666666667,
+						"tuff": 0.3333333333
+					},
+					{
+						"andesite": 0.6,
+						"tuff": 0.4
+					},
+					{
+						"andesite": 0.5333333333,
+						"tuff": 0.4666666667
+					},
+					{
+						"andesite": 0.4666666667,
+						"tuff": 0.5333333333
+					},
+					{
+						"andesite": 0.4,
+						"tuff": 0.6
+					},
+					{
+						"andesite": 0.3333333333,
+						"tuff": 0.6666666667
+					},
+					{
+						"andesite": 0.2666666667,
+						"tuff": 0.7333333333
+					},
+					{
+						"andesite": 0.2,
+						"tuff": 0.8
+					},
+					{
+						"andesite": 0.1333333333,
+						"tuff": 0.8666666667
+					},
+					{
+						"andesite": 0.06666666667,
+						"tuff": 0.9333333333
+					},
+					{
+						"andesite": 0,
+						"tuff": 1
+					}
+				],
+				"share": 0.99
+			},
+			"description": "Andesite",
+			"groups": {
+				"cracky": 2,
+				"stone": 1
+			},
+			"palette": "tf_world_andesite_palette.png",
+			"paramtype2": "color",
+			"tiles": [
+				"tf_goodvibes_andesite.png"
+			]
+		},
+		"core:tuff": {
+			"_family": {
+				"form": false,
+				"points": [
+					{
+						"tuff": 1
+					},
+					{
+						"andesite": 0.06666666667,
+						"tuff": 0.9333333333
+					},
+					{
+						"andesite": 0.1333333333,
+						"tuff": 0.8666666667
+					},
+					{
+						"andesite": 0.2,
+						"tuff": 0.8
+					},
+					{
+						"andesite": 0.2666666667,
+						"tuff": 0.7333333333
+					},
+					{
+						"andesite": 0.3333333333,
+						"tuff": 0.6666666667
+					},
+					{
+						"andesite": 0.4,
+						"tuff": 0.6
+					},
+					{
+						"andesite": 0.4666666667,
+						"tuff": 0.5333333333
+					},
+					{
+						"andesite": 0.5333333333,
+						"tuff": 0.4666666667
+					},
+					{
+						"andesite": 0.6,
+						"tuff": 0.4
+					},
+					{
+						"andesite": 0.6666666667,
+						"tuff": 0.3333333333
+					},
+					{
+						"andesite": 0.7333333333,
+						"tuff": 0.2666666667
+					},
+					{
+						"andesite": 0.8,
+						"tuff": 0.2
+					},
+					{
+						"andesite": 0.8666666667,
+						"tuff": 0.1333333333
+					},
+					{
+						"andesite": 0.9333333333,
+						"tuff": 0.06666666667
+					},
+					{
+						"andesite": 1,
+						"tuff": 0
+					}
+				],
+				"share": 0.99
+			},
+			"description": "Tuff",
+			"groups": {
+				"cracky": 3,
+				"stone": 1
+			},
+			"palette": "tf_world_tuff_palette.png",
+			"paramtype2": "color",
+			"tiles": [
+				"tf_goodvibes_tuff.png"
+			]
+		},
+		"core:obsidian": {
+			"_family": {
+				"form": false,
+				"points": [
+					{
+						"obsidian": 1
+					},
+					{
+						"basalt": 0.06666666667,
+						"obsidian": 0.9333333333
+					},
+					{
+						"basalt": 0.1333333333,
+						"obsidian": 0.8666666667
+					},
+					{
+						"basalt": 0.2,
+						"obsidian": 0.8
+					},
+					{
+						"basalt": 0.2666666667,
+						"obsidian": 0.7333333333
+					},
+					{
+						"basalt": 0.3333333333,
+						"obsidian": 0.6666666667
+					},
+					{
+						"basalt": 0.4,
+						"obsidian": 0.6
+					},
+					{
+						"basalt": 0.4666666667,
+						"obsidian": 0.5333333333
+					},
+					{
+						"basalt": 0.5333333333,
+						"obsidian": 0.4666666667
+					},
+					{
+						"basalt": 0.6,
+						"obsidian": 0.4
+					},
+					{
+						"basalt": 0.6666666667,
+						"obsidian": 0.3333333333
+					},
+					{
+						"basalt": 0.7333333333,
+						"obsidian": 0.2666666667
+					},
+					{
+						"basalt": 0.8,
+						"obsidian": 0.2
+					},
+					{
+						"basalt": 0.8666666667,
+						"obsidian": 0.1333333333
+					},
+					{
+						"basalt": 0.9333333333,
+						"obsidian": 0.06666666667
+					},
+					{
+						"basalt": 1,
+						"obsidian": 0
+					}
+				],
+				"share": 0.99
+			},
+			"description": "Obsidian",
+			"groups": {
+				"cracky": 1,
+				"stone": 1
+			},
+			"palette": "tf_world_obsidian_palette.png",
+			"paramtype2": "color",
+			"tiles": [
+				"tf_goodvibes_obsidian.png"
+			]
+		},
+		"core:shale": {
+			"_family": {
+				"form": false,
+				"points": [
+					{
+						"shale": 1
+					},
+					{
+						"limestone": 0.06666666667,
+						"shale": 0.9333333333
+					},
+					{
+						"limestone": 0.1333333333,
+						"shale": 0.8666666667
+					},
+					{
+						"limestone": 0.2,
+						"shale": 0.8
+					},
+					{
+						"limestone": 0.2666666667,
+						"shale": 0.7333333333
+					},
+					{
+						"limestone": 0.3333333333,
+						"shale": 0.6666666667
+					},
+					{
+						"limestone": 0.4,
+						"shale": 0.6
+					},
+					{
+						"limestone": 0.4666666667,
+						"shale": 0.5333333333
+					},
+					{
+						"limestone": 0.5333333333,
+						"shale": 0.4666666667
+					},
+					{
+						"limestone": 0.6,
+						"shale": 0.4
+					},
+					{
+						"limestone": 0.6666666667,
+						"shale": 0.3333333333
+					},
+					{
+						"limestone": 0.7333333333,
+						"shale": 0.2666666667
+					},
+					{
+						"limestone": 0.8,
+						"shale": 0.2
+					},
+					{
+						"limestone": 0.8666666667,
+						"shale": 0.1333333333
+					},
+					{
+						"limestone": 0.9333333333,
+						"shale": 0.06666666667
+					},
+					{
+						"limestone": 1,
+						"shale": 0
+					}
+				],
+				"share": 0.99
+			},
+			"description": "Shale",
+			"groups": {
+				"cracky": 3,
+				"stone": 1
+			},
+			"palette": "tf_world_shale_palette.png",
+			"paramtype2": "color",
+			"tiles": [
+				"tf_goodvibes_shale.png"
+			]
+		},
+		"core:limestone": {
+			"_family": {
+				"form": false,
+				"points": [
+					{
+						"limestone": 1
+					},
+					{
+						"limestone": 0.9333333333,
+						"sandstone": 0.06666666667
+					},
+					{
+						"limestone": 0.8666666667,
+						"sandstone": 0.1333333333
+					},
+					{
+						"limestone": 0.8,
+						"sandstone": 0.2
+					},
+					{
+						"limestone": 0.7333333333,
+						"sandstone": 0.2666666667
+					},
+					{
+						"limestone": 0.6666666667,
+						"sandstone": 0.3333333333
+					},
+					{
+						"limestone": 0.6,
+						"sandstone": 0.4
+					},
+					{
+						"limestone": 0.5333333333,
+						"sandstone": 0.4666666667
+					},
+					{
+						"limestone": 0.4666666667,
+						"sandstone": 0.5333333333
+					},
+					{
+						"limestone": 0.4,
+						"sandstone": 0.6
+					},
+					{
+						"limestone": 0.3333333333,
+						"sandstone": 0.6666666667
+					},
+					{
+						"limestone": 0.2666666667,
+						"sandstone": 0.7333333333
+					},
+					{
+						"limestone": 0.2,
+						"sandstone": 0.8
+					},
+					{
+						"limestone": 0.1333333333,
+						"sandstone": 0.8666666667
+					},
+					{
+						"limestone": 0.06666666667,
+						"sandstone": 0.9333333333
+					},
+					{
+						"limestone": 0,
+						"sandstone": 1
+					}
+				],
+				"share": 0.99
+			},
+			"description": "Limestone",
+			"groups": {
+				"cracky": 3,
+				"stone": 1
+			},
+			"palette": "tf_world_limestone_palette.png",
+			"paramtype2": "color",
+			"tiles": [
+				"tf_goodvibes_limestone.png"
+			]
+		},
+		"core:anorthosite": {
+			"_family": {
+				"form": false,
+				"points": [
+					{
+						"anorthosite": 1
+					},
+					{
+						"anorthosite": 0.9333333333,
+						"breccia": 0.06666666667
+					},
+					{
+						"anorthosite": 0.8666666667,
+						"breccia": 0.1333333333
+					},
+					{
+						"anorthosite": 0.8,
+						"breccia": 0.2
+					},
+					{
+						"anorthosite": 0.7333333333,
+						"breccia": 0.2666666667
+					},
+					{
+						"anorthosite": 0.6666666667,
+						"breccia": 0.3333333333
+					},
+					{
+						"anorthosite": 0.6,
+						"breccia": 0.4
+					},
+					{
+						"anorthosite": 0.5333333333,
+						"breccia": 0.4666666667
+					},
+					{
+						"anorthosite": 0.4666666667,
+						"breccia": 0.5333333333
+					},
+					{
+						"anorthosite": 0.4,
+						"breccia": 0.6
+					},
+					{
+						"anorthosite": 0.3333333333,
+						"breccia": 0.6666666667
+					},
+					{
+						"anorthosite": 0.2666666667,
+						"breccia": 0.7333333333
+					},
+					{
+						"anorthosite": 0.2,
+						"breccia": 0.8
+					},
+					{
+						"anorthosite": 0.1333333333,
+						"breccia": 0.8666666667
+					},
+					{
+						"anorthosite": 0.06666666667,
+						"breccia": 0.9333333333
+					},
+					{
+						"anorthosite": 0,
+						"breccia": 1
+					}
+				],
+				"share": 0.99
+			},
+			"description": "Anorthosite",
+			"groups": {
+				"cracky": 2,
+				"stone": 1
+			},
+			"palette": "tf_world_anorthosite_palette.png",
+			"paramtype2": "color",
+			"tiles": [
+				"tf_goodvibes_anorthosite.png"
+			]
+		},
+		"core:breccia": {
+			"_family": {
+				"form": false,
+				"points": [
+					{
+						"breccia": 1
+					},
+					{
+						"anorthosite": 0.06666666667,
+						"breccia": 0.9333333333
+					},
+					{
+						"anorthosite": 0.1333333333,
+						"breccia": 0.8666666667
+					},
+					{
+						"anorthosite": 0.2,
+						"breccia": 0.8
+					},
+					{
+						"anorthosite": 0.2666666667,
+						"breccia": 0.7333333333
+					},
+					{
+						"anorthosite": 0.3333333333,
+						"breccia": 0.6666666667
+					},
+					{
+						"anorthosite": 0.4,
+						"breccia": 0.6
+					},
+					{
+						"anorthosite": 0.4666666667,
+						"breccia": 0.5333333333
+					},
+					{
+						"anorthosite": 0.5333333333,
+						"breccia": 0.4666666667
+					},
+					{
+						"anorthosite": 0.6,
+						"breccia": 0.4
+					},
+					{
+						"anorthosite": 0.6666666667,
+						"breccia": 0.3333333333
+					},
+					{
+						"anorthosite": 0.7333333333,
+						"breccia": 0.2666666667
+					},
+					{
+						"anorthosite": 0.8,
+						"breccia": 0.2
+					},
+					{
+						"anorthosite": 0.8666666667,
+						"breccia": 0.1333333333
+					},
+					{
+						"anorthosite": 0.9333333333,
+						"breccia": 0.06666666667
+					},
+					{
+						"anorthosite": 1,
+						"breccia": 0
+					}
+				],
+				"share": 0.99
+			},
+			"description": "Breccia",
+			"groups": {
+				"cracky": 3,
+				"stone": 1
+			},
+			"palette": "tf_world_breccia_palette.png",
+			"paramtype2": "color",
+			"tiles": [
+				"tf_goodvibes_breccia.png"
+			]
+		},
+		"core:ore_copper": {
+			"_matter": {
+				"matter": "chalcopyrite",
+				"share": 0.6
+			},
+			"description": "Copper ore (chalcopyrite)",
+			"groups": {
+				"cracky": 2,
+				"ore": 1
+			},
+			"tiles": [
+				"tf_goodvibes_copper_ore.png"
+			]
+		},
+		"core:ore_tin": {
+			"_matter": {
+				"matter": "cassiterite",
+				"share": 0.6
+			},
+			"description": "Tin ore (cassiterite)",
+			"groups": {
+				"cracky": 2,
+				"ore": 1
+			},
+			"tiles": [
+				"tf_goodvibes_tin_ore.png"
+			]
+		},
+		"core:ore_lead": {
+			"_matter": {
+				"matter": "galena",
+				"share": 0.6
+			},
+			"description": "Lead ore (galena)",
+			"groups": {
+				"cracky": 2,
+				"ore": 1
+			},
+			"tiles": [
+				"tf_goodvibes_lead_ore.png"
+			]
+		},
+		"core:ore_gold": {
+			"_matter": {
+				"matter": "gold",
+				"share": 0.6
+			},
+			"description": "Gold ore",
+			"groups": {
+				"cracky": 2,
+				"ore": 1
+			},
+			"tiles": [
+				"tf_goodvibes_gold_ore.png"
+			]
+		},
+		"core:ore_iron": {
+			"_matter": {
+				"matter": "hematite",
+				"share": 0.6
+			},
+			"description": "Banded iron ore (hematite)",
+			"groups": {
+				"cracky": 2,
+				"ore": 1
+			},
+			"tiles": [
+				"tf_goodvibes_iron_ore.png"
+			]
+		},
+		"core:ore_magnetite": {
+			"_matter": {
+				"matter": "magnetite",
+				"share": 0.6
+			},
+			"description": "Magnetite",
+			"groups": {
+				"cracky": 2,
+				"ore": 1
+			},
+			"tiles": [
+				"tf_goodvibes_magnetite_ore.png"
+			]
+		},
+		"core:ore_coal": {
+			"_matter": {
+				"matter": "coal",
+				"share": 0.6
+			},
+			"description": "Coal",
+			"groups": {
+				"cracky": 3,
+				"ore": 1
+			},
+			"tiles": [
+				"tf_goodvibes_coal_ore.png"
+			]
+		},
+		"core:ore_salt": {
+			"_matter": {
+				"matter": "salt",
+				"share": 0.6
+			},
+			"description": "Rock salt",
+			"groups": {
+				"cracky": 3,
+				"ore": 1
+			},
+			"tiles": [
+				"tf_goodvibes_salt.png"
+			]
+		},
+		"core:ore_sulfur": {
+			"_matter": {
+				"matter": "sulfur",
+				"share": 0.6
+			},
+			"description": "Sulfur",
+			"groups": {
+				"cracky": 3,
+				"ore": 1
+			},
+			"tiles": [
+				"tf_goodvibes_sulfur_ore.png"
+			]
+		},
+		"core:ore_ilmenite": {
+			"_matter": {
+				"matter": "ilmenite",
+				"share": 0.6
+			},
+			"description": "Ilmenite (iron and titanium)",
+			"groups": {
+				"cracky": 2,
+				"ore": 1
+			},
+			"tiles": [
+				"tf_goodvibes_ilmenite_ore.png"
+			]
+		},
+		"core:ore_kreep": {
+			"_matter": {
+				"matter": "apatite",
+				"share": 0.6
+			},
+			"description": "KREEP (thorium and rare earths)",
+			"groups": {
+				"cracky": 2,
+				"ore": 1
+			},
+			"tiles": [
+				"tf_goodvibes_kreep_ore.png"
+			]
+		},
+		"core:ore_flint": {
+			"_matter": {
+				"matter": "silica",
+				"share": 0.6
+			},
+			"description": "Flint nodules in chalk",
+			"groups": {
+				"cracky": 3,
+				"ore": 1
+			},
+			"tiles": [
+				"tf_goodvibes_coal_ore.png^[colorize:#e4e0d4:110"
+			]
+		},
+		"core:placer_gravel": {
+			"_matter": {
+				"matter": "gravel",
+				"share": 0.6
+			},
+			"description": "Gold-bearing gravel",
+			"groups": {
+				"crumbly": 2,
+				"falling_node": 1,
+				"loose": 1,
+				"pile_bearing": 80,
+				"pile_give": 2,
+				"pile_repose": 1,
+				"pile_yield": 0
+			},
+			"tiles": [
+				"tf_goodvibes_placer_gravel.png"
+			]
+		},
+		"core:clay": {
+			"_matter": {
+				"form": true,
+				"matter": "kaolinite",
+				"share": 0.6
+			},
+			"description": "Clay",
+			"groups": {
+				"crumbly": 3,
+				"loose": 1,
+				"pile_bearing": 50,
+				"pile_give": 4,
+				"pile_repose": 1,
+				"pile_yield": 24
+			},
+			"tiles": [
+				"tf_goodvibes_clay.png"
+			]
+		},
+		"core:lava_source": {
+			"_matter": {
+				"form": true,
+				"matter": "basalt",
+				"share": 1,
+				"state": "liquid"
+			},
+			"buildable_to": true,
+			"damage_per_second": 8,
+			"description": "Lava",
+			"diggable": false,
+			"drawtype": "liquid",
+			"drowning": 1,
+			"groups": {
+				"igniter": 1,
+				"lava": 3,
+				"liquid": 2
+			},
+			"light_source": 13,
+			"liquid_alternative_flowing": "core:lava_flowing",
+			"liquid_alternative_source": "core:lava_source",
+			"liquid_range": 3,
+			"liquid_renewable": false,
+			"liquid_viscosity": 7,
+			"liquidtype": "source",
+			"paramtype": "light",
+			"pointable": false,
+			"post_effect_color": {
+				"a": 200,
+				"b": 0,
+				"g": 90,
+				"r": 255
+			},
+			"special_tiles": [
+				{
+					"animation": {
+						"aspect_h": 64,
+						"aspect_w": 64,
+						"length": 3,
+						"type": "vertical_frames"
+					},
+					"backface_culling": false,
+					"name": "tf_goodvibes_lava_still.png"
+				}
+			],
+			"tiles": [
+				{
+					"animation": {
+						"aspect_h": 64,
+						"aspect_w": 64,
+						"length": 3,
+						"type": "vertical_frames"
+					},
+					"name": "tf_goodvibes_lava_still.png"
+				}
+			],
+			"walkable": false
+		},
+		"core:lava_flowing": {
+			"_matter": {
+				"matter": "basalt",
+				"share": 0.5,
+				"state": "liquid"
+			},
+			"buildable_to": true,
+			"damage_per_second": 8,
+			"description": "Lava",
+			"diggable": false,
+			"drawtype": "flowingliquid",
+			"drowning": 1,
+			"groups": {
+				"igniter": 1,
+				"lava": 3,
+				"liquid": 2
+			},
+			"light_source": 13,
+			"liquid_alternative_flowing": "core:lava_flowing",
+			"liquid_alternative_source": "core:lava_source",
+			"liquid_range": 3,
+			"liquid_renewable": false,
+			"liquid_viscosity": 7,
+			"liquidtype": "flowing",
+			"paramtype": "light",
+			"paramtype2": "flowingliquid",
+			"pointable": false,
+			"post_effect_color": {
+				"a": 200,
+				"b": 0,
+				"g": 90,
+				"r": 255
+			},
+			"special_tiles": [
+				{
+					"animation": {
+						"aspect_h": 128,
+						"aspect_w": 128,
+						"length": 2,
+						"type": "vertical_frames"
+					},
+					"backface_culling": false,
+					"name": "tf_goodvibes_lava_flow.png"
+				},
+				{
+					"animation": {
+						"aspect_h": 128,
+						"aspect_w": 128,
+						"length": 2,
+						"type": "vertical_frames"
+					},
+					"backface_culling": true,
+					"name": "tf_goodvibes_lava_flow.png"
+				}
+			],
+			"tiles": [
+				"tf_goodvibes_lava_flow.png"
+			],
+			"walkable": false
+		},
+		"core:snow": {
+			"_matter": {
+				"matter": "water",
+				"share": 0.15
+			},
+			"description": "Snow",
+			"groups": {
+				"crumbly": 3,
+				"loose": 1,
+				"pile_bearing": 4,
+				"pile_give": 8,
+				"pile_repose": 1,
+				"pile_yield": 1
+			},
+			"tiles": [
+				"tf_goodvibes_snow.png"
+			]
+		},
+		"core:ice": {
+			"_matter": {
+				"matter": "water",
+				"share": 1
+			},
+			"description": "Ice",
+			"groups": {
+				"cracky": 3,
+				"slippery": 3
+			},
+			"tiles": [
+				"tf_goodvibes_packed_ice.png"
+			]
+		},
+		"core:gravel": {
+			"_matter": {
+				"matter": "gravel",
+				"share": 0.6
+			},
+			"description": "Gravel",
+			"groups": {
+				"crumbly": 3,
+				"falling_node": 1,
+				"loose": 1,
+				"pile_bearing": 80,
+				"pile_give": 2,
+				"pile_repose": 1,
+				"pile_yield": 0
+			},
+			"tiles": [
+				"tf_goodvibes_gravel.png"
+			]
+		},
+		"core:dry_grass": {
+			"_matter": {
+				"matter": "silica",
+				"share": 0.55
+			},
+			"description": "Dry Grass",
+			"drop": "core:dirt",
+			"groups": {
+				"crumbly": 3,
+				"loose": 1,
+				"pile_bearing": 60,
+				"pile_give": 3,
+				"pile_repose": 1,
+				"pile_yield": 16
+			},
+			"tiles": [
+				"tf_goodvibes_grass_block_top.png^[colorize:#b49b5a:140",
+				"tf_goodvibes_dirt.png",
+				"tf_goodvibes_grass_block_side.png^[colorize:#b49b5a:100"
+			]
+		},
+		"core:tundra": {
+			"_matter": {
+				"matter": "silica",
+				"share": 0.55
+			},
+			"description": "Tundra Moss",
+			"drop": "core:dirt",
+			"groups": {
+				"crumbly": 3,
+				"loose": 1,
+				"pile_bearing": 60,
+				"pile_give": 3,
+				"pile_repose": 1,
+				"pile_yield": 16
+			},
+			"tiles": [
+				"tf_goodvibes_grass_block_top.png^[colorize:#879a83:140",
+				"tf_goodvibes_dirt.png",
+				"tf_goodvibes_grass_block_side.png^[colorize:#879a83:100"
+			]
+		},
+		"core:regolith": {
+			"_matter": {
+				"form": true,
+				"matter": "regolith",
+				"share": 0.55
+			},
+			"description": "Regolith",
+			"groups": {
+				"crumbly": 3,
+				"loose": 1,
+				"pile_bearing": 20,
+				"pile_give": 4,
+				"pile_repose": 1,
+				"pile_yield": 8
+			},
+			"tiles": [
+				"tf_goodvibes_regolith.png"
+			]
+		},
+		"core:mare_regolith": {
+			"_matter": {
+				"form": true,
+				"matter": "mare_regolith",
+				"share": 0.55
+			},
+			"description": "Mare regolith",
+			"groups": {
+				"crumbly": 3,
+				"loose": 1,
+				"pile_bearing": 20,
+				"pile_give": 4,
+				"pile_repose": 1,
+				"pile_yield": 8
+			},
+			"tiles": [
+				"tf_goodvibes_mare_regolith.png"
+			]
+		},
+		"core:rust_dust": {
+			"_matter": {
+				"matter": "hematite",
+				"share": 0.55
+			},
+			"description": "Rust dust",
+			"groups": {
+				"crumbly": 3,
+				"loose": 1,
+				"pile_bearing": 20,
+				"pile_give": 4,
+				"pile_repose": 1,
+				"pile_yield": 8
+			},
+			"tiles": [
+				"tf_goodvibes_sand.png^[colorize:#a4532c:170"
+			]
+		},
+		"core:sulfur_crust": {
+			"_matter": {
+				"matter": "sulfur",
+				"share": 0.55
+			},
+			"description": "Sulfur crust",
+			"groups": {
+				"crumbly": 3,
+				"loose": 1,
+				"pile_bearing": 20,
+				"pile_give": 4,
+				"pile_repose": 1,
+				"pile_yield": 8
+			},
+			"tiles": [
+				"tf_goodvibes_sand.png^[colorize:#d8c23c:170"
+			]
+		},
+		"core:salt_crust": {
+			"_matter": {
+				"matter": "salt",
+				"share": 0.6
+			},
+			"description": "Salt Crust",
+			"groups": {
+				"crumbly": 3,
+				"loose": 1,
+				"pile_bearing": 40,
+				"pile_give": 3,
+				"pile_repose": 1,
+				"pile_yield": 8
+			},
+			"tiles": [
+				"tf_goodvibes_sand.png^[colorize:#f2ede2:200"
+			]
+		},
+		"core:mud": {
+			"_matter": {
+				"matter": "silica",
+				"share": 0.5
+			},
+			"description": "Mud",
+			"groups": {
+				"crumbly": 3,
+				"loose": 1,
+				"pile_bearing": 10,
+				"pile_give": 6,
+				"pile_repose": 1,
+				"pile_yield": 16
+			},
+			"tiles": [
+				"tf_goodvibes_dirt.png^[colorize:#3b3326:120"
+			]
+		},
+		"core:log": {
+			"_matter": {
+				"form": true,
+				"matter": "wood",
+				"share": 0.4
+			},
+			"description": "Oak log",
+			"groups": {
+				"choppy": 2,
+				"tree": 1
+			},
+			"paramtype2": "facedir",
+			"tiles": [
+				"tf_goodvibes_oak_log_top.png",
+				"tf_goodvibes_oak_log_top.png",
+				"tf_goodvibes_oak_log.png"
+			],
+			"_rotates": true
+		},
+		"core:leaves": {
+			"_matter": {
+				"matter": "wood",
+				"share": 0.05
+			},
+			"description": "Oak leaves",
+			"drawtype": "allfaces_optional",
+			"groups": {
+				"leaves": 1,
+				"snappy": 3
+			},
+			"paramtype": "light",
+			"tiles": [
+				"tf_goodvibes_oak_leaves.png^[multiply:#6aa84f"
+			],
+			"use_texture_alpha": "clip",
+			"waving": 2
+		},
+		"core:birch_log": {
+			"_matter": {
+				"form": false,
+				"matter": "wood",
+				"share": 0.4
+			},
+			"description": "Birch log",
+			"groups": {
+				"choppy": 2,
+				"tree": 1
+			},
+			"paramtype2": "facedir",
+			"tiles": [
+				"tf_goodvibes_birch_log_top.png",
+				"tf_goodvibes_birch_log_top.png",
+				"tf_goodvibes_birch_log.png"
+			],
+			"_rotates": true
+		},
+		"core:birch_leaves": {
+			"_matter": {
+				"matter": "wood",
+				"share": 0.05
+			},
+			"description": "Birch leaves",
+			"drawtype": "allfaces_optional",
+			"groups": {
+				"leaves": 1,
+				"snappy": 3
+			},
+			"paramtype": "light",
+			"tiles": [
+				"tf_goodvibes_birch_leaves.png"
+			],
+			"use_texture_alpha": "clip",
+			"waving": 2
+		},
+		"core:spruce_log": {
+			"_matter": {
+				"form": false,
+				"matter": "wood",
+				"share": 0.4
+			},
+			"description": "Spruce log",
+			"groups": {
+				"choppy": 2,
+				"tree": 1
+			},
+			"paramtype2": "facedir",
+			"tiles": [
+				"tf_goodvibes_spruce_log_top.png",
+				"tf_goodvibes_spruce_log_top.png",
+				"tf_goodvibes_spruce_log.png"
+			],
+			"_rotates": true
+		},
+		"core:needles": {
+			"_matter": {
+				"matter": "wood",
+				"share": 0.05
+			},
+			"description": "Spruce needles",
+			"drawtype": "allfaces_optional",
+			"groups": {
+				"leaves": 1,
+				"snappy": 3
+			},
+			"paramtype": "light",
+			"tiles": [
+				"tf_goodvibes_spruce_leaves.png"
+			],
+			"use_texture_alpha": "clip",
+			"waving": 2
+		},
+		"core:jungle_log": {
+			"_matter": {
+				"form": false,
+				"matter": "wood",
+				"share": 0.4
+			},
+			"description": "Jungle log",
+			"groups": {
+				"choppy": 2,
+				"tree": 1
+			},
+			"paramtype2": "facedir",
+			"tiles": [
+				"tf_goodvibes_jungle_log_top.png",
+				"tf_goodvibes_jungle_log_top.png",
+				"tf_goodvibes_jungle_log.png"
+			],
+			"_rotates": true
+		},
+		"core:jungle_leaves": {
+			"_matter": {
+				"matter": "wood",
+				"share": 0.05
+			},
+			"description": "Jungle leaves",
+			"drawtype": "allfaces_optional",
+			"groups": {
+				"leaves": 1,
+				"snappy": 3
+			},
+			"paramtype": "light",
+			"tiles": [
+				"tf_goodvibes_jungle_leaves.png^[multiply:#3f9a2e"
+			],
+			"use_texture_alpha": "clip",
+			"waving": 2
+		},
+		"core:acacia_log": {
+			"_matter": {
+				"form": false,
+				"matter": "wood",
+				"share": 0.4
+			},
+			"description": "Acacia log",
+			"groups": {
+				"choppy": 2,
+				"tree": 1
+			},
+			"paramtype2": "facedir",
+			"tiles": [
+				"tf_goodvibes_acacia_log_top.png",
+				"tf_goodvibes_acacia_log_top.png",
+				"tf_goodvibes_acacia_log.png"
+			],
+			"_rotates": true
+		},
+		"core:acacia_leaves": {
+			"_matter": {
+				"matter": "wood",
+				"share": 0.05
+			},
+			"description": "Acacia leaves",
+			"drawtype": "allfaces_optional",
+			"groups": {
+				"leaves": 1,
+				"snappy": 3
+			},
+			"paramtype": "light",
+			"tiles": [
+				"tf_goodvibes_acacia_leaves.png^[multiply:#a2ab4a"
+			],
+			"use_texture_alpha": "clip",
+			"waving": 2
+		},
+		"core:palm_log": {
+			"_matter": {
+				"form": false,
+				"matter": "wood",
+				"share": 0.4
+			},
+			"description": "Palm log",
+			"groups": {
+				"choppy": 2,
+				"tree": 1
+			},
+			"paramtype2": "facedir",
+			"tiles": [
+				"tf_goodvibes_palm_log_top.png",
+				"tf_goodvibes_palm_log_top.png",
+				"tf_goodvibes_palm_log.png"
+			],
+			"_rotates": true
+		},
+		"core:palm_leaves": {
+			"_matter": {
+				"matter": "wood",
+				"share": 0.05
+			},
+			"description": "Palm fronds",
+			"drawtype": "allfaces_optional",
+			"groups": {
+				"leaves": 1,
+				"snappy": 3
+			},
+			"paramtype": "light",
+			"tiles": [
+				"tf_goodvibes_palm_leaves.png^[multiply:#7fae4a"
+			],
+			"use_texture_alpha": "clip",
+			"waving": 2
+		},
+		"core:willow_log": {
+			"_matter": {
+				"form": false,
+				"matter": "wood",
+				"share": 0.4
+			},
+			"description": "Willow log",
+			"groups": {
+				"choppy": 2,
+				"tree": 1
+			},
+			"paramtype2": "facedir",
+			"tiles": [
+				"tf_goodvibes_willow_log_top.png",
+				"tf_goodvibes_willow_log_top.png",
+				"tf_goodvibes_willow_log.png"
+			],
+			"_rotates": true
+		},
+		"core:willow_leaves": {
+			"_matter": {
+				"matter": "wood",
+				"share": 0.05
+			},
+			"description": "Willow leaves",
+			"drawtype": "allfaces_optional",
+			"groups": {
+				"leaves": 1,
+				"snappy": 3
+			},
+			"paramtype": "light",
+			"tiles": [
+				"tf_goodvibes_willow_leaves.png^[multiply:#6a9a4a"
+			],
+			"use_texture_alpha": "clip",
+			"waving": 2
+		},
+		"core:teak_leaves": {
+			"_matter": {
+				"matter": "wood",
+				"share": 0.05
+			},
+			"description": "Teak leaves",
+			"drawtype": "allfaces_optional",
+			"groups": {
+				"leaves": 1,
+				"snappy": 3
+			},
+			"paramtype": "light",
+			"tiles": [
+				"tf_goodvibes_oak_leaves.png^[multiply:#86a03c"
+			],
+			"use_texture_alpha": "clip",
+			"waving": 2
+		},
+		"core:olive_leaves": {
+			"_matter": {
+				"matter": "wood",
+				"share": 0.05
+			},
+			"description": "Olive leaves",
+			"drawtype": "allfaces_optional",
+			"groups": {
+				"leaves": 1,
+				"snappy": 3
+			},
+			"paramtype": "light",
+			"tiles": [
+				"tf_goodvibes_acacia_leaves.png^[multiply:#9aa888"
+			],
+			"use_texture_alpha": "clip",
+			"waving": 2
+		},
+		"core:cypress_leaves": {
+			"_matter": {
+				"matter": "wood",
+				"share": 0.05
+			},
+			"description": "Cypress leaves",
+			"drawtype": "allfaces_optional",
+			"groups": {
+				"leaves": 1,
+				"snappy": 3
+			},
+			"paramtype": "light",
+			"tiles": [
+				"tf_goodvibes_spruce_leaves.png^[multiply:#6f8f62"
+			],
+			"use_texture_alpha": "clip",
+			"waving": 2
+		},
+		"core:cactus": {
+			"damage_per_second": 1,
+			"description": "Cactus",
+			"drawtype": "nodebox",
+			"groups": {
+				"choppy": 3
+			},
+			"node_box": {
+				"fixed": [
+					-0.4375,
+					-0.5,
+					-0.4375,
+					0.4375,
+					0.5,
+					0.4375
+				],
+				"type": "fixed"
+			},
+			"paramtype": "light",
+			"tiles": [
+				"tf_goodvibes_cactus_top.png",
+				"tf_goodvibes_cactus_top.png",
+				"tf_goodvibes_cactus_side.png"
+			]
+		},
+		"core:grass_tuft": {
+			"buildable_to": true,
+			"description": "Grass",
+			"drawtype": "plantlike",
+			"groups": {
+				"attached_node": 1,
+				"plant": 1,
+				"snappy": 3
+			},
+			"inventory_image": "tf_goodvibes_grass.png^[multiply:#7ab84f",
+			"paramtype": "light",
+			"selection_box": {
+				"fixed": [
+					-0.3,
+					-0.5,
+					-0.3,
+					0.3,
+					0.3,
+					0.3
+				],
+				"type": "fixed"
+			},
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_goodvibes_grass.png^[multiply:#7ab84f"
+			],
+			"walkable": false,
+			"waving": 1,
+			"wield_image": "tf_goodvibes_grass.png^[multiply:#7ab84f"
+		},
+		"core:fern": {
+			"buildable_to": true,
+			"description": "Fern",
+			"drawtype": "plantlike",
+			"groups": {
+				"attached_node": 1,
+				"plant": 1,
+				"snappy": 3
+			},
+			"inventory_image": "tf_goodvibes_fern.png^[multiply:#6a9a50",
+			"paramtype": "light",
+			"selection_box": {
+				"fixed": [
+					-0.3,
+					-0.5,
+					-0.3,
+					0.3,
+					0.3,
+					0.3
+				],
+				"type": "fixed"
+			},
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_goodvibes_fern.png^[multiply:#6a9a50"
+			],
+			"walkable": false,
+			"waving": 1,
+			"wield_image": "tf_goodvibes_fern.png^[multiply:#6a9a50"
+		},
+		"core:dead_bush": {
+			"buildable_to": true,
+			"description": "Dead bush",
+			"drawtype": "plantlike",
+			"groups": {
+				"attached_node": 1,
+				"plant": 1,
+				"snappy": 3
+			},
+			"inventory_image": "tf_goodvibes_dead_bush.png",
+			"paramtype": "light",
+			"selection_box": {
+				"fixed": [
+					-0.3,
+					-0.5,
+					-0.3,
+					0.3,
+					0.3,
+					0.3
+				],
+				"type": "fixed"
+			},
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_goodvibes_dead_bush.png"
+			],
+			"walkable": false,
+			"waving": 1,
+			"wield_image": "tf_goodvibes_dead_bush.png"
+		},
+		"core:dandelion": {
+			"buildable_to": true,
+			"description": "Dandelion",
+			"drawtype": "plantlike",
+			"groups": {
+				"attached_node": 1,
+				"plant": 1,
+				"snappy": 3
+			},
+			"inventory_image": "tf_goodvibes_dandelion.png",
+			"paramtype": "light",
+			"selection_box": {
+				"fixed": [
+					-0.3,
+					-0.5,
+					-0.3,
+					0.3,
+					0.3,
+					0.3
+				],
+				"type": "fixed"
+			},
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_goodvibes_dandelion.png"
+			],
+			"walkable": false,
+			"waving": 1,
+			"wield_image": "tf_goodvibes_dandelion.png"
+		},
+		"core:poppy": {
+			"buildable_to": true,
+			"description": "Poppy",
+			"drawtype": "plantlike",
+			"groups": {
+				"attached_node": 1,
+				"plant": 1,
+				"snappy": 3
+			},
+			"inventory_image": "tf_goodvibes_poppy.png",
+			"paramtype": "light",
+			"selection_box": {
+				"fixed": [
+					-0.3,
+					-0.5,
+					-0.3,
+					0.3,
+					0.3,
+					0.3
+				],
+				"type": "fixed"
+			},
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_goodvibes_poppy.png"
+			],
+			"walkable": false,
+			"waving": 1,
+			"wield_image": "tf_goodvibes_poppy.png"
+		},
+		"core:orange_tulip": {
+			"buildable_to": true,
+			"description": "Orange tulip",
+			"drawtype": "plantlike",
+			"groups": {
+				"attached_node": 1,
+				"plant": 1,
+				"snappy": 3
+			},
+			"inventory_image": "tf_goodvibes_orange_tulip.png",
+			"paramtype": "light",
+			"selection_box": {
+				"fixed": [
+					-0.3,
+					-0.5,
+					-0.3,
+					0.3,
+					0.3,
+					0.3
+				],
+				"type": "fixed"
+			},
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_goodvibes_orange_tulip.png"
+			],
+			"walkable": false,
+			"waving": 1,
+			"wield_image": "tf_goodvibes_orange_tulip.png"
+		},
+		"core:white_tulip": {
+			"buildable_to": true,
+			"description": "White tulip",
+			"drawtype": "plantlike",
+			"groups": {
+				"attached_node": 1,
+				"plant": 1,
+				"snappy": 3
+			},
+			"inventory_image": "tf_goodvibes_white_tulip.png",
+			"paramtype": "light",
+			"selection_box": {
+				"fixed": [
+					-0.3,
+					-0.5,
+					-0.3,
+					0.3,
+					0.3,
+					0.3
+				],
+				"type": "fixed"
+			},
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_goodvibes_white_tulip.png"
+			],
+			"walkable": false,
+			"waving": 1,
+			"wield_image": "tf_goodvibes_white_tulip.png"
+		},
+		"core:lavender": {
+			"buildable_to": true,
+			"description": "Lavender",
+			"drawtype": "plantlike",
+			"groups": {
+				"attached_node": 1,
+				"plant": 1,
+				"snappy": 3
+			},
+			"inventory_image": "tf_goodvibes_lavender.png",
+			"paramtype": "light",
+			"selection_box": {
+				"fixed": [
+					-0.3,
+					-0.5,
+					-0.3,
+					0.3,
+					0.3,
+					0.3
+				],
+				"type": "fixed"
+			},
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_goodvibes_lavender.png"
+			],
+			"walkable": false,
+			"waving": 1,
+			"wield_image": "tf_goodvibes_lavender.png"
+		},
+		"core:brown_mushroom": {
+			"buildable_to": true,
+			"description": "Brown mushroom",
+			"drawtype": "plantlike",
+			"groups": {
+				"attached_node": 1,
+				"plant": 1,
+				"snappy": 3
+			},
+			"inventory_image": "tf_goodvibes_brown_mushroom.png",
+			"light_source": 1,
+			"paramtype": "light",
+			"selection_box": {
+				"fixed": [
+					-0.3,
+					-0.5,
+					-0.3,
+					0.3,
+					0.3,
+					0.3
+				],
+				"type": "fixed"
+			},
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_goodvibes_brown_mushroom.png"
+			],
+			"walkable": false,
+			"waving": 1,
+			"wield_image": "tf_goodvibes_brown_mushroom.png"
+		},
+		"core:red_mushroom": {
+			"buildable_to": true,
+			"description": "Red mushroom",
+			"drawtype": "plantlike",
+			"groups": {
+				"attached_node": 1,
+				"plant": 1,
+				"snappy": 3
+			},
+			"inventory_image": "tf_goodvibes_red_mushroom.png",
+			"paramtype": "light",
+			"selection_box": {
+				"fixed": [
+					-0.3,
+					-0.5,
+					-0.3,
+					0.3,
+					0.3,
+					0.3
+				],
+				"type": "fixed"
+			},
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_goodvibes_red_mushroom.png"
+			],
+			"walkable": false,
+			"waving": 1,
+			"wield_image": "tf_goodvibes_red_mushroom.png"
+		},
+		"core:reed": {
+			"buildable_to": true,
+			"description": "Reeds",
+			"drawtype": "plantlike",
+			"groups": {
+				"attached_node": 1,
+				"plant": 1,
+				"snappy": 3
+			},
+			"inventory_image": "tf_goodvibes_reed.png",
+			"paramtype": "light",
+			"selection_box": {
+				"fixed": [
+					-0.3,
+					-0.5,
+					-0.3,
+					0.3,
+					0.3,
+					0.3
+				],
+				"type": "fixed"
+			},
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_goodvibes_reed.png"
+			],
+			"walkable": false,
+			"waving": 1,
+			"wield_image": "tf_goodvibes_reed.png"
+		},
+		"core:cattail": {
+			"buildable_to": true,
+			"description": "Cattail",
+			"drawtype": "plantlike",
+			"groups": {
+				"attached_node": 1,
+				"plant": 1,
+				"snappy": 3
+			},
+			"inventory_image": "tf_goodvibes_cattail.png",
+			"paramtype": "light",
+			"selection_box": {
+				"fixed": [
+					-0.3,
+					-0.5,
+					-0.3,
+					0.3,
+					0.3,
+					0.3
+				],
+				"type": "fixed"
+			},
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_goodvibes_cattail.png"
+			],
+			"walkable": false,
+			"waving": 1,
+			"wield_image": "tf_goodvibes_cattail.png"
+		},
+		"core:desert_grass": {
+			"buildable_to": true,
+			"description": "Desert grass",
+			"drawtype": "plantlike",
+			"groups": {
+				"attached_node": 1,
+				"plant": 1,
+				"snappy": 3
+			},
+			"inventory_image": "tf_goodvibes_desert_grass.png",
+			"paramtype": "light",
+			"selection_box": {
+				"fixed": [
+					-0.3,
+					-0.5,
+					-0.3,
+					0.3,
+					0.3,
+					0.3
+				],
+				"type": "fixed"
+			},
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_goodvibes_desert_grass.png"
+			],
+			"walkable": false,
+			"waving": 1,
+			"wield_image": "tf_goodvibes_desert_grass.png"
+		},
+		"core:dune_grass": {
+			"buildable_to": true,
+			"description": "Dune grass",
+			"drawtype": "plantlike",
+			"groups": {
+				"attached_node": 1,
+				"plant": 1,
+				"snappy": 3
+			},
+			"inventory_image": "tf_goodvibes_dune_grass.png",
+			"paramtype": "light",
+			"selection_box": {
+				"fixed": [
+					-0.3,
+					-0.5,
+					-0.3,
+					0.3,
+					0.3,
+					0.3
+				],
+				"type": "fixed"
+			},
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_goodvibes_dune_grass.png"
+			],
+			"walkable": false,
+			"waving": 1,
+			"wield_image": "tf_goodvibes_dune_grass.png"
+		},
+		"core:berry_bush": {
+			"buildable_to": true,
+			"description": "Berry bush",
+			"drawtype": "plantlike",
+			"groups": {
+				"attached_node": 1,
+				"plant": 1,
+				"snappy": 3
+			},
+			"inventory_image": "tf_goodvibes_berry_bush.png",
+			"paramtype": "light",
+			"selection_box": {
+				"fixed": [
+					-0.3,
+					-0.5,
+					-0.3,
+					0.3,
+					0.3,
+					0.3
+				],
+				"type": "fixed"
+			},
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_goodvibes_berry_bush.png"
+			],
+			"walkable": false,
+			"waving": 1,
+			"wield_image": "tf_goodvibes_berry_bush.png"
+		},
+		"core:sandstone": {
+			"_matter": {
+				"matter": "sandstone",
+				"share": 0.85
+			},
+			"description": "Sandstone",
+			"groups": {
+				"cracky": 3
+			},
+			"tiles": [
+				"tf_goodvibes_limestone.png^[multiply:#f4d6a4"
+			]
+		},
+		"core:stone_bricks": {
+			"_matter": {
+				"matter": "granite",
+				"share": 0.95
+			},
+			"description": "Stone Bricks",
+			"groups": {
+				"cracky": 3
+			},
+			"tiles": [
+				"tf_goodvibes_stone_bricks.png"
+			]
+		},
+		"core:snow_cover": {
+			"_matter": {
+				"matter": "water",
+				"share": 0.1
+			},
+			"buildable_to": true,
+			"description": "Snow cover",
+			"drawtype": "nodebox",
+			"drop": "",
+			"floodable": true,
+			"groups": {
+				"crumbly": 3,
+				"falling_node": 1
+			},
+			"node_box": {
+				"fixed": [
+					-0.5,
+					-0.5,
+					-0.5,
+					0.5,
+					-0.375,
+					0.5
+				],
+				"type": "fixed"
+			},
+			"paramtype": "light",
+			"tiles": [
+				"tf_goodvibes_snow.png"
+			]
+		},
+		"core:lake_ice": {
+			"_matter": {
+				"form": true,
+				"matter": "water",
+				"share": 1
+			},
+			"description": "Lake ice",
+			"drop": "",
+			"groups": {
+				"cracky": 3,
+				"slippery": 3
+			},
+			"tiles": [
+				"tf_goodvibes_packed_ice.png^[opacity:220"
+			],
+			"use_texture_alpha": "blend"
+		},
+		"core:seat": {
+			"_machine": {
+				"mass": 25,
+				"role": "seat"
+			},
+			"_matter": {
+				"matter": "wood",
+				"share": 0.5
+			},
+			"description": "Seat (fitted to a machine: its driver sits here, facing its front)",
+			"groups": {
+				"choppy": 2
+			},
+			"paramtype2": "facedir",
+			"tiles": [
+				"tf_goodvibes_oak_log_top.png^[colorize:#6b3a1f:110",
+				"tf_goodvibes_oak_log.png^[colorize:#6b3a1f:110",
+				"tf_goodvibes_oak_log.png^[colorize:#6b3a1f:110",
+				"tf_goodvibes_oak_log.png^[colorize:#6b3a1f:110",
+				"tf_goodvibes_oak_log.png^[colorize:#6b3a1f:110",
+				"tf_goodvibes_oak_log.png^[colorize:#3a1f10:170"
+			]
+		},
+		"core:motor": {
+			"_machine": {
+				"mass": 220,
+				"power": 370,
+				"role": "motor",
+				"rpm": 7000
+			},
+			"_matter": {
+				"matter": "iron",
+				"share": 0.4
+			},
+			"description": "Engine (fitted to a machine: turns its driven wheels)",
+			"groups": {
+				"cracky": 2
+			},
+			"paramtype2": "facedir",
+			"tiles": [
+				"tf_goodvibes_stone_bricks.png^[colorize:#3c4048:170"
+			]
+		},
+		"core:plant_wood": {
+			"_matter": {
+				"matter": "wood",
+				"share": 0.4
+			},
+			"description": "Wood",
+			"groups": {
+				"choppy": 2,
+				"tree": 1
+			},
+			"palette": "tf_flora_palette.png",
+			"paramtype": "light",
+			"paramtype2": "color",
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_flora_wood.png",
+				"tf_flora_wood.png",
+				"tf_flora_bark.png"
+			]
+		},
+		"core:plant_leaf": {
+			"_matter": {
+				"matter": "wood",
+				"share": 0.05
+			},
+			"description": "Leaves",
+			"groups": {
+				"leaves": 1,
+				"snappy": 3
+			},
+			"palette": "tf_flora_palette.png",
+			"paramtype": "light",
+			"paramtype2": "color",
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_flora_leaf.png"
+			]
+		},
+		"core:plant_flesh": {
+			"_matter": {
+				"matter": "wood",
+				"share": 0.1
+			},
+			"description": "Stem",
+			"groups": {
+				"choppy": 3,
+				"plant": 1,
+				"snappy": 3
+			},
+			"palette": "tf_flora_palette.png",
+			"paramtype": "light",
+			"paramtype2": "color",
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_flora_flesh.png"
+			]
+		},
+		"core:plant_flower": {
+			"_matter": {
+				"matter": "wood",
+				"share": 0.05
+			},
+			"description": "Flower",
+			"groups": {
+				"plant": 1,
+				"snappy": 3
+			},
+			"palette": "tf_flora_palette.png",
+			"paramtype": "light",
+			"paramtype2": "color",
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_flora_leaf.png"
+			]
+		},
+		"core:growth": {
+			"buildable_to": true,
+			"description": "Small plant",
+			"diggable": false,
+			"drawtype": "airlike",
+			"drop": "",
+			"floodable": true,
+			"groups": {
+				"not_in_creative_inventory": 1,
+				"plant": 1
+			},
+			"paramtype": "light",
+			"pointable": false,
+			"sunlight_propagates": true,
+			"walkable": false
+		},
+		"core:sprig": {
+			"description": "Small plant (look)",
+			"diggable": false,
+			"drawtype": "nodebox",
+			"drop": "",
+			"groups": {
+				"not_in_creative_inventory": 1
+			},
+			"node_box": {
+				"type": "regular"
+			},
+			"paramtype": "light",
+			"pointable": false,
+			"sunlight_propagates": true,
+			"tiles": [
+				"tf_flora_bark.png",
+				"tf_flora_bark.png",
+				"tf_flora_leaf.png",
+				"tf_flora_flesh.png",
+				"tf_flora_leaf.png",
+				"tf_flora_leaf.png"
+			],
+			"use_texture_alpha": "clip",
+			"walkable": false,
+			"waving": 1
+		}
+	}
+}

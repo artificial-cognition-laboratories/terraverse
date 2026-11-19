@@ -7,7 +7,7 @@
 -- Prints ATLAS lines; the script reads them.
 
 local atlas = assert(core.planet.atlas(), "atlas_probe: not an atlas world")
-local SEAM = "tf_planet:seam"
+local SEAM = "core:seam"
 local R = atlas.radius
 local function at(latDeg, lonDeg, layer)
 	return assert(core.planet.atlas_node(math.rad(latDeg), math.rad(lonDeg), layer), "atlas_probe: no node there")
@@ -107,12 +107,12 @@ local function finish()
 	spawn(finish2)
 end
 
--- A new player's spawn (tf_planet.spawn_position): a cell, open, over
+-- A new player's spawn (core.planet.spawn_position): a cell, open, over
 -- ground: within three layers below it on the planet (terragen's spawn level
 -- is a few above the top node, as on the cube; and through the atlas, as the
 -- layers below can be another grid's at a seam) there's something to stand on.
 spawn = function(done)
-	local pos = tf_planet.spawn_position()
+	local pos = core.planet.spawn_position()
 	local cell = core.planet.atlas_cell(pos)
 	check(cell ~= nil, "spawn " .. core.pos_to_string(pos) .. " is seam")
 	if not cell then return done() end

@@ -16,7 +16,7 @@ namespace workshop {
 
 namespace {
 
-const char ENTITY[] = "tf_world:piece";
+const char ENTITY[] = "core:piece";
 // How far round a player a machine they worked on is looked for, to undo
 // (it may have moved; past this it's out of their way).
 constexpr float UNDO_RADIUS = 128;

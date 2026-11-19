@@ -1,6 +1,6 @@
 -- A fire pit, built and lit on a live server, run for simulated minutes:
--- clay floor and walls, kindling under a log, the kindling lit as the fire
--- drill lights it. Logs what the world's matter does, then stops the server.
+-- clay floor and walls, leaves (tinder) under a log, the leaves lit by an
+-- ember. Logs what the world's matter does, then stops the server.
 local P = { x = 0, y = 10, z = 0 }
 local function at(dx, dy, dz) return vector.offset(P, dx, dy, dz) end
 
@@ -10,17 +10,17 @@ core.register_on_mods_loaded(function()
 			if left > 0 then return end
 			for x = -1, 1 do
 				for z = -1, 1 do
-					core.set_node(at(x, 0, z), { name = "tf_world:clay" })
+					core.set_node(at(x, 0, z), { name = "core:clay" })
 					for y = 1, 2 do
-						if x ~= 0 or z ~= 0 then core.set_node(at(x, y, z), { name = "tf_world:clay" }) end
+						if x ~= 0 or z ~= 0 then core.set_node(at(x, y, z), { name = "core:clay" }) end
 					end
 				end
 			end
-			core.set_node(at(0, 1, 0), { name = "tf_matter:kindling" })
-			core.set_node(at(0, 2, 0), { name = "tf_world:log" })
+			core.set_node(at(0, 1, 0), { name = "core:leaves" })
+			core.set_node(at(0, 2, 0), { name = "core:log" })
 			local capacity = core.matter.capacity(at(0, 1, 0))
-			core.log("action", string.format("MATTER capacity kindling %.0f log %.0f", capacity, core.matter.capacity(at(0, 2, 0))))
-			core.matter.heat(at(0, 1, 0), 750) -- the drill's ember
+			core.log("action", string.format("MATTER capacity tinder %.0f log %.0f", capacity, core.matter.capacity(at(0, 2, 0))))
+			core.matter.heat(at(0, 1, 0), 750) -- an ember
 			local hottest, seen = 0, {}
 			for second = 1, 1800 do
 				core.matter.step(1)
@@ -29,7 +29,7 @@ core.register_on_mods_loaded(function()
 				end
 				for _, h in ipairs(core.matter.happened()) do seen[h.reaction] = true end
 				if second % 300 == 0 then
-					core.log("action", string.format("MATTER t %d kindling %s log %s log_T %.0f awake %d hottest %.0f",
+					core.log("action", string.format("MATTER t %d tinder %s log %s log_T %.0f awake %d hottest %.0f",
 						second, core.get_node(at(0, 1, 0)).name, core.get_node(at(0, 2, 0)).name,
 						core.matter.temperature(at(0, 2, 0)), core.matter.count(), hottest))
 				end
@@ -38,7 +38,7 @@ core.register_on_mods_loaded(function()
 			for id in pairs(seen) do ids[#ids + 1] = id end
 			table.sort(ids)
 			core.log("action", "MATTER seen " .. table.concat(ids, ","))
-			core.log("action", string.format("MATTER end kindling %s log %s hottest %.0f awake %d",
+			core.log("action", string.format("MATTER end tinder %s log %s hottest %.0f awake %d",
 				core.get_node(at(0, 1, 0)).name, core.get_node(at(0, 2, 0)).name, hottest, core.matter.count()))
 			-- a family block: peat (soil, its most organic point), heated, burns its organic part
 			local peat = 0
@@ -46,7 +46,7 @@ core.register_on_mods_loaded(function()
 				if p.organic >= 0.3 and p.clay < 0.25 then peat = i - 1 break end
 			end
 			local Q = at(6, 0, 0)
-			core.set_node(Q, { name = "tf_world:soil", param2 = peat })
+			core.set_node(Q, { name = "core:soil", param2 = peat })
 			local before = core.matter.inspect(Q)
 			core.matter.heat(Q, 900)
 			local burned = false

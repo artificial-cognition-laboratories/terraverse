@@ -165,12 +165,10 @@ void set_default_settings()
 	settings->setDefault("keymap_inventory", "SYSTEM_SCANCODE_8|GAMEPAD_BUTTON_3"); // KEY_KEY_E|Gamepad North
 	settings->setDefault("keymap_turn_left", "SYSTEM_SCANCODE_47"); // KEY_OEM_4 [ (Terra Firma: what's carried turned, sprint 64; E is the inventory)
 	settings->setDefault("keymap_turn_right", "SYSTEM_SCANCODE_48"); // KEY_OEM_6 ]
-	settings->setDefault("keymap_lab", "SYSTEM_SCANCODE_15"); // KEY_KEY_L (Terra Firma: the Lab panel)
 	settings->setDefault("keymap_planetarium", "SYSTEM_SCANCODE_64"); // KEY_F7 (Terra Firma: the planet viewer)
 	settings->setDefault("keymap_wiki", "SYSTEM_SCANCODE_10"); // KEY_KEY_G (Terra Firma: the wiki)
 	settings->setDefault("keymap_tools", "SYSTEM_SCANCODE_43"); // KEY_TAB (Terra Firma: build mode, sprint 70)
 	settings->setDefault("keymap_brake", "SYSTEM_SCANCODE_5"); // KEY_KEY_B (Terra Firma: flight's brake)
-	settings->setDefault("keymap_pour", "SYSTEM_SCANCODE_27"); // KEY_KEY_X (Terra Firma: pour what's in hand, sprint 80)
 	settings->setDefault("keymap_tool_next", "SYSTEM_SCANCODE_21"); // KEY_KEY_R (Terra Firma: the next tool)
 	settings->setDefault("keymap_focus", "SYSTEM_SCANCODE_9"); // KEY_KEY_F (Terra Firma: the focus view)
 	settings->setDefault("keymap_mirror", "SYSTEM_SCANCODE_28"); // KEY_KEY_Y (Terra Firma: mirrored strokes)
@@ -358,8 +356,6 @@ void set_default_settings()
 	settings->setDefault("view_block_bounds", "off");
 	for (const physics::TuningKnob &knob : physics::TUNING_KNOBS)
 		settings->setDefault(knob.setting, ftos(physics::Tuning{}.*knob.field));
-	settings->setDefault("widget_world_controls", "true");
-	settings->setDefault("widget_world_controls_corner", "1");
 	settings->setDefault("gui_scaling", "1.0");
 	settings->setDefault("gui_scaling_filter", "false");
 	settings->setDefault("smooth_scrolling", "true");

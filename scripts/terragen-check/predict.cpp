@@ -89,7 +89,7 @@ static int terra(const char *code, const char *probed)
 
 static const int water_level = 1; // the engine's default
 
-// soil under each biome (games/terrafirma/mods/tf_world/biomes.lua): its
+// soil under each biome (assets/world/biomes.json): its
 // top's depth (none if plain stone), its filler's (SOIL: the column's soil,
 // as deep as terragen says) and its riverbed's (SOIL: the column's soil, all
 // of it, no filler under it). Plain stone isn't laid: the bedrock shows.
@@ -128,7 +128,7 @@ static int soil(const World &w, const Place &at, const Ground &gr, bool bed, std
 		return l.bed + filler;
 	const Soil top = soilLayer(s, 0);
 	const int stony = soilStony(top.stones);
-	bed_top = std::string("tf_world:soil_") + SOIL_PARENT_NAMES[(int)soilParent(top.parent)] +
+	bed_top = std::string("core:soil_") + SOIL_PARENT_NAMES[(int)soilParent(top.parent)] +
 			(stony ? std::string("_") + SOIL_STONY_NAMES[stony] : "");
 	return deep;
 }
@@ -149,10 +149,10 @@ static void predictColumn(const World &w, int id, const Place &at)
 	Rock rock = w.rock(st, below, terrain - depth);
 	Cave cave = w.cave(st, rock, depth, terrain - depth, gr.kind != Water::None && gr.kind != Water::Lava);
 	Ore ore = w.ore(st, rock, below, terrain - depth);
-	std::string deep = cave == Cave::Air ? "air" : cave == Cave::Water ? "tf_world:water_source"
-			: cave == Cave::Lava ? "tf_world:lava_source"
-			: ore != Ore::None ? std::string("tf_world:ore_") + ORE_NAMES[(int)ore]
-			: std::string("tf_world:") + ROCK_NAMES[(int)rock];
+	std::string deep = cave == Cave::Air ? "air" : cave == Cave::Water ? "core:water_source"
+			: cave == Cave::Lava ? "core:lava_source"
+			: ore != Ore::None ? std::string("core:ore_") + ORE_NAMES[(int)ore]
+			: std::string("core:") + ROCK_NAMES[(int)rock];
 	std::printf("PREDICT %d %d %d %s %s %s %s\n", id, terrain, water, kinds[(int)gr.kind], BIOME_NAMES[(int)gr.column.biome], deep.c_str(),
 			bed_top.c_str());
 }

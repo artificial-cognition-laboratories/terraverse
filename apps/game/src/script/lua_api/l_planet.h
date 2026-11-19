@@ -23,6 +23,8 @@ private:
 	static int l_atlas_node(lua_State *L);
 	static int l_spawn_level(lua_State *L);
 	static int l_atlas_point(lua_State *L);
+	static int l_spawn_position(lua_State *L);
+	static int l_travel(lua_State *L);
 
 public:
 	static void Initialize(lua_State *L, int top);

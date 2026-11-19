@@ -14,7 +14,6 @@
     "check:land": "bash scripts/land-check.sh",
     "check:oracle": "bash scripts/oracle-check.sh",
     "pose-sheet": "bash scripts/pose-sheet.sh",
-    "check:lab": "bash scripts/lab-check.sh",
     "check:wiki": "bash scripts/wiki-check.sh",
     "check:budgets": "bash scripts/budgets-check.sh",
     "check:moves": "bun run stage && .output/bin/luanti --test-module TestMoves",

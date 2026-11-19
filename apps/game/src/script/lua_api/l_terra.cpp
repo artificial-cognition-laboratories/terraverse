@@ -227,8 +227,8 @@ static Place placeAt(Server *server, const v3f &pos)
 	throw LuaError("core.terra: the position is seam: on no column of the planet");
 }
 
-// core.terra.enabled() → whether terra generated this world (the Lab, for
-// one, isn't); every other call raises where this is false.
+// core.terra.enabled() → whether terra generated this world (a singlenode
+// one, for checks, isn't); every other call raises where this is false.
 int ModApiTerra::l_enabled(lua_State *L)
 {
 	NO_MAP_LOCK_REQUIRED;
@@ -709,30 +709,64 @@ int ModApiTerra::l_surface(lua_State *L)
 // weather now at a point. The world's atmosphere moves on its own
 // (src/fluid); this reads it. `atmosphere` false: the point is on a body
 // whose air isn't simulated (still, dry, its climate's temperature).
-int ModApiTerra::l_weather(lua_State *L)
+std::optional<TerraWeather> terraWeather(Server *server, const v3f &pos)
 {
-	NO_MAP_LOCK_REQUIRED;
-	Server *server = getServer(L);
-	const v3f pos = check_v3f(L, 1);
+	if (mapgenName(server) != "terra" || !server->atlas())
+		return std::nullopt;
+	const std::optional<Place> at = placeOf(server, pos);
+	if (!at)
+		return std::nullopt; // seam
 	const int body = bodyAt(server, pos);
 	const World &w = world(server, body);
-	const Place at = placeAt(getServer(L), pos);
 	const int32_t y = (int32_t)std::floor(pos.Y + 0.5f);
-	fluid::Sample s{};
+	TerraWeather out;
+	fluid::Sample &s = out.sample;
 	// (only a home with seas has the moving air src/fluid models: water's, Earth's)
-	const bool moving = body == planet::Atlas::HOME && w.code().processes.water && !w.code().processes.facing_star; // (src/fluid's bands are round a spin)
-	if (moving) {
+	out.moving = body == planet::Atlas::HOME && w.code().processes.water && !w.code().processes.facing_star; // (src/fluid's bands are round a spin)
+	if (out.moving) {
 		const weather::Weather *wx = weatherNow(server);
 		if (!wx)
-			return 0; // (still settling as the world opens: nil, nothing to tell yet)
-		s = wx->sample(at, y, wx->now());
+			return std::nullopt; // (still settling as the world opens: nothing to tell yet)
+		s = wx->sample(*at, y, wx->now());
 	} else {
 		// TEMP: 2026-10-29 only the home's air moves (src/fluid); another
 		// body's is still and dry at its climate's temperature until its
 		// own atmosphere (sprint 41)
-		s.temperature = toDouble(w.temperature(at, today(server, w).date, hourNow(server))) + 273.15;
+		s.temperature = toDouble(w.temperature(*at, today(server, w).date, hourNow(server))) + 273.15;
 		s.pressure = server->bodyWorlds().at(body).surroundings.pressure; // its card's (none on the Moon)
 	}
+	return out;
+}
+
+std::optional<TerraPlace> terraPlace(Server *server, const v3f &pos)
+{
+	if (mapgenName(server) != "terra" || !server->atlas())
+		return std::nullopt;
+	const std::optional<Place> d = placeOf(server, pos);
+	if (!d)
+		return std::nullopt;
+	return TerraPlace{ (double)d->x, (double)d->y, (double)d->z };
+}
+
+std::optional<TerraWorldFacts> terraWorldFacts(Server *server)
+{
+	if (mapgenName(server) != "terra" || !server->atlas())
+		return std::nullopt;
+	const World &w = world(server);
+	const WorldCode &c = w.code();
+	return TerraWorldFacts{ c.text, c.star->id, (int)c.size, toDouble(c.tilt), toDouble(today(server, w).date) };
+}
+
+int ModApiTerra::l_weather(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+	const v3f pos = check_v3f(L, 1);
+	placeAt(getServer(L), pos); // seam raises, as does a world terra didn't make
+	const std::optional<TerraWeather> w = terraWeather(getServer(L), pos);
+	if (!w)
+		return 0; // (still settling as the world opens: nil, nothing to tell yet)
+	const fluid::Sample &s = w->sample;
+	const bool moving = w->moving;
 	lua_createtable(L, 0, 10);
 	lua_pushboolean(L, moving);
 	lua_setfield(L, -2, "atmosphere");
@@ -1121,7 +1155,7 @@ int ModApiTerra::l_soil_points(lua_State *L)
 // core.terra.soil_kinds() → { parents = { "granitic", … }, stony = { { name =
 // "" | "stony" | …, stones = share }, … } } (sprint 111): the soil blocks the
 // generator places, one per parent and stony class; the game registers each
-// as "tf_world:soil_<parent>[_<stony>]" with a mapgen alias of that name.
+// as "core:soil_<parent>[_<stony>]" with a mapgen alias of that name.
 int ModApiTerra::l_soil_kinds(lua_State *L)
 {
 	NO_MAP_LOCK_REQUIRED;
@@ -1207,6 +1241,37 @@ int ModApiTerra::l_seam(lua_State *L)
 	return 1;
 }
 
+// core.terra.weather_act(pos) → "snow", "melt", "freeze", "thaw", or nil: what the
+// weather does to the node at pos (the top of the ground or water, open to the sky),
+// done now (server/weather.cpp). For checks: in play it runs on its own.
+int ModApiTerra::l_weather_act(lua_State *L)
+{
+	MAP_LOCK_REQUIRED;
+	const std::string action = terraWeatherAct(getServer(L), check_v3s16(L, 1));
+	if (action.empty())
+		lua_pushnil(L);
+	else
+		lua_pushstring(L, action.c_str());
+	return 1;
+}
+
+// core.terra.data(file) → its text: one of the engine's world data files (assets/world,
+// staged as <share>/world: blocks.json, biomes.json…), for builtin/game/world.lua, which
+// mod security keeps out of the share. A plain name; raises if there's no such file.
+int ModApiTerra::l_data(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+	const std::string file = luaL_checkstring(L, 1);
+	if (file.empty() || file.find_first_of("/\\") != std::string::npos || file.find("..") != std::string::npos)
+		throw LuaError("core.terra.data: " + file + " isn't a file's name");
+	const std::string path = porting::path_share + DIR_DELIM "world" DIR_DELIM + file;
+	std::string text;
+	if (!fs::ReadFile(path, text))
+		throw LuaError("core.terra.data: " + path + " is missing");
+	lua_pushlstring(L, text.data(), text.size());
+	return 1;
+}
+
 void ModApiTerra::Initialize(lua_State *L, int top)
 {
 	lua_newtable(L);
@@ -1233,6 +1298,8 @@ void ModApiTerra::Initialize(lua_State *L, int top)
 		{ "soil_kinds", l_soil_kinds },
 		{ "place", l_place },
 		{ "seam", l_seam },
+		{ "weather_act", l_weather_act },
+		{ "data", l_data },
 		{ "land", l_land },
 	};
 	for (const luaL_Reg &f : functions) {

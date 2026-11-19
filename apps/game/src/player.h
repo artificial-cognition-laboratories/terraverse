@@ -90,7 +90,6 @@ struct PlayerControl
 	bool zoom = false;
 	bool dig = false;
 	bool place = false;
-	bool pour = false; // Terra Firma: pouring what's in hand (sprint 80)
 	bool prone = false; // Terra Firma: lying down (sneak is crouching; sprint 116)
 	bool slide = false, roll = false; // Terra Firma: what the body's doing (sprint 117)
 	u8 climb = 0; // Terra Firma: 0 none, or what it's doing from physics::Stance::VAULT (sprint 118)

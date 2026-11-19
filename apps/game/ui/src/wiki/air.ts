@@ -20,18 +20,18 @@ const VACUUM: Air = { pressure: 0, air: {} }
 
 const floor = (n: number): SandboxBlock[] => {
     const out: SandboxBlock[] = []
-    for (let x = 0; x < n; x++) for (let z = 0; z < n; z++) out.push({ at: [x, 0, z], node: "tf_world:stone" })
+    for (let x = 0; x < n; x++) for (let z = 0; z < n; z++) out.push({ at: [x, 0, z], node: "core:stone" })
     return out
 }
 const scene = (size: [number, number, number], blocks: SandboxBlock[], air: Air, blows: SandboxSpec["blows"] = []): SandboxSpec =>
     ({ size: size, ambient: ROOM, pressure: air.pressure, air: air.air, blocks: blocks, blows: blows })
-const log = (lit: number): SandboxBlock[] => [...floor(3), { at: [1, 1, 1], node: "tf_world:log", temperature: lit }]
-const pot = (t: number): SandboxBlock[] => [{ at: [0, 0, 0], node: "tf_world:water_source", temperature: t, hold: true }]
+const log = (lit: number): SandboxBlock[] => [...floor(3), { at: [1, 1, 1], node: "core:log", temperature: lit }]
+const pot = (t: number): SandboxBlock[] => [{ at: [0, 0, 0], node: "core:water_source", temperature: t, hold: true }]
 const NOT_BUILT = "Not built yet: this needs sealed rooms, each with its own pressure and air."
 // A sealed stone gallery ten blocks long, each block air with so much methane
 // (4 moles is about as much as its oxygen burns), lit at one end.
 const gallery = (methane: number): SandboxBlock[] => [
-    ...Array.from({ length: 10 }, (_, x): SandboxBlock => ({ at: [x, 1, 0], node: "tf_world:stone" })),
+    ...Array.from({ length: 10 }, (_, x): SandboxBlock => ({ at: [x, 1, 0], node: "core:stone" })),
     ...Array.from({ length: 10 }, (_, x): SandboxBlock => ({ at: [x, 0, 0], add: { methane: methane }, ...(x === 0 ? { temperature: 1200 } : {}) })),
 ]
 
@@ -56,7 +56,7 @@ export const AIR_DEMOS: AirDemo[] = [
         spec: scene([3, 7, 3], log(900), EARTH), hottest: { min: 700 } },
     { id: "gunpowder", group: "Explosions", title: "Gunpowder in the open", speed: 1,
         note: "A fast reaction making hot gas. In the open the gas simply leaves, so all you get is the flash and the heat. Pressure and breaking walls need rooms and structure, which aren't built.",
-        spec: scene([3, 3, 3], [...floor(3), { at: [1, 1, 1], node: "tf_matter:crucible", add: { potassium_nitrate: 20, carbon: 30, sulfur: 10 }, temperature: 800 }], EARTH), left: { id: "potassium_nitrate", max: 1 } },
+        spec: scene([3, 3, 3], [...floor(3), { at: [1, 1, 1], node: "core:crucible", add: { potassium_nitrate: 20, carbon: 30, sulfur: 10 }, temperature: 800 }], EARTH), left: { id: "potassium_nitrate", max: 1 } },
     { id: "firedamp", group: "Flames in gas", title: "A gallery of firedamp", speed: 1,
         note: "A sealed gallery of methane and air, lit at one end. The flame doesn't take it all at once: it crosses the gas at its own speed, under half a metre a second in still methane, and the burnt gas swelling behind it pushes it on faster.",
         spec: scene([10, 2, 1], gallery(4), EARTH), left: { id: "methane", max: 4 } },

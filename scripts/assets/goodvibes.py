@@ -20,7 +20,7 @@ REV = "f1bb6fb20e36a47b8dacbdf23c4a10b994b6f224"
 BASE = f"https://raw.githubusercontent.com/Phyronnaz/VoxelAssets/{REV}/GoodVibes/"
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CACHE = ROOT / ".output" / "assets-cache"
-OUT = ROOT / "apps" / "game" / "game" / "mods" / "tf_world" / "textures"
+OUT = ROOT / "registry" / "textures" / "base" / "pack"
 BLOCK = "minecraft/textures/block/"
 BOP = "biomesoplenty/blocks/"
 

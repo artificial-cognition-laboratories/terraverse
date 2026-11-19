@@ -2,8 +2,9 @@
 # TypeScript mods, headless (sprint 119): `terra prepare` on scripts/mods-check/server,
 # then the engine runs it with its sidecar. The fixture's mods load in order (one
 # importing the other), declare blocks, run timers in game time, throw from a handler,
-# and crash the sidecar once; each is checked in the server's log. The game's own mods
-# (registry/mods) are prepared and type-checked too.
+# take a command typed from the console (a Lua probe), and crash the sidecar once; each
+# is checked in the server's log. The game's own mods (registry/mods) are prepared and
+# type-checked too.
 # Runs terra's unit tests and builds it (apps/cli); needs .output/bin/luanti.
 set -euo pipefail
 
@@ -33,7 +34,8 @@ for mod in "$root"/registry/mods/*/mod.config.ts; do
 done
 
 world="$work/save/worlds/main"
-mkdir -p "$world"
+mkdir -p "$world/worldmods"
+cp -r "$root/scripts/mods-check/probe" "$world/worldmods/mods_probe"
 printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\nauth_backend = sqlite3\n' > "$world/world.mt"
 printf 'mg_name = singlenode\n[end_of_params]\n' > "$world/map_meta.txt"
 port=$((31200 + RANDOM % 500))
@@ -63,6 +65,9 @@ expect "and restarted, with the same content"            "mods: restarted"
 # hello's load-time timer fires again in the restarted sidecar, a second after its first window
 if [ "$(grep -cE "CHECK after [0-9.]+ ticks=2" "$work/log.txt")" -eq 2 ]; then echo "  ok    load-time timers count from the restart"; else echo "  FAIL  load-time timers count from the restart"; failed=1; fi
 expect "it carries on after"                             "CHECK alive after restart"
+expect "a command typed reaches its mod, its args parsed" "\[@check/hello\] CHECK command from console: 42 words after it"
+expect "a command typed wrong is answered with its usage"  "\[@check/hello\] n is a whole number, not x\. Usage: /check <n> <text>"
+expect "commands answer after a restart"                  "\[@check/hello\] CHECK command from console: 2 again"
 if grep -q "their content changed" "$work/log.txt"; then echo "  FAIL  a restart declared different content"; failed=1; fi
 if pgrep -f "terra runtime $work" > /dev/null; then echo "  FAIL  the sidecar outlived the server"; failed=1; fi
 

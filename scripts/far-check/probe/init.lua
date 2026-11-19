@@ -21,12 +21,12 @@ assert(#AREAS == 6, "far check: only " .. #AREAS .. " regions to probe")
 
 local function kind(name)
 	local def = core.registered_nodes[name]
-	if name == "air" or name == "tf_planet:seam" or not def then return "air" end -- (seam: above the tile's top)
+	if name == "air" or name == "core:seam" or not def then return "air" end -- (seam: above the tile's top)
 	local g = def.groups or {}
 	if (g.tree or 0) > 0 or (g.leaves or 0) > 0 then return "tree" end
 	if (g.plant or 0) > 0 or def.drawtype == "plantlike" or def.drawtype == "nodebox" then return "plant" end -- planted after: tufts, cacti, flora's stems and flowers
 	-- (the world's water is the matter's since sprint 80: group liquid, no Luanti liquidtype)
-	if def.liquidtype ~= "none" or (g.liquid or 0) > 0 or name == "tf_world:ice" then return "liquid" end -- a frozen sea's top is its water
+	if def.liquidtype ~= "none" or (g.liquid or 0) > 0 or name == "core:ice" then return "liquid" end -- a frozen sea's top is its water
 	return "solid"
 end
 
@@ -56,7 +56,7 @@ local pending = #AREAS
 core.after(0, function()
 	-- facing its star: a new player starts where it's livable, under a sun that stays
 	if core.terra.world().facing_star[""] then
-		local at = tf_planet.spawn_position()
+		local at = core.planet.spawn_position()
 		local sun, climate = core.terra.sun(at), core.terra.climate(at)
 		print(("FAR held turns %g elevation %.1f daylight %g temperature %.1f"):format(sun.turns, sun.elevation, sun.daylight, climate.temperature))
 		assert(sun.turns == 0 and sun.elevation > -30 and sun.elevation < 45, "the sun where a new player starts")

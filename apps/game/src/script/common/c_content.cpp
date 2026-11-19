@@ -1103,6 +1103,118 @@ void read_content_features(lua_State *L, ContentFeatures &f, int index)
 		errorstream << "Field \"liquid_move_physics\": Invalid type!" << std::endl;
 	}
 	lua_pop(L, 1);
+
+	read_matter_fields(L, f, index); // Terra Firma
+}
+
+// Terra Firma (sprint 119): `_family`'s points ({ { substance = share, … }, … }) and
+// holds (one a point), into f.
+void read_matter_family(lua_State *L, int index, const std::string &node, MatterFamily &f)
+{
+	lua_getfield(L, index, "points");
+	if (!lua_istable(L, -1))
+		throw LuaError(node + ": a family needs points");
+	const int count = (int)lua_objlen(L, -1);
+	for (int i = 1; i <= count; i++) {
+		lua_rawgeti(L, -1, i);
+		if (!lua_istable(L, -1))
+			throw LuaError(node + ": a family's points are { substance = share, … }");
+		std::vector<std::pair<std::string, double>> parts;
+		lua_pushnil(L);
+		while (lua_next(L, -2)) {
+			parts.push_back({ luaL_checkstring(L, -2), luaL_checknumber(L, -1) });
+			lua_pop(L, 1);
+		}
+		f.points.push_back(std::move(parts));
+		lua_pop(L, 1);
+	}
+	lua_pop(L, 1);
+	lua_getfield(L, index, "holds");
+	if (!lua_isnil(L, -1)) {
+		if (!lua_istable(L, -1))
+			throw LuaError(node + ": a family's holds are a list");
+		const int n = (int)lua_objlen(L, -1);
+		for (int i = 1; i <= n; i++) {
+			lua_rawgeti(L, -1, i);
+			f.holds.push_back(luaL_checknumber(L, -1));
+			lua_pop(L, 1);
+		}
+	}
+	lua_pop(L, 1);
+}
+
+static matter::State read_matter_state(lua_State *L, int index, const std::string &node)
+{
+	const std::string state = getstringfield_default(L, index, "state", "solid");
+	if (state != "solid" && state != "liquid")
+		throw LuaError(node + ": a block's matter is solid or liquid");
+	return state == "solid" ? matter::State::Solid : matter::State::Liquid;
+}
+
+// Terra Firma (sprint 119): what a block's made of (`_matter`, `_family`,
+// `_matter_generated`) and what it does in a machine (`_machine`), for the engine to
+// register once the mods have declared their blocks (server/matter.cpp).
+void read_matter_fields(lua_State *L, ContentFeatures &f, int index)
+{
+	lua_getfield(L, index, "_matter");
+	if (lua_isstring(L, -1)) {
+		f.matter = MatterBlock{ lua_tostring(L, -1) };
+	} else if (lua_istable(L, -1)) {
+		const int t = lua_gettop(L);
+		MatterBlock b;
+		b.matter = getstringfield_default(L, t, "matter", "");
+		if (b.matter.empty())
+			throw LuaError(f.name + ": _matter needs a matter");
+		b.share = getfloatfield_default(L, t, "share", 1.0f);
+		b.state = read_matter_state(L, t, f.name);
+		b.form = getboolfield_default(L, t, "form", false);
+		b.vessel = getboolfield_default(L, t, "vessel", false);
+		b.loose = getboolfield_default(L, t, "loose", false);
+		f.matter = b;
+	} else if (!lua_isnil(L, -1)) {
+		throw LuaError(f.name + ": _matter is a substance's id or { matter, share, … }");
+	}
+	lua_pop(L, 1);
+
+	lua_getfield(L, index, "_family");
+	if (lua_istable(L, -1)) {
+		const int t = lua_gettop(L);
+		MatterFamily fam;
+		fam.share = getfloatfield_default(L, t, "share", 1.0f);
+		fam.state = read_matter_state(L, t, f.name);
+		fam.form = getboolfield_default(L, t, "form", false);
+		read_matter_family(L, t, f.name, fam);
+		f.family = std::move(fam);
+	} else if (!lua_isnil(L, -1)) {
+		throw LuaError(f.name + ": _family is { points, share?, form?, holds? }");
+	}
+	lua_pop(L, 1);
+
+	f.matter_generated = getboolfield_default(L, index, "_matter_generated", false);
+
+	lua_getfield(L, index, "_machine");
+	if (lua_istable(L, -1)) {
+		const int t = lua_gettop(L);
+		MatterMachine m;
+		auto number = [&](const char *key, std::optional<float> &out) {
+			lua_getfield(L, t, key);
+			if (!lua_isnil(L, -1))
+				out = (float)luaL_checknumber(L, -1);
+			lua_pop(L, 1);
+		};
+		number("mass", m.mass);
+		number("friction", m.friction);
+		number("tension", m.tension);
+		number("compression", m.compression);
+		number("toughness", m.toughness);
+		number("power", m.power);
+		number("rpm", m.rpm);
+		m.role = getstringfield_default(L, t, "role", "");
+		f.machine = m;
+	} else if (!lua_isnil(L, -1)) {
+		throw LuaError(f.name + ": _machine is a table");
+	}
+	lua_pop(L, 1);
 }
 
 void push_content_features(lua_State *L, const ContentFeatures &c)

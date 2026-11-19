@@ -20,6 +20,13 @@ export const checks = {
         return s
     },
 
+    /** A permission's name: "kilns:light", a mod's prefix and its own name; or core's. */
+    permission(name: unknown): string {
+        if (typeof name !== "string" || !/^[a-z0-9_]+:[a-z0-9_]+$/.test(name))
+            throw err("ARGUMENT_INVALID", { detail: `a permission is named prefix:name, like "kilns:light", not ${JSON.stringify(name)}` })
+        return name
+    },
+
     unwired(what: string): never {
         throw err("NOT_WIRED", { detail: `${what} isn't wired yet` })
     },

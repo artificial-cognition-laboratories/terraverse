@@ -9,6 +9,7 @@
 #include <iostream>
 #include <memory> // shared_ptr
 #include "mapnode.h"
+#include "matter/block.h" // Terra Firma
 #include "nameidmapping.h"
 #include "itemgroup.h"
 #include "sound_spec.h"
@@ -434,6 +435,15 @@ struct ContentFeatures
 	bool legacy_facedir_simple;
 	// Set to true if wall_mounted used to be set to true
 	bool legacy_wallmounted;
+
+	// --- MATTER (Terra Firma, sprint 119) ---
+
+	// What it's made of, and what it does in a machine: server only, never sent (the
+	// client's wiki reads palette.json). Registered by the engine (server/matter.cpp).
+	std::optional<MatterBlock> matter;
+	std::optional<MatterFamily> family; // param2 picks which composition
+	bool matter_generated = false;       // the generator's own: registered after the world's
+	std::optional<MatterMachine> machine;
 
 	/*
 		Methods

@@ -2,7 +2,7 @@
 import { computed } from "vue"
 import { useStore } from "./store.ts"
 
-/** /travel: while the land on another body is made, the world behind is hidden (tf_planet/travel.lua). */
+/** /travel: while the land on another body is made, the world behind is hidden (server/planet.cpp). */
 const store = useStore()
 const travel = computed(() => store.ui.travel)
 </script>

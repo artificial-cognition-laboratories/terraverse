@@ -7,7 +7,7 @@
 -- planting (trees, plants, snow) and liquid that has flowed. Prints LAND lines.
 
 local atlas = assert(core.planet.atlas(), "atlas land probe: not an atlas world")
-local SEAM = "tf_planet:seam"
+local SEAM = "core:seam"
 local function at(latDeg, lonDeg, layer)
 	return assert(core.planet.atlas_node(math.rad(latDeg), math.rad(lonDeg), layer), "atlas land probe: no node there")
 end

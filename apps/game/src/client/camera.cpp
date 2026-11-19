@@ -531,12 +531,6 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 		m_camera_position = my_cp;
 	}
 
-	if (m_shot) {
-		m_camera_position = m_shot->position * BS;
-		m_camera_direction = (m_shot->target - m_shot->position).normalize();
-		abs_cam_up = v3f(0, 1, 0);
-	}
-
 	// Set camera node transformation
 	m_cameranode->setPosition(m_camera_position - intToFloat(m_camera_offset, BS));
 	m_cameranode->setUpVector(abs_cam_up);

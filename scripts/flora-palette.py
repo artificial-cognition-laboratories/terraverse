@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-# The plant blocks' palette (tf_world's tf_flora_palette.png): 16 hues × 16
+# The plant blocks' palette (tf_flora_palette.png, in the engine's textures): 16 hues × 16
 # shades, the same table as apps/game/src/mapgen/terra_flora.cpp's palette(),
 # which picks a lineage's colours from it. And the plant blocks' greyed
 # textures, made from the Good Vibes pack's, for the palette to colour.
 import colorsys, sys
 from PIL import Image
 
-tex = sys.argv[1] if len(sys.argv) > 1 else "apps/game/game/mods/tf_world/textures"
+tex = sys.argv[1] if len(sys.argv) > 1 else "registry/textures/base/pack"
 S = [0.12, 0.35, 0.6, 0.85]
 V = [0.28, 0.48, 0.7, 0.92]
 img = Image.new("RGB", (16, 16))

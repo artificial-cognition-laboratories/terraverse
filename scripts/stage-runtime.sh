@@ -26,6 +26,7 @@ stage registry/shaders client/shaders
 stage registry/textures textures
 stage assets/fonts fonts
 stage assets/matter matter
+stage assets/world world
 stage assets/misc misc
 
 # The game's own server folder (apps/game/server): its official TypeScript mods, prepared

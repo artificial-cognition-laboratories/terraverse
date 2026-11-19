@@ -39,8 +39,8 @@ piece::Machine car(IGameDef *gamedef)
 			deck.design().map().setNode({ x, 0, z }, MapNode(timber));
 			deck.design().map().setShape({ x, 0, z }, plate);
 		}
-	deck.design().map().setNode({ 0, 1, 1 }, MapNode(idOf(gamedef, "tf_world:seat")));
-	deck.design().map().setNode({ 1, 1, 2 }, MapNode(idOf(gamedef, "tf_world:motor")));
+	deck.design().map().setNode({ 0, 1, 1 }, MapNode(idOf(gamedef, "core:seat")));
+	deck.design().map().setNode({ 1, 1, 2 }, MapNode(idOf(gamedef, "core:motor")));
 	deck.build();
 	piece::Machine m(gamedef);
 	const u64 body = m.add({ std::move(deck), piece::Pose{ v3s32(0), 0 } }).object.id();

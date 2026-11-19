@@ -66,17 +66,6 @@ public:
 	static void settingChangedCallback(const std::string &name, void *data);
 	void readSettings();
 
-	// Terra Firma: a shot set from outside (the Lab's orbiting camera), in
-	// node coordinates. While set, the camera looks from `position` at
-	// `target` instead of through the player's eyes, and no wielded item is
-	// drawn. nullopt returns to the player.
-	struct Shot
-	{
-		v3f position;
-		v3f target;
-	};
-	void setShot(std::optional<Shot> shot) { m_shot = shot; }
-	bool hasShot() const { return m_shot.has_value(); }
 
 	// Get camera scene node.
 	// It has the eye transformation, pitch and view bobbing applied.
@@ -194,7 +183,6 @@ public:
 	inline void addArmInertia(f32 player_yaw);
 
 private:
-	std::optional<Shot> m_shot;
 	// Use getFrustumCuller().
 	// This helper just exists to decrease the header's number of includes.
 	std::array<core::plane3d<f32>, 4> getFrustumCullPlanes() const;

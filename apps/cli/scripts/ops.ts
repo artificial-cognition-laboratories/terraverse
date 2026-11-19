@@ -27,7 +27,7 @@ ${enumOf("Level", Level)}
 if (process.argv.includes("--check")) {
     const now = await Bun.file(out).text().catch(() => "")
     if (now !== text) {
-        console.error("ops.h is stale: run `bun run ops` in apps/cli")
+        console.error("ops.h is stale: run `bun run gen` in apps/cli")
         process.exit(1)
     }
 } else {

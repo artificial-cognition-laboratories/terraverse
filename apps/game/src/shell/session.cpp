@@ -46,7 +46,6 @@ Session::Session(const Opts &opts) :
 	m_items({ opts.client, opts.driver, opts.shell.itemDir(), std::to_string(porting::getTimeMs()) }),
 	m_state({ opts.shell, opts.client, m_items, opts.hand }),
 	m_ui({ opts.shell, opts.client }),
-	m_director({ m_ui, opts.client }),
 	m_screens({ opts.shell, opts.guienv, m_ui }),
 	m_actions(opts.client),
 	m_client(opts.client),
@@ -164,8 +163,7 @@ Session::Session(const Opts &opts) :
 		m_ui.send(intent);
 		return Json::Value();
 	});
-	// The page opens a screen itself where it decides when (the Lab browser
-	// on arrival). Only screens in the table, and only where offered.
+	// The page opens a screen itself where it decides when. Only screens in the table, and only where offered.
 	m_shell.on("screen.open", [this](const Json::Value &intent) {
 		if (!intent["name"].isString())
 			throw Refused("screen.open needs a string 'name'");
@@ -197,7 +195,6 @@ void Session::update(const HudView &view)
 	shown.crosshair = shown.crosshair && !m_planetarium.shown(); // nothing's aimed at in the planetarium
 	m_state.update(shown);
 	m_ui.update();
-	m_director.update();
 	// the planet made ready as soon as the world's known, so V shows it at once
 	if (!m_prepared && !m_planetarium.shown() && m_client->getAtlas() && m_client->getHorizon()) {
 		m_planetarium.prepare(world(bodyHere()));

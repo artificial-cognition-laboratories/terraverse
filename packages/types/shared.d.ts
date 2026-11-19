@@ -19,6 +19,8 @@ declare global {
     type TextureName = string
     /** An ArcLabs account: "@cody". */
     type AccountName = string
+    /** `prefix:name`: what a role may be allowed, "kilns:light". */
+    type PermissionName = `${string}:${string}`
 
     /** Lines for the server's log, under your mod's name. */
     const console: {

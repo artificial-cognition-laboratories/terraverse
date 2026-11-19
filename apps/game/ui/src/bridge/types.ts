@@ -12,7 +12,7 @@ import type { StarId } from "../worldgen/config"
 export type Mode = "menu" | "entering" | "game" | "leaving"
 
 /** In-game screens the engine can open (src/shell/screens.cpp: SCREENS). */
-export type ScreenName = "pause" | "inventory" | "lab" | "wiki" | "map" | "making"
+export type ScreenName = "pause" | "inventory" | "wiki" | "map"
 
 /** A slot in the local player's inventory, or with `at` a node's (a station's worktop). */
 export type NodePos = { x: number; y: number; z: number }
@@ -294,91 +294,32 @@ export type SandboxFrame = {
     haze: number[]        // 0..1: how much of the block's gas that is
 }
 
-/** A Lab scenario control, as a mod's lab.json declares it (games/terrafirma/mods/tf_lab/registry.lua). */
-export type LabControl =
-    | { id: string; kind: "button"; label: string }
-    | { id: string; kind: "toggle"; label: string; default: boolean }
-    | { id: string; kind: "slider"; label: string; min: number; max: number; step: number; default: number; unit?: string }
-    | { id: string; kind: "choice"; label: string; options: { value: string | number; label: string }[]; default: string | number }
-
-export type LabValue = boolean | number | string
-
-export type ControlValue = boolean | number | string
-export type ControlIcon = "time" | "player" | "travel" | "world" | "items" | "tuning" | "view" | "other"
-/** One world control, declared in Lua. With `setting` it's this client's own engine setting, not the server's. */
-export type ControlItem =
-    | { id: string; kind: "button"; label: string; note?: string; confirm?: boolean; tone?: "danger"; opens?: ScreenName; resets?: boolean }
-    | { id: string; kind: "toggle"; label: string; note?: string; setting?: string; value?: boolean }
-    | { id: string; kind: "slider"; label: string; note?: string; setting?: string; value?: number; min: number; max: number; step: number; default?: number; unit?: string; format?: "clock" }
-    | { id: string; kind: "choice"; label: string; note?: string; setting?: string; value?: string | number; options: { value: string | number; label: string }[] }
-    | { id: string; kind: "fact"; label: string; note?: string; value: string }
-export type ControlPage = { id: string; title: string; icon: ControlIcon; sections: { title: string; hint?: string; controls: ControlItem[] }[] }
-
-/** A Lab scenario from a mod's lab.json, as `lab.list` returns it (src/shell/lab.cpp). */
-export type LabScenario = {
-    id: string
-    mod: string
-    title: string
-    description: string
-    size: { x: number; y: number; z: number }
-    controls?: LabControl[]
-}
 
 /**
  * Values game Lua sets for this player's page (player:set_ui). The page keeps
  * the latest per key; null clears it. Each key's owner is noted.
  */
 export type UiValues = {
-	/** tf_player: the server permits this player to use the creative catalogue. */
+	/** The engine (server/player.cpp): the server permits this player to use the creative catalogue. */
 	creative: boolean
     /**
-     * tf_player: the body the player's on and what they've explored of it.
+     * The engine (server/player.cpp): the body the player's on and what they've explored of it.
      * `code` is the world's; `body` (an atlas world's) names which of its
      * bodies, whose world is its own (size, radius); `bodies` every body
      * that can be stood on, the home first.
      */
     map: { code: string; body?: string; name?: string; bodies?: { id: string; name: string }[]; size: number; radius: number; sea: number; star: StarId; tilt: number; mode: "creative" | "survival"; explored: string; grid: number }
-    /** tf_flight: thrust-free projected path, sampled while the full-screen map is open. */
-    map_trajectory: { points: [number, number, number][]; ending: "ground" | "time"; seconds: number }
-    /** tf_player: the player's place on the world model and the current date. */
+    /** The engine (server/player.cpp): the player's place on the world model and the current date. */
     map_position: { x: number; z: number; body?: string; date: number }
-    /** tf_player/controls.lua: the world controls this player may use, as data. */
-    world_controls: { mode: "creative" | "survival"; pages: ControlPage[] }
-    /**
-     * tf_lab/panel.lua, in a scenario's world: which scenario, its control
-     * values, whether the camera is orbiting it (`browsing`), and time.
-     */
-    lab: { id: string; values: Record<string, LabValue>; browsing: boolean; speed: number; speeds: number[] }
-    /** tf_player: the world's rules give this player the wiki (key G) */
+    /** The engine (server/player.cpp): the world's rules give this player the wiki (key G) */
     wiki: boolean
-    /** tf_matter: the reactions this player has seen happen in the world (ids) */
+    /** The engine (server/matter.cpp): the reactions this player has seen happen in the world (ids) */
     discovered: string[]
-    /** tf_matter: the last block the probe (or heat gun) read (core.matter.inspect) */
-    probe: { node: string; empty?: boolean; temperature?: number; substance?: string; state?: string; fill?: number
-        activity?: number; vapour?: string; haze?: number; awake?: boolean
-        /** how it looks, from what's in it (#rrggbb), and what's in it, most first (sprint 79) */
-        colour?: string; contents?: { substance: string; moles: number; state: string }[]
-        /** a river's or lake's water: what the weather has it doing (core.terra.river, sprint 115) */
-        river?: RiverReading }
-    /** tf_craft: making, at a station (its name) or by hand (no station); what's under way, if anything */
-    making: {
-        station?: string
-        /** where the station stands, and what's on its worktop (absent: by hand); false an empty slot, as Lua can't list a nil */
-        at?: NodePos
-        worktop?: { width: number; stacks: (Stack | false)[] }
-        /** null: nothing in reach to work (an empty Lua table is sent as null) */
-        offers: MakingOffer[] | null
-        working?: { id: string; seconds: number }
-    }
-    /** tf_craft: what the player carries, kg, against the loads that slow them (walking pace by `heavy`, a crawl by `crawl`); `pace` the speed it leaves */
-    carrying: { kg: number; easy: number; heavy: number; crawl: number; pace: number }
-    /** tf_flight: riding the pack over the blocks, or in space (core.orbit) */
-    flight: FlightNear | FlightSpace
-    /** tf_player: the body the player is on (an atlas world's; `home` the world's own) */
+    /** The engine (server/player.cpp): the body the player is on (an atlas world's; `home` the world's own) */
     body: { id: string; name: string; home: boolean }
-    /** tf_planet: travelling to another body (/travel): the screen while its land is made */
+    /** The engine (server/planet.cpp): travelling to another body (/travel): the screen while its land is made */
     travel: { body: string; name: string }
-    /** tf_weather: the weather where the player stands (core.terra.weather) */
+    /** The engine (server/weather.cpp): the weather where the player stands */
     weather: {
         temperature: number // °C
         humidity: number    // 0..1
@@ -390,49 +331,6 @@ export type UiValues = {
     }
 }
 
-/** core.terra.river: m³/s (its planet's; `local` what its channel carries in the blocks), its flow against its usual, blocks over (+) or under (−) its generated level, blocks/s, days to the sea */
-export type RiverReading = { discharge: number; local: number; ratio: number; rise: number; speed: number; to_sea: number; lake: boolean }
-
-type FlightCommon = {
-    boundary: number   // m above the sea where space begins
-    altitude: number   // m above the sea
-    speed: number      // m/s over the ground
-    climb: number      // m/s up
-}
-/** Riding the flight pack over the planet's blocks. */
-export type FlightNear = FlightCommon & { regime: "near"; resting?: boolean }
-/** In a bubble of space (pack or not): the orbit it's on. */
-export type FlightSpace = FlightCommon & {
-    regime: "space"
-    radius: number         // m: the planet's
-    orbital_speed: number  // m/s against the stars
-    apoapsis?: number      // m above the sea; absent when it escapes
-    periapsis: number      // m; below 0, the orbit meets the ground
-    period?: number        // s; absent when it escapes
-    inclination: number    // radians
-    density: number        // kg/m³: the air here
-    riding: boolean        // in the pack (else floating on foot)
-    lone: boolean          // alone in the bubble: the pack's thrust moves the orbit
-    buildable: boolean     // blocks can go here (the orbit stays above the boundary)
-}
-
-/** One thing tf_craft offers to make here, from what's in reach (tf_craft/offers.lua). */
-export type MakingOffer = {
-    id: string
-    /** What it makes; absent when it can't be made of this material at all. */
-    item?: string
-    label: string
-    count: number
-    /** The process, as named (Knap, Carve…). */
-    process: string
-    inputs: { label: string; count: number; have: number }[]
-    /** What it's done with, when the process uses something held. */
-    tool?: string
-    seconds: number
-    ok: boolean
-    /** Why it can't be made yet: shown, so there's no recipe to learn. */
-    reason?: string
-}
 
 export type UiMessage = {
     [K in keyof UiValues]: { kind: "ui"; key: K; value: UiValues[K] | null }
@@ -440,27 +338,11 @@ export type UiMessage = {
 
 /** Events the page sends game Lua (core.register_on_ui_event), by name. */
 export type UiEvents = {
-	/** Creative: go to the ground at a place (radians); tf_player checks and moves the player. */
+	/** Creative: go to the ground at a place (radians); the engine (server/player.cpp) checks and moves the player. */
 	"map.teleport": { latitude: number; longitude: number }
-	/** Replace one hotbar slot from the catalogue; tf_player validates on the server. */
+	/** Replace one hotbar slot from the catalogue; the engine (server/player.cpp) validates it. */
 	"creative.take": { item: string; slot: number; count: number }
 	"creative.clear": { slot: number }
-    /** A world control used (a button carries no value). The server checks it against its own table. */
-    "controls.set": { id: string; value?: ControlValue }
-    /** A control changed (a button press carries no value). */
-    "lab.control": { id: string; value: LabValue | null }
-    /** Build the scenario again with its current values. */
-    "lab.restart": {}
-    "lab.speed": { speed: number }
-    /** The Lab view opened: orbit the scenario. */
-    "lab.browse": {}
-    /** The Lab view closed: the camera is the player's again, by the scenario. */
-    "lab.step_in": {}
-    /** Make by hand: tf_craft offers what can be made without a station. */
-    "making.hand": {}
-    "making.make": { offer: string }
-    /** The making screen closed. */
-    "making.leave": {}
 }
 
 export type UiEvent = { [E in keyof UiEvents]: { name: E; payload: UiEvents[E] } }[keyof UiEvents]
@@ -509,7 +391,7 @@ export type PlanetariumCell = { region: "segment" | "cap" | "core"; index: numbe
 /**
  * What's over a body's land (planetarium.layer): an overlay painted natively from the world
  * model as each tile is built (as sharp as the land; on every body shown, unless `explored`
- * masks it to what the player's seen of theirs: tf_player's grid, a bit a cell, base64), on a
+ * masks it to what the player's seen of theirs: server/player.cpp's grid, a bit a cell, base64), on a
  * date (0..1 through the year; none: the year's mean); an image the page painted (the weather:
  * RGBA, base64, the preview's layout); the body cut open; or nothing.
  */

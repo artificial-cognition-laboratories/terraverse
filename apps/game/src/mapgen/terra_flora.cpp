@@ -32,8 +32,8 @@ PlantBlocks plantBlocks(const NodeDefManager *ndef)
 			throw BaseException(std::string("terra: the game has no ") + name + " (plants are made of it)");
 		return c;
 	};
-	return { need("tf_world:plant_wood"), need("tf_world:plant_leaf"), need("tf_world:plant_flesh"), need("tf_world:plant_flower"),
-		need("tf_world:growth") };
+	return { need("core:plant_wood"), need("core:plant_leaf"), need("core:plant_flesh"), need("core:plant_flower"),
+		need("core:growth") };
 }
 
 // 16 hues × 16 shades (4 saturations × 4 values): its rows are shades, its columns hues

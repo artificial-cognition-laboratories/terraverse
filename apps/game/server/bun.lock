@@ -5,11 +5,14 @@
     "": {
       "name": "@terraverse/game",
       "dependencies": {
+        "@terraverse/commands": "file:../../../registry/mods/commands",
         "@terraverse/materials": "file:../../../registry/mods/materials",
       },
     },
   },
   "packages": {
+    "@terraverse/commands": ["@terraverse/commands@file:../../../registry/mods/commands", {}],
+
     "@terraverse/materials": ["@terraverse/materials@file:../../../registry/mods/materials", {}],
   }
 }

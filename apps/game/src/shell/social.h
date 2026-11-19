@@ -38,7 +38,7 @@ public:
 
 	// The account's key, or empty when signed out (from Account).
 	void signedIn(const std::string &key);
-	// Entering a world, and back to the menu. The Lab is a world no one can join.
+	// Entering a world, and back to the menu. `joinable`: whether friends may.
 	void enter(const std::string &world, bool joinable);
 	void leave();
 	// The host's "friends can join". Throws Refused outside a joinable world.

@@ -84,6 +84,7 @@
 #include "database/database-dummy.h"
 
 #include "server/terra.h" // Terra Firma
+#include "server/matter.h" // Terra Firma
 #include <iostream>
 #include <queue>
 #include <algorithm>
@@ -458,6 +459,12 @@ Server::~Server()
 
 		infostream << "Server: Saving environment metadata" << std::endl;
 		m_env->saveMeta();
+		// Terra Firma: what's awake in the world's matter (sprint 119: was tf_matter's on_shutdown)
+		try {
+			serverMatterSave();
+		} catch (const BaseException &e) {
+			errorstream << e.what() << std::endl;
+		}
 
 		// Delete classes that depend on the environment
 		m_piles.reset();
@@ -465,7 +472,7 @@ Server::~Server()
 		m_inventory_mgr.reset();
 		m_sidecar.reset();
 		m_script.reset();
-		ModApiMatter::shutdown(); // Terra Firma: it points at this server
+		serverMatterShutdown(); // Terra Firma: it points at this server
 		took("closing its systems");
 
 		// Note that this also deletes and saves the map.
@@ -660,6 +667,9 @@ void Server::init()
 		if (!m_server_folder.empty())
 			startSidecar();
 	});
+	// Terra Firma: what every block's made of, into the world's matter and machines
+	// (sprint 119: was tf_matter's on_mods_loaded)
+	terraRegisterMatter(this);
 
 	m_script->saveGlobals();
 
@@ -723,7 +733,7 @@ void Server::init()
 	servermap.getMapgenParams()->planet = m_atlas ? &*m_atlas : nullptr;
 	m_emerge->initMapgens(servermap.getMapgenParams());
 	// every terra world is a planet; one made before planets were is refused,
-	// not played flat (only the Lab's worlds are flat)
+	// not played flat
 	if (m_emerge->mgparams->mgtype == MAPGEN_TERRA && !m_atlas)
 		throw ServerError("This world was made before worlds were planets, and can't be played any more. "
 			"Make a new world: every world is a planet now.");
@@ -747,6 +757,8 @@ void Server::init()
 
 	// Give environment reference to scripting api
 	m_script->initializeEnvironment(m_env);
+	// Terra Firma: snow, ice and thaw (sprint 119: were tf_weather's)
+	terraAddWeatherModifiers(this);
 
 	// Do this after regular script init is done
 	m_script->initAsync();
@@ -933,6 +945,23 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 
 		// Terra Firma: each player's sky, from the real sun where they stand (sprint 119: was tf_sky)
 		terraStepSkies(this, dtime);
+		// Terra Firma: each player's weight, and standing on the planet (sprint 119: were
+		// tf_flight's and tf_planet's)
+		terraStepGravity(this);
+		terraStepPlanet(this, dtime);
+		terraStepWeather(this, dtime);
+		terraStepPlayers(this, dtime);
+		terraStepMatter(this, dtime);
+		// Terra Firma: the shore's smoothed ground holds water as a fill (sprint 81; sprint
+		// 119: was tf_world's on_generated)
+		{
+			std::vector<v3s16> shore;
+			{
+				MutexAutoLock lock(m_shore_mutex);
+				shore.swap(m_shore);
+			}
+			terraFillShore(this, shore);
+		}
 
 		// Terra Firma: the rivers round each player, as the weather fills them (sprint 115)
 		if ((m_rivers_timer -= dtime) <= 0) {
@@ -3067,6 +3096,19 @@ bool Server::addMediaFile(const std::string &filename,
 	return true;
 }
 
+void Server::queueShore(std::vector<v3s16> &&shore)
+{
+	if (shore.empty())
+		return;
+	MutexAutoLock lock(m_shore_mutex);
+	m_shore.insert(m_shore.end(), shore.begin(), shore.end());
+}
+
+bool Server::sidecarCommand(const std::string &player, const std::string &name, const std::string &text)
+{
+	return m_sidecar && m_sidecar->command(player, name, text);
+}
+
 // Terra Firma: start `terra runtime` on the server folder, and make what its mods
 // declared into items and nodes, before registration closes (sprint 119).
 void Server::startSidecar()
@@ -3102,6 +3144,19 @@ void Server::startSidecar()
 		SendChatMessage(PEER_ID_INEXISTENT, ChatMessage(CHATMESSAGE_TYPE_ANNOUNCE, utf8_to_wide(text)));
 	};
 	host.players = [this]() { return m_clients.getPlayerNames(); };
+	// the mods' commands, as chat commands (builtin/game/sidecar.lua): each line typed
+	// under one goes to the next window (core.sidecar_command)
+	host.commands = [this](const std::vector<sidecar::Host::Command> &commands) {
+		m_script->set_mod_commands(commands);
+	};
+	// TEMP(2026-11-19): admins hold every permission, and nobody else any, until roles
+	// are granted permissions (the server's setup): an admin is the engine's `server` privilege
+	host.can = [this](const std::string &name, const std::string &) { return checkPriv(name, "server"); };
+	host.kick = [this](const std::string &name, const std::string &reason) {
+		RemotePlayer *player = m_env->getPlayer(name);
+		if (player && player->getPeerId() != PEER_ID_INEXISTENT)
+			DenyAccess(player->getPeerId(), SERVER_ACCESSDENIED_CUSTOM_STRING, reason);
+	};
 
 	try {
 		m_sidecar = std::make_unique<sidecar::Sidecar>(terra, m_server_folder, std::move(host));
@@ -3878,6 +3933,7 @@ std::set<std::string> Server::getPlayerEffectivePrivs(const std::string &name)
 {
 	std::set<std::string> privs;
 	m_script->getAuth(name, NULL, &privs);
+	terraCreativePrivs(privs); // Terra Firma: creative's (sprint 119)
 	return privs;
 }
 
@@ -4562,6 +4618,10 @@ v3f Server::findSpawnPos()
 	{
 		return *staticSpawnPoint * BS;
 	}
+
+	// Terra Firma: on the planet, land nearest the equator (sprint 119: was tf_planet's)
+	if (m_atlas)
+		return terraSpawn(this);
 
 	v3f nodeposf;
 

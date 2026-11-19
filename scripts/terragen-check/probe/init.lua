@@ -10,8 +10,8 @@ for line in io.lines(core.get_worldpath() .. "/points.txt") do
 end
 local remaining = #points
 
-local WATER = { ["tf_world:water_source"] = true, ["tf_world:water_flowing"] = true, ["tf_world:ice"] = true,
-	["tf_world:lava_source"] = true, ["tf_world:lava_flowing"] = true }
+local WATER = { ["core:water_source"] = true, ["core:water_flowing"] = true, ["core:ice"] = true,
+	["core:lava_source"] = true, ["core:lava_flowing"] = true }
 
 -- from the atlas's top layer down (above it is seam)
 local TOP = (core.planet.atlas() or error("terragen check: the world isn't a planet")).top - 1
@@ -22,7 +22,7 @@ local function column(p)
 		local name = core.get_node({ x = p.x, y = y, z = p.z }).name
 		if WATER[name] then
 			if water == -9999 then water = y end
-		elseif name ~= "air" and name ~= "ignore" and core.get_item_group(name, "plant") == 0 and name ~= "tf_world:cactus"
+		elseif name ~= "air" and name ~= "ignore" and core.get_item_group(name, "plant") == 0 and name ~= "core:cactus"
 				and core.get_item_group(name, "lying") == 0 then -- (sticks and stones lying about: the game's, not terragen's)
 			return y, name, water
 		end
@@ -68,7 +68,7 @@ local function probe()
 				if top then
 					local node = core.get_node(top)
 					local here = core.terra.weather(top)
-					local action = tf_weather.act(top, node) or "none"
+					local action = core.terra.weather_act(top) or "none"
 					local now = core.get_node(action == "snow" and vector.offset(top, 0, 1, 0) or top).name
 					core.log("action", string.format("ACT %d %s %s %s %.3f %s %.4f", id, node.name, action, now,
 						here.temperature, tostring(here.snow), here.precipitation))

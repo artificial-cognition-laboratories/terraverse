@@ -32,11 +32,6 @@ public:
 	void remove(const std::string &path) const;      // throws Refused
 	void pin(const std::string &path, bool pinned) const;
 	void rename(const std::string &path, const std::string &name) const; // Refused for no name
-	// A Lab scenario's own world (a scenario from Lab::find), built fresh at
-	// <user>/lab on every call: its map generator (`world.mapgen`, default
-	// singlenode) and `tf_lab = <id>`, which is what tf_lab builds. Not in
-	// list().
-	WorldSpec lab(const Json::Value &scenario) const;
 	WorldSpec find(const std::string &path) const;   // throws Refused
 	// Before playing a world: its creative_mode / enable_damage (world.mt)
 	// become the engine's, as Luanti's own menu does when you pick a world.
@@ -46,7 +41,7 @@ public:
 	std::optional<int64_t> lastOpened(const WorldSpec &world) const;
 	// The world code of the world opened last, if any was (the menu shows
 	// its system), of those this build can still make (an older build's code
-	// is passed over). Lab worlds aren't listed, so never this.
+	// is passed over).
 	std::optional<std::string> lastVisited() const;
 
 private:

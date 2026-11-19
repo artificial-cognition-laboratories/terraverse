@@ -12,8 +12,7 @@
 	from where the player is (planetarium/sky), and the far view the planet. The
 	real sun is still sent: it lights the world. Elsewhere on a terra world the
 	stock sky's blue fades to black as the air above thins, and the stars come
-	out by day. Worlds terra didn't make (the Lab) keep the stock sky: the Lab
-	shows the solar sky through its own scenario.
+	out by day. Worlds terra didn't make keep the stock sky.
 */
 
 #include "server/terra.h"

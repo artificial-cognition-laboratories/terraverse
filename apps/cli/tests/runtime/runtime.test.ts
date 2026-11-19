@@ -29,10 +29,12 @@ describe("Runtime", () => {
         await Runtime({ manifest: manifest, wire: memory.wire }).run()
 
         const ops = memory.written().map(f => f.op)
-        expect(ops).toEqual([Op.log, Op.content, Op.call, Op.call, Op.idle])
+        // the first window says which commands there are, none here: a restarted sidecar's replace its predecessor's
+        expect(ops).toEqual([Op.log, Op.content, Op.call, Op.call, Op.call, Op.idle])
         expect(memory.written()[0]?.payload).toEqual([Level.info, "@t/hello", "loaded"])
         expect(memory.written()[1]?.payload).toMatchObject({ blocks: [{ name: "hello:brick" }] })
         expect(memory.written()[3]?.payload).toEqual([Call["player.tell"], "@ana", "Hello, @ana"])
+        expect(memory.written()[4]?.payload).toEqual([Call["commands.set"], []])
         // and leaves the process as it found it
         expect("content" in globalThis).toBe(false)
     })

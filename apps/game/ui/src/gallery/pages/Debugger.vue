@@ -19,7 +19,7 @@ const SAMPLES: [LogLevel, string, string][] = [
     ["action", "Server", "singleplayer joins game. List of players: singleplayer"],
     ["warning", "Main", "Irrlicht: Could not open file of texture: tf_world_unknown.png"],
     ["info", "Emerge-0", "terra: generated 64 blocks in 41 ms"],
-    ["error", "Server", "ModError: tf_craft/init.lua:212: attempt to index a nil value (field 'station')"],
+    ["error", "Server", "ModError: tf_world/init.lua:212: attempt to index a nil value (field 'pos')"],
     ["info", "Main", "far: 1296 tiles, view range 120"],
 ]
 let seq = 0

@@ -11,7 +11,7 @@ type Ui = { [K in keyof UiValues]: UiValues[K] | null }
  */
 export function GameStore(opts: { bridge: BridgeHandle }) {
     const empty = (): Sections => ({ hud: null, player: null, mapPose: null, hotbar: null, tools: null, library: null, inventory: null })
-    const noUi = (): Ui => ({ lab: null, wiki: null, discovered: null, probe: null, weather: null, travel: null, body: null, creative: null, flight: null, map: null, map_position: null, map_trajectory: null, world_controls: null, making: null, carrying: null })
+    const noUi = (): Ui => ({ wiki: null, discovered: null, weather: null, travel: null, body: null, creative: null, map: null, map_position: null })
     const store = reactive({
         mode: null as Mode | null,
         error: null as string | null,
@@ -98,19 +98,12 @@ export function GameStore(opts: { bridge: BridgeHandle }) {
                 switch (message.key) {
 					case "map": store.ui.map = message.value; break
 					case "map_position": store.ui.map_position = message.value; break
-					case "map_trajectory": store.ui.map_trajectory = message.value; break
-					case "world_controls": store.ui.world_controls = message.value; break
 					case "creative": store.ui.creative = message.value; break
-                    case "lab": store.ui.lab = message.value; break
                     case "weather": store.ui.weather = message.value; break
                     case "travel": store.ui.travel = message.value; break
                     case "body": store.ui.body = message.value; break
                     case "wiki": store.ui.wiki = message.value; break
                     case "discovered": store.ui.discovered = message.value; break
-                    case "probe": store.ui.probe = message.value; break
-                    case "flight": store.ui.flight = message.value; break
-                    case "making": store.ui.making = message.value; break
-                    case "carrying": store.ui.carrying = message.value; break
                 }
                 break
         }

@@ -12,7 +12,6 @@ export const BINDING_GROUPS = [
         ["keymap_dig", "Dig / attack"], ["keymap_place", "Place / use"],
         ["keymap_inventory", "Inventory"], ["keymap_drop", "Drop item"],
         ["keymap_zoom", "Zoom"], ["keymap_chat", "Chat"],
-        ["keymap_pour", "Pour what's in hand"],
         ["keymap_hotbar_next", "Next hotbar slot"], ["keymap_hotbar_previous", "Previous hotbar slot"],
         ["keymap_autoforward", "Automatic forward"],
     ] },
@@ -26,7 +25,7 @@ export const BINDING_GROUPS = [
         ["keymap_alt", "Alt: add into the world, 1–9 hotbar while building, = mirror, click carries"],
     ] },
     { title: "Screens", bindings: [
-        ["keymap_lab", "Lab"], ["keymap_wiki", "Wiki"], ["keymap_planetarium", "Planetarium"],
+        ["keymap_wiki", "Wiki"], ["keymap_planetarium", "Planetarium"],
         ["keymap_minimap", "Map"], ["keymap_toggle_hud", "Toggle HUD"],
         ["keymap_camera_mode", "Camera mode"],
     ] },

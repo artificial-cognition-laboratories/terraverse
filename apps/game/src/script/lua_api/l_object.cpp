@@ -1835,8 +1835,6 @@ int ObjectRef::l_get_player_control(lua_State *L)
 	lua_setfield(L, -2, "dig");
 	lua_pushboolean(L, control.place);
 	lua_setfield(L, -2, "place");
-	lua_pushboolean(L, control.pour); // Terra Firma (sprint 80)
-	lua_setfield(L, -2, "pour");
 
 	v2f movement = control.getMovement();
 	lua_pushnumber(L, movement.X);

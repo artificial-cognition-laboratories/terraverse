@@ -45,7 +45,7 @@ struct BlockMakeData {
 	const NodeDefManager *nodedef = nullptr;
 	// Terra Firma: the cut shapes of nodes the generator placed (plants), set once they're in the map
 	std::map<v3s16, shape::Shape> shapes;
-	// Terra Firma: the small plants it planted, by their foot (a tf_world:growth it placed)
+	// Terra Firma: the small plants it planted, by their foot (a core:growth it placed)
 	std::map<v3s16, sprig::Sprig> sprigs;
 
 	BlockMakeData() = default;

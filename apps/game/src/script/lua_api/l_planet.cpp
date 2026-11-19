@@ -10,6 +10,10 @@
 #include "emerge.h"
 #include "mapgen/mapgen.h"
 #include "server.h"
+#include "server/terra.h"
+#include "lua_api/l_object.h"
+#include "remoteplayer.h"
+#include "server/player_sao.h"
 #include <cmath>
 
 static void pushRect(lua_State *L, const planet::Atlas::Rect &r)
@@ -206,6 +210,42 @@ int ModApiPlanet::l_atlas_cell(lua_State *L)
 	return 1;
 }
 
+// core.planet.spawn_position([body]) → pos: where one lands on a body (its id; the
+// home's when none is named), the engine's spawn on the home. Raises with no land.
+int ModApiPlanet::l_spawn_position(lua_State *L)
+{
+	MAP_LOCK_REQUIRED; // its tile is put in the window
+	Server *server = getServer(L);
+	const int body = lua_isnoneornil(L, 1) ? planet::Atlas::HOME : bodyNamed(server, luaL_checkstring(L, 1));
+	const std::optional<v3s16> n = terraLanding(server, body, std::nullopt);
+	if (!n)
+		throw LuaError("core.planet.spawn_position: no land within 60° of the equator to stand on");
+	push_v3s16(L, *n);
+	return 1;
+}
+
+// core.planet.travel(player, body[, latitude, longitude]) → true, or false and why
+// not: to another body (its id), near a place on it (degrees), behind the page's
+// travel screen while the land there is made (server/planet.cpp).
+int ModApiPlanet::l_travel(lua_State *L)
+{
+	MAP_LOCK_REQUIRED;
+	ServerActiveObject *object = ObjectRef::getobject(checkObject<ObjectRef>(L, 1));
+	if (!object || object->getType() != ACTIVEOBJECT_TYPE_PLAYER)
+		throw LuaError("core.planet.travel: not a player");
+	RemotePlayer *player = static_cast<PlayerSAO *>(object)->getPlayer();
+	const std::string body = luaL_checkstring(L, 2);
+	std::optional<std::pair<double, double>> near;
+	if (!lua_isnoneornil(L, 3))
+		near = std::pair{ luaL_checknumber(L, 3), luaL_checknumber(L, 4) };
+	const std::string why = terraTravel(getServer(L), player, body, near);
+	lua_pushboolean(L, why.empty());
+	if (why.empty())
+		return 1;
+	lua_pushstring(L, why.c_str());
+	return 2;
+}
+
 void ModApiPlanet::Initialize(lua_State *L, int top)
 {
 	lua_newtable(L);
@@ -221,6 +261,8 @@ void ModApiPlanet::Initialize(lua_State *L, int top)
 		{ "atlas_node", l_atlas_node },
 		{ "spawn_level", l_spawn_level },
 		{ "atlas_point", l_atlas_point },
+		{ "spawn_position", l_spawn_position },
+		{ "travel", l_travel },
 	};
 	for (const luaL_Reg &f : functions) {
 		lua_pushcfunction(L, f.func);

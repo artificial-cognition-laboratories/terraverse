@@ -13,7 +13,7 @@
    ],
    "blocks": [
     {
-     "node": "tf_world:stone_bricks",
+     "node": "core:stone_bricks",
      "from": [
       0,
       0,
@@ -27,7 +27,7 @@
     }
    ],
    "ground": {
-    "node": "tf_world:sand",
+    "node": "core:sand",
     "y": 1,
     "from": [
      0,
@@ -73,7 +73,7 @@
    ],
    "blocks": [
     {
-     "node": "tf_world:stone_bricks",
+     "node": "core:stone_bricks",
      "from": [
       0,
       0,
@@ -87,7 +87,7 @@
     }
    ],
    "ground": {
-    "node": "tf_world:dirt",
+    "node": "core:dirt",
     "y": 1,
     "from": [
      0,
@@ -133,7 +133,7 @@
    ],
    "blocks": [
     {
-     "node": "tf_world:stone_bricks",
+     "node": "core:stone_bricks",
      "from": [
       0,
       0,
@@ -147,7 +147,7 @@
     }
    ],
    "ground": {
-    "node": "tf_world:sand",
+    "node": "core:sand",
     "y": 1,
     "from": [
      0,

@@ -4,7 +4,7 @@
 import { inject, type InjectionKey } from "vue"
 import { BridgeError } from "../bridge"
 import { FailureCode } from "../bridge/types"
-import type { Account, Player, Social, SandboxFrame, BodyCard, BodyKind, SystemWire, CommunityCatalog, CreativeItem, EngineMessage, MatterElement, MatterSubstance, IntentKind, Intents, LabScenario, LabValue, Loading, LoadingStage, PublicServer, ServerDirectory, SlotRef, Stack, StateSections, UiValues, World } from "../bridge"
+import type { Account, Player, Social, SandboxFrame, BodyCard, BodyKind, SystemWire, CommunityCatalog, CreativeItem, EngineMessage, MatterElement, MatterSubstance, IntentKind, Intents, Loading, LoadingStage, PublicServer, ServerDirectory, SlotRef, Stack, StateSections, UiValues, World } from "../bridge"
 import { DEFAULTS, decodeWorldCode, encodeWorldCode } from "../worldgen/config"
 import { mockPreview, mockWeather } from "./mockWorld"
 import { bindingScancode } from "../settings/bindings"
@@ -43,35 +43,6 @@ function cannedSandbox(time: number): SandboxFrame {
     }
 }
 
-/** A stand-in for tf_player/controls.lua: one of each kind, on the pages it has. */
-export function mockWorldControls(): UiValues["world_controls"] {
-    return { mode: "creative", pages: [
-        { id: "time", title: "Time", icon: "time", sections: [
-            { title: "Time of day", hint: "On this planet", controls: [
-                { id: "time.noon", kind: "button", label: "Noon" }, { id: "time.dusk", kind: "button", label: "Dusk" },
-                { id: "time.hour", kind: "slider", label: "Set time", min: 0, max: 0.99, step: 0.01, format: "clock", value: 0.5 },
-            ] },
-            { title: "Clock", hint: "For everyone", controls: [
-                { id: "time.passes", kind: "toggle", label: "Time passes", value: true },
-                { id: "time.speed", kind: "choice", label: "Speed", value: 1, options: [{ value: 1, label: "×1" }, { value: 10, label: "×10" }, { value: 100, label: "×100" }] },
-            ] },
-            { title: "Date", controls: [{ id: "time.length", kind: "fact", label: "Length of the day", value: "30.0 h" }] },
-        ] },
-        { id: "player", title: "Player", icon: "player", sections: [
-            { title: "Moving", controls: [{ id: "player.fly", kind: "toggle", label: "Fly", setting: "free_move" }] },
-        ] },
-        { id: "travel", title: "Travel", icon: "travel", sections: [{ title: "Places", controls: [{ id: "travel.save", kind: "button", label: "Save this spot" }] }] },
-        { id: "world", title: "World", icon: "world", sections: [{ title: "Rules", controls: [{ id: "world.damage", kind: "fact", label: "Damage", value: "On" }] }] },
-        { id: "items", title: "Items", icon: "items", sections: [{ title: "Inventory", controls: [{ id: "items.clear", kind: "button", label: "Clear inventory", confirm: true, tone: "danger" }] }] },
-        { id: "tuning", title: "Tuning", icon: "tuning", sections: [{ title: "Wall kick", controls: [
-            { id: "tuning.kick_out", kind: "slider", label: "Out from the wall", setting: "tune_kick_out", min: 0, max: 12, step: 0.1, default: 4.5, unit: "n/s" },
-            { id: "tuning.reset", kind: "button", label: "Back to defaults", resets: true },
-        ] }] },
-        { id: "view", title: "View", icon: "view", sections: [{ title: "Overlays", controls: [
-            { id: "view.bounds", kind: "choice", label: "Block bounds", setting: "view_block_bounds", options: [{ value: "off", label: "Off" }, { value: "near", label: "Nearby" }] },
-        ] }] },
-    ] }
-}
 
 export function MockBridge() {
     const listeners = new Set<(message: EngineMessage) => void>()
@@ -97,7 +68,7 @@ export function MockBridge() {
     ]
     const community: CommunityCatalog = {
         mods: [
-            { id: "games/terrafirma/mods/tf_world", name: "tf_world", title: "World", description: "Base terrain, water, biomes, and trees.", author: "ArcLabs", source: "builtIn", depends: ["tf_lab"], enabledWorlds: [], configurable: false },
+            { id: "games/terrafirma/mods/tf_world", name: "tf_world", title: "World", description: "Base terrain, water, biomes, and trees.", author: "ArcLabs", source: "builtIn", depends: [], enabledWorlds: [], configurable: false },
             { id: "games/terrafirma/mods/tf_weather", name: "tf_weather", title: "Weather", description: "Climate-driven clouds, rain, snow, and ash.", author: "ArcLabs", source: "builtIn", depends: ["tf_world"], enabledWorlds: [], configurable: false },
             { id: "mods/lanterns", name: "lanterns", title: "Lanterns", description: "Small placeable lanterns for the gallery.", author: "Wren", source: "installed", depends: ["tf_world"], enabledWorlds: ["/worlds/pine_ridge"], configurable: true },
         ],
@@ -142,11 +113,9 @@ export function MockBridge() {
         node_highlighting: "box", chat_font_size: 0, recent_chat_messages: 6,
         widget_map: true, widget_map_corner: 0, widget_map_scale: 2, widget_map_shape: 0,
         widget_map_rotate: true, widget_map_zoom: 3,
-        widget_world_controls: true, widget_world_controls_corner: 1,
         free_move: false, fast_move: false, noclip: false, view_debug_text: false, view_movement: false, view_profiler: false,
         view_wireframe: false, view_bboxes: false, view_block_bounds: "off", tune_kick_out: 4.5,
     }
-    const worldControls: UiValues["world_controls"] = mockWorldControls()
     const defaultBindings: Record<string, string> = {
         keymap_forward: "SYSTEM_SCANCODE_26|GAMEPAD_AXIS_MINUS_1",
         keymap_backward: "SYSTEM_SCANCODE_22|GAMEPAD_AXIS_PLUS_1",
@@ -157,7 +126,6 @@ export function MockBridge() {
         keymap_aux1: "SYSTEM_SCANCODE_224|GAMEPAD_BUTTON_2",
         keymap_freemove: "SYSTEM_SCANCODE_14|GAMEPAD_BUTTON_13",
         keymap_brake: "SYSTEM_SCANCODE_5",
-        keymap_pour: "SYSTEM_SCANCODE_27",
         keymap_dig: "MOUSE_BUTTON_1|GAMEPAD_AXIS_PLUS_5",
         keymap_place: "MOUSE_BUTTON_3|GAMEPAD_AXIS_PLUS_4",
         keymap_inventory: "SYSTEM_SCANCODE_8|GAMEPAD_BUTTON_3",
@@ -165,7 +133,6 @@ export function MockBridge() {
         keymap_prone: "SYSTEM_SCANCODE_29",
         keymap_zoom: "SYSTEM_SCANCODE_19|GAMEPAD_BUTTON_11",
         keymap_chat: "SYSTEM_SCANCODE_23",
-        keymap_lab: "SYSTEM_SCANCODE_15",
         keymap_planetarium: "SYSTEM_SCANCODE_64",
         keymap_wiki: "SYSTEM_SCANCODE_10",
         keymap_minimap: "SYSTEM_SCANCODE_25|GAMEPAD_BUTTON_4",
@@ -220,47 +187,9 @@ export function MockBridge() {
         craftresult: { width: 0, stacks: [null] },
     }
     const RECIPES = [
-        { needs: "tf_world:sand", makes: { item: "tf_world:sandstone", count: 1, wear: 0 } },
-        { needs: "tf_world:stone", makes: { item: "tf_world:stone_bricks", count: 4, wear: 0 } },
+        { needs: "core:sand", makes: { item: "core:sandstone", count: 1, wear: 0 } },
+        { needs: "core:stone", makes: { item: "core:stone_bricks", count: 4, wear: 0 } },
     ]
-    // The Lab as the game's lab.json files and tf_lab would answer it.
-    const SCENARIOS: LabScenario[] = [
-        {
-            id: "water.spill", mod: "tf_world", title: "Water finds its level", size: { x: 7, y: 3, z: 7 },
-            description: "A full basin with a gap in its front wall. Water runs out through the gap and spreads across the floor, thinning as it goes.",
-            controls: [{ id: "gap", kind: "slider", label: "Gap", min: 1, max: 5, step: 1, default: 3, unit: "blocks" }],
-        },
-        {
-            id: "falling.blocks", mod: "tf_world", title: "Loose blocks fall", size: { x: 5, y: 7, z: 5 },
-            description: "A column hung in the air drops and piles on the floor.",
-            controls: [
-                { id: "material", kind: "choice", label: "Material", default: "tf_world:sand", options: [{ value: "tf_world:sand", label: "Sand" }, { value: "tf_world:gravel", label: "Gravel" }] },
-                { id: "drop", kind: "button", label: "Drop again" },
-            ],
-        },
-        {
-            id: "sky.sun", mod: "tf_world", title: "The sun's path", size: { x: 9, y: 6, z: 9 },
-            description: "The solar sky for any latitude and day.",
-            controls: [
-                { id: "latitude", kind: "slider", label: "Latitude", min: -90, max: 90, step: 1, default: 50, unit: "°" },
-                { id: "day", kind: "slider", label: "Day after the spring equinox", min: 0, max: 364, step: 1, default: 91, unit: "days" },
-                { id: "noon", kind: "button", label: "Noon" },
-            ],
-        },
-    ]
-    let lab: UiValues["lab"] | null = null
-
-    function labDefaults(id: string): Record<string, LabValue> {
-        const values: Record<string, LabValue> = {}
-        for (const c of SCENARIOS.find((s) => s.id === id)?.controls ?? []) if (c.kind !== "button") values[c.id] = c.default
-        return values
-    }
-
-    function publishLab() {
-        const value = lab ? { ...lab, values: { ...lab.values } } : null
-        queueMicrotask(() => emitAll({ kind: "ui", key: "lab", value: value }))
-    }
-
     // Canned body cards: one fixed card per kind, so the System tab can be
     // laid out without the engine. No physics here — that's terragen's alone.
     const CANNED: Record<string, BodyKind> = {
@@ -461,16 +390,6 @@ export function MockBridge() {
         },
         "ui.send": (event) => {
             if (event.name === "map.teleport") return null // the gallery has no world to move in
-            if (event.name === "controls.set") {
-                for (const page of worldControls.pages) for (const section of page.sections) for (const control of section.controls) {
-                    if (control.id !== event.payload.id) continue
-                    if (control.kind === "toggle" && typeof event.payload.value === "boolean") control.value = event.payload.value
-                    if (control.kind === "slider" && typeof event.payload.value === "number") control.value = event.payload.value
-                    if (control.kind === "choice" && (typeof event.payload.value === "string" || typeof event.payload.value === "number")) control.value = event.payload.value
-                }
-                emitAll({ kind: "ui", key: "world_controls", value: { ...worldControls } })
-                return null
-            }
             if (event.name === "creative.take") {
                 lists.main!.stacks[event.payload.slot] = { item: event.payload.item, count: event.payload.count, wear: 0 }
                 publish()
@@ -481,24 +400,6 @@ export function MockBridge() {
                 publish()
                 return null
             }
-            if (event.name === "making.hand") { emitAll({ kind: "ui", key: "making", value: cannedMaking() }); return null }
-            if (event.name === "making.leave") { emitAll({ kind: "ui", key: "making", value: null }); return null }
-            if (event.name === "making.make") {
-                const offer = cannedMaking().offers?.find((o) => o.id === event.payload.offer)
-                if (!offer?.ok) return null
-                emitAll({ kind: "ui", key: "making", value: { ...cannedMaking(), working: { id: offer.id, seconds: offer.seconds } } })
-                setTimeout(() => emitAll({ kind: "ui", key: "making", value: cannedMaking() }), offer.seconds * 1000)
-                return null
-            }
-            if (!lab) return null
-            switch (event.name) {
-                case "lab.control": if (event.payload.value !== null) lab.values[event.payload.id] = event.payload.value; break
-                case "lab.restart": break
-                case "lab.speed": lab.speed = event.payload.speed; break
-                case "lab.browse": lab.browsing = true; break
-                case "lab.step_in": lab.browsing = false; break
-            }
-            publishLab()
             return null
         },
         quit: () => null,
@@ -621,18 +522,17 @@ export function MockBridge() {
             return null
         },
         "game.leave": () => {
-            lab = null
             queueMicrotask(() => emitAll({ kind: "mode", mode: "leaving" }))
             setTimeout(() => emitAll({ kind: "mode", mode: "menu" }), 1500)
             return null
         },
         "game.quit": () => null,
 		"creative.list": (): CreativeItem[] => [
-			{ item: "tf_world:grass", description: "Grass", icon: swatch("#5fa83a", "#6b4a2b"), stackMax: 64, category: "nature", mass: 1.5 },
-			{ item: "tf_world:dirt", description: "Dirt", icon: swatch("#7a5533", "#6b4a2b"), stackMax: 64, category: "nature", mass: 1.5 },
-			{ item: "tf_world:stone", description: "Stone", icon: swatch("#8a8a8a", "#6e6e6e"), stackMax: 64, category: "building", mass: 1.5 },
-			{ item: "tf_world:sand", description: "Sand", icon: swatch("#e3d39a", "#cdbb7e"), stackMax: 64, category: "nature", mass: 1.5 },
-			{ item: "tf_world:stone_bricks", description: "Stone Bricks", icon: swatch("#7a7a82", "#5d5d64"), stackMax: 64, category: "building", mass: 1.5 },
+			{ item: "core:grass", description: "Grass", icon: swatch("#5fa83a", "#6b4a2b"), stackMax: 64, category: "nature", mass: 1.5 },
+			{ item: "core:dirt", description: "Dirt", icon: swatch("#7a5533", "#6b4a2b"), stackMax: 64, category: "nature", mass: 1.5 },
+			{ item: "core:stone", description: "Stone", icon: swatch("#8a8a8a", "#6e6e6e"), stackMax: 64, category: "building", mass: 1.5 },
+			{ item: "core:sand", description: "Sand", icon: swatch("#e3d39a", "#cdbb7e"), stackMax: 64, category: "nature", mass: 1.5 },
+			{ item: "core:stone_bricks", description: "Stone Bricks", icon: swatch("#7a7a82", "#5d5d64"), stackMax: 64, category: "building", mass: 1.5 },
 		],
         "inventory.move": ({ from, to, count }) => {
             const moving = take(from, count)
@@ -694,27 +594,6 @@ export function MockBridge() {
     }
 }
 
-/** What tf_craft offers at a workbench with flint, granite, a stick and two fibres in reach. */
-export function cannedMaking(): UiValues["making"] {
-    return {
-        station: "Workbench",
-        at: { x: 10, y: 4, z: -3 },
-        worktop: { width: 3, stacks: [
-            { item: "tf_craft:stone_flint", count: 1, wear: 0 }, false, false,
-            { item: "tf_craft:stick_wood", count: 1, wear: 0 }, false, false,
-            { item: "tf_craft:fibre_fibre", count: 2, wear: 0 }, false, false,
-        ] },
-        offers: [
-            { id: "flake_flint", item: "tf_craft:flake_flint", label: "Flint flake", count: 2, process: "Knap", inputs: [{ label: "Flint", count: 1, have: 1 }], tool: "Stone", seconds: 2, ok: true },
-            { id: "axe_head_flint", item: "tf_craft:axe_head_flint", label: "Flint axe head", count: 1, process: "Knap", inputs: [{ label: "Flint", count: 1, have: 1 }], tool: "Stone", seconds: 2, ok: true },
-            { id: "axe_head_stone", label: "Stone axe head", count: 1, process: "Knap", inputs: [{ label: "Stone", count: 1, have: 1 }], seconds: 2, ok: false, reason: "Stone: only stone that breaks clean, like flint, knaps" },
-            { id: "handle_wood", item: "tf_craft:handle_wood", label: "Handle", count: 1, process: "Carve", inputs: [{ label: "Stick", count: 1, have: 1 }], seconds: 3, ok: false, reason: "needs a blade harder than wood" },
-            { id: "cord_fibre", item: "tf_craft:cord_fibre", label: "Cord", count: 1, process: "Twist", inputs: [{ label: "Plant fibre", count: 3, have: 2 }], seconds: 1.5, ok: false, reason: "needs 3 plant fibre, has 2" },
-        ],
-    }
-}
-
-/** A friends list in every state the panel draws. Also the gallery's specimen data. */
 export function cannedSocial(opts: { inWorld?: boolean } = {}): Social {
     const id = (n: number) => `00000000-0000-4000-8000-00000000000${n}`
     return {

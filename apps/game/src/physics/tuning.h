@@ -5,9 +5,9 @@
 
 namespace physics {
 
-// The movement numbers being tuned by feel, live from the world controls. Only
-// the player's own client reads them; settings `tune_<name>` hold them (the
-// menu's ranges are in shell/options.cpp, its sliders in tf_player/controls.lua).
+// The movement numbers being tuned by feel. Only the player's own client reads
+// them; settings `tune_<name>` hold them, set in the config (the world controls
+// that slid them live went in sprint 119).
 struct Tuning
 {
 	float kick_out = 4.5f;        // nodes/s a wall kick drives out from the wall

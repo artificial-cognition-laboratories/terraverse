@@ -78,7 +78,7 @@ export function reactionDemo(r: MatterReaction, substances: Map<string, MatterSu
     const volume = condensed.reduce((total, [, v]) => total + v, 0)
     for (const [id, v] of condensed) add[id] = (0.15 * v / volume) / (sub(id).molar_mass / 1000 / sub(id).density.solid)
     for (const [id, count] of gases) add[id] = count * 20
-    const blocks: SandboxBlock[] = [{ at: [1, 0, 1], node: "tf_matter:crucible", add: add,
+    const blocks: SandboxBlock[] = [{ at: [1, 0, 1], node: "core:crucible", add: add,
         // gases alone that burn: a spark, then their own heat
         temperature: !condensed.length && r.heat > 0 ? Math.max(t, 1100) : t, hold: condensed.length > 0 || r.heat <= 0 }]
     const heat = r.heat > 0 ? "gives off heat" : "takes in heat"
@@ -95,7 +95,7 @@ export type LabDemo = { id: string; group: string; title: string; note: string; 
 
 const box = (size: [number, number, number], blocks: SandboxBlock[], air = AIR): SandboxSpec =>
     ({ size: size, ambient: ROOM, pressure: ATM, air: air, blocks: blocks })
-const floor = (y = 0): SandboxBlock[] => [0, 1, 2].flatMap((x) => [0, 1, 2].map((z): SandboxBlock => ({ at: [x, y, z], node: "tf_world:stone" })))
+const floor = (y = 0): SandboxBlock[] => [0, 1, 2].flatMap((x) => [0, 1, 2].map((z): SandboxBlock => ({ at: [x, y, z], node: "core:stone" })))
 
 const BURNER = 6e6 // W a block of the pot gets: a metre cube of water warms in about a minute
 
@@ -103,7 +103,7 @@ export const LAB_DEMOS: LabDemo[] = [
     {
         id: "ice", group: "Heat", title: "Ice melts", speed: 1,
         note: "A block of ice over a burner. It warms to 0 °C, then stays there while the heat goes into melting it, and the water runs out and pools. In a warm room alone, a block this size would take days.",
-        spec: box([3, 2, 3], [...floor(), { at: [1, 1, 1], node: "tf_world:ice", temperature: 258, power: 5e6 }]),
+        spec: box([3, 2, 3], [...floor(), { at: [1, 1, 1], node: "core:ice", temperature: 258, power: 5e6 }]),
     },
     {
         id: "boil", group: "Heat", title: "Water boils", speed: 1,
@@ -111,8 +111,8 @@ export const LAB_DEMOS: LabDemo[] = [
         spec: box([5, 8, 5], [0, 1, 2, 3, 4].flatMap((x) => [0, 1, 2, 3, 4].flatMap((z): SandboxBlock[] => {
             const wall = x === 0 || z === 0 || x === 4 || z === 4
             return [
-                wall ? { at: [x, 0, z], node: "tf_world:stone" } : { at: [x, 0, z], node: "tf_world:stone", temperature: 1000, hold: true },
-                ...[1, 2].map((y): SandboxBlock => wall ? { at: [x, y, z], node: "tf_world:stone_bricks" } : { at: [x, y, z], node: "tf_world:water_source", power: BURNER }),
+                wall ? { at: [x, 0, z], node: "core:stone" } : { at: [x, 0, z], node: "core:stone", temperature: 1000, hold: true },
+                ...[1, 2].map((y): SandboxBlock => wall ? { at: [x, y, z], node: "core:stone_bricks" } : { at: [x, y, z], node: "core:water_source", power: BURNER }),
             ]
         }))),
     },
@@ -120,37 +120,37 @@ export const LAB_DEMOS: LabDemo[] = [
         id: "conduct", group: "Heat", title: "Copper and wood, heated at one end", speed: 600,
         note: "The same heat into the end of each bar. These are bars a metre thick, so even copper takes an hour to carry it a few blocks; wood barely moves it at all. Turn on the heat view to watch it go.",
         spec: box([2, 1, 4], [
-            ...[0, 1, 2, 3].flatMap((z): SandboxBlock[] => [{ at: [0, 0, z], node: "tf_matter:copper" }, { at: [1, 0, z], node: "tf_world:log" }]),
-            { at: [0, 0, 0], node: "tf_matter:copper", temperature: 700, hold: true }, { at: [1, 0, 0], node: "tf_world:log", temperature: 700, hold: true },
+            ...[0, 1, 2, 3].flatMap((z): SandboxBlock[] => [{ at: [0, 0, z], node: "core:copper" }, { at: [1, 0, z], node: "core:log" }]),
+            { at: [0, 0, 0], node: "core:copper", temperature: 700, hold: true }, { at: [1, 0, 0], node: "core:log", temperature: 700, hold: true },
         ]),
     },
     {
         id: "sublime", group: "Heat", title: "Dry ice", speed: 600,
         note: "Solid carbon dioxide at 1 atm never melts: it turns straight to gas at −78 °C, and the heavy cold gas spills out over the top.",
-        spec: box([3, 2, 3], [{ at: [1, 0, 1], node: "tf_matter:carbon_dioxide", temperature: 190 }]),
+        spec: box([3, 2, 3], [{ at: [1, 0, 1], node: "core:carbon_dioxide", temperature: 190 }]),
     },
     {
         id: "pour", group: "Heat", title: "Tin melts and pours", speed: 1,
         note: "Tin melts at 232 °C, low for a metal. A block on a shelf over a burner softens from the outside in, runs off the edge, and pools on a hot floor that keeps it liquid.",
         spec: box([3, 3, 3], [
             ...floor().map((b): SandboxBlock => ({ ...b, temperature: 560, hold: true })),
-            { at: [1, 1, 1], node: "tf_world:stone", temperature: 560, hold: true },
-            { at: [1, 2, 1], node: "tf_matter:tin", temperature: 480, power: 2e7 },
+            { at: [1, 1, 1], node: "core:stone", temperature: 560, hold: true },
+            { at: [1, 2, 1], node: "core:tin", temperature: 480, power: 2e7 },
         ]),
     },
     {
         id: "fire", group: "Fire", title: "Wood burns in air", speed: 1,
         note: "Lit wood burns where air reaches it: the fire draws oxygen in and sends carbon dioxide and steam up and out of the open top. Its own heat keeps it going.",
-        spec: box([3, 3, 3], [...floor(), { at: [1, 1, 1], node: "tf_world:log", temperature: 900 }]),
+        spec: box([3, 3, 3], [...floor(), { at: [1, 1, 1], node: "core:log", temperature: 900 }]),
     },
     {
         id: "kiln", group: "Fire", title: "Wood heated without air", speed: 10,
         note: "The same wood, as hot, but in nitrogen: with no oxygen it can't burn. It chars instead, giving off steam and leaving charcoal: a charcoal kiln.",
-        spec: box([3, 3, 3], [...floor(), { at: [1, 1, 1], node: "tf_world:log", temperature: 900, hold: true }], { nitrogen: 1 }),
+        spec: box([3, 3, 3], [...floor(), { at: [1, 1, 1], node: "core:log", temperature: 900, hold: true }], { nitrogen: 1 }),
     },
     {
         id: "bronze", group: "Metals", title: "Bronze from copper and tin", speed: 10,
         note: "Copper and tin heated together: once both are molten they mix into bronze, harder than either.",
-        spec: box([3, 2, 3], [{ at: [1, 0, 1], node: "tf_matter:crucible", add: { copper: 2300, tin: 150 }, temperature: 1400, hold: true }]), // 15 : 1 by moles
+        spec: box([3, 2, 3], [{ at: [1, 0, 1], node: "core:crucible", add: { copper: 2300, tin: 150 }, temperature: 1400, hold: true }]), // 15 : 1 by moles
     },
 ]

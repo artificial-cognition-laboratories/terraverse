@@ -8,7 +8,7 @@ onMounted(() => {
     mock.emit({ kind: "mode", mode: "game" })
     mock.emit({ kind: "ui", key: "creative", value: true })
     mock.emit({ kind: "state", section: "hotbar", value: { size: 9, selected: 0 } })
-    mock.stock({ 0: { item: "tf_world:stone", count: 64, wear: 0 } })
+    mock.stock({ 0: { item: "core:stone", count: 64, wear: 0 } })
 })
 </script>
 

@@ -7,7 +7,6 @@
 #include "items.h"
 #include "screens.h"
 #include "state.h"
-#include "director.h"
 #include "ui.h"
 #include "planetarium.h"
 #include "terragen/worlds.h"
@@ -69,7 +68,6 @@ private:
 	Items m_items;
 	State m_state;
 	Ui m_ui;
-	Director m_director;
 	Screens m_screens;
 	Actions m_actions;
 	Client *m_client;

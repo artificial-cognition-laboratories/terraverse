@@ -179,6 +179,31 @@ void ScriptApiServer::register_mod_block(const std::string &name, const std::str
 	lua_pop(L, 1); // error handler
 }
 
+void ScriptApiServer::set_mod_commands(const std::vector<sidecar::Host::Command> &commands)
+{
+	SCRIPTAPI_PRECHECKHEADER
+
+	int error_handler = PUSH_ERROR_HANDLER(L);
+	lua_getglobal(L, "core");
+	lua_getfield(L, -1, "set_mod_commands");
+	lua_remove(L, -2); // core
+	if (lua_type(L, -1) != LUA_TFUNCTION)
+		throw LuaError("builtin is missing core.set_mod_commands");
+	lua_createtable(L, (int)commands.size(), 0);
+	for (size_t i = 0; i < commands.size(); i++) {
+		lua_createtable(L, 0, 3);
+		lua_pushstring(L, commands[i].name.c_str());
+		lua_setfield(L, -2, "name");
+		lua_pushstring(L, commands[i].description.c_str());
+		lua_setfield(L, -2, "description");
+		lua_pushstring(L, commands[i].params.c_str());
+		lua_setfield(L, -2, "params");
+		lua_rawseti(L, -2, (int)i + 1);
+	}
+	PCALL_RES(lua_pcall(L, 1, 0, error_handler));
+	lua_pop(L, 1); // error handler
+}
+
 void ScriptApiServer::on_shutdown()
 {
 	SCRIPTAPI_PRECHECKHEADER

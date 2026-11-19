@@ -3,10 +3,7 @@ import { computed, onMounted, watch } from "vue"
 import Corner from "../account/Corner.vue"
 import { useBridge } from "../bridge/use.ts"
 import Crosshair from "./Crosshair.vue"
-import FlightStrip from "./flight/FlightStrip.vue"
-import SpaceStrip from "./flight/SpaceStrip.vue"
 import Hotbar from "./Hotbar.vue"
-import ProbeCard from "./ProbeCard.vue"
 import StatBar from "./StatBar.vue"
 import ActionRail from "./ActionRail.vue"
 import ShapeBar from "./ShapeBar.vue"
@@ -17,7 +14,6 @@ import { worldOf } from "./map/bodies.ts"
 import { mapKey, worldMapData } from "./map/data.ts"
 import MapWidget from "./widgets/MapWidget.vue"
 import { loadWidgetSettings } from "./widgets/config.ts"
-import WorldControlsWidget from "./widgets/WorldControlsWidget.vue"
 import WikiButton from "./widgets/WikiButton.vue"
 
 const store = useStore()
@@ -34,7 +30,6 @@ watch(() => store.ui.map ? mapKey(store.ui.map) : null, () => {
 }, { immediate: true })
 const hud = computed(() => store.state.hud)
 const player = computed(() => store.state.player)
-const flight = computed(() => store.ui.flight)
 // pause keeps the world's HUD up, the mouse free over it; another screen covers it
 const paused = computed(() => store.screen === "pause")
 const covered = computed(() => store.screen !== null && !paused.value)
@@ -49,17 +44,12 @@ const hotbar = computed(() => {
 </script>
 
 <template>
-    <!-- the Lab browser shows the world, not the player's HUD -->
-    <div v-if="hud?.visible && store.screen !== 'lab'" class="hud">
+    <div v-if="hud?.visible" class="hud">
         <Crosshair v-if="hud.crosshair && store.screen !== 'map'" />
-        <FlightStrip v-if="flight?.regime === 'near' && !covered" :flight="flight" />
-        <SpaceStrip v-if="flight?.regime === 'space' && !covered" :flight="flight" />
-        <ProbeCard v-if="!covered" />
         <ToolRail v-if="tools?.out && !covered" :tools="tools" :free="tools.cursor || paused" />
         <ActionRail v-if="tools?.out && library && !covered" :tools="tools" :library="library" :free="tools.cursor || paused" />
         <div v-if="!covered" class="corner-icons">
             <Corner />
-            <WorldControlsWidget />
             <WikiButton />
         </div>
         <div class="bottom">

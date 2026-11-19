@@ -22,17 +22,15 @@ namespace shell {
 
 class Shell;
 class Worlds;
-class Lab;
 
 /*
 	The main menu: the page draws it, this answers it. While a Menu exists the
 	page can list, create and delete worlds, and choose one to play.
 */
-// What the player chose: a world of their own (the Lab's are never shared), or a friend's.
+// What the player chose: a world of their own, or a friend's.
 struct Choice
 {
 	std::optional<WorldSpec> world;
-	bool lab = false;
 	std::optional<online::JoinPlan> join;
 };
 
@@ -44,7 +42,6 @@ public:
 		RenderingEngine *engine;
 		MyEventReceiver &receiver; // the window's input: the Planetarium takes what the page doesn't
 		const Worlds &worlds;
-		const Lab &lab;
 	};
 
 	explicit Menu(const Opts &opts);
@@ -59,7 +56,6 @@ private:
 	Intents m_intents; // what the menu answers, removed as it goes
 	RenderingEngine *m_engine;
 	const Worlds &m_worlds;
-	const Lab &m_lab;
 	Community m_community;
 	MyEventReceiver &m_receiver;
 	// The create screen's planet (the window's: Shell::planetarium) is the

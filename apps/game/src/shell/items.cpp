@@ -49,7 +49,7 @@ const Json::Value &Items::describe(const std::string &name)
 	const ItemDefinition &def = m_opts.client->idef()->get(name);
 	Json::Value info;
 	info["description"] = def.description.empty() ? name : def.description;
-	// kg each, as the game weighs it (tf_craft carry.lua: group mass_g, grams); null if unweighed
+	// kg each, as the game weighs it (group mass_g, grams); null if unweighed, as everything is for now
 	const auto grams = def.groups.find("mass_g");
 	info["mass"] = grams == def.groups.end() ? Json::Value() : Json::Value(grams->second / 1000.0);
 
@@ -81,7 +81,7 @@ Json::Value Items::catalog()
 		item["item"] = name;
 		item["stackMax"] = def.stack_max;
 		if (def.groups.count("creative_matter"))
-			item["category"] = "matter"; // a block of a substance (tf_matter)
+			item["category"] = "matter"; // a block of a substance (builtin/game/matter.lua)
 		else if (def.groups.count("creative_nature") || def.groups.count("tree") ||
 				def.groups.count("leaves") || def.groups.count("plant") ||
 				def.groups.count("crumbly") || def.groups.count("liquid"))

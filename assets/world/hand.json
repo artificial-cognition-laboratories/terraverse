@@ -1,0 +1,43 @@
+{
+	"note": "The hand: what digs when nothing's held.",
+	"hand": {
+		"tool_capabilities": {
+			"damage_groups": {
+				"fleshy": 1
+			},
+			"full_punch_interval": 0.9,
+			"groupcaps": {
+				"choppy": {
+					"times": {
+						"2": 6,
+						"3": 1.2
+					},
+					"uses": 0
+				},
+				"cracky": {
+					"times": {
+						"3": 6
+					},
+					"uses": 0
+				},
+				"crumbly": {
+					"times": [
+						3,
+						1.5,
+						0.6
+					],
+					"uses": 0
+				},
+				"snappy": {
+					"times": {
+						"3": 0.4
+					},
+					"uses": 0
+				}
+			},
+			"max_drop_level": 0
+		},
+		"type": "none",
+		"wield_image": "blank.png"
+	}
+}

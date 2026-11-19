@@ -54,7 +54,8 @@ type Arg =
 ```
 
 Parsed before `run` is called, and typed in `args`: a `"player"` argument arrives as a `Player`,
-a `"position"` as a `Vec3`. A command typed wrong never reaches you; the player is told what was
+a `"position"` as a `Vec3` (typed `x y z`). The last argument, if it's a string, takes the rest
+of the line, so `/msg @ana see you at the kiln` needs no quotes. A command typed wrong never reaches you; the player is told what was
 expected, and chat suggests as they type.
 
 ## Permissions

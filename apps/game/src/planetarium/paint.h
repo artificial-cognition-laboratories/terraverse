@@ -46,7 +46,7 @@ public:
 		// that day's climate (0..1 through the year); none: the yearly mean
 		std::optional<double> date;
 		// what's been explored (survival): a grid × grid bit per cell, row 0
-		// north, as tf_player keeps it; none: all of it
+		// north, as server/player.cpp keeps it; none: all of it
 		std::optional<std::vector<u8>> explored;
 		u32 grid = 0;
 	};

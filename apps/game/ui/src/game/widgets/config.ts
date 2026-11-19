@@ -11,8 +11,6 @@ export const widgetConfig = reactive({
     mapShape: 0,
     mapRotate: true,
     mapZoom: 3,
-    worldControls: false,
-    worldControlsCorner: 1 as WidgetCorner,
 })
 
 function corner(value: number | boolean | string | undefined): WidgetCorner {
@@ -22,12 +20,11 @@ function corner(value: number | boolean | string | undefined): WidgetCorner {
 
 export function applyWidgetSettings(values: Record<string, number | boolean | string>) {
     const map = values.widget_map
-    const controls = values.widget_world_controls
     const scale = values.widget_map_scale
     const shape = values.widget_map_shape
     const rotate = values.widget_map_rotate
     const zoom = values.widget_map_zoom
-    if (typeof map !== "boolean" || typeof controls !== "boolean" ||
+    if (typeof map !== "boolean" ||
         typeof scale !== "number" || !Number.isInteger(scale) || scale < 1 || scale > 3 ||
         typeof shape !== "number" || !Number.isInteger(shape) || shape < 0 || shape > 1 ||
         typeof rotate !== "boolean" || typeof zoom !== "number" || !Number.isInteger(zoom) || zoom < 1 || zoom > 5)
@@ -38,8 +35,6 @@ export function applyWidgetSettings(values: Record<string, number | boolean | st
     widgetConfig.mapShape = shape
     widgetConfig.mapRotate = rotate
     widgetConfig.mapZoom = zoom
-    widgetConfig.worldControls = controls
-    widgetConfig.worldControlsCorner = corner(values.widget_world_controls_corner)
     widgetConfig.ready = true
 }
 

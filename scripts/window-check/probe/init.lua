@@ -4,7 +4,7 @@
 -- WINDOW lines; the last is "WINDOW pass" or "WINDOW fail".
 local function say(...) print("WINDOW " .. string.format(...)) end
 local atlas = assert(core.planet.atlas(), "window_probe: not a planet")
-local MARK = "tf_planet:seam" -- a node the ground never has
+local MARK = "core:seam" -- a node the ground never has
 local function emerged(pos, then_)
 	core.emerge_area(vector.subtract(pos, 16), vector.add(pos, 16), function(_, _, left)
 		if left == 0 then then_() end
@@ -19,7 +19,7 @@ local function tileOf(pos)
 end
 local lat, lon
 core.after(0.5, function()
-	local spawn = vector.round(tf_planet.spawn_position())
+	local spawn = vector.round(core.planet.spawn_position())
 	local cell = assert(core.planet.atlas_cell(spawn))
 	say("spawn %s, cell %s %d %d %d %d", core.pos_to_string(spawn), cell.region, cell.index, cell.i, cell.j, cell.k)
 	emerged(spawn, function()

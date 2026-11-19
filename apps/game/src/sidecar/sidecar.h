@@ -46,6 +46,12 @@ struct Host {
 	std::function<void(const std::string &player, const std::string &text)> tell;
 	std::function<void(const std::string &text)> announce;
 	std::function<std::vector<std::string>()> players;
+	// Every command mods have now, by first word: the whole set, replacing the last.
+	struct Command { std::string name, description, params; };
+	std::function<void(const std::vector<Command> &commands)> commands;
+	// Whether a player holds a permission ("kilns:light").
+	std::function<bool(const std::string &player, const std::string &permission)> can;
+	std::function<void(const std::string &player, const std::string &reason)> kick;
 };
 
 class Sidecar {
@@ -60,6 +66,9 @@ public:
 	// Events for the next window.
 	void joined(const std::string &player);
 	void left(const std::string &player);
+	// Someone typed one of the mods' commands: its first word, and the rest of the line.
+	// `player` is "" from the console. False when mods are off: nobody will answer.
+	bool command(const std::string &player, const std::string &name, const std::string &text);
 
 	// Open a window: the events since the last one, then mod code until it's idle.
 	// `now` is game time in seconds. Also where it notices the mods were prepared again
@@ -72,7 +81,7 @@ public:
 
 private:
 	struct Process;
-	struct Happened { u8 kind; std::string player; };
+	struct Happened { u8 kind; std::string player, command, text; };
 
 	void start();
 	void stop();

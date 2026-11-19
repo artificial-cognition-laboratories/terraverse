@@ -294,7 +294,7 @@ static void testGapRunsIn(const std::vector<sandbox::StageBlock> &blocks)
 {
 	int stone = -1;
 	for (size_t i = 0; i < blocks.size(); i++)
-		if (blocks[i].spec.node == "tf_world:stone")
+		if (blocks[i].spec.node == "core:stone")
 			stone = (int)i;
 	UASSERT(stone >= 0);
 	std::vector<sandbox::Stage::Cell> cells(27);
@@ -342,12 +342,12 @@ void TestMoves::testIceMeltsInwards()
 		for (int z = 0; z < 3; z++) {
 			Json::Value b;
 			b["at"].append(x); b["at"].append(0); b["at"].append(z);
-			b["node"] = "tf_world:stone";
+			b["node"] = "core:stone";
 			list.append(b);
 		}
 	Json::Value ice;
 	ice["at"].append(1); ice["at"].append(1); ice["at"].append(1);
-	ice["node"] = "tf_world:ice";
+	ice["node"] = "core:ice";
 	ice["temperature"] = 258;
 	ice["power"] = 5e6;
 	list.append(ice);
@@ -420,7 +420,7 @@ void TestMoves::testIceMeltsInwards()
 	Json::Value charge;
 	Json::Value crucible;
 	crucible["at"].append(1); crucible["at"].append(0); crucible["at"].append(1);
-	crucible["node"] = "tf_matter:crucible";
+	crucible["node"] = "core:crucible";
 	crucible["add"]["hematite"] = 500;
 	charge["blocks"].append(crucible);
 	pot.setUp(charge, 293);
@@ -508,14 +508,14 @@ void TestMoves::testFineWater()
 	sandbox::Stage stage(sandbox::Stage::Opts{ table, blocks, 9, 5, 9, 293, 101325, 9.81, { { "nitrogen", 0.79 }, { "oxygen", 0.21 } } });
 	for (int x = 0; x < 9; x++)
 		for (int z = 0; z < 9; z++) {
-			stage.place({ x, 0, z }, "tf_world:stone");
+			stage.place({ x, 0, z }, "core:stone");
 			if (x == 0 || z == 0 || x == 8 || z == 8)
-				stage.place({ x, 1, z }, "tf_world:stone_bricks");
+				stage.place({ x, 1, z }, "core:stone_bricks");
 		}
 	for (int y = 1; y <= 3; y++)
 		for (int x = 3; x <= 5; x++)
 			for (int z = 3; z <= 5; z++)
-				stage.place({ x, y, z }, "tf_world:water_source");
+				stage.place({ x, y, z }, "core:water_source");
 	shell::FineWater fine;
 	int most_kinds = 0;
 	for (int frame = 0; frame < 60 * 40; frame++) {
@@ -549,9 +549,9 @@ void TestMoves::testPourColour()
 	sandbox::Stage stage(sandbox::Stage::Opts{ table, blocks, 5, 5, 5, 293, 101325, 9.81, { { "nitrogen", 0.79 }, { "oxygen", 0.21 } } });
 	for (int x = 0; x < 5; x++)
 		for (int z = 0; z < 5; z++) {
-			stage.place({ x, 0, z }, "tf_world:stone");
+			stage.place({ x, 0, z }, "core:stone");
 			if (x == 0 || z == 0 || x == 4 || z == 4)
-				stage.place({ x, 1, z }, "tf_world:stone_bricks");
+				stage.place({ x, 1, z }, "core:stone_bricks");
 		}
 	stage.pour({ 2, 4, 2 }, "copper", 8000, 1500, 15);
 	shell::FineWater fine;
@@ -637,7 +637,7 @@ void TestMoves::testFinePowder()
 	sandbox::Stage stage(sandbox::Stage::Opts{ table, blocks, 11, 7, 11, 293, 101325, 9.81, { { "nitrogen", 0.79 }, { "oxygen", 0.21 } } });
 	for (int x = 0; x < 11; x++)
 		for (int z = 0; z < 11; z++)
-			stage.place({ x, 0, z }, "tf_world:stone");
+			stage.place({ x, 0, z }, "core:stone");
 	stage.pour({ 5, 6, 5 }, "salt", 12000, 293, 90);
 	shell::FinePowder fine;
 	size_t most_falling = 0;
@@ -693,12 +693,12 @@ void TestMoves::testSteps()
 	sandbox::Stage stage(sandbox::Stage::Opts{ table, blocks, 5, 7, 14, 293, 101325, 9.81, { { "nitrogen", 0.79 }, { "oxygen", 0.21 } } });
 	for (int x = 0; x < 5; x++)
 		for (int z = 0; z < 14; z++) {
-			stage.place({ x, 0, z }, "tf_world:stone");
+			stage.place({ x, 0, z }, "core:stone");
 			const int high = z <= 5 ? 3 : z <= 8 ? 2 : z <= 11 ? 1 : 0;
 			for (int y = 1; y <= high; y++)
-				stage.place({ x, y, z }, "tf_world:stone");
+				stage.place({ x, y, z }, "core:stone");
 			if (z == 0 || (z <= 5 && (x == 0 || x == 4)))
-				stage.place({ x, 4, z }, "tf_world:stone_bricks");
+				stage.place({ x, 4, z }, "core:stone_bricks");
 		}
 	stage.pour({ 2, 6, 2 }, "water", 55500 * 0.6, 293, 120);
 	shell::FineWater fine;
@@ -739,12 +739,12 @@ void TestMoves::testWallsStayDry()
 	sandbox::Stage stage(sandbox::Stage::Opts{ table, blocks, 11, 5, 5, 293, 101325, 9.81, { { "nitrogen", 0.79 }, { "oxygen", 0.21 } } });
 	for (int x = 0; x < 11; x++)
 		for (int z = 0; z < 5; z++) {
-			stage.place({ x, 0, z }, "tf_world:stone");
+			stage.place({ x, 0, z }, "core:stone");
 			for (int y = 1; y <= 3; y++)
 				if (x == 0 || z == 0 || x == 10 || z == 4 || (x == 5 && y >= 2))
-					stage.place({ x, y, z }, "tf_world:stone_bricks");
+					stage.place({ x, y, z }, "core:stone_bricks");
 				else if (x < 5)
-					stage.place({ x, y, z }, "tf_world:water_source");
+					stage.place({ x, y, z }, "core:water_source");
 		}
 	shell::FineWater fine;
 	int on_walls = 0, spills = 0;
@@ -777,7 +777,7 @@ void TestMoves::testBoiling()
 	const std::vector<sandbox::StageBlock> blocks = sandbox::Stage::read(palette["scene"]);
 	int water = -1;
 	for (size_t i = 0; i < blocks.size(); i++)
-		if (blocks[i].spec.node == "tf_world:water_source")
+		if (blocks[i].spec.node == "core:water_source")
 			water = (int)i;
 	std::vector<sandbox::Stage::Cell> cells(3 * 3 * 3);
 	for (size_t i = 0; i < 9; i++)
@@ -819,8 +819,8 @@ void TestMoves::testBurner()
 	sandbox::Stage stage(sandbox::Stage::Opts{ table, blocks, 3, 4, 3, 293, 101325, 9.81, { { "nitrogen", 0.79 }, { "oxygen", 0.21 } } });
 	for (int x = 0; x < 3; x++)
 		for (int z = 0; z < 3; z++) {
-			stage.place({ x, 0, z }, "tf_world:stone");
-			stage.place({ x, 1, z }, x == 1 && z == 1 ? "tf_world:water_source" : "tf_world:stone_bricks");
+			stage.place({ x, 0, z }, "core:stone");
+			stage.place({ x, 1, z }, x == 1 && z == 1 ? "core:water_source" : "core:stone_bricks");
 		}
 	stage.burner({ 1, 1, 1 }, 6e6);
 	const auto hot = [&] { return stage.view()[(1 * 3 + 1) * 3 + 1].temperature; };

@@ -4,6 +4,8 @@
 
 #include "chatmessage.h"
 #include "server.h"
+#include "server/terra.h" // Terra Firma
+#include "server/matter.h" // Terra Firma
 #include "online/gate.h"
 #include "sidecar/sidecar.h"
 #include <json/json.h>
@@ -404,6 +406,11 @@ void Server::handleCommand_ClientReady(NetworkPacket* pkt)
 
 	s64 last_login;
 	m_script->getAuth(playersao->getPlayer()->getName(), nullptr, nullptr, &last_login);
+	// Terra Firma: one who joins in seam starts at the spawn, before anything asks the
+	// planet where they are (sprint 119: was tf_planet's)
+	terraOffSeam(this, playersao, "joined");
+	terraJoinPlayer(this, playersao); // what they're given (sprint 119: was tf_player's)
+	terraMatterJoin(this, playersao); // what they've seen react (was tf_matter's)
 	m_script->on_joinplayer(playersao, last_login);
 	if (m_sidecar) // Terra Firma: TypeScript mods (sprint 119)
 		m_sidecar->joined(playersao->getPlayer()->getName());
@@ -1071,7 +1078,8 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 
 		/* Cheat prevention */
 		bool is_valid_dig = true;
-		if ((anticheat_flags & AC_DIGGING) && !isSingleplayer()) {
+		// Terra Firma: creative digs anything at once (Game::handleDigging)
+		if ((anticheat_flags & AC_DIGGING) && !isSingleplayer() && !checkPriv(player->getName(), "creative")) {
 			v3s16 nocheat_p = playersao->getNoCheatDigPos();
 			float nocheat_t = playersao->getNoCheatDigTime();
 			playersao->noCheatDigEnd();
@@ -1141,6 +1149,12 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 
 		if (is_valid_dig && n.getContent() != CONTENT_IGNORE)
 			m_script->node_on_dig(p_under, n, playersao);
+		// Terra Firma: liquids and heaps beside it run into the hole, and the loose ground
+		// round it keeps its shape (sprint 85; sprint 119: were tf_matter's and tf_world's)
+		if (is_valid_dig && m_env->getMap().getNode(p_under).getContent() != n.getContent()) {
+			terraMatterDisturb(this, p_under);
+			groundChanged(p_under, n);
+		}
 
 		// For whatever reason we assume that the client always predicts that a
 		// dug node is air irrespective of the node's node_dig_prediction
@@ -1159,6 +1173,9 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 
 		const bool had_prediction = !selected_item->getDefinition(m_itemdef).
 			node_placement_prediction.empty();
+		// Terra Firma: the two nodes a block could go into, as they were (below)
+		const MapNode under = m_env->getMap().getNode(pointed.node_undersurface),
+				above = m_env->getMap().getNode(pointed.node_abovesurface);
 
 		if (pointed.type == POINTEDTHING_OBJECT) {
 			// Right click object
@@ -1188,6 +1205,17 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 			// Apply returned ItemStack
 			if (selected_item.has_value() && playersao->setWieldedItem(*selected_item))
 				SendInventory(player, true);
+		}
+		// Terra Firma: what's beside a block built runs against it, a liquid placed starts
+		// to run, and the loose ground round it keeps its shape (sprint 119: were tf_matter's
+		// and tf_world's); which of the two it went into is Lua's to say
+		if (pointed.type == POINTEDTHING_NODE) {
+			for (const auto &[p, was] : { std::pair{ pointed.node_undersurface, under }, std::pair{ pointed.node_abovesurface, above } }) {
+				if (m_env->getMap().getNode(p).getContent() == was.getContent())
+					continue;
+				terraMatterDisturb(this, p);
+				groundChanged(p, was);
+			}
 		}
 
 		if (pointed.type != POINTEDTHING_NODE)
@@ -1851,6 +1879,9 @@ void Server::handleCommand_Ui(NetworkPacket *pkt)
 				<< ": payload isn't JSON (" << errors << ")" << std::endl;
 		return;
 	}
+	// Terra Firma: the engine's own first (sprint 119: were tf_player's)
+	if (terraUiEvent(this, playersao, name, value))
+		return;
 	m_script->on_ui_event(playersao, name, value);
 }
 

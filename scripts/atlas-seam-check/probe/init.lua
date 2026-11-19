@@ -15,8 +15,8 @@ local R = atlas.radius
 local FLOOR = 120  -- the courses' layer: above the terrain, below the top
 local SPEED = 3    -- m/s
 local HALF = 2     -- blocks each side of a course's line
-local STONE, SAND = "tf_world:stone", "tf_world:sand"
-local WATER, FLOWING = "tf_world:water_source", "tf_world:water_flowing"
+local STONE, SAND = "core:stone", "core:sand"
+local WATER, FLOWING = "core:water_source", "core:water_flowing"
 
 local results = { pass = 0, fail = 0 }
 -- the server's steps: how long, and how many

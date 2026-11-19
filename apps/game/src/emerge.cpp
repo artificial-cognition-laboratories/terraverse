@@ -763,6 +763,8 @@ void *EmergeThread::run()
 
 				m_mapgen->makeChunk(&bmdata);
 			}
+			// Terra Firma: the wet shore it made, for the server to fill (sprint 119)
+			m_server->queueShore(mapgenShore(*m_mapgen));
 
 			{
 				ScopeProfiler sp(g_profiler,

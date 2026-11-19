@@ -15,7 +15,7 @@ namespace piece { class Machine; }
 namespace workshop {
 
 /*
-	The entities machines are carried by (tf_world:piece): found by their
+	The entities machines are carried by (core:piece): found by their
 	object id or their machine's, read, written back, made.
 */
 class Entities

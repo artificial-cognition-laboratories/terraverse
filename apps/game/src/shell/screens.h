@@ -33,7 +33,7 @@ public:
 	~Screens();
 
 	// Throws on a screen not in the table. A screen that needs a UI value
-	// (the Lab) stays shut where the server hasn't offered it.
+	// (the map, the wiki) stays shut where the server hasn't offered it.
 	void open(const std::string &name);
 	void close();
 	bool isOpen() const { return m_overlay != nullptr; }

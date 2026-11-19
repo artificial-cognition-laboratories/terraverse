@@ -37,6 +37,10 @@ declare global {
         readonly connected: boolean
         /** A line in their chat, from the server. */
         tell(message: string): void
+        /** Whether they hold a permission. Admins (the engine's `server` privilege) hold every one; roles don't grant any yet. */
+        can(permission: PermissionName): boolean
+        /** Disconnect them, with a reason they're shown. They can come back. */
+        kick(reason: string): void
     }
 
     interface Players {
@@ -56,8 +60,52 @@ declare global {
         wait(d: Duration): Promise<void>
     }
 
+    type CommandArg =
+        | { type: "string"; optional?: boolean; options?: readonly string[] }
+        | { type: "number" | "integer"; optional?: boolean; min?: number; max?: number }
+        | { type: "boolean"; optional?: boolean }
+        | { type: "player" | "position"; optional?: boolean }
+
+    type CommandArgs = Record<string, CommandArg>
+
+    /** What each argument arrives as: a "player" as a Player, a "position" as a Vec3. */
+    type ParsedArg<A extends CommandArg> =
+        A extends { type: "string"; options: readonly (infer O)[] } ? O :
+        A extends { type: "string" } ? string :
+        A extends { type: "number" | "integer" } ? number :
+        A extends { type: "boolean" } ? boolean :
+        A extends { type: "player" } ? Player :
+        A extends { type: "position" } ? Vec3 : never
+
+    type ParsedArgs<A extends CommandArgs> = {
+        [K in keyof A]: A[K] extends { optional: true } ? ParsedArg<A[K]> | undefined : ParsedArg<A[K]>
+    }
+
+    interface CommandDef<A extends CommandArgs> {
+        /** Shown in chat's /help. */
+        description: string
+        /** In the order they're typed. The last, if a string, takes the rest of the line. */
+        args?: A
+        /** Who may run it. Default: everyone. The server console may run anything. */
+        permission?: PermissionName
+        run(e: {
+            /** undefined from the server console */
+            player?: Player
+            args: ParsedArgs<A>
+            /** To whoever ran it, wherever they are. */
+            reply(text: string): void
+        }): void | Promise<void>
+    }
+
+    interface Commands {
+        /** "kiln light" or ["kiln", "light"]: typed /kiln light. Throws COMMAND_TAKEN. */
+        create<const A extends CommandArgs = {}>(path: string | readonly string[], def: CommandDef<A>): Disposer
+    }
+
     interface GameApi {
         readonly players: Players
+        /** What players type in chat. */
+        readonly commands: Commands
         readonly time: Time
         /** A line to everyone connected. */
         announce(message: string): void
