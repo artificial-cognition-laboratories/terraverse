@@ -265,6 +265,10 @@ public:
 	// grid, clear of its territory's edge (every step from it is plain).
 	// Kept.
 	bool interior(Block block) const;
+	// Which nodes of a block and the step round it are cells: BLOCK + 2 a
+	// side from its low corner less one, x fastest, then y, then z. The same
+	// as asking cell() of each, found a box at a time where it can be.
+	std::vector<bool> cellsAround(Block block) const;
 	// How a block is drawn: one of its cells (a block holds one grid's cells
 	// at most; its chart carries on over the whole block) and its middle on
 	// the planet. A mesh's vertices go onto the planet by the chart, less
@@ -455,9 +459,12 @@ private:
 	const terragen::Atlas &shapeOf(const Cell &c) const { return m_bodies[c.body].shape; }
 	Cell on(const Cell &c, const terragen::Atlas::Cell &at) const { return Cell(c.body, at); } // a cell of c's body
 
-	// Which nodes of a block and its rim (BLOCK + 2 a side) are cells.
-	std::vector<bool> cellsAround(Block block) const;
+	void markCells(std::vector<bool> &isCell, Node low, std::array<int32_t, 3> from, std::array<int32_t, 3> to) const;
+	// Whether a box of nodes (lo to hi, inclusive) is all cells or none; none when it can't be told whole
+	std::optional<bool> boxCells(Node lo, Node hi) const;
 	std::vector<Block> findAcross(Block block) const;
+	// The cell at a point of c's grid carried on (c stored at from): none past the top or not paged in
+	std::optional<Cell> cellSeen(const Cell &c, Node from, double x, double y, double z) const;
 	std::vector<Block> findAt(Node from, double x, double y, double z) const;
 	std::optional<Step> findStep(Node from, const Cell &c, int axis, int sign, bool &paged) const;
 	std::optional<BlockChart> findChart(Block block) const;

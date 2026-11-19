@@ -43,6 +43,7 @@ public:
 	void testWindowCode();
 	void testStepsBetweenSlots();
 	void testTilesNear();
+	void testCellsAroundAsked();
 };
 
 static TestPlanetAtlas g_test_instance;
@@ -113,6 +114,7 @@ void TestPlanetAtlas::runTests(IGameDef *gamedef)
 	TEST(testWindowCode);
 	TEST(testStepsBetweenSlots);
 	TEST(testTilesNear);
+	TEST(testCellsAroundAsked);
 }
 
 namespace {
@@ -716,4 +718,40 @@ void TestPlanetAtlas::testTilesNear()
 	// a cap's edge reaches its segments
 	const Atlas::Cell pole(Atlas::HOME, a.body(planet::Atlas::HOME).locate({ 0, BIG.radius - 1, 0 }));
 	UASSERT(pole.region == terragen::Atlas::Region::Cap);
+}
+
+/*
+	A block's cells and the step round them are found a box at a time
+	(cellsAround): exactly what asking each node finds, at seams (a tile's
+	edges, where a cap's circle cuts a band) and inside alike.
+*/
+void TestPlanetAtlas::testCellsAroundAsked()
+{
+	constexpr int32_t B = Atlas::BLOCK, W = B + 2;
+	for (const terragen::Atlas::Params &p : planets()) {
+		const Atlas a = Atlas::resident(p);
+		int blocks = 0, seams = 0;
+		for (const Atlas::Tile &t : a.tiles()) {
+			// its corners, its edges' middles and its middle, at the surface and under it
+			const int32_t x0 = t.rect.x / B, x1 = (t.rect.x + t.rect.width - 1) / B, z0 = t.rect.z / B,
+				      z1 = (t.rect.z + t.rect.depth - 1) / B;
+			for (int32_t bx : { x0, (x0 + x1) / 2, x1 })
+				for (int32_t bz : { z0, (z0 + z1) / 2, z1 })
+					for (int32_t by : { -1, 0 }) {
+						const Atlas::Block b{ bx, by, bz };
+						const std::vector<bool> found = a.cellsAround(b);
+						int wrong = 0;
+						for (int32_t z = 0; z < W; z++)
+							for (int32_t y = 0; y < W; y++)
+								for (int32_t x = 0; x < W; x++) {
+									const Atlas::Node n{ bx * B - 1 + x, by * B - 1 + y, bz * B - 1 + z };
+									wrong += found[((size_t)z * W + y) * W + x] != a.cell(n).has_value();
+								}
+						UTEST(wrong == 0, "block (%d, %d, %d): %d nodes found wrong", bx, by, bz, wrong);
+						blocks++;
+						seams += !a.interior(b);
+					}
+		}
+		UASSERT(seams > blocks / 4); // most of them over a seam: where it's worth asking
+	}
 }

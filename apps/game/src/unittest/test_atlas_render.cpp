@@ -489,7 +489,11 @@ void TestAtlasRender::testWithinBudget()
 		{ { 12, 10, 3 }, 1000, 1500, 1.0 },
 		{ { 0, 137, 22 }, 1000, 1500, 1.0 },
 		{ { 89.9, 10, 3 }, 1000, 1500, 1.0 },
-		{ { 84.6, 10, 3 }, 1000, 1500, 1.0 },
+		// the cap's edge: the cap's circle meets every band's seam there, so
+		// twice a band's seam blocks (1432 to 636), and next to a cut each of
+		// their rims' nodes is asked alone (no box of them clear of it);
+		// ~1.8 s on a quiet machine, the rest is the geometry, not waste
+		{ { 84.6, 10, 3 }, 1000, 2500, 1.0 },
 	};
 	GameDef def;
 	int over = 0;

@@ -939,30 +939,6 @@ std::optional<Atlas::BlockChart> Atlas::blockChart(Block block) const
 	return cache.charts.emplace(blockKey(block), found).first->second;
 }
 
-std::vector<bool> Atlas::cellsAround(Block block) const
-{
-	constexpr int32_t W = BLOCK + 2;
-	const Node low{ block.x * BLOCK - 1, block.y * BLOCK - 1, block.z * BLOCK - 1 };
-	// Its corners' cells all one region's, well inside its territory (two
-	// blocks clear: a box this small bulges no further into the core's
-	// sphere, and a region's territory is otherwise convex): every node is.
-	const Tile *region = tileAt(low);
-	bool whole = region != nullptr;
-	for (int k = 0; whole && k < 8; k++) {
-		const Node corner{ low.x + (k & 1 ? W - 1 : 0), low.y + (k & 2 ? W - 1 : 0), low.z + (k & 4 ? W - 1 : 0) };
-		const std::optional<Cell> c = tileAt(corner) == region ? cell(corner) : std::nullopt;
-		whole = c && shapeOf(*c).clearance(*c) >= 2;
-	}
-	if (whole)
-		return std::vector<bool>((size_t)W * W * W, true);
-	std::vector<bool> isCell((size_t)W * W * W);
-	for (int32_t z = 0; z < W; z++)
-		for (int32_t y = 0; y < W; y++)
-			for (int32_t x = 0; x < W; x++)
-				isCell[((size_t)z * W + y) * W + x] = cell({ low.x + x, low.y + y, low.z + z }).has_value();
-	return isCell;
-}
-
 std::vector<Atlas::Block> Atlas::findAcross(Block block) const
 {
 	// every cell of the block beside a node that isn't one (seam, or trimmed,
@@ -987,12 +963,13 @@ std::vector<Atlas::Block> Atlas::findAcross(Block block) const
 						continue; // a plain step: the same grid
 					// what's just past the face's middle, in that cell's grid
 					// carried on (where a block is, not which neighbour exactly)
+					// (the cell alone: seeAt's turn and landing point aren't needed, and cost most of it)
 					const Node n{ low.x + x, low.y + y, low.z + z };
-					const std::optional<Seen> s = seeAt(n, n.x + 0.501 * DIRS[d][0], n.y + 0.501 * DIRS[d][1],
-							n.z + 0.501 * DIRS[d][2]);
-					if (!s || !cell(s->node))
-						continue; // past the top
-					const Block there = blockOf(s->node);
+					const std::optional<Cell> target = cellSeen(*cell(n), n, n.x + 0.501 * DIRS[d][0],
+							n.y + 0.501 * DIRS[d][1], n.z + 0.501 * DIRS[d][2]);
+					if (!target)
+						continue; // past the top, or not paged in
+					const Block there = blockOf(node(*target));
 					if (!(there == block) && std::find(out.begin(), out.end(), there) == out.end())
 						out.push_back(there);
 				}
@@ -1005,22 +982,29 @@ std::optional<Atlas::Seen> Atlas::seeAt(Node from, double x, double y, double z)
 	const std::optional<Cell> c = cell(from);
 	if (!c)
 		return std::nullopt;
-	const terragen::Atlas::Vec there = chart(*c, x - from.x, y - from.y, z - from.z);
-	const terragen::Atlas &shape = shapeOf(*c);
-	const auto &params = shape.params();
-	const double r = std::sqrt(there.x * there.x + there.y * there.y + there.z * there.z);
-	const Seen nothing{ seam(), 0, x, y, z };
-	if (r >= params.radius + params.height)
-		return nothing;
-	const Cell target = on(*c, shape.locate(there));
+	const std::optional<Cell> target = cellSeen(*c, from, x, y, z);
+	if (!target)
+		return Seen{ seam(), 0, x, y, z };
 	// the far cell's own centre (its chart's origin), not its corners'
 	// average: on a curved cell that sits a hair inside the arc, and a floor
 	// seen there would be a ledge
-	const std::array<double, 3> at = unchart(*c, chart(target, 0, 0, 0));
-	if (!slotOf(tileOf(target)))
-		return nothing; // not paged in yet: from here, nothing there
-	return Seen{ node(target), quarters(*c, target),
+	const std::array<double, 3> at = unchart(*c, chart(*target, 0, 0, 0));
+	return Seen{ node(*target), quarters(*c, *target),
 		from.x + at[0], from.y + at[1], from.z + at[2] };
+}
+
+std::optional<Atlas::Cell> Atlas::cellSeen(const Cell &c, Node from, double x, double y, double z) const
+{
+	const terragen::Atlas::Vec there = chart(c, x - from.x, y - from.y, z - from.z);
+	const terragen::Atlas &shape = shapeOf(c);
+	const auto &params = shape.params();
+	const double r = std::sqrt(there.x * there.x + there.y * there.y + there.z * there.z);
+	if (r >= params.radius + params.height)
+		return std::nullopt; // past the top of the atlas
+	const Cell target = on(c, shape.locate(there));
+	if (!slotOf(tileOf(target)))
+		return std::nullopt; // not paged in yet: from here, nothing there
+	return target;
 }
 
 std::optional<Atlas::Carried> Atlas::carry(double wasX, double wasY, double wasZ, double x, double y, double z) const
