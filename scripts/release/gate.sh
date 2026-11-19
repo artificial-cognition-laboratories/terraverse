@@ -16,6 +16,8 @@ bash scripts/release/install-check.sh
 cmake -S . -B .output/build -DRUN_IN_PLACE=TRUE
 cmake --build .output/build -j"$(nproc)"
 bash scripts/stage-runtime.sh
+# Tests skipped by name pending their job, as CI's release run skips them.
+export TF_TEST_SKIP="$(bash scripts/test/skips.sh)"
 ./.output/bin/luanti --test-module TestOnline
 ./.output/bin/luanti --test-module TestRelease
 ./.output/bin/luanti --test-module TestTerragen
