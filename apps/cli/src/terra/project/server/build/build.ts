@@ -1,4 +1,5 @@
 import { cpSync, existsSync, mkdirSync, renameSync, rmSync } from "node:fs"
+import { join } from "node:path"
 import { err } from "../../../../errors"
 import type { FrameT } from "../../frame"
 import type { SettingValue } from "../../settings"
@@ -26,7 +27,7 @@ export function Build(opts: { frame: FrameT }) {
             const assets = `${mod.root}/assets`
             mkdirSync(`${next}/${mod.prefix}`, { recursive: true })
             if (existsSync(assets)) cpSync(assets, `${next}/${mod.prefix}/assets`, { recursive: true })
-            built.push({ name: mod.name, prefix: mod.prefix, version: mod.version, root: `${build}/${mod.prefix}`, server: server, settings: chosen.get(mod.name) ?? {} })
+            built.push({ name: mod.name, prefix: mod.prefix, version: mod.version, root: join(build, mod.prefix), server: server, settings: chosen.get(mod.name) ?? {} })
         }
         rmSync(build, { recursive: true, force: true })
         renameSync(next, build)
@@ -54,7 +55,8 @@ export function Build(opts: { frame: FrameT }) {
         })
         if (!result.success)
             throw err("BUILD_FAILED", { detail: `${mod.name}: ${result.logs.map(l => String(l)).join("\n")}`, context: { mod: mod.name } })
-        return `${build}/${mod.prefix}/server.js`
+        // join, as the manifest resolves them on reading: native separators, so both agree on Windows
+        return join(build, mod.prefix, "server.js")
     }
 
     return { run: run }
