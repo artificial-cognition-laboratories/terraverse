@@ -34,6 +34,7 @@ kind's median (the API doesn't say whether caches hit).
 | Date | Master green rate | Time to signal (median) | Warm build (job) | Cold build | Release reliability | Runner min/day |
 |---|---|---|---|---|---|---|
 | 2026-11-17 | 3/7 = 43% | not measured | release ~18 min wall | unknown | not measured | not measured |
+| 2026-11-19 | 3/5 = 60% (since 11-18 22:00; 7f82097d cancelled unsuperseded, 7321a457 red Windows terra, abd83088 red Linux Package + Windows terra) | not measured (GitHub API down) | not measured | not measured | 1/2 (v0.1.5 failed, v0.1.6 ok; launcher-v0.1.3 ok) | not measured |
 | 2026-11-18 | 9/13 = 69% (since 11-17 21:00; the last 4 release runs green in a row) | 9.6 min (11 pushes) | release linux 10.0, windows 14.6; launcher 3.9 / 3.3; macos 3.6 min | release windows 36.4 min; macos 30 min | 2/2 (v0.1.4, launcher-v0.1.2) | 305 (324 min over 1.1 days, includes tonight's bring-up) |
 
 ## Plan
@@ -43,6 +44,10 @@ kind's median (the API doesn't say whether caches hit).
      Windows tests and build; trace.cpp's cxxabi.h on clang-cl; sprint 116's two red terragen tests
      skipped by name (job terragen-sprint-116-red-tests). Streak: 4 green release runs (98e5318a,
      5eb0a8b2, b0c630ae, e5c7e9bd).
+   - [x] 2026-11-19: packages no longer copy the deleted builtin/ (00c128d6).
+   - [ ] **Next:** Windows "Build terra" red at abd83088 (after 1e41b41c's registry code and tests;
+     passes on Linux). Logs couldn't be fetched (GitHub API TLS timeouts all session): start by
+     `gh run view --job 135812718390 --log-failed`, or the run on 00c128d6.
    - [ ] Hold it to 5.
 2. **(current, the developer's direction) macOS online.** Done when: release.yml builds, tests,
    packages and smoke-boots macOS arm64 on master pushes, and a tag publishes a macOS package.
@@ -83,5 +88,6 @@ kind's median (the API doesn't say whether caches hit).
 Over the next few sessions we want to get everything setup properly to allow macos. So choose chunks of work to do. getting the repo itself in line and setting up the appropriate ci. you are tasked with the full thing. within a few sessions we should have macos online. permission to make the changes you need to get this working and online. keep track of this work and your plan until the job is complete.
 
 ## Log
+- 2026-11-19: Master red again (sprint 119 + registry). Fixed Linux Package (builtin/ gone), verified by local package + smoke boot. Windows terra failure undiagnosed: GitHub's API unreachable all session; 00c128d6's run not watched. Green rate 69% → 60%.
 - 2026-11-17: First session. Fixed red master: the launcher test `leaves_the_appimage_behind` assumed ':'-separated path lists and failed on Windows; it is now `#[cfg(unix)]`. Baseline green rate: 43%.
 - 2026-11-18: Master red since 05ec8cb6, fixed through five layers (gitignored terra sources, release's path filter, terra on Windows, cxxabi.h, sprint 116's red tests skipped by name); 4 green in a row since. CI's unit tests honour skip.txt. `bun ci:status` (milestone 3 done). macOS from nothing to green on a dispatch run: compiles, links, unit tests pass, warm 3.6 min. Green rate 43% → 69%.
