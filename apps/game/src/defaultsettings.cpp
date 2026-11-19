@@ -140,8 +140,6 @@ void set_default_settings()
 	settings->setDefault("curl_file_download_timeout", "300000");
 	settings->setDefault("curl_verify_cert", "true");
 	settings->setDefault("enable_remote_media_server", "true");
-	settings->setDefault("enable_client_modding", "false");
-	settings->setDefault("enable_sscsm", "nowhere");
 	settings->setDefault("max_out_chat_queue_size", "20");
 	settings->setDefault("pause_on_lost_focus", "false");
 	settings->setDefault("enable_split_login_register", "true");
@@ -182,7 +180,6 @@ void set_default_settings()
 	settings->setDefault("keymap_aux1", "SYSTEM_SCANCODE_225|GAMEPAD_BUTTON_2"); // KEY_LSHIFT|Gamepad West (Terra Firma: run and thrust; also the modifier Shift-clicks read)
 	settings->setDefault("keymap_chat", "SYSTEM_SCANCODE_23"); // KEY_KEY_T
 	settings->setDefault("keymap_cmd", "SYSTEM_SCANCODE_56"); // /
-	settings->setDefault("keymap_cmd_local", "SYSTEM_SCANCODE_55"); // .
 	settings->setDefault("keymap_minimap", "SYSTEM_SCANCODE_25|GAMEPAD_BUTTON_4"); // KEY_KEY_V|Gamepad Back
 	settings->setDefault("keymap_console", "SYSTEM_SCANCODE_67"); // KEY_F10
 
@@ -512,11 +509,8 @@ void set_default_settings()
 	settings->setDefault("max_users", "15");
 	settings->setDefault("creative_mode", "false");
 	settings->setDefault("enable_damage", "true");
-	settings->setDefault("default_password", "");
-	settings->setDefault("default_privs", "interact, shout");
 	settings->setDefault("enable_pvp", "true");
 	settings->setDefault("enable_mod_channels", "false");
-	settings->setDefault("disallow_empty_password", "false");
 	settings->setDefault("anticheat_flags", flagdesc_anticheat,
 		AC_DIGGING | AC_INTERACTION | AC_MOVEMENT);
 	settings->setDefault("anticheat_movement_tolerance", "1.0");
@@ -535,8 +529,6 @@ void set_default_settings()
 	settings->setDefault("block_send_optimize_distance", "4");
 	settings->setDefault("block_cull_optimize_distance", "25");
 	settings->setDefault("server_side_occlusion_culling", "true");
-	settings->setDefault("csm_restriction_flags", "62");
-	settings->setDefault("csm_restriction_noderange", "0");
 	settings->setDefault("max_clearobjects_extra_loaded_blocks", "4096");
 	settings->setDefault("time_speed", "72");
 	settings->setDefault("world_start_time", "6125");

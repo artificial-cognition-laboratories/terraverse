@@ -245,18 +245,10 @@ if(RUN_IN_PLACE)
 	install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/registry/textures/texture_packs_here.txt" DESTINATION "${SHAREDIR}/textures")
 endif()
 
-set(INSTALL_DEVTEST FALSE CACHE BOOL "Install Development Test")
-
-if(INSTALL_DEVTEST)
-	install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/registry/games/devtest" DESTINATION "${SHAREDIR}/games/"
-		PATTERN ".git*" EXCLUDE )
-endif()
-
 if(BUILD_CLIENT)
 	install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/registry/shaders" DESTINATION "${SHAREDIR}/client")
 	install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/registry/textures/base/pack" DESTINATION "${SHAREDIR}/textures/base")
 	if(RUN_IN_PLACE)
-		install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/clientmods" DESTINATION "${SHAREDIR}")
 		install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/client/serverlist" DESTINATION "${SHAREDIR}/client")
 	endif()
 endif()

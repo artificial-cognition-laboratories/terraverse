@@ -9,7 +9,7 @@
 #include "sculpt/sculpt.h"
 #include "workshop/motion.h" // Terra Firma: Materials, Grip
 #include "gamedef.h"
-#include "gameparams.h" // ELoginRegister
+#include "gameparams.h"
 #include "inventorymanager.h"
 #include "irrlichttypes.h"
 #include "lighting.h"
@@ -55,8 +55,6 @@ class NodeDefManager;
 class ParticleManager;
 class RenderingEngine;
 class SingleMediaDownloader;
-class ClientScripting;
-class SSCSMController;
 struct ChatMessage;
 struct ClientDynamicInfo;
 struct ClientEvent;
@@ -65,7 +63,6 @@ struct MapNode;
 struct PlayerControl;
 struct PointedThing;
 struct ItemVisualsManager;
-struct ModVFS;
 
 namespace scene {
 class IAnimatedMesh;
@@ -131,8 +128,7 @@ public:
 			ISoundManager *sound,
 			MtEventManager *event,
 			RenderingEngine *rendering_engine,
-			ItemVisualsManager *item_visuals,
-			ELoginRegister allow_login_or_register
+			ItemVisualsManager *item_visuals
 	);
 
 	~Client();
@@ -169,8 +165,6 @@ public:
 	void handleCommand_Deprecated(NetworkPacket* pkt);
 	void handleCommand_Hello(NetworkPacket* pkt);
 	void handleCommand_AuthAccept(NetworkPacket* pkt);
-	void handleCommand_AcceptSudoMode(NetworkPacket* pkt);
-	void handleCommand_DenySudoMode(NetworkPacket* pkt);
 	void handleCommand_AccessDenied(NetworkPacket* pkt);
 	void handleCommand_RemoveNode(NetworkPacket* pkt);
 	void handleCommand_AddNode(NetworkPacket* pkt);
@@ -237,9 +231,7 @@ public:
 	void handleCommand_UpdatePlayerList(NetworkPacket* pkt);
 	void handleCommand_ModChannelMsg(NetworkPacket *pkt);
 	void handleCommand_ModChannelSignal(NetworkPacket *pkt);
-	void handleCommand_SrpBytesSandB(NetworkPacket *pkt);
 	void handleCommand_FormspecPrepend(NetworkPacket *pkt);
-	void handleCommand_CSMRestrictionFlags(NetworkPacket *pkt);
 	void handleCommand_PlayerSpeed(NetworkPacket *pkt);
 	void handleCommand_MediaPush(NetworkPacket *pkt);
 	void handleCommand_MinimapModes(NetworkPacket *pkt);
@@ -319,8 +311,6 @@ public:
 	Body &getBody();
 	void sendChatMessage(const std::wstring &message);
 	void clearOutChatQueue();
-	void sendChangePassword(const std::string &oldpassword,
-		const std::string &newpassword);
 	void sendDamage(u16 damage);
 	void sendRespawnLegacy();
 	void sendReady();
@@ -341,8 +331,6 @@ public:
 	ClientEnvironment& getEnv() { return m_env; }
 	ITextureSource *tsrc() { return getTextureSource(); }
 	ISoundManager *sound() { return getSoundManager(); }
-	static const std::string &getBuiltinLuaPath();
-	static const std::string &getClientModsLuaPath();
 
 	const std::vector<ModSpec> &getMods() const override;
 	const ModSpec* getModSpec(const std::string &modname) const override;
@@ -350,10 +338,6 @@ public:
 	// Causes urgent mesh updates (unlike Map::add/removeNodeWithEvent)
 	void removeNode(v3s16 p);
 
-	// helpers to enforce CSM restrictions
-	MapNode CSMGetNode(v3s16 p, bool *is_valid_position);
-	int CSMClampRadius(v3s16 pos, int radius);
-	v3s16 CSMClampPos(v3s16 pos);
 
 	void addNode(v3s16 p, MapNode n, bool remove_metadata = true);
 
@@ -422,10 +406,7 @@ public:
 		m_access_denied = true;
 		m_access_denied_reason = reason;
 	}
-	void setFatalError(const LuaError &e);
 
-	// Renaming accessDeniedReason to better name could be good as it's used to
-	// disconnect client when CSM failed.
 	const std::string &accessDeniedReason() const { return m_access_denied_reason; }
 
 	bool itemdefReceived() const
@@ -455,7 +436,6 @@ public:
 
 	void drawLoadScreen(const std::wstring &text, float dtime, int percent);
 	void afterContentReceived();
-	void loadSSCSM();
 	void showUpdateProgressTexture(void *args, float progress);
 
 	float getRTT();
@@ -491,7 +471,6 @@ public:
 	// (the returned pointer must be dropped)
 	scene::IAnimatedMesh *getMesh(const std::string &filename, bool *is_shared = nullptr);
 
-	ModVFS *getModVFS() { return m_mod_vfs.get(); }
 	ModStorageDatabase *getModStorageDatabase() override { return m_mod_storage_database; }
 
 	ItemVisualsManager *getItemVisualsManager() { return m_item_visuals_manager; }
@@ -520,8 +499,6 @@ public:
 		m_chat_queue.push(cec);
 	}
 
-	ClientScripting *getScript() { return m_script; }
-	bool modsLoaded() const { return m_mods_loaded; }
 
 	void pushToEventQueue(ClientEvent *event);
 
@@ -534,15 +511,6 @@ public:
 		return m_address_name;
 	}
 
-	inline u64 getCSMRestrictionFlags() const
-	{
-		return m_csm_restriction_flags;
-	}
-
-	inline bool checkCSMRestrictionFlag(CSMRestrictionFlags flag) const
-	{
-		return m_csm_restriction_flags & flag;
-	}
 
 	bool joinModChannel(const std::string &channel) override;
 	bool leaveModChannel(const std::string &channel) override;
@@ -610,7 +578,6 @@ private:
 		}
 	};
 
-	void loadMods();
 
 	// Virtual methods from con::PeerHandler
 	void peerAdded(con::IPeer *peer) override;
@@ -620,7 +587,6 @@ private:
 
 	void ReceiveAll();
 
-	void deleteAuthData();
 	// helper method shared with clientpackethandler
 	static AuthMechanism choseAuthMech(const u32 mechs);
 
@@ -656,7 +622,6 @@ private:
 	std::unique_ptr<ParticleManager> m_particle_manager;
 	std::unique_ptr<con::IConnection> m_con;
 	std::string m_address_name;
-	ELoginRegister m_allow_login_or_register = ELoginRegister::Any;
 	Camera *m_camera = nullptr;
 	std::unique_ptr<Minimap> m_minimap;
 
@@ -682,8 +647,6 @@ private:
 	float m_chat_message_allowance = 5.0f;
 	std::queue<ChatMessage *> m_chat_queue;
 
-	// The authentication methods we can use to enter sudo mode (=change password)
-	u32 m_sudo_auth_methods;
 
 	// The seed returned by the server in TOCLIENT_AUTH_ACCEPT is stored here
 	u64 m_map_seed = 0;
@@ -696,12 +659,8 @@ private:
 
 	// Auth data
 	std::string m_playername;
-	std::string m_password;
-	// If set, this will be sent (and cleared) upon a TOCLIENT_ACCEPT_SUDO_MODE
-	std::string m_new_password;
-	// Usable by auth mechanisms.
+	std::string m_password; // a hosted world's ticket
 	AuthMechanism m_chosen_auth_mech;
-	void *m_auth_data = nullptr;
 
 	bool m_access_denied = false;
 	bool m_access_denied_reconnect = false;
@@ -710,7 +669,6 @@ private:
 	bool m_itemdef_received = false;
 	bool m_nodedef_received = false;
 	bool m_activeobjects_received = false;
-	bool m_mods_loaded = false;
 
 	std::vector<std::string> m_remote_media_servers;
 	// Media downloader, only exists during init
@@ -750,21 +708,13 @@ private:
 	u16 m_cache_save_interval;
 
 	// Client modding
-	ClientScripting *m_script = nullptr;
 	ModStorageDatabase *m_mod_storage_database = nullptr;
 	float m_mod_storage_save_timer = 10.0f;
 	std::vector<ModSpec> m_mods;
-	std::unique_ptr<ModVFS> m_mod_vfs;
-
-	// SSCSM
-	std::unique_ptr<SSCSMController> m_sscsm_controller;
 
 	bool m_shutdown = false;
 	bool m_take_screenshot = false;
 
-	// CSM restrictions byteflag
-	u64 m_csm_restriction_flags = CSMRestrictionFlags::CSM_RF_NONE;
-	u32 m_csm_restriction_noderange = 8;
 
 	std::unique_ptr<ModChannelMgr> m_modchannel_mgr;
 };

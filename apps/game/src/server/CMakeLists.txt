@@ -2,10 +2,12 @@ file(GLOB common_server_HDRS "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
 
 set(common_server_SRCS
 	${common_server_HDRS}
+	${CMAKE_CURRENT_SOURCE_DIR}/access.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/activeobjectmgr.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/ban.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/blockmodifier.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/clientiface.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/commands.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/lakes.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/luaentity_sao.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/mods.cpp

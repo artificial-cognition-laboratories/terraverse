@@ -4,9 +4,9 @@ set(unittest_SRCS
 	${unittest_HDRS}
 	${CMAKE_CURRENT_SOURCE_DIR}/test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_address.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/test_authdatabase.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_activeobject.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_areastore.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_access.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_ban.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_collision.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_compression.cpp
@@ -62,7 +62,6 @@ set(unittest_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/test_server_shutdown_state.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_settings.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_socket.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/test_servermodmanager.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_threading.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_utilities.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_voxelarea.cpp

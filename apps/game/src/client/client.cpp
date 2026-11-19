@@ -35,11 +35,9 @@
 #include "profiler.h"
 #include "shader.h"
 #include "translation.h"
-#include "util/auth.h"
 #include "util/pointedthing.h"
 #include "util/screenshot.h"
 #include "util/serialize.h"
-#include "util/srp.h"
 #include "util/string.h"
 #include "version.h"
 
@@ -47,13 +45,6 @@
 #include "content/mod_configuration.h"
 #include "content/mods.h"
 #include "modchannels.h"
-#include "script/common/c_types.h" // LuaError
-#include "script/scripting_client.h"
-
-// SSCSM
-#include "client/mod_vfs.h"
-#include "script/sscsm/sscsm_controller.h"
-#include "script/sscsm/sscsm_events.h"
 
 // Network
 #include "network/clientopcodes.h"
@@ -142,8 +133,7 @@ Client::Client(
 		ISoundManager *sound,
 		MtEventManager *event,
 		RenderingEngine *rendering_engine,
-		ItemVisualsManager *item_visuals_manager,
-		ELoginRegister allow_login_or_register
+		ItemVisualsManager *item_visuals_manager
 ):
 	m_tsrc(tsrc),
 	m_shsrc(shsrc),
@@ -159,7 +149,6 @@ Client::Client(
 		tsrc, this
 	),
 	m_particle_manager(std::make_unique<ParticleManager>(&m_env)),
-	m_allow_login_or_register(allow_login_or_register),
 	m_server_ser_ver(SER_FMT_VER_INVALID),
 	m_last_chat_message_sent(time(NULL)),
 	m_password(password),
@@ -183,31 +172,6 @@ Client::Client(
 	m_cache_save_interval = g_settings->getU16("server_map_save_interval");
 	m_mesh_grid = { g_settings->getU16("client_mesh_chunk") };
 
-	m_sscsm_controller = SSCSMController::create();
-
-	{
-		auto event1 = std::make_unique<SSCSMEventUpdateVFSFiles>();
-
-		ModVFS tmp_mod_vfs;
-		// FIXME: only read files that are relevant to sscsm, and compute sha2 digests
-		tmp_mod_vfs.scanModIntoMemory("*client_builtin*", getBuiltinLuaPath());
-
-		for (auto &p : tmp_mod_vfs.m_vfs) {
-			event1->files.emplace_back(p.first, std::move(p.second));
-		}
-
-		m_sscsm_controller->runEvent(this, std::move(event1));
-
-		// load client builtin immediately
-		auto event2 = std::make_unique<SSCSMEventLoadMods>();
-		event2->mods.emplace_back("*client_builtin*", "*client_builtin*:init.lua");
-		m_sscsm_controller->runEvent(this, std::move(event2));
-	}
-
-	//FIXME: network packets
-	//FIXME: check that *client_builtin* is not overridden
-	// The sscsm_test0 preview mod is loaded from loadSSCSM(),
-	// once itemdefs/nodedefs actually exist to populate core.registered_*.
 }
 
 void Client::migrateModStorage()
@@ -237,104 +201,6 @@ void Client::migrateModStorage()
 	}
 }
 
-void Client::loadMods()
-{
-	// Don't load mods twice.
-	// If client scripting is disabled by the client, don't load builtin or
-	// client-provided mods.
-	if (m_mods_loaded || !g_settings->getBool("enable_client_modding"))
-		return;
-
-	// If client scripting is disabled by the server, don't load builtin or
-	// client-provided mods.
-	// TODO Delete this code block when server-sent CSM and verifying of builtin are
-	// complete.
-	if (checkCSMRestrictionFlag(CSMRestrictionFlags::CSM_RF_LOAD_CLIENT_MODS)) {
-		warningstream << "Client-provided mod loading is disabled by server." <<
-			std::endl;
-		return;
-	}
-
-	m_mod_vfs = std::make_unique<ModVFS>();
-
-	m_script = new ClientScripting(this);
-	m_env.setScript(m_script);
-	m_script->setEnv(&m_env);
-
-	// Load builtin
-	m_mod_vfs->scanModIntoMemory(BUILTIN_MOD_NAME, getBuiltinLuaPath());
-	m_script->loadModFromMemory(BUILTIN_MOD_NAME);
-	m_script->checkSetByBuiltin();
-
-	ModConfiguration modconf;
-	{
-		std::unordered_map<std::string, std::string> paths;
-		std::string path_user = porting::path_user + DIR_DELIM + "clientmods";
-		const auto modsPath = getClientModsLuaPath();
-		if (modsPath != path_user) {
-			paths["share"] = modsPath;
-		}
-		paths["mods"] = path_user;
-
-		std::string settings_path = path_user + DIR_DELIM + "mods.conf";
-		modconf.addModsFromConfig(settings_path, paths);
-		modconf.checkConflictsAndDeps();
-	}
-
-	m_mods = modconf.getMods();
-
-	// complain about mods with unsatisfied dependencies
-	if (!modconf.isConsistent()) {
-		errorstream << modconf.getUnsatisfiedModsError() << std::endl;
-		delete m_script;
-		m_script = nullptr;
-		m_env.setScript(nullptr);
-		return;
-	}
-
-	// Print mods
-	infostream << "Client loading mods: ";
-	for (const ModSpec &mod : m_mods)
-		infostream << mod.name << " ";
-	infostream << std::endl;
-
-	// Load "mod" scripts
-	for (const ModSpec &mod : m_mods) {
-		mod.checkAndLog();
-		m_mod_vfs->scanModIntoMemory(mod.name, mod.path);
-	}
-
-	// Run them
-	for (const ModSpec &mod : m_mods)
-		m_script->loadModFromMemory(mod.name);
-
-	// Mods are done loading. Unlock callbacks
-	m_mods_loaded = true;
-
-	// Run a callback when mods are loaded
-	m_script->on_mods_loaded();
-
-	// Create objects if they're ready
-	if (m_state == LC_Ready)
-		m_script->on_client_ready(m_env.getLocalPlayer());
-	if (m_camera)
-		m_script->on_camera_ready(m_camera);
-	if (m_minimap)
-		m_script->on_minimap_ready(m_minimap.get());
-}
-
-const std::string &Client::getBuiltinLuaPath()
-{
-	static const std::string builtin_dir = porting::path_share + DIR_DELIM + "builtin";
-	return builtin_dir;
-}
-
-const std::string &Client::getClientModsLuaPath()
-{
-	static const std::string clientmods_dir = porting::path_share + DIR_DELIM + "clientmods";
-	return clientmods_dir;
-}
-
 const std::vector<ModSpec>& Client::getMods() const
 {
 	static std::vector<ModSpec> client_modspec_temp;
@@ -349,8 +215,6 @@ const ModSpec* Client::getModSpec(const std::string &modname) const
 void Client::Stop()
 {
 	m_shutdown = true;
-	if (m_mods_loaded)
-		m_script->on_shutdown();
 	//request all client managed threads to stop
 	m_mesh_update_manager->stop();
 	// Save local server map
@@ -359,9 +223,6 @@ void Client::Stop()
 		m_localdb->endSave();
 		m_localdb.reset();
 	}
-
-	if (m_mods_loaded)
-		delete m_script;
 }
 
 bool Client::isShutdown()
@@ -476,7 +337,7 @@ Client::~Client()
 	if (m_con)
 		m_con->Disconnect();
 
-	deleteAuthData();
+	m_chosen_auth_mech = AUTH_MECHANISM_NONE;
 
 	m_mesh_update_manager->stop();
 	m_mesh_update_manager->wait();
@@ -690,12 +551,6 @@ void Client::step(float dtime)
 		Handle environment
 	*/
 	LocalPlayer *player = m_env.getLocalPlayer();
-
-	{
-		auto event = std::make_unique<SSCSMEventOnStep>();
-		event->dtime = dtime;
-		m_sscsm_controller->runEvent(this, std::move(event));
-	}
 
 	// Step environment (also handles player controls)
 	m_env.step(dtime);
@@ -1334,41 +1189,13 @@ void Client::interact(InteractAction action, const PointedThing& pointed)
 	Send(&pkt);
 }
 
-void Client::deleteAuthData()
-{
-	if (!m_auth_data)
-		return;
-
-	switch (m_chosen_auth_mech) {
-		case AUTH_MECHANISM_FIRST_SRP:
-			break;
-		case AUTH_MECHANISM_SRP:
-		case AUTH_MECHANISM_LEGACY_PASSWORD:
-			srp_user_delete((SRPUser *) m_auth_data);
-			m_auth_data = NULL;
-			break;
-		case AUTH_MECHANISM_NONE:
-		case AUTH_MECHANISM_TICKET: // Terra Firma: nothing kept
-			break;
-	}
-	m_chosen_auth_mech = AUTH_MECHANISM_NONE;
-}
-
 
 AuthMechanism Client::choseAuthMech(const u32 mechs)
 {
 	if (mechs & AUTH_MECHANISM_TICKET) // Terra Firma: a world hosted for friends
 		return AUTH_MECHANISM_TICKET;
-
-	if (mechs & AUTH_MECHANISM_SRP)
-		return AUTH_MECHANISM_SRP;
-
-	if (mechs & AUTH_MECHANISM_FIRST_SRP)
-		return AUTH_MECHANISM_FIRST_SRP;
-
-	if (mechs & AUTH_MECHANISM_LEGACY_PASSWORD)
-		return AUTH_MECHANISM_LEGACY_PASSWORD;
-
+	if (mechs & AUTH_MECHANISM_LOCAL) // a world played alone
+		return AUTH_MECHANISM_LOCAL;
 	return AUTH_MECHANISM_NONE;
 }
 
@@ -1387,8 +1214,6 @@ void Client::startAuth(AuthMechanism chosen_auth_mechanism)
 {
 	m_chosen_auth_mech = chosen_auth_mechanism;
 
-	std::string playername = m_env.getLocalPlayer()->getName();
-
 	switch (chosen_auth_mechanism) {
 		case AUTH_MECHANISM_TICKET: { // Terra Firma: the ticket is the password field
 			NetworkPacket resp_pkt(TOSERVER_TICKET, 0);
@@ -1396,45 +1221,8 @@ void Client::startAuth(AuthMechanism chosen_auth_mechanism)
 			Send(&resp_pkt);
 			break;
 		}
-		case AUTH_MECHANISM_FIRST_SRP: {
-			// send srp verifier to server
-			std::string verifier;
-			std::string salt;
-			generate_srp_verifier_and_salt(playername, m_password,
-				&verifier, &salt);
-
-			NetworkPacket resp_pkt(TOSERVER_FIRST_SRP, 0);
-			resp_pkt << salt << verifier << (u8)((m_password.empty()) ? 1 : 0);
-
-			Send(&resp_pkt);
-			break;
-		}
-		case AUTH_MECHANISM_SRP:
-		case AUTH_MECHANISM_LEGACY_PASSWORD: {
-			u8 based_on = 1;
-
-			if (chosen_auth_mechanism == AUTH_MECHANISM_LEGACY_PASSWORD) {
-				m_password = translate_password(playername, m_password);
-				based_on = 0;
-			}
-
-			std::string playername_u = lowercase(playername);
-			m_auth_data = srp_user_new(SRP_SHA256, SRP_NG_2048,
-				playername.c_str(), playername_u.c_str(),
-				(const unsigned char *) m_password.c_str(),
-				m_password.length(), NULL, NULL);
-			char *bytes_A = 0;
-			size_t len_A = 0;
-			SRP_Result res = srp_user_start_authentication(
-				(struct SRPUser *) m_auth_data, NULL, NULL, 0,
-				(unsigned char **) &bytes_A, &len_A);
-			FATAL_ERROR_IF(res != SRP_OK, "Creating local SRP user failed.");
-
-			NetworkPacket resp_pkt(TOSERVER_SRP_BYTES_A, 0);
-			resp_pkt << std::string(bytes_A, len_A) << based_on;
-			Send(&resp_pkt);
-			break;
-		}
+		case AUTH_MECHANISM_LOCAL:
+			break; // the server accepts by itself
 		case AUTH_MECHANISM_NONE:
 			break; // not handled in this method
 	}
@@ -1775,19 +1563,6 @@ void Client::clearOutChatQueue()
 	m_out_chat_queue = std::queue<std::wstring>();
 }
 
-void Client::sendChangePassword(const std::string &oldpassword,
-	const std::string &newpassword)
-{
-	LocalPlayer *player = m_env.getLocalPlayer();
-	if (player == NULL)
-		return;
-
-	// get into sudo mode and then send new password to server
-	m_password = oldpassword;
-	m_new_password = newpassword;
-	startAuth(choseAuthMech(m_sudo_auth_methods));
-}
-
 
 void Client::sendDamage(u16 damage)
 {
@@ -1925,50 +1700,6 @@ void Client::removeNode(v3s16 p)
 	for (const auto &modified_block : modified_blocks) {
 		addUpdateMeshTaskWithEdge(modified_block.first, false, true);
 	}
-}
-
-/**
- * Helper function for Client Side Modding
- * CSM restrictions are applied there, this should not be used for core engine
- * @param p
- * @param is_valid_position
- * @return
- */
-MapNode Client::CSMGetNode(v3s16 p, bool *is_valid_position)
-{
-	if (checkCSMRestrictionFlag(CSMRestrictionFlags::CSM_RF_LOOKUP_NODES)) {
-		v3s16 ppos = floatToInt(m_env.getLocalPlayer()->getPosition(), BS);
-		if ((u32) ppos.getDistanceFrom(p) > m_csm_restriction_noderange) {
-			*is_valid_position = false;
-			return {};
-		}
-	}
-	return m_env.getMap().getNode(p, is_valid_position);
-}
-
-int Client::CSMClampRadius(v3s16 pos, int radius)
-{
-	if (!checkCSMRestrictionFlag(CSMRestrictionFlags::CSM_RF_LOOKUP_NODES))
-		return radius;
-	// This is approximate and will cause some allowed nodes to be excluded
-	v3s16 ppos = floatToInt(m_env.getLocalPlayer()->getPosition(), BS);
-	u32 distance = ppos.getDistanceFrom(pos);
-	if (distance >= m_csm_restriction_noderange)
-		return 0;
-	return std::min<int>(radius, m_csm_restriction_noderange - distance);
-}
-
-v3s16 Client::CSMClampPos(v3s16 pos)
-{
-	if (!checkCSMRestrictionFlag(CSMRestrictionFlags::CSM_RF_LOOKUP_NODES))
-		return pos;
-	v3s16 ppos = floatToInt(m_env.getLocalPlayer()->getPosition(), BS);
-	const int range = m_csm_restriction_noderange;
-	return v3s16(
-		core::clamp<int>(pos.X, (int)ppos.X - range, (int)ppos.X + range),
-		core::clamp<int>(pos.Y, (int)ppos.Y - range, (int)ppos.Y + range),
-		core::clamp<int>(pos.Z, (int)ppos.Z - range, (int)ppos.Z + range)
-	);
 }
 
 void Client::addNode(v3s16 p, MapNode n, bool remove_metadata)
@@ -2185,10 +1916,6 @@ void Client::typeChatMessage(const std::wstring &message)
 	auto message_utf8 = wide_to_utf8(message);
 	infostream << "Typed chat message: \"" << message_utf8 << "\"" << std::endl;
 
-	// If message was consumed by script API, don't send it to server
-	if (m_mods_loaded && m_script->on_sending_message(message_utf8))
-		return;
-
 	// Send to others
 	sendChatMessage(message);
 }
@@ -2265,11 +1992,6 @@ ClientEvent *Client::getClientEvent()
 	ClientEvent *event = m_client_event_queue.front();
 	m_client_event_queue.pop();
 	return event;
-}
-
-void Client::setFatalError(const LuaError &e)
-{
-	setFatalError(std::string("Lua: ") + e.what());
 }
 
 const Address Client::getServerAddress()
@@ -2364,10 +2086,6 @@ void Client::afterContentReceived()
 	tu_args.text_base = wstrgettext("Initializing nodes");
 	NodeVisuals::fillNodeVisuals(m_nodedef, this, &tu_args);
 
-	// Runs after fillNodeVisuals(), which is where ContentFeatures::visuals and thus
-	// minimap_color, and palette - the two values we care for in SSCSM, get populated
-	m_sscsm_controller->runEvent(this, std::make_unique<SSCSMEventAfterContentReceived>());
-
 	// cf. updateStaticLighting()
 	set_light_curve(g_settings->getFloat("display_gamma"));
 
@@ -2377,53 +2095,8 @@ void Client::afterContentReceived()
 	m_state = LC_Ready;
 	sendReady();
 
-	if (m_mods_loaded)
-		m_script->on_client_ready(m_env.getLocalPlayer());
-
 	m_rendering_engine->draw_load_screen(wstrgettext("Done!"), guienv, m_tsrc, 0, 100);
 	infostream<<"Client::afterContentReceived() done"<<std::endl;
-}
-
-void Client::loadSSCSM()
-{
-	std::string enable_sscsm = g_settings->get("enable_sscsm");
-	bool sscsm_enabled = enable_sscsm == "singleplayer"; //FIXME: enum
-	if (!sscsm_enabled)
-		return;
-
-	auto event1 = std::make_unique<SSCSMEventUpdateVFSFiles>();
-
-	// some simple test code
-	event1->files.emplace_back("sscsm_test0:init.lua",
-			R"=+=(
-print("sscsm_test0: loading")
-
---print(dump(_G))
---print(debug.traceback())
-
-do
-	local pos = vector.zero()
-	local function print_nodes()
-		print(string.format("node at %s: %s", pos, dump(core.get_node_or_nil(pos))))
-		pos = pos:offset(1, 0, 0)
-		core.after(1, print_nodes)
-	end
-	core.after(0, print_nodes)
-end
-
-do
-	local n = 0
-	for _ in pairs(core.registered_nodes) do n = n + 1 end
-	print("sscsm_test0: registered_nodes count: " .. n)
-end
-print("sscsm_test0: air def: " .. dump(core.registered_nodes["air"]))
-				)=+=");
-
-	m_sscsm_controller->runEvent(this, std::move(event1));
-
-	auto event2 = std::make_unique<SSCSMEventLoadMods>();
-	event2->mods.emplace_back("sscsm_test0", "sscsm_test0:init.lua");
-	m_sscsm_controller->runEvent(this, std::move(event2));
 }
 
 float Client::getRTT()

@@ -131,26 +131,6 @@ class ServerEnvironment;
  |       |  | TOSERVER_DISCONNECT         |------------------->|  Disconnecting  |
  |       |  +-----------------------------+                    |                 |
  |       |                                                     \-----------------/
- |       | any auth packet which was
- |       | allowed in TOCLIENT_AUTH_ACCEPT
- |       v
- |    *-----------------------------* Auth      +-------------------------------+
- |    |Authentication, depending on | succeeds  |OUT:                           |
- |    | packet sent by client       |---------->| TOCLIENT_ACCEPT_SUDO_MODE     |
- |    *-----------------------------*           +-------------------------------+
- |                  |                                            |
- |                  | Auth fails                        /-----------------\
- |                  v                                   |                 |
- |    +-------------------------------+                 |    SudoMode     |
- |    |OUT:                           |                 |                 |
- |    | TOCLIENT_DENY_SUDO_MODE       |                 \-----------------/
- |    +-------------------------------+                          |
- |                  |                                            v
- |                  |                               +-----------------------------+
- |                  |    sets password accordingly  |IN:                          |
- -------------------+-------------------------------| TOSERVER_FIRST_SRP          |
-                                                    +-----------------------------+
-
 */
 namespace con {
 	class IConnection;
@@ -171,7 +151,6 @@ enum ClientState
 	CS_InitDone,
 	CS_DefinitionsSent,
 	CS_Active,
-	CS_SudoMode
 };
 
 enum ClientStateEvent
@@ -182,8 +161,6 @@ enum ClientStateEvent
 	CSE_SetDenied,
 	CSE_SetDefinitionsSent,
 	CSE_SetClientReady,
-	CSE_SudoSuccess,
-	CSE_SudoLeave,
 	CSE_Disconnect
 };
 
@@ -222,19 +199,12 @@ public:
 	//
 	u16 net_proto_version = 0;
 
-	/* Authentication information */
-	std::string enc_pwd = "";
-	bool create_player_on_auth_success = false;
+	/* Authentication: how they may get in (the server offered), and how they are */
 	AuthMechanism chosen_mech  = AUTH_MECHANISM_NONE;
-	void *auth_data = nullptr;
 	u32 allowed_auth_mechs = 0;
-
-	void resetChosenMech();
 
 	bool isMechAllowed(AuthMechanism mech)
 	{ return allowed_auth_mechs & mech; }
-
-	void setEncryptedPassword(const std::string& pwd);
 
 	RemoteClient();
 	~RemoteClient() = default;

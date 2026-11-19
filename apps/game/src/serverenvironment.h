@@ -18,7 +18,6 @@
 #include "util/numeric.h"
 #include "util/metricsbackend.h"
 
-class AuthDatabase;
 class ActiveObject;
 class MetricsBackend;
 class PlayerDatabase;
@@ -290,10 +289,6 @@ public:
 	static bool migratePlayersDatabase(const GameParams &game_params,
 			const Settings &cmd_args);
 
-	AuthDatabase *getAuthDatabase() { return m_auth_database; }
-	static std::vector<std::string> getAuthDatabaseBackends();
-	static bool migrateAuthDatabase(const GameParams &game_params,
-			const Settings &cmd_args);
 
 private:
 
@@ -303,8 +298,6 @@ private:
 	void loadDefaultMeta();
 
 	static PlayerDatabase *openPlayerDatabase(const std::string &name,
-			const std::string &savedir, const Settings &conf);
-	static AuthDatabase *openAuthDatabase(const std::string &name,
 			const std::string &savedir, const Settings &conf);
 
 	void activateBlock(MapBlock *block);
@@ -425,7 +418,6 @@ private:
 	std::vector<RemotePlayer*> m_players;
 
 	PlayerDatabase *m_player_database = nullptr;
-	AuthDatabase *m_auth_database = nullptr;
 
 	// Particles
 	IntervalLimiter m_particle_management_interval;

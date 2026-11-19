@@ -10,10 +10,10 @@ extern const u16 LATEST_PROTOCOL_VERSION;
 
 // Server's supported network protocol range. Terra Firma: only our own
 // protocol; stock Luanti peers are refused cleanly.
-constexpr u16 SERVER_PROTOCOL_VERSION_MIN = 101;
+constexpr u16 SERVER_PROTOCOL_VERSION_MIN = 105;
 
 // Client's supported network protocol range
-constexpr u16 CLIENT_PROTOCOL_VERSION_MIN = 101;
+constexpr u16 CLIENT_PROTOCOL_VERSION_MIN = 105;
 
 extern const u16 FORMSPEC_API_VERSION;
 
@@ -47,18 +47,6 @@ enum ToClientCommand : u16
 		v3f unused
 		u64 map seed
 		f1000 recommended send interval
-		u32 : supported auth methods for sudo mode
-		      (where the user can change their password)
-	*/
-
-	TOCLIENT_ACCEPT_SUDO_MODE = 0x04,
-	/*
-		Sent to client to show it is in sudo mode now.
-	*/
-
-	TOCLIENT_DENY_SUDO_MODE = 0x05,
-	/*
-		Signals client that sudo mode auth failed.
 	*/
 
 	TOCLIENT_ACCESS_DENIED = 0x0A,
@@ -97,11 +85,6 @@ enum ToClientCommand : u16
 		u16 time (0-23999)
 		f1000 time_speed
 	*/
-
-	TOCLIENT_CSM_RESTRICTION_FLAGS = 0x2A,
-	/*
-		u32 CSMRestrictionFlags byteflag
-	 */
 
 	TOCLIENT_PLAYER_SPEED = 0x2B,
 	/*
@@ -659,14 +642,6 @@ enum ToClientCommand : u16
 		v3f added_pos
 	*/
 
-	TOCLIENT_SRP_BYTES_S_B = 0x60,
-	/*
-		Belonging to AUTH_MECHANISM_SRP.
-
-		std::string bytes_s
-		std::string bytes_B
-	*/
-
 	TOCLIENT_FORMSPEC_PREPEND = 0x61,
 	/*
 		u16 len
@@ -992,33 +967,6 @@ enum ToServerCommand : u16
 		u8[len] full_version_string
 	*/
 
-	TOSERVER_FIRST_SRP = 0x50,
-	/*
-		Belonging to AUTH_MECHANISM_FIRST_SRP.
-
-		std::string srp salt
-		std::string srp verification key
-		u8 is_empty (=1 if password is empty, 0 otherwise)
-	*/
-
-	TOSERVER_SRP_BYTES_A = 0x51,
-	/*
-		Belonging to AUTH_MECHANISM_SRP,
-			depending on current_login_based_on.
-
-		std::string bytes_A
-		u8 current_login_based_on : on which version of the password's
-		                            hash this login is based on (0 legacy hash,
-		                            or 1 directly the password)
-	*/
-
-	TOSERVER_SRP_BYTES_M = 0x52,
-	/*
-		Belonging to AUTH_MECHANISM_SRP.
-
-		std::string bytes_M
-	*/
-
 	TOSERVER_UPDATE_CLIENT_INFO = 0x53,
 	/*
 		v2s16 render_target_size
@@ -1203,18 +1151,13 @@ enum AuthMechanism
 	// reserved
 	AUTH_MECHANISM_NONE = 0,
 
-	// SRP based on the legacy hash
-	AUTH_MECHANISM_LEGACY_PASSWORD = 1 << 0,
-
-	// SRP based on the srp verification key
-	AUTH_MECHANISM_SRP = 1 << 1,
-
-	// Establishes a srp verification key, for first login and password changing
-	AUTH_MECHANISM_FIRST_SRP = 1 << 2,
+	// Terra Firma: a world played alone, on this machine (sprint 119). The server
+	// accepts at once, after TOCLIENT_HELLO: there's no one else it could be
+	AUTH_MECHANISM_LOCAL = 1 << 0,
 
 	// Terra Firma: a world hosted for friends admits by ArcLabs ticket only
 	// (src/online/gate.h); the ticket is the client's password field
-	AUTH_MECHANISM_TICKET = 1 << 3,
+	AUTH_MECHANISM_TICKET = 1 << 1,
 };
 
 enum AccessDeniedCode : u8 {
@@ -1239,21 +1182,6 @@ enum PlayerListModifer : u8
 	PLAYER_LIST_INIT,
 	PLAYER_LIST_ADD,
 	PLAYER_LIST_REMOVE,
-};
-
-enum CSMRestrictionFlags : u64 {
-	CSM_RF_NONE = 0x00000000,
-	// Until server-sent CSM and verifying of builtin are complete,
-	// 'CSM_RF_LOAD_CLIENT_MODS' also disables loading 'builtin'.
-	// When those are complete, this should return to only being a restriction on the
-	// loading of client mods.
-	CSM_RF_LOAD_CLIENT_MODS = 0x00000001, // Don't load client-provided mods or 'builtin'
-	CSM_RF_CHAT_MESSAGES = 0x00000002,    // Disable chat message sending from CSM
-	CSM_RF_READ_ITEMDEFS = 0x00000004,    // Disable itemdef lookups
-	CSM_RF_READ_NODEDEFS = 0x00000008,    // Disable nodedef lookups
-	CSM_RF_LOOKUP_NODES = 0x00000010,     // Limit node lookups
-	CSM_RF_READ_PLAYERINFO = 0x00000020,  // Disable player info lookups
-	CSM_RF_ALL = 0xFFFFFFFF,
 };
 
 enum InteractAction : u8

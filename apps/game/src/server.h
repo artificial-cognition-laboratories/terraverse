@@ -38,6 +38,7 @@ namespace sidecar { class Sidecar; }
 
 class BanManager;
 namespace online { class Gate; }
+class Access;
 namespace far { struct Horizon; } // Terra Firma
 class ChatEvent;
 class EmergeManager;
@@ -258,9 +259,6 @@ public:
 	void handleCommand_RemovedSounds(NetworkPacket* pkt);
 	void handleCommand_NodeMetaFields(NetworkPacket* pkt);
 	void handleCommand_InventoryFields(NetworkPacket* pkt);
-	void handleCommand_FirstSrp(NetworkPacket* pkt);
-	void handleCommand_SrpBytesA(NetworkPacket* pkt);
-	void handleCommand_SrpBytesM(NetworkPacket* pkt);
 	void handleCommand_HaveMedia(NetworkPacket *pkt);
 	void handleCommand_UpdateClientInfo(NetworkPacket *pkt);
 	void handleCommand_Ui(NetworkPacket *pkt);
@@ -483,6 +481,8 @@ public:
 	// Terra Firma: an atlas world's bodies, by the atlas's body index (the home first)
 	const std::vector<terragen::BodyWorld> &bodyWorlds() const { return m_body_worlds; }
 	// Terra Firma: a line typed under a TypeScript mod's command, for the next window.
+	// A line typed after `/`: the engine's command, or a mod's; the reply, if any.
+	std::string command(const std::string &name, RemotePlayer *player, const std::string &line);
 	// False when there's no sidecar to answer (mods are off, or none run).
 	bool sidecarCommand(const std::string &player, const std::string &name, const std::string &text);
 	// Terra Firma: a chunk's wet shore, from the emerge thread (mapgenShore), filled with
@@ -504,12 +504,11 @@ public:
 	void peerAdded(con::IPeer *peer) override;
 	void deletingPeer(con::IPeer *peer, bool timeout) override;
 
-	void DenySudoAccess(session_t peer_id);
 	void DenyAccess(session_t peer_id, AccessDeniedCode reason,
 		std::string_view custom_reason = "", bool reconnect = false);
 	void kickAllPlayers(AccessDeniedCode reason,
 		const std::string &str_reason, bool reconnect);
-	void acceptAuth(session_t peer_id, bool forSudoMode);
+	void acceptAuth(session_t peer_id);
 	void DisconnectPeer(session_t peer_id);
 	bool getClientConInfo(session_t peer_id, con::rtt_stat_type type, float *retval);
 
@@ -747,7 +746,6 @@ private:
 	void SendActiveObjectRemoveAdd(RemoteClient *client, PlayerSAO *playersao);
 	void SendActiveObjectMessages(session_t peer_id, const std::string &datas,
 		bool reliable = true);
-	void SendCSMRestrictionFlags(session_t peer_id);
 
 	/*
 		Something random
@@ -932,8 +930,6 @@ private:
 	float m_mod_storage_save_timer = 10.0f;
 
 	// CSM restrictions byteflag
-	u64 m_csm_restriction_flags = CSMRestrictionFlags::CSM_RF_NONE;
-	u32 m_csm_restriction_noderange = 8;
 
 	// ModChannel manager
 	std::unique_ptr<ModChannelMgr> m_modchannel_mgr;
@@ -941,6 +937,9 @@ private:
 	// Terra Firma: TypeScript mods, run beside the server (src/sidecar, sprint 119)
 	std::string m_server_folder;
 	std::unique_ptr<sidecar::Sidecar> m_sidecar;
+	// what its mods answer in chat: name, description, params (sidecar::Host::Command)
+	struct ModCommand { std::string name, description, params; };
+	std::vector<ModCommand> m_mod_commands;
 	std::mutex m_shore_mutex;
 	std::vector<v3s16> m_shore; // Terra Firma: queueShore's, till the next step
 	double m_sidecar_now = 0; // game time, as mods see it
@@ -954,6 +953,7 @@ private:
 	float m_lakes_dtime = 0;              // Terra Firma: since the lakes last stepped (sprint 115)
 	std::unique_ptr<orbit::Flight> m_flight; // Terra Firma: core.orbit's
 	std::unique_ptr<online::Gate> m_gate; // Terra Firma: null unless hosted for friends
+	std::unique_ptr<Access> m_access; // Terra Firma: who may do what (server/access)
 
 	// Inventory manager
 	std::unique_ptr<ServerInventoryManager> m_inventory_mgr;

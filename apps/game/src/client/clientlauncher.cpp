@@ -14,7 +14,6 @@
 #include "inputhandler.h"
 #include "profiler.h"
 #include "exceptions.h"
-#include "gui/guiEngine.h"
 #include "fontengine.h"
 #include "clientlauncher.h"
 #include "version.h"
@@ -538,40 +537,11 @@ bool ClientLauncher::launch_game(GameErrorData &errordata, GameStartData &start_
 			return false;
 	}
 #else
+	// the Lua main menu is gone (sprint 119): without the shell, a world is given on the command line
 	if (!skip_main_menu) {
-		// Initialize menu data
-		MainMenuData menudata(errordata);
-		(GameClientData &)menudata = start_data;
-		menudata.port = itos(start_data.socket_port);
-
-		main_menu(&menudata);
-
-		// Skip further loading if there was an exit signal.
-		if (!m_rendering_engine->run() || *porting::signal_handler_killstatus())
-			return false;
-
-		if (!menudata.script_data.message.empty()) {
-			/* The calling function will pass this back into this function upon the
-			 * next iteration (if any) causing it to be displayed by the GUI
-			 */
-			error_message = menudata.script_data.message;
-			return false;
-		}
-
-		int newport = stoi(menudata.port);
-		if (newport != 0)
-			start_data.socket_port = newport;
-
-		// Update world information using main menu data
-		std::vector<WorldSpec> worldspecs = getAvailableWorlds();
-
-		int world_index = menudata.selected_world;
-		if (world_index >= 0 && world_index < (int)worldspecs.size()) {
-			start_data.world_spec = worldspecs[world_index];
-			start_data.world_path = start_data.world_spec.path;
-		}
-
-		(GameClientData &)start_data = menudata;
+		error_message = "This build has no menu: start a world with --world, or connect with --address.";
+		errorstream << error_message << std::endl;
+		return false;
 	}
 #endif
 
@@ -633,57 +603,3 @@ bool ClientLauncher::launch_game(GameErrorData &errordata, GameStartData &start_
 	return true;
 }
 
-void ClientLauncher::main_menu(MainMenuData *menudata)
-{
-	volatile auto       *kill   = porting::signal_handler_killstatus();
-	video::IVideoDriver *driver = m_rendering_engine->get_video_driver();
-	auto                *device = m_rendering_engine->get_raw_device();
-
-	// Wait until app is in foreground because of #15883
-	infostream << "Waiting for app to be in foreground" << std::endl;
-	while (m_rendering_engine->run() && !*kill) {
-		if (device->isWindowVisible())
-			break;
-		sleep_ms(25);
-	}
-	infostream << "Waited for app to be in foreground" << std::endl;
-
-	infostream << "Waiting for other menus" << std::endl;
-	auto framemarker = FrameMarker("ClientLauncher::main_menu()-wait-frame").started();
-	while (m_rendering_engine->run() && !*kill) {
-		if (!isMenuActive())
-			break;
-		driver->beginScene(true, true, video::SColor(255, 128, 128, 128));
-		m_rendering_engine->get_gui_env()->drawAll();
-		driver->endScene();
-		framemarker.end();
-		// On some computers framerate doesn't seem to be automatically limited
-		sleep_ms(25);
-		framemarker.start();
-	}
-	framemarker.end();
-	infostream << "Waited for other menus" << std::endl;
-
-	// Make sure normal mouse cursor is restored
-	auto *cur_control = device->getCursorControl();
-	if (cur_control) {
-		cur_control->setVisible(true);
-		cur_control->setRelativeMode(false);
-	}
-
-	/* show main menu */
-	GUIEngine mymenu(guiroot, m_rendering_engine, &g_menumgr, menudata, *kill);
-
-	/* leave scene manager in a clean state */
-	m_rendering_engine->get_scene_manager()->clear();
-
-	/* Save the settings when leaving the mainmenu.
-	 * This makes sure that setting changes made in the mainmenu are persisted
-	 * even in case of a later unclean exit from the game.
-	 * This is especially useful on Android because closing the app from the
-	 * "Recents screen" results in an unclean exit.
-	 * Caveat: This means that the settings are saved twice when exiting Luanti.
-	 */
-	if (!g_settings_path.empty())
-		g_settings->updateConfigFile(g_settings_path.c_str());
-}

@@ -28,9 +28,7 @@
 #include "network/clientopcodes.h"
 #include "network/connection.h"
 #include "network/networkpacket.h"
-#include "script/scripting_client.h"
 #include "util/serialize.h"
-#include "util/srp.h"
 #include "util/hashing.h"
 #include "tileanimation.h"
 #include "gettext.h"
@@ -94,40 +92,13 @@ void Client::handleCommand_Hello(NetworkPacket* pkt)
 	m_server_ser_ver = serialization_ver;
 	m_proto_ver = proto_ver;
 
-	if (m_chosen_auth_mech != AUTH_MECHANISM_NONE) {
-		// we received a TOCLIENT_HELLO while auth was already going on
-		errorstream << "Client: TOCLIENT_HELLO while auth was already going on"
-			<< "(chosen_mech=" << m_chosen_auth_mech << ")." << std::endl;
-		if (m_chosen_auth_mech == AUTH_MECHANISM_SRP ||
-				m_chosen_auth_mech == AUTH_MECHANISM_LEGACY_PASSWORD) {
-			srp_user_delete((SRPUser *) m_auth_data);
-			m_auth_data = 0;
-		}
-	}
-
-	// Authenticate using that method, or abort if there wasn't any method found
+	// Authenticate that way, or give up: a server offering neither isn't one of ours
 	if (chosen_auth_mechanism != AUTH_MECHANISM_NONE) {
-		bool is_register = chosen_auth_mechanism == AUTH_MECHANISM_FIRST_SRP;
-		ELoginRegister mode = is_register ? ELoginRegister::Register : ELoginRegister::Login;
-		if (m_allow_login_or_register != ELoginRegister::Any &&
-				m_allow_login_or_register != mode) {
-			m_chosen_auth_mech = AUTH_MECHANISM_NONE;
-			m_access_denied = true;
-			if (m_allow_login_or_register == ELoginRegister::Login) {
-				m_access_denied_reason =
-						gettext("Name is not registered. To create an account on this server, click 'Register'");
-			} else {
-				m_access_denied_reason =
-						gettext("Name is taken. Please choose another name");
-			}
-			m_con->Disconnect();
-		} else {
-			startAuth(chosen_auth_mechanism);
-		}
+		startAuth(chosen_auth_mechanism);
 	} else {
 		m_chosen_auth_mech = AUTH_MECHANISM_NONE;
 		m_access_denied = true;
-		m_access_denied_reason = "Unknown";
+		m_access_denied_reason = "The server offered no way in that this game knows";
 		m_con->Disconnect();
 	}
 
@@ -135,11 +106,10 @@ void Client::handleCommand_Hello(NetworkPacket* pkt)
 
 void Client::handleCommand_AuthAccept(NetworkPacket* pkt)
 {
-	deleteAuthData();
+	m_chosen_auth_mech = AUTH_MECHANISM_NONE;
 
 	v3f unused;
-	*pkt >> unused >> m_map_seed >> m_recommended_send_interval
-		>> m_sudo_auth_methods;
+	*pkt >> unused >> m_map_seed >> m_recommended_send_interval;
 
 	infostream << "Client: received map seed: " << m_map_seed << std::endl;
 	infostream << "Client: received recommended send interval "
@@ -161,30 +131,6 @@ void Client::handleCommand_AuthAccept(NetworkPacket* pkt)
 		remote.print(actionstream);
 		actionstream << ")" << std::endl;
 	}
-}
-
-void Client::handleCommand_AcceptSudoMode(NetworkPacket* pkt)
-{
-	deleteAuthData();
-
-	m_password = m_new_password;
-
-	verbosestream << "Client: Received TOCLIENT_ACCEPT_SUDO_MODE." << std::endl;
-
-	// send packet to actually set the password
-	startAuth(AUTH_MECHANISM_FIRST_SRP);
-
-	// reset again
-	m_chosen_auth_mech = AUTH_MECHANISM_NONE;
-}
-
-void Client::handleCommand_DenySudoMode(NetworkPacket* pkt)
-{
-	ChatMessage *chatMessage = new ChatMessage(CHATMESSAGE_TYPE_SYSTEM,
-			L"Password change denied. Password NOT changed.");
-	pushToChatQueue(chatMessage);
-	// reset everything and be sad
-	deleteAuthData();
 }
 
 void Client::handleCommand_AccessDenied(NetworkPacket* pkt)
@@ -414,14 +360,7 @@ void Client::handleCommand_ChatMessage(NetworkPacket *pkt)
 	// log the chat message
 	actionstream << "CHAT: " << wide_to_utf8(unescape_enriched(chatMessage->message)) << std::endl;
 
-	// @TODO send this to CSM using ChatMessage object
-	if (modsLoaded() && m_script->on_receiving_message(
-			wide_to_utf8(chatMessage->message))) {
-		// Message was consumed by CSM and should not be handled by client
-		delete chatMessage;
-	} else {
-		pushToChatQueue(chatMessage);
-	}
+	pushToChatQueue(chatMessage);
 }
 
 void Client::handleCommand_ActiveObjectRemoveAdd(NetworkPacket* pkt)
@@ -548,9 +487,6 @@ void Client::handleCommand_HP(NetworkPacket *pkt)
 	}
 
 	player->hp = hp;
-
-	if (modsLoaded())
-		m_script->on_hp_modification(hp);
 
 	if (hp < oldhp) {
 		// Add to ClientEvent queue
@@ -1643,39 +1579,6 @@ void Client::handleCommand_UpdatePlayerList(NetworkPacket* pkt)
 	}
 }
 
-void Client::handleCommand_SrpBytesSandB(NetworkPacket* pkt)
-{
-	if (m_chosen_auth_mech != AUTH_MECHANISM_SRP &&
-			m_chosen_auth_mech != AUTH_MECHANISM_LEGACY_PASSWORD) {
-		errorstream << "Client: Received SRP S_B login message,"
-			<< " but wasn't supposed to (chosen_mech="
-			<< m_chosen_auth_mech << ")." << std::endl;
-		return;
-	}
-
-	char *bytes_M = 0;
-	size_t len_M = 0;
-	SRPUser *usr = (SRPUser *) m_auth_data;
-	std::string s;
-	std::string B;
-	*pkt >> s >> B;
-
-	infostream << "Client: Received TOCLIENT_SRP_BYTES_S_B." << std::endl;
-
-	srp_user_process_challenge(usr, (const unsigned char *) s.c_str(), s.size(),
-		(const unsigned char *) B.c_str(), B.size(),
-		(unsigned char **) &bytes_M, &len_M);
-
-	if ( !bytes_M ) {
-		errorstream << "Client: SRP-6a S_B safety check violation!" << std::endl;
-		return;
-	}
-
-	NetworkPacket resp_pkt(TOSERVER_SRP_BYTES_M, 0);
-	resp_pkt << std::string(bytes_M, len_M);
-	Send(&resp_pkt);
-}
-
 void Client::handleCommand_FormspecPrepend(NetworkPacket *pkt)
 {
 	LocalPlayer *player = m_env.getLocalPlayer();
@@ -1683,15 +1586,6 @@ void Client::handleCommand_FormspecPrepend(NetworkPacket *pkt)
 
 	// Store formspec in LocalPlayer
 	*pkt >> player->formspec_prepend;
-}
-
-void Client::handleCommand_CSMRestrictionFlags(NetworkPacket *pkt)
-{
-	*pkt >> m_csm_restriction_flags >> m_csm_restriction_noderange;
-
-	// Restrictions were received -> load mods if it's enabled
-	// Note: this should be moved after mods receptions from server instead
-	loadMods();
 }
 
 void Client::handleCommand_PlayerSpeed(NetworkPacket *pkt)
@@ -1787,9 +1681,6 @@ void Client::handleCommand_ModChannelMsg(NetworkPacket *pkt)
 			<< channel_name << ", ignoring." << std::endl;
 		return;
 	}
-
-	if (modsLoaded())
-		m_script->on_modchannel_message(channel_name, sender, channel_msg);
 }
 
 void Client::handleCommand_ModChannelSignal(NetworkPacket *pkt)
@@ -1856,10 +1747,6 @@ void Client::handleCommand_ModChannelSignal(NetworkPacket *pkt)
 			valid_signal = false;
 			break;
 	}
-
-	// If signal is valid, forward it to client side mods
-	if (valid_signal && modsLoaded())
-		m_script->on_modchannel_signal(channel, signal);
 }
 
 void Client::handleCommand_MinimapModes(NetworkPacket *pkt)

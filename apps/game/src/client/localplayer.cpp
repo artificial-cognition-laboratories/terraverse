@@ -240,8 +240,8 @@ void LocalPlayer::move(f32 dtime, Environment *env,
 	PlayerSettings &player_settings = getPlayerSettings();
 
 	// Skip collision detection if noclip mode is used
-	bool fly_allowed = m_client->checkLocalPrivilege("fly");
-	bool noclip = m_client->checkLocalPrivilege("noclip") && player_settings.noclip;
+	bool fly_allowed = m_client->checkLocalPrivilege("core:fly");
+	bool noclip = m_client->checkLocalPrivilege("core:noclip") && player_settings.noclip;
 	bool free_move = player_settings.free_move && fly_allowed;
 
 	if (noclip && free_move) {
@@ -613,8 +613,8 @@ void LocalPlayer::applyControl(float dtime, Environment *env)
 	// and will be rotated at the end
 	v3f speedH, speedV; // Horizontal (X, Z) and Vertical (Y)
 
-	bool fly_allowed = m_client->checkLocalPrivilege("fly");
-	bool fast_allowed = m_client->checkLocalPrivilege("fast");
+	bool fly_allowed = m_client->checkLocalPrivilege("core:fly");
+	bool fast_allowed = m_client->checkLocalPrivilege("core:fast");
 
 	bool free_move = fly_allowed && player_settings.free_move;
 	bool fast_move = fast_allowed && player_settings.fast_move;
@@ -901,8 +901,8 @@ void LocalPlayer::old_move(f32 dtime, Environment *env,
 	PlayerSettings &player_settings = getPlayerSettings();
 
 	// Skip collision detection if noclip mode is used
-	bool fly_allowed = m_client->checkLocalPrivilege("fly");
-	bool noclip = m_client->checkLocalPrivilege("noclip") && player_settings.noclip;
+	bool fly_allowed = m_client->checkLocalPrivilege("core:fly");
+	bool noclip = m_client->checkLocalPrivilege("core:noclip") && player_settings.noclip;
 	bool free_move = noclip && fly_allowed && player_settings.free_move;
 	if (free_move) {
 		position += m_speed * dtime;

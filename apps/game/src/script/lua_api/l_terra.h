@@ -37,6 +37,7 @@ private:
 	static int l_weather_act(lua_State *L);
 	static int l_data(lua_State *L);
 	static int l_land(lua_State *L);
+	static int l_generates(lua_State *L);
 
 public:
 	static void Initialize(lua_State *L, int top);

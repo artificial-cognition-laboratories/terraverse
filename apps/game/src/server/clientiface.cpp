@@ -21,7 +21,6 @@
 #include "server/player_sao.h"
 #include "log.h"
 #include "util/pointedthing.h"
-#include "util/srp.h"
 #include "util/string.h"
 #include "face_position_cache.h"
 
@@ -47,7 +46,6 @@ const char *ClientInterface::statenames[] = {
 	"InitDone",
 	"DefinitionsSent",
 	"Active",
-	"SudoMode",
 };
 
 const char *ClientInterface::state2Name(ClientState state)
@@ -584,14 +582,14 @@ void RemoteClient::notifyEvent(ClientStateEvent event)
 		{
 		case CSE_AuthAccept:
 			m_state = CS_AwaitingInit2;
-			resetChosenMech();
+			chosen_mech = AUTH_MECHANISM_NONE;
 			break;
 		case CSE_Disconnect:
 			m_state = CS_Disconnecting;
 			break;
 		case CSE_SetDenied:
 			m_state = CS_Denied;
-			resetChosenMech();
+			chosen_mech = AUTH_MECHANISM_NONE;
 			break;
 		default:
 			myerror << "HelloSent: Invalid client state transition! " << event;
@@ -665,29 +663,7 @@ void RemoteClient::notifyEvent(ClientStateEvent event)
 		case CSE_Disconnect:
 			m_state = CS_Disconnecting;
 			break;
-		case CSE_SudoSuccess:
-			m_state = CS_SudoMode;
-			resetChosenMech();
-			break;
 		/* Init GotInit2 SetDefinitionsSent SetMediaSent SetDenied */
-		default:
-			myerror << "Active: Invalid client state transition! " << event;
-			throw ClientStateError(myerror.str());
-			break;
-		}
-		break;
-	case CS_SudoMode:
-		switch(event)
-		{
-		case CSE_SetDenied:
-			m_state = CS_Denied;
-			break;
-		case CSE_Disconnect:
-			m_state = CS_Disconnecting;
-			break;
-		case CSE_SudoLeave:
-			m_state = CS_Active;
-			break;
 		default:
 			myerror << "Active: Invalid client state transition! " << event;
 			throw ClientStateError(myerror.str());
@@ -698,23 +674,6 @@ void RemoteClient::notifyEvent(ClientStateEvent event)
 		/* we are already disconnecting */
 		break;
 	}
-}
-
-void RemoteClient::resetChosenMech()
-{
-	if (auth_data) {
-		srp_verifier_delete((SRPVerifier *) auth_data);
-		auth_data = nullptr;
-	}
-	chosen_mech = AUTH_MECHANISM_NONE;
-}
-
-void RemoteClient::setEncryptedPassword(const std::string& pwd)
-{
-	FATAL_ERROR_IF(!str_starts_with(pwd, "#1#"), "must be srp");
-	enc_pwd = pwd;
-	// We just set SRP encrypted password, we accept only it now
-	allowed_auth_mechs = AUTH_MECHANISM_SRP;
 }
 
 u64 RemoteClient::uptime() const

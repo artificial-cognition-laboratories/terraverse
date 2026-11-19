@@ -26,12 +26,6 @@ struct GameParams
 	std::string world_code;
 };
 
-enum class ELoginRegister {
-	Any = 0,
-	Login,
-	Register
-};
-
 struct GameClientData
 {
 	bool isSinglePlayer() const { return mode == GM_SINGLEPLAYER; }
@@ -48,8 +42,6 @@ struct GameClientData
 		GM_JOIN,
 		GM_Undefined
 	} mode = GM_Undefined;
-
-	ELoginRegister allow_login_or_register = ELoginRegister::Any;
 };
 
 // Information provided by ClientLauncher

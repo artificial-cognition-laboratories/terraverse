@@ -48,21 +48,6 @@ describe("string", function()
 	end)
 end)
 
-describe("privs", function()
-	it("from string", function()
-		assert.same({ a = true, b = true }, core.string_to_privs("a,b"))
-	end)
-
-	it("to string", function()
-		assert.equal("one", core.privs_to_string({ one=true }))
-
-		local ret = core.privs_to_string({ a=true, b=true })
-		assert(ret == "a,b")
-		ret = core.privs_to_string({ e=true, c=true, d=true, a=true, b=true })
-		assert(ret == "a,b,c,d,e")
-	end)
-end)
-
 describe("pos", function()
 	it("from string", function()
 		assert.equal(vector.new(10, 5.1, -2), core.string_to_pos("10.0, 5.1, -2"))

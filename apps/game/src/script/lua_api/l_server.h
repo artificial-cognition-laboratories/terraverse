@@ -29,6 +29,8 @@ private:
 
 	// is_singleplayer()
 	static int l_is_singleplayer(lua_State *L);
+	// Terra Firma: console_command(line) -> reply
+	static int l_console_command(lua_State *L);
 
 	// get_current_modname()
 	static int l_get_current_modname(lua_State *L);
@@ -94,14 +96,10 @@ private:
 	// disconnect_player(name[, reason[, reconnect]]) -> success
 	static int l_disconnect_player(lua_State *L);
 
-	// Terra Firma: sidecar_command(player name, command, text) -> whether mods will answer
-	static int l_sidecar_command(lua_State *L);
 
 	// remove_player(name)
 	static int l_remove_player(lua_State *L);
 
-	// notify_authentication_modified(name)
-	static int l_notify_authentication_modified(lua_State *L);
 
 	// register_async_dofile(path)
 	static int l_register_async_dofile(lua_State *L);

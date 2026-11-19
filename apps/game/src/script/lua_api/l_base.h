@@ -15,10 +15,6 @@ extern "C" {
 #include <lauxlib.h>
 }
 
-#if CHECK_CLIENT_BUILD()
-class Client;
-class GUIEngine;
-#endif
 class EmergeThread;
 class ScriptApiBase;
 class Server;
@@ -31,11 +27,6 @@ public:
 	static ScriptApiBase*   getScriptApiBase(lua_State *L);
 	static Server*          getServer(lua_State *L);
 	static ServerInventoryManager *getServerInventoryMgr(lua_State *L);
-	#if CHECK_CLIENT_BUILD()
-	static Client*          getClient(lua_State *L);
-	static GUIEngine*       getGuiEngine(lua_State *L);
-	static SSCSMEnvironment *getSSCSMEnv(lua_State *L);
-	#endif // !SERVER
 	static EmergeThread*    getEmergeThread(lua_State *L);
 
 	static IGameDef*        getGameDef(lua_State *L);

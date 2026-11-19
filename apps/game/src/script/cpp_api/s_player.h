@@ -41,7 +41,6 @@ public:
 			const Json::Value &payload);
 	void on_playerReceiveFields(ServerActiveObject *player,
 			const std::string &formname, const StringMap &fields);
-	void on_authplayer(const std::string &name, const std::string &ip, bool is_success);
 
 	// Player inventory callbacks
 	// Return number of accepted items to be moved

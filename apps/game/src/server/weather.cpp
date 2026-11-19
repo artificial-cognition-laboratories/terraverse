@@ -45,12 +45,6 @@ const double SNOWING = 0.05;      // mm/h of falling snow that settles
 
 const char *const SNOW = "weather_snow", *const ICE = "weather_ice", *const WATER = "mapgen_water_source";
 
-bool terraWorld(Server *server)
-{
-	const MapgenParams *params = server->getEmergeManager()->mgparams;
-	return params && params->mgtype == MAPGEN_TERRA && server->atlas();
-}
-
 // The weather at a node, read at most once per 16-node column per CACHE_S.
 std::optional<fluid::Sample> weatherAt(Server *server, v3s16 pos)
 {
@@ -161,6 +155,12 @@ private:
 };
 
 } // namespace
+
+bool terraWorld(Server *server)
+{
+	const MapgenParams *params = server->getEmergeManager()->mgparams;
+	return params && params->mgtype == MAPGEN_TERRA && server->atlas();
+}
 
 std::string terraWeatherAct(Server *server, v3s16 pos)
 {

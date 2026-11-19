@@ -19,7 +19,6 @@
 #include "tool.h"
 #include "filesys.h"
 #include "settings.h"
-#include "util/auth.h"
 #include "util/base64.h"
 #include "config.h"
 #include "version.h"
@@ -213,46 +212,6 @@ int ModApiUtil::l_get_hit_params(lua_State *L)
 	int wear = readParam<int>(L, 4, 0);
 	push_hit_params(L, getHitParams(groups, tp,
 		time_from_last_punch, wear));
-	return 1;
-}
-
-// check_password_entry(name, entry, password)
-int ModApiUtil::l_check_password_entry(lua_State *L)
-{
-	NO_MAP_LOCK_REQUIRED;
-	std::string name = luaL_checkstring(L, 1);
-	std::string entry = luaL_checkstring(L, 2);
-	std::string password = luaL_checkstring(L, 3);
-
-	if (base64_is_valid(entry)) {
-		std::string hash = translate_password(name, password);
-		lua_pushboolean(L, hash == entry);
-		return 1;
-	}
-
-	std::string salt;
-	std::string verifier;
-
-	if (!decode_srp_verifier_and_salt(entry, &verifier, &salt)) {
-		// invalid format
-		warningstream << "Invalid password format for " << name << std::endl;
-		lua_pushboolean(L, false);
-		return 1;
-	}
-	std::string gen_verifier = generate_srp_verifier(name, password, salt);
-
-	lua_pushboolean(L, gen_verifier == verifier);
-	return 1;
-}
-
-// get_password_hash(name, raw_password)
-int ModApiUtil::l_get_password_hash(lua_State *L)
-{
-	NO_MAP_LOCK_REQUIRED;
-	std::string name = luaL_checkstring(L, 1);
-	std::string raw_password = luaL_checkstring(L, 2);
-	std::string hash = translate_password(name, raw_password);
-	lua_pushstring(L, hash.c_str());
 	return 1;
 }
 
@@ -747,8 +706,6 @@ void ModApiUtil::Initialize(lua_State *L, int top)
 	API_FCT(get_dig_params);
 	API_FCT(get_hit_params);
 
-	API_FCT(check_password_entry);
-	API_FCT(get_password_hash);
 
 	API_FCT(is_yes);
 

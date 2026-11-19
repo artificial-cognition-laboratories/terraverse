@@ -195,10 +195,17 @@
 		Rivers (sprint 115): TOCLIENT_RIVERS.
 	PROTOCOL VERSION 103 (Terra Firma)
 		TOCLIENT_RIVERS carries the way each block's river runs. Only 103 is accepted on either side.
+	PROTOCOL VERSION 104 (Terra Firma)
+		No client-side Lua (sprint 119): TOCLIENT_CSM_RESTRICTION_FLAGS (0x2A) is gone.
+		Only 104 is accepted on either side.
+	PROTOCOL VERSION 105 (Terra Firma)
+		No passwords (sprint 119): AUTH_MECHANISM_LOCAL for a world played alone, TICKET for
+		one hosted for friends; the SRP and sudo-mode packets are gone, and TOCLIENT_AUTH_ACCEPT
+		no longer carries sudo methods. Only 105 is accepted on either side.
 */
 
 // Note: Also update core.protocol_versions in builtin when bumping
-const u16 LATEST_PROTOCOL_VERSION = 103;
+const u16 LATEST_PROTOCOL_VERSION = 105;
 
 // See also formspec [Version History] in doc/lua_api.md
 const u16 FORMSPEC_API_VERSION = 12;

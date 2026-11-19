@@ -57,7 +57,6 @@
 #include "util/directiontables.h"
 #include "util/quicktune_shortcutter.h"
 #include "version.h"
-#include "script/scripting_client.h"
 #include "hud.h"
 #include <AnimatedMeshSceneNode.h>
 #include <ICameraSceneNode.h>
@@ -558,7 +557,7 @@ void Game::run()
 	draw_times.reset();
 
 	m_touch_simulate_aux1 = g_settings->getBool("fast_move")
-			&& client->checkPrivilege("fast");
+			&& client->checkPrivilege("core:fast");
 
 	const core::dimension2du initial_screen_size(
 			g_settings->getU16("screen_w"),
@@ -1021,14 +1020,10 @@ bool Game::createClient(const GameStartData &start_data)
 
 	// Update cached textures, meshes and materials
 	client->afterContentReceived();
-	// Load received SSCSMs
-	client->loadSSCSM();
 
 	/* Camera
 	 */
 	camera = new Camera(*draw_control, client, m_rendering_engine);
-	if (client->modsLoaded())
-		client->getScript()->on_camera_ready(camera);
 	client->setCamera(camera);
 
 	/* Clouds
@@ -1063,9 +1058,6 @@ bool Game::createClient(const GameStartData &start_data)
 	hud = new Hud(client, player, &player->inventory);
 
 	mapper = client->getMinimap();
-
-	if (mapper && client->modsLoaded())
-		client->getScript()->on_minimap_ready(mapper);
 
 	return true;
 }
@@ -1163,8 +1155,7 @@ bool Game::connectToServer(const GameStartData &start_data,
 				*draw_control, texture_src, shader_src,
 				itemdef_manager, nodedef_manager, sound_manager.get(), eventmgr,
 				m_rendering_engine,
-				m_item_visuals_manager.get(),
-				start_data.allow_login_or_register);
+				m_item_visuals_manager.get());
 	} catch (const BaseException &e) {
 		*error_message = fmtgettext("Error creating client: %s", e.what());
 		errorstream << *error_message << std::endl;
@@ -1405,7 +1396,7 @@ void Game::updateDebugState()
 	LocalPlayer *player = client->getEnv().getLocalPlayer();
 
 	// debug UI and wireframe
-	bool has_debug = client->checkPrivilege("debug");
+	bool has_debug = client->checkPrivilege("core:debug");
 	bool has_basic_debug = has_debug || (player->hud_flags & HUD_FLAG_BASIC_DEBUG);
 
 	if (m_game_ui->m_flags.show_basic_debug) {
@@ -1425,7 +1416,7 @@ void Game::updateDebugState()
 	}
 
 	// noclip
-	draw_control->allow_noclip = m_cache_enable_noclip && client->checkPrivilege("noclip");
+	draw_control->allow_noclip = m_cache_enable_noclip && client->checkPrivilege("core:noclip");
 }
 
 void Game::updateProfilers(const RunStats &stats, const FpsControl &draw_times,
@@ -1690,11 +1681,6 @@ void Game::processKeyInput()
 		openConsole(0.2, L"");
 	} else if (wasKeyDown(KeyType::CMD)) {
 		openConsole(0.2, L"/");
-	} else if (wasKeyDown(KeyType::CMD_LOCAL)) {
-		if (client->modsLoaded())
-			openConsole(0.2, L".");
-		else
-			m_game_ui->showTranslatedStatusText("Client side scripting is disabled");
 	} else if (wasKeyDown(KeyType::CONSOLE)) {
 		openConsole(core::clamp(g_settings->getFloat("console_height"), 0.1f, 1.0f));
 	} else if (wasKeyDown(KeyType::FREEMOVE)) {
@@ -1928,7 +1914,7 @@ void Game::toggleFreeMove()
 	return; // Terra Firma: flying shows itself, as Minecraft's does: no status text
 #endif
 	if (free_move) {
-		if (client->checkPrivilege("fly")) {
+		if (client->checkPrivilege("core:fly")) {
 			m_game_ui->showTranslatedStatusText("Fly mode enabled");
 		} else {
 			m_game_ui->showTranslatedStatusText("Fly mode enabled (note: no 'fly' privilege)");
@@ -1970,7 +1956,7 @@ void Game::togglePitchMove()
 void Game::toggleFast()
 {
 	bool fast_move = !g_settings->getBool("fast_move");
-	bool has_fast_privs = client->checkPrivilege("fast");
+	bool has_fast_privs = client->checkPrivilege("core:fast");
 	g_settings->set("fast_move", bool_to_cstr(fast_move));
 
 	if (fast_move) {
@@ -1993,7 +1979,7 @@ void Game::toggleNoClip()
 	g_settings->set("noclip", bool_to_cstr(noclip));
 
 	if (noclip) {
-		if (client->checkPrivilege("noclip")) {
+		if (client->checkPrivilege("core:noclip")) {
 			m_game_ui->showTranslatedStatusText("Noclip mode enabled");
 		} else {
 			m_game_ui->showTranslatedStatusText("Noclip mode enabled (note: no 'noclip' privilege)");
@@ -2017,7 +2003,7 @@ void Game::toggleCinematic()
 void Game::toggleBlockBounds()
 {
 	LocalPlayer *player = client->getEnv().getLocalPlayer();
-	if (!(client->checkPrivilege("debug") || (player->hud_flags & HUD_FLAG_BASIC_DEBUG))) {
+	if (!(client->checkPrivilege("core:debug") || (player->hud_flags & HUD_FLAG_BASIC_DEBUG))) {
 		m_game_ui->showTranslatedStatusText("Can't show block bounds (disabled by game or mod)");
 		return;
 	}
@@ -2117,7 +2103,7 @@ void Game::toggleFog()
 {
 	bool flag = !g_settings->getBool("enable_fog");
 	g_settings->setBool("enable_fog", flag);
-	bool allowed = sky->getFogDistance() < 0 || client->checkPrivilege("debug");
+	bool allowed = sky->getFogDistance() < 0 || client->checkPrivilege("core:debug");
 	if (!allowed)
 		m_game_ui->showTranslatedStatusText("Fog enabled by game or mod");
 	else if (flag)
@@ -2154,14 +2140,14 @@ void Game::applyView()
 void Game::toggleDebug()
 {
 	LocalPlayer *player = client->getEnv().getLocalPlayer();
-	bool has_debug = client->checkPrivilege("debug");
+	bool has_debug = client->checkPrivilege("core:debug");
 	bool has_basic_debug = has_debug || (player->hud_flags & HUD_FLAG_BASIC_DEBUG);
 
 	// Initial: No debug info
 	// 1x toggle: Debug text
 	// 2x toggle: Debug text with profiler graph
-	// 3x toggle: Debug text and wireframe (needs "debug" priv)
-	// 4x toggle: Debug text and bbox (needs "debug" priv)
+	// 3x toggle: Debug text and wireframe (needs core:debug)
+	// 4x toggle: Debug text and bbox (needs core:debug)
 	//
 	// The debug text can be in 2 modes: minimal and basic.
 	// * Minimal: Only technical client info that not gameplay-relevant
@@ -2201,7 +2187,7 @@ void Game::toggleDebug()
 void Game::toggleUpdateCamera()
 {
 	auto &flag = m_flags.disable_camera_update;
-	flag = client->checkPrivilege("debug") ? !flag : false;
+	flag = client->checkPrivilege("core:debug") ? !flag : false;
 	if (flag)
 		m_game_ui->showTranslatedStatusText("Camera update disabled");
 	else
@@ -2381,7 +2367,7 @@ bool Game::isTouchShootlineUsed() const
 bool Game::bodyIsLoose(LocalPlayer &player) const
 {
 	const PlayerSettings &s = player.getPlayerSettings();
-	return (client->checkPrivilege("fly") && s.free_move) || player.in_liquid || player.is_climbing;
+	return (client->checkPrivilege("core:fly") && s.free_move) || player.in_liquid || player.is_climbing;
 }
 
 // Terra Firma: a tap of the crouch key stays crouched till the next; held, it's crouched
@@ -2491,7 +2477,7 @@ void Game::updatePlayerControl(const CameraOrientation &cam)
 	// In free move (fly), the "toggle_sneak_key" setting would prevent precise
 	// up/down movements. Hence, enable the feature only during 'normal' movement.
 	const bool allow_sneak_toggle = m_cache_toggle_sneak_key &&
-		!(player->getPlayerSettings().free_move && client->checkPrivilege("fly"));
+		!(player->getPlayerSettings().free_move && client->checkPrivilege("core:fly"));
 
 	//TimeTaker tt("update player control", NULL, PRECISION_NANO);
 
@@ -2624,8 +2610,6 @@ const ClientEventHandler Game::clientEventHandler[CLIENTEVENT_MAX] = {
 	{&Game::handleClientEvent_PlayerForceMove},
 	{&Game::handleClientEvent_DeathscreenLegacy},
 	{&Game::handleClientEvent_ShowFormSpec},
-	{&Game::handleClientEvent_ShowCSMFormSpec},
-	{&Game::handleClientEvent_ShowPauseMenuFormSpec},
 	{&Game::handleClientEvent_HandleParticleEvent},
 	{&Game::handleClientEvent_HandleParticleEvent},
 	{&Game::handleClientEvent_HandleParticleEvent},
@@ -2648,9 +2632,6 @@ void Game::handleClientEvent_None(ClientEvent *event, CameraOrientation *cam)
 
 void Game::handleClientEvent_PlayerDamage(ClientEvent *event, CameraOrientation *cam)
 {
-	if (client->modsLoaded())
-		client->getScript()->on_damage_taken(event->player_damage.amount);
-
 	if (!event->player_damage.effect)
 		return;
 
@@ -2699,24 +2680,6 @@ void Game::handleClientEvent_ShowFormSpec(ClientEvent *event, CameraOrientation 
 
 	delete fs.formspec;
 	delete fs.formname;
-}
-
-void Game::handleClientEvent_ShowCSMFormSpec(ClientEvent *event, CameraOrientation *cam)
-{
-	m_game_formspec.showCSMFormSpec(*event->show_formspec.formspec,
-		*event->show_formspec.formname);
-
-	delete event->show_formspec.formspec;
-	delete event->show_formspec.formname;
-}
-
-void Game::handleClientEvent_ShowPauseMenuFormSpec(ClientEvent *event, CameraOrientation *cam)
-{
-	m_game_formspec.showPauseMenuFormSpec(*event->show_formspec.formspec,
-		*event->show_formspec.formname);
-
-	delete event->show_formspec.formspec;
-	delete event->show_formspec.formname;
 }
 
 void Game::handleClientEvent_HandleParticleEvent(ClientEvent *event,
@@ -3385,8 +3348,7 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 		// Terra Firma: the tools in hand make strokes, on the world or what's held
 		handleTools(pointed);
 	} else if (selected_def.usable && isKeyDown(KeyType::DIG)) {
-		if (wasKeyPressed(KeyType::DIG) && (!client->modsLoaded() ||
-				!client->getScript()->on_item_use(selected_item, pointed)))
+		if (wasKeyPressed(KeyType::DIG))
 			client->interact(INTERACT_USE, pointed);
 	} else if (pointed.type == POINTEDTHING_NODE && m_hold
 			&& intToFloat(pointed.node_undersurface, 1).getDistanceFrom(m_hold->held()) <= m_hold->radius() + 2) {
@@ -3398,15 +3360,12 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 		handlePointingAtNode(pointed, selected_item, hand_item, dtime);
 	} else if (pointed.type == POINTEDTHING_OBJECT) {
 		v3f player_position  = player->getPosition();
-		bool basic_debug_allowed = client->checkPrivilege("debug") || (player->hud_flags & HUD_FLAG_BASIC_DEBUG);
+		bool basic_debug_allowed = client->checkPrivilege("core:debug") || (player->hud_flags & HUD_FLAG_BASIC_DEBUG);
 		handlePointingAtObject(pointed, tool_item, hand_item, player_position,
 				m_game_ui->m_flags.show_basic_debug && basic_debug_allowed);
 	} else if (isKeyDown(KeyType::DIG)) {
 		// When button is held down in air, show continuous animation
 		runData.punching = true;
-		// Run callback even though item is not usable
-		if (wasKeyPressed(KeyType::DIG) && client->modsLoaded())
-			client->getScript()->on_item_use(selected_item, pointed);
 	} else if (wasKeyPressed(KeyType::PLACE)) {
 		handlePointingAtNothing(selected_item);
 	}
@@ -3586,7 +3545,7 @@ void Game::handlePointingAtNode(const PointedThing &pointed,
 	// capabilities allow (the bare hand only soft things); carving is build mode's
 	if (runData.nodig_delay_timer <= 0.0 && isKeyDown(KeyType::DIG)
 			&& !runData.digging_blocked
-			&& client->checkPrivilege("interact")) {
+			&& client->checkPrivilege("core:interact")) {
 		handleDigging(pointed, nodepos, selected_item, hand_item, dtime);
 	}
 
@@ -3606,7 +3565,7 @@ void Game::handlePointingAtNode(const PointedThing &pointed,
 
 	if ((wasKeyPressed(KeyType::PLACE) ||
 			runData.repeat_place_timer >= m_repeat_place_time) &&
-			client->checkPrivilege("interact")) {
+			client->checkPrivilege("core:interact")) {
 		runData.repeat_place_timer = 0;
 		infostream << "Place button pressed while looking at ground" << std::endl;
 
@@ -3620,11 +3579,8 @@ void Game::handlePointingAtNode(const PointedThing &pointed,
 		// And also set the sound and send the interact
 		// But first check for meta formspec and rightclickable
 		auto &def = selected_item.getDefinition(itemdef_manager);
-		bool placed = nodePlacement(def, selected_item, nodepos, neighborpos,
+		nodePlacement(def, selected_item, nodepos, neighborpos,
 			pointed, meta);
-
-		if (placed && client->modsLoaded())
-			client->getScript()->on_placenode(pointed, def);
 	}
 }
 
@@ -3803,7 +3759,7 @@ std::optional<sculpt::Stroke> Game::strokeAt(const Aim &aim, sculpt::Act act, st
 
 void Game::handleTools(const PointedThing &pointed)
 {
-	if (!client->checkPrivilege("interact"))
+	if (!client->checkPrivilege("core:interact"))
 		return;
 	// the primary button draws or selects, from what it's pressed on;
 	// nothing's done till it's let go (and a shape, till it's pulled and
@@ -4191,7 +4147,7 @@ void Game::startCarry(u16 object, v3f hit, bool sticky)
 		player->getYaw(), SEND, sticky };
 	client->sendHold(object, workshop::Grip::Carried);
 	// pulled toward the hands here as the server pulls it there
-	client->getBody().carry(object, client->checkLocalPrivilege("creative")
+	client->getBody().carry(object, client->checkLocalPrivilege("core:creative")
 			? workshop::STRENGTH_CREATIVE : workshop::STRENGTH);
 }
 
@@ -5998,7 +5954,7 @@ bool Game::nodePlacement(const ItemDefinition &selected_def,
 		// NOTE: This is to be eventually implemented by a mod as client-side Lua
 		if (!predicted_f.walkable ||
 				build_where_you_stand ||
-				(client->checkPrivilege("noclip") && g_settings->getBool("noclip")) ||
+				(client->checkPrivilege("core:noclip") && g_settings->getBool("noclip")) ||
 				(predicted_f.walkable && !stands_inside)) {
 			// This triggers the required mesh update too
 			client->addNode(p, predicted_node);
@@ -6103,7 +6059,7 @@ void Game::handleDigging(const PointedThing &pointed, const v3s16 &nodepos,
 
 	// Terra Firma: in creative, whatever can be dug at all goes at once (sprint 119:
 	// was tf_player's creative hand); the server lets it (handleCommand_Interact)
-	if (client->checkPrivilege("creative")) {
+	if (client->checkPrivilege("core:creative")) {
 		for (const char *group : { "crumbly", "choppy", "cracky", "snappy", "oddly_breakable_by_hand", "dig_immediate" })
 			if (itemgroup_get(features.groups, group) > 0) {
 				params.diggable = true;
@@ -6125,9 +6081,6 @@ void Game::handleDigging(const PointedThing &pointed, const v3s16 &nodepos,
 	if (!runData.digging) {
 		infostream << "Started digging" << std::endl;
 		runData.dig_instantly = runData.dig_time_complete == 0;
-		if (client->modsLoaded() && client->getScript()->on_punchnode(nodepos, n))
-			return;
-
 		client->interact(INTERACT_START_DIGGING, pointed);
 		runData.digging = true;
 		runData.btn_down_for_dig = true;
@@ -6186,11 +6139,6 @@ void Game::handleDigging(const PointedThing &pointed, const v3s16 &nodepos,
 		// value of the repeat_dig_time setting.
 		runData.nodig_delay_timer = std::max(runData.nodig_delay_timer,
 				m_repeat_dig_time - runData.dig_time_complete);
-
-		if (client->modsLoaded() &&
-				client->getScript()->on_dignode(nodepos, n)) {
-			return;
-		}
 
 		if (features.node_dig_prediction == "air") {
 			client->removeNode(nodepos);
@@ -6325,7 +6273,7 @@ void Game::updateFrame(ProfilerGraph *graph, RunStats *stats, f32 dtime,
 	// can see properly
 	bool noclip_fly = draw_control->allow_noclip &&
 			m_cache_enable_free_move &&
-			client->checkPrivilege("fly");
+			client->checkPrivilege("core:fly");
 	if (!sky->getAutoCaveBrightness() || noclip_fly) {
 		direct_brightness = time_brightness;
 		sunlight_seen = true;

@@ -37,25 +37,6 @@ private:
 	std::string m_savedir;
 };
 
-class AuthDatabaseFiles : public AuthDatabase
-{
-public:
-	AuthDatabaseFiles(const std::string &savedir);
-	virtual ~AuthDatabaseFiles() = default;
-
-	virtual bool getAuth(const std::string &name, AuthEntry &res);
-	virtual bool saveAuth(const AuthEntry &authEntry);
-	virtual bool createAuth(AuthEntry &authEntry);
-	virtual bool deleteAuth(const std::string &name);
-	virtual void listNames(std::vector<std::string> &res);
-	virtual void reload();
-
-private:
-	std::unordered_map<std::string, AuthEntry> m_auth_list;
-	std::string m_savedir;
-	bool readAuthFile();
-	bool writeAuthFile();
-};
 
 class ModStorageDatabaseFiles : public ModStorageDatabase
 {

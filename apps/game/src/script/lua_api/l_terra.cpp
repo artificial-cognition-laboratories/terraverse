@@ -27,6 +27,8 @@
 #include "log.h"
 #include "terragen/sphere.h"
 #include "terragen/grid.h"
+#include <cstdio>
+#include <stdexcept>
 #include <sstream>
 #include <fstream>
 #include "filesys.h"
@@ -233,6 +235,15 @@ int ModApiTerra::l_enabled(lua_State *L)
 {
 	NO_MAP_LOCK_REQUIRED;
 	lua_pushboolean(L, mapgenName(getServer(L)) == "terra");
+	return 1;
+}
+
+// core.terra.generates() → whether this server makes a world: false only for the unit
+// tests' mock server, which loads builtin with no generator to give biomes or species to
+int ModApiTerra::l_generates(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+	lua_pushboolean(L, getServer(L)->getEmergeManager() != nullptr);
 	return 1;
 }
 
@@ -841,29 +852,64 @@ int ModApiTerra::l_river(lua_State *L)
 int ModApiTerra::l_force_rivers(lua_State *L)
 {
 	NO_MAP_LOCK_REQUIRED;
-	Server *server = getServer(L);
 	const v3f pos = check_v3f(L, 1);
 	const double radius_km = luaL_checknumber(L, 2), hours = luaL_checknumber(L, 3), rain = luaL_checknumber(L, 4);
+	try {
+		terraForceRivers(getServer(L), pos, radius_km, hours, rain);
+	} catch (const std::invalid_argument &e) {
+		throw LuaError(std::string("core.terra.force_rivers: ") + e.what());
+	}
+	return 0;
+}
+
+void terraForceRivers(Server *server, const v3f &pos, double radius_km, double hours, double rain)
+{
 	ServerTerra &t = server->terra();
 	const weather::Weather *opened = weatherNow(server);
 	if (!opened || !t.rivers)
-		throw LuaError("core.terra.force_rivers: the rivers are still settling (the world's just opened)");
+		throw std::invalid_argument("the rivers are still settling (the world's just opened)");
 	if (radius_km <= 0) {
 		t.rivers->forcings.clear();
-		return 0;
+		return;
 	}
 	if (hours <= 0 || rain < 0)
-		throw LuaError("core.terra.force_rivers: hours must be over 0 and rain at least 0");
+		throw std::invalid_argument("hours must be over 0 and rain at least 0");
 	if (bodyAt(server, pos) != planet::Atlas::HOME)
-		throw LuaError("core.terra.force_rivers: only the home world has rivers");
+		throw std::invalid_argument("only the home world has rivers");
+	const std::optional<Place> centre = placeOf(server, pos);
+	if (!centre)
+		throw std::invalid_argument("you're on a seam, between the planet's tiles");
 	const weather::Weather &wx = *opened;
 	rivers::Forcing f;
-	f.centre = placeAt(server, pos);
+	f.centre = *centre;
 	f.radius = radius_km * 1000 / wx.layer().opts().planet.radius;
 	f.rain = rain / 1000 / 3600;
 	f.until = wx.now() + hours * 3600;
 	t.rivers->forcings.push_back(f);
-	return 0;
+}
+
+std::optional<std::string> terraRiverLine(Server *server, const v3f &pos)
+{
+	if (bodyAt(server, pos) != planet::Atlas::HOME)
+		return std::nullopt;
+	const std::optional<Place> at = placeOf(server, pos);
+	if (!at)
+		return std::nullopt;
+	const World &w = world(server);
+	const terragen::Ground g = w.ground(*at, w.sunlight(*at, std::nullopt));
+	if (g.kind == terragen::Water::Lake)
+		return std::string("a lake: it stands at its level");
+	if (g.kind != terragen::Water::River)
+		return std::nullopt;
+	weatherNow(server);
+	ServerTerra &t = server->terra();
+	if (!t.rivers)
+		return std::string("a river, still settling with the weather as the world opens");
+	const rivers::Flow f = rivers::flowAt(*t.rivers->network, terragen::gridSphere(), g, *at);
+	char line[256];
+	std::snprintf(line, sizeof line, "%.0f m³/s (%.1f in its channel here) · ×%.2f its usual · %+.2f blocks · "
+			"%.2f blocks/s · %.1f days to the sea", f.discharge, f.local, f.ratio, f.rise, f.speed, f.to_sea / 86400);
+	return std::string(line);
 }
 
 // The way a river runs at a held node, in the map's x and z: down its run
@@ -1278,6 +1324,7 @@ void ModApiTerra::Initialize(lua_State *L, int top)
 	int terra = lua_gettop(L);
 	luaL_Reg functions[] = {
 		{ "enabled", l_enabled },
+		{ "generates", l_generates },
 		{ "world", l_world },
 		{ "calendar", l_calendar },
 		{ "sun", l_sun },

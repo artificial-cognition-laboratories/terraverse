@@ -19,8 +19,6 @@ stage() {
 # RUN_IN_PLACE builds. Mirror only resources here; user worlds and account
 # data in .output are deliberately outside these targets.
 stage apps/game/src/builtin builtin
-stage registry/mods/clientmods clientmods
-stage registry/games games
 stage apps/game/game games/terrafirma
 stage registry/shaders client/shaders
 stage registry/textures textures

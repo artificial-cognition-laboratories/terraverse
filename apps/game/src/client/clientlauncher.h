@@ -44,7 +44,6 @@ private:
 	bool launch_game(GameErrorData &errordata,
 		GameStartData &start_data, const Settings &cmd_args);
 
-	void main_menu(MainMenuData *menudata);
 
 	bool skip_main_menu = false;
 	bool random_input = false;

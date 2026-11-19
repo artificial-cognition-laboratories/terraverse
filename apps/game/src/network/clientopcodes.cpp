@@ -15,8 +15,8 @@ const ToClientCommandHandler toClientCommandTable[TOCLIENT_NUM_MSG_TYPES] =
 	null_command_handler, // 0x01
 	{ "TOCLIENT_HELLO",                   TOCLIENT_STATE_NOT_CONNECTED, &Client::handleCommand_Hello }, // 0x02
 	{ "TOCLIENT_AUTH_ACCEPT",             TOCLIENT_STATE_NOT_CONNECTED, &Client::handleCommand_AuthAccept }, // 0x03
-	{ "TOCLIENT_ACCEPT_SUDO_MODE",        TOCLIENT_STATE_CONNECTED, &Client::handleCommand_AcceptSudoMode}, // 0x04
-	{ "TOCLIENT_DENY_SUDO_MODE",          TOCLIENT_STATE_CONNECTED, &Client::handleCommand_DenySudoMode}, // 0x05
+	null_command_handler, // 0x04
+	null_command_handler, // 0x05
 	null_command_handler, // 0x06
 	null_command_handler, // 0x07
 	null_command_handler, // 0x08
@@ -53,7 +53,7 @@ const ToClientCommandHandler toClientCommandTable[TOCLIENT_NUM_MSG_TYPES] =
 	{ "TOCLIENT_INVENTORY",                TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Inventory }, // 0x27
 	null_command_handler,
 	{ "TOCLIENT_TIME_OF_DAY",              TOCLIENT_STATE_CONNECTED, &Client::handleCommand_TimeOfDay }, // 0x29
-	{ "TOCLIENT_CSM_RESTRICTION_FLAGS",    TOCLIENT_STATE_CONNECTED, &Client::handleCommand_CSMRestrictionFlags }, // 0x2A
+	null_command_handler, // 0x2A
 	{ "TOCLIENT_PLAYER_SPEED",             TOCLIENT_STATE_CONNECTED, &Client::handleCommand_PlayerSpeed }, // 0x2B
 	{ "TOCLIENT_MEDIA_PUSH",               TOCLIENT_STATE_CONNECTED, &Client::handleCommand_MediaPush }, // 0x2C
 	null_command_handler,
@@ -107,7 +107,7 @@ const ToClientCommandHandler toClientCommandTable[TOCLIENT_NUM_MSG_TYPES] =
 	{ "TOCLIENT_MOVE_PLAYER_REL",          TOCLIENT_STATE_CONNECTED, &Client::handleCommand_MovePlayerRel }, // 0x5d,
 	null_command_handler,
 	null_command_handler,
-	{ "TOCLIENT_SRP_BYTES_S_B",            TOCLIENT_STATE_NOT_CONNECTED, &Client::handleCommand_SrpBytesSandB }, // 0x60
+	null_command_handler, // 0x60
 	{ "TOCLIENT_FORMSPEC_PREPEND",         TOCLIENT_STATE_CONNECTED, &Client::handleCommand_FormspecPrepend }, // 0x61,
 	{ "TOCLIENT_MINIMAP_MODES",            TOCLIENT_STATE_CONNECTED, &Client::handleCommand_MinimapModes }, // 0x62,
 	{ "TOCLIENT_SET_LIGHTING",             TOCLIENT_STATE_CONNECTED, &Client::handleCommand_SetLighting }, // 0x63,
@@ -221,9 +221,9 @@ const ServerCommandFactory serverCommandFactoryTable[TOSERVER_NUM_MSG_TYPES] =
 	null_command_factory, // 0x4d
 	null_command_factory, // 0x4e
 	null_command_factory, // 0x4f
-	{ "TOSERVER_FIRST_SRP",          1, true }, // 0x50
-	{ "TOSERVER_SRP_BYTES_A",        1, true }, // 0x51
-	{ "TOSERVER_SRP_BYTES_M",        1, true }, // 0x52
+	null_command_factory, // 0x50
+	null_command_factory, // 0x51
+	null_command_factory, // 0x52
 	{ "TOSERVER_UPDATE_CLIENT_INFO", 2, true }, // 0x53
 	{ "TOSERVER_UI",                 0, true }, // 0x54 Terra Firma
 	{ "TOSERVER_TICKET",             0, true }, // 0x55 Terra Firma

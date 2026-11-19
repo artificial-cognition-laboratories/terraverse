@@ -383,6 +383,6 @@ void terraCreativePrivs(std::set<std::string> &privs)
 {
 	if (!creative())
 		return;
-	for (const char *p : { "fly", "fast", "noclip", "creative", "give" })
+	for (const char *p : { "core:fly", "core:fast", "core:noclip", "core:creative", "core:give" })
 		privs.insert(p);
 }

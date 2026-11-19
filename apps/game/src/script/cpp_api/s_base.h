@@ -44,27 +44,17 @@ extern "C" {
 	setOriginFromTableRaw(index, __FUNCTION__)
 
 enum class ScriptingType: u8 {
-	Async, // either mainmenu (client) or ingame (server)
-	Client, // CPCSM
-	MainMenu,
+	Async,
 	Server,
 	Emerge,
-	PauseMenu,
-	SSCSM,
 };
 
 class Server;
-#if CHECK_CLIENT_BUILD()
-class Client;
-#endif
 class EmergeThread;
 class IGameDef;
 class Environment;
-class GUIEngine;
-class SSCSMEnvironment;
 class ServerActiveObject;
 struct PlayerHPChangeReason;
-struct ModVFS;
 
 class ScriptApiBase : protected LuaHelper {
 public:
@@ -81,10 +71,6 @@ public:
 	void loadMod(const std::string &script_path, const std::string &mod_name);
 	void loadScript(const std::string &script_path);
 
-#if CHECK_CLIENT_BUILD()
-	void loadModFromMemory(const std::string &mod_name, std::string init_path = "");
-#endif
-
 	void runCallbacksRaw(int nargs,
 		RunCallbacksMode mode, const char *fxn);
 
@@ -96,10 +82,6 @@ public:
 
 	IGameDef *getGameDef() { return m_gamedef; }
 	Server *getServer();
-#if CHECK_CLIENT_BUILD()
-	Client *getClient();
-	ModVFS *getModVFS();
-#endif
 
 	// IMPORTANT: These cannot be used for any security-related uses, they exist
 	// only to enrich error messages.
@@ -116,12 +98,6 @@ public:
 	 * @return mod name or "" on error
 	 */
 	static std::string getCurrentModNameInsecure(lua_State *L);
-
-#if !CHECK_CLIENT_BUILD()
-	inline void clientOpenLibs(lua_State *L) { assert(false); }
-#else
-	void clientOpenLibs(lua_State *L);
-#endif
 
 	// Check things that should be set by the builtin mod.
 	void checkSetByBuiltin();
@@ -159,14 +135,6 @@ protected:
 	Environment* getEnv() { return m_environment; }
 	void setEnv(Environment* env) { m_environment = env; }
 
-#if CHECK_CLIENT_BUILD()
-	GUIEngine* getGuiEngine() { return m_guiengine; }
-	void setGuiEngine(GUIEngine* guiengine) { m_guiengine = guiengine; }
-
-	SSCSMEnvironment *getSSCSMEnv() { return m_sscsm_environment; }
-	void setSSCSMEnv(SSCSMEnvironment *env) { m_sscsm_environment = env; }
-#endif
-
 	EmergeThread* getEmergeThread() { return m_emerge; }
 	void setEmergeThread(EmergeThread *emerge) { m_emerge = emerge; }
 
@@ -189,10 +157,6 @@ private:
 
 	IGameDef         *m_gamedef = nullptr;
 	Environment      *m_environment = nullptr;
-#if CHECK_CLIENT_BUILD()
-	GUIEngine        *m_guiengine = nullptr;
-	SSCSMEnvironment *m_sscsm_environment = nullptr;
-#endif
 	EmergeThread     *m_emerge = nullptr;
 
 	ScriptingType     m_type;

@@ -47,7 +47,6 @@ public:
 		ALT, // Terra Firma: the build layer: with it, the slot keys pick shapes, = mirrors, a click carries (sprint 68)
 		CHAT,
 		CMD,
-		CMD_LOCAL,
 		CONSOLE,
 		MINIMAP,
 		FREEMOVE,

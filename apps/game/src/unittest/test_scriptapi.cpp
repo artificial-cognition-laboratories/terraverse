@@ -47,9 +47,8 @@ void MyScriptApi::init()
 	lua_getglobal(L, "core");
 	int top = lua_gettop(L);
 
-	// By creating an environment of 'async' type we have the fewest amount
-	// of external classes needed.
-	lua_pushstring(L, "async");
+	// 'test': builtin's common helpers alone, needing no server
+	lua_pushstring(L, "test");
 	lua_setglobal(L, "INIT");
 
 	LuaSettings::Register(L);

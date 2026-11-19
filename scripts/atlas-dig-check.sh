@@ -10,7 +10,7 @@ trap 'rm -rf "$work"' EXIT
 world="$work/world"
 mkdir -p "$world/worldmods"
 cp -r "$root/scripts/atlas-dig-check/probe" "$world/worldmods/atlas_dig"
-printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\nauth_backend = sqlite3\n' > "$world/world.mt"
+printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$world/world.mt"
 # TF24.dGVycmE: the default size, 16384 round: radius 8192 / 2π, the standard layout
 atlas="atlas-v2 radius=2607.5945876176133 segments=24 capLatitude=85 core=651.8986469044033 rounding=0.95 height=256"
 printf 'mg_name = terra\nmgterra_code = TF24.dGVycmE\nseed = 1\nchunksize = 1\nplanet_atlas = %s\n[end_of_params]\n' "$atlas" > "$world/map_meta.txt"

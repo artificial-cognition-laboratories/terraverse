@@ -89,13 +89,6 @@ kilbith:
 SmallJoker:
   textures/base/pack/server_favorite_delete.png (based on server_favorite.png)
 
-DS:
-  games/devtest/mods/soundstuff/textures/soundstuff_bigfoot.png
-  games/devtest/mods/soundstuff/textures/soundstuff_jukebox.png
-  games/devtest/mods/soundstuff/textures/soundstuff_racecar.png
-  games/devtest/mods/soundstuff/sounds/soundstuff_sinus.ogg
-  games/devtest/mods/testtools/textures/testtools_branding_iron.png
-
 grorp:
   textures/base/pack/exit_btn.png
   textures/base/pack/menu_header.png

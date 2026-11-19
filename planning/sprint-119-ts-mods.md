@@ -369,6 +369,49 @@ There's no game yet, so half-built game systems went rather than be ported:
   beside them). **Credits gap:** `matter_flame`, `_smoke`, `_steam` and `_spark` never had an
   entry, and their history doesn't say where they came from.
 
+### Removing Lua: the dead parts first
+
+What's left of Lua is Luanti's stock plumbing the engine still calls, not game logic: content
+registration (data passed through), digging and placing (`item.lua`: the one real piece), dropped
+items and falling blocks, password auth and privileges, the stock chat commands, `core.after`.
+The order: dead code, then native auth and privileges, a native content registry with minimal
+digging, the Lua-probe checks as C++ tests, and last the engine's `m_script` hooks, `src/script/`,
+`builtin/` and LuaJIT.
+
+- **Gone:** the Lua main menu (`GUIEngine`, `builtin/mainmenu`, `fstk`; the non-shell build now
+  says it has no menu), client-side Lua and SSCSM (`ClientScripting`, `builtin/client`, the
+  `sscsm_test0` preview, the client's mod VFS, the `.` local command key), the pause menu's Lua
+  (its Settings button: the shell has its own), the Lua profiler, devtest and the upstream client
+  mods. Their settings went with them.
+- **Protocol 104:** `TOCLIENT_CSM_RESTRICTION_FLAGS` is gone.
+- **Found on the way:** builtin registered biomes in the unit tests' mock server, which has no
+  generator, so TestSAO and TestMoveAction crashed since the world became data:
+  `core.terra.generates()` says whether there's one. TestScriptApi loads builtin as `test`.
+
+### Auth, privileges and chat, native
+
+The design was already in the docs (`server/setup.md`, `api/game/players.md`): everyone is their
+ArcLabs account, roles hold permissions, a grant lasts while they're here.
+
+- **Joining:** a world played alone offers `AUTH_MECHANISM_LOCAL` and accepts at once (its server
+  binds 127.0.0.1); a hosted one offers `TICKET`; any other server refuses ("this server takes no
+  one"). SRP, legacy passwords, sudo mode, password changes and login/register are gone, client and
+  server (protocol 105), with the auth database in every backend, `--migrate-auth`, `auth.lua`,
+  `core.auth`, the password helpers and their settings.
+- **Access** (`server/access`): permissions are `prefix:name`, the engine's `core:` (`core:fly`,
+  `core:interact`; the client checks those names now). Roles: `player` (everyone: interact, shout),
+  `builder` (creative, fly, fast, noclip, give), `admin` (anything, mods' permissions too). The owner
+  (`singleplayer`, or the host's account) is always admin; others' roles are kept in
+  `<world>/access.json`, which fails loudly if it's malformed. Grants end when they leave. The
+  sidecar's `player.can` asks it, so the TEMP "admin is `server`" is gone. TestAccess.
+- **Chat:** a line is broadcast as `<name> line`; `/word` runs the engine's command (`server/commands`:
+  `/travel`, `/river`, `/rivers`, ported from Lua) or a TypeScript mod's, and `/help` lists both. Join
+  and leave messages are the engine's. `chat.lua`, `chatcommands.lua`, `privileges.lua`, the help
+  formspecs and `core.set_mod_commands` are gone. The checks' probes type commands with
+  `core.console_command` (TEMP, until they're C++ tests).
+- **Not yet:** a way to give someone a role in play (`player.roles.add` in the API is designed, not
+  wired), `join` (`anyone`, `friends`, a list), and mods declaring their permissions.
+
 ### Not doing (yet)
 
 - **`world` and `block` arguments** say they aren't wired: there's no `game.worlds` yet.

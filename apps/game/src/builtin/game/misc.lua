@@ -1,4 +1,3 @@
-local S = core.get_translator("__builtin")
 
 --
 -- Misc. API functions
@@ -14,87 +13,12 @@ function core.kick_player(player_name, reason, reconnect)
 	return core.disconnect_player(player_name, reason, reconnect)
 end
 
-function core.check_player_privs(name, ...)
-	if core.is_player(name) then
-		name = name:get_player_name()
-	elseif type(name) ~= "string" then
-		error("core.check_player_privs expects a player or playername as " ..
-			"argument.", 2)
-	end
-
-	local requested_privs = {...}
-	local player_privs = core.get_player_privs(name)
-	local missing_privileges = {}
-
-	if type(requested_privs[1]) == "table" then
-		-- We were provided with a table like { privA = true, privB = true }.
-		for priv, value in pairs(requested_privs[1]) do
-			if value and not player_privs[priv] then
-				missing_privileges[#missing_privileges + 1] = priv
-			end
-		end
-	else
-		-- Only a list, we can process it directly.
-		for key, priv in pairs(requested_privs) do
-			if not player_privs[priv] then
-				missing_privileges[#missing_privileges + 1] = priv
-			end
-		end
-	end
-
-	if #missing_privileges > 0 then
-		return false, missing_privileges
-	end
-
-	return true, ""
-end
-
-
-function core.send_join_message(player_name)
-	if not core.is_singleplayer() then
-		core.chat_send_all("*** " .. S("@1 joined the game.", player_name))
-	end
-end
-
-
-function core.send_leave_message(player_name, timed_out)
-	local announcement = "*** " .. S("@1 left the game.", player_name)
-	if timed_out then
-		announcement = "*** " .. S("@1 left the game (timed out).", player_name)
-	end
-	core.chat_send_all(announcement)
-end
-
-
-core.register_on_joinplayer(function(player)
-	local player_name = player:get_player_name()
-	if not core.is_singleplayer() then
-		local status = core.get_server_status(player_name, true)
-		if status and status ~= "" then
-			core.chat_send_player(player_name, status)
-		end
-	end
-	core.send_join_message(player_name)
-end)
-
-
-core.register_on_leaveplayer(function(player, timed_out)
-	local player_name = player:get_player_name()
-	core.send_leave_message(player_name, timed_out)
-end)
-
-
 function core.is_player(player)
 	-- a table being a player is also supported because it quacks sufficiently
 	-- like a player if it has the is_player function
 	local t = type(player)
 	return (t == "userdata" or t == "table") and
 		type(player.is_player) == "function" and player:is_player()
-end
-
-
-function core.player_exists(name)
-	return core.get_auth_handler().get_auth(name) ~= nil
 end
 
 

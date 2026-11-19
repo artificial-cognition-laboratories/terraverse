@@ -220,21 +220,6 @@ void ScriptApiPlayer::on_playerReceiveFields(ServerActiveObject *player,
 	runCallbacks(3, RUN_CALLBACKS_MODE_OR_SC);
 }
 
-void ScriptApiPlayer::on_authplayer(const std::string &name, const std::string &ip, bool is_success)
-{
-	SCRIPTAPI_PRECHECKHEADER
-
-	// Get core.registered_on_authplayers
-	lua_getglobal(L, "core");
-	lua_getfield(L, -1, "registered_on_authplayers");
-
-	// Call callbacks
-	lua_pushstring(L, name.c_str());
-	lua_pushstring(L, ip.c_str());
-	lua_pushboolean(L, is_success);
-	runCallbacks(3, RUN_CALLBACKS_MODE_FIRST);
-}
-
 void ScriptApiPlayer::pushMoveArguments(
 		const MoveAction &ma, int count,
 		ServerActiveObject *player)

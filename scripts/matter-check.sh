@@ -11,7 +11,7 @@ trap 'rm -rf "$work"' EXIT
 world="$work/world"
 mkdir -p "$world/worldmods"
 cp -r "$root/scripts/matter-check/probe" "$world/worldmods/probe"
-printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\nauth_backend = sqlite3\n' > "$world/world.mt"
+printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$world/world.mt"
 printf 'mg_name = singlenode\nseed = 1\n[end_of_params]\n' > "$world/map_meta.txt"
 port=$((30700 + RANDOM % 500))
 # no settings but the world's: a check can't depend on the minetest.conf of whoever runs it

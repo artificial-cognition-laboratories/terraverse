@@ -374,15 +374,6 @@ int ModApiServer::l_disconnect_player(lua_State *L)
 	return 1;
 }
 
-// Terra Firma: core.sidecar_command(player name, command, text) → whether the mods will
-// answer: a line typed under a TypeScript mod's command, for the next window (sprint 119)
-int ModApiServer::l_sidecar_command(lua_State *L)
-{
-	NO_MAP_LOCK_REQUIRED;
-	lua_pushboolean(L, getServer(L)->sidecarCommand(luaL_checkstring(L, 1), luaL_checkstring(L, 2), luaL_checkstring(L, 3)));
-	return 1;
-}
-
 int ModApiServer::l_remove_player(lua_State *L)
 {
 	GET_ENV_PTR_NO_MAP_LOCK;
@@ -611,6 +602,17 @@ int ModApiServer::l_dynamic_add_media(lua_State *L)
 	return 1;
 }
 
+// Terra Firma: console_command(line) → the reply: a line typed at the server's console after
+// `/`, as Server::command answers it (sprint 119). TEMP(2026-11-19): for the checks' Lua probes,
+// until they're C++ tests; it goes with Lua.
+int ModApiServer::l_console_command(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+	const std::string reply = getServer(L)->command("", nullptr, luaL_checkstring(L, 1));
+	lua_pushstring(L, reply.c_str());
+	return 1;
+}
+
 // is_singleplayer()
 int ModApiServer::l_is_singleplayer(lua_State *L)
 {
@@ -618,17 +620,6 @@ int ModApiServer::l_is_singleplayer(lua_State *L)
 	const Server *srv = getServer(L);
 	lua_pushboolean(L, srv->isSingleplayer());
 	return 1;
-}
-
-// notify_authentication_modified(name)
-int ModApiServer::l_notify_authentication_modified(lua_State *L)
-{
-	NO_MAP_LOCK_REQUIRED;
-	std::string name;
-	if(lua_isstring(L, 1))
-		name = readParam<std::string>(L, 1);
-	getServer(L)->reportPrivsModified(name);
-	return 0;
 }
 
 // register_async_dofile(path)
@@ -722,10 +713,9 @@ void ModApiServer::Initialize(lua_State *L, int top)
 	API_FCT(get_ban_description);
 	API_FCT(ban_player);
 	API_FCT(disconnect_player);
-	API_FCT(sidecar_command);
+	API_FCT(console_command);
 	API_FCT(remove_player);
 	API_FCT(unban_player_or_ip);
-	API_FCT(notify_authentication_modified);
 
 	API_FCT(register_async_dofile);
 	API_FCT(serialize_roundtrip);

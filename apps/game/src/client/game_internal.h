@@ -250,7 +250,7 @@ protected:
 	inline bool fogEnabled()
 	{
 		// Client setting only takes effect if fog distance unlimited or debug priv
-		if (sky->getFogDistance() < 0 || client->checkPrivilege("debug"))
+		if (sky->getFogDistance() < 0 || client->checkPrivilege("core:debug"))
 			return m_cache_enable_fog;
 		return true;
 	}
@@ -299,8 +299,6 @@ private:
 	void handleClientEvent_PlayerForceMove(ClientEvent *event, CameraOrientation *cam);
 	void handleClientEvent_DeathscreenLegacy(ClientEvent *event, CameraOrientation *cam);
 	void handleClientEvent_ShowFormSpec(ClientEvent *event, CameraOrientation *cam);
-	void handleClientEvent_ShowCSMFormSpec(ClientEvent *event, CameraOrientation *cam);
-	void handleClientEvent_ShowPauseMenuFormSpec(ClientEvent *event, CameraOrientation *cam);
 	void handleClientEvent_HandleParticleEvent(ClientEvent *event,
 		CameraOrientation *cam);
 	void handleClientEvent_HudAdd(ClientEvent *event, CameraOrientation *cam);

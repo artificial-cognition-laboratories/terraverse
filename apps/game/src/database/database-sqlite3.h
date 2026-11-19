@@ -251,38 +251,6 @@ private:
 	sqlite3_stmt *m_stmt_player_metadata_add = nullptr;
 };
 
-class AuthDatabaseSQLite3 : private Database_SQLite3, public AuthDatabase
-{
-public:
-	AuthDatabaseSQLite3(const std::string &savedir);
-	virtual ~AuthDatabaseSQLite3();
-
-	virtual bool getAuth(const std::string &name, AuthEntry &res);
-	virtual bool saveAuth(const AuthEntry &authEntry);
-	virtual bool createAuth(AuthEntry &authEntry);
-	virtual bool deleteAuth(const std::string &name);
-	virtual void listNames(std::vector<std::string> &res);
-	virtual void reload();
-
-	PARENT_CLASS_FUNCS
-
-protected:
-	virtual void createDatabase();
-	virtual void initStatements();
-
-private:
-	virtual void writePrivileges(const AuthEntry &authEntry);
-
-	sqlite3_stmt *m_stmt_read = nullptr;
-	sqlite3_stmt *m_stmt_write = nullptr;
-	sqlite3_stmt *m_stmt_create = nullptr;
-	sqlite3_stmt *m_stmt_delete = nullptr;
-	sqlite3_stmt *m_stmt_list_names = nullptr;
-	sqlite3_stmt *m_stmt_read_privs = nullptr;
-	sqlite3_stmt *m_stmt_write_privs = nullptr;
-	sqlite3_stmt *m_stmt_delete_privs = nullptr;
-	sqlite3_stmt *m_stmt_last_insert_rowid = nullptr;
-};
 
 class ModStorageDatabaseSQLite3 : private Database_SQLite3, public ModStorageDatabase
 {

@@ -12,11 +12,6 @@
 #include "filesys.h"
 #include "porting.h"
 #include "server.h"
-#if CHECK_CLIENT_BUILD()
-#include "client/client.h"
-#include "client/mod_vfs.h"
-#include "sscsm/sscsm_environment.h"
-#endif
 
 #if BUILD_WITH_TRACY
 	#include "tracy/TracyLua.hpp"
@@ -98,10 +93,7 @@ ScriptApiBase::ScriptApiBase(ScriptingType type):
 		lua_rawseti(m_luastack, LUA_REGISTRYINDEX, i);
 	}
 
-	if (m_type == ScriptingType::Client || m_type == ScriptingType::SSCSM)
-		clientOpenLibs(m_luastack);
-	else
-		luaL_openlibs(m_luastack);
+	luaL_openlibs(m_luastack);
 
 	// Load bit library
 	lua_pushcfunction(m_luastack, luaopen_bit);
@@ -180,11 +172,7 @@ ScriptApiBase::ScriptApiBase(ScriptingType type):
 	// Finally, put the table into the global environment:
 	lua_setglobal(m_luastack, "core");
 
-	if (m_type == ScriptingType::Client
-			|| m_type == ScriptingType::SSCSM)
-		lua_pushstring(m_luastack, "/");
-	else
-		lua_pushstring(m_luastack, DIR_DELIM);
+	lua_pushstring(m_luastack, DIR_DELIM);
 	lua_setglobal(m_luastack, "DIR_DELIM");
 
 	lua_pushstring(m_luastack, porting::getPlatformName());
@@ -208,29 +196,6 @@ int ScriptApiBase::luaPanic(lua_State *L)
 	return 0;
 }
 
-#if CHECK_CLIENT_BUILD()
-void ScriptApiBase::clientOpenLibs(lua_State *L)
-{
-	static const std::vector<std::pair<std::string, lua_CFunction>> m_libs = {
-		{ "", luaopen_base },
-		{ LUA_TABLIBNAME,  luaopen_table   },
-		{ LUA_OSLIBNAME,   luaopen_os      },
-		{ LUA_STRLIBNAME,  luaopen_string  },
-		{ LUA_MATHLIBNAME, luaopen_math    },
-		{ LUA_DBLIBNAME,   luaopen_debug   },
-#if USE_LUAJIT
-		{ LUA_JITLIBNAME,  luaopen_jit     },
-#endif
-	};
-
-	for (const auto &lib : m_libs) {
-	    lua_pushcfunction(L, lib.second);
-	    lua_pushstring(L, lib.first.c_str());
-	    lua_call(L, 1, 0);
-	}
-}
-#endif
-
 #define CHECK(ridx, name) do { \
 	lua_rawgeti(L, LUA_REGISTRYINDEX, ridx); \
 	FATAL_ERROR_IF(lua_type(L, -1) != LUA_TFUNCTION, "missing " name); \
@@ -248,9 +213,7 @@ void ScriptApiBase::checkSetByBuiltin()
 
 	if (getType() == ScriptingType::Server ||
 			(getType() == ScriptingType::Async && m_gamedef) ||
-			getType() == ScriptingType::Emerge ||
-			getType() == ScriptingType::Client ||
-			getType() == ScriptingType::SSCSM) {
+			getType() == ScriptingType::Emerge) {
 		CHECK(CUSTOM_RIDX_READ_NODE, "read_node");
 		CHECK(CUSTOM_RIDX_PUSH_NODE, "push_node");
 	}
@@ -304,43 +267,6 @@ void ScriptApiBase::loadScript(const std::string &script_path)
 	lua_pop(L, 1); // Pop error handler
 }
 
-#if CHECK_CLIENT_BUILD()
-void ScriptApiBase::loadModFromMemory(const std::string &mod_name, std::string init_path)
-{
-	ModNameStorer mod_name_storer(getStack(), mod_name);
-
-	sanity_check(m_type == ScriptingType::Client
-			|| m_type == ScriptingType::SSCSM);
-
-	if (init_path.empty())
-		init_path = mod_name + ":init.lua";
-	const std::string chunk_name = "@" + init_path;
-
-	const std::string *contents = getModVFS()->getModFile(init_path);
-	if (!contents)
-		throw ModError("Mod \"" + mod_name + "\" lacks init.lua");
-
-	verbosestream << "Loading and running script " << chunk_name << std::endl;
-
-	lua_State *L = getStack();
-
-	int error_handler = PUSH_ERROR_HANDLER(L);
-
-	bool ok = ScriptApiSecurity::safeLoadFileContent(L, *contents, chunk_name.c_str());
-	if (ok)
-		ok = !lua_pcall(L, 0, 0, error_handler);
-	if (!ok) {
-		const char *error_msg = lua_tostring(L, -1);
-		if (!error_msg)
-			error_msg = "(error object is not a string)";
-		lua_pop(L, 2); // Pop error message and error handler
-		throw ModError("Failed to load and run mod \"" +
-				mod_name + "\":\n" + error_msg);
-	}
-	lua_pop(L, 1); // Pop error handler
-}
-#endif
-
 // Push the list of callbacks (a lua table).
 // Then push nargs arguments.
 // Then call this function, which
@@ -352,13 +278,6 @@ void ScriptApiBase::loadModFromMemory(const std::string &mod_name, std::string i
 void ScriptApiBase::runCallbacksRaw(int nargs,
 		RunCallbacksMode mode, const char *fxn)
 {
-#if CHECK_CLIENT_BUILD()
-	// Hard fail for bad guarded callbacks
-	// Only run callbacks when the scripting environment is loaded
-	FATAL_ERROR_IF(m_type == ScriptingType::Client &&
-			!getClient()->modsLoaded(), fxn);
-#endif
-
 #ifdef SCRIPTAPI_LOCK_DEBUG
 	assert(m_lock_recursion_count > 0);
 #endif
@@ -598,19 +517,3 @@ Server* ScriptApiBase::getServer()
 	return dynamic_cast<Server *>(m_gamedef);
 }
 
-#if CHECK_CLIENT_BUILD()
-Client *ScriptApiBase::getClient()
-{
-	return dynamic_cast<Client *>(m_gamedef);
-}
-
-ModVFS *ScriptApiBase::getModVFS()
-{
-	if (m_type == ScriptingType::Client)
-		return getClient()->getModVFS();
-	else if (m_type == ScriptingType::SSCSM)
-		return getSSCSMEnv()->getModVFS();
-	else
-		return nullptr;
-}
-#endif

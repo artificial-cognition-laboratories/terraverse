@@ -10,7 +10,6 @@
 #include "clientsimpleobject.h"
 #include "clientmap.h"
 #include "localplayer.h"
-#include "scripting_client.h"
 #include "mapblock_mesh.h"
 #include "mtevent.h"
 #include "collision.h"
@@ -76,7 +75,7 @@ void ClientEnvironment::step(float dtime)
 	stepTimeOfDay(dtime);
 
 	// Get some settings
-	bool fly_allowed = m_client->checkLocalPrivilege("fly");
+	bool fly_allowed = m_client->checkLocalPrivilege("core:fly");
 	bool free_move = fly_allowed && g_settings->getBool("free_move");
 
 	// Get local player
@@ -225,9 +224,6 @@ void ClientEnvironment::step(float dtime)
 			}
 		}
 	}
-
-	if (m_client->modsLoaded())
-		m_script->environment_step(dtime);
 
 	// Update lighting on local player (used for wield item)
 	u32 day_night_ratio = getDayNightRatio();

@@ -34,29 +34,3 @@ for name, colour in pairs({
 	})
 	core.register_alias("tf_planet:debug_" .. name, "core:atlas_debug_" .. name)
 end
-
--- /travel: to another body, behind the travel screen. An admin's, as /teleport is:
--- getting between bodies in play is flight's, not a command's.
-core.register_chatcommand("travel", {
-	params = "<body> [<latitude> <longitude>]",
-	description = "Go to another body of the world (degrees; its equator when no place is given)",
-	privs = { teleport = true },
-	func = function(name, param)
-		local player = core.get_player_by_name(name)
-		if not player then return false, "not in the world" end
-		local bodies = core.planet.bodies()
-		if not bodies then return false, "this world has no other bodies" end
-		local body, lat, lon = param:match("^(%S+)%s*(%S*)%s*(%S*)$")
-		if not body then
-			local ids = {}
-			for _, b in ipairs(bodies) do ids[#ids + 1] = b.id end
-			return false, "travel to one of: " .. table.concat(ids, ", ")
-		end
-		lat, lon = tonumber(lat), tonumber(lon)
-		if (lat == nil) ~= (lon == nil) or (lat and math.abs(lat) > 90) then
-			return false, "a place is a latitude (−90 to 90) and a longitude, in degrees"
-		end
-		local ok, why = core.planet.travel(player, body, lat, lon)
-		return ok, ok and ("travelling to " .. body) or why
-	end,
-})

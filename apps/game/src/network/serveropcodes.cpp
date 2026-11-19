@@ -91,9 +91,9 @@ const ToServerCommandHandler toServerCommandTable[TOSERVER_NUM_MSG_TYPES] =
 	null_command_handler, // 0x4d
 	null_command_handler, // 0x4e
 	null_command_handler, // 0x4f
-	{ "TOSERVER_FIRST_SRP",                TOSERVER_STATE_NOT_CONNECTED, &Server::handleCommand_FirstSrp }, // 0x50
-	{ "TOSERVER_SRP_BYTES_A",              TOSERVER_STATE_NOT_CONNECTED, &Server::handleCommand_SrpBytesA }, // 0x51
-	{ "TOSERVER_SRP_BYTES_M",              TOSERVER_STATE_NOT_CONNECTED, &Server::handleCommand_SrpBytesM }, // 0x52
+	null_command_handler, // 0x50
+	null_command_handler, // 0x51
+	null_command_handler, // 0x52
 	{ "TOSERVER_UPDATE_CLIENT_INFO",       TOSERVER_STATE_INGAME, &Server::handleCommand_UpdateClientInfo }, // 0x53
 	{ "TOSERVER_UI",                       TOSERVER_STATE_INGAME, &Server::handleCommand_Ui }, // 0x54 Terra Firma
 	{ "TOSERVER_TICKET",                   TOSERVER_STATE_NOT_CONNECTED, &Server::handleCommand_Ticket }, // 0x55 Terra Firma
@@ -136,8 +136,8 @@ const ClientCommandFactory clientCommandFactoryTable[TOCLIENT_NUM_MSG_TYPES] =
 	null_command_factory, // 0x01
 	{ "TOCLIENT_HELLO",                    0, true }, // 0x02
 	{ "TOCLIENT_AUTH_ACCEPT",              0, true }, // 0x03
-	{ "TOCLIENT_ACCEPT_SUDO_MODE",         0, true }, // 0x04
-	{ "TOCLIENT_DENY_SUDO_MODE",           0, true }, // 0x05
+	null_command_factory, // 0x04
+	null_command_factory, // 0x05
 	null_command_factory, // 0x06
 	null_command_factory, // 0x07
 	null_command_factory, // 0x08
@@ -174,7 +174,7 @@ const ClientCommandFactory clientCommandFactoryTable[TOCLIENT_NUM_MSG_TYPES] =
 	{ "TOCLIENT_INVENTORY",                0, true }, // 0x27
 	null_command_factory, // 0x28
 	{ "TOCLIENT_TIME_OF_DAY",              0, true }, // 0x29
-	{ "TOCLIENT_CSM_RESTRICTION_FLAGS",    0, true }, // 0x2A
+	null_command_factory, // 0x2A
 	{ "TOCLIENT_PLAYER_SPEED",             0, true }, // 0x2B
 	{ "TOCLIENT_MEDIA_PUSH",               0, true }, // 0x2C (sent over channel 1 too if legacy)
 	null_command_factory, // 0x2D
@@ -229,7 +229,7 @@ const ClientCommandFactory clientCommandFactoryTable[TOCLIENT_NUM_MSG_TYPES] =
 	{ "TOCLIENT_MOVE_PLAYER_REL",          0, true }, // 0x5d
 	null_command_factory, // 0x5e
 	null_command_factory, // 0x5f
-	{ "TOCLIENT_SRP_BYTES_S_B",            0, true }, // 0x60
+	null_command_factory, // 0x60
 	{ "TOCLIENT_FORMSPEC_PREPEND",         0, true }, // 0x61
 	{ "TOCLIENT_MINIMAP_MODES",            0, true }, // 0x62
 	{ "TOCLIENT_SET_LIGHTING",             0, true }, // 0x63

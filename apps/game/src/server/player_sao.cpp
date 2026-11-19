@@ -669,7 +669,7 @@ bool PlayerSAO::checkMovementCheat()
 	if (m_is_singleplayer ||
 			isAttached() || m_driving ||
 			!(anticheat_flags & AC_MOVEMENT) ||
-			m_privs.count("fly") != 0) {
+			m_privs.count("core:fly") != 0) {
 		m_last_good_position = getBasePosition();
 		return false;
 	}
@@ -707,7 +707,7 @@ bool PlayerSAO::checkMovementCheat()
 	speed_climb *= m_player->physics_override.speed;
 
 	// Get permissible max. speed
-	if (m_privs.count("fast") != 0) {
+	if (m_privs.count("core:fast") != 0) {
 		// Fast priv: Get the highest speed of fast, walk or crouch
 		// (it is not forbidden the 'fast' speed is
 		// not actually the fastest)

@@ -10,7 +10,6 @@
 #include "cpp_api/s_internal.h"
 #include "lua_api/l_areastore.h"
 #include "lua_api/l_async.h"
-#include "lua_api/l_auth.h"
 #include "lua_api/l_base.h"
 #include "lua_api/l_craft.h"
 #include "lua_api/l_env.h"
@@ -157,7 +156,6 @@ void ServerScripting::InitializeModApi(lua_State *L, int top)
 
 	// Initialize mod api modules
 	ModApiAsync::Initialize(L, top);
-	ModApiAuth::Initialize(L, top);
 	ModApiCraft::Initialize(L, top);
 	ModApiEnv::Initialize(L, top);
 	ModApiInventory::Initialize(L, top);

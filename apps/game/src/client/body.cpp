@@ -132,8 +132,8 @@ bool Body::moves(LocalPlayer &p)
 	if (m_driving)
 		return true; // in their seat, whatever else they were doing
 	PlayerSettings &s = p.getPlayerSettings();
-	const bool fly = m_client->checkLocalPrivilege("fly") && s.free_move;
-	const bool noclip = m_client->checkLocalPrivilege("noclip") && s.noclip;
+	const bool fly = m_client->checkLocalPrivilege("core:fly") && s.free_move;
+	const bool noclip = m_client->checkLocalPrivilege("core:noclip") && s.noclip;
 	// flying, Ctrl thrusts; it lasts till they land or stop flying
 	if (!fly || noclip || p.getParent())
 		m_thrusting = false;

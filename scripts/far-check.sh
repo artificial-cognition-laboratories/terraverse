@@ -14,7 +14,7 @@ work="$(mktemp -d -p "$logs")"
 world="$work/world"
 mkdir -p "$world/worldmods"
 cp -r "$root/scripts/far-check/probe" "$world/worldmods/far_probe"
-printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\nauth_backend = sqlite3\n' > "$world/world.mt"
+printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$world/world.mt"
 printf 'mg_name = terra\nmgterra_code = %s\nseed = 1\nchunksize = 1\nplanet_atlas = %s\n[end_of_params]\n' "$1" "$2" > "$world/map_meta.txt"
 
 port=$((30700 + 10 * checks + RANDOM % 10)) # (each check its own: they run together)

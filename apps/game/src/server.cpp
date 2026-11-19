@@ -9,6 +9,8 @@
 #include "workshop/workshop.h"
 #include "orbit/field.h"
 #include "terragen/planet.h"
+#include "server/commands.h"
+#include "server/access.h"
 #include "server/luaentity_sao.h"
 #include "pile/piles.h"
 
@@ -549,6 +551,10 @@ void Server::init()
 	// Create emerge manager
 	m_emerge = std::make_unique<EmergeManager>(this, m_metrics_backend.get());
 
+	// Terra Firma: who may do what (sprint 119): the one playing alone, or the host, owns it
+	m_access = std::make_unique<Access>(m_path_world,
+			m_simple_singleplayer_mode ? "singleplayer" : g_settings->get("name"));
+
 	// Create ban manager
 	std::string ban_path = m_path_world + DIR_DELIM "ipban.txt";
 	m_banmanager = new BanManager(ban_path);
@@ -713,7 +719,7 @@ void Server::init()
 		m_field = std::make_unique<orbit::Field>(terragen::home());
 	}
 	m_workshop = std::make_unique<workshop::Workshop>(workshop::Workshop::Opts{ *m_env, this, m_path_world, *m_materials, *m_field,
-		[this](const std::string &player) { return checkPriv(player, "creative"); } });
+		[this](const std::string &player) { return checkPriv(player, "core:creative"); } });
 	m_piles = std::make_unique<pile::Piles>(m_env->getMap(), *m_nodedef, nullptr, false,
 		[this](const std::vector<v3s16> &nodes) {
 			// each loose node's shape, as the server has it (a client skips what it has)
@@ -773,8 +779,6 @@ void Server::init()
 	// intended to be cached after environment loading.
 	m_liquid_transform_every = g_settings->getFloat("liquid_update");
 	m_max_chatmessage_length = g_settings->getU16("chat_message_max_size");
-	m_csm_restriction_flags = g_settings->getU64("csm_restriction_flags");
-	m_csm_restriction_noderange = g_settings->getU32("csm_restriction_noderange");
 }
 
 void Server::start()
@@ -854,8 +858,8 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 		SendBlocks(dtime);
 	}
 
-	// Terra Firma: answers on joiners' tickets. Admitting runs Lua (auth,
-	// on_authplayer): under the environment lock, as packet handling is.
+	// Terra Firma: answers on joiners' tickets, admitted under the environment lock, as
+	// packet handling is.
 	if (m_gate) {
 		std::vector<online::Gate::Decision> decisions = m_gate->poll();
 		if (!decisions.empty()) {
@@ -2472,8 +2476,7 @@ void Server::SendPlayerPrivileges(session_t peer_id)
 	if (!player)
 		return;
 
-	std::set<std::string> privs;
-	m_script->getAuth(player->getName(), NULL, &privs);
+	std::set<std::string> privs = getPlayerEffectivePrivs(player->getName());
 
 	NetworkPacket pkt(TOCLIENT_PRIVILEGES, 0, peer_id);
 	pkt << (u16) privs.size();
@@ -2596,14 +2599,6 @@ void Server::SendActiveObjectMessages(session_t peer_id, const std::string &data
 
 	auto &ccf = clientCommandFactoryTable[pkt.getCommand()];
 	m_clients.sendCustom(pkt.getPeerId(), reliable ? ccf.channel : 1, &pkt, reliable);
-}
-
-void Server::SendCSMRestrictionFlags(session_t peer_id)
-{
-	NetworkPacket pkt(TOCLIENT_CSM_RESTRICTION_FLAGS,
-		sizeof(m_csm_restriction_flags) + sizeof(m_csm_restriction_noderange), peer_id);
-	pkt << m_csm_restriction_flags << m_csm_restriction_noderange;
-	Send(&pkt);
 }
 
 void Server::SendPlayerSpeed(session_t peer_id, const v3f &added_vel)
@@ -3144,14 +3139,14 @@ void Server::startSidecar()
 		SendChatMessage(PEER_ID_INEXISTENT, ChatMessage(CHATMESSAGE_TYPE_ANNOUNCE, utf8_to_wide(text)));
 	};
 	host.players = [this]() { return m_clients.getPlayerNames(); };
-	// the mods' commands, as chat commands (builtin/game/sidecar.lua): each line typed
-	// under one goes to the next window (core.sidecar_command)
+	// the mods' commands: each line typed under one goes to the next window (Server::command)
 	host.commands = [this](const std::vector<sidecar::Host::Command> &commands) {
-		m_script->set_mod_commands(commands);
+		m_mod_commands.clear();
+		for (const sidecar::Host::Command &c : commands)
+			m_mod_commands.push_back({ c.name, c.description, c.params });
 	};
-	// TEMP(2026-11-19): admins hold every permission, and nobody else any, until roles
-	// are granted permissions (the server's setup): an admin is the engine's `server` privilege
-	host.can = [this](const std::string &name, const std::string &) { return checkPriv(name, "server"); };
+	// by their roles and grants (server/access): an admin may do anything
+	host.can = [this](const std::string &name, const std::string &permission) { return checkPriv(name, permission); };
 	host.kick = [this](const std::string &name, const std::string &reason) {
 		RemotePlayer *player = m_env->getPlayer(name);
 		if (player && player->getPeerId() != PEER_ID_INEXISTENT)
@@ -3549,13 +3544,6 @@ void Server::HandlePlayerDeath(PlayerSAO *playersao, const PlayerHPChangeReason 
 	m_script->on_dieplayer(playersao, reason);
 }
 
-void Server::DenySudoAccess(session_t peer_id)
-{
-	NetworkPacket pkt(TOCLIENT_DENY_SUDO_MODE, 0, peer_id);
-	Send(&pkt);
-}
-
-
 void Server::DenyAccess(session_t peer_id, AccessDeniedCode reason,
 		std::string_view custom_reason, bool reconnect)
 {
@@ -3605,36 +3593,17 @@ void Server::admit(session_t peer_id, bool ok, const std::string &reason)
 		DenyAccess(peer_id, SERVER_ACCESSDENIED_CUSTOM_STRING, reason);
 		return;
 	}
-	// A ticket is the account; the auth entry only holds privileges.
-	if (!m_script->getAuth(name, nullptr, nullptr))
-		m_script->createAuth(name, "");
-	m_script->on_authplayer(name, client->getAddress().serializeString(), true);
-	acceptAuth(peer_id, false);
+	// A ticket is the account: what they may do is the world's access (server/access)
+	acceptAuth(peer_id);
 }
 
-void Server::acceptAuth(session_t peer_id, bool forSudoMode)
+void Server::acceptAuth(session_t peer_id)
 {
-	if (!forSudoMode) {
-		RemoteClient* client = getClient(peer_id, CS_Invalid);
-
-		NetworkPacket resp_pkt(TOCLIENT_AUTH_ACCEPT, 1 + 6 + 8 + 4, peer_id);
-
-		resp_pkt << v3f() << (u64) m_env->getServerMap().getSeed()
-				<< g_settings->getFloat("dedicated_server_step")
-				<< client->allowed_auth_mechs;
-
-		Send(&resp_pkt);
-		m_clients.event(peer_id, CSE_AuthAccept);
-	} else {
-		NetworkPacket resp_pkt(TOCLIENT_ACCEPT_SUDO_MODE, 1 + 6 + 8 + 4, peer_id);
-
-		// We only support SRP right now
-		u32 sudo_auth_mechs = AUTH_MECHANISM_FIRST_SRP;
-
-		resp_pkt << sudo_auth_mechs;
-		Send(&resp_pkt);
-		m_clients.event(peer_id, CSE_SudoSuccess);
-	}
+	NetworkPacket resp_pkt(TOCLIENT_AUTH_ACCEPT, 12 + 8 + 4, peer_id);
+	resp_pkt << v3f() << (u64) m_env->getServerMap().getSeed()
+			<< g_settings->getFloat("dedicated_server_step");
+	Send(&resp_pkt);
+	m_clients.event(peer_id, CSE_AuthAccept);
 }
 
 void Server::DeleteClient(session_t peer_id, ClientDeletionReason reason)
@@ -3672,8 +3641,12 @@ void Server::DeleteClient(session_t peer_id, ClientDeletionReason reason)
 			m_clients.sendToAll(&notice);
 			// run scripts
 			m_script->on_leaveplayer(playersao, reason == CDR_TIMEOUT);
+			// Terra Firma: was builtin's (sprint 119)
+			SendChatMessage(PEER_ID_INEXISTENT, ChatMessage(CHATMESSAGE_TYPE_ANNOUNCE, utf8_to_wide("*** " +
+					player_name + (reason == CDR_TIMEOUT ? " left the game (timed out)." : " left the game."))));
 			if (m_sidecar)
 				m_sidecar->left(player_name);
+			m_access->left(player_name); // grants last while they're here
 
 			playersao->disconnected();
 		}
@@ -3746,14 +3719,6 @@ void Server::handleChatInterfaceEvent(ChatEvent *evt)
 	if (evt->type == CET_NICK_ADD) {
 		// The terminal informed us of its nick choice
 		m_admin_nick = ((ChatEventNick *)evt)->nick;
-		if (!m_script->getAuth(m_admin_nick, NULL, NULL)) {
-			errorstream << "You haven't set up an account." << std::endl
-				<< "Please log in using the client as '"
-				<< m_admin_nick << "' with a secure password." << std::endl
-				<< "Until then, you can't execute admin tasks via the console," << std::endl
-				<< "and everybody can claim the user account instead of you," << std::endl
-				<< "giving them full control over this server." << std::endl;
-		}
 	} else {
 		assert(evt->type == CET_CHAT);
 		handleAdminChat((ChatEventChat *)evt);
@@ -3805,28 +3770,20 @@ std::wstring Server::handleChat(const std::string &name,
 	if (message.find_first_of("\r\n") != std::string::npos)
 		return L"Newlines are not permitted in chat messages";
 
-	// Run script hook, exit if script ate the chat message
-	if (m_script->on_chat_message(name, message))
-		return L"";
+	// Terra Firma: a command is the engine's or a mod's (server/commands, sprint 119)
+	if (message[0] == '/')
+		return utf8_to_wide(command(name, player, message.substr(1)));
 
 	// Line to send
 	std::wstring line;
 	// Whether to send line to the player that sent the message, or to all players
 	bool broadcast_line = true;
 
-	if (check_shout_priv && !checkPriv(name, "shout")) {
+	if (check_shout_priv && !checkPriv(name, "core:shout")) {
 		line += L"-!- You don't have permission to shout.";
 		broadcast_line = false;
 	} else {
-		/*
-			Workaround for fixing chat on Android. Lua doesn't handle
-			the Cyrillic alphabet and some characters on older Android devices
-		*/
-#ifdef __ANDROID__
 		line += L"<" + utf8_to_wide(name) + L"> " + wmessage;
-#else
-		line += utf8_to_wide(m_script->formatChatMessage(name, message));
-#endif
 	}
 
 	/*
@@ -3845,6 +3802,44 @@ std::wstring Server::handleChat(const std::string &name,
 	SendChatMessage(PEER_ID_INEXISTENT, chatmsg);
 
 	return L"";
+}
+
+std::string Server::command(const std::string &name, RemotePlayer *player, const std::string &line)
+{
+	// the console (no player) may do anything: it's whoever runs the server
+	const bool console = player == nullptr;
+	const size_t space = line.find(' ');
+	const std::string word = line.substr(0, space);
+	const std::string rest = space == std::string::npos ? "" : trim(line.substr(space + 1));
+	if (word == "help") {
+		std::string out = "Commands:";
+		for (const EngineCommand &c : engineCommands())
+			if (console || !c.permission || checkPriv(name, c.permission))
+				out += std::string("\n  /") + c.name + (*c.params ? " " : "") + c.params + " — " + c.description;
+		for (const ModCommand &c : m_mod_commands)
+			out += "\n  /" + c.name + (c.params.empty() ? "" : " ") + c.params + " — " + c.description;
+		return out;
+	}
+	for (const EngineCommand &c : engineCommands()) {
+		if (word != c.name)
+			continue;
+		if (!console && c.permission && !checkPriv(name, c.permission))
+			return std::string("You may not: /") + c.name + " needs " + c.permission + ".";
+		try {
+			return c.run(this, player, rest);
+		} catch (const std::invalid_argument &e) {
+			return e.what();
+		}
+	}
+	for (const ModCommand &c : m_mod_commands) {
+		if (word != c.name)
+			continue;
+		// the mod answers, in its next window; the console is "" to it
+		if (!sidecarCommand(console ? "" : name, word, rest))
+			return "The mods are off, so nothing can answer /" + word + ".";
+		return "";
+	}
+	return "There's no /" + word + ". /help lists what there is.";
 }
 
 void Server::handleAdminChat(const ChatEventChat *evt)
@@ -3931,16 +3926,16 @@ std::string Server::getStatusString()
 
 std::set<std::string> Server::getPlayerEffectivePrivs(const std::string &name)
 {
-	std::set<std::string> privs;
-	m_script->getAuth(name, NULL, &privs);
-	terraCreativePrivs(privs); // Terra Firma: creative's (sprint 119)
+	// Terra Firma: their roles' and grants' (server/access), and creative's (sprint 119)
+	std::set<std::string> privs = m_access->permissions(name);
+	terraCreativePrivs(privs);
 	return privs;
 }
 
 bool Server::checkPriv(const std::string &name, const std::string &priv)
 {
-	std::set<std::string> privs = getPlayerEffectivePrivs(name);
-	return (privs.count(priv) != 0);
+	// an admin may do anything, a mod's permissions too: so ask, rather than look in a list
+	return m_access->can(name, priv) || getPlayerEffectivePrivs(name).count(priv) != 0;
 }
 
 void Server::reportPrivsModified(const std::string &name)

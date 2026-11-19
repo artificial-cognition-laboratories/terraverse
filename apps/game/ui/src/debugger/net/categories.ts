@@ -11,7 +11,7 @@ export const CATEGORIES = [
     { id: "ui", label: "UI", color: "#3fbfbf", parts: ["HUD", "FORMSPEC", "CHAT", "SHOW_", "MINIMAP", "SET_UI", "UI_EVENT"] },
     { id: "media", label: "Media", color: "#e88a5a", parts: ["MEDIA", "NODEDEF", "ITEMDEF"] },
     { id: "mods", label: "Mods", color: "#d987b8", parts: ["MODCHANNEL", "CSM_"] },
-    { id: "connection", label: "Connection", color: "#8a8cf0", parts: ["HELLO", "INIT", "AUTH", "SRP", "ACCESS_DENIED", "CLIENT_READY", "UPDATE_CLIENT_INFO", "FIRST_SRP", "DISCONNECT"] },
+    { id: "connection", label: "Connection", color: "#8a8cf0", parts: ["HELLO", "INIT", "AUTH", "TICKET", "ACCESS_DENIED", "CLIENT_READY", "UPDATE_CLIENT_INFO", "DISCONNECT"] },
 ] as const
 
 export type CategoryId = (typeof CATEGORIES)[number]["id"] | "other"

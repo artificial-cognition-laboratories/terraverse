@@ -46,11 +46,7 @@ private:
 	// get_hit_params(groups, tool_capabilities[, time_from_last_punch[, wear]])
 	static int l_get_hit_params(lua_State *L);
 
-	// check_password_entry(name, entry, password)
-	static int l_check_password_entry(lua_State *L);
 
-	// get_password_hash(name, raw_password)
-	static int l_get_password_hash(lua_State *L);
 
 	// is_yes(arg)
 	static int l_is_yes(lua_State *L);

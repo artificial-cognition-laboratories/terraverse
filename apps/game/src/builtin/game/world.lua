@@ -83,12 +83,14 @@ do
 	core.register_alias("mapgen_soil", "core:soil_granitic")
 end
 
-for _, biome in ipairs(read("biomes.json").biomes) do
-	core.register_biome(biome)
-end
-
-for _, species in ipairs(read("species.json").species) do
-	core.terra.register_species(species)
+-- what the generator places: none where nothing's generated (the unit tests' mock server)
+if core.terra.generates() then
+	for _, biome in ipairs(read("biomes.json").biomes) do
+		core.register_biome(biome)
+	end
+	for _, species in ipairs(read("species.json").species) do
+		core.terra.register_species(species)
+	end
 end
 
 for from, to in pairs(read("aliases.json").aliases) do

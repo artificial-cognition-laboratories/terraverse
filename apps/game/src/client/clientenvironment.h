@@ -19,7 +19,6 @@
 
 class ClientSimpleObject;
 class ClientMap;
-class ClientScripting;
 class ClientActiveObject;
 class GenericCAO;
 class LocalPlayer;
@@ -62,7 +61,6 @@ public:
 	ClientMap & getClientMap();
 
 	Client *getGameDef() { return m_client; }
-	void setScript(ClientScripting *script) { m_script = script; }
 
 	void step(f32 dtime);
 
@@ -151,7 +149,6 @@ private:
 	LocalPlayer *m_local_player = nullptr;
 	ITextureSource *m_texturesource;
 	Client *m_client;
-	ClientScripting *m_script = nullptr;
 	client::ActiveObjectMgr m_ao_manager;
 	std::vector<ClientSimpleObject*> m_simple_objects;
 	std::queue<ClientEnvEvent> m_client_event_queue;

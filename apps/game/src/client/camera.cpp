@@ -20,7 +20,6 @@
 #include "util/numeric.h"
 #include "constants.h"
 #include "fontengine.h"
-#include "script/scripting_client.h"
 #include "gettext.h"
 
 #include <ICameraSceneNode.h>
@@ -640,7 +639,7 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 	const bool swimming = (movement_XZ || player->swimming_vertical) && player->in_liquid;
 	const bool climbing = movement_Y && player->is_climbing;
 	const bool flying = g_settings->getBool("free_move")
-		&& m_client->checkLocalPrivilege("fly");
+		&& m_client->checkLocalPrivilege("core:fly");
 	if ((walking || swimming || climbing) && !flying) {
 		// Start animation
 		m_view_bobbing_state = 1;

@@ -34,10 +34,8 @@
 #include "network/serveropcodes.h"
 #include "server/player_sao.h"
 #include "server/serverinventorymgr.h"
-#include "util/auth.h"
 #include "util/base64.h"
 #include "util/pointedthing.h"
-#include "util/srp.h"
 #include "clientdynamicinfo.h"
 
 #include <algorithm>
@@ -219,43 +217,18 @@ void Server::handleCommand_Init(NetworkPacket* pkt)
 	u32 auth_mechs = 0;
 	client->chosen_mech = AUTH_MECHANISM_NONE;
 
-	std::string encpwd; // encrypted Password field for the user
+	// Terra Firma (sprint 119): no passwords. Hosted for friends, a ticket is the only way
+	// in; played alone, the one player (127.0.0.1 only) is let in at once.
 	if (m_gate) {
-		// Terra Firma: hosted for friends, a ticket is the only way in
 		auth_mechs = AUTH_MECHANISM_TICKET;
-	} else if (m_script->getAuth(playername, &encpwd, nullptr)) {
-		std::vector<std::string> pwd_components = str_split(encpwd, '#');
-		if (pwd_components.size() == 4) {
-			if (pwd_components[1] == "1") { // 1 means srp
-				auth_mechs |= AUTH_MECHANISM_SRP;
-				client->enc_pwd = encpwd;
-			} else {
-				actionstream << "User " << playername << " tried to log in, "
-					"but password field was invalid (unknown mechcode)." <<
-					std::endl;
-				DenyAccess(peer_id, SERVER_ACCESSDENIED_SERVER_FAIL);
-				return;
-			}
-		} else if (base64_is_valid(encpwd)) {
-			auth_mechs |= AUTH_MECHANISM_LEGACY_PASSWORD;
-			client->enc_pwd = encpwd;
-		} else {
-			actionstream << "User " << playername << " tried to log in, but "
-				"password field was invalid (invalid base64)." << std::endl;
-			DenyAccess(peer_id, SERVER_ACCESSDENIED_SERVER_FAIL);
-			return;
-		}
+	} else if (isSingleplayer()) {
+		auth_mechs = AUTH_MECHANISM_LOCAL;
 	} else {
-		std::string default_password = g_settings->get("default_password");
-		if (isSingleplayer() || default_password.length() == 0) {
-			auth_mechs |= AUTH_MECHANISM_FIRST_SRP;
-		} else {
-			// Take care of default passwords.
-			client->enc_pwd = get_encoded_srp_verifier(playerName, default_password);
-			auth_mechs |= AUTH_MECHANISM_SRP;
-			// Allocate player in db, but only on successful login.
-			client->create_player_on_auth_success = true;
-		}
+		actionstream << "Server: " << playername << " tried to join from " << addr_s <<
+			", but this server admits by ArcLabs ticket and has no gate" << std::endl;
+		DenyAccess(peer_id, SERVER_ACCESSDENIED_CUSTOM_STRING,
+			"This server takes no one: a world is opened to friends from the game.");
+		return;
 	}
 
 	/*
@@ -276,6 +249,10 @@ void Server::handleCommand_Init(NetworkPacket* pkt)
 	client->allowed_auth_mechs = auth_mechs;
 
 	m_clients.event(peer_id, CSE_Hello);
+	if (auth_mechs == AUTH_MECHANISM_LOCAL) {
+		client->chosen_mech = AUTH_MECHANISM_LOCAL;
+		acceptAuth(peer_id);
+	}
 }
 
 void Server::handleCommand_Init2(NetworkPacket* pkt)
@@ -328,7 +305,6 @@ void Server::handleCommand_Init2(NetworkPacket* pkt)
 	SendPlanet(peer_id); // before the horizon: the far view is made with both
 	SendHorizon(peer_id);
 
-	SendCSMRestrictionFlags(peer_id);
 }
 
 void Server::handleCommand_RequestMedia(NetworkPacket* pkt)
@@ -404,14 +380,16 @@ void Server::handleCommand_ClientReady(NetworkPacket* pkt)
 		Send(peer_id, &list_pkt);
 	}
 
-	s64 last_login;
-	m_script->getAuth(playersao->getPlayer()->getName(), nullptr, nullptr, &last_login);
+	s64 last_login = -1; // (builtin's on_joinplayer: nothing keeps logins now)
 	// Terra Firma: one who joins in seam starts at the spawn, before anything asks the
 	// planet where they are (sprint 119: was tf_planet's)
 	terraOffSeam(this, playersao, "joined");
 	terraJoinPlayer(this, playersao); // what they're given (sprint 119: was tf_player's)
 	terraMatterJoin(this, playersao); // what they've seen react (was tf_matter's)
 	m_script->on_joinplayer(playersao, last_login);
+	if (!isSingleplayer()) // Terra Firma: was builtin's (sprint 119)
+		SendChatMessage(PEER_ID_INEXISTENT, ChatMessage(CHATMESSAGE_TYPE_ANNOUNCE,
+				utf8_to_wide("*** " + playersao->getPlayer()->getName() + " joined the game.")));
 	if (m_sidecar) // Terra Firma: TypeScript mods (sprint 119)
 		m_sidecar->joined(playersao->getPlayer()->getName());
 	SendBlueprints(peer_id, playersao->getPlayer()->getName()); // Terra Firma
@@ -633,7 +611,7 @@ void Server::handleCommand_InventoryAction(NetworkPacket* pkt)
 		list->setModified(true);
 	};
 
-	const bool player_has_interact = checkPriv(player->getName(), "interact");
+	const bool player_has_interact = checkPriv(player->getName(), "core:interact");
 
 	auto check_inv_access = [player, player_has_interact, this] (
 			const InventoryLocation &loc) -> bool {
@@ -963,7 +941,7 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 	/*
 		Make sure the player is allowed to do it
 	*/
-	if (!checkPriv(player->getName(), "interact")) {
+	if (!checkPriv(player->getName(), "core:interact")) {
 		actionstream << player->getName() << " attempted to interact with " <<
 				pointed.dump() << " without 'interact' privilege" << std::endl;
 		getClient(peer_id)->fixupNodePrediction(action, pointed, false);
@@ -1079,7 +1057,7 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 		/* Cheat prevention */
 		bool is_valid_dig = true;
 		// Terra Firma: creative digs anything at once (Game::handleDigging)
-		if ((anticheat_flags & AC_DIGGING) && !isSingleplayer() && !checkPriv(player->getName(), "creative")) {
+		if ((anticheat_flags & AC_DIGGING) && !isSingleplayer() && !checkPriv(player->getName(), "core:creative")) {
 			v3s16 nocheat_p = playersao->getNoCheatDigPos();
 			float nocheat_t = playersao->getNoCheatDigTime();
 			playersao->noCheatDigEnd();
@@ -1343,7 +1321,7 @@ void Server::handleCommand_NodeMetaFields(NetworkPacket* pkt)
 		return;
 	}
 
-	if (!checkPriv(player->getName(), "interact")) {
+	if (!checkPriv(player->getName(), "core:interact")) {
 		actionstream << player->getName() << " attempted to interact with "
 				<< "node metadata at " << p << " without 'interact' privilege"
 				<< std::endl;
@@ -1443,292 +1421,6 @@ void Server::handleCommand_Ticket(NetworkPacket *pkt)
 	client->chosen_mech = AUTH_MECHANISM_TICKET;
 	m_gate->begin(peer_id, client->getName(), ticket, build); // answered in AsyncRunStep
 }
-
-void Server::handleCommand_FirstSrp(NetworkPacket* pkt)
-{
-	session_t peer_id = pkt->getPeerId();
-	RemoteClient *client = getClient(peer_id, CS_Invalid);
-	ClientState cstate = client->getState();
-	const std::string playername = client->getName();
-
-	std::string salt, verification_key;
-
-	std::string addr_s = client->getAddress().serializeString();
-	u8 is_empty;
-
-	*pkt >> salt >> verification_key >> is_empty;
-
-	verbosestream << "Server: Got TOSERVER_FIRST_SRP from " << addr_s
-		<< ", with is_empty=" << (is_empty == 1) << std::endl;
-
-	const bool empty_disallowed = !isSingleplayer() && is_empty == 1 &&
-		g_settings->getBool("disallow_empty_password");
-
-	// Either this packet is sent because the user is new or to change the password
-	if (cstate == CS_HelloSent) {
-		if (!client->isMechAllowed(AUTH_MECHANISM_FIRST_SRP)) {
-			actionstream << "Server: Client from " << addr_s
-					<< " tried to set password without being "
-					<< "authenticated, or the username being new." << std::endl;
-			DenyAccess(peer_id, SERVER_ACCESSDENIED_UNEXPECTED_DATA);
-			return;
-		}
-
-		if (empty_disallowed) {
-			actionstream << "Server: " << playername
-					<< " supplied empty password from " << addr_s << std::endl;
-			DenyAccess(peer_id, SERVER_ACCESSDENIED_EMPTY_PASSWORD);
-			return;
-		}
-
-		std::string encpwd = encode_srp_verifier(verification_key, salt);
-
-		// It is possible for multiple connections to get this far with the same
-		// player name. In the end only one player with a given name will be emerged
-		// (see Server::StateTwoClientInit) but we still have to be careful here.
-		if (m_script->getAuth(playername, nullptr, nullptr)) {
-			// Another client beat us to it
-			actionstream << "Server: Client from " << addr_s
-				<< " tried to register " << playername << " a second time."
-				<< std::endl;
-			DenyAccess(peer_id, SERVER_ACCESSDENIED_ALREADY_CONNECTED);
-			return;
-		}
-
-		m_script->createAuth(playername, encpwd);
-		client->setEncryptedPassword(encpwd);
-
-		m_script->on_authplayer(playername, addr_s, true);
-		acceptAuth(peer_id, false);
-	} else {
-		if (cstate < CS_SudoMode) {
-			infostream << "Server: Ignoring TOSERVER_FIRST_SRP from "
-					<< addr_s << ": " << "Client has wrong state " << cstate << "."
-					<< std::endl;
-			return;
-		}
-		m_clients.event(peer_id, CSE_SudoLeave);
-
-		if (empty_disallowed) {
-			actionstream << "Server: " << playername
-					<< " supplied empty password" << std::endl;
-			SendChatMessage(peer_id, ChatMessage(CHATMESSAGE_TYPE_SYSTEM,
-				L"Changing to an empty password is not allowed."));
-			return;
-		}
-
-		std::string encpwd = encode_srp_verifier(verification_key, salt);
-		bool success = m_script->setPassword(playername, encpwd);
-		if (success) {
-			actionstream << playername << " changes password" << std::endl;
-			SendChatMessage(peer_id, ChatMessage(CHATMESSAGE_TYPE_SYSTEM,
-				L"Password change successful."));
-			client->setEncryptedPassword(encpwd);
-		} else {
-			actionstream << playername <<
-				" tries to change password but it fails" << std::endl;
-			SendChatMessage(peer_id, ChatMessage(CHATMESSAGE_TYPE_SYSTEM,
-				L"Password change failed or unavailable."));
-		}
-	}
-}
-
-void Server::handleCommand_SrpBytesA(NetworkPacket* pkt)
-{
-	session_t peer_id = pkt->getPeerId();
-	RemoteClient *client = getClient(peer_id, CS_Invalid);
-	ClientState cstate = client->getState();
-
-	std::string addr_s = client->getAddress().serializeString();
-
-	if (!((cstate == CS_HelloSent) || (cstate == CS_Active))) {
-		actionstream << "Server: got SRP _A packet in wrong state " << cstate <<
-			" from " << addr_s <<
-			". Ignoring." << std::endl;
-		return;
-	}
-
-	const bool wantSudo = (cstate == CS_Active);
-
-	if (client->chosen_mech != AUTH_MECHANISM_NONE) {
-		actionstream << "Server: got SRP _A packet, while auth is already "
-			"going on with mech " << client->chosen_mech << " from " <<
-			addr_s <<
-			" (wantSudo=" << wantSudo << "). Ignoring." << std::endl;
-		if (wantSudo) {
-			DenySudoAccess(peer_id);
-			return;
-		}
-
-		DenyAccess(peer_id, SERVER_ACCESSDENIED_UNEXPECTED_DATA);
-		return;
-	}
-
-	std::string bytes_A;
-	u8 based_on;
-	*pkt >> bytes_A >> based_on;
-
-	infostream << "Server: TOSERVER_SRP_BYTES_A received with "
-		<< "based_on=" << int(based_on) << " and len_A="
-		<< bytes_A.length() << std::endl;
-
-	AuthMechanism chosen = (based_on == 0) ?
-		AUTH_MECHANISM_LEGACY_PASSWORD : AUTH_MECHANISM_SRP;
-
-	if (wantSudo) {
-		// Right now, the auth mechs don't change between login and sudo mode.
-		if (!client->isMechAllowed(chosen)) {
-			actionstream << "Server: Player \"" << client->getName() <<
-				"\" from " << addr_s <<
-				" tried to change password using unallowed mech " << chosen <<
-				std::endl;
-			DenySudoAccess(peer_id);
-			return;
-		}
-	} else {
-		if (!client->isMechAllowed(chosen)) {
-			actionstream << "Server: Client tried to authenticate from " <<
-				addr_s <<
-				" using unallowed mech " << chosen << std::endl;
-			DenyAccess(peer_id, SERVER_ACCESSDENIED_UNEXPECTED_DATA);
-			return;
-		}
-	}
-
-	client->chosen_mech = chosen;
-
-	std::string salt, verifier;
-
-	if (based_on == 0) {
-
-		generate_srp_verifier_and_salt(client->getName(), client->enc_pwd,
-			&verifier, &salt);
-	} else if (!decode_srp_verifier_and_salt(client->enc_pwd, &verifier, &salt)) {
-		// Non-base64 errors should have been catched in the init handler
-		actionstream << "Server: User " << client->getName() <<
-			" tried to log in, but srp verifier field was invalid (most likely "
-			"invalid base64)." << std::endl;
-		DenyAccess(peer_id, SERVER_ACCESSDENIED_SERVER_FAIL);
-		return;
-	}
-
-	char *bytes_B = 0;
-	size_t len_B = 0;
-
-	client->auth_data = srp_verifier_new(SRP_SHA256, SRP_NG_2048,
-		client->getName().c_str(),
-		(const unsigned char *) salt.c_str(), salt.size(),
-		(const unsigned char *) verifier.c_str(), verifier.size(),
-		(const unsigned char *) bytes_A.c_str(), bytes_A.size(),
-		NULL, 0,
-		(unsigned char **) &bytes_B, &len_B, NULL, NULL);
-
-	if (!bytes_B) {
-		actionstream << "Server: User " << client->getName()
-			<< " tried to log in, SRP-6a safety check violated in _A handler."
-			<< std::endl;
-		if (wantSudo) {
-			DenySudoAccess(peer_id);
-			client->resetChosenMech();
-			return;
-		}
-
-		DenyAccess(peer_id, SERVER_ACCESSDENIED_UNEXPECTED_DATA);
-		return;
-	}
-
-	NetworkPacket resp_pkt(TOCLIENT_SRP_BYTES_S_B, 0, peer_id);
-	resp_pkt << salt << std::string(bytes_B, len_B);
-	Send(&resp_pkt);
-}
-
-void Server::handleCommand_SrpBytesM(NetworkPacket* pkt)
-{
-	session_t peer_id = pkt->getPeerId();
-	RemoteClient *client = getClient(peer_id, CS_Invalid);
-	ClientState cstate = client->getState();
-	const std::string addr_s = client->getAddress().serializeString();
-	const std::string playername = client->getName();
-
-	const bool wantSudo = (cstate == CS_Active);
-
-	verbosestream << "Server: Received TOSERVER_SRP_BYTES_M." << std::endl;
-
-	if (!((cstate == CS_HelloSent) || (cstate == CS_Active))) {
-		warningstream << "Server: got SRP_M packet in wrong state "
-			<< cstate << " from " << addr_s << ". Ignoring." << std::endl;
-		return;
-	}
-
-	if (client->chosen_mech != AUTH_MECHANISM_SRP &&
-			client->chosen_mech != AUTH_MECHANISM_LEGACY_PASSWORD) {
-		warningstream << "Server: got SRP_M packet, while auth "
-			"is going on with mech " << client->chosen_mech << " from "
-			<< addr_s << " (wantSudo=" << wantSudo << "). Denying." << std::endl;
-		if (wantSudo) {
-			DenySudoAccess(peer_id);
-			return;
-		}
-
-		DenyAccess(peer_id, SERVER_ACCESSDENIED_UNEXPECTED_DATA);
-		return;
-	}
-
-	std::string bytes_M;
-	*pkt >> bytes_M;
-
-	if (srp_verifier_get_session_key_length((SRPVerifier *) client->auth_data)
-			!= bytes_M.size()) {
-		actionstream << "Server: User " << playername << " at " << addr_s
-			<< " sent bytes_M with invalid length " << bytes_M.size() << std::endl;
-		DenyAccess(peer_id, SERVER_ACCESSDENIED_UNEXPECTED_DATA);
-		return;
-	}
-
-	unsigned char *bytes_HAMK = 0;
-
-	srp_verifier_verify_session((SRPVerifier *) client->auth_data,
-		(unsigned char *)bytes_M.c_str(), &bytes_HAMK);
-
-	// skip authentication check for singleplayer world.
-	const bool is_true_singleplayer = isSingleplayer() && (strcasecmp(playername.c_str(), "singleplayer") == 0);
-	if (!bytes_HAMK && !is_true_singleplayer) {
-		if (wantSudo) {
-			actionstream << "Server: User " << playername << " at " << addr_s
-				<< " tried to change their password, but supplied wrong"
-				<< " (SRP) password for authentication." << std::endl;
-			DenySudoAccess(peer_id);
-			client->resetChosenMech();
-			return;
-		}
-
-		actionstream << "Server: User " << playername << " at " << addr_s
-			<< " supplied wrong password (auth mechanism: SRP)." << std::endl;
-		m_script->on_authplayer(playername, addr_s, false);
-		DenyAccess(peer_id, SERVER_ACCESSDENIED_WRONG_PASSWORD);
-		return;
-	}
-
-	if (client->create_player_on_auth_success) {
-		m_script->createAuth(playername, client->enc_pwd);
-
-		if (!m_script->getAuth(playername, nullptr, nullptr)) {
-			errorstream << "Server: " << playername <<
-				" cannot be authenticated (auth handler does not work?)" <<
-				std::endl;
-			DenyAccess(peer_id, SERVER_ACCESSDENIED_SERVER_FAIL);
-			return;
-		}
-		client->create_player_on_auth_success = false;
-	}
-
-	m_script->on_authplayer(playername, addr_s, true);
-	acceptAuth(peer_id, wantSudo);
-}
-
-/*
- * Mod channels
- */
 
 void Server::handleCommand_ModChannelJoin(NetworkPacket *pkt)
 {
@@ -1902,9 +1594,9 @@ void Server::inWorkshop(session_t peer_id, const char *what, F &&f)
 		warningstream << "Refusing " << player->getName() << "'s " << what << ": " << why << std::endl;
 		SendChatMessage(peer_id, ChatMessage(CHATMESSAGE_TYPE_SYSTEM, utf8_to_wide(why)));
 	};
-	if (!checkPriv(player->getName(), "interact"))
+	if (!checkPriv(player->getName(), "core:interact"))
 		return refuse("You can't use the tools here (no interact)");
-	if (!checkPriv(player->getName(), "creative") && !g_settings->getBool("creative_mode"))
+	if (!checkPriv(player->getName(), "core:creative") && !g_settings->getBool("creative_mode"))
 		return refuse("The tools are only in creative for now");
 	try {
 		f(*sao);
@@ -2087,7 +1779,7 @@ void Server::handleCommand_ObjectPush(NetworkPacket *pkt)
 	// pushed (gone, held, out of reach) isn't worth a word
 	RemotePlayer *player = m_env->getPlayer(pkt->getPeerId());
 	PlayerSAO *sao = player ? player->getPlayerSAO() : nullptr;
-	if (!sao || !checkPriv(player->getName(), "interact"))
+	if (!sao || !checkPriv(player->getName(), "core:interact"))
 		return;
 	try {
 		m_workshop->push(*sao, id, impulse);
@@ -2111,7 +1803,7 @@ void Server::handleCommand_ObjectGrab(NetworkPacket *pkt)
 	// grabbed (gone, held, out of reach) isn't worth a word
 	RemotePlayer *player = m_env->getPlayer(pkt->getPeerId());
 	PlayerSAO *sao = player ? player->getPlayerSAO() : nullptr;
-	if (!sao || !checkPriv(player->getName(), "interact"))
+	if (!sao || !checkPriv(player->getName(), "core:interact"))
 		return;
 	try {
 		m_workshop->grab(*sao, id, grip);
@@ -2133,7 +1825,7 @@ void Server::handleCommand_Drive(NetworkPacket *pkt)
 	}
 	RemotePlayer *player = m_env->getPlayer(pkt->getPeerId());
 	PlayerSAO *sao = player ? player->getPlayerSAO() : nullptr;
-	if (!sao || !checkPriv(player->getName(), "interact"))
+	if (!sao || !checkPriv(player->getName(), "core:interact"))
 		return;
 	try {
 		m_workshop->drive(*sao, id, drive);
@@ -2150,7 +1842,7 @@ void Server::handleCommand_Upright(NetworkPacket *pkt)
 	*pkt >> id;
 	RemotePlayer *player = m_env->getPlayer(pkt->getPeerId());
 	PlayerSAO *sao = player ? player->getPlayerSAO() : nullptr;
-	if (!sao || !checkPriv(player->getName(), "interact"))
+	if (!sao || !checkPriv(player->getName(), "core:interact"))
 		return;
 	try {
 		m_workshop->upright(*sao, id);

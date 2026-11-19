@@ -71,7 +71,7 @@ apps/game/game/     the game's baked data: palette.json, moves.json, vehicles.js
 apps/cli/           terra: the CLI, and the sidecar that runs TypeScript mods (sprint 119)
 packages/types/     @terraverse/types: the TypeScript mod API's globals, as implemented
 assets/             shipped static files; assets/matter/ holds elements, substances, reactions and thermo data
-registry/           shaders, textures, upstream client mods, devtest; registry/worlds is user data, never clean it up
+registry/           shaders, textures; registry/worlds is user data, never clean it up
 registry/mods/      the game's own TypeScript mods (@terraverse/*), run by apps/game/server
 library/            vendored dependencies (library/jolt: MIT; irr and lua are upstream, leave alone)
 scripts/            dev loop, staging, palette bake, the check:* harnesses, release packaging
@@ -120,9 +120,16 @@ the weather's readout, snow and ice, `player.cpp`: what a player's given, creati
 map, and `matter.cpp`: every block's matter registered and run). The generator's own blocks,
 biomes and tree species are data (`assets/world/*.json`, `core:` names); builtin Lua registers
 them, and the matter's own blocks, while digging and placing still look blocks up in Lua
-(`builtin/game/world.lua`, `matter.lua`, TEMP), beside the engine's admin commands (`/travel`,
-`/river`, `/rivers`). The weather finds the snow and ice it makes by alias (`weather_snow`,
-`weather_ice`), as the generator finds rock (`mapgen_*`).
+(`builtin/game/world.lua`, `matter.lua`, TEMP). The weather finds the snow and ice it makes by
+alias (`weather_snow`, `weather_ice`), as the generator finds rock (`mapgen_*`).
+
+**Who may do what** is native (`server/access`): no passwords, everyone is their ArcLabs account.
+A world played alone lets its one player in at once (`AUTH_MECHANISM_LOCAL`, 127.0.0.1 only), a
+hosted one admits by ticket, and any other server takes no one. Permissions are `prefix:name`
+(the engine's `core:fly`, a mod's `commands:kick`); roles (`player`, `builder`, `admin`) are sets
+of them, kept in `<world>/access.json`, and the world's owner is always its admin. **Chat** is
+native too (`Server::handleChat`, `server/commands`): a line is broadcast, and `/word` goes to the
+engine's admin commands (`/travel`, `/river`, `/rivers`) or a TypeScript mod's.
 
 `scripts/stage-runtime.sh` mirrors shipped resources into `.output/`, which the run-in-place
 engine uses as its share directory.
@@ -142,7 +149,7 @@ folders; where they reach into engine files, change those files as the design ne
 | Whole-node ground | Cut, smoothed and loose ground at sixteenths | `map`, `content_mapblock`, `mesh_generator_thread` |
 | Sky, clouds | Space, seen from where you stand | `game.cpp` |
 | Entities that move by script | Machines as rigid bodies | `luaentity_sao`, `activeobject.h`, `server.cpp` |
-| Auth | ArcLabs tickets for online play | `server.cpp`, `serverpackethandler.cpp`, `network/mtp` |
+| Auth, privileges, chat | ArcLabs tickets, roles and permissions (`server/access`), native chat | `server.cpp`, `serverpackethandler.cpp`, `network/mtp` |
 
 - Stock Luanti peers are refused. **Bump the protocol** (`network/networkprotocol.cpp`) whenever
   it changes, so mismatches fail cleanly.

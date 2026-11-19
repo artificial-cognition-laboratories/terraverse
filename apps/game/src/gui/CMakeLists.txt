@@ -12,12 +12,10 @@ set(gui_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/guiChatConsole.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/statusTextHelper.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/guiEditBoxWithScrollbar.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/guiEngine.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/guiFormSpecMenu.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/guiInventoryList.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/guiItemImage.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/guiOpenURL.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/guiPasswordChange.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/guiPathSelectMenu.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/guiScene.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/guiScrollBar.cpp

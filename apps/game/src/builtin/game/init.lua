@@ -13,10 +13,6 @@ assert(loadfile(gamepath .. "item.lua"))(builtin_shared)
 assert(loadfile(commonpath .. "register.lua"))(builtin_shared)
 assert(loadfile(gamepath .. "register.lua"))(builtin_shared)
 
-if core.settings:get_bool("profiler.load") then
-	profiler = dofile(scriptpath .. "profiler" .. DIR_DELIM .. "init.lua")
-end
-
 dofile(commonpath .. "after.lua")
 dofile(commonpath .. "metatable.lua")
 dofile(commonpath .. "mod_storage.lua")
@@ -24,11 +20,6 @@ dofile(gamepath .. "item_entity.lua")
 dofile(gamepath .. "deprecated.lua")
 dofile(gamepath .. "misc_s.lua")
 dofile(gamepath .. "misc.lua")
-dofile(gamepath .. "privileges.lua")
-dofile(gamepath .. "auth.lua")
-assert(loadfile(commonpath .. "chatcommands.lua"))(builtin_shared)
-assert(loadfile(gamepath .. "chat.lua"))(builtin_shared)
-dofile(commonpath .. "information_formspecs.lua")
 dofile(gamepath .. "static_spawn.lua")
 dofile(gamepath .. "detached_inventory.lua")
 assert(loadfile(gamepath .. "falling.lua"))(builtin_shared)
@@ -41,10 +32,8 @@ dofile(gamepath .. "async.lua")
 dofile(gamepath .. "death_screen.lua")
 dofile(gamepath .. "sidecar.lua") -- Terra Firma
 dofile(gamepath .. "planet.lua") -- Terra Firma
-dofile(gamepath .. "rivers.lua") -- Terra Firma
 dofile(gamepath .. "world.lua") -- Terra Firma
 dofile(gamepath .. "matter.lua") -- Terra Firma
 
 core.after(0, builtin_shared.cache_content_ids)
 
-profiler = nil

@@ -46,21 +46,6 @@ core.setting_setbool = setting_proxy("set_bool")
 core.setting_getbool = setting_proxy("get_bool")
 core.setting_save = setting_proxy("write")
 
---
--- core.register_on_auth_fail
---
-
-function core.register_on_auth_fail(func)
-	core.log("deprecated", "core.register_on_auth_fail " ..
-		"is deprecated and should be replaced by " ..
-		"core.register_on_authplayer instead.")
-
-	core.register_on_authplayer(function (player_name, ip, is_success)
-		if not is_success then
-			func(player_name, ip)
-		end
-	end)
-end
 
 -- deprecated as of 5.12, as it was not Perlin noise
 -- but with no warnings (yet) for compatibility

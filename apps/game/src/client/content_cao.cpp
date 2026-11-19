@@ -1323,11 +1323,11 @@ void GenericCAO::step(float dtime, ClientEnvironment *env)
 
 			// increase speed if using fast or flying fast
 			if((g_settings->getBool("fast_move") &&
-					m_client->checkLocalPrivilege("fast")) &&
+					m_client->checkLocalPrivilege("core:fast")) &&
 					(controls.aux1 ||
 					(!player->touching_ground &&
 					g_settings->getBool("free_move") &&
-					m_client->checkLocalPrivilege("fly"))))
+					m_client->checkLocalPrivilege("core:fly"))))
 			{
 				new_speed *= 1.5;
 			}

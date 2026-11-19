@@ -43,7 +43,6 @@ void sendAnnounce(AnnounceAction action,
 		server["url"]          = g_settings->get("server_url");
 		server["creative"]     = g_settings->getBool("creative_mode");
 		server["damage"]       = g_settings->getBool("enable_damage");
-		server["password"]     = g_settings->getBool("disallow_empty_password");
 		server["pvp"]          = g_settings->getBool("enable_pvp");
 		server["uptime"]       = (int) uptime;
 		server["gameid"]       = gameid;
@@ -61,7 +60,6 @@ void sendAnnounce(AnnounceAction action,
 		server["dedicated"]         = dedicated;
 		server["rollback"]          = g_settings->getBool("enable_rollback_recording");
 		server["mapgen"]            = mg_name;
-		server["privs"]             = g_settings->get("default_privs");
 		server["can_see_far_names"] = g_settings->getS16("player_transfer_distance") <= 0;
 		server["mods"]              = Json::Value(Json::arrayValue);
 		for (const ModSpec &mod : mods) {

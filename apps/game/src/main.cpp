@@ -516,8 +516,6 @@ static void set_allowed_options(OptionList *allowed_options)
 			_("Migrate from current map backend to another" SERVER_ONLY))));
 	allowed_options->insert(std::make_pair("migrate-players", ValueSpec(VALUETYPE_STRING,
 		_("Migrate from current players backend to another" SERVER_ONLY))));
-	allowed_options->insert(std::make_pair("migrate-auth", ValueSpec(VALUETYPE_STRING,
-		_("Migrate from current auth backend to another" SERVER_ONLY))));
 	allowed_options->insert(std::make_pair("migrate-mod-storage", ValueSpec(VALUETYPE_STRING,
 		_("Migrate from current mod storage backend to another" SERVER_ONLY))));
 	allowed_options->insert(std::make_pair("terminal", ValueSpec(VALUETYPE_FLAG,
@@ -566,7 +564,6 @@ static void print_help(const OptionList &allowed_options)
 	std::pair<const char*, std::vector<std::string>> the_list[] = {
 		{"map", ServerMap::getDatabaseBackends()},
 		{"players", ServerEnvironment::getPlayerDatabaseBackends()},
-		{"auth", ServerEnvironment::getAuthDatabaseBackends()},
 		{"mod storage", Server::getModStorageDatabaseBackends()},
 	};
 
@@ -1325,9 +1322,6 @@ static bool run_dedicated_server(const GameParams &game_params, const Settings &
 
 	if (cmd_args.exists("migrate-players"))
 		return ServerEnvironment::migratePlayersDatabase(game_params, cmd_args);
-
-	if (cmd_args.exists("migrate-auth"))
-		return ServerEnvironment::migrateAuthDatabase(game_params, cmd_args);
 
 	if (cmd_args.exists("migrate-mod-storage"))
 		return Server::migrateModStorageDatabase(game_params, cmd_args);

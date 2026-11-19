@@ -71,7 +71,6 @@ void MyEventReceiver::reloadKeybindings()
 	keybindings[KeyType::PLANETARIUM] = getKeySetting("keymap_planetarium");
 	keybindings[KeyType::CHAT] = getKeySetting("keymap_chat");
 	keybindings[KeyType::CMD] = getKeySetting("keymap_cmd");
-	keybindings[KeyType::CMD_LOCAL] = getKeySetting("keymap_cmd_local");
 	keybindings[KeyType::CONSOLE] = getKeySetting("keymap_console");
 	keybindings[KeyType::MINIMAP] = getKeySetting("keymap_minimap");
 	keybindings[KeyType::FREEMOVE] = getKeySetting("keymap_freemove");

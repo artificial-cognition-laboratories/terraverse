@@ -478,18 +478,6 @@ function core.override_item(name, redefinition, del_fields)
 	register_item_raw(item)
 end
 
-function core.run_priv_callbacks(name, priv, caller, method)
-	local def = core.registered_privileges[priv]
-	if not def or not def["on_" .. method] or
-			not def["on_" .. method](name, caller) then
-		for _, func in ipairs(core["registered_on_priv_" .. method]) do
-			if not func(name, caller, priv) then
-				break
-			end
-		end
-	end
-end
-
 --
 -- Callback registration
 --
@@ -584,9 +572,6 @@ core.unregister_biome = make_wrap_deregistration(core.register_biome,
 local make_registration = builtin_shared.make_registration
 local make_registration_reverse = builtin_shared.make_registration_reverse
 
--- keep in sync with profiler/instrumentation.lua
-core.registered_on_chat_messages, core.register_on_chat_message = make_registration()
-core.registered_on_chatcommands, core.register_on_chatcommand = make_registration()
 core.registered_globalsteps, core.register_globalstep = make_registration()
 core.registered_playerevents, core.register_playerevent = make_registration()
 core.registered_on_mods_loaded, core.register_on_mods_loaded = make_registration()
@@ -611,9 +596,6 @@ core.registered_on_protection_violation, core.register_on_protection_violation =
 core.registered_on_item_eats, core.register_on_item_eat = make_registration()
 core.registered_on_item_pickups, core.register_on_item_pickup = make_registration()
 core.registered_on_punchplayers, core.register_on_punchplayer = make_registration()
-core.registered_on_priv_grant, core.register_on_priv_grant = make_registration()
-core.registered_on_priv_revoke, core.register_on_priv_revoke = make_registration()
-core.registered_on_authplayers, core.register_on_authplayer = make_registration()
 core.registered_can_bypass_userlimit, core.register_can_bypass_userlimit = make_registration()
 core.registered_on_modchannel_message, core.register_on_modchannel_message = make_registration()
 core.registered_on_player_inventory_actions, core.register_on_player_inventory_action = make_registration()

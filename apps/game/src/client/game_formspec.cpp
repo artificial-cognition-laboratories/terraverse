@@ -8,15 +8,11 @@
 #include "nodemetadata.h"
 #include "renderingengine.h"
 #include "client.h"
-#include "scripting_client.h"
-#include "cpp_api/s_client_common.h"
 #include "clientmap.h"
 #include "gui/guiFormSpecMenu.h"
 #include "gui/mainmenumanager.h"
 #include "gui/touchcontrols.h"
 #include "gui/touchscreeneditor.h"
-#include "gui/guiPasswordChange.h"
-#include "gui/guiPasswordChange.h"
 #include "gui/guiOpenURL.h"
 #include "gui/guiVolumeChange.h"
 #include "localplayer.h"
@@ -61,22 +57,6 @@ struct TextDestPlayerInventory : public TextDest
 	Client *m_client;
 };
 
-struct LocalScriptingFormspecHandler : public TextDest
-{
-	LocalScriptingFormspecHandler(const std::string &formname, ScriptApiClientCommon *script)
-	{
-		m_formname = formname;
-		m_script = script;
-	}
-
-	void gotText(const StringMap &fields)
-	{
-		m_script->on_formspec_input(m_formname, fields);
-	}
-
-	ScriptApiClientCommon *m_script = nullptr;
-};
-
 struct HardcodedPauseFormspecHandler : public TextDest
 {
 	HardcodedPauseFormspecHandler()
@@ -86,11 +66,6 @@ struct HardcodedPauseFormspecHandler : public TextDest
 
 	void gotText(const StringMap &fields)
 	{
-		if (fields.find("btn_settings") != fields.end()) {
-			g_gamecallback->openSettings();
-			return;
-		}
-
 		if (fields.find("btn_sound") != fields.end()) {
 			g_gamecallback->changeVolume();
 			return;
@@ -106,11 +81,6 @@ struct HardcodedPauseFormspecHandler : public TextDest
 #ifndef __ANDROID__
 			RenderingEngine::get_raw_device()->closeDevice();
 #endif
-			return;
-		}
-
-		if (fields.find("btn_change_password") != fields.end()) {
-			g_gamecallback->changePassword();
 			return;
 		}
 	}
@@ -197,8 +167,6 @@ void GameFormSpec::init(Client *client, RenderingEngine *rendering_engine, Input
 	m_client = client;
 	m_rendering_engine = rendering_engine;
 	m_input = input;
-	m_pause_script = std::make_unique<PauseMenuScripting>(client);
-	m_pause_script->loadBuiltin();
 
 	// Make sure any remaining game callback requests are cleared out.
 	*g_gamecallback = MainGameCallback();
@@ -249,48 +217,6 @@ void GameFormSpec::showFormSpec(const std::string &formspec, const std::string &
 	m_formspec->setName(formname);
 }
 
-void GameFormSpec::showCSMFormSpec(const std::string &formspec, const std::string &formname)
-{
-	if (handleEmptyFormspec(formspec, formname))
-		return;
-
-	FormspecFormSource *fs_src = new FormspecFormSource(formspec);
-	LocalScriptingFormspecHandler *txt_dst =
-		new LocalScriptingFormspecHandler(formname, m_client->getScript());
-
-	GUIFormSpecMenu::create(m_formspec, m_client, m_rendering_engine->get_gui_env(),
-			fs_src, txt_dst, m_client->getFormspecPrepend(),
-			m_client->getSoundManager());
-	m_formspec->setName(formname);
-}
-
-void GameFormSpec::showPauseMenuFormSpec(const std::string &formspec, const std::string &formname)
-{
-	// The pause menu env is a trusted context like the mainmenu env and provides
-	// the in-game settings formspec.
-	// Neither CSM nor the server must be allowed to mess with it.
-
-	// If we send updated formspec contents, we can either (1) recycle the old
-	// GUIFormSpecMenu or (2) close the old and open a new one. This is option 2.
-	(void)handleEmptyFormspec("", formname);
-	if (formspec.empty())
-		return;
-
-	FormspecFormSource *fs_src = new FormspecFormSource(formspec);
-	LocalScriptingFormspecHandler *txt_dst =
-		new LocalScriptingFormspecHandler(formname, m_pause_script.get());
-
-	GUIFormSpecMenu *fs = nullptr;
-	GUIFormSpecMenu::create(fs, m_client, m_rendering_engine->get_gui_env(),
-			// Ignore formspec prepend.
-			fs_src, txt_dst, "",
-			m_client->getSoundManager());
-
-	fs->setName(formname);
-	fs->doPause = true;
-	fs->drop(); // 1 reference held by `g_menumgr`
-}
-
 void GameFormSpec::showNodeFormspec(const std::string &formspec, const v3s16 &nodepos)
 {
 	infostream << "Launching custom inventory view" << std::endl;
@@ -334,10 +260,6 @@ void GameFormSpec::showPlayerInventory(const std::string *fs_override)
 		// Show the regular inventory formspec
 		player->inventory_formspec_override.clear();
 	}
-
-	// If prevented by Client-Side Mods
-	if (m_client->modsLoaded() && m_client->getScript()->on_inventory_open(m_client->getInventory(inventoryloc)))
-		return;
 
 	// Empty formspec -> do not show.
 	if (fs_src->getForm().empty())
@@ -393,16 +315,6 @@ void GameFormSpec::showPauseMenu()
 	os << "button_exit[0," << ypos << ";3.5," << button_height << ";btn_continue;"
 		// TRANSLATORS: Pause menu button, try to keep the translation short
 		<< strgettext("Continue") << "]";
-
-	if (!simple_singleplayer_mode) {
-		os << "button[0," << (ypos += button_height + spacing) << ";3.5," << button_height << ";btn_change_password;"
-			// TRANSLATORS: Pause menu button, try to keep the translation short
-			<< strgettext("Change Password") << "]";
-	}
-
-	os << "button[0," << (ypos += button_height + spacing) << ";3.5," << button_height << ";btn_settings;"
-		// TRANSLATORS: Try to keep the translation short
-		<< strgettext("Settings") << "]";
 
 #ifndef __ANDROID__
 #if USE_SOUND
@@ -547,16 +459,6 @@ bool GameFormSpec::handleCallbacks()
 		return false;
 	}
 
-	if (g_gamecallback->settings_requested) {
-		m_pause_script->open_settings();
-		g_gamecallback->settings_requested = false;
-	}
-
-	if (g_gamecallback->changepassword_requested) {
-		(void)make_irr<GUIPasswordChange>(guienv, guiroot, -1,
-				       &g_menumgr, m_client, texture_src);
-		g_gamecallback->changepassword_requested = false;
-	}
 
 	if (g_gamecallback->changevolume_requested) {
 		(void)make_irr<GUIVolumeChange>(guienv, guiroot, -1,

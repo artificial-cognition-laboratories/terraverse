@@ -239,9 +239,6 @@ keymap_chat (Open chat) key SYSTEM_SCANCODE_23
 #    Key for opening the chat window to type commands.
 keymap_cmd (Command) key SYSTEM_SCANCODE_56
 
-#    Key for opening the chat window to type local commands.
-keymap_cmd_local (Local command) key SYSTEM_SCANCODE_55
-
 keymap_rangeselect (Toggle unlimited view range) key
 
 keymap_freemove (Toggle fly) key SYSTEM_SCANCODE_14|GAMEPAD_BUTTON_13
@@ -1111,19 +1108,6 @@ ipv6_server (IPv6 server) bool true
 
 [*Server Security] [server]
 
-#    New users need to input this password.
-default_password (Default password) string
-
-#    If enabled, players cannot join without a password or change theirs to an empty password.
-disallow_empty_password (Disallow empty passwords) bool false
-
-#    The privileges that new users automatically get.
-#    See /privs in game for a full list on your server and mod configuration.
-default_privs (Default privileges) string interact, shout
-
-#    Privileges that players with basic_privs can grant
-basic_privs (Basic privileges) string interact, shout
-
 #    Server anticheat configuration.
 #    Flags are positive. Uncheck the flag to disable corresponding anticheat module.
 anticheat_flags (Anticheat flags) flags digging,interaction,movement digging,interaction,movement
@@ -1131,24 +1115,6 @@ anticheat_flags (Anticheat flags) flags digging,interaction,movement digging,int
 #    Tolerance of movement cheat detector.
 #    Increase the value if players experience stuttery movement.
 anticheat_movement_tolerance (Anticheat movement tolerance) float 1.0 1.0
-
-[**Client-side Modding]
-
-#    Restricts the access of certain client-side functions on servers.
-#    Combine the byteflags below to restrict client-side features, or set to 0
-#    for no restrictions:
-#    LOAD_CLIENT_MODS: 1 (disable loading client-provided mods)
-#    CHAT_MESSAGES: 2 (disable send_chat_message call client-side)
-#    READ_ITEMDEFS: 4 (disable get_item_def call client-side)
-#    READ_NODEDEFS: 8 (disable get_node_def call client-side)
-#    LOOKUP_NODES_LIMIT: 16 (limits get_node call client-side to
-#    csm_restriction_noderange)
-#    READ_PLAYERINFO: 32 (disable get_player_names call client-side)
-csm_restriction_flags (Client side modding restrictions) int 62 0 63
-
-#   If the CSM restriction for node range is enabled, get_node calls are limited
-#   to this distance from the player to the node.
-csm_restriction_noderange (Client-side node lookup range restriction) int 0 0 4294967295
 
 [**Chat]
 
@@ -1955,17 +1921,6 @@ mgvalleys_np_dungeons (Dungeon noise) noise_params_3d 0.9, 0.5, (500, 500, 500),
 
 [*Developer Options]
 
-#    Enable Lua modding support on client.
-#    This support is experimental and API can change.
-enable_client_modding (Client modding) [client] bool false
-
-#    Where to enable server-sent client-side modding (SSCSM).
-#    Warning: Experimental.
-enable_sscsm (Enable SSCSM) [client] enum nowhere nowhere,singleplayer,localhost,lan,everywhere
-
-#    Replaces the default main menu with a custom one.
-main_menu_script (Main menu script) [client] string
-
 [**Mod Security] [server]
 
 #    Comma-separated list of trusted mods that are allowed to bypass the Lua
@@ -2012,54 +1967,6 @@ random_mod_load_order (Random mod load order) [server] bool false
 
 #    Enable mod channels support.
 enable_mod_channels (Mod channels) [server] bool false
-
-[**Mod Profiler] [server]
-
-#    Load the game profiler to collect game profiling data.
-#    Provides a /profiler command to access the compiled profile.
-#    Useful for mod developers and server operators.
-profiler.load (Load the game profiler) bool false
-
-#    Disable if you only want to instrument with Tracy.
-profiler.measure (Measure time samples) bool true
-
-#    Capture Tracy zones with the profiler's instrumentation.
-#    You need to build with Tracy to use this, see doc/developing/profiling.md
-#    for details.
-profiler.tracy (Capture Tracy zones) bool false
-
-#    The default format in which profiles are being saved,
-#    when calling `/profiler save [format]` without format.
-profiler.default_report_format (Default report format) enum txt txt,csv,lua,json,json_pretty
-
-#    The file path relative to your world path in which profiles will be saved to.
-profiler.report_path (Report path) string
-
-#    Instrument the methods of entities on registration.
-instrument.entity (Entity methods) bool true
-
-#    Instrument the action function of Active Block Modifiers on registration.
-instrument.abm (Active Block Modifiers) bool true
-
-#    Instrument the action function of Loading Block Modifiers on registration.
-instrument.lbm (Loading Block Modifiers) bool true
-
-#    Instrument chat commands on registration.
-instrument.chatcommand (Chat commands) bool true
-
-#    Instrument global callback functions on registration.
-#    (anything you pass to a core.register_*() function)
-instrument.global_callback (Global callbacks) bool true
-
-#    Instrument builtin.
-#    This is usually only needed by core/builtin contributors
-instrument.builtin (Builtin) bool false
-
-#    Have the profiler instrument itself:
-#     * Instrument an empty function.
-#       This estimates the overhead, that instrumentation is adding (+1 function call).
-#     * Instrument the sampler being used to update the statistics.
-instrument.profiler (Profiler) bool false
 
 [**Engine Profiler] [common]
 

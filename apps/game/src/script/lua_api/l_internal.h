@@ -32,13 +32,7 @@
 
 /* In debug mode ensure no code tries to retrieve the server env when it isn't
  * actually available (in CSM) */
-#if CHECK_CLIENT_BUILD() && !defined(NDEBUG)
-#define DEBUG_ASSERT_NO_CLIENTAPI                    \
-	FATAL_ERROR_IF(getClient(L) != nullptr, "Tried " \
-		"to retrieve ServerEnvironment on client")
-#else
 #define DEBUG_ASSERT_NO_CLIENTAPI ((void)0)
-#endif
 
 // Retrieve ServerEnvironment pointer as `env` (no map lock)
 #define GET_ENV_PTR_NO_MAP_LOCK                              \

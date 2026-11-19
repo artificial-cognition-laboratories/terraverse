@@ -1,7 +1,5 @@
 set(BUILTIN_GAME_SRCS
 	game/async.lua
-	game/auth.lua
-	game/chat.lua
 	game/constants.lua
 	game/death_screen.lua
 	game/deprecated.lua
@@ -16,12 +14,10 @@ set(BUILTIN_GAME_SRCS
 	game/knockback.lua
 	game/misc.lua
 	game/misc_s.lua
-	game/privileges.lua
 	game/register.lua
 	game/sidecar.lua
 	game/matter.lua
 	game/planet.lua
-	game/rivers.lua
 	game/static_spawn.lua
 	game/voxelarea.lua
 	game/world.lua

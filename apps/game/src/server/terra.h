@@ -238,6 +238,13 @@ std::optional<TerraWeather> terraWeather(Server *server, const v3f &pos);
 // The weather on the world (server/weather.cpp): each player told what they stand in,
 // and snow, ice and thaw on the open ground round them.
 void terraStepWeather(Server *server, float dtime);
+// Whether terra generated this world, as a planet (a singlenode one, for checks, isn't).
+bool terraWorld(Server *server);
+// The river or lake at a position, as a line for chat; none where there's neither.
+std::optional<std::string> terraRiverLine(Server *server, const v3f &pos);
+// A storm or drought over the rivers round a position, in place of the weather, for a while
+// (rain in mm/h); radius 0 hands them back to it. Throws std::invalid_argument, said to the player.
+void terraForceRivers(Server *server, const v3f &pos, double radius_km, double hours, double rain);
 void terraAddWeatherModifiers(Server *server);
 // What the weather does to the node at `pos` (the top of the ground or water, open to
 // the sky), done: "snow", "melt", "freeze", "thaw", or "" for nothing.
