@@ -284,6 +284,7 @@ bun check:matter        # a real fire on a live server
 bun check:far           # far view against generated chunks
 bun check:mods          # TypeScript mods: terra's unit tests, terra prepare, then the sidecar in a headless server
 bun check:dev           # terra dev on a new mod: reloads, a content restart, a broken save, Ctrl-C
+bun check:registry      # terra against the ArcLabs staging backend (../arclabs: arc u): login, publish, refusals, install, a headless boot
 terral <args>           # terra from apps/cli source, against .output/bin's engine; the sidecar runs from source too (TERRA_CLI)
 bun perf:gen            # where making a world spends its time, by step, cold and warm at 50k and 100k (SIZES=, CODE=)
 bun palette             # re-bake palette.json after changing blocks, textures or species

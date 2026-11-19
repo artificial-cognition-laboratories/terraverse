@@ -36,7 +36,7 @@ describe("Cli", () => {
     })
 
     test("a designed command that isn't built says so", async () => {
-        const { code, out } = await run(["publish"])
+        const { code, out } = await run(["snapshot"])
         expect(code).toBe(1)
         expect(out).toContain("NOT_WIRED")
     })

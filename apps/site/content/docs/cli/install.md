@@ -32,6 +32,12 @@ a universe needs:
 The mod's settings are listed, so you know what [server.config.ts](/docs/server/setup#settings)
 can now choose.
 
+Mods come from the registry through bun: install adds one line to `bunfig.toml` pointing the
+mod's scope at it, and leaves the rest of the file alone. If anything fails, a mod that isn't
+published or a prefix that collides, `package.json` and `bunfig.toml` are put back as they were.
+
+The check against each world's saved blocks isn't built yet.
+
 ## Upgrading
 
 ```bash

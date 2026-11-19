@@ -9,6 +9,10 @@ import { InitCommand } from "./init"
 import { PlayCommand } from "./play"
 import { PrepareCommand } from "./prepare"
 import { RuntimeCommand } from "./runtime"
+import { AccountCommand } from "./account"
+import { InfoCommand } from "./info"
+import { InstallCommand } from "./install"
+import { PublishCommand } from "./publish"
 
 type Command = (args: Args) => Promise<number>
 
@@ -21,6 +25,10 @@ export function Commands(opts: { terra: TerraT; presentation: PresentationT; ver
     const init = InitCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare })
     const dev = DevCommand({ terra: opts.terra, presentation: opts.presentation })
     const play = PlayCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare })
+    const account = AccountCommand({ terra: opts.terra, presentation: opts.presentation })
+    const publish = PublishCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare })
+    const install = InstallCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare })
+    const info = InfoCommand({ terra: opts.terra, presentation: opts.presentation })
 
     const table: Record<string, Command> = {
         server: init.of("server"),
@@ -29,6 +37,14 @@ export function Commands(opts: { terra: TerraT; presentation: PresentationT; ver
         dev: dev.run,
         host: host.run,
         runtime: runtime.run,
+        login: account.login,
+        logout: account.logout,
+        whoami: account.whoami,
+        publish: publish.run,
+        install: install.run,
+        i: install.run,
+        info: info.info,
+        deprecate: info.deprecate,
         help: help.help,
         "--help": help.help,
         "-h": help.help,
@@ -54,4 +70,4 @@ export function Commands(opts: { terra: TerraT; presentation: PresentationT; ver
 export type CommandsT = ReturnType<typeof Commands>
 
 /** Designed (see the docs' CLI pages), not built. */
-const UNWIRED = ["install", "uninstall", "snapshot", "publish", "deploy"] as const
+const UNWIRED = ["uninstall", "snapshot", "deploy"] as const

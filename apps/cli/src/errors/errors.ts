@@ -205,6 +205,47 @@ const MAP = {
         description: "A Player outlives their connection. Check `player.connected` after an await.",
         source: "runtime", severity: "fatal", expected: true,
     },
+    // ── your account and the registry ──────────────────────────────────────
+    SIGNED_OUT: {
+        title: "You're not signed in",
+        description: "Publishing needs your ArcLabs account: run `terra login`.",
+        source: "cloud", severity: "fatal", expected: true,
+    },
+    LOGIN_EXPIRED: {
+        title: "The sign-in code expired",
+        description: "A code lasts a few minutes. Run `terra login` again and approve it in the browser before it runs out.",
+        source: "cloud", severity: "fatal", expected: true,
+    },
+    ACCOUNT_REFUSED: {
+        title: "Your sign-in was refused",
+        description: "The key terra holds is no longer accepted: it was revoked or it expired. Run `terra login` again.",
+        source: "cloud", severity: "fatal", expected: true,
+    },
+    REGISTRY_UNREACHABLE: {
+        title: "Can't reach the registry",
+        description: "The request didn't get an answer. Check the connection; ARCLABS_URL says which server terra talks to.",
+        source: "cloud", severity: "fatal", expected: true,
+    },
+    REGISTRY_REFUSED: {
+        title: "The registry refused it",
+        description: "The registry checked the request and said no. Its reason is below.",
+        source: "cloud", severity: "fatal", expected: true,
+    },
+    MOD_NOT_PUBLISHED: {
+        title: "No such mod on the registry",
+        description: "Nothing is published under that name, or the version asked for doesn't exist. Names are @scope/name.",
+        source: "cloud", severity: "fatal", expected: true,
+    },
+    MOD_TOO_NEW: {
+        title: "That mod needs a newer terra",
+        description: "It was built against a newer mod API than this terra has. Update Terraverse, or install an older version of the mod.",
+        source: "cloud", severity: "fatal", expected: true,
+    },
+    PUBLISH_INVALID: {
+        title: "This can't be published as it is",
+        description: "Something about the project stops it going to the registry. The detail says what to change.",
+        source: "manifest", severity: "fatal", expected: true,
+    },
 } as const satisfies Record<string, Entry>
 
 type Entry = Pick<AxonErrorLike, "title" | "description" | "source" | "severity"> & { expected?: true }

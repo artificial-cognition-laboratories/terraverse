@@ -74,6 +74,16 @@ terra whoami
 terra logout
 ```
 
+terra signs in with its own key, separate from the game's: the game's can only play, and
+terra's can publish. `ARCLABS_URL` points terra at another server (local staging is
+`http://localhost:3099`), with its own sign-in.
+
+```bash
+terra info @you/kilns                        # its versions, and the mod API each needs
+terra deprecate @you/kilns "use @you/furnaces"
+terra deprecate @you/kilns --undo
+```
+
 ## Scripting it
 
 `--json` makes any command print one line of JSON to stdout and nothing else. Errors go to

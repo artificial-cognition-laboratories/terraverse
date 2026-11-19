@@ -16,14 +16,22 @@ bump it.
 
 ## A mod
 
-Bundled with only what it imports: its server and client halves, its assets, and its
-`mod.config.ts`. Mods it depends on travel as names, installed by whoever installs yours.
+What its layout says belongs: `package.json`, `mod.config.ts`, `tsconfig.json`, the README and
+licence, and `server/`, `client/`, `shared/` and `assets/`. Never `.terra/`, `node_modules/`,
+tests or hidden files. Mods it depends on travel as names, installed by whoever installs yours.
+
+Its name, version, description and dependencies come from `package.json` and nowhere else:
+a `mod.config.ts` that sets any of them is refused. Every dependency is pinned to an exact
+version.
+
+The README goes up with it, and so do the images and videos it links to by relative path
+(`![a kiln](docs/kiln.png)`). They're stored beside the version, never inside the mod, so
+installing it never downloads them.
 
 ## A server
 
-Its rules and its starting state: `package.json`, `server.config.ts`, `mods/` and `start/`.
-Never `save/`. Its mods travel as names, installed when someone opens it. Remove
-`"private": true` from `package.json` first, so a server is never published by accident.
+Not built yet. A server will publish its rules and its starting state, once worlds can
+travel as their changes to the seed.
 
 ## Before it goes
 
@@ -34,5 +42,5 @@ yours, the version is new, and the build passes. A refusal says which.
 
 | Flag | Description |
 |---|---|
-| `--dry-run` | Show what would be published, and publish nothing |
+| `--dry-run` | List every file and README image that would go, and publish nothing |
 | `--json` | Print one line of JSON to stdout and nothing else |

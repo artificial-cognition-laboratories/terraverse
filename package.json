@@ -21,6 +21,7 @@
     "check:far": "bash scripts/far-check.sh",
     "check:mods": "bash scripts/mods-check.sh",
     "check:dev": "bash scripts/dev-check.sh",
+    "check:registry": "bash scripts/registry-check.sh",
     "perf:gen": "bash scripts/perf-gen.sh",
     "shots:map": "bash scripts/map-shots.sh",
     "check:palette": "bash scripts/palette.sh --check",

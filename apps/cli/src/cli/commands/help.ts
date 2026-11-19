@@ -17,7 +17,13 @@ export function HelpCommand(opts: { presentation: PresentationT; version: string
             `      --in <server>                ${r.c.dim("a mod, inside a copy of a real server")}`,
             `  terra host [folder] [--port n]   ${r.c.dim("prepare the nearest server, then run it")}`,
             "",
-            r.c.dim("Not built yet: install, uninstall, snapshot, publish, deploy."),
+            `  terra install <@scope/name>…     ${r.c.dim("add published mods, pinned (@version for one; --yes for a major upgrade)")}`,
+            `  terra publish [--dry-run]        ${r.c.dim("put the mod you stand in on the registry")}`,
+            `  terra info <@scope/name>         ${r.c.dim("a published mod: its versions and what they need")}`,
+            `  terra deprecate <@scope/name> <reason> | --undo`,
+            `  terra login · logout · whoami    ${r.c.dim("your ArcLabs account (ARCLABS_URL picks the server)")}`,
+            "",
+            r.c.dim("Not built yet: uninstall, snapshot, deploy."),
         ]
         for (const line of lines) opts.presentation.line(line)
         return 0
