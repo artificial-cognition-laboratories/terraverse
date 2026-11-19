@@ -15,6 +15,8 @@ bash scripts/release/install-check.sh
 
 cmake -S . -B .output/build -DRUN_IN_PLACE=TRUE
 cmake --build .output/build -j"$(nproc)"
+# terra runs the game's TypeScript mods beside the engine; the boot below needs it, as CI builds it.
+(cd apps/cli && bun install --frozen-lockfile && bun run build)
 bash scripts/stage-runtime.sh
 # Tests skipped by name pending their job, as CI's release run skips them.
 export TF_TEST_SKIP="$(bash scripts/test/skips.sh)"
