@@ -132,14 +132,7 @@ jobs:
             libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2 libxkbcommon0
           pkg=".output/releases/terraverse-$VERSION-linux-x86_64"
           if LD_LIBRARY_PATH="$pkg/lib" ldd "$pkg/bin/luanti" | grep "not found"; then exit 1; fi
-          "$pkg/terraverse" --version | tee /dev/stderr | grep -F "$VERSION"
-          set +e
-          export TERRAVERSE_HOME="$RUNNER_TEMP/home"
-          timeout 20 "$pkg/terraverse" --server --gameid terrafirma --world "$RUNNER_TEMP/world" --world-code TF24.dGVycmE --port 30500 2>&1 | tee boot.log
-          set -e
-          grep -q 'listening on' boot.log
-          ! grep -q 'ERROR\[' boot.log
-          test -f "$TERRAVERSE_HOME/logs/debug.txt" # player data left the package
+          apps/game/scripts/release/smoke-server.sh "$pkg/terraverse" "$VERSION"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -254,23 +247,8 @@ jobs:
       # The package on its own: it starts, says its version, and a world boots
       # with the player's data outside the package.
       - name: Smoke test the package
-        shell: pwsh
-        run: |
-          $pkg = ".output\releases\terraverse-$env:VERSION-windows-x86_64"
-          $exe = "$pkg\bin\terraverse.exe"
-          $env:TERRAVERSE_HOME = "$env:RUNNER_TEMP\home"
-          Start-Process $exe -ArgumentList '--version' -Wait -NoNewWindow -RedirectStandardOutput version.out -RedirectStandardError version.err
-          Get-Content version.out, version.err
-          if (-not (Select-String -Path version.out, version.err -SimpleMatch $env:VERSION -Quiet)) { throw "--version doesn't say $env:VERSION" }
-          $p = Start-Process $exe -ArgumentList '--server', '--gameid', 'terrafirma', '--world', "$env:RUNNER_TEMP\world", '--world-code', 'TF24.dGVycmE', '--port', '30500' `
-            -PassThru -NoNewWindow -RedirectStandardOutput boot.out -RedirectStandardError boot.log
-          if (-not $p.WaitForExit(20000)) { Stop-Process -Id $p.Id -Force }
-          Get-Content boot.out, boot.log
-          if (-not (Select-String -Path boot.out, boot.log -SimpleMatch 'listening on' -Quiet)) { throw "the server didn't start" }
-          if (Select-String -Path boot.out, boot.log -SimpleMatch 'ERROR[' -Quiet) { throw "errors booting a world" }
-          if (-not (Test-Path "$env:TERRAVERSE_HOME\logs\debug.txt")) { throw "player data didn't leave the package" }
-          # the game's TypeScript mods ran: terra.exe started over its named pipe
-          if (-not (Select-String -Path boot.out, boot.log, "$env:TERRAVERSE_HOME\logs\debug.txt" -SimpleMatch 'blocks from' -Quiet)) { throw "the game's TypeScript mods didn't load" }
+        shell: bash
+        run: apps/game/scripts/release/smoke-server.sh ".output/releases/terraverse-$VERSION-windows-x86_64/bin/terraverse.exe" "$VERSION"
 
       - uses: actions/upload-artifact@v4
         with:
