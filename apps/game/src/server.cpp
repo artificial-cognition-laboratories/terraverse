@@ -797,6 +797,7 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 		// Send blocks to clients
 		SendBlocks(dtime);
 	}
+	m_client_count.store(m_clients.getClientIDs(CS_Created).size(), std::memory_order_relaxed); // Terra Firma: clientCount()
 
 	// Terra Firma: answers on joiners' tickets, admitted under the environment lock, as
 	// packet handling is.
@@ -3527,11 +3528,6 @@ void Server::setGate(std::unique_ptr<online::Gate> gate)
 void Server::setStrayHandler(con::IConnection::StrayHandler handler)
 {
 	m_con->setStrayHandler(std::move(handler));
-}
-
-size_t Server::clientCount()
-{
-	return m_clients.getClientIDs(CS_Created).size();
 }
 
 void Server::admit(session_t peer_id, bool ok, const std::string &reason)

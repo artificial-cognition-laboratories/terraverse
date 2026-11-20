@@ -164,7 +164,7 @@ View::View(scene::ISceneManager *smgr, IShaderSource *ssrc, ITextureSource *tsrc
 	m_radius(atlas.body(body).params().radius),
 	m_grids(atlas.body(body).grids()),
 	m_palette(std::make_unique<Palette>(Palette::live(ndef, tsrc, blocksIn(horizon.content)))),
-	m_tiles(std::make_unique<Tiles>(atlas, body, horizon, *m_palette, Tiles::threadsFor(0.5f))), // half the machine: the horizon is what a world is first seen by
+	m_tiles(std::make_unique<Tiles>(atlas, body, horizon, *m_palette, Tiles::threadsFor(0.5f), smgr->getVideoDriver())), // half the machine: the horizon is what a world is first seen by
 	m_state(std::make_shared<DrawState>()),
 	m_mask(std::make_unique<Mask>(smgr->getVideoDriver(), atlas, body))
 {
@@ -341,8 +341,18 @@ void View::render()
 			set = true;
 		}
 	};
-	// `under`: the near world's ground, unmasked, for the backdrop (only near it)
-	const auto draw = [&](const std::vector<Tiles::Drawn> &tiles, bool under) {
+	// Each tile's place and whether it's in sight, found once a frame for the
+	// passes below (each found them again: three times over every tile, most of
+	// the far view's time drawing). `near`: how near its nearest point may be.
+	struct Placed
+	{
+		const Tiles::Drawn *tile;
+		core::matrix4 world;
+		float near;
+	};
+	const auto placed = [&](const std::vector<Tiles::Drawn> &tiles) {
+		std::vector<Placed> out;
+		out.reserve(tiles.size());
 		for (const Tiles::Drawn &tile : tiles) {
 			const std::optional<core::matrix4> world = m_view->place(tile.middle);
 			if (!world)
@@ -357,17 +367,31 @@ void View::render()
 			const float reach = box.getExtent().getLength() / 2;
 			if (culled(box.getCenter(), reach))
 				continue;
-			if (under && box.getCenter().getDistanceFrom(camera->getAbsolutePosition()) - reach > m_state->cut)
+			out.push_back({ &tile, *world, box.getCenter().getDistanceFrom(camera->getAbsolutePosition()) - reach });
+		}
+		return out;
+	};
+	// `under`: the near world's ground, unmasked, for the backdrop (only near it)
+	const auto draw = [&](const std::vector<Placed> &tiles, bool under) {
+		for (const Placed &p : tiles) {
+			if (under && p.near > m_state->cut)
 				continue;
-			driver->setTransform(video::ETS_WORLD, *world);
-			masked(tile.key);
+			driver->setTransform(video::ETS_WORLD, p.world);
+			masked(p.tile->key);
 			if (under)
 				m_state->mask = 0;
-			m_state->level = m_debug_levels ? (float)tile.key.level : -1; // (the shader's told at each draw)
-			for (const auto &part : tile.parts)
+			m_state->level = m_debug_levels ? (float)p.tile->key.level : -1; // (the shader's told at each draw)
+			for (const auto &part : p.tile->parts)
 				driver->drawMeshBuffer(part.get());
 		}
 	};
+	const std::vector<Tiles::Drawn> behind_tiles = m_tiles->behind(), drawn_tiles = m_tiles->drawn();
+	std::vector<Placed> behind, drawn;
+	{
+		TF_ZONE("Far view: place");
+		behind = placed(behind_tiles);
+		drawn = placed(drawn_tiles);
+	}
 	// The backdrop: what shows only through gaps in the land, its depth dropped
 	// after, so it can never cover any. The stand-ins (where a finer tile isn't
 	// built yet) and every tile's skirts (far/mesh.cpp), in the far view's own
@@ -381,16 +405,22 @@ void View::render()
 			std::max(m_open * nearShare(camera) * BS, 0.1f * BS), std::max(camera->getFarValue(), m_reach));
 	driver->setMaterial(m_material);
 	driver->setTransform(video::ETS_PROJECTION, own);
-	m_state->behind = 1;
-	m_state->parts = 2;
-	draw(m_tiles->behind(), false);
-	m_state->behind = 0;
-	m_state->parts = 1;
-	draw(m_tiles->drawn(), false);
+	{
+		TF_ZONE("Far view: backdrop");
+		m_state->behind = 1;
+		m_state->parts = 2;
+		draw(behind, false);
+		m_state->behind = 0;
+		m_state->parts = 1;
+		draw(drawn, false);
+	}
 	driver->clearBuffers(video::ECBF_DEPTH);
 	driver->setTransform(video::ETS_PROJECTION, projection);
-	m_state->parts = 2;
-	draw(m_tiles->drawn(), true);
+	{
+		TF_ZONE("Far view: under");
+		m_state->parts = 2;
+		draw(drawn, true);
+	}
 	m_state->mask = 0;
 	driver->clearBuffers(video::ECBF_DEPTH);
 	// The land, alone (no stand-ins, no skirts: a stand-in drawn level with it
@@ -401,7 +431,10 @@ void View::render()
 	// The near world draws over it, and only where it has land.
 	driver->setTransform(video::ETS_PROJECTION, own);
 	m_state->parts = 0;
-	draw(m_tiles->drawn(), false);
+	{
+		TF_ZONE("Far view: land");
+		draw(drawn, false);
+	}
 	driver->setTransform(video::ETS_PROJECTION, projection);
 	driver->clearBuffers(video::ECBF_DEPTH);
 }

@@ -339,6 +339,77 @@ body's land and the sea floor keep their noise. Gone:
 Missed, to come back on the amplifier if renders say so: rias and fjords at
 the coast, rock and snow by local slope, scree.
 
+### Phase 6b: the land from its streams
+Below the grid, the streams were a lattice (`channels.cpp`) and the land an
+erosion filter (`amplify`), neither knowing the other: streams ran straight
+over ridges the filter had carved. Now the streams come first and the land
+is cut from them, after Dendry (Gaillard, Peytavie, Galin et al. 2019):
+- **Level 0 is the grid's tree, as main stems.** Each cell carries on down
+  its biggest donor's line, so a river is one smoothed run across many
+  cells; a stem joins its receiver's stem where nearest, trunks first.
+- **Finer levels**, each a lattice half as wide (Horton's ×4 a level): a
+  hashed point walks down the land the coarser levels carved, a quarter
+  lattice a step, till a coarser channel takes it. The walk is the branch,
+  so it follows the land with no bending and no crossing test; a pure
+  function of the point. Dendry joins by nearest distance; that sent
+  branches over ridges into the next valley (a third perched above their
+  land), so descent replaced it.
+- **The land** is carved level by level: each branch near enough cuts a
+  valley into what the coarser left (a floor its channel wide, sides
+  t(2 − t) over a half-width, never past a hillside's gradient), the land the
+  lowest of them, so ridges stand where valleys meet. Taking only the
+  nearest branch a level made cliffs where two met; a smoothstep side made
+  terraces.
+- **Beds fall by construction**: along a walk, the carved land less the
+  level's incision, a running minimum, never under what it joins.
+- **Water** where area × rain passes one threshold (`WET`, ~0.5 km² humid)
+  at every level; width by hydraulic geometry, w ∝ √(area × rain).
+
+**Prototype** (`scripts/terragen-check/streams.cpp`, floats on a flat patch):
+on TF24.dGVycmE at 628 320 blocks round, the range (30 km) and the biggest
+river (30 km): bed rises 0; joins that never reached a channel 0.7% and
+0.4%; stream pixels whose land is under their water 8.4% (p50 3 blocks) and
+1.5% (p50 1.7). Set beside the game's columns (`region.cpp`) the same range
+reads as real drainage; today's is the filter's grooves crossed by the
+lattice.
+
+**Open before porting:**
+- Perching left in ranges: a finer dry valley cut beside a wet channel
+  lowers the land under it.
+- Speed: the tree takes 20–26 s for a 30 km patch, every walk step four
+  carves. The engine needs the tree cached by lattice cell (pure, so
+  cacheable) and a cheaper gradient.
+- Lattice in three dimensions on the sphere (as `amplify`), fixed point.
+- No ponds yet (a stalled walk is where one belongs), no river types by
+  place (braided, meandering, gorge), and the finest level is 47 blocks:
+  hillside texture under it is the amplifier's to keep.
+- Then: cut `channels.cpp` and the amplifier's own gullies.
+
+**In the engine** (`terragen/streams.*`, `streams_grow.cpp`; `channels.*` gone):
+fixed point, a lattice of cubes on the sphere, branches kept per cube and
+indexed a block of 4³ cubes at a time. What the port changed:
+- **The grid's height is a cell's mean, not its valley floor.** Tied to it,
+  every branch was laid flat at its trunk's level and the land collapsed onto
+  it. Each cell's floor (`Streams::floor`) is now its surface less a valley's
+  depth at its scale, falling downstream, none at a lake or the sea;
+  `linkHeight` reads it, so the drawn rivers sit on the same floors.
+- **A branch's bed rises from its join at its channel's slope** (k_s · cell
+  / L), held under the land before its valleys; its walk still follows the
+  carved land.
+- The erosion filter (`amplify`) keeps its ruggedness up the hillsides and
+  ridges, none on a valley's floor (by `Read::hillside`).
+- Tried and dropped: the land as the lowest of every channel's rising side
+  (relief as hillside × spacing). A side's reach outran the cubes a column
+  looks through: scarps, plateaus, and walks straight down the cones.
+- Rivers' warp in `ground()` was 4× what `unwarped()` takes off (no
+  `>> (2·FRAC − PLACE_FRAC)`): fixed, so streams end on the water.
+- Cost, TF24.dGVycmE at 628 320 round, a column a block (the generator's
+  read): 43 µs cold, 39 warm (HEAD 24); a 64-block far tile 54 / 29 (HEAD
+  33 / 29). A far tile carves only levels four tiles across or wider.
+- `testRangesAtEarthsScale`: 304 m of relief in 10 km against 500 (skipped,
+  phase 6b's): its windows sit on cell centres, where every trunk starts.
+- Region renders still read steep: slope p90 58° in the range (real 30–40°).
+
 ### Phase 7: speed
 Aim: a settings change shows its land in about a second.
 - **Steady state directly.** At equilibrium with n = 1 the land is a single

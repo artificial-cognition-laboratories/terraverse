@@ -111,6 +111,33 @@ const core::matrix4 *AtlasView::transform(v3s16 block)
 	return it->second ? &*it->second : nullptr;
 }
 
+std::optional<v3f> AtlasView::where(v3s16 block, v3f local)
+{
+	if (const auto known = m_frame.find(block); known != m_frame.end()) {
+		if (!known->second)
+			return std::nullopt;
+		v3f out;
+		known->second->transformVect(out, local);
+		return out;
+	}
+	if (!m_eye)
+		return std::nullopt;
+	// not charted yet: the mesh queue's preparer does it off this thread, and
+	// till then the block has no mesh to draw. Charted here, blocks just come
+	// were the draw list's spikes
+	if (!m_blocks.count(block) && !m_atlas.prepared({ block.X, block.Y, block.Z }))
+		return std::nullopt;
+	const auto &c = chart(block);
+	if (!c || *m_atlas.bodyAt(c->cell) != m_eye->body)
+		return std::nullopt; // as transform: another body's, or no cell
+	const std::optional<core::matrix4> w = place(c->centre);
+	if (!w)
+		return std::nullopt;
+	v3f out;
+	w->transformVect(out, local);
+	return out;
+}
+
 std::optional<core::matrix4> AtlasView::place(const terragen::Atlas::Vec &centre) const
 {
 	if (!m_eye)

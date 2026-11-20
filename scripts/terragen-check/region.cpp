@@ -245,6 +245,9 @@ int main(int argc, char **argv)
 	}
 	std::printf("land %.0f%% of cells · %.2f blocks a metre · radius %.0f blocks\n", 100.0 * land.size() / g->size(), perM, R);
 	if (!std::getenv("PROTO")) { // (the prototype doesn't build the game's columns)
+		// (read at a cell's width: a column alone at full detail grows its
+		// streams' whole tree round it, every one somewhere new)
+		World::Coarse wide(world, (int64_t)(World::cellBlocksOf(code) >> 16));
 		std::vector<double> blocks;
 		for (int32_t i = 0; i < g->size(); i += 7)
 			if (g->base[i] >= 0)

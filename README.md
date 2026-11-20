@@ -13,5 +13,3 @@
 ```bash
 curl -fsSL https://terraverse.arclabs.it/install.sh | sh
 ```
-
-

@@ -21,6 +21,8 @@
 #include <string>
 #include <thread>
 #include "profiler.h"
+#include "trace/trace.h"
+#include <IVideoDriver.h>
 #include "terragen/parallel.h"
 
 namespace far {
@@ -37,6 +39,74 @@ static constexpr u32 KEEP_UPDATES = 120; // a tile wanted this lately isn't evic
 static constexpr float STAY_WHOLE = 0.85f;
 // How many levels finer a tile not built yet looks for finer ones to stand in for it.
 static constexpr s32 FINER_DEPTH = 3;
+
+/*
+	A tile's mesh as it's installed: one buffer if it fits 16-bit indices,
+	the quarters' ranges in it (four a tile, a fine view was thousands of
+	draws a frame, and the driver looks over every buffer it holds each
+	frame: sprint 114), else its parts as they are; and each buffer's own
+	colours, kept for a tint. Packed by the worker that built it: done in
+	install(), it was most of the far view's spikes on the frame's thread.
+*/
+namespace {
+
+struct Packed
+{
+	struct Range
+	{
+		u32 v0 = 0, v1 = 0, i0 = 0, i1 = 0;
+	};
+	bool merged = false;
+	std::vector<Mesh::Part> parts; // merged: one, its quarter unused
+	std::array<Range, 4> ranges;   // merged: each quarter's in it
+	std::vector<std::vector<video::SColor>> own; // each part's
+	std::vector<aabb3f> boxes; // each part's bounds
+};
+
+Packed pack(Mesh mesh)
+{
+	Packed out;
+	size_t all = 0;
+	for (const Mesh::Part &part : mesh.parts)
+		all += part.vertices.size();
+	if (all <= 65536) {
+		Mesh::Part one;
+		one.vertices.reserve(all);
+		for (u8 q = 0; q < 4; q++) {
+			Packed::Range &range = out.ranges[q];
+			range.v0 = (u32)one.vertices.size();
+			range.i0 = (u32)one.indices.size();
+			for (const Mesh::Part &part : mesh.parts) {
+				if (part.quarter != q)
+					continue;
+				const u16 base = (u16)one.vertices.size();
+				one.vertices.insert(one.vertices.end(), part.vertices.begin(), part.vertices.end());
+				for (u16 i : part.indices)
+					one.indices.push_back((u16)(base + i));
+			}
+			range.v1 = (u32)one.vertices.size();
+			range.i1 = (u32)one.indices.size();
+		}
+		out.merged = true;
+		out.parts.push_back(std::move(one));
+	} else {
+		out.parts = std::move(mesh.parts);
+	}
+	for (const Mesh::Part &part : out.parts) {
+		std::vector<video::SColor> own;
+		own.reserve(part.vertices.size());
+		for (const Vertex &v : part.vertices)
+			own.push_back(v.Color);
+		out.own.push_back(std::move(own));
+		aabb3f box(part.vertices.empty() ? v3f() : part.vertices.front().Pos);
+		for (const Vertex &v : part.vertices)
+			box.addInternalPoint(v.Pos);
+		out.boxes.push_back(box);
+	}
+	return out;
+}
+
+} // namespace
 
 /*
 	What the workers share: copies of what they build from, the queue, the
@@ -57,7 +127,7 @@ public:
 	struct Result
 	{
 		TileKey key;
-		Mesh mesh;
+		Packed mesh;
 		bool sketch = false; // a stand-in: the tile itself is still to build
 	};
 
@@ -142,7 +212,7 @@ public:
 					std::lock_guard kept(m_mutex);
 					m_kept.insert(id(job.key));
 				}
-				r.mesh = onPlanet(*tile);
+				r.mesh = pack(onPlanet(*tile));
 			} catch (const std::exception &e) {
 				lock.lock();
 				m_error = e.what();
@@ -241,12 +311,14 @@ unsigned Tiles::threadsFor(float share)
 	return std::max(1u, (unsigned)(cores * share));
 }
 
-Tiles::Tiles(const planet::Atlas &atlas, int body, const Horizon &horizon, const Palette &palette, unsigned threads) :
+Tiles::Tiles(const planet::Atlas &atlas, int body, const Horizon &horizon, const Palette &palette, unsigned threads,
+		video::IVideoDriver *driver) :
 	m_atlas(atlas),
 	m_horizon(horizon),
 	m_tiling(atlas.body(body)),
 	m_workers(std::make_unique<Workers>(m_atlas, body, m_horizon, palette, m_tiling, threads)),
-	m_coarse(std::make_unique<terragen::Step>(horizon.code, "coarse planet", (int64_t)m_tiling.roots().size()))
+	m_coarse(std::make_unique<terragen::Step>(horizon.code, "coarse planet", (int64_t)m_tiling.roots().size())),
+	m_driver(driver)
 {
 }
 
@@ -254,17 +326,45 @@ Tiles::~Tiles() = default;
 
 void Tiles::update(const Eye &eye)
 {
+	// Choosing walks the tree from every root, each tile weighed for distance
+	// and sight: most of the far view's time each frame, standing still too,
+	// to choose what it chose before. Only when the eye's moved, or a tile's
+	// come or gone; otherwise only finished tiles are taken.
+	if (m_changed || !still(eye))
+		choose(eye);
+	{
+		TF_ZONE("Far view: install");
+		m_changed |= install();
+	}
+	if (m_coarse && based()) {
+		m_coarse.reset();
+		actionstream << "far: " << m_horizon.code << " coarse planet there; " << terragen::breakdown(terragen::making(m_horizon.code)) << std::endl;
+	}
+	{
+		TF_ZONE("Far view: repaint");
+		// (repainting lets the stand-ins' quarters go: chosen again, they're made again)
+		m_changed |= m_swept != m_tints;
+		repaint();
+	}
+}
+
+void Tiles::choose(const Eye &eye)
+{
 	m_frame++;
 	m_draw.clear();
 	m_behind.clear();
 	std::vector<std::pair<float, Key>> want;
-	for (const TileKey &root : m_tiling.roots())
-		choose(Key(root), eye, m_draw, want);
+	{
+		TF_ZONE("Far view: choose");
+		for (const TileKey &root : m_tiling.roots())
+			choose(Key(root), eye, m_draw, want);
+	}
 
 	// the roots, everywhere, before anything: a coarse planet always there to
 	// stand in while the eye's own tiles are built (turning never opens holes).
 	// Sketched first, all of them, so the whole planet shows in a fraction of
 	// the time; then built properly
+	TF_ZONE("Far view: roots");
 	std::set<Key> sketches;
 	for (const TileKey &root : m_tiling.roots()) {
 		Entry &e = m_tiles[Key(root)];
@@ -282,22 +382,42 @@ void Tiles::update(const Eye &eye)
 	}
 	m_pending = want.size();
 	std::sort(want.begin(), want.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
-	std::vector<Workers::Job> jobs;
-	jobs.reserve(want.size());
-	for (const auto &w : want)
-		jobs.push_back({ w.second.tile(), sketches.count(w.second) > 0 });
-	m_workers->want(jobs);
-
-	for (const auto &[key, child] : m_behind)
-		quarter(m_tiles.at(key), child);
-	install();
-	if (m_coarse && based()) {
-		m_coarse.reset();
-		actionstream << "far: " << m_horizon.code << " coarse planet there; " << terragen::breakdown(terragen::making(m_horizon.code)) << std::endl;
+	{
+		TF_ZONE("Far view: want");
+		std::vector<Workers::Job> jobs;
+		jobs.reserve(want.size());
+		for (const auto &w : want)
+			jobs.push_back({ w.second.tile(), sketches.count(w.second) > 0 });
+		m_workers->want(jobs);
 	}
-	repaint();
-	if (m_frame % 60 == 0)
-		evict();
+
+	{
+		TF_ZONE("Far view: quarter");
+		for (const auto &[key, child] : m_behind)
+			quarter(m_tiles.at(key), child);
+	}
+	m_chosen_for = eye;
+	m_changed = false;
+	if (m_frame % 60 == 0) {
+		TF_ZONE("Far view: evict");
+		m_changed |= evict();
+	}
+}
+
+bool Tiles::still(const Eye &eye) const
+{
+	if (!m_chosen_for)
+		return false;
+	const Eye &was = *m_chosen_for;
+	constexpr double MOVED = 0.01, TURNED = 1e-5; // blocks; of a unit vector
+	const auto off = [](const Tiling::Vec &a, const Tiling::Vec &b) {
+		return std::max({ std::abs(a.x - b.x), std::abs(a.y - b.y), std::abs(a.z - b.z) });
+	};
+	return off(eye.at, was.at) < MOVED && std::abs(eye.altitude - was.altitude) < MOVED
+			&& eye.cut == was.cut && eye.range == was.range && eye.split == was.split && eye.keep_fine == was.keep_fine
+			&& off(eye.heading, was.heading) < TURNED && off(eye.look, was.look) < TURNED
+			&& off(eye.right, was.right) < TURNED && off(eye.upward, was.upward) < TURNED
+			&& eye.wide == was.wide && eye.high == was.high;
 }
 
 float Tiles::basedShare() const
@@ -480,73 +600,40 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 	return false;
 }
 
-void Tiles::install()
+bool Tiles::install()
 {
+	bool took = false;
 	const auto start = std::chrono::steady_clock::now();
 	while (std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count() < INSTALL_MS) {
 		std::optional<Workers::Result> result = m_workers->take();
 		if (!result)
-			return;
+			return took;
+		took = true;
 		Entry &e = m_tiles[Key(result->key)];
 		m_bytes -= e.bytes;
 		e.bytes = 0;
 		e.parts.clear();
 		for (auto &q : e.quarters)
 			q.clear();
-		e.own.clear();
-		e.merged = false;
-		// one buffer for all of it if it fits 16-bit indices, quarter by
-		// quarter: four a tile, a fine view was thousands of draws a frame,
-		// and the driver looks over every buffer it holds each frame (sprint 114)
-		size_t all = 0;
-		for (const Mesh::Part &part : result->mesh.parts)
-			all += part.vertices.size();
-		if (all <= 65536) {
+		Packed &packed = result->mesh;
+		e.merged = packed.merged;
+		e.own = std::move(packed.own);
+		for (u8 q = 0; q < 4; q++)
+			e.ranges[q] = { packed.ranges[q].v0, packed.ranges[q].v1, packed.ranges[q].i0, packed.ranges[q].i1 };
+		for (size_t p = 0; p < packed.parts.size(); p++) {
+			Mesh::Part &part = packed.parts[p];
 			auto buffer = make_irr<TileBuffer>();
-			auto &vertices = buffer->Vertices->Data;
-			auto &indices = buffer->Indices->Data;
-			vertices.reserve(all);
-			for (u8 q = 0; q < 4; q++) {
-				Entry::Range &range = e.ranges[q];
-				range.v0 = (u32)vertices.size();
-				range.i0 = (u32)indices.size();
-				for (const Mesh::Part &part : result->mesh.parts) {
-					if (part.quarter != q)
-						continue;
-					const u16 base = (u16)vertices.size();
-					vertices.insert(vertices.end(), part.vertices.begin(), part.vertices.end());
-					for (u16 i : part.indices)
-						indices.push_back((u16)(base + i));
-				}
-				range.v1 = (u32)vertices.size();
-				range.i1 = (u32)indices.size();
-			}
-			std::vector<video::SColor> own;
-			own.reserve(vertices.size());
-			for (const Vertex &v : vertices)
-				own.push_back(v.Color);
-			e.own.push_back(std::move(own));
-			e.bytes += vertices.size() * sizeof(Vertex) + indices.size() * sizeof(u16);
-			buffer->recalculateBoundingBox();
-			buffer->setHardwareMappingHint(scene::EHM_STATIC);
-			e.parts.push_back(std::move(buffer));
-			e.merged = true;
-		}
-		for (Mesh::Part &part : result->mesh.parts) {
-			if (e.merged)
-				break;
-			auto buffer = make_irr<TileBuffer>();
-			std::vector<video::SColor> own;
-			own.reserve(part.vertices.size());
-			for (const Vertex &v : part.vertices)
-				own.push_back(v.Color);
-			e.own.push_back(std::move(own));
 			e.bytes += part.vertices.size() * sizeof(Vertex) + part.indices.size() * sizeof(u16);
 			buffer->Vertices->Data = std::move(part.vertices);
 			buffer->Indices->Data = std::move(part.indices);
-			buffer->recalculateBoundingBox();
+			buffer->setBoundingBox(packed.boxes[p]); // (found by the worker)
 			buffer->setHardwareMappingHint(scene::EHM_STATIC);
-			e.quarters[part.quarter].push_back(buffer);
+			if (m_driver) {
+				m_driver->updateHardwareBuffer(buffer->getVertexBuffer());
+				m_driver->updateHardwareBuffer(buffer->getIndexBuffer());
+			}
+			if (!e.merged)
+				e.quarters[part.quarter].push_back(buffer);
 			e.parts.push_back(std::move(buffer));
 		}
 		m_bytes += e.bytes;
@@ -558,6 +645,7 @@ void Tiles::install()
 		e.ready = true;
 		e.sketch = result->sketch;
 	}
+	return took;
 }
 
 void Tiles::quarter(Entry &e, s32 child)
@@ -642,15 +730,16 @@ void Tiles::paint(const Key &key, Entry &e) const
 			q.clear(); // (made again from the repainted buffer when they're wanted)
 }
 
-void Tiles::evict()
+bool Tiles::evict()
 {
 	if (m_bytes <= KEEP_BYTES)
-		return;
+		return false;
 	// the least recently wanted first, down to the budget; nothing wanted
 	// lately (the roots are wanted every update: kept). Not just this update's:
 	// a tile drawn whole for an update doesn't want its children, and over the
 	// budget they went, so the next it split again and found them gone: its
 	// oldest kept ancestor stood in, a kilometre-wide tile flashing at the horizon.
+	bool gone = false;
 	std::vector<std::pair<u32, Key>> old;
 	for (const auto &[key, e] : m_tiles)
 		if (e.used + KEEP_UPDATES < m_frame)
@@ -662,7 +751,9 @@ void Tiles::evict()
 		auto it = m_tiles.find(key);
 		m_bytes -= it->second.bytes;
 		m_tiles.erase(it);
+		gone = true;
 	}
+	return gone;
 }
 
 } // namespace far

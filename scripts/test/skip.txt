@@ -6,3 +6,4 @@ TestTerragen.testRanges            .agents/jobs/terragen-sprint-116-red-tests.md
 TestTerragen.testDeterminismGolden .agents/jobs/terragen-sprint-116-red-tests.md  (golden rebaked at TF25, sprint 116's end)
 TestFar.testNoHolesFromAbove       .agents/jobs/testing-far-scale-red.md          (a slit at a steep tile corner, 1 ray of 40000)
 TestScale.testEverySize            .agents/jobs/testing-far-scale-red.md          (block-wide gorges at radius 1M, sprint 116)
+TestTerragen.testRangesAtEarthsScale .agents/jobs/terragen-sprint-116-red-tests.md  (relief from the streams: median 304 m of 500 in 10 km, sprint 116 phase 6b)

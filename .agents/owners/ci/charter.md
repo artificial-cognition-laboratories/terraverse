@@ -91,6 +91,8 @@ say so in the report.
 
 (The developer adds lines here. Each is a hard no.)
 
+## Questions from Cody (user)
+
 ## Questions for the developer
 
 (Append questions here; the developer answers inline.)

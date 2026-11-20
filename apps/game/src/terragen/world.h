@@ -4,7 +4,7 @@
 #pragma once
 
 #include "amplify.h"
-#include "channels.h"
+#include "streams.h"
 #include "code.h"
 #include "fixed.h"
 #include "geology.h"
@@ -303,8 +303,8 @@ public:
 	int64_t riverWidth(int64_t area) const;
 	// blocks a metre of height is (blocksPerMetre)
 	fix metre() const { return m_metre; }
-	// the drainage below the grid, if this world has one (for tools that draw it)
-	const Channels *channels() const { return m_channels ? &*m_channels : nullptr; }
+	// the streams below the grid, if this world has them (for tools that draw them)
+	const Streams *streams() const { return m_streams ? &*m_streams : nullptr; }
 	// where a place lies on its fold ridge (0 valley .. 1 crest; 0 outside a belt)
 	fix ridgesAt(const Place &at) const { return folds(at).crest; }
 
@@ -386,9 +386,10 @@ private:
 	void delta(const Place &at, Ground &out, bool arms) const;
 	fix m_detail;          // the detail's amplitude at a cell's wavelength, blocks, where ruggedness is 1
 	int m_detail_octaves;  // from a cell's wavelength down to 16 blocks
-	std::optional<Channels> m_channels; // the drainage below the grid, where water ever ran
-	// the land below the grid gullied by the erosion filter, where water wears it (sprint 116)
+	// the grid's surface smooth between cells, where water wears the land (sprint 116)
 	std::optional<Amplifier> m_amplifier;
+	// the land below the grid cut from its streams, where water wears it (sprint 116, phase 6b)
+	std::optional<Streams> m_streams;
 	Craters m_craters;     // impacts: the grid holds the wide ones, a column finds the rest
 	// the ground at a place before volcanoes and water (blocks): the land
 	// and its detail, the old craters, the maria's lava over them, the young
@@ -414,17 +415,12 @@ private:
 	// one age of craters at a place, exactly (blocks, fixed): the grid's wide
 	// ones and the column's own
 	fix craters(const Place &at, Age age) const;
-	// the channels read at a place: its warp is the rivers', so a river lies
-	// in its valley (the last place's is kept: ground asks twice)
-	struct ChannelsAt
-	{
-		uint64_t from = 0; // the Channels' owner(): an address is reused once one's freed
-		int64_t least = 0;
-		Place at{};
-		Channels::Read read;
-		std::array<fix, 3> warp{}; // the rivers' warp there, in cells
-	};
-	const ChannelsAt &channelsAt(const Place &at) const;
+	// The streams read at a place, from the land there before its valleys
+	// (blocks, fixed); the last place's is kept: ground() asks again, and soil
+	const Streams::Read &streamsAt(const Place &at, int64_t above) const;
+	// what streamsAt last read, if it was this place's (this thread's): none
+	// where the column never had its land cut (the sea, a dry body)
+	const Streams::Read *streamsRead(const Place &at) const;
 	// wind-blown sand: raises `out` by its dunes and makes them sand
 	void dunes(const Place &at, fix surf, int32_t strand, Ground &out) const;
 	// its sinkholes' depth at a place, blocks (karst())

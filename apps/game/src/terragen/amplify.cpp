@@ -123,7 +123,7 @@ fix Amplifier::smooth(const std::vector<fix> &field, const Place &p) const
 	return (fix)(sum / weights);
 }
 
-int64_t Amplifier::relief(const Place &p) const
+int64_t Amplifier::relief(const Place &p, int64_t below) const
 {
 	if (m_octaves.empty())
 		return 0;
@@ -149,8 +149,8 @@ int64_t Amplifier::relief(const Place &p) const
 	int64_t height = 0, fall = ONE;
 	for (size_t k = 0; k < m_octaves.size(); k++, fall = mulShift(fall, FALL, FRAC)) {
 		const int64_t steep = length(slope);
-		if (steep < 4)
-			continue; // (no way down to groove)
+		if (steep < 4 || (below > 0 && m_octaves[k] >= below))
+			continue; // (no way down to groove; or the streams' own)
 		const V across = cross(n, unit(slope));
 		const int64_t L = m_octaves[k], spacing = L << SUB, reach = (int64_t)mul(SPREAD, (fix)L) << SUB;
 		const int64_t cx = floorDiv(at_blocks.x, spacing), cy = floorDiv(at_blocks.y, spacing), cz = floorDiv(at_blocks.z, spacing);

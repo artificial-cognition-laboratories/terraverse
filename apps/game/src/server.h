@@ -386,8 +386,11 @@ public:
 	// Terra Firma: a world hosted for friends admits by ArcLabs ticket only
 	// (src/online/gate.h). Set before start().
 	void setGate(std::unique_ptr<online::Gate> gate);
-	// Terra Firma: clients connected or connecting, the host's own included.
-	size_t clientCount();
+	// Terra Firma: clients connected or connecting, the host's own included,
+	// as of the server's last step: read every frame by the game's thread,
+	// which mustn't take the client list's lock (SendBlocks holds it for as
+	// long as it takes to choose blocks, which was whole frames).
+	size_t clientCount() const { return m_client_count.load(std::memory_order_relaxed); }
 	// Terra Firma: datagrams on the server's socket that aren't the game's
 	// (STUN answers for src/online/host.h); null to stop.
 	void setStrayHandler(con::IConnection::StrayHandler handler);
@@ -504,6 +507,7 @@ private:
 	std::vector<PlayerReport> collectPlayers(); // under the environment's lock
 	std::mutex m_players_report_lock;
 	std::vector<PlayerReport> m_players_report;
+	std::atomic<size_t> m_client_count{0}; // clientCount(), counted each step
 	float m_players_report_age = 1e9f;
 public:
 	bool getClientInfo(session_t peer_id, ClientInfo &ret);

@@ -370,16 +370,26 @@ void Client::step(float dtime)
 		trace::count("Net: lost [KiB/s]", m_con->getLocalStat(con::CUR_LOSS_RATE), trace::Fold::Last);
 	}
 
-	ReceiveAll();
+	{
+		TF_ZONE("Client: receive");
+		ReceiveAll();
+	}
 
 	// Terra Firma: what this client's wheels and feet press, at once (sprint 84)
-	if (m_nodedef_received)
+	if (m_nodedef_received) {
+		TF_ZONE("Client: press ground");
 		pressGround(dtime);
+	}
 	// Terra Firma: ground drawn coarser further off (sprint 85)
-	if (m_camera)
+	if (m_camera) {
+		TF_ZONE("Client: mesh detail");
 		meshDetail(floatToInt(m_camera->getPosition(), BS));
-	flushGround();
-	flushBodyGround(dtime);
+	}
+	{
+		TF_ZONE("Client: flush ground");
+		flushGround();
+		flushBodyGround(dtime);
+	}
 
 	/*
 		Packet counter
@@ -428,6 +438,7 @@ void Client::step(float dtime)
 	constexpr float map_timer_and_unload_dtime = 5.25f;
 	constexpr s32 mapblock_limit_enforce_distance = 200;
 	if(m_map_timer_and_unload_interval.step(dtime, map_timer_and_unload_dtime)) {
+		TF_ZONE("Client: unload blocks");
 		std::vector<v3s16> deleted_blocks;
 
 		// Determine actual block limit to use
@@ -502,7 +513,10 @@ void Client::step(float dtime)
 	LocalPlayer *player = m_env.getLocalPlayer();
 
 	// Step environment (also handles player controls)
-	m_env.step(dtime);
+	{
+		TF_ZONE("Client: environment");
+		m_env.step(dtime);
+	}
 	m_sound->step(dtime);
 
 	/*
@@ -554,6 +568,7 @@ void Client::step(float dtime)
 		Replace updated meshes
 	*/
 	{
+		TF_ZONE("Client: adopt meshes");
 		// This can cause pending mesh updates to lose their validity, so do it
 		// before processing them.
 		updateStaticLighting(player->getLighting().static_);
@@ -600,6 +615,7 @@ void Client::step(float dtime)
 				delete block->mesh;
 				block->mesh = nullptr;
 				block->solid_sides = r.solid_sides;
+				map.meshesChanged(); // Terra Firma: the draw list (and the far view's edge) follow
 
 				m_detail[r.p] = r.detail; // Terra Firma: made again when the camera's moved across its ring
 				if (r.mesh) {
@@ -762,6 +778,7 @@ void Client::step(float dtime)
 	// Write server map
 	if (m_localdb && m_localdb_save_interval.step(dtime,
 			m_cache_save_interval)) {
+		TF_ZONE("Client: save map");
 		m_localdb->endSave();
 		m_localdb->beginSave();
 	}

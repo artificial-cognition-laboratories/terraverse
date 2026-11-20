@@ -25,6 +25,7 @@
 #include "client/renderingengine.h"
 
 #include <queue>
+#include "trace/trace.h" // TEMP(2026-11-19): the draw list's phases, measured
 
 namespace {
 	// data structure that groups block meshes by material
@@ -439,9 +440,12 @@ void ClientMap::updateDrawList()
 {
 	ScopeProfiler sp(g_profiler, "CM::updateDrawList()", SPT_AVG);
 
+	const u64 t_clear = trace::now(); // TEMP(2026-11-19)
 	clearDrawList();
+	trace::count("Draw list: clear [us]", (trace::now() - t_clear) / 1000.0, trace::Fold::Max);
 
 	m_needs_update_drawlist = false;
+	m_meshes_changed = false;
 
 	const v3s16 cam_pos_nodes = floatToInt(m_camera_position, BS);
 
@@ -498,6 +502,8 @@ void ClientMap::updateDrawList()
 		// Number of blocks in rendering range
 		u32 blocks_in_range = 0;
 		assert(m_keeplist.empty());
+		u64 t_transform = 0, t_coverage = 0, t_list = 0; // TEMP(2026-11-19): ns in each phase
+		const u64 t_loop = trace::now();
 
 		for (auto &sector_it : m_sectors) {
 			const MapSector *sector = sector_it.second;
@@ -534,13 +540,14 @@ void ClientMap::updateDrawList()
 
 				if (atlas) {
 					// where the eye sees it (the scene's frame, then absolute)
-					const core::matrix4 *w = atlas->transform(block_pos);
-					if (!w)
-						continue;
+					const u64 t0 = trace::now();
 					const v3f local = mesh ? mesh->getBoundingSphereCenter()
 							: v3f((MAP_BLOCKSIZE * 0.5f - 0.5f) * BS);
-					w->transformVect(mesh_sphere_center, local);
-					mesh_sphere_center += intToFloat(m_camera_offset, BS);
+					const std::optional<v3f> seen = atlas->where(block_pos, local);
+					t_transform += trace::now() - t0;
+					if (!seen)
+						continue;
+					mesh_sphere_center = *seen + intToFloat(m_camera_offset, BS);
 				}
 
 				// First, perform a simple distance check (on an atlas, where the block is drawn).
@@ -552,8 +559,11 @@ void ClientMap::updateDrawList()
 				block->resetUsageTimer();
 				blocks_in_range++;
 				// Terra Firma: the near world's here (once it has what to draw), the far view's past it
-				if (atlas && (mesh || block->isAir()))
+				if (atlas && (mesh || block->isAir())) {
+					const u64 t0 = trace::now();
 					m_coverage.add(block_pos);
+					t_coverage += trace::now() - t0;
+				}
 
 				// Frustum culling
 				// Only do coarse culling here, to account for fast camera movement.
@@ -586,7 +596,9 @@ void ClientMap::updateDrawList()
 				} else {
 					if (mesh) {
 						// add directly to the drawlist
+						const u64 t0 = trace::now();
 						add_to_drawlist(block);
+						t_list += trace::now() - t0;
 					} else { // ...or to m_keeplist
 						m_keeplist.push_back(block);
 						block->refGrab();
@@ -598,6 +610,14 @@ void ClientMap::updateDrawList()
 		g_profiler->avg("MapBlocks in range [#]", blocks_in_range);
 		g_profiler->avg("MapBlocks loaded [#]", blocks_loaded);
 		m_coverage.done();
+		// TEMP(2026-11-19): where the draw list's time goes
+		trace::count("Draw list: loop [us]", (trace::now() - t_loop) / 1000.0, trace::Fold::Max);
+		trace::count("Draw list: transform [us]", t_transform / 1000.0, trace::Fold::Max);
+		trace::count("Draw list: coverage [us]", t_coverage / 1000.0, trace::Fold::Max);
+		trace::count("Draw list: insert [us]", t_list / 1000.0, trace::Fold::Max);
+		trace::count("Draw list: blocks loaded [#]", blocks_loaded, trace::Fold::Max);
+		trace::count("Draw list: blocks in range [#]", blocks_in_range, trace::Fold::Max);
+		trace::count("Draw list: drawn [#]", m_drawlist.size(), trace::Fold::Max);
 	} else {
 		// Blocks visited by the algorithm
 		u32 blocks_visited = 0;

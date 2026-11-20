@@ -68,13 +68,16 @@ bool Sky::drawBaked(video::IVideoDriver *driver, size_t index, const terragen::S
 	auto b = std::find_if(m_baked.begin(), m_baked.end(), [&](const Baked &x) { return x.index == index; });
 	if (!m_palette || b == m_baked.end() || pixels < TILED_PIXELS)
 		return false;
-	if (!b->tiles)
-		b->tiles = std::make_unique<far::Tiles>(m_atlas, b->body, m_horizon, *m_palette, 1);
+	if (!b->tiles) {
+		TF_ZONE("Space: a body's land made");
+		b->tiles = std::make_unique<far::Tiles>(m_atlas, b->body, m_horizon, *m_palette, 1, driver);
+	}
 	const terragen::System &s = m_system.system();
 	const double time = m_eye->worldDays - std::floor(m_eye->worldDays);
 	const double spin = m_system.spinOf(index, m_eye->day, s.clock(index, m_eye->worldDays, m_year).hour(time));
 	// the eye in the body's own frame: from its centre, turned back, at its scale
 	const double k = m_system.radius(index) / b->sea;
+	TF_ZONE("Space: a body's land");
 	b->tiles->update(OrbitCamera::eyeAt(OrbitCamera::turn({ -at.x / k, -at.y / k, -at.z / k }, -spin), b->sea, (float)height));
 	if (!b->tiles->based())
 		return false; // its ball till its coarse land is there
@@ -242,8 +245,10 @@ void Sky::render()
 			[&](size_t index, const terragen::System::Vec &at, double pixels, float near, float far) {
 				return drawBaked(driver, index, at, pixels, near, far, aspect, screen.Height);
 			});
-	if (m_airHeight < 1)
+	if (m_airHeight < 1) {
+		TF_ZONE("Space: air");
 		m_air.draw(driver, m_sight);
+	}
 	// what follows draws in the camera's own depth
 	driver->clearBuffers(video::ECBF_DEPTH);
 	driver->setTransform(video::ETS_PROJECTION, projection);

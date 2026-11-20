@@ -211,7 +211,7 @@ bool Planetarium::drawBaked(video::IVideoDriver *driver, const core::matrix4 &lo
 	if (b == m_baked.end() || pixels < BAKED_PIXELS)
 		return false;
 	if (!b->tiles) {
-		b->tiles = std::make_unique<far::Tiles>(m_world, b->body, m_horizon, m_palette, 1);
+		b->tiles = std::make_unique<far::Tiles>(m_world, b->body, m_horizon, m_palette, 1, driver);
 		tint(b->body);
 	}
 	// the camera in the body's own frame: from its centre, turned back, at its scale

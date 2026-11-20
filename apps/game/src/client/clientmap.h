@@ -118,6 +118,10 @@ public:
 
 	// Returns true if draw list needs updating before drawing the next frame.
 	bool needsUpdateDrawList() { return m_needs_update_drawlist; }
+	// Terra Firma: a block's mesh came or went since the draw list was made:
+	// it's made again soon (Game, at most a few times a second while flying)
+	void meshesChanged() { m_meshes_changed = true; }
+	bool haveMeshesChanged() const { return m_meshes_changed; }
 
 	void renderMap(video::IVideoDriver* driver, s32 pass);
 
@@ -195,6 +199,7 @@ private:
 	std::vector<MapBlock*> m_keeplist;
 	std::map<v3s16, MapBlock*> m_drawlist_shadow;
 	bool m_needs_update_drawlist;
+	bool m_meshes_changed = false; // Terra Firma: meshesChanged()
 	CachedMeshBuffers m_dynamic_buffers;
 
 	bool m_cache_trilinear_filter;

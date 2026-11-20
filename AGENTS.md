@@ -317,14 +317,92 @@ plainly what was and wasn't run. Commit only when asked.
 
 ## Code standards
 
-- **Fail loudly.** No swallowed errors, no `?? fallback` hiding a value that must exist. Expected
-  refusals are structured (`Refused`, `WorldCodeError`) and shown to the player.
-- **Validate at boundaries, trust inside:** bridge, file I/O, world settings, inventory slots.
-- **No `as` casts** to silence a type mismatch. Fix the shape.
-- **Data over branches.** Variants live in tables that every decision reads.
-- **One concern per module:** factories and composables in TS; classes, RAII and pimpl in C++.
-- **Comments say why**, at the density of the surrounding code.
-- **Unwired things say so**, in code (throw "not wired yet") and in the UI (a Notice). Never pretend.
+**`STANDARDS.md` is the standard:** the ladder (value function → bag → leaf → module), the
+failure states that move code up it, and the invariants. Read it before writing code. It applies in
+full to new code; code being worked on climbs as it's touched; stable code waits. Offenders you
+find are raised in your response, first. Below is how it's spelled here.
+
+Here, specifically: expected refusals are `Refused` and `WorldCodeError`, shown to the player;
+the seams are the bridge, file I/O, world settings, the wire and inventory slots; unwired things
+also say so in the UI (a Notice).
+
+### C++
+
+The file limit is **~400 lines** of `.cpp`. The engine builds as C++17 (the shell as C++20).
+
+| Rung | Spelled |
+|---|---|
+| Value function | A free function in an anonymous `namespace {}`: declared at the top of the `.cpp`, defined below the class it serves |
+| Bag | A `namespace` (`namespace results { … }`) in the `.cpp`, or in a header when two files need it |
+| Leaf | `class X` with a nested `struct Opts`, `explicit X(Opts)`, a few public verbs, private members. One `.h`, one `.cpp` |
+| Module | A folder with one public header, its door. The orchestrator's public members are its leaves; its initializer list is the dependency graph, in declaration order; its constructor body is empty. Internals sit in the `.cpp`, a `detail` namespace, or behind pimpl |
+| Manager | A `std::unique_ptr<T> current_`. Build the candidate (may throw, nothing changed), then `current_ = std::move(candidate)`; the old one's destructor is its disposal |
+| Boot root | `static std::unique_ptr<X> boot(Opts)` doing the work and throwing a structured error, over a private constructor that only wires |
+
+```cpp
+// the door: world_matter.h
+class WorldMatter {
+public:
+	struct Opts { Ground &ground; const Catalogue &catalogue; };
+	explicit WorldMatter(Opts o);
+
+	Heat heat;            // leaves, declared in the order they're built
+	Reactions reactions;
+	Flow flow;
+};
+
+// world_matter.cpp: the graph, and nothing else
+WorldMatter::WorldMatter(Opts o) :
+	heat({.ground = o.ground}),
+	reactions({.catalogue = o.catalogue, .heat = heat}),
+	flow({.ground = o.ground, .heat = heat})
+{}
+```
+
+Ownership follows the tree: a parent owns its children by value (or `unique_ptr` when
+swapped or optional); a child is handed its siblings as references through `Opts` and never owns
+them. A reference or raw pointer never owns.
+
+Opts are built with **designated initializers** (`{.ground = ground}`), so the wiring names both
+sides. They're C++20: GCC accepts them in our C++17 files, but MSVC refuses them below
+`/std:c++20`, so the Windows build breaks. Moving the engine to C++20 is the first step of this
+standard; until it lands, new `Opts` are written as above only where the file already
+builds as C++20 (the shell), and elsewhere positionally with each field named in a comment.
+
+Failure states only C++ has:
+
+| You see | Move |
+|---|---|
+| `new` or `delete` | A member, or `std::make_unique`. Ownership follows the tree |
+| An owning raw pointer | `std::unique_ptr` |
+| An out-parameter (`void f(T &result)`) | Return the value, or a struct of them |
+| A `bool` argument (`draw(true, false)`) | An `enum class`, or a field of `Opts` |
+| Inheritance to share code | Composition: a member. Inheritance is for an interface with several real implementations |
+| A mutable `static` or global (`g_settings` and kin) | A member of the noun that owns it, passed down |
+| A macro beyond include guards and platform switches | `constexpr`, a function or a template |
+| `reinterpret_cast`, or a `static_cast` quieting a mismatch | Fix whichever shape is wrong |
+| A `switch` on a kind repeated across files | A `constexpr` table indexed by an `enum class` |
+| A header including what only its `.cpp` needs | Move the include down; forward-declare; pimpl if the private side is heavy |
+
+**Luanti's code** is legacy: god classes (`Game` in `client/game.cpp`, `Server`, `Client`),
+globals, positional parameters. Its size alone is never a reason to refactor it. Touching it is:
+
+| You see | Move |
+|---|---|
+| About to add a method or member to a god class | Don't. The concern becomes its own module in our folder; the god class gets a member and one call into it |
+| About to edit a block of logic inside a god class | If it's in the way, extract that concern first, then change it in its new home |
+| Our system reaching into an engine file | A hook point only: the logic lives in our folder |
+
+The god files only shrink. No reference module exists yet in C++; `sandbox/world` is the first
+candidate (its `Ground` is already an `Opts` of dependencies).
+
+### TypeScript
+
+`apps/game/ui`, `apps/cli`, `registry/mods`, `packages/types`: the arclabs form. Every noun is a
+capitalized factory, `X(opts)` returning a handle, its type `ReturnType<typeof X>`; a module is
+a folder with one `index.ts`; wiring is `key: value`, never shorthand, and every child is built
+above the `return`, which only assigns. Vue components are the UI's leaves, composables its
+nouns (`ui/src/kit` for patterns). The file limit is ~300 lines.
 
 ## Licensing
 
@@ -333,3 +411,118 @@ plainly what was and wasn't run. Commit only when asked.
 - Vendored code keeps its licence beside it.
 - Assets need a redistributable licence and an entry in `assets/CREDITS.md` before they're committed.
   Default art is Good Vibes (Acaitart, CC BY 4.0). Nothing resembling Minecraft characters or branding.
+# Standards
+
+How code is shaped, in any language. This file is the shared core: the ladder every piece of
+code climbs, the failure states that move it up, and the invariants that hold everywhere. Each
+repo's AGENTS.md binds it to a language: how each rung is spelled, the language's own failure
+states, and the reference files to copy.
+
+One idea, applied recursively: **nouns own verbs, parents own children, and dependencies flow
+down.** A reader learns a system by reading its root and descending only where they need to.
+
+## The ladder
+
+Code sits on one rung. When a trigger fires it climbs one rung: that is the only move, and no
+rung is skipped.
+
+| Rung | What it is | Climbs when |
+|---|---|---|
+| **0. Value function** | Pure: values in, a value out. No state, no I/O | It needs state or I/O → **2**. More than three in a file → **1** |
+| **1. Bag** | A named group of related value functions | It needs shared state or I/O → **2**. It grows a second theme → two bags |
+| **2. Leaf** | One noun owning one concern, with a small verb surface | It builds children of its own, passes the file limit, or its sentence needs an "and" → **3** |
+| **3. Module** | A folder with one door; behind it an orchestrator wiring leaves, doing no logic | Its children need each other → redraw. It grows a second domain → sibling modules under a parent |
+
+**A leaf is finished when its responsibility fits one sentence with no "and".** An orchestrator
+builds its children, wires them and exposes a shape; it contains nothing else.
+
+Two special forms of a leaf or module:
+
+- **Manager.** It owns something replaceable (a connection, a loaded mod, a compiled machine).
+  Callers never hold the inner thing; verbs go through `current`. A swap builds the new one first,
+  then drops the old: overlap, never a gap, and a failed candidate leaves nothing changed.
+- **Boot root.** Building it does work that can fail. That work lives in one `boot` that returns a
+  whole object or a structured error, never a half-built one. Everything else constructs by wiring
+  only.
+
+## Failure states
+
+Every state of the code has one next action. Each of these can be seen in a diff or counted.
+
+| You see | What's broken | Move |
+|---|---|---|
+| More than three loose functions in a file | Rung 0 has overflowed | Group them into a bag |
+| A loose function doing I/O or touching state | A verb with no noun | Find the noun that owns it, or make one |
+| A file over the language's limit | Several concerns under one name | Name each in a sentence; each becomes a leaf; the file becomes a module |
+| `if`, a loop, `try` or arithmetic in an orchestrator | A root doing work | Move the logic into the child it belongs to |
+| More than three positional parameters, or two of one type side by side | Unpackaged dependencies | One `Opts` with named fields |
+| A dependency reached through a global or singleton | Dependencies not flowing down | The parent passes it in through `Opts` |
+| A leaf importing a sibling | A sideways reach | The parent passes it in; a concern two siblings need belongs to the parent |
+| Two children that can't be built without each other | A wrong boundary | Redraw it. Thunks that break the cycle hide the signal |
+| The same branch on a kind in two places | Variants as branches | A table keyed by the kind, read by every decision |
+| Callers holding something that gets swapped | A missing manager | Put it behind its noun as `current` |
+| Construction doing I/O, or able to half-fail | Work at construction | A boot root; construction wires only |
+| A module's insides reached from outside | A second door | Promote it to the door deliberately, or redraw the boundary |
+| A helper above the thing it serves | Precedence inverted | The primary thing first, its privates below |
+| The same block of logic in two siblings | A shared concern duplicated | Promote it to one leaf both receive |
+| A call A must make before B, by convention | Temporal coupling | A returns B |
+
+## Invariants
+
+Correctness, not style. Breaking one in new code is a bug.
+
+1. **Fail loudly.** No swallowed errors, no catch-and-continue, no fallback value hiding something
+   that must exist. Invalid state throws, everywhere.
+2. **Validate at boundaries, trust inside.** Files, the network, processes, user input and
+   settings are checked once, at the seam, into a strict shape. Past the seam nothing re-checks.
+3. **Make invalid states unrepresentable.** If a function can receive bad input, its signature is
+   wrong.
+4. **No casts to silence a mismatch.** If two shapes disagree, one is wrong: fix it.
+5. **Errors are structured**, thrown where they're detected, and an expected refusal reaches the
+   person as a reason.
+6. **Unwired things say so.** A stub throws "not wired yet"; it never returns empty pretending to
+   work.
+7. **No unmarked bypasses.** A workaround carries `TEMP:` with a date and a reason, or isn't written.
+8. **Data over branches.** Variants live in tables.
+9. **Caches are keyed by what actually changes them.** If the real key is too dear, don't cache.
+10. **Comments say why**, at the density of the surrounding code.
+
+## Naming and shape
+
+- **Hierarchy over prefixes.** `world.matter.heat.step()`, not `stepWorldMatterHeat()`. One word
+  at each level; the path is the context.
+- **The surface is designed, not accumulated.** A top-level API reads like the product. If it
+  needs a comment to say what it does, the name or the shape is wrong.
+- **Construction reads as the graph.** Every child is built in dependency order before the shape
+  is exposed, and wiring names both sides (`http: http`, `.http = http`): the wiring is the
+  content of an orchestrator, never noise.
+
+## Moving a codebase toward this
+
+The standard applies in full to new code. Existing code climbs as it's worked on:
+
+- **New code** is written on the right rung from the start.
+- **Code being actively changed** is brought to standard when the time is right or it's getting in
+  the way: the concern being touched is moved up first, then changed.
+- **Stable code** is left alone until work reaches it. A violation in code nobody is changing is
+  a note, not a task.
+- **Never grow an offender.** A file already over the limit, or a class already doing ten things,
+  gets no new member. The new concern becomes its own leaf or module, and the offender keeps one
+  call into it.
+
+## For agents
+
+- Before answering about code you've read, check it against the failure states. **Raise what you
+  find in your response**, leading with it: what's wrong, which rule it breaks, and whether to fix
+  it now or carry on. Never bury it at the end, never save it for later.
+- Small things in code you're touching (a name, a loose helper, a dead include) are fixed as you go.
+  Structural things (a boundary, an orchestrator doing work, a god file growing) are raised.
+- Say "stop, this needs fixing first" when the foundation is unsound for what's about to be built
+  on it.
+- Leave every file you touch at the same rung or higher.
+
+**Why it's stricter than it feels.** The cheapest change, one more function in a file that already
+has some, is invisible when it happens and compounds. An orphan function is a precedent: the next
+person, or agent, copies the shape they find. The default must be the right shape even when one
+instance would be fine.
+

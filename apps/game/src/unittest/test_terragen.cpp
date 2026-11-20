@@ -6,7 +6,6 @@
 #include <map>
 #include <queue>
 #include <tuple>
-#include "terragen/channels.h"
 #include "terragen/body.h"
 #include "terragen/calendar.h"
 #include "terragen/code.h"
@@ -38,7 +37,7 @@ public:
 	const char *getName() { return "TestTerragen"; }
 
 	void runTests(IGameDef *gamedef);
-	void testChannels();
+	void testStreams();
 	void testRanges();
 	void testRangesAtEarthsScale();
 	void testCoarse();
@@ -101,7 +100,7 @@ static Place flat(const World &w, int32_t x, int32_t z)
 
 void TestTerragen::runTests(IGameDef *gamedef)
 {
-	TEST(testChannels);
+	TEST(testStreams);
 	TEST(testRanges);
 	TEST(testRangesAtEarthsScale);
 	TEST(testCoarse);
@@ -2045,15 +2044,14 @@ void TestTerragen::testRanges()
 	UASSERT(across > along * 5 / 4);
 }
 
-void TestTerragen::testChannels()
+void TestTerragen::testStreams()
 {
 	terragen::WorldCode code = terragen::WorldCode::decode("TF24.dGVycmE");
 	code.size = 628320;
 	code.grid_key += "@wide"; // (what the grid's kept by)
 	terragen::World world(code);
 	const std::shared_ptr<const terragen::Grid> grid = terragen::gridFor(code);
-	terragen::Channels channels(code, *grid, world, terragen::World::radiusOf(code), terragen::World::cellBlocksOf(code));
-	UASSERT(channels.levels() >= 4);
+	UASSERT(world.streams() && world.streams()->levels() >= 4);
 	// every drawn run's water falls downstream, and meets the next where it ends (sprint 107)
 	parallelFor(grid->size(), [&](int32_t c) { world.profile(c); }); // (each run's read once, on every core)
 	for (int32_t c = 0; c < grid->size(); c++) {
@@ -2066,60 +2064,34 @@ void TestTerragen::testChannels()
 		if (next && !grid->lake[grid->receiver[c]])
 			UASSERT(next[0] <= p[terragen::World::PROFILE]);
 	}
+	// Streams below the grid (sprint 116, phase 6b), across a patch of a
+	// range: some carry water, their water never stands over its land, and
+	// what's read is the same from a world that has kept nothing
 	int32_t centre = -1;
-	for (int32_t i = 0; i < grid->size() && centre < 0; i++)
-		if (grid->eroded[i] > terragen::ratio(10, 100))
+	for (int32_t i = 0; i < grid->size(); i++)
+		if (grid->base[i] > 0 && (centre < 0 || grid->tectonics.belt[i] > grid->tectonics.belt[centre]))
 			centre = i;
-	UASSERT(centre >= 0);
 	const terragen::Place at(terragen::gridSphere().centre(centre));
-	struct Key { int level; int32_t i, j, l; bool operator<(const Key &o) const { return std::tie(level, i, j, l) < std::tie(o.level, o.i, o.j, o.l); } };
-	std::map<Key, int> order;
-	std::map<Key, std::vector<int>> children;
-	const int K = std::min(channels.levels(), 4);
-	const int64_t patch = channels.spacing(1) * 3;
-	std::array<int, 16> count{};
-	for (int k = K; k >= 1; k--) {
-		const int64_t L = channels.spacing(k);
-		const auto range = [&](int32_t c, int32_t &a, int32_t &b) { a = channels.latticeOf(k, c - (int32_t)patch); b = channels.latticeOf(k, c + (int32_t)patch); };
-		int32_t i0, i1, j0, j1, l0, l1;
-		range(at.x, i0, i1);
-		range(at.y, j0, j1);
-		range(at.z, l0, l1);
-		(void)L;
-		for (int32_t i = i0; i <= i1; i++)
-			for (int32_t j = j0; j <= j1; j++)
-				for (int32_t l = l0; l <= l1; l++) {
-					const terragen::Channels::Node n = channels.node(k, i, j, l);
-					if (!n.exists)
-						continue;
-					// (never up the land to what it joins; a first level's foot is
-					// on the drawn water, which curves off the run a little)
-					if (k > 1 || !n.wet)
-						UASSERT(world.between(grid->eroded, n.join) <= world.between(grid->eroded, n.at));
-					// water runs into water, down to a drawn run of the grid's (sprint 107)
-					if (n.wet && k > 1)
-						UASSERT(channels.node(k - 1, n.parent[0], n.parent[1], n.parent[2]).wet);
-					if (n.wet && k == 1)
-						UASSERT(world.drawn(n.parent[0]));
-					const std::vector<int> &from = children[{ k, i, j, l }];
-					int top = 1, tops = 0;
-					for (int o : from)
-						top = std::max(top, o);
-					for (int o : from)
-						tops += o == top;
-					const int mine = tops >= 2 ? top + 1 : top;
-					count[mine]++;
-					if (k > 1)
-						children[{ k - 1, n.parent[0], n.parent[1], n.parent[2] }].push_back(mine);
-				}
-	}
-	std::printf("HORTON");
-	for (int o = 1; o < 8; o++)
-		std::printf(" %d", count[o]);
-	std::printf("\n");
-	// the ratio across the orders, as Horton's is measured: order 1's count over
-	// order 3's, per order
-	UASSERT(count[3] > 0);
-	const double bifurcation = std::sqrt((double)count[1] / count[3]);
-	UASSERT(bifurcation > 3 && bifurcation < 5);
+	const int64_t radius = world.radius() >> terragen::FRAC;
+	const fix sun = world.sunlight(at, std::nullopt);
+	terragen::World fresh(code);
+	int wet = 0, read = 0;
+	for (int y = -40; y < 40; y++)
+		for (int x = -40; x < 40; x++) {
+			// a column every 8 blocks, east and north of the cell's centre
+			const terragen::Place p = terragen::placeOf((int64_t)at.x + ((int64_t)x * 8 << terragen::PLACE_FRAC) / radius,
+					(int64_t)at.y + ((int64_t)y * 8 << terragen::PLACE_FRAC) / radius, at.z);
+			const terragen::Ground g = world.ground(p, sun);
+			read++;
+			if (g.kind == terragen::Water::River && (g.river_dist == INT64_MAX || g.river_dist > g.river_width / 2 + terragen::toFix(1))) {
+				wet++;
+				UASSERT(g.water > g.terrain);
+				UASSERT(g.water - g.terrain <= 4); // (a stream's bed: never a hollow under it)
+			}
+			if ((x + y) % 9 == 0) {
+				const terragen::Ground h = fresh.ground(p, sun);
+				UASSERT(h.terrain == g.terrain && h.water == g.water && h.kind == g.kind);
+			}
+		}
+	UASSERT(wet > 0 && wet < read / 4);
 }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "planetarium/system.h"
+#include "trace/trace.h"
 #include "planetarium/galaxy.h"
 #include "planetarium/ribbon.h"
 #include "planetarium/camera.h"
@@ -190,8 +191,10 @@ void SystemLayer::draw(video::IVideoDriver *driver, const Camera &camera, double
 	std::sort(bodies.begin(), bodies.end(), [](const Body &a, const Body &b) { return a.distance > b.distance; });
 
 	driver->setTransform(video::ETS_VIEW, camera.view);
-	if (m_galaxy)
+	if (m_galaxy) {
+		TF_ZONE("Space: galaxy");
 		m_galaxy->draw(driver, camera.aspect, m_opts.skyFov > 0 ? m_opts.skyFov : camera.fov, camera.shift, m_skyLevel);
+	}
 	if (m_orbits)
 		orbits(driver, camera, day);
 
@@ -225,6 +228,7 @@ void SystemLayer::draw(video::IVideoDriver *driver, const Camera &camera, double
 			rim(driver, camera, b, day, near, far);
 			continue;
 		}
+		TF_ZONE("Space: a body");
 		if (b.index >= 0 && surface && surface((size_t)b.index, b.at, b.radius * focal / std::max(depth, b.radius), near, far)) {
 			driver->setTransform(video::ETS_VIEW, camera.view);
 			rim(driver, camera, b, day, near, far);
@@ -242,8 +246,10 @@ void SystemLayer::draw(video::IVideoDriver *driver, const Camera &camera, double
 			rim(driver, camera, b, day, near, far);
 		}
 	}
-	if (m_opts.glare)
+	if (m_opts.glare) {
+		TF_ZONE("Space: glare");
 		glare(driver, camera, bodies);
+	}
 }
 
 void SystemLayer::star(video::IVideoDriver *driver, const Body &b, video::SColor colour)

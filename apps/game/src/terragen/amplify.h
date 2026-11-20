@@ -44,8 +44,12 @@ public:
 	// A grid field at a place, smooth (C², and so its slope) between cells:
 	// a Wendland kernel over the cells within REACH spacings
 	fix smooth(const std::vector<fix> &field, const Place &p) const;
+	// The grid's channel steepness (S·√A, A in cells) at a place, smooth
+	fix steepness(const Place &p) const { return smooth(m_ks, p); }
+	const std::vector<fix> &steepnesses() const { return m_ks; } // each cell's
 	// The relief at a place over the grid's smooth surface, blocks (fixed)
-	int64_t relief(const Place &p) const;
+	// (`below`: only the octaves finer than this, blocks; 0 all)
+	int64_t relief(const Place &p, int64_t below = 0) const;
 
 private:
 	const Grid &m_grid;

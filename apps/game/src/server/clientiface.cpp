@@ -23,6 +23,7 @@
 #include "util/pointedthing.h"
 #include "util/string.h"
 #include "face_position_cache.h"
+#include "trace/trace.h" // TEMP(2026-11-19)
 
 static std::string string_sanitize_ascii(const std::string &s, u32 max_length)
 {
@@ -268,6 +269,9 @@ void RemoteClient::GetNextBlocks (
 	}
 
 	std::unordered_set<v3s16> listed; // an atlas: blocks already taken this pass
+	u64 t_held = 0, t_emerge = 0; // TEMP(2026-11-19): where choosing blocks goes
+	u32 slots_seen = 0, slots_held = 0;
+	const u64 t_all = trace::now();
 
 	s16 d;
 	for (d = d_start; d <= d_max; d++) {
@@ -283,16 +287,14 @@ void RemoteClient::GetNextBlocks (
 			// Terra Firma: the blocks this slot shows. One, but on an atlas
 			// a slot over a seam or down a shell lies across the other
 			// grid's blocks: every block its middle or a corner falls in
-			std::vector<v3s16> held{ p };
-			if (eye) {
-				const double middle = MAP_BLOCKSIZE / 2 - 0.5;
-				const double x = p.X * MAP_BLOCKSIZE + middle, y = p.Y * MAP_BLOCKSIZE + middle,
-					z = p.Z * MAP_BLOCKSIZE + middle;
+			// (which, asked last: in range and in view first. Asked of every
+			// slot it was most of the step's time, flying)
+			const double middle = MAP_BLOCKSIZE / 2 - 0.5;
+			const double x = p.X * MAP_BLOCKSIZE + middle, y = p.Y * MAP_BLOCKSIZE + middle,
+				z = p.Z * MAP_BLOCKSIZE + middle;
+			if (eye)
 				slot = v3f(x - camera_pos.X / BS, y - camera_pos.Y / BS, z - camera_pos.Z / BS);
-				held.clear();
-				for (const planet::Atlas::Block b : atlas->blocksAt(*eye, x, y, z))
-					held.emplace_back(b.x, b.y, b.z);
-			}
+			slots_seen++; // TEMP(2026-11-19)
 
 			/*
 				Send throttling
@@ -340,6 +342,16 @@ void RemoteClient::GetNextBlocks (
 					isBlockInSight(p, camera_pos, playerspeeddir, 0.1f,
 						d_blocks_in_sight)))) {
 				continue;
+			}
+
+			std::vector<v3s16> held{ p };
+			if (eye) {
+				const u64 t0 = trace::now(); // TEMP(2026-11-19)
+				held.clear();
+				for (const planet::Atlas::Block b : atlas->blocksAt(*eye, x, y, z))
+					held.emplace_back(b.x, b.y, b.z);
+				t_held += trace::now() - t0;
+				slots_held++;
 			}
 
 			for (const v3s16 p : held) {
@@ -412,7 +424,10 @@ void RemoteClient::GetNextBlocks (
 			if (want_emerge) {
 				if (nearest_emerged_d == -1)
 					nearest_emerged_d = d;
-				if (emerge->enqueueBlockEmerge(peer_id, p, generate))
+				const u64 t0 = trace::now(); // TEMP(2026-11-19)
+				const bool queued = emerge->enqueueBlockEmerge(peer_id, p, generate);
+				t_emerge += trace::now() - t0;
+				if (queued)
 					continue;
 				else
 					goto queue_full_break;
@@ -431,6 +446,13 @@ void RemoteClient::GetNextBlocks (
 		}
 	}
 queue_full_break:
+	// TEMP(2026-11-19): where choosing blocks goes
+	trace::count("Send: choose [us]", (trace::now() - t_all) / 1000.0, trace::Fold::Max);
+	trace::count("Send: slot's blocks [us]", t_held / 1000.0, trace::Fold::Max);
+	trace::count("Send: emerge queue [us]", t_emerge / 1000.0, trace::Fold::Max);
+	trace::count("Send: slots seen [#]", slots_seen, trace::Fold::Max);
+	trace::count("Send: slots in view [#]", slots_held, trace::Fold::Max);
+	trace::count("Send: shells [#]", d - d_start, trace::Fold::Max);
 
 	// If nothing was found for sending and nothing was queued for
 	// emerging, continue next time browsing from here

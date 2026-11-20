@@ -42,6 +42,11 @@ public:
 	// the block's middle) to the scene's. None if the eye or the block has
 	// no cell (seam), or the block is another body's.
 	const core::matrix4 *transform(v3s16 block);
+	// Where a point of a block's mesh (BS, as transform takes it) is in the
+	// scene, without keeping the block's transform: the draw list asks it of
+	// every block loaded, and keeping each one's was most of its time.
+	// None as well for a block not charted yet (planet::Atlas::prepared).
+	std::optional<v3f> where(v3s16 block, v3f local);
 	// How to draw anything on the planet given from its middle (a mesh's
 	// coordinates: BS, from `centre`, a point on the planet): the far view's
 	// tiles. None while the eye has no grid.

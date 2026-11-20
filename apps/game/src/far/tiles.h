@@ -18,6 +18,8 @@
 
 namespace terragen { class Step; }
 
+namespace video { class IVideoDriver; }
+
 namespace far {
 
 class Palette;
@@ -61,7 +63,11 @@ public:
 	// build them (the far view shares the machine with the game; the
 	// Planetarium alone has most of it).
 	// One body of the atlas's.
-	Tiles(const planet::Atlas &atlas, int body, const Horizon &horizon, const Palette &palette, unsigned threads);
+	// `driver` (none: a tile goes to the GPU when it's first drawn) takes each
+	// tile as it's installed, within install's budget: drawn first, a body
+	// coming into view sent all its tiles in one frame, 170 ms.
+	Tiles(const planet::Atlas &atlas, int body, const Horizon &horizon, const Palette &palette, unsigned threads,
+			video::IVideoDriver *driver = nullptr);
 
 	// Blocks: how far a tile's land can stand off the sea (its peaks, its
 	// trees): whether any of it is past the near world's range, and how far
@@ -161,10 +167,14 @@ private:
 	// whether any of a tile is within what the eye sees (Eye::look)
 	bool seen(const TileKey &key, const Eye &eye) const;
 	bool choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::vector<std::pair<float, Key>> &want);
-	void install();
+	bool install(); // whether it took any
+	// Whether the eye's as it was when the tiles were last chosen (choosing
+	// again would choose the same): to within a centimetre, looking the same way
+	bool still(const Eye &eye) const;
 	void paint(const Key &key, Entry &e) const; // its colours, tinted or its own
 	void repaint(); // tiles still in another tint's colours, within the budget
-	void evict();
+	bool evict(); // whether it let any go
+	void choose(const Eye &eye); // the tiles to draw and to build, for the eye
 	void quarter(Entry &e, s32 child); // its quarter's buffers, if not made
 
 	const planet::Atlas m_atlas; // kept: the workers build from them
@@ -174,10 +184,13 @@ private:
 	std::map<Key, Entry> m_tiles;
 	std::vector<Key> m_draw;
 	std::vector<std::pair<Key, s32>> m_behind; // a tile, and the child of it it stands in for
-	u32 m_frame = 0;
+	u32 m_frame = 0; // choosings so far (not frames: standing still, nothing's chosen, and nothing ages)
+	std::optional<Eye> m_chosen_for; // the eye the tiles were last chosen for
+	bool m_changed = true; // a tile taken or let go since: choose again
 	size_t m_bytes = 0; // every held tile's (Entry::bytes)
 	size_t m_pending = 0;
 	std::unique_ptr<terragen::Step> m_coarse; // the roots as they're built, till the coarse planet's all there (terragen/progress.h)
+	video::IVideoDriver *m_driver; // none: tiles go to the GPU as they're drawn
 	std::shared_ptr<const Tint> m_tint;
 	u32 m_tints = 0; // tints set so far: a tile painted by this one is up to date
 	u32 m_swept = 0; // the tint every held tile's been painted by, once repaint() finds none left

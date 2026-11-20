@@ -573,7 +573,8 @@ void Game::run()
 
 	auto framemarker = FrameMarker("Game::run()-frame").started();
 
-	while (m_rendering_engine->run()
+	const auto pump = [&] { TF_ZONE("Window events"); return m_rendering_engine->run(); };
+	while (pump()
 			&& !(*kill || g_gamecallback->shutdown_requested
 			|| (server && server->isShutdownRequested()))) {
 
@@ -615,16 +616,25 @@ void Game::run()
 		if (!m_game_formspec.handleCallbacks())
 			break;
 
-		processQueues();
+		{
+			TF_ZONE("Queues");
+			processQueues();
+		}
 
 		m_game_ui->clearInfoText();
 
-		updateProfilers(stats, draw_times, dtime);
+		{
+			TF_ZONE("Profilers");
+			updateProfilers(stats, draw_times, dtime);
+		}
 
 		// Update camera offset once before doing anything.
 		// In contrast to other updates the latency of this doesn't matter,
 		// since it's invisible to the user. But it needs to be consistent.
-		updateCameraOffset();
+		{
+			TF_ZONE("Camera offset");
+			updateCameraOffset();
+		}
 
 		{
 			TF_ZONE("Input");
@@ -653,7 +663,10 @@ void Game::run()
 					cam_damp_lambda
 			);
 		}
-		updatePlayerControl(cam_view);
+		{
+			TF_ZONE("Player control");
+			updatePlayerControl(cam_view);
+		}
 
 		updatePauseState();
 		if (m_is_paused)
@@ -664,11 +677,20 @@ void Game::run()
 			step(dtime);
 		}
 
-		processClientEvents(&cam_view_target);
+		{
+			TF_ZONE("Client events");
+			processClientEvents(&cam_view_target);
+		}
 		updateDebugState();
 		// Update camera here so it is in-sync with CAO position
-		updateCamera(dtime);
-		updateSound(dtime);
+		{
+			TF_ZONE("Camera");
+			updateCamera(dtime);
+		}
+		{
+			TF_ZONE("Sound");
+			updateSound(dtime);
+		}
 		{
 			TF_ZONE("Interaction");
 			processPlayerInteraction(dtime, m_game_ui->m_flags.show_hud);
@@ -677,7 +699,10 @@ void Game::run()
 			ScopeProfiler timed(g_profiler, "Update frame [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
 			updateFrame(&graph, &stats, dtime, cam_view);
 		}
-		updateProfilerGraphs(&graph);
+		{
+			TF_ZONE("Profiler graphs");
+			updateProfilerGraphs(&graph);
+		}
 
 		if (m_does_lost_focus_pause_game && !device->isWindowFocused() && !isMenuActive()
 #if USE_SHELL
@@ -6374,13 +6399,18 @@ void Game::updateFrame(ProfilerGraph *graph, RunStats *stats, f32 dtime,
 	}
 
 	/*
-		Update block draw list every 200ms or when camera direction has
-		changed much
+		Terra Firma: the block draw list is made again when what it shows
+		changes: the camera into another block (ClientMap::updateCamera),
+		turned much, or the offset moved at once; meshes come or gone soon
+		after (at most every MESHES_DELTA: flying, they come every frame);
+		and every second whatever happens. It was every 200 ms besides, a
+		spike each time over every block loaded.
 	*/
 	runData.update_draw_list_timer += dtime;
 	runData.touch_blocks_timer += dtime;
 
-	constexpr float update_draw_list_delta = 0.2f;
+	constexpr float update_draw_list_delta = 1.0f;
+	constexpr float meshes_delta = 0.25f;
 	constexpr float touch_mapblock_delta = 4.0f;
 
 	v3f camera_direction = camera->getDirection();
@@ -6392,7 +6422,8 @@ void Game::updateFrame(ProfilerGraph *graph, RunStats *stats, f32 dtime,
 	if (runData.update_draw_list_timer >= update_draw_list_delta
 			|| runData.update_draw_list_last_cam_dir.getDistanceFrom(camera_direction) > 0.2f
 			|| m_camera_offset_changed
-			|| client_map.needsUpdateDrawList()) {
+			|| client_map.needsUpdateDrawList()
+			|| (client_map.haveMeshesChanged() && runData.update_draw_list_timer >= meshes_delta)) {
 		client_map.updateDrawList();
 		runData.update_draw_list_timer = 0;
 		runData.update_draw_list_last_cam_dir = camera_direction;

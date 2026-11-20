@@ -267,8 +267,8 @@ Soil soilPoint(uint8_t index)
 Soil World::soil(const Place &at, const Ground &ground, const Strata &strata) const
 {
 	// how far up its hillside, if the drainage is drawn below the grid
-	const fix relief = m_channels ? channelsAt(at).read.relief : 0;
-	return soilWith(at, ground, strata, m_channels ? &relief : nullptr);
+	const Streams::Read *stream = streamsRead(at);
+	return soilWith(at, ground, strata, stream ? &stream->hillside : nullptr);
 }
 
 fix World::soilSlope(const Place &at, const Ground &ground) const
