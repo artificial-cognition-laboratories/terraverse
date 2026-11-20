@@ -278,7 +278,8 @@ private:
 	The workers: build tiles and their meshes off the main thread, nearest
 	first. Each update says which tiles are wanted (want()); keys being
 	built or waiting to be taken aren't asked for twice. Let go of, they're
-	stopped and not waited for (Crew).
+	stopped and joined: each finishes at most the tile it's on. Detached, one
+	could still be running as the process exited, and crash it.
 */
 class Workers
 {
@@ -293,16 +294,22 @@ public:
 		if (threads == 0)
 			throw BaseException("far tiles: no threads to build with");
 		for (unsigned i = 0; i < threads; i++)
-			std::thread([crew = m_crew] { terragen::background(); crew->run(); }).detach();
+			m_threads.emplace_back([crew = m_crew] { terragen::background(); crew->run(); });
 	}
 
-	~Workers() { m_crew->stop(); }
+	~Workers()
+	{
+		m_crew->stop();
+		for (std::thread &t : m_threads)
+			t.join();
+	}
 
 	void want(const std::vector<Job> &jobs) { m_crew->want(jobs); }
 	std::optional<Result> take() { return m_crew->take(); }
 
 private:
 	std::shared_ptr<Crew> m_crew;
+	std::vector<std::thread> m_threads;
 };
 
 unsigned Tiles::threadsFor(float share)
