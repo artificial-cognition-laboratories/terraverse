@@ -5,7 +5,7 @@
 //   bun release.ts gate   the versions agree, the UI typechecks, the backend's tests pass
 //   bun release.ts tag    push, then tag launcher-v<version>
 //   bun release.ts wait   until the release and the rolling updater point at it
-import { run } from "../../scripts/release/version"
+import { run } from "../game/scripts/release/version"
 
 const here = import.meta.dir
 const BUDGET_MS = 28 * 60_000 // under arc's 30-minute step limit

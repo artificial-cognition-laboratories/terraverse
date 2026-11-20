@@ -1,7 +1,7 @@
-// Writes apps/game/src/sidecar/ops.h from src/runtime/wire/ops.ts. --check fails if it's stale.
+// Writes apps/game/src/online/sidecar/ops.h from src/runtime/wire/ops.ts. --check fails if it's stale.
 import { Call, Event, Exit, Level, Op, PROTOCOL } from "../src/runtime"
 
-const out = `${import.meta.dir}/../../game/src/sidecar/ops.h`
+const out = `${import.meta.dir}/../../game/src/online/sidecar/ops.h`
 
 const cName = (key: string) => key.replace(/[.](\w)/g, (_, c: string) => c.toUpperCase()).replace(/^\w/, c => c.toUpperCase())
 const enumOf = (name: string, values: Record<string, number>) =>

@@ -10,8 +10,8 @@
 // u, v: the region's middle (0..1 round, north to south); span: across it.
 // peak: the highest land; belt: the most-rising range; plain: the lowest
 // broad interior (the land furthest from both sea and range); lake: the biggest lake; river: the biggest river, inland.
-#include "terragen/world.h"
-#include "terragen/sphere.h"
+#include "library/world/terragen/world.h"
+#include "library/world/terragen/sphere.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>

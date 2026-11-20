@@ -15,8 +15,8 @@
 //     window (structure-tensor coherence, 0 none .. 1 ribs): the ribbing
 //   hollows: closed depressions the ground holds (what ponds could fill)
 //   perched: river water standing over dry ground beside it (at 1–2 blocks a sample)
-#include "terragen/world.h"
-#include "terragen/grid.h"
+#include "library/world/terragen/world.h"
+#include "library/world/terragen/grid.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>

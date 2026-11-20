@@ -1,5 +1,5 @@
 // The wire between the engine and the sidecar, declared once. `bun run gen` writes
-// apps/game/src/sidecar/ops.h from this file, so the two sides can't drift.
+// apps/game/src/online/sidecar/ops.h from this file, so the two sides can't drift.
 //
 // A frame is a u32 (little endian) length, then a MessagePack array [op, id, payload].
 // id is 0 when no answer is wanted.

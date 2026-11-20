@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# A world's bodies, headless (planning/sprint-40-bodies.md): a 250k home and
+# A world's bodies, headless (.agents/planning/sprint-40-bodies.md): a 250k home and
 # its moon in one window; a mark on each kept as a place, both bodies'
 # tiles pushed out of the map and found again by their places; the moon's
 # sky, surface and air its own, its blocks in its own database

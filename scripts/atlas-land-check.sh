@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # What the generator places is what the far view draws, node for node
-# (planning/sprint-32-atlas-lod.md, phase 1): the game's default world on an
+# (.agents/planning/sprint-32-atlas-lod.md, phase 1): the game's default world on an
 # atlas planet, areas emerged where the atlas changes, every node compared
 # with terra::AtlasLand (core.terra.land). Only the game's planting and
 # flowed liquid may differ (scripts/atlas-land-check/probe). Builds first.

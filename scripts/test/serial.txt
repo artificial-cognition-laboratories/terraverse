@@ -1,4 +1,4 @@
 # Modules run alone, after the parallel batch (none now). Time budgets aren't
 # held in the parallel run at all: tests report their times and assert only
 # what's counted; `bun check:budgets` holds the budgets, one module at a time,
-# with TF_BUDGETS set (apps/game/src/unittest/cpu_time.h).
+# with TF_BUDGETS set (apps/game/tests/unit/cpu_time.h).

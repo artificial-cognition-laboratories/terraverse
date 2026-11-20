@@ -11,8 +11,8 @@
 //   concavity, river slope ~ area^−θ: θ 0.4–0.6 (of the finished land: its
 //     filled hollows and sunk basins read higher than the erosion left it)
 //   how long the grid took
-#include "terragen/grid.h"
-#include "terragen/world.h"
+#include "library/world/terragen/grid.h"
+#include "library/world/terragen/world.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>

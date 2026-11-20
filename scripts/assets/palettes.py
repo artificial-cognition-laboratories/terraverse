@@ -44,8 +44,8 @@ base = average(os.path.join(tex, "tf_world_soil.png"))
 
 with tempfile.TemporaryDirectory() as work:
     exe = os.path.join(work, "soil_points")
-    subprocess.run(["g++", "-std=c++17", "-O1", "-I" + os.path.join(root, "apps/game/src")] +
-                   [os.path.join(root, "apps/game/src/terragen", f) for f in os.listdir(os.path.join(root, "apps/game/src/terragen")) if f.endswith(".cpp")] +
+    subprocess.run(["g++", "-std=c++17", "-O1", ] + ["-I" + os.path.join(root, "apps/game", r) for r in ['src', 'src/engine', 'library', 'library/world', 'library/space', 'library/matter', 'library/life', 'library/geometry', 'library/vendors/irr/include', 'library/vendors/jsoncpp']] +
+                   [os.path.join(root, "apps/game/library/world/terragen", f) for f in os.listdir(os.path.join(root, "apps/game/library/world/terragen")) if f.endswith(".cpp")] +
                    [os.path.join(root, "scripts/assets/soil_points.cpp"), "-o", exe], check=True)
     points = [list(map(float, line.split()[1:])) for line in subprocess.run([exe], capture_output=True, text=True, check=True).stdout.splitlines()]
 

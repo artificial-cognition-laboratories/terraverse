@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Stride cycles (cycles.py's JSON) as a C++ header for physics/motion: no file to find at run time, so the wiki builds it too.
 
-  header.py walk.json jog.json run.json sprint.json walk_back.json ... > apps/game/src/physics/motion_cycles.h
-  header.py --clips jump.json punch_left.json punch_right.json kick_left.json kick_right.json flying_kick.json > apps/game/src/physics/motion_clips.h
+  header.py walk.json jog.json run.json sprint.json walk_back.json ... > apps/game/library/physics/motion_cycles.h
+  header.py --clips jump.json punch_left.json punch_right.json kick_left.json kick_right.json flying_kick.json > apps/game/library/physics/motion_clips.h
 """
 import json, sys
 if sys.argv[1] == '--clips':

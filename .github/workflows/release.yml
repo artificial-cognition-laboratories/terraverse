@@ -23,7 +23,7 @@ on:
     paths:
       - 'apps/game/**'
       - 'apps/cli/**'
-      - 'packages/types/**'
+      - 'library/types/**'
       - 'assets/**'
       - 'library/**'
       - 'cmake/**'
@@ -77,7 +77,7 @@ jobs:
           bun-version: 1.4.0
 
       - name: Build the UI
-        working-directory: apps/game/ui
+        working-directory: apps/game/src/client/app/shell/interface
         run: |
           bun install --frozen-lockfile
           bun run build
@@ -99,7 +99,7 @@ jobs:
         env:
           SCCACHE_GHA_ENABLED: "true"
         run: |
-          cmake -S . -B .output/build \
+          cmake -S apps/game -B .output/build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER=gcc-12 -DCMAKE_CXX_COMPILER=g++-12 \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
@@ -132,7 +132,7 @@ jobs:
           "$pkg/terraverse" --version | tee /dev/stderr | grep -F "$VERSION"
           set +e
           export TERRAVERSE_HOME="$RUNNER_TEMP/home"
-          timeout 20 "$pkg/terraverse" --server --gameid terrafirma --world "$RUNNER_TEMP/world" --port 30500 2>&1 | tee boot.log
+          timeout 20 "$pkg/terraverse" --server --gameid terrafirma --world "$RUNNER_TEMP/world" --world-code TF24.dGVycmE --port 30500 2>&1 | tee boot.log
           set -e
           grep -q 'listening on' boot.log
           ! grep -q 'ERROR\[' boot.log
@@ -177,7 +177,7 @@ jobs:
           bun-version: 1.4.0
 
       - name: Build the UI
-        working-directory: apps/game/ui
+        working-directory: apps/game/src/client/app/shell/interface
         run: |
           bun install --frozen-lockfile
           bun run build
@@ -207,7 +207,7 @@ jobs:
           LLVM="C:/Program Files/LLVM/bin"
           "$LLVM/clang-cl.exe" --version
           mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
-          cmake -S . -B .output/build -G Ninja \
+          cmake -S apps/game -B .output/build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER="$LLVM/clang-cl.exe" -DCMAKE_CXX_COMPILER="$LLVM/clang-cl.exe" \
             -DCMAKE_LINKER="$LLVM/lld-link.exe" \
@@ -257,7 +257,7 @@ jobs:
           Start-Process $exe -ArgumentList '--version' -Wait -NoNewWindow -RedirectStandardOutput version.out -RedirectStandardError version.err
           Get-Content version.out, version.err
           if (-not (Select-String -Path version.out, version.err -SimpleMatch $env:VERSION -Quiet)) { throw "--version doesn't say $env:VERSION" }
-          $p = Start-Process $exe -ArgumentList '--server', '--gameid', 'terrafirma', '--world', "$env:RUNNER_TEMP\world", '--port', '30500' `
+          $p = Start-Process $exe -ArgumentList '--server', '--gameid', 'terrafirma', '--world', "$env:RUNNER_TEMP\world", '--world-code', 'TF24.dGVycmE', '--port', '30500' `
             -PassThru -NoNewWindow -RedirectStandardOutput boot.out -RedirectStandardError boot.log
           if (-not $p.WaitForExit(20000)) { Stop-Process -Id $p.Id -Force }
           Get-Content boot.out, boot.log

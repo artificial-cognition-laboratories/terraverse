@@ -3,16 +3,16 @@
 // what share is land. For tuning generation by eye:
 //   scripts/terragen-tool.sh render scripts/terragen-check/render.cpp
 //   ./render TF24.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents|sediment|soil|uplift]
-#include "terragen/world.h"
-#include "terragen/worlds.h"
-#include "terragen/sphere.h"
+#include "library/world/terragen/world.h"
+#include "library/world/terragen/worlds.h"
+#include "library/world/terragen/sphere.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <string>
 #include <vector>
-#include "png.h"
+#include "src/shared/util/png.h"
 using namespace terragen;
 
 int main(int argc, char **argv)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# An atlas's seams, crossed headless (planning/sprint-30-atlas.md, phase 3):
+# An atlas's seams, crossed headless (.agents/planning/sprint-30-atlas.md, phase 3):
 # walkers, water and sand over the ring wrap, band seams, the cap edge and a
 # shell floor, on the default world laid 1:1 (scripts/atlas-seam-check/probe).
 # Builds the engine first.

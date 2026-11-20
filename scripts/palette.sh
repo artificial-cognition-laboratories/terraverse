@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The game's baked palette (apps/game/game/palette.json, far/baked.h): what
+# The game's baked palette (apps/game/assets/game/palette.json, far/baked.h): what
 # the generator places and how it looks from afar, exported from the game's
 # own content and textures (luanti --export-palette: a scratch world's mods
 # loaded, textures on the NULL video driver, no window). `--check` exports
@@ -26,15 +26,15 @@ env -u DISPLAY -u WAYLAND_DISPLAY timeout 120 "$root/.output/bin/luanti" --confi
 	exit 1
 }
 
-committed="$root/apps/game/game/palette.json"
+committed="$root/apps/game/assets/game/palette.json"
 if [ "${1:-}" = "--check" ]; then
 	if ! cmp -s "$work/palette.json" "$committed"; then
-		echo "palette check: apps/game/game/palette.json is out of date with the game's content (run: bun palette)"
+		echo "palette check: apps/game/assets/game/palette.json is out of date with the game's content (run: bun palette)"
 		diff <(python3 -I -m json.tool "$committed" 2>/dev/null || true) <(python3 -I -m json.tool "$work/palette.json") | head -20
 		exit 1
 	fi
 	echo "palette check: ok"
 else
 	cp "$work/palette.json" "$committed"
-	echo "palette: wrote apps/game/game/palette.json"
+	echo "palette: wrote apps/game/assets/game/palette.json"
 fi

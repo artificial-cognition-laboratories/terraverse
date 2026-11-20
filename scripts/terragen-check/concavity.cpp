@@ -4,8 +4,8 @@
 // over every stream cell. Checked in sprint 89 (plates with history):
 //   scripts/terragen-tool.sh concavity scripts/terragen-check/concavity.cpp
 //   ./concavity TF24.dGVycmE
-#include "terragen/world.h"
-#include "terragen/grid.h"
+#include "library/world/terragen/world.h"
+#include "library/world/terragen/grid.h"
 #include <cstdio>
 #include <cmath>
 using namespace terragen;

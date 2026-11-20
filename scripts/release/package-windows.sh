@@ -20,7 +20,7 @@ name="terraverse-${version}-windows-x86_64"
 stage="$out/$name"
 
 [ -f "$root/.output/bin/luanti.exe" ] || { echo "package: no .output/bin/luanti.exe — build first" >&2; exit 1; }
-[ -f "$root/.output/ui/dist/index.html" ] || { echo "package: no .output/ui/dist — cd apps/game/ui && bun run build" >&2; exit 1; }
+[ -f "$root/.output/ui/dist/index.html" ] || { echo "package: no .output/ui/dist — cd apps/game/src/client/app/shell/interface && bun run build" >&2; exit 1; }
 [ -n "${VCToolsRedistDir:-}" ] || { echo "package: VCToolsRedistDir is unset — run inside Visual Studio's environment" >&2; exit 1; }
 
 mkdir -p "$out"
@@ -49,7 +49,7 @@ cp -a "$root/.output/games/terrafirma" "$stage/games/"
 cp -a "$root/.output/ui/dist" "$stage/ui/"
 
 cp "$root/LICENSE.txt" "$stage/licenses/luanti-LICENSE.txt"
-cp "$root/assets/CREDITS.md" "$stage/licenses/assets-CREDITS.md"
+cp "$root/apps/game/assets/CREDITS.md" "$stage/licenses/assets-CREDITS.md"
 cef=$(command ls -d "$root"/.output/build/_deps/cef_binary_*/ | head -1)
 cp "$cef/LICENSE.txt" "$stage/licenses/cef-LICENSE.txt"
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# A planet's window, headless (planning/sprint-39-tiles.md): a planet of
+# A planet's window, headless (.agents/planning/sprint-39-tiles.md): a planet of
 # radius 250k, far more than the map holds at once; a mark made at the
 # spawn, the spawn's tile pushed out of the map, then asked for again: the
 # same cell, the mark kept (scripts/window-check/probe). Takes ~70 s (the

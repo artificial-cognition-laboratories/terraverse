@@ -18,27 +18,25 @@ stage() {
 # The executable uses its parent directory as both share and user path in
 # RUN_IN_PLACE builds. Mirror only resources here; user worlds and account
 # data in .output are deliberately outside these targets.
-stage apps/game/game games/terrafirma
+stage apps/game/assets/game games/terrafirma
 stage registry/shaders client/shaders
 stage registry/textures textures
-stage assets/fonts fonts
-stage assets/matter matter
-stage assets/world world
-stage assets/misc misc
+stage apps/game/assets/fonts fonts
+stage apps/game/assets/matter matter
+stage apps/game/assets/world world
+stage apps/game/assets/misc misc
 
-# The game's own server folder (apps/game/server): its official TypeScript mods, prepared
-# from source here, then only what runs (.terra's build and manifest, which point nowhere
-# outside it) staged as the engine's default server folder.
-[[ -d "$root/apps/cli/node_modules" ]] || (cd "$root/apps/cli" && bun install --frozen-lockfile >/dev/null)
-bun "$root/apps/cli/bin/terra.ts" prepare "$root/apps/game/server" >/dev/null
-rm -rf "$out/server"
-mkdir -p "$out/server/.terra"
-cp "$root/apps/game/server/package.json" "$root/apps/game/server/server.config.ts" "$out/server/"
-cp -a "$root/apps/game/server/.terra/build" "$root/apps/game/server/.terra/manifest.json" "$out/server/.terra/"
+# TEMP(2026-11-20): apps/game/server (the official mods' server folder) was removed in the
+# monorepo move and has no new home yet. Until it does, the server folder staged before
+# the move (.output/server) is left as it was; a fresh checkout runs worlds without the
+# official mods (Server: a world given no server folder runs the share's, if prepared).
+if [[ ! -f "$out/server/.terra/manifest.json" ]]; then
+    echo "stage: no official mods staged (apps/game/server was removed; see TEMP above)" >&2
+fi
 
 # CMake writes translated .mo files here when gettext is available. Keep
 # bundled translations as a fallback without deleting generated output.
-if [[ -d "$root/assets/locale" ]]; then
+if [[ -d "$root/apps/game/assets/locale" ]]; then
     mkdir -p "$out/locale"
-    cp -a "$root/assets/locale/." "$out/locale/"
+    cp -a "$root/apps/game/assets/locale/." "$out/locale/"
 fi

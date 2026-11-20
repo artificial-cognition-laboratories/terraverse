@@ -7,13 +7,13 @@ root=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$root"
 
 # The key the game trusts must be the key CI signs with.
-grep -qF "$(sed -n 2p scripts/release/update-key.pub)" apps/game/src/release/release.cpp \
+grep -qF "$(sed -n 2p scripts/release/update-key.pub)" apps/game/src/online/release/release.cpp \
 	|| { echo "gate: release.cpp's UPDATE_KEY isn't scripts/release/update-key.pub" >&2; exit 1; }
 grep -qF "$(sed -n 2p scripts/release/update-key.pub)" scripts/release/install.sh \
 	|| { echo "gate: install.sh's PUBLIC_KEY isn't scripts/release/update-key.pub" >&2; exit 1; }
 bash scripts/release/install-check.sh
 
-cmake -S . -B .output/build -DRUN_IN_PLACE=TRUE
+cmake -S apps/game -B .output/build -DRUN_IN_PLACE=TRUE
 cmake --build .output/build -j"$(nproc)"
 # terra runs the game's TypeScript mods beside the engine; the boot below needs it, as CI builds it.
 (cd apps/cli && bun install --frozen-lockfile && bun run build)
@@ -22,12 +22,12 @@ bash scripts/stage-runtime.sh
 # scripts/test/skip.txt cites a job for, as CI's release run does. Three modules
 # alone let 6 failing tests reach master unseen (2026-11-17).
 BUILT=1 bash scripts/test.sh
-(cd apps/game/ui && bun run typecheck && bun run build)
+(cd apps/game/src/client/app/shell/interface && bun run typecheck && bun run build)
 
 world=$(mktemp -d)
 trap 'rm -rf "$world"' EXIT
 set +e
-timeout 20 ./.output/bin/luanti --server --gameid terrafirma --world "$world/w" --port 30501 >"$world/boot.log" 2>&1
+timeout 20 ./.output/bin/luanti --server --gameid terrafirma --world "$world/w" --world-code TF24.dGVycmE --port 30501 >"$world/boot.log" 2>&1
 set -e
 grep -q 'listening on' "$world/boot.log" || { cat "$world/boot.log"; echo "gate: the server didn't start" >&2; exit 1; }
 if grep -q 'ERROR\[' "$world/boot.log"; then grep 'ERROR\[' "$world/boot.log"; echo "gate: errors booting a world" >&2; exit 1; fi

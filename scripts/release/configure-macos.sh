@@ -18,7 +18,7 @@ fi
 # OpenAL: the system framework, which the engine's <OpenAL/al.h> includes on Apple (vcpkg's
 # static openal-soft would need its own fmt and frameworks).
 # 13.0: the oldest macOS this CEF supports (its CEF_TARGET_SDK).
-cmake -S "$root" -B "$root/.output/build" -G Ninja \
+cmake -S "$root/apps/game" -B "$root/.output/build" -G Ninja \
 	-DCMAKE_BUILD_TYPE=Release \
 	-DCMAKE_OSX_ARCHITECTURES=arm64 \
 	-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \

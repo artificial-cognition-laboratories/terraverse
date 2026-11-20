@@ -5,7 +5,7 @@
 // It shares the first one's UI server, and signs in on its own.
 
 const root = `${import.meta.dir}/..`
-const ui = `${root}/apps/game/ui`
+const ui = `${root}/apps/game/src/client/app/shell/interface`
 const devUrl = "http://localhost:5173"
 // Accounts and friends come from the local ArcLabs stack (`arc status` in
 // ../arclabs lists it); ARCLABS_URL points elsewhere, e.g. production.
@@ -60,10 +60,10 @@ async function launchGame(args: string[]) {
 
 await Bun.$`mkdir -p ${root}/.output`
 if (!(await Bun.file(`${root}/.output/build/CMakeCache.txt`).exists()))
-    await run(locked(["cmake", "-S", ".", "-B", ".output/build", "-DRUN_IN_PLACE=TRUE"]), root, "configure")
+    await run(locked(["cmake", "-S", "apps/game", "-B", ".output/build", "-DRUN_IN_PLACE=TRUE"]), root, "configure")
 // CMake regenerates its build files when CMake inputs change.
 // (no link-time optimisation here: that's most of a rebuild's wait; a release has its own)
-await run(locked(["cmake", "-S", ".", "-B", ".output/build", "-DRUN_IN_PLACE=TRUE", "-DENABLE_LTO=FALSE"]), root, "configure")
+await run(locked(["cmake", "-S", "apps/game", "-B", ".output/build", "-DRUN_IN_PLACE=TRUE", "-DENABLE_LTO=FALSE"]), root, "configure")
 await run(["bash", "scripts/build.sh", "-j8"], root, "engine build")
 await run(locked(["bash", "scripts/stage-runtime.sh"]), root, "runtime staging")
 if (!(await Bun.file(`${ui}/node_modules/.bin/vite`).exists()))

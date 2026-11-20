@@ -1,10 +1,10 @@
 // A sheet of skies, for tuning by eye without the game: a row per body with air, a
 // column per height of the star, each panel looking toward it from the horizon up.
-//   g++ -std=c++17 -O2 -Iapps/game/src apps/game/src/terragen/*.cpp apps/game/src/air/*.cpp scripts/air-check/sky.cpp -o sky -lpthread
+//   g++ -std=c++17 -O2 -Iapps/game/src apps/game/library/world/terragen/*.cpp apps/game/library/space/air/*.cpp scripts/air-check/sky.cpp -o sky -lpthread
 //   ./sky <code> <out.png> [real|game]
 // real: the air at its true size. game: its height a tenth of the radius, as the far view has it now.
-#include "air/tables.h"
-#include "terragen/system.h"
+#include "library/space/air/tables.h"
+#include "library/world/terragen/system.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>

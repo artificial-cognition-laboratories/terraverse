@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The unit tests' time budgets, held: each module that times itself, alone,
-# with TF_BUDGETS set (apps/game/src/unittest/cpu_time.h). The parallel unit
+# with TF_BUDGETS set (apps/game/tests/unit/cpu_time.h). The parallel unit
 # run (bun run test) reports these times but doesn't hold them: with every
 # core busy a step costs twice as much, even in CPU time. Run it on a quiet
 # machine; it says what the load was, so a failure can be read against it.

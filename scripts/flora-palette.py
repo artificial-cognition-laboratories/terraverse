@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # The plant blocks' palette (tf_flora_palette.png, in the engine's textures): 16 hues × 16
-# shades, the same table as apps/game/src/mapgen/terra_flora.cpp's palette(),
+# shades, the same table as apps/game/src/world/mapgen/terra_flora.cpp's palette(),
 # which picks a lineage's colours from it. And the plant blocks' greyed
 # textures, made from the Good Vibes pack's, for the palette to colour.
 import colorsys, sys

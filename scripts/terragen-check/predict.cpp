@@ -9,12 +9,12 @@
 // Places: a grid of latitudes and longitudes, plus river channels, lake
 // centres and volcanoes. The probe reports each node's own place
 // (core.terra.place), and that's what's predicted: exactly the same place.
-#include "terragen/calendar.h"
-#include "terragen/sun.h"
-#include "terragen/geology.h"
-#include "terragen/world.h"
-#include "terragen/sphere.h"
-#include "terragen/grid.h"
+#include "library/world/terragen/calendar.h"
+#include "library/world/terragen/sun.h"
+#include "library/world/terragen/geology.h"
+#include "library/world/terragen/world.h"
+#include "library/world/terragen/sphere.h"
+#include "library/world/terragen/grid.h"
 #include <algorithm>
 #include <cmath>
 #include <map>

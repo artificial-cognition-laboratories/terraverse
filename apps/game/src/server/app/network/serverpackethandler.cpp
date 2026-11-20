@@ -1,0 +1,1876 @@
+// Luanti
+// SPDX-License-Identifier: LGPL-2.1-or-later
+// Copyright (C) 2015 nerzhul, Loic Blot <loic.blot@unix-experience.fr>
+
+#include "src/shared/chat/chatmessage.h"
+#include "src/server/app/server.h"
+#include "src/server/mods/interact.h"
+#include "src/server/world/terra.h" // Terra Firma
+#include "src/server/world/run/rules/matter.h" // Terra Firma
+#include "src/shared/online/gate.h"
+#include "src/server/mods/sidecar/sidecar.h"
+#include <json/json.h>
+#include <sstream>
+#include "src/server/world/state/environment/serverenvironment.h"
+#include "src/shared/platform/log.h"
+#include "src/server/world/load/emerge.h"
+#include "src/shared/items/itemdef.h"
+#include "src/shared/map/mapblock.h"
+#include "src/shared/content/nodedef.h"
+#include "src/shared/platform/porting.h" // strcasecmp
+#include "src/shared/objects/remoteplayer.h"
+#include "src/shared/environment/rollback_interface.h"
+#include "src/shared/core/serialization.h"
+#include "src/shared/platform/settings.h"
+#include "src/server/world/run/sculpt/sculpt.h"
+#include "src/server/world/state/objects/entity_sao.h"
+#include "src/server/world/run/machines/workshop/workshop.h"
+#include "src/shared/items/tool.h"
+#include "src/shared/network/connection.h"
+#include "src/shared/network/networkexceptions.h"
+#include "src/shared/network/networkpacket.h"
+#include "src/shared/network/networkprotocol.h"
+#include "src/server/app/network/serveropcodes.h"
+#include "src/server/players/player_sao.h"
+#include "src/server/world/state/objects/serverinventorymgr.h"
+#include "src/shared/util/base64.h"
+#include "src/shared/util/pointedthing.h"
+#include "src/client/world/session/clientdynamicinfo.h"
+
+#include <algorithm>
+
+static constexpr std::size_t MAX_CLIENT_MOD_CHANNELS = 128;
+
+void Server::handleCommand_Deprecated(NetworkPacket* pkt)
+{
+	auto &h = toServerCommandTable[pkt->getCommand()];
+	infostream << "Server: ignoring unsupported " << h.name << " from peer " <<
+		pkt->getPeerId() << std::endl;
+}
+
+void Server::handleCommand_Init(NetworkPacket* pkt)
+{
+	session_t peer_id = pkt->getPeerId();
+	RemoteClient *client = getClient(peer_id, CS_Created);
+
+	Address addr;
+	std::string addr_s;
+	try {
+		addr = m_con->GetPeerAddress(peer_id);
+		addr_s = addr.serializeString();
+	} catch (con::PeerNotFoundException &e) {
+		/*
+		 * no peer for this packet found
+		 * most common reason is peer timeout, e.g. peer didn't
+		 * respond for some time, your server was overloaded or
+		 * things like that.
+		 */
+		infostream << "Server: peer " << peer_id << " not found during INIT?!"
+			<< std::endl;
+		return;
+	}
+
+	if (client->getState() > CS_Created) {
+		verbosestream << "Server: Ignoring multiple TOSERVER_INITs from " <<
+			addr_s << " (peer_id=" << peer_id << ")" << std::endl;
+		return;
+	}
+
+	client->setCachedAddress(addr);
+
+	verbosestream << "Server: Got TOSERVER_INIT from " << addr_s <<
+		" (peer_id=" << peer_id << ")" << std::endl;
+
+	if (denyIfBanned(peer_id))
+		return;
+
+	u8 max_ser_ver; // SER_FMT_VER_HIGHEST_READ (of client)
+	u16 unused;
+	u16 min_net_proto_version;
+	u16 max_net_proto_version;
+	std::string playerName;
+
+	*pkt >> max_ser_ver >> unused
+			>> min_net_proto_version >> max_net_proto_version
+			>> playerName;
+
+	// Use the highest version supported by both
+	const u8 serialization_ver = std::min(max_ser_ver, SER_FMT_VER_HIGHEST_WRITE);
+
+	if (!ser_ver_supported_write(serialization_ver)) {
+		actionstream << "Server: A mismatched client tried to connect from " <<
+			addr_s << " ser_fmt_max=" << (int)serialization_ver << std::endl;
+		DenyAccess(peer_id, SERVER_ACCESSDENIED_WRONG_VERSION);
+		return;
+	}
+
+	client->setPendingSerializationVersion(serialization_ver);
+
+	/*
+		Read and check network protocol version
+	*/
+
+	u16 net_proto_version = 0;
+
+	// Figure out a working version if it is possible at all
+	if (max_net_proto_version >= SERVER_PROTOCOL_VERSION_MIN ||
+			min_net_proto_version <= LATEST_PROTOCOL_VERSION) {
+		// If maximum is larger than our maximum, go with our maximum
+		if (max_net_proto_version > LATEST_PROTOCOL_VERSION)
+			net_proto_version = LATEST_PROTOCOL_VERSION;
+		// Else go with client's maximum
+		else
+			net_proto_version = max_net_proto_version;
+	}
+
+	verbosestream << "Server: " << addr_s << ": Protocol version: min: "
+			<< min_net_proto_version << ", max: " << max_net_proto_version
+			<< ", chosen: " << net_proto_version << std::endl;
+
+	client->net_proto_version = net_proto_version;
+
+	if (net_proto_version < Server::getProtocolVersionMin() ||
+			net_proto_version > Server::getProtocolVersionMax()) {
+		actionstream << "Server: A mismatched client tried to connect from " <<
+			addr_s << " proto_max=" << (int)max_net_proto_version << std::endl;
+		DenyAccess(peer_id, SERVER_ACCESSDENIED_WRONG_VERSION);
+		return;
+	}
+
+	/*
+		Validate player name
+	*/
+	const char* playername = playerName.c_str();
+
+	size_t pns = playerName.size();
+	if (pns == 0 || pns > PLAYERNAME_SIZE) {
+		actionstream << "Server: Player with " <<
+			((pns > PLAYERNAME_SIZE) ? "a too long" : "an empty") <<
+			" name tried to connect from " << addr_s << std::endl;
+		DenyAccess(peer_id, SERVER_ACCESSDENIED_WRONG_NAME);
+		return;
+	}
+
+	if (!string_allowed(playerName, PLAYERNAME_ALLOWED_CHARS)) {
+		actionstream << "Server: Player with an invalid name tried to connect "
+			"from " << addr_s << std::endl;
+		DenyAccess(peer_id, SERVER_ACCESSDENIED_WRONG_CHARS_IN_NAME);
+		return;
+	}
+
+	// Do not allow multiple players in simple singleplayer mode
+	if (isSingleplayer() && !m_clients.getClientIDs(CS_HelloSent).empty()) {
+		infostream << "Server: Not allowing another client (" << addr_s <<
+			") to connect in simple singleplayer mode" << std::endl;
+		DenyAccess(peer_id, SERVER_ACCESSDENIED_SINGLEPLAYER);
+		return;
+	}
+	// Or the "singleplayer" name to be used on regular servers
+	if (!isSingleplayer() && strcasecmp(playername, "singleplayer") == 0) {
+		actionstream << "Server: Player with the name \"singleplayer\" tried "
+			"to connect from " << addr_s << std::endl;
+		DenyAccess(peer_id, SERVER_ACCESSDENIED_WRONG_NAME);
+		return;
+	}
+
+	{
+		RemotePlayer *player = m_env->getPlayer(playername, true);
+		// If player is already connected, cancel
+		if (player && player->getPeerId() != PEER_ID_INEXISTENT) {
+			actionstream << "Server: Player with name \"" << playername <<
+				"\" tried to connect, but player with same name is already connected" << std::endl;
+			DenyAccess(peer_id, SERVER_ACCESSDENIED_ALREADY_CONNECTED);
+			return;
+		}
+	}
+
+	client->setName(playerName);
+
+	infostream << "Server: New connection: \"" << playerName << "\" from " <<
+		addr_s << " (peer_id=" << peer_id << ")" << std::endl;
+
+	// Early check for user limit, so the client doesn't need to run
+	// through the join process only to be denied.
+	if (checkUserLimit(playerName, addr_s)) {
+		actionstream << "Server: " << playername << " tried to join from " <<
+			addr_s << ", but the user limit was reached." << std::endl;
+		DenyAccess(peer_id, SERVER_ACCESSDENIED_TOO_MANY_USERS);
+		return;
+	}
+
+	/*
+		Compose auth methods for answer
+	*/
+	u32 auth_mechs = 0;
+	client->chosen_mech = AUTH_MECHANISM_NONE;
+
+	// Terra Firma (sprint 119): no passwords. Hosted for friends, a ticket is the only way
+	// in; played alone, the one player (127.0.0.1 only) is let in at once.
+	if (m_gate) {
+		auth_mechs = AUTH_MECHANISM_TICKET;
+	} else if (isSingleplayer()) {
+		auth_mechs = AUTH_MECHANISM_LOCAL;
+	} else {
+		actionstream << "Server: " << playername << " tried to join from " << addr_s <<
+			", but this server admits by ArcLabs ticket and has no gate" << std::endl;
+		DenyAccess(peer_id, SERVER_ACCESSDENIED_CUSTOM_STRING,
+			"This server takes no one: a world is opened to friends from the game.");
+		return;
+	}
+
+	/*
+		Answer with a TOCLIENT_HELLO
+	*/
+
+	verbosestream << "Sending TOCLIENT_HELLO with auth method field: "
+		<< auth_mechs << std::endl;
+
+	NetworkPacket resp_pkt(TOCLIENT_HELLO, 0, peer_id);
+
+	resp_pkt << serialization_ver << u16(0) /* unused */
+		<< net_proto_version
+		<< auth_mechs << std::string_view() /* unused */;
+
+	Send(&resp_pkt);
+
+	client->allowed_auth_mechs = auth_mechs;
+
+	m_clients.event(peer_id, CSE_Hello);
+	if (auth_mechs == AUTH_MECHANISM_LOCAL) {
+		client->chosen_mech = AUTH_MECHANISM_LOCAL;
+		acceptAuth(peer_id);
+	}
+}
+
+void Server::handleCommand_Init2(NetworkPacket* pkt)
+{
+	session_t peer_id = pkt->getPeerId();
+	verbosestream << "Server: Got TOSERVER_INIT2 from " << peer_id << std::endl;
+
+	RemoteClient *client = getClientNoEx(peer_id, CS_Invalid);
+	if (!client || client->getState() != CS_AwaitingInit2) {
+		actionstream << "Server: Ignoring TOSERVER_INIT2 in wrong state from "
+			<< peer_id << std::endl;
+		return;
+	}
+
+	m_clients.event(peer_id, CSE_GotInit2);
+	u16 protocol_version = m_clients.getProtocolVersion(peer_id);
+
+	std::string lang;
+	if (pkt->getSize() > 0)
+		*pkt >> lang;
+
+	/*
+		Send some initialization data
+	*/
+
+	infostream << "Server: Sending content to " << getPlayerName(peer_id) <<
+		std::endl;
+
+	// Send item definitions
+	SendItemDef(peer_id, m_itemdef, protocol_version);
+
+	// Send node definitions
+	SendNodeDef(peer_id, m_nodedef, protocol_version);
+
+	m_clients.event(peer_id, CSE_SetDefinitionsSent);
+
+	// Send media announcement
+	sendMediaAnnouncement(peer_id, lang);
+
+	// Keep client language for server translations
+	client->setLangCode(lang);
+
+	// Send player movement settings
+	SendMovement(peer_id);
+
+	// Send time of day
+	u16 time = m_env->getTimeOfDay();
+	SendTimeOfDay(peer_id, time, getTimeSpeed()); // (Terra Firma: a stopped clock stays stopped for who joins)
+
+	SendPlanet(peer_id); // before the horizon: the far view is made with both
+	SendHorizon(peer_id);
+
+}
+
+void Server::handleCommand_RequestMedia(NetworkPacket* pkt)
+{
+	std::unordered_set<std::string> tosend;
+	u16 numfiles;
+
+	*pkt >> numfiles;
+
+	session_t peer_id = pkt->getPeerId();
+	verbosestream << "Client " << getPlayerName(peer_id)
+		<< " requested media file(s):\n";
+
+	for (u16 i = 0; i < numfiles; i++) {
+		std::string name;
+
+		*pkt >> name;
+
+		tosend.emplace(name);
+		verbosestream << "  " << name << "\n";
+	}
+	verbosestream << std::flush;
+
+	sendRequestedMedia(peer_id, tosend);
+}
+
+void Server::handleCommand_ClientReady(NetworkPacket* pkt)
+{
+	session_t peer_id = pkt->getPeerId();
+	RemoteClient *client = getClient(peer_id, CS_Created);
+	assert(client);
+
+	// decode all information first
+	u8 major_ver, minor_ver, patch_ver, reserved;
+	u16 formspec_ver = 1; // v1 for clients older than 5.1.0-dev
+	std::string full_ver;
+
+	*pkt >> major_ver >> minor_ver >> patch_ver >> reserved >> full_ver;
+	if (pkt->getRemainingBytes() >= 2)
+		*pkt >> formspec_ver;
+
+	client->setVersionInfo(major_ver, minor_ver, patch_ver, full_ver);
+
+	// Since only active clients count for the user limit, two could race the
+	// join process so we have to do a final check for the user limit here.
+	std::string addr_s = client->getAddress().serializeString();
+	if (checkUserLimit(client->getName(), addr_s)) {
+		actionstream << "Server: " << client->getName() << " tried to join from " <<
+			addr_s << ", but the user limit was reached (late)." << std::endl;
+		DenyAccess(peer_id, SERVER_ACCESSDENIED_TOO_MANY_USERS);
+		return;
+	}
+
+	// Emerge player
+	PlayerSAO* playersao = StageTwoClientInit(peer_id);
+	if (!playersao) {
+		errorstream << "Server: stage 2 client init failed "
+			"peer_id=" << peer_id << std::endl;
+		DisconnectPeer(peer_id);
+		return;
+	}
+
+	playersao->getPlayer()->formspec_version = formspec_ver;
+	m_clients.event(peer_id, CSE_SetClientReady);
+
+	// Send player list to this client
+	{
+		const std::vector<std::string> &players = m_clients.getPlayerNames();
+		NetworkPacket list_pkt(TOCLIENT_UPDATE_PLAYER_LIST, 0, peer_id);
+		list_pkt << (u8) PLAYER_LIST_INIT << (u16) players.size();
+		for (const auto &player : players)
+			list_pkt << player;
+		Send(peer_id, &list_pkt);
+	}
+
+	s64 last_login = -1; // (builtin's on_joinplayer: nothing keeps logins now)
+	// Terra Firma: one who joins in seam starts at the spawn, before anything asks the
+	// planet where they are (sprint 119: was tf_planet's)
+	terraOffSeam(this, playersao, "joined");
+	terraJoinPlayer(this, playersao); // what they're given (sprint 119: was tf_player's)
+	terraMatterJoin(this, playersao); // what they've seen react (was tf_matter's)
+	// one who left dead is still dead: they're shown it, and respawn when they choose
+	if (playersao->isDead())
+		SendDeathscreen(peer_id);
+	if (!isSingleplayer()) // Terra Firma: was builtin's (sprint 119)
+		SendChatMessage(PEER_ID_INEXISTENT, ChatMessage(CHATMESSAGE_TYPE_ANNOUNCE,
+				utf8_to_wide("*** " + playersao->getPlayer()->getName() + " joined the game.")));
+	if (m_sidecar) // Terra Firma: TypeScript mods (sprint 119)
+		m_sidecar->joined(playersao->getPlayer()->getName());
+	SendBlueprints(peer_id, playersao->getPlayer()->getName()); // Terra Firma
+	SendMaterials(peer_id); // Terra Firma
+
+	// Send shutdown timer if shutdown has been scheduled
+	if (m_shutdown_state.isTimerRunning())
+		SendChatMessage(peer_id, m_shutdown_state.getShutdownTimerMessage());
+}
+
+void Server::handleCommand_GotBlocks(NetworkPacket* pkt)
+{
+	if (pkt->getSize() < 1)
+		return;
+
+	/*
+		[0] u16 command
+		[2] u8 count
+		[3] v3s16 pos_0
+		[3+6] v3s16 pos_1
+		...
+	*/
+
+	u8 count;
+	*pkt >> count;
+
+	ClientInterface::AutoLock lock(m_clients);
+	RemoteClient *client = m_clients.lockedGetClientNoEx(pkt->getPeerId());
+	if (!client)
+		return;
+
+	for (u16 i = 0; i < count; i++) {
+		v3s16 p;
+		*pkt >> p;
+		client->GotBlock(p);
+	}
+}
+
+void Server::process_PlayerPos(RemotePlayer *player, PlayerSAO *playersao,
+	NetworkPacket *pkt)
+{
+	v3s32 ps, ss;
+	s32 f32pitch, f32yaw;
+	u8 f32fov;
+
+	*pkt >> ps;
+	*pkt >> ss;
+	*pkt >> f32pitch;
+	*pkt >> f32yaw;
+
+	f32 pitch = (f32)f32pitch / 100.0f;
+	f32 yaw = (f32)f32yaw / 100.0f;
+	u32 keyPressed = 0;
+
+	f32 fov = 0;
+	u8 wanted_range = 0;
+	u8 bits = 0; // bits instead of bool so it is extensible later
+
+	*pkt >> keyPressed;
+	player->control.unpackKeysPressed(keyPressed);
+
+	*pkt >> f32fov;
+	fov = (f32)f32fov / 80.0f;
+	*pkt >> wanted_range;
+
+	bool have_movement_data = false;
+	do {
+		if (!pkt->hasRemainingBytes())
+			break;
+		// >= 5.8.0-dev
+		*pkt >> bits;
+
+		if (!pkt->hasRemainingBytes())
+			break;
+		// >= 5.10.0-dev
+		f32 movement_speed;
+		*pkt >> movement_speed;
+		if (movement_speed != movement_speed) // NaN
+			movement_speed = 0.0f;
+		player->control.movement_speed = std::clamp(movement_speed, 0.0f, 1.0f);
+		*pkt >> player->control.movement_direction;
+		have_movement_data = true;
+	} while (0);
+
+	if (!have_movement_data) {
+		player->control.movement_speed = 0.0f;
+		player->control.movement_direction = 0.0f;
+		player->control.setMovementFromKeys();
+	}
+
+	v3f position((f32)ps.X / 100.0f, (f32)ps.Y / 100.0f, (f32)ps.Z / 100.0f);
+	v3f speed((f32)ss.X / 100.0f, (f32)ss.Y / 100.0f, (f32)ss.Z / 100.0f);
+
+	pitch = modulo360f(pitch);
+	yaw = wrapDegrees_0_360(yaw);
+
+	if (!playersao->isAttached()) {
+		// Only update player positions when moving freely
+		// to not interfere with attachment handling
+		playersao->setBasePosition(position);
+		player->setSpeed(speed);
+	}
+	playersao->setLookPitch(pitch);
+	playersao->setPlayerYaw(yaw);
+	playersao->setFov(fov);
+	playersao->setWantedRange(wanted_range);
+	playersao->setCameraInverted(bits & 0x01);
+
+	if (playersao->checkMovementCheat()) {
+		SendMovePlayer(playersao);
+	}
+}
+
+void Server::handleCommand_PlayerPos(NetworkPacket* pkt)
+{
+	session_t peer_id = pkt->getPeerId();
+	RemotePlayer *player = m_env->getPlayer(peer_id);
+	if (!player) {
+		warningstream << FUNCTION_NAME << ": player is null" << std::endl;
+		return;
+	}
+
+	PlayerSAO *playersao = player->getPlayerSAO();
+	if (!playersao) {
+		warningstream << FUNCTION_NAME << ": player SAO is null" << std::endl;
+		return;
+	}
+
+	// If player is dead we don't care of this packet
+	if (playersao->isDead()) {
+		verbosestream << "TOSERVER_PLAYERPOS: " << player->getName()
+				<< " is dead. Ignoring packet";
+		return;
+	}
+
+	process_PlayerPos(player, playersao, pkt);
+}
+
+void Server::handleCommand_DeletedBlocks(NetworkPacket* pkt)
+{
+	if (pkt->getSize() < 1)
+		return;
+
+	/*
+		[0] u16 command
+		[2] u8 count
+		[3] v3s16 pos_0
+		[3+6] v3s16 pos_1
+		...
+	*/
+
+	u8 count;
+	*pkt >> count;
+
+	ClientInterface::AutoLock lock(m_clients);
+	RemoteClient *client = m_clients.lockedGetClientNoEx(pkt->getPeerId());
+	if (!client)
+		return;
+
+	for (u16 i = 0; i < count; i++) {
+		v3s16 p;
+		*pkt >> p;
+		client->SetBlockNotSent(p);
+	}
+}
+
+void Server::handleCommand_InventoryAction(NetworkPacket* pkt)
+{
+	session_t peer_id = pkt->getPeerId();
+	RemotePlayer *player = m_env->getPlayer(peer_id);
+	if (!player) {
+		warningstream << FUNCTION_NAME << ": player is null" << std::endl;
+		return;
+	}
+
+	PlayerSAO *playersao = player->getPlayerSAO();
+	if (!playersao) {
+		warningstream << FUNCTION_NAME << ": player SAO is null" << std::endl;
+		return;
+	}
+
+	// Strip command and create a stream
+	std::istringstream is(std::string(pkt->getRemainingNoCopy()), std::ios_base::binary);
+	// Create an action
+	std::unique_ptr<InventoryAction> a(InventoryAction::deSerialize(is));
+	if (!a) {
+		infostream << "TOSERVER_INVENTORY_ACTION: "
+				<< "InventoryAction::deSerialize() returned NULL"
+				<< std::endl;
+		return;
+	}
+
+	// If something goes wrong, this player is to blame
+	RollbackScopeActor rollback_scope(m_rollback,
+			"player:" + player->getName());
+
+	/*
+		Note: Always set inventory not sent, to repair cases
+		where the client made a bad prediction.
+	*/
+
+	auto mark_player_inv_list_dirty = [this](const InventoryLocation &loc,
+			const std::string &list_name) {
+
+		// Undo the client prediction of the affected list. See `clientApply`.
+		if (loc.type != InventoryLocation::PLAYER)
+			return;
+
+		Inventory *inv = m_inventory_mgr->getInventory(loc);
+		if (!inv)
+			return;
+
+		InventoryList *list = inv->getList(list_name);
+		if (!list)
+			return;
+
+		list->setModified(true);
+	};
+
+	const bool player_has_interact = checkPriv(player->getName(), "core:interact");
+
+	auto check_inv_access = [player, player_has_interact, this] (
+			const InventoryLocation &loc) -> bool {
+
+		// Players without interact may modify their own inventory
+		if (!player_has_interact && loc.type != InventoryLocation::PLAYER) {
+			infostream << "Cannot modify foreign inventory: "
+					<< "No interact privilege" << std::endl;
+			return false;
+		}
+
+		switch (loc.type) {
+		case InventoryLocation::CURRENT_PLAYER:
+			// Only used internally on the client, never sent
+			return false;
+		case InventoryLocation::PLAYER:
+			// Allow access to own inventory in all cases
+			return loc.name == player->getName();
+		case InventoryLocation::NODEMETA:
+			{
+				// Check for out-of-range interaction
+				v3f node_pos   = intToFloat(loc.p, BS);
+				v3f player_pos = player->getPlayerSAO()->getEyePosition();
+				f32 d = player_pos.getDistanceFrom(node_pos);
+				return checkInteractDistance(player, d, "inventory");
+			}
+		case InventoryLocation::DETACHED:
+			return getInventoryMgr()->checkDetachedInventoryAccess(loc, player->getName());
+		default:
+			return false;
+		}
+	};
+
+	/*
+		Handle restrictions and special cases of the move action
+	*/
+	if (a->getType() == IAction::Move) {
+		IMoveAction *ma = (IMoveAction*)a.get();
+
+		ma->from_inv.applyCurrentPlayer(player->getName());
+		ma->to_inv.applyCurrentPlayer(player->getName());
+
+		m_inventory_mgr->setInventoryModified(ma->from_inv);
+		mark_player_inv_list_dirty(ma->from_inv, ma->from_list);
+		bool inv_different = ma->from_inv != ma->to_inv;
+		if (inv_different)
+			m_inventory_mgr->setInventoryModified(ma->to_inv);
+		if (inv_different || ma->from_list != ma->to_list)
+			mark_player_inv_list_dirty(ma->to_inv, ma->to_list);
+
+		if (!check_inv_access(ma->from_inv) ||
+				!check_inv_access(ma->to_inv))
+			return;
+
+		/*
+			Disable moving items out of craftpreview
+		*/
+		if (ma->from_list == "craftpreview") {
+			infostream << "Ignoring IMoveAction from "
+					<< (ma->from_inv.dump()) << ":" << ma->from_list
+					<< " to " << (ma->to_inv.dump()) << ":" << ma->to_list
+					<< " because src is " << ma->from_list << std::endl;
+			return;
+		}
+
+		/*
+			Disable moving items into craftresult and craftpreview
+		*/
+		if (ma->to_list == "craftpreview" || ma->to_list == "craftresult") {
+			infostream << "Ignoring IMoveAction from "
+					<< (ma->from_inv.dump()) << ":" << ma->from_list
+					<< " to " << (ma->to_inv.dump()) << ":" << ma->to_list
+					<< " because dst is " << ma->to_list << std::endl;
+			return;
+		}
+	}
+	/*
+		Handle restrictions and special cases of the drop action
+	*/
+	else if (a->getType() == IAction::Drop) {
+		IDropAction *da = (IDropAction*)a.get();
+
+		da->from_inv.applyCurrentPlayer(player->getName());
+
+		m_inventory_mgr->setInventoryModified(da->from_inv);
+		mark_player_inv_list_dirty(da->from_inv, da->from_list);
+
+		/*
+			Disable dropping items out of craftpreview
+		*/
+		if (da->from_list == "craftpreview") {
+			infostream << "Ignoring IDropAction from "
+					<< (da->from_inv.dump()) << ":" << da->from_list
+					<< " because src is " << da->from_list << std::endl;
+			return;
+		}
+
+		// Disallow dropping items if not allowed to interact
+		if (!player_has_interact || !check_inv_access(da->from_inv))
+			return;
+
+		// Disallow dropping items if dead
+		if (playersao->isDead()) {
+			infostream << "Ignoring IDropAction from "
+					<< (da->from_inv.dump()) << ":" << da->from_list
+					<< " because player is dead." << std::endl;
+			return;
+		}
+	}
+	/*
+		Handle restrictions and special cases of the craft action
+	*/
+	else if (a->getType() == IAction::Craft) {
+		ICraftAction *ca = (ICraftAction*)a.get();
+
+		ca->craft_inv.applyCurrentPlayer(player->getName());
+
+		m_inventory_mgr->setInventoryModified(ca->craft_inv);
+		// Note: `ICraftAction::clientApply` is empty, thus nothing to revert.
+
+		// Disallow crafting if not allowed to interact
+		if (!player_has_interact) {
+			infostream << "Cannot craft: "
+					<< "No interact privilege" << std::endl;
+			return;
+		}
+
+		if (!check_inv_access(ca->craft_inv))
+			return;
+	} else {
+		// Unknown action. Ignored.
+		return;
+	}
+
+	// Do the action
+	a->apply(m_inventory_mgr.get(), playersao, this);
+}
+
+void Server::handleCommand_ChatMessage(NetworkPacket* pkt)
+{
+	std::wstring message;
+	*pkt >> message;
+
+	session_t peer_id = pkt->getPeerId();
+	RemotePlayer *player = m_env->getPlayer(peer_id);
+	if (!player) {
+		warningstream << FUNCTION_NAME << ": player is null" << std::endl;
+		return;
+	}
+
+	const auto &name = player->getName();
+
+	std::wstring answer_to_sender = handleChat(name, message, true, player);
+	if (!answer_to_sender.empty()) {
+		// Send the answer to sender
+		SendChatMessage(peer_id, ChatMessage(CHATMESSAGE_TYPE_SYSTEM,
+			answer_to_sender));
+	}
+}
+
+void Server::handleCommand_Damage(NetworkPacket* pkt)
+{
+	u16 damage;
+
+	*pkt >> damage;
+
+	session_t peer_id = pkt->getPeerId();
+	RemotePlayer *player = m_env->getPlayer(peer_id);
+	if (!player) {
+		warningstream << FUNCTION_NAME << ": player is null" << std::endl;
+		return;
+	}
+
+	PlayerSAO *playersao = player->getPlayerSAO();
+	if (!playersao) {
+		warningstream << FUNCTION_NAME << ": player SAO is null" << std::endl;
+		return;
+	}
+
+	if (!playersao->isImmortal()) {
+		if (playersao->isDead()) {
+			verbosestream << "Server: "
+				"Ignoring damage as player " << player->getName()
+				<< " is already dead" << std::endl;
+			return;
+		}
+
+		actionstream << player->getName() << " damaged by "
+				<< (int)damage << " hp at " << (playersao->getBasePosition() / BS)
+				<< std::endl;
+
+		PlayerHPChangeReason reason(PlayerHPChangeReason::FALL);
+		playersao->setHP((s32)playersao->getHP() - (s32)damage, reason, true);
+	}
+}
+
+void Server::handleCommand_PlayerItem(NetworkPacket* pkt)
+{
+	if (pkt->getSize() < 2)
+		return;
+
+	session_t peer_id = pkt->getPeerId();
+	RemotePlayer *player = m_env->getPlayer(peer_id);
+	if (!player) {
+		warningstream << FUNCTION_NAME << ": player is null" << std::endl;
+		return;
+	}
+
+	PlayerSAO *playersao = player->getPlayerSAO();
+	if (!playersao) {
+		warningstream << FUNCTION_NAME << ": player SAO is null" << std::endl;
+		return;
+	}
+
+	u16 item;
+
+	*pkt >> item;
+
+	if (player->getMaxHotbarItemcount() == 0) {
+		return; // ignore silently
+	} else if (item >= player->getMaxHotbarItemcount()) {
+		actionstream << "Player " << player->getName()
+			<< " tried to access item=" << item
+			<< " out of hotbar_itemcount="
+			<< player->getMaxHotbarItemcount()
+			<< "; ignoring." << std::endl;
+		return;
+	}
+
+	playersao->getPlayer()->setWieldIndex(item);
+}
+
+bool Server::checkInteractDistance(RemotePlayer *player, const f32 d, const std::string &what)
+{
+	ItemStack selected_item, hand_item;
+	const ItemStack &tool_item = player->getWieldedItem(&selected_item, &hand_item);
+	f32 max_d = BS * getToolRange(tool_item, hand_item, m_itemdef);
+
+	// Cube diagonal * 1.5 for maximal supported node extents:
+	// sqrt(3) * 1.5 ≅ 2.6
+	if (d > max_d + 2.6f * BS) {
+		actionstream << "Player " << player->getName()
+				<< " tried to access " << what
+				<< " from too far: "
+				<< "d=" << d << ", max_d=" << max_d
+				<< "; ignoring." << std::endl;
+		return false;
+	}
+	return true;
+}
+
+// Tiny helper to retrieve the selected item into an std::optional
+static inline void getWieldedItem(const PlayerSAO *playersao, std::optional<ItemStack> &ret)
+{
+	ret = ItemStack();
+	playersao->getWieldedItem(&(*ret));
+}
+
+void Server::handleCommand_Interact(NetworkPacket *pkt)
+{
+	InteractAction action;
+	u16 item_i;
+
+	*pkt >> (u8 &)action;
+	*pkt >> item_i;
+
+	std::istringstream tmp_is(pkt->readLongString(), std::ios::binary);
+	PointedThing pointed;
+	pointed.deSerialize(tmp_is);
+
+	verbosestream << "TOSERVER_INTERACT: action=" << (int)action << ", item="
+			<< item_i << ", pointed=" << pointed.dump() << std::endl;
+
+	session_t peer_id = pkt->getPeerId();
+	RemotePlayer *player = m_env->getPlayer(peer_id);
+	if (!player) {
+		warningstream << FUNCTION_NAME << ": player is null" << std::endl;
+		return;
+	}
+
+	PlayerSAO *playersao = player->getPlayerSAO();
+	if (!playersao) {
+		warningstream << FUNCTION_NAME << ": player SAO is null" << std::endl;
+		return;
+	}
+
+	if (playersao->isDead()) {
+		actionstream << "Server: " << player->getName()
+				<< " tried to interact while dead; ignoring." << std::endl;
+		getClient(peer_id)->fixupNodePrediction(action, pointed, false);
+		return;
+	}
+
+	process_PlayerPos(player, playersao, pkt);
+
+	v3f player_pos = playersao->getLastGoodPosition();
+
+	// Update wielded item
+	if (player->getMaxHotbarItemcount() == 0) {
+		return; // ignore silently
+	} else if (item_i >= player->getMaxHotbarItemcount()) {
+		actionstream << "Player " << player->getName()
+			<< " tried to access item=" << item_i
+			<< " out of hotbar_itemcount="
+			<< player->getMaxHotbarItemcount()
+			<< "; ignoring." << std::endl;
+		return;
+	}
+
+	player->setWieldIndex(item_i);
+
+	// Get pointed to object (NULL if not POINTEDTYPE_OBJECT)
+	ServerActiveObject *pointed_object = NULL;
+	if (pointed.type == POINTEDTHING_OBJECT) {
+		pointed_object = m_env->getActiveObject(pointed.object_id);
+		if (pointed_object == NULL) {
+			verbosestream << "TOSERVER_INTERACT: "
+				"pointed object is NULL" << std::endl;
+			return;
+		}
+
+	}
+
+	/*
+		Make sure the player is allowed to do it
+	*/
+	if (!checkPriv(player->getName(), "core:interact")) {
+		actionstream << player->getName() << " attempted to interact with " <<
+				pointed.dump() << " without 'interact' privilege" << std::endl;
+		getClient(peer_id)->fixupNodePrediction(action, pointed, false);
+		return;
+	}
+
+	/*
+		Check that target is reasonably close
+	*/
+	static thread_local const u32 anticheat_flags =
+		g_settings->getFlagStr("anticheat_flags", flagdesc_anticheat, nullptr);
+
+	if ((action == INTERACT_START_DIGGING || action == INTERACT_DIGGING_COMPLETED ||
+			action == INTERACT_PLACE || action == INTERACT_USE) &&
+			(anticheat_flags & AC_INTERACTION) && !isSingleplayer()) {
+		v3f target_pos = player_pos;
+		if (pointed.type == POINTEDTHING_NODE) {
+			target_pos = intToFloat(pointed.node_undersurface, BS);
+		} else if (pointed.type == POINTEDTHING_OBJECT) {
+			if (playersao->getId() == pointed_object->getId()) {
+				actionstream << "Server: " << player->getName()
+					<< " attempted to interact with themselves" << std::endl;
+				return;
+			}
+			target_pos = pointed_object->getBasePosition();
+		}
+		// Terra Firma: on a planet, over the planet (a node across a face's
+		// edge is near, wherever the net keeps it)
+		float d = m_env->getMap().distance(playersao->getEyePosition(), target_pos);
+
+		if (!checkInteractDistance(player, d, pointed.dump())) {
+			getClient(peer_id)->fixupNodePrediction(action, pointed, false);
+			return;
+		}
+	}
+
+	/*
+		If something goes wrong, this player is to blame
+	*/
+	RollbackScopeActor rollback_scope(m_rollback,
+			"player:" + player->getName());
+
+	switch (action) {
+	// Start digging or punch object
+	case INTERACT_START_DIGGING: {
+		if (pointed.type == POINTEDTHING_NODE) {
+			MapNode n(CONTENT_IGNORE);
+			bool pos_ok;
+
+			v3s16 p_under = pointed.node_undersurface;
+			n = m_env->getMap().getNode(p_under, &pos_ok);
+			if (!pos_ok) {
+				infostream << "Server: Not punching: Node not found. "
+					"Adding block to emerge queue." << std::endl;
+				m_emerge->enqueueBlockEmerge(peer_id,
+					getNodeBlockPos(pointed.node_abovesurface), false);
+			}
+
+			// a punch shakes loose what's lost its support (Terra Firma, sprint 119: was
+			// builtin's falling.lua)
+			if (n.getContent() != CONTENT_IGNORE)
+				interact::settle(*m_env, p_under);
+
+			// Cheat prevention
+			playersao->noCheatDigStart(p_under);
+
+			return;
+		}
+
+		// Skip if the object can't be interacted with anymore
+		if (pointed.type != POINTEDTHING_OBJECT || pointed_object->isGone())
+			return;
+
+		ItemStack selected_item, hand_item;
+		ItemStack tool_item = playersao->getWieldedItem(&selected_item, &hand_item);
+		const ToolCapabilities &toolcap =
+				tool_item.getToolCapabilities(m_itemdef, &hand_item);
+		v3f dir = (pointed_object->getBasePosition() -
+				(playersao->getBasePosition() + playersao->getEyeOffset())
+					).normalize();
+		float time_from_last_punch =
+			playersao->resetTimeFromLastPunch();
+
+		u32 wear = pointed_object->punch(dir, toolcap, playersao,
+				time_from_last_punch, tool_item.wear);
+
+		// Callback may have changed item, so get it again
+		playersao->getWieldedItem(&selected_item);
+		bool changed = selected_item.addWear(wear, m_itemdef);
+		if (changed)
+			playersao->setWieldedItem(selected_item);
+
+		return;
+	} // action == INTERACT_START_DIGGING
+
+	case INTERACT_STOP_DIGGING:
+		// Nothing to do
+		return;
+
+	case INTERACT_DIGGING_COMPLETED: {
+		// Only digging of nodes
+		if (pointed.type != POINTEDTHING_NODE)
+			return;
+		bool pos_ok;
+		v3s16 p_under = pointed.node_undersurface;
+		MapNode n = m_env->getMap().getNode(p_under, &pos_ok);
+		if (!pos_ok) {
+			infostream << "Server: Not finishing digging: Node not found. "
+				"Adding block to emerge queue." << std::endl;
+			m_emerge->enqueueBlockEmerge(peer_id,
+				getNodeBlockPos(pointed.node_abovesurface), false);
+		}
+
+		/* Cheat prevention */
+		bool is_valid_dig = true;
+		// Terra Firma: creative digs anything at once (Game::handleDigging)
+		if ((anticheat_flags & AC_DIGGING) && !isSingleplayer() && !checkPriv(player->getName(), "core:creative")) {
+			v3s16 nocheat_p = playersao->getNoCheatDigPos();
+			float nocheat_t = playersao->getNoCheatDigTime();
+			playersao->noCheatDigEnd();
+			// If player didn't start digging this, ignore dig
+			if (nocheat_p != p_under) {
+				infostream << "Server: " << player->getName()
+						<< " started digging "
+						<< nocheat_p << " and completed digging "
+						<< p_under << "; not digging." << std::endl;
+				is_valid_dig = false;
+			}
+
+			// Get player's wielded item
+			// See also: Game::handleDigging
+			ItemStack selected_item, hand_item;
+			ItemStack &tool_item = player->getWieldedItem(&selected_item, &hand_item);
+
+			// Get diggability and expected digging time
+			DigParams params = getDigParams(m_nodedef->get(n).groups,
+					&tool_item.getToolCapabilities(m_itemdef, &hand_item),
+					tool_item.wear);
+			// If can't dig, try hand
+			if (!params.diggable) {
+				params = getDigParams(m_nodedef->get(n).groups,
+					&hand_item.getToolCapabilities(m_itemdef));
+			}
+			// If can't dig, ignore dig
+			if (!params.diggable) {
+				infostream << "Server: " << player->getName()
+						<< " completed digging " << p_under
+						<< ", which is not diggable with tool; not digging."
+						<< std::endl;
+				is_valid_dig = false;
+			}
+			// Check digging time
+			// If already invalidated, we don't have to
+			if (!is_valid_dig) {
+				// Well not our problem then
+			}
+			// Clean and long dig
+			else if (params.time > 2.0 && nocheat_t * 1.2 > params.time) {
+				// All is good, but grab time from pool; don't care if
+				// it's actually available
+				playersao->getDigPool().grab(params.time);
+			}
+			// Short or laggy dig
+			// Try getting the time from pool
+			else if (playersao->getDigPool().grab(params.time)) {
+				// All is good
+			}
+			// Dig not possible
+			else {
+				infostream << "Server: " << player->getName()
+						<< " completed digging " << p_under
+						<< "too fast; not digging." << std::endl;
+				is_valid_dig = false;
+			}
+		}
+
+		/* Actually dig node */
+
+		if (is_valid_dig && n.getContent() != CONTENT_IGNORE)
+			interact::dig(this, playersao, p_under); // Terra Firma (sprint 119: was builtin's item.lua)
+		// Terra Firma: liquids and heaps beside it run into the hole, and the loose ground
+		// round it keeps its shape (sprint 85; sprint 119: were tf_matter's and tf_world's)
+		if (is_valid_dig && m_env->getMap().getNode(p_under).getContent() != n.getContent()) {
+			terraMatterDisturb(this, p_under);
+			groundChanged(p_under, n);
+		}
+
+		// For whatever reason we assume that the client always predicts that a
+		// dug node is air irrespective of the node's node_dig_prediction
+		bool prediction_success =
+			m_env->getMap().getNode(p_under).getContent() == CONTENT_AIR;
+		getClient(peer_id)->fixupNodePrediction(action, pointed,
+			prediction_success);
+
+		return;
+	} // action == INTERACT_DIGGING_COMPLETED
+
+	// Place block or right-click object
+	case INTERACT_PLACE: {
+		std::optional<ItemStack> selected_item;
+		getWieldedItem(playersao, selected_item);
+
+		const bool had_prediction = !selected_item->getDefinition(m_itemdef).
+			node_placement_prediction.empty();
+		// Terra Firma: the two nodes a block could go into, as they were (below)
+		const MapNode under = m_env->getMap().getNode(pointed.node_undersurface),
+				above = m_env->getMap().getNode(pointed.node_abovesurface);
+
+		if (pointed.type == POINTEDTHING_OBJECT) {
+			// Right click object
+
+			// Skip if object can't be interacted with anymore
+			if (pointed_object->isGone())
+				return;
+
+			actionstream << player->getName() << " right-clicks object "
+					<< pointed.object_id << ": "
+					<< pointed_object->getDescription() << std::endl;
+
+			pointed_object->rightClick(playersao);
+		} else if (selected_item.has_value() &&
+				interact::place(this, playersao, *selected_item, pointed)) {
+			// Terra Firma (sprint 119: was builtin's item.lua): what's left in hand
+			if (playersao->setWieldedItem(*selected_item))
+				SendInventory(player, true);
+		}
+		// Terra Firma: what's beside a block built runs against it, a liquid placed starts
+		// to run, and the loose ground round it keeps its shape (sprint 119: were tf_matter's
+		// and tf_world's); whichever of the two it went into
+		if (pointed.type == POINTEDTHING_NODE) {
+			for (const auto &[p, was] : { std::pair{ pointed.node_undersurface, under }, std::pair{ pointed.node_abovesurface, above } }) {
+				if (m_env->getMap().getNode(p).getContent() == was.getContent())
+					continue;
+				terraMatterDisturb(this, p);
+				groundChanged(p, was);
+			}
+		}
+
+		if (pointed.type != POINTEDTHING_NODE)
+			return;
+
+		getClient(peer_id)->m_time_from_building = 0;
+		// Since we do not known if the client has predicted the node at
+		// pointed.above or pointed.under,
+		// we assume that a prediction is always wrong.
+		getClient(peer_id)->fixupNodePrediction(action, pointed,
+			!had_prediction);
+		return;
+	} // action == INTERACT_PLACE
+
+	case INTERACT_USE: {
+		std::optional<ItemStack> selected_item;
+		getWieldedItem(playersao, selected_item);
+
+		// nothing's used by itself yet: a tool digs, a block is placed
+		verbosestream << player->getName() << " uses " << selected_item->name
+				<< ", pointing at " << pointed.dump() << std::endl;
+		return;
+	}
+
+	// Rightclick air
+	case INTERACT_ACTIVATE: {
+		std::optional<ItemStack> selected_item;
+		getWieldedItem(playersao, selected_item);
+
+		// nothing's done by right-clicking the air yet
+		verbosestream << player->getName() << " activates "
+				<< selected_item->name << std::endl;
+		return;
+	}
+
+	default:
+		warningstream << "Server: Invalid action " << action << std::endl;
+
+	}
+}
+
+void Server::handleCommand_RemovedSounds(NetworkPacket* pkt)
+{
+	u16 num;
+	*pkt >> num;
+	for (u16 k = 0; k < num; k++) {
+		s32 id;
+
+		*pkt >> id;
+
+		auto i = m_playing_sounds.find(id);
+		if (i == m_playing_sounds.end())
+			continue;
+
+		ServerPlayingSound &psound = i->second;
+		psound.clients.erase(pkt->getPeerId());
+		if (psound.clients.empty())
+			m_playing_sounds.erase(i);
+	}
+}
+
+static bool pkt_read_formspec_fields(NetworkPacket *pkt, StringMap &fields)
+{
+	u16 field_count;
+	*pkt >> field_count;
+
+	size_t length = 0;
+	for (u16 k = 0; k < field_count; k++) {
+		std::string fieldname, fieldvalue;
+		*pkt >> fieldname;
+		fieldvalue = pkt->readLongString();
+
+		fieldname = sanitize_untrusted(fieldname, false);
+		// We'd love to strip escapes here but some formspec elements reflect data
+		// from the server (e.g. dropdown), which can contain translations.
+		fieldvalue = sanitize_untrusted(fieldvalue);
+
+		length += fieldname.size() + fieldvalue.size();
+
+		fields[std::move(fieldname)] = std::move(fieldvalue);
+	}
+
+	// 640K ought to be enough for anyone
+	return length < 640 * 1024;
+}
+
+void Server::handleCommand_NodeMetaFields(NetworkPacket* pkt)
+{
+	session_t peer_id = pkt->getPeerId();
+	RemotePlayer *player = m_env->getPlayer(peer_id);
+	if (!player) {
+		warningstream << FUNCTION_NAME << ": player is null" << std::endl;
+		return;
+	}
+
+	PlayerSAO *playersao = player->getPlayerSAO();
+	if (!playersao) {
+		warningstream << FUNCTION_NAME << ": player SAO is null" << std::endl;
+		return;
+	}
+
+	v3s16 p;
+	std::string formname;
+	StringMap fields;
+
+	*pkt >> p >> formname;
+
+	if (!pkt_read_formspec_fields(pkt, fields)) {
+		warningstream << "Too large formspec fields! Ignoring for pos="
+			<< p << ", player=" << player->getName() << std::endl;
+		return;
+	}
+
+	if (!checkPriv(player->getName(), "core:interact")) {
+		actionstream << player->getName() << " attempted to interact with "
+				<< "node metadata at " << p << " without 'interact' privilege"
+				<< std::endl;
+		return;
+	}
+
+	v3f node_pos = intToFloat(p, BS);
+	f32 d = playersao->getEyePosition().getDistanceFrom(node_pos);
+	if (!checkInteractDistance(player, d, "node metadata"))
+		return;
+
+	// Terra Firma (sprint 119): no block shows a form; the page is the UI
+	infostream << player->getName() << " sent fields for a block's form at " << p
+			<< ", which no block shows; ignoring" << std::endl;
+}
+
+void Server::handleCommand_InventoryFields(NetworkPacket* pkt)
+{
+	session_t peer_id = pkt->getPeerId();
+	RemotePlayer *player = m_env->getPlayer(peer_id);
+
+	if (!player)
+		return;
+	PlayerSAO *playersao = player->getPlayerSAO();
+	if (!playersao)
+		return;
+
+	std::string client_formspec_name;
+	StringMap fields;
+
+	*pkt >> client_formspec_name;
+
+	if (!pkt_read_formspec_fields(pkt, fields)) {
+		warningstream << "Too large formspec fields! Ignoring for formname=\""
+			<< client_formspec_name << "\", player=" << player->getName() << std::endl;
+		return;
+	}
+
+	if (client_formspec_name.empty()) // the inventory's: nothing answers it (the page is the UI)
+		return;
+
+	// verify that we displayed the formspec to the user
+	const auto it = m_formspec_state_data.find(peer_id);
+	if (it != m_formspec_state_data.end()) {
+		const auto &server_formspec_name = it->second;
+		if (client_formspec_name == server_formspec_name) {
+			// delete state if formspec was closed
+			auto it2 = fields.find("quit");
+			if (it2 != fields.end() && it2->second == "true")
+				m_formspec_state_data.erase(it);
+			// Terra Firma (sprint 119): the server shows no forms of its own; the page is the UI
+			infostream << player->getName() << " answered the form " << client_formspec_name
+					<< ", which nothing reads" << std::endl;
+			return;
+		}
+		actionstream << player->getName()
+			<< " submitted formspec ('" << client_formspec_name
+			<< "') but the name of the formspec doesn't match the"
+			" expected name ('" << server_formspec_name << "')";
+
+	} else {
+		actionstream << player->getName()
+			<< " submitted formspec ('" << client_formspec_name
+			<< "') but server hasn't sent formspec to client";
+	}
+	actionstream << ", possible exploitation attempt" << std::endl;
+}
+
+void Server::handleCommand_Ticket(NetworkPacket *pkt)
+{
+	session_t peer_id = pkt->getPeerId();
+	RemoteClient *client = getClient(peer_id, CS_Invalid);
+	if (!m_gate || client->getState() != CS_HelloSent ||
+			!client->isMechAllowed(AUTH_MECHANISM_TICKET) ||
+			client->chosen_mech != AUTH_MECHANISM_NONE) {
+		actionstream << "Server: unexpected TOSERVER_TICKET from "
+			<< client->getAddress().serializeString() << std::endl;
+		DenyAccess(peer_id, SERVER_ACCESSDENIED_UNEXPECTED_DATA);
+		return;
+	}
+	std::string ticket, build;
+	*pkt >> ticket >> build;
+	client->chosen_mech = AUTH_MECHANISM_TICKET;
+	m_gate->begin(peer_id, client->getName(), ticket, build); // answered in AsyncRunStep
+}
+
+// Terra Firma (sprint 119: was builtin's death_screen.lua): the one who died chose to
+// live again (the client's own death screen, TOCLIENT_DEATHSCREEN_LEGACY)
+void Server::handleCommand_Respawn(NetworkPacket *pkt)
+{
+	RemotePlayer *player = m_env->getPlayer(pkt->getPeerId());
+	PlayerSAO *sao = player ? player->getPlayerSAO() : nullptr;
+	if (!sao || !sao->isDead())
+		return;
+	sao->respawn();
+	actionstream << player->getName() << " respawns at " << floatToInt(sao->getBasePosition(), BS) << std::endl;
+}
+
+void Server::handleCommand_HaveMedia(NetworkPacket *pkt)
+{
+	std::vector<u32> tokens;
+	u8 numtokens;
+
+	*pkt >> numtokens;
+	for (u16 i = 0; i < numtokens; i++) {
+		u32 n;
+		*pkt >> n;
+		tokens.emplace_back(n);
+	}
+
+	const session_t peer_id = pkt->getPeerId();
+	for (const u32 token : tokens) {
+		auto it = m_pending_dyn_media.find(token);
+		if (it == m_pending_dyn_media.end())
+			continue;
+		it->second.waiting_players.erase(peer_id);
+	}
+}
+
+void Server::handleCommand_UpdateClientInfo(NetworkPacket *pkt)
+{
+	ClientDynamicInfo info;
+	*pkt >> info.render_target_size.X;
+	*pkt >> info.render_target_size.Y;
+	*pkt >> info.real_gui_scaling;
+	*pkt >> info.real_hud_scaling;
+	*pkt >> info.max_fs_size.X;
+	*pkt >> info.max_fs_size.Y;
+	info.touch_controls = false;
+
+	if (pkt->hasRemainingBytes()) {
+		// >= 5.9.0-dev
+		*pkt >> info.touch_controls;
+	}
+
+	session_t peer_id = pkt->getPeerId();
+	RemoteClient *client = getClient(peer_id, CS_Invalid);
+	client->setDynamicInfo(info);
+}
+
+void Server::handleCommand_Ui(NetworkPacket *pkt)
+{
+	RemotePlayer *player = m_env->getPlayer(pkt->getPeerId());
+	if (!player)
+		return;
+	PlayerSAO *playersao = player->getPlayerSAO();
+	if (!playersao)
+		return;
+
+	std::string name;
+	*pkt >> name;
+	std::string payload = pkt->readLongString();
+
+	// from a client: refuse what isn't JSON rather than trust it
+	Json::Value value;
+	std::string errors;
+	std::istringstream in(payload);
+	if (!Json::parseFromStream(Json::CharReaderBuilder(), in, &value, &errors)) {
+		warningstream << "Ignoring UI event \"" << name << "\" from " << player->getName()
+				<< ": payload isn't JSON (" << errors << ")" << std::endl;
+		return;
+	}
+	// Terra Firma: the engine's own first (sprint 119: were tf_player's)
+	if (terraUiEvent(this, playersao, name, value))
+		return;
+	warningstream << "UI event \"" << name << "\" from " << player->getName()
+			<< ": nothing answers it" << std::endl;
+}
+
+// Terra Firma: the tools in hand (sprints 45–47). Creative only for now; the
+// server applies the stroke, to the world (its changes go out as the map's
+// Terra Firma: a workshop verb (sprint 48) for a player who may use the
+// tools in hand: interact, in creative
+template <class F>
+void Server::inWorkshop(session_t peer_id, const char *what, F &&f)
+{
+	RemotePlayer *player = m_env->getPlayer(peer_id);
+	if (!player)
+		return;
+	PlayerSAO *sao = player->getPlayerSAO();
+	if (!sao)
+		return;
+	auto refuse = [&](const std::string &why) {
+		warningstream << "Refusing " << player->getName() << "'s " << what << ": " << why << std::endl;
+		SendChatMessage(peer_id, ChatMessage(CHATMESSAGE_TYPE_SYSTEM, utf8_to_wide(why)));
+	};
+	if (!checkPriv(player->getName(), "core:interact"))
+		return refuse("You can't use the tools here (no interact)");
+	if (!checkPriv(player->getName(), "core:creative") && !g_settings->getBool("creative_mode"))
+		return refuse("The tools are only in creative for now");
+	try {
+		f(*sao);
+	} catch (const workshop::Refused &e) {
+		refuse(e.what());
+	}
+}
+
+// Terra Firma: a stroke of the tools in hand (sprint 45), on the world or a piece
+void Server::handleCommand_Sculpt(NetworkPacket *pkt)
+{
+	u16 piece_id;
+	u64 part;
+	u8 tool, size, x, y, z, act, axis;
+	v3s16 node, normal;
+	s32 twice;
+	u8 dragged, apart;
+	*pkt >> piece_id >> part >> tool >> size >> node >> x >> y >> z >> normal >> act >> axis >> twice >> dragged;
+	std::optional<shape::Sixteenth> to;
+	if (dragged) {
+		v3s16 to_node;
+		u8 tx, ty, tz;
+		*pkt >> to_node >> tx >> ty >> tz;
+		to = shape::Sixteenth{ to_node, v3s16(tx, ty, tz) };
+	}
+	u8 has_deep;
+	*pkt >> apart >> has_deep;
+	std::optional<s32> deep;
+	if (has_deep) {
+		u16 d;
+		*pkt >> d;
+		deep = d;
+	}
+	inWorkshop(pkt->getPeerId(), "stroke", [&](PlayerSAO &sao) {
+		if (axis != 255 && axis > 2)
+			throw workshop::Refused("No such mirror axis");
+		const sculpt::Stroke stroke{ sculpt::Tool(tool), size, { node, v3s16(x, y, z) }, normal, sculpt::Act(act),
+			axis == 255 ? std::nullopt : std::optional<sculpt::Stroke::Mirror>({ axis, twice }), to, deep };
+		if (!stroke.valid())
+			throw workshop::Refused("That's not a stroke");
+		// apart: 0 none, else the new part's joint, one on (piece::Joint)
+		if (apart > u8(piece::Joint::Count))
+			throw workshop::Refused("No such joint for a part");
+		m_workshop->stroke(sao, piece_id, part, stroke,
+				apart ? std::optional<piece::Joint>(piece::Joint(apart - 1)) : std::nullopt);
+	});
+}
+
+// Terra Firma: undo the player's last stroke (sprint 46), on what it was made on
+void Server::handleCommand_Undo(NetworkPacket *pkt)
+{
+	inWorkshop(pkt->getPeerId(), "undo", [&](PlayerSAO &sao) { m_workshop->undo(sao); });
+}
+
+// Terra Firma: a new object, held up in front of the player (sprint 49)
+void Server::handleCommand_PieceNew(NetworkPacket *pkt)
+{
+	inWorkshop(pkt->getPeerId(), "new object", [&](PlayerSAO &sao) {
+		const u16 id = m_workshop->start(sao);
+		NetworkPacket held(TOCLIENT_HELD, 3, pkt->getPeerId());
+		held << id << u8(workshop::Handed::Focused);
+		Send(&held);
+	});
+}
+
+// Terra Firma: a piece kept as a blueprint (sprint 48)
+void Server::handleCommand_BlueprintSave(NetworkPacket *pkt)
+{
+	u16 piece_id;
+	u64 part;
+	std::string name;
+	*pkt >> piece_id >> part >> name;
+	inWorkshop(pkt->getPeerId(), "blueprint", [&](PlayerSAO &sao) {
+		m_workshop->save(sao, piece_id, part, name);
+		SendBlueprints(pkt->getPeerId(), sao.getPlayer()->getName());
+		SendChatMessage(pkt->getPeerId(), ChatMessage(CHATMESSAGE_TYPE_SYSTEM, utf8_to_wide("Saved \"" + name + "\"")));
+	});
+}
+
+// Terra Firma: copy and paste, and the parts library (sprint 74)
+void Server::handleCommand_Clipboard(NetworkPacket *pkt)
+{
+	u8 verb;
+	*pkt >> verb;
+	if (verb >= u8(workshop::Clip::Count)) {
+		warningstream << "Server: a clipboard verb that's none: " << int(verb) << std::endl;
+		return;
+	}
+	const session_t peer = pkt->getPeerId();
+	auto handed = [&](u16 id, workshop::Handed how) {
+		NetworkPacket held(TOCLIENT_HELD, 3, peer);
+		held << id << u8(how);
+		Send(&held);
+	};
+	auto carried = [&](u16 id) { handed(id, workshop::Handed::Carried); };
+	auto said = [&](const std::string &text) {
+		SendChatMessage(peer, ChatMessage(CHATMESSAGE_TYPE_SYSTEM, utf8_to_wide(text)));
+	};
+	switch (workshop::Clip(verb)) {
+	case workshop::Clip::Copy: {
+		u16 object;
+		u64 part;
+		*pkt >> object >> part;
+		inWorkshop(peer, "copy", [&](PlayerSAO &sao) {
+			const size_t n = m_workshop->copy(sao, object, part);
+			said(n == 1 ? "Copied · Ctrl+V for another" : "Copied " + std::to_string(n) + " parts · Ctrl+V for another");
+		});
+		return;
+	}
+	case workshop::Clip::Paste:
+		inWorkshop(peer, "paste", [&](PlayerSAO &sao) { carried(m_workshop->paste(sao)); });
+		return;
+	case workshop::Clip::Take: {
+		std::string name;
+		*pkt >> name;
+		inWorkshop(peer, "take", [&](PlayerSAO &sao) { carried(m_workshop->take(sao, name)); });
+		return;
+	}
+	case workshop::Clip::Forget: {
+		std::string name;
+		*pkt >> name;
+		inWorkshop(peer, "forget", [&](PlayerSAO &sao) {
+			m_workshop->forget(sao, name);
+			SendBlueprints(peer, sao.getPlayer()->getName());
+		});
+		return;
+	}
+	case workshop::Clip::Pull: {
+		u16 object;
+		u64 part;
+		*pkt >> object >> part;
+		inWorkshop(peer, "pull", [&](PlayerSAO &sao) {
+			handed(m_workshop->pull(sao, object, part), workshop::Handed::Pulled);
+		});
+		return;
+	}
+	case workshop::Clip::Count:
+		break;
+	}
+}
+
+// Terra Firma: a blueprint put down as ghosts (sprint 48)
+void Server::handleCommand_BlueprintPlace(NetworkPacket *pkt)
+{
+	std::string name;
+	v3s16 at;
+	*pkt >> name >> at;
+	inWorkshop(pkt->getPeerId(), "blueprint", [&](PlayerSAO &sao) { m_workshop->place(sao, name, at); });
+}
+
+// Terra Firma: an object held or let go (sprint 49)
+void Server::handleCommand_ObjectHold(NetworkPacket *pkt)
+{
+	u16 id;
+	u8 grip;
+	*pkt >> id >> grip;
+	if (grip > u8(workshop::Grip::Carried)) {
+		warningstream << "Server: a hold that's none of the grips: " << int(grip) << std::endl;
+		return;
+	}
+	inWorkshop(pkt->getPeerId(), "hold", [&](PlayerSAO &sao) { m_workshop->hold(sao, id, workshop::Grip(grip)); });
+}
+
+// Terra Firma: where a held object is (sprint 50)
+void Server::handleCommand_ObjectPose(NetworkPacket *pkt)
+{
+	u16 id;
+	v3f position, rotation;
+	*pkt >> id >> position >> rotation;
+	inWorkshop(pkt->getPeerId(), "pose", [&](PlayerSAO &sao) { m_workshop->pose(sao, id, position, rotation); });
+}
+
+// Terra Firma: a player walking into an object (sprint 61)
+void Server::handleCommand_ObjectPush(NetworkPacket *pkt)
+{
+	u16 id;
+	v3f impulse;
+	*pkt >> id >> impulse;
+	// anyone may push (it's not a tool), ~20 a second: what can't be
+	// pushed (gone, held, out of reach) isn't worth a word
+	RemotePlayer *player = m_env->getPlayer(pkt->getPeerId());
+	PlayerSAO *sao = player ? player->getPlayerSAO() : nullptr;
+	if (!sao || !checkPriv(player->getName(), "core:interact"))
+		return;
+	try {
+		m_workshop->push(*sao, id, impulse);
+	} catch (const workshop::Refused &) {
+	}
+}
+
+// Terra Firma: a point of an object grabbed, or let go (sprint 68)
+void Server::handleCommand_ObjectGrab(NetworkPacket *pkt)
+{
+	u16 id;
+	u8 held;
+	*pkt >> id >> held;
+	std::optional<std::pair<v3f, v3f>> grip;
+	if (held) {
+		v3f point, hand;
+		*pkt >> point >> hand;
+		grip = std::make_pair(point, hand);
+	}
+	// anyone may grab (it's not a tool), ~20 a second: what can't be
+	// grabbed (gone, held, out of reach) isn't worth a word
+	RemotePlayer *player = m_env->getPlayer(pkt->getPeerId());
+	PlayerSAO *sao = player ? player->getPlayerSAO() : nullptr;
+	if (!sao || !checkPriv(player->getName(), "core:interact"))
+		return;
+	try {
+		m_workshop->grab(*sao, id, grip);
+	} catch (const workshop::Refused &) {
+	}
+}
+
+// Terra Firma: a machine driven from its seat, or got up from (sprint 69)
+void Server::handleCommand_Drive(NetworkPacket *pkt)
+{
+	u16 id;
+	u8 seated;
+	*pkt >> id >> seated;
+	std::optional<physics::Drive> drive;
+	if (seated) {
+		f32 forward, right, brake;
+		*pkt >> forward >> right >> brake;
+		drive = physics::Drive{ forward, right, brake };
+	}
+	RemotePlayer *player = m_env->getPlayer(pkt->getPeerId());
+	PlayerSAO *sao = player ? player->getPlayerSAO() : nullptr;
+	if (!sao || !checkPriv(player->getName(), "core:interact"))
+		return;
+	try {
+		m_workshop->drive(*sao, id, drive);
+	} catch (const workshop::Refused &e) {
+		SendChatMessage(pkt->getPeerId(), ChatMessage(utf8_to_wide(e.what())));
+	}
+}
+
+// Terra Firma: a machine set back on its feet (sprint 79); anyone may,
+// as anyone can push one
+void Server::handleCommand_Upright(NetworkPacket *pkt)
+{
+	u16 id;
+	*pkt >> id;
+	RemotePlayer *player = m_env->getPlayer(pkt->getPeerId());
+	PlayerSAO *sao = player ? player->getPlayerSAO() : nullptr;
+	if (!sao || !checkPriv(player->getName(), "core:interact"))
+		return;
+	try {
+		m_workshop->upright(*sao, id);
+	} catch (const workshop::Refused &e) {
+		SendChatMessage(pkt->getPeerId(), ChatMessage(utf8_to_wide(e.what())));
+	}
+}
+
+// Terra Firma: an object's design made a shell (sprint 50)
+void Server::handleCommand_Hollow(NetworkPacket *pkt)
+{
+	u16 id;
+	u64 part;
+	u8 thickness, rounded;
+	*pkt >> id >> part >> thickness >> rounded;
+	inWorkshop(pkt->getPeerId(), "hollow", [&](PlayerSAO &sao) {
+		if (rounded)
+			m_workshop->round(sao, id, part, thickness);
+		else
+			m_workshop->hollow(sao, id, part, thickness);
+	});
+}
+
+// Terra Firma: a face of a machine's part, off the wire (sprint 52)
+static piece::Machine::Face readFace(NetworkPacket &pkt)
+{
+	piece::Machine::Face f;
+	u8 x, y, z;
+	pkt >> f.part >> f.at.node >> x >> y >> z >> f.normal;
+	f.at.cell = v3s16(x, y, z);
+	return f;
+}
+
+static void checkFace(const piece::Machine::Face &f)
+{
+	if (!shape::Shape::inside(f.at.cell) || std::abs(f.normal.X) + std::abs(f.normal.Y) + std::abs(f.normal.Z) != 1)
+		throw workshop::Refused("That's not a face");
+}
+
+// Terra Firma: the joint between two parts set (sprint 53)
+void Server::handleCommand_Link(NetworkPacket *pkt)
+{
+	u16 id;
+	u64 a, b;
+	u8 joint, at;
+	*pkt >> id >> a >> b >> joint >> at;
+	std::optional<piece::Machine::Face> face;
+	if (at)
+		face = readFace(*pkt);
+	u8 travel, firmness;
+	*pkt >> travel >> firmness;
+	inWorkshop(pkt->getPeerId(), "joint", [&](PlayerSAO &sao) {
+		if (face)
+			checkFace(*face);
+		// 255: the joint taken away
+		if (joint != 255 && joint >= u8(piece::Joint::Count))
+			throw workshop::Refused("No such joint");
+		// 255: its spring as it was
+		std::optional<piece::Spring> spring;
+		if (travel != 255 || firmness != 255) {
+			if (travel >= piece::SPRING_STEPS || firmness >= piece::SPRING_STEPS)
+				throw workshop::Refused("No such spring");
+			spring = piece::Spring{ travel, firmness };
+		}
+		m_workshop->relink(sao, id, a, b, joint == 255 ? std::nullopt : std::optional<piece::Joint>(piece::Joint(joint)), face,
+				spring);
+	});
+}
+
+// Terra Firma: two machines made one, face to face (sprint 52)
+void Server::handleCommand_Join(NetworkPacket *pkt)
+{
+	u16 a, b;
+	*pkt >> a;
+	const piece::Machine::Face on_a = readFace(*pkt);
+	*pkt >> b;
+	const piece::Machine::Face on_b = readFace(*pkt);
+	u8 joint, spin;
+	*pkt >> joint >> spin;
+	inWorkshop(pkt->getPeerId(), "join", [&](PlayerSAO &sao) {
+		checkFace(on_a);
+		checkFace(on_b);
+		if (joint >= u8(piece::Joint::Count))
+			throw workshop::Refused("No such joint");
+		if (spin >= 4)
+			throw workshop::Refused("A spin's a number of quarter turns, under 4");
+		m_workshop->join(sao, a, on_a, b, on_b, piece::Joint(joint), spin);
+	});
+}
+
+// Terra Firma: a part made a machine of its own, or deleted (sprints 52–53)
+void Server::handleCommand_Part(NetworkPacket *pkt)
+{
+	u16 id;
+	u64 part;
+	u8 action;
+	*pkt >> id >> part >> action;
+	inWorkshop(pkt->getPeerId(), "part", [&](PlayerSAO &sao) {
+		if (action > 1)
+			throw workshop::Refused("No such thing to do to a part");
+		if (action == 0)
+			m_workshop->detach(sao, id, part);
+		else
+			m_workshop->remove(sao, id, part);
+	});
+}
+
+// Terra Firma: a socket made on a face, or taken away (sprint 56)
+void Server::handleCommand_Socket(NetworkPacket *pkt)
+{
+	u16 id;
+	u8 action;
+	*pkt >> id >> action;
+	if (action == 1) {
+		u64 socket;
+		*pkt >> socket;
+		inWorkshop(pkt->getPeerId(), "socket", [&](PlayerSAO &sao) { m_workshop->unsocket(sao, id, socket); });
+		return;
+	}
+	const piece::Machine::Face face = readFace(*pkt);
+	u8 joint, axis;
+	s32 twice;
+	*pkt >> joint >> axis >> twice;
+	inWorkshop(pkt->getPeerId(), "socket", [&](PlayerSAO &sao) {
+		checkFace(face);
+		if (action != 0)
+			throw workshop::Refused("No such thing to do to a socket");
+		if (joint >= u8(piece::Joint::Count))
+			throw workshop::Refused("No such joint");
+		if (axis != 255 && axis > 2)
+			throw workshop::Refused("No such mirror axis");
+		m_workshop->socket(sao, id, face, piece::Joint(joint),
+				axis == 255 ? std::nullopt : std::optional<sculpt::Stroke::Mirror>({ axis, twice }));
+	});
+}
+
+// Terra Firma: a machine carried onto another's socket (sprint 56)
+// Terra Firma: another of the last plugged in (sprint 64)
+void Server::handleCommand_PlugAgain(NetworkPacket *pkt)
+{
+	u16 a;
+	u64 socket;
+	*pkt >> a >> socket;
+	inWorkshop(pkt->getPeerId(), "plug again", [&](PlayerSAO &sao) {
+		m_workshop->plugAgain(sao, a, socket);
+	});
+}
+
+void Server::handleCommand_Plug(NetworkPacket *pkt)
+{
+	u16 a, b;
+	u64 socket;
+	*pkt >> a >> socket >> b;
+	const piece::Machine::Face on_b = readFace(*pkt);
+	u8 spin;
+	*pkt >> spin;
+	inWorkshop(pkt->getPeerId(), "plug", [&](PlayerSAO &sao) {
+		checkFace(on_b);
+		if (spin >= 4)
+			throw workshop::Refused("A spin's a number of quarter turns, under 4");
+		m_workshop->plug(sao, a, socket, b, on_b, spin);
+	});
+}

@@ -16,10 +16,10 @@
 // convention for lakes (Lakes::Bed), so both solve the same equations; the
 // game's is Lakes::Base (erosion.h). The PNG stacks terragen's finished
 // land, the core's and fastscapelib's after the last round.
-#include "terragen/erosion.h"
-#include "terragen/grid.h"
-#include "terragen/world.h"
-#include "png.h"
+#include "library/world/terragen/erosion.h"
+#include "library/world/terragen/grid.h"
+#include "library/world/terragen/world.h"
+#include "src/shared/util/png.h"
 
 #include <xtensor/containers/xtensor.hpp>
 #include "fastscapelib/eroders/spl.hpp"

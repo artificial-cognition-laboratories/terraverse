@@ -1,0 +1,936 @@
+// Luanti
+// SPDX-License-Identifier: LGPL-2.1-or-later
+// Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
+
+#pragma once
+
+#include "src/shared/core/irr_v3d.h"
+#include "src/shared/map/map.h"
+class EntitySAO;
+namespace pile { class Piles; }
+namespace workshop { class Workshop; class Materials; }
+namespace orbit { class Field; }
+namespace sidecar { class Sidecar; }
+#include "src/shared/objects/hud_element.h" // HudElementStat
+#include "src/shared/core/gamedef.h"
+#include "src/shared/content/subgames.h"
+#include "src/shared/network/peerhandler.h"
+#include "src/shared/network/socket.h"
+#include "src/shared/util/thread.h"
+#include "src/shared/util/basic_macros.h"
+#include "src/shared/util/metricsbackend.h"
+#include "src/server/app/network/clientiface.h"
+#include "src/shared/threading/ordered_mutex.h"
+#include "src/shared/platform/translation.h"
+#include "src/shared/content/sound_spec.h"
+#include <atomic>
+#include <csignal>
+#include <string>
+#include <list>
+#include <vector>
+#include <unordered_map>
+#include <unordered_set>
+#include <optional>
+#include <string_view>
+#include <shared_mutex>
+#include <condition_variable>
+#include "src/shared/network/connection.h" // Terra Firma: IConnection::StrayHandler
+
+class BanManager;
+namespace online { class Gate; }
+class Access;
+namespace far { struct Horizon; } // Terra Firma
+class ChatEvent;
+class EmergeManager;
+class Inventory;
+class IRollbackManager;
+class IWritableCraftDefManager;
+class IWritableItemDefManager;
+class MetricsBackend;
+class NodeDefManager;
+class Player;
+class PlayerSAO;
+class RemotePlayer;
+class ServerEnvironment;
+class ServerInventoryManager;
+namespace probe { class Context; }
+class ServerThread;
+class Settings;
+
+struct ChatEventChat;
+struct ChatInterface;
+struct ChatMessage;
+struct CloudParams;
+struct GameParams;
+struct Lighting;
+struct MoonParams;
+struct ParticleParameters;
+struct ParticleSpawnerParameters;
+struct PlayerHPChangeReason;
+struct RollbackAction;
+struct SkyboxParams;
+struct SoundSpec;
+struct StarParams;
+struct ServerTerra; // Terra Firma
+#include "library/world/planet/atlas.h" // Terra Firma
+#include "library/world/planet/pager.h" // Terra Firma
+#include "library/space/orbit/flight.h" // Terra Firma
+#include "library/world/terragen/worlds.h" // Terra Firma
+struct SunParams;
+
+namespace con {
+	class IConnection;
+	class IPeer;
+
+	enum rtt_stat_type : int;
+}
+
+// Anticheat flags
+enum {
+	AC_DIGGING     = 0x01,
+	AC_INTERACTION = 0x02,
+	AC_MOVEMENT    = 0x04
+};
+
+constexpr const static FlagDesc flagdesc_anticheat[] = {
+	{"digging",     AC_DIGGING},
+	{"interaction", AC_INTERACTION},
+	{"movement",    AC_MOVEMENT},
+	{NULL,          0}
+};
+
+enum ClientDeletionReason {
+	CDR_LEAVE,
+	CDR_TIMEOUT,
+	CDR_DENY
+};
+
+struct MediaInfo
+{
+	std::string path;
+	std::string sha1_digest;
+	// true = not announced in TOCLIENT_ANNOUNCE_MEDIA (at player join)
+	bool no_announce;
+	// if true, this is an ephemeral entry. used by dynamic media.
+	bool ephemeral;
+	// does what it says. used by some cases of dynamic media.
+	bool delete_at_shutdown;
+
+	MediaInfo(std::string_view path_,
+	          std::string_view sha1_digest_):
+		path(path_),
+		sha1_digest(sha1_digest_),
+		no_announce(false),
+		ephemeral(false),
+		delete_at_shutdown(false)
+	{
+	}
+};
+
+// Combines the pure sound (SoundSpec) with positional information
+struct ServerPlayingSound
+{
+	SoundLocation type = SoundLocation::Local;
+
+	float gain = 1.0f; // for amplification of the base sound
+	float max_hear_distance = 32 * BS;
+	v3f pos;
+	u16 object = 0;
+	std::string to_player;
+	std::string exclude_player;
+
+	v3f getPos(ServerEnvironment *env, bool *pos_exists) const;
+
+	SoundSpec spec;
+
+	std::unordered_set<session_t> clients; // peer ids
+};
+
+struct MinimapMode {
+	MinimapType type = MINIMAP_TYPE_OFF;
+	std::string label;
+	u16 size = 0;
+	std::string texture;
+	u16 scale = 1;
+};
+
+// structure for everything getClientInfo returns, for convenience
+struct ClientInfo {
+	ClientState state;
+	Address addr;
+	u32 uptime;
+	u8 ser_vers;
+	u16 prot_vers;
+	u8 major, minor, patch;
+	std::string vers_string, lang_code;
+};
+
+
+class Server : public con::PeerHandler, public MapEventReceiver,
+		public IGameDef
+{
+public:
+	void sendStream(v3f from, v3f to, video::SColor colour, u16 cups); // Terra Firma (sprint 82)
+	// Terra Firma (sprint 115): map blocks' rivers, each its rise (sixteenths) and speed (nodes/s × 40)
+	void sendRivers(session_t peer, const std::vector<std::tuple<v3s16, s16, u8, u8>> &blocks);
+	// Terra Firma (sprint 85): a node dug or built where it was `was`: the loose ground round it
+	void groundChanged(v3s16 p, MapNode was);
+	/*
+		NOTE: Every public method should be thread-safe
+	*/
+
+	Server(
+		const std::string &path_world,
+		const SubgameSpec &gamespec,
+		bool simple_singleplayer_mode,
+		UDPSocket &&socket,
+		bool dedicated,
+		ChatInterface *iface = nullptr,
+		std::string *shutdown_errmsg = nullptr
+	);
+	~Server();
+	DISABLE_CLASS_COPY(Server);
+
+	void start();
+	// Loads the world and its mods, without the server thread: start()'s
+	// first half. (Terra Firma: what the palette exporter needs.)
+	void init();
+	void stop();
+	// Actual processing is done in another thread.
+	// This just checks if there was an error in that thread.
+	void step();
+
+	// This is run by ServerThread and does the actual processing
+	void AsyncRunStep(float dtime, bool initial_step = false);
+	/// Receive and process all incoming packets. Sleep if the time goal isn't met.
+	/// @param min_time minimum time to take [s]
+	void Receive(float min_time);
+	void yieldToOtherThreads(float dtime);
+
+	// Full player initialization after they processed all static media
+	// This is a helper function for TOSERVER_CLIENT_READY
+	PlayerSAO *StageTwoClientInit(session_t peer_id);
+
+	/*
+	 * Command Handlers
+	 */
+
+	void handleCommand(NetworkPacket* pkt);
+
+	void handleCommand_Null(NetworkPacket* pkt) {};
+	void handleCommand_Deprecated(NetworkPacket* pkt);
+	void handleCommand_Init(NetworkPacket* pkt);
+	void handleCommand_Init2(NetworkPacket* pkt);
+	void handleCommand_RequestMedia(NetworkPacket* pkt);
+	void handleCommand_ClientReady(NetworkPacket* pkt);
+	void handleCommand_GotBlocks(NetworkPacket* pkt);
+	void handleCommand_PlayerPos(NetworkPacket* pkt);
+	void handleCommand_DeletedBlocks(NetworkPacket* pkt);
+	void handleCommand_InventoryAction(NetworkPacket* pkt);
+	void handleCommand_ChatMessage(NetworkPacket* pkt);
+	void handleCommand_Damage(NetworkPacket* pkt);
+	void handleCommand_PlayerItem(NetworkPacket* pkt);
+	void handleCommand_Interact(NetworkPacket* pkt);
+	void handleCommand_RemovedSounds(NetworkPacket* pkt);
+	void handleCommand_NodeMetaFields(NetworkPacket* pkt);
+	void handleCommand_InventoryFields(NetworkPacket* pkt);
+	void handleCommand_HaveMedia(NetworkPacket *pkt);
+	void handleCommand_Respawn(NetworkPacket *pkt); // Terra Firma (sprint 119)
+	void handleCommand_UpdateClientInfo(NetworkPacket *pkt);
+	void handleCommand_Ui(NetworkPacket *pkt);
+	void handleCommand_Ticket(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_Sculpt(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_Undo(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_PieceNew(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_BlueprintSave(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_BlueprintPlace(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_ObjectHold(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_ObjectPose(NetworkPacket *pkt);
+	void handleCommand_ObjectPush(NetworkPacket *pkt);
+	void handleCommand_ObjectGrab(NetworkPacket *pkt);
+	void handleCommand_Drive(NetworkPacket *pkt);
+	void handleCommand_Clipboard(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_Upright(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_PlugAgain(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_Hollow(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_Link(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_Join(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_Part(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_Socket(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_Plug(NetworkPacket *pkt); // Terra Firma // Terra Firma
+	// Terra Firma (sprint 57): what blocks weigh (filled as mods load), and
+	// the workshop (none till the world's made)
+	workshop::Materials &getMaterials() { return *m_materials; }
+	workshop::Workshop *getWorkshop() { return m_workshop.get(); }
+	// Terra Firma: a workshop verb for the player on `peer_id`, if they may
+	// use the tools; what it refuses is logged and told them
+	template <class F>
+	void inWorkshop(session_t peer_id, const char *what, F &&f);
+	void SendBlueprints(session_t peer_id, const std::string &player); // Terra Firma
+	void SendMaterials(session_t peer_id); // Terra Firma
+	// Terra Firma: the gate's answer on a joiner's ticket
+	void admit(session_t peer_id, bool ok, const std::string &reason);
+
+	void ProcessData(NetworkPacket *pkt);
+
+	void Send(NetworkPacket *pkt);
+	void Send(session_t peer_id, NetworkPacket *pkt);
+
+	// Helper for handleCommand_PlayerPos and handleCommand_Interact
+	void process_PlayerPos(RemotePlayer *player, PlayerSAO *playersao,
+		NetworkPacket *pkt);
+
+	// Both setter and getter need no envlock,
+	// can be called freely from threads
+	// Terra Firma: game time's speed for this session, or nullopt for the
+	// time_speed setting. Not saved; the setting is never touched.
+	void setTimeSpeed(std::optional<float> speed);
+	float getTimeSpeed() const;
+
+	void setTimeOfDay(u32 time);
+	void setDate(u32 days, u32 time); // Terra Firma: day and time together, as one move of the clock
+
+	/*
+		Shall be called with the environment locked.
+		This is accessed by the map, which is inside the environment,
+		so it shouldn't be a problem.
+	*/
+	void onMapEditEvent(const MapEditEvent &event) override;
+
+	// Connection must be locked when called
+	std::string getStatusString();
+	inline double getUptime() const { return m_uptime_counter->get(); }
+
+	// read shutdown state
+	inline bool isShutdownRequested() const { return m_shutdown_state.is_requested; }
+
+	// request server to shutdown
+	void requestShutdown(const std::string &msg, bool reconnect, float delay = 0.0f);
+
+	// Returns -1 if failed, sound handle on success
+	// Envlock
+	s32 playSound(ServerPlayingSound &params, bool ephemeral=false);
+	void stopSound(s32 handle);
+	void fadeSound(s32 handle, float step, float gain);
+
+	// Envlock
+	std::set<std::string> getPlayerEffectivePrivs(const std::string &name);
+	bool checkPriv(const std::string &name, const std::string &priv);
+	void reportPrivsModified(const std::string &name=""); // ""=all
+	void reportInventoryFormspecModified(const std::string &name);
+	void reportFormspecPrependModified(const std::string &name);
+
+	void setIpBanned(const std::string &ip, const std::string &name);
+	void unsetIpBanned(const std::string &ip_or_name);
+	std::string getBanDescription(const std::string &ip_or_name);
+	bool denyIfBanned(session_t peer_id);
+
+	void notifyPlayer(const char *name, const std::wstring &msg);
+	void notifyPlayers(const std::wstring &msg);
+
+	void spawnParticle(const std::string &playername,
+		const ParticleParameters &p);
+
+	u32 addParticleSpawner(const ParticleSpawnerParameters &p,
+		ServerActiveObject *attached, const std::string &to_player,
+		const std::string &exclude_player);
+
+	void deleteParticleSpawner(const std::string &playername, u32 id);
+
+	struct DynamicMediaArgs {
+		std::string filename;
+		std::optional<std::string> filepath;
+		std::optional<std::string_view> data;
+		u32 token;
+		std::string to_player;
+		bool ephemeral = false;
+		bool client_cache = true;
+	};
+	bool dynamicAddMedia(const DynamicMediaArgs &args);
+
+	ServerInventoryManager *getInventoryMgr() const { return m_inventory_mgr.get(); }
+	void sendDetachedInventory(Inventory *inventory, const std::string &name, session_t peer_id);
+
+
+	// actions: time-reversed list
+	// Return value: success/failure
+	bool rollbackRevertActions(const std::list<RollbackAction> &actions,
+			std::list<std::string> *log);
+
+	// IGameDef interface
+	bool isClient() override { return false; }
+	// Under envlock
+	IItemDefManager* getItemDefManager() override;
+	const NodeDefManager* getNodeDefManager() override;
+	ICraftDefManager* getCraftDefManager() override;
+	u16 allocateUnknownNodeId(const std::string &name) override;
+	IRollbackManager *getRollbackManager() override { return m_rollback; }
+	EmergeManager *getEmergeManager() { return m_emerge.get(); }
+
+	IWritableItemDefManager* getWritableItemDefManager();
+	NodeDefManager* getWritableNodeDefManager();
+	IWritableCraftDefManager* getWritableCraftDefManager();
+
+	// Not under envlock
+	// Terra Firma (sprint 119): the TypeScript mods its server folder runs, as prepared
+	struct ModReport { std::string name, version; };
+	std::vector<ModReport> modList() const;
+	std::vector<std::string> modNames() const;
+	const SubgameSpec* getGameSpec() const override { return &m_gamespec; }
+	std::string getWorldPath() const override { return m_path_world; }
+	std::string getModDataPath() const override { return m_path_mod_data; }
+
+	inline bool isSingleplayer() const
+			{ return m_simple_singleplayer_mode; }
+
+	// Terra Firma: a world hosted for friends admits by ArcLabs ticket only
+	// (src/online/gate.h). Set before start().
+	void setGate(std::unique_ptr<online::Gate> gate);
+	// Terra Firma: clients connected or connecting, the host's own included,
+	// as of the server's last step: read every frame by the game's thread,
+	// which mustn't take the client list's lock (SendBlocks holds it for as
+	// long as it takes to choose blocks, which was whole frames).
+	size_t clientCount() const { return m_client_count.load(std::memory_order_relaxed); }
+	// Terra Firma: datagrams on the server's socket that aren't the game's
+	// (STUN answers for src/online/host.h); null to stop.
+	void setStrayHandler(con::IConnection::StrayHandler handler);
+
+	struct StepSettings {
+		float steplen;
+		bool pause;
+	};
+
+	void setStepSettings(StepSettings spdata) { m_step_settings.store(spdata); }
+	StepSettings getStepSettings() { return m_step_settings.load(); }
+
+	void setAsyncFatalError(const std::string &error);
+
+	// Not thread-safe.
+
+	bool showFormspec(const char *name, const std::string &formspec, const std::string &formname);
+	Map &getMap();
+	ServerEnvironment & getEnv() { return *m_env; }
+	v3f findSpawnPos();
+
+	u32 hudAdd(RemotePlayer *player, std::unique_ptr<HudElement> element);
+	bool hudRemove(RemotePlayer *player, u32 id);
+	bool hudChange(RemotePlayer *player, u32 id, HudElementStat stat, void *value);
+	bool hudSetFlags(RemotePlayer *player, u32 flags, u32 mask);
+	bool hudSetHotbarItemcount(RemotePlayer *player, s32 hotbar_itemcount);
+	void hudSetHotbarImage(RemotePlayer *player, const std::string &name);
+	void hudSetHotbarSelectedImage(RemotePlayer *player, const std::string &name);
+
+	/// @note this is only available for client state >= CS_HelloSent
+	Address getPeerAddress(session_t peer_id);
+
+	void setLocalPlayerAnimations(RemotePlayer *player, v2f animation_frames[4],
+			f32 frame_speed);
+	void setPlayerEyeOffset(RemotePlayer *player, v3f first, v3f third, v3f third_front);
+
+	void setSky(RemotePlayer *player, const SkyboxParams &params);
+	void setSun(RemotePlayer *player, const SunParams &params);
+	void setMoon(RemotePlayer *player, const MoonParams &params);
+	void setStars(RemotePlayer *player, const StarParams &params);
+
+	void setClouds(RemotePlayer *player, const CloudParams &params);
+
+	void overrideDayNightRatio(RemotePlayer *player, bool do_override, float brightness);
+
+	void setLighting(RemotePlayer *player, const Lighting &lighting);
+
+	// Terra Firma: what core.terra keeps for this server.
+	ServerTerra &terra() { return *m_terra; }
+	// Terra Firma: run this TypeScript server folder's mods (sprint 119). Before start().
+	void setServerFolder(const std::string &folder) { m_server_folder = folder; }
+	// Terra Firma: a check's probe to run (src/probe, sprint 119). Before start().
+	void setProbe(const std::string &name) { m_probe_name = name; }
+	// Terra Firma: it stopped because the mods' content changed, to be started again
+	bool restartForMods() const { return m_restart_for_mods; }
+	// Terra Firma: what the far view needs of a terra world (TOCLIENT_HORIZON);
+	// none for another map generator
+	std::optional<far::Horizon> horizon();
+	// Terra Firma: every media file by name, and where it is on disk
+	std::unordered_map<std::string, std::string> mediaPaths() const;
+
+	// Terra Firma: the planet this world is, if it is one (planet/atlas.h)
+	const planet::Atlas *atlas() const { return m_atlas ? &*m_atlas : nullptr; }
+	// Terra Firma: an atlas world's bodies, by the atlas's body index (the home first)
+	const std::vector<terragen::BodyWorld> &bodyWorlds() const { return m_body_worlds; }
+	// Terra Firma: a line typed under a TypeScript mod's command, for the next window.
+	// A line typed after `/`: the engine's command, or a mod's; the reply, if any.
+	std::string command(const std::string &name, RemotePlayer *player, const std::string &line);
+	// False when there's no sidecar to answer (mods are off, or none run).
+	bool sidecarCommand(const std::string &player, const std::string &name, const std::string &text);
+	// Terra Firma: a chunk's wet shore, from the emerge thread (mapgenShore), filled with
+	// water on the server's next step where its smoothed ground is open (sprint 119)
+	void queueShore(std::vector<v3s16> &&shore);
+	// Terra Firma: the atlas's index of a body by its id (the system's); throws for none
+	int bodyIndex(const std::string &id) const;
+	// Terra Firma: a cell's node, its tile put in the map's window if it isn't
+	// (planet::Pager). Throws if the world isn't a planet, or the window is full.
+	planet::Atlas::Node planetNode(const planet::Atlas::Cell &cell);
+	// Terra Firma: flight on the world's planet (core.orbit): its gravity and
+	// air, sized to the planet if the world is one (terragen::sphere)
+	const orbit::Flight &flight() const { return *m_flight; }
+
+	// Terra Firma: a value for the player's page (JSON; null clears).
+	void setUi(RemotePlayer *player, const std::string &key, const std::string &value_json);
+
+	/* con::PeerHandler implementation. */
+	void peerAdded(con::IPeer *peer) override;
+	void deletingPeer(con::IPeer *peer, bool timeout) override;
+
+	void DenyAccess(session_t peer_id, AccessDeniedCode reason,
+		std::string_view custom_reason = "", bool reconnect = false);
+	void kickAllPlayers(AccessDeniedCode reason,
+		const std::string &str_reason, bool reconnect);
+	void acceptAuth(session_t peer_id);
+	void DisconnectPeer(session_t peer_id);
+	bool getClientConInfo(session_t peer_id, con::rtt_stat_type type, float *retval);
+
+	// Terra Firma: each connected player as the debugger's Server tab lists
+	// them: the server's own copy, made each half second under its lock, so
+	// any thread reads it without waiting (the debugger asking under the lock
+	// itself waited out SendBlocks, a game frame of up to 380 ms).
+	struct PlayerReport
+	{
+		std::string name;
+		session_t peer;
+		v3f position; // nodes
+		u16 hp;
+		float rtt; // seconds, or -1 unknown
+		u32 connected; // seconds
+		u16 protocol;
+	};
+	std::vector<PlayerReport> reportPlayers();
+private:
+	std::vector<PlayerReport> collectPlayers(); // under the environment's lock
+	std::mutex m_players_report_lock;
+	std::vector<PlayerReport> m_players_report;
+	std::atomic<size_t> m_client_count{0}; // clientCount(), counted each step
+	float m_players_report_age = 1e9f;
+public:
+	bool getClientInfo(session_t peer_id, ClientInfo &ret);
+	const ClientDynamicInfo *getClientDynamicInfo(session_t peer_id);
+
+	void printToConsoleOnly(const std::string &text);
+
+	void HandlePlayerHPChange(PlayerSAO *sao, const PlayerHPChangeReason &reason);
+	void SendPlayerHP(PlayerSAO *sao, bool effect);
+	void SendPlayerBreath(PlayerSAO *sao);
+	void SendInventory(RemotePlayer *player, bool incremental, bool skip_wield_anim = false);
+	// Terra Firma (sprint 119): they died, and choose when to respawn (the client's death screen)
+	void SendDeathscreen(session_t peer_id);
+	void SendMovePlayer(PlayerSAO *sao);
+	void SendMovePlayerRel(session_t peer_id, const v3f &added_pos);
+	void SendPlayerSpeed(session_t peer_id, const v3f &added_vel);
+	void SendPlayerFov(session_t peer_id);
+	void SendCamera(session_t peer_id, Player *player);
+
+	void SendMinimapModes(session_t peer_id,
+			std::vector<MinimapMode> &modes,
+			size_t wanted_mode);
+
+	// Send detached inventories to one player (for init)
+	void sendDetachedInventories(session_t peer_id);
+	// Send detached inventory updates to everyone
+	void sendDetachedInventories();
+
+
+	// Send block to specific player only
+	bool SendBlock(session_t peer_id, const v3s16 &blockpos);
+
+	// Get or load translations for a language
+	// Note: don't store returned pointer.
+	Translations *getTranslationLanguage(const std::string &lang_code);
+
+	// Returns all media files the server knows about
+	// map key = binary sha1, map value = file path
+	std::unordered_map<std::string, std::string> getMediaList();
+
+	static u16 getProtocolVersionMin();
+	static u16 getProtocolVersionMax();
+
+	// Bind address
+	Address m_bind_addr;
+
+	// Public helper for taking the envlock in a scope
+	class EnvAutoLock {
+	public:
+		EnvAutoLock(Server *server): m_lock(server->m_env_mutex) {}
+
+	private:
+		std::lock_guard<std::mutex> m_lock;
+	};
+
+protected:
+	/* Do not add more members here, this is only required to make unit tests work. */
+
+private:
+	friend class EmergeThread;
+	friend class RemoteClient;
+
+	// unittest classes
+	friend class TestServerShutdownState;
+	friend class TestMoveAction;
+
+	struct ShutdownState {
+		friend class TestServerShutdownState;
+		public:
+			bool is_requested = false;
+			bool should_reconnect = false;
+			std::string message;
+
+			void reset();
+			void trigger(float delay, const std::string &msg, bool reconnect);
+			void tick(float dtime, Server *server);
+			std::wstring getShutdownTimerMessage() const;
+			bool isTimerRunning() const { return m_timer > 0.0f; }
+		private:
+			float m_timer = 0.0f;
+	};
+
+	struct PendingDynamicMediaCallback {
+		std::string filename; // only set if media entry and file is to be deleted
+		float expiry_timer;
+		std::unordered_set<session_t> waiting_players;
+	};
+
+	// The standard library does not implement std::hash for pairs so we have this:
+	struct SBCHash {
+		size_t operator() (const std::pair<v3s16, u16> &p) const {
+			return std::hash<v3s16>()(p.first) ^ p.second;
+		}
+	};
+
+	typedef std::unordered_map<std::pair<v3s16, u16>, std::string, SBCHash> SerializedBlockCache;
+
+	void SendMovement(session_t peer_id);
+	void SendHP(session_t peer_id, u16 hp, bool effect);
+	void SendBreath(session_t peer_id, u16 breath);
+	void SendAccessDenied(session_t peer_id, AccessDeniedCode reason,
+		std::string_view custom_reason, bool reconnect = false);
+	void SendItemDef(session_t peer_id, IItemDefManager *itemdef, u16 protocol_version);
+	void SendNodeDef(session_t peer_id, const NodeDefManager *nodedef,
+		u16 protocol_version);
+
+
+	virtual void SendChatMessage(session_t peer_id, const ChatMessage &message);
+	void SendTimeOfDay(session_t peer_id, u16 time, f32 time_speed);
+	// Terra Firma: what the far view needs, on a terra world
+	void SendHorizon(session_t peer_id);
+	void SendPlanet(session_t peer_id);
+	// the planet's window: every slot (on join), or one that changed
+	void SendWindow(session_t peer_id, const std::vector<int> &slots);
+	// the tiles round every player kept in the window (planet::Pager::keep)
+	void keepPlanetWindow();
+
+	void SendLocalPlayerAnimations(session_t peer_id, v2f animation_frames[4],
+		f32 animation_speed);
+	void SendEyeOffset(session_t peer_id, v3f first, v3f third, v3f third_front);
+	void SendPlayerPrivileges(session_t peer_id);
+	void SendPlayerInventoryFormspec(session_t peer_id);
+	void SendPlayerFormspecPrepend(session_t peer_id);
+	void SendShowFormspecMessage(session_t peer_id, const std::string &formspec,
+		const std::string &formname);
+	void SendHUDAdd(session_t peer_id, u32 id, HudElement *form);
+	void SendHUDRemove(session_t peer_id, u32 id);
+	void SendHUDChange(session_t peer_id, u32 id, HudElementStat stat, void *value);
+	void SendHUDSetFlags(session_t peer_id, u32 flags, u32 mask);
+	void SendHUDSetParam(session_t peer_id, u16 param, std::string_view value);
+	void SendSetSky(session_t peer_id, const SkyboxParams &params);
+	void SendSetSun(session_t peer_id, const SunParams &params);
+	void SendSetMoon(session_t peer_id, const MoonParams &params);
+	void SendSetStars(session_t peer_id, const StarParams &params);
+	void SendCloudParams(session_t peer_id, const CloudParams &params);
+	void SendOverrideDayNightRatio(session_t peer_id, bool do_override, float ratio);
+	void SendSetLighting(session_t peer_id, const Lighting &lighting);
+
+
+	/*
+		Send a node removal/addition event to all clients except ignore_id.
+		Additionally, if far_players!=NULL, players further away than
+		far_d_nodes are ignored and their peer_ids are added to far_players
+	*/
+	// Envlock and conlock should be locked when calling these
+	void sendRemoveNode(v3s16 p, std::unordered_set<u16> *far_players = nullptr,
+			float far_d_nodes = 100);
+	void sendAddNode(v3s16 p, MapNode n,
+			std::unordered_set<u16> *far_players = nullptr,
+			float far_d_nodes = 100, bool remove_metadata = true);
+	// Terra Firma: a node's cut shape, as the map has it now
+	void sendFill(v3s16 p, std::unordered_set<u16> *far_players = nullptr, float far_d_nodes = 100); // Terra Firma (sprint 81)
+	void sendShape(v3s16 p, std::unordered_set<u16> *far_players, float far_d_nodes);
+	void sendNodeChangePkt(NetworkPacket &pkt, v3s16 block_pos,
+			v3f p, float far_d_nodes, std::unordered_set<u16> *far_players);
+
+	void sendMetadataChanged(const std::unordered_set<v3s16> &positions,
+			float far_d_nodes = 100);
+
+	// Environment and Connection must be locked when called
+	// `cache` may only be very short lived! (invalidation not handled)
+	void SendBlockNoLock(session_t peer_id, MapBlock *block, u8 ver,
+		u16 net_proto_version, SerializedBlockCache *cache = nullptr);
+
+	// Sends blocks to clients (locks env and con on its own)
+	void SendBlocks(float dtime);
+
+	bool addMediaFile(const std::string &filename, const std::string &filepath,
+			std::string *filedata = nullptr, std::string *digest = nullptr);
+	void fillMediaCache();
+	void sendMediaAnnouncement(session_t peer_id, const std::string &lang_code);
+	void sendRequestedMedia(session_t peer_id,
+			const std::unordered_set<std::string> &tosend);
+	void stepPendingDynMediaCallbacks(float dtime);
+
+	/// @brief send particle spawner to a selection of clients
+	void SendAddParticleSpawner(const std::string &to_player,
+		const std::string &exclude_player,
+		const ParticleSpawnerParameters &p, u16 attached_id, u32 id);
+	/// @brief send particle spawner to one client (internal)
+	void SendAddParticleSpawner(session_t peer_id, u16 protocol_version,
+		const ParticleSpawnerParameters &p, u16 attached_id, u32 id);
+
+	void SendDeleteParticleSpawner(session_t peer_id, u32 id);
+
+	// Spawn particles for a specific client, batching them if clients support it.
+	void SendSpawnParticles(RemotePlayer *player,
+			const std::vector<ParticleParameters> &particles);
+	// Spawn all particles for this step, batching them if clients support it.
+	void SendSpawnParticles();
+
+	void SendActiveObjectRemoveAdd(RemoteClient *client, PlayerSAO *playersao);
+	void SendActiveObjectMessages(session_t peer_id, const std::string &datas,
+		bool reliable = true);
+
+	/*
+		Something random
+	*/
+
+	void HandlePlayerDeath(PlayerSAO* sao, const PlayerHPChangeReason &reason);
+	void DeleteClient(session_t peer_id, ClientDeletionReason reason);
+	void UpdateCrafting(RemotePlayer *player);
+	bool checkInteractDistance(RemotePlayer *player, const f32 d, const std::string &what);
+
+	void handleChatInterfaceEvent(ChatEvent *evt);
+
+	/// @brief Checks if user limit allows a potential client to join
+	/// @return true if the client can NOT join
+	bool checkUserLimit(const std::string &player_name, const std::string &addr_s);
+
+	// This returns the answer to the sender of wmessage, or "" if there is none
+	std::wstring handleChat(const std::string &name, std::wstring wmessage_input,
+		bool check_shout_priv = false, RemotePlayer *player = nullptr);
+	void handleAdminChat(const ChatEventChat *evt);
+
+	// When called, connection mutex should be locked
+	RemoteClient* getClient(session_t peer_id, ClientState state_min = CS_Active);
+	RemoteClient* getClientNoEx(session_t peer_id, ClientState state_min = CS_Active);
+
+	// When called, environment mutex should be locked
+	std::string getPlayerName(session_t peer_id);
+	PlayerSAO *getPlayerSAO(session_t peer_id);
+
+	/*
+		Get a player from memory or creates one.
+		If player is already connected, return NULL
+		Does not verify/modify auth info and password.
+
+		Call with env and con locked.
+	*/
+	std::unique_ptr<PlayerSAO> emergePlayer(const char *name, session_t peer_id,
+		u16 proto_version);
+
+	/*
+		Variables
+	*/
+
+	// Environment mutex (envlock)
+	std::mutex m_env_mutex;
+
+	// World directory
+	std::string m_path_world;
+	std::string m_path_mod_data;
+	// Subgame specification
+	SubgameSpec m_gamespec;
+	// If true, do not allow multiple players and hide some multiplayer
+	// functionality
+	bool m_simple_singleplayer_mode;
+	u16 m_max_chatmessage_length;
+	// For "dedicated" server list flag
+	bool m_dedicated;
+
+	// Game settings layer
+	Settings *m_game_settings = nullptr;
+
+	// Thread can set; step() will throw as ServerError
+	MutexedVariable<std::string> m_async_fatal_error;
+
+	// Some timers
+	float m_time_of_day_send_timer = 0.0f;
+	std::optional<float> m_time_speed; // Terra Firma: set_time_speed, else the setting
+	float m_liquid_transform_timer = 0.0f;
+	float m_liquid_transform_every = 1.0f;
+	float m_masterserver_timer = 0.0f;
+	float m_emergethread_trigger_timer = 0.0f;
+	float m_savemap_timer = 0.0f;
+	IntervalLimiter m_map_timer_and_unload_interval;
+	IntervalLimiter m_max_lag_decrease;
+
+	// Environment
+	ServerEnvironment *m_env = nullptr;
+
+	// server connection
+	std::shared_ptr<con::IConnection> m_con;
+
+	// Ban checking
+	BanManager *m_banmanager = nullptr;
+
+	// Rollback manager (behind m_env_mutex)
+	IRollbackManager *m_rollback = nullptr;
+
+	// Emerge manager
+	std::unique_ptr<EmergeManager> m_emerge;
+
+	// Item definition manager
+	IWritableItemDefManager *m_itemdef;
+
+	// Node definition manager
+	NodeDefManager *m_nodedef;
+	// Terra Firma: what players make (sprint 48)
+	// Terra Firma: what pulls on things (sprint 59); before the workshop, which pulls by it
+	std::unique_ptr<orbit::Field> m_field;
+	std::unique_ptr<workshop::Workshop> m_workshop;
+	// Terra Firma: loose ground that moves under wheels and feet (sprint 84)
+	std::unique_ptr<pile::Piles> m_piles;
+	void pressGround(float dtime);
+	// Terra Firma: what blocks weigh, declared as mods load (core.physics.material)
+	std::unique_ptr<workshop::Materials> m_materials;
+
+	// Craft definition manager
+	IWritableCraftDefManager *m_craftdef;
+
+	// NOTE: Cannot use forward declaration of 'Translations'. Whereas most
+	// modern compilers support incomplete types here, it's not in the C++ spec.
+	// key = lang_code
+	std::unordered_map<std::string, Translations> server_translations;
+
+
+	/*
+		Threads
+	*/
+	// Set by Game
+	std::atomic<StepSettings> m_step_settings{{0.1f, false}};
+
+	// The server mainly operates in this thread
+	ServerThread *m_thread = nullptr;
+
+	/*
+	 	Client interface
+	*/
+	ClientInterface m_clients;
+
+	std::unordered_map<session_t, std::string> m_formspec_state_data;
+
+	/*
+		Random stuff
+	*/
+
+	ShutdownState m_shutdown_state;
+
+	ChatInterface *m_admin_chat;
+	std::string m_admin_nick;
+
+	// If a mod error occurs while shutting down, the error message will be
+	// written into this.
+	std::string *const m_shutdown_errmsg;
+
+	/*
+		Map edit event queue. Automatically receives all map edits.
+		The constructor of this class registers us to receive them through
+		onMapEditEvent
+
+		NOTE: Should these be moved to actually be members of
+		ServerEnvironment?
+	*/
+
+	/*
+		Queue of map edits from the environment for sending to the clients
+		This is behind m_env_mutex
+	*/
+	std::queue<MapEditEvent*> m_unsent_map_edit_queue;
+	/*
+		If a non-empty area, map edit events contained within are left
+		unsent. Done at map generation time to speed up editing of the
+		generated area, as it will be sent anyway.
+		This is behind m_env_mutex
+	*/
+	VoxelArea m_ignore_map_edit_events_area;
+
+	// media files known to server
+	std::unordered_map<std::string, MediaInfo> m_media;
+
+	// pending dynamic media callbacks, clients inform the server when they have a file fetched
+	std::unordered_map<u32, PendingDynamicMediaCallback> m_pending_dyn_media;
+	float m_step_pending_dyn_media_timer = 0.0f;
+
+	/*
+		Sounds
+	*/
+	std::unordered_map<s32, ServerPlayingSound> m_playing_sounds;
+	s32 m_playing_sounds_id_last_used = 0; // positive values only
+	s32 nextSoundId();
+
+	// CSM restrictions byteflag
+
+	std::unique_ptr<ServerTerra> m_terra; // Terra Firma: what core.terra keeps (server/terra.h)
+	// Terra Firma: TypeScript mods, run beside the server (src/sidecar, sprint 119)
+	std::string m_server_folder;
+	std::string m_probe_name;
+	std::unique_ptr<probe::Context> m_probe;
+	std::unique_ptr<sidecar::Sidecar> m_sidecar;
+	// what its mods answer in chat: name, description, params (sidecar::Host::Command)
+	struct ModCommand { std::string name, description, params; };
+	std::vector<ModCommand> m_mod_commands;
+	std::mutex m_shore_mutex;
+	std::vector<v3s16> m_shore; // Terra Firma: queueShore's, till the next step
+	double m_sidecar_now = 0; // game time, as mods see it
+	bool m_restart_for_mods = false;
+	void startSidecar();
+	std::optional<planet::Atlas> m_atlas; // Terra Firma: from the world's planet_atlas
+	std::vector<terragen::BodyWorld> m_body_worlds; // Terra Firma: its bodies (terragen/worlds.h)
+	std::optional<planet::Pager> m_pager; // Terra Firma: the atlas's window, which tiles are in the map
+	float m_window_timer = 0;             // Terra Firma: to the next keepPlanetWindow
+	float m_rivers_timer = 0;             // Terra Firma: to the next terraSendRivers (sprint 115)
+	float m_lakes_dtime = 0;              // Terra Firma: since the lakes last stepped (sprint 115)
+	std::unique_ptr<orbit::Flight> m_flight; // Terra Firma: core.orbit's
+	std::unique_ptr<online::Gate> m_gate; // Terra Firma: null unless hosted for friends
+	std::unique_ptr<Access> m_access; // Terra Firma: who may do what (server/access)
+
+	// Inventory manager
+	std::unique_ptr<ServerInventoryManager> m_inventory_mgr;
+
+	// Global server metrics backend
+	std::unique_ptr<MetricsBackend> m_metrics_backend;
+
+	// Server metrics
+	MetricCounterPtr m_uptime_counter;
+	MetricGaugePtr m_player_gauge;
+	MetricGaugePtr m_timeofday_gauge;
+	MetricGaugePtr m_lag_gauge;
+	MetricCounterPtr m_aom_buffer_counter[2]; // [0] = rel, [1] = unrel
+	MetricCounterPtr m_packet_recv_counter;
+	MetricCounterPtr m_packet_recv_processed_counter;
+	MetricCounterPtr m_map_edit_event_counter;
+
+	// Particles to send this server step
+	// [playername] = list of params, empty playername for broadcast
+	std::unordered_map<std::string, std::vector<ParticleParameters>> m_particles_to_send;
+};
+
+/*
+	Runs a simple dedicated server loop.
+
+	Shuts down when kill is set to true.
+*/
+void dedicated_server_loop(Server &server, volatile std::sig_atomic_t &kill);

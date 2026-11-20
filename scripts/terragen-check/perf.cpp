@@ -5,9 +5,9 @@
 //   [SIZE=628320] [KEEP=<dir>] [JSON=<file>] /tmp/perf <code>
 // KEEP: grids and river levels kept there, as the game keeps them (none: all
 // made afresh). JSON: a line appended per run, for comparing runs.
-#include "terragen/world.h"
-#include "terragen/grid.h"
-#include "terragen/progress.h"
+#include "library/world/terragen/world.h"
+#include "library/world/terragen/grid.h"
+#include "library/world/terragen/progress.h"
 #include <chrono>
 #include <cmath>
 #include <cstdio>

@@ -1,7 +1,7 @@
 // The sky alone, all of it, to a PPM: for tuning milkyway:: by eye without the game.
-// g++ -std=c++17 -O3 -pthread -Iapps/game/src apps/game/src/milkyway/*.cpp scripts/milkyway-check/render.cpp -o /tmp/mw && /tmp/mw out.ppm [width] [exposure]
+// g++ -std=c++17 -O3 -pthread -Iapps/game/src apps/game/library/space/milkyway/*.cpp scripts/milkyway-check/render.cpp -o /tmp/mw && /tmp/mw out.ppm [width] [exposure]
 // The galaxy's middle is at the picture's centre, its plane level: as the all-sky maps have it.
-#include "milkyway/milkyway.h"
+#include "library/space/milkyway/milkyway.h"
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>

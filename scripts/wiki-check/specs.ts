@@ -2,12 +2,12 @@
 // written out for the engine-side runner. Substances get their molar mass
 // from their elements, as matter.list does.
 import { readFileSync } from "node:fs"
-import { LAB_DEMOS, reactionDemo } from "../../apps/game/ui/src/wiki/demos"
-import { AIR_DEMOS } from "../../apps/game/ui/src/wiki/air"
-import { FLUID_DEMOS } from "../../apps/game/ui/src/wiki/fluids"
-import type { MatterReaction, MatterSubstance } from "../../apps/game/ui/src/bridge"
+import { LAB_DEMOS, reactionDemo } from "../../apps/game/src/client/app/shell/ui/src/wiki/demos"
+import { AIR_DEMOS } from "../../apps/game/src/client/app/shell/ui/src/wiki/air"
+import { FLUID_DEMOS } from "../../apps/game/src/client/app/shell/ui/src/wiki/fluids"
+import type { MatterReaction, MatterSubstance } from "../../apps/game/src/client/app/shell/ui/src/bridge"
 
-const root = new URL("../../assets/matter/", import.meta.url)
+const root = new URL("../../apps/game/assets/matter/", import.meta.url)
 const read = (name: string) => JSON.parse(readFileSync(new URL(name, root), "utf8"))
 const masses = new Map<string, number>(read("elements.json").elements.map((e: { symbol: string; mass: number }) => [e.symbol, e.mass]))
 const substances = new Map<string, MatterSubstance>()

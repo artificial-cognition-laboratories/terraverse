@@ -23,7 +23,7 @@ on:
     branches: [master]
     paths:
       - 'apps/launcher/**'
-      - 'apps/game/ui/src/kit/**'
+      - 'apps/game/src/client/app/shell/interface/src/kit/**'
       - '.github/workflows/launcher.yml'
   workflow_dispatch:
 
@@ -57,7 +57,7 @@ jobs:
 
       - name: Install packages
         run: |
-          (cd apps/game/ui && bun install --frozen-lockfile)
+          (cd apps/game/src/client/app/shell/interface && bun install --frozen-lockfile)
           (cd apps/launcher && bun install --frozen-lockfile)
 
       - name: Test the backend
@@ -109,7 +109,7 @@ jobs:
       # The launcher wears the game's kit, theme and fonts: both need their packages.
       - name: Install packages
         run: |
-          (cd apps/game/ui && bun install --frozen-lockfile)
+          (cd apps/game/src/client/app/shell/interface && bun install --frozen-lockfile)
           (cd apps/launcher && bun install --frozen-lockfile)
 
       # The tag names the version the launcher already says it is.

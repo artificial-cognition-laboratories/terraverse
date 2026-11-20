@@ -15,9 +15,9 @@
 // rising at that level's hillside gradient; the land is the lowest of them,
 // capped a little over the grid's surface. Ridges are what's left between.
 // Water: where a wet branch's channel runs, at its bed.
-#include "terragen/world.h"
-#include "terragen/sphere.h"
-#include "png.h"
+#include "library/world/terragen/world.h"
+#include "library/world/terragen/sphere.h"
+#include "src/shared/util/png.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>

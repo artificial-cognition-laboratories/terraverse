@@ -3,57 +3,57 @@
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include <map>
-#include "irrlichttypes_bloated.h"
-#include "chat_interface.h"
-#include "debug.h"
-#include "unittest/test.h"
-#include "server.h"
-#include "filesys.h"
-#include "version.h"
-#include "defaultsettings.h"
-#include "migratesettings.h"
-#include "gettext.h"
-#include "log.h"
-#include "log_internal.h"
-#include "util/serialize.h"
-#include "util/quicktune.h"
-#include "httpfetch.h"
-#include "gameparams.h"
+#include "src/shared/core/irrlichttypes_bloated.h"
+#include "src/shared/chat/chat_interface.h"
+#include "src/shared/platform/debug.h"
+#include "tests/unit/test.h"
+#include "src/server/app/server.h"
+#include "src/shared/platform/filesys.h"
+#include "src/shared/core/version.h"
+#include "src/shared/platform/defaultsettings.h"
+#include "src/shared/platform/migratesettings.h"
+#include "src/shared/platform/gettext.h"
+#include "src/shared/platform/log.h"
+#include "src/shared/platform/log_internal.h"
+#include "src/shared/util/serialize.h"
+#include "src/shared/util/quicktune.h"
+#include "src/shared/platform/httpfetch.h"
+#include "src/shared/core/gameparams.h"
 #if CHECK_CLIENT_BUILD()
-#include "far/export.h" // Terra Firma
-#include "server/universe.h" // Terra Firma
-#include "sidecar/ops.h" // Terra Firma
-#include "terragen/code.h" // Terra Firma
-#include "planetarium/standalone.h" // Terra Firma
-#include "planetarium/shot.h" // Terra Firma
-#include "planetarium/camera.h" // Terra Firma
+#include "src/client/views/game/far/export.h" // Terra Firma
+#include "src/server/world/load/universe.h" // Terra Firma
+#include "src/server/mods/sidecar/ops.h" // Terra Firma
+#include "library/world/terragen/code.h" // Terra Firma
+#include "src/client/views/planetarium/standalone.h" // Terra Firma
+#include "src/client/views/planetarium/shot.h" // Terra Firma
+#include "src/client/views/planetarium/camera.h" // Terra Firma
 #endif
-#include "database/database.h"
-#include "config.h"
-#include "player.h"
-#include "porting.h"
-#include "serialization.h" // SER_FMT_VER_HIGHEST_*
-#include "serverenvironment.h"
-#include "servermap.h"
-#include "settings.h"
-#include "network/socket.h"
-#include "network/networkexceptions.h"
-#include "mapblock.h"
+#include "src/server/world/load/database/database.h"
+#include "src/shared/core/config.h"
+#include "src/shared/objects/player.h"
+#include "src/shared/platform/porting.h"
+#include "src/shared/core/serialization.h" // SER_FMT_VER_HIGHEST_*
+#include "src/server/world/state/environment/serverenvironment.h"
+#include "src/server/world/state/servermap.h"
+#include "src/shared/platform/settings.h"
+#include "src/shared/network/socket.h"
+#include "src/shared/network/networkexceptions.h"
+#include "src/shared/map/mapblock.h"
 #if USE_CURSES
-	#include "terminal_chat_console.h"
+	#include "src/server/app/console/terminal_chat_console.h"
 #endif
 #if CHECK_CLIENT_BUILD()
-#include "client/clientlauncher.h"
-#include "client/game.h" // Terra Firma: g_game_restart_for_mods
+#include "src/client/app/clientlauncher.h"
+#include "src/client/app/game.h" // Terra Firma: g_game_restart_for_mods
 #if USE_SHELL
-#include "shell/shell.h"
+#include "src/client/app/shell/host/shell.h"
 #endif
 #endif
 #if BUILD_UNITTESTS
-#include "test/test.h"
+#include "tests/engine/test.h"
 #endif
 #if BUILD_BENCHMARKS
-#include "benchmark/benchmark.h"
+#include "tests/benchmark/benchmark.h"
 #endif
 
 #if !defined(__cpp_rtti) || !defined(__cpp_exceptions)
@@ -137,8 +137,8 @@ static int g_dedicated_exit = 0;
 static OptionList allowed_options;
 
 #if USE_SHELL
-#include "terragen/grid.h"
-#include "terragen/progress.h"
+#include "library/world/terragen/grid.h"
+#include "library/world/terragen/progress.h"
 #include <filesystem>
 // Terra Firma: built planet grids kept between runs, named by what they're
 // built from; the river levels and atlas layouts by all terragen's sources

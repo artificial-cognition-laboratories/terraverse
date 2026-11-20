@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The UI held to its budgets (apps/game/src/shell/ui_check.h): the real
+# The UI held to its budgets (apps/game/client/shell/ui_check.h): the real
 # client on the menu, its page swept by the mouse and scrolled for 8 s, the
 # frames judged: the main thread's UI time, input to screen, the page's
 # frame gaps. Needs a display and a GPU (a window opens for ~15 s), so it's
@@ -8,7 +8,7 @@
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 bash "$root/scripts/build.sh" -j"$(nproc)" > /dev/null
-(cd "$root/apps/game/ui" && bun run build > /dev/null)
+(cd "$root/apps/game/src/client/app/shell/interface" && bun run build > /dev/null)
 bash "$root/scripts/stage-runtime.sh" > /dev/null
 home="$(mktemp -d)"
 trap 'rm -rf "$home"' EXIT

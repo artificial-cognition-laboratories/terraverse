@@ -2,9 +2,9 @@
 // (sandbox::Stage) for a simulated few minutes; reports any that can't be made or
 // stepped, and any reaction's scene that never makes its products.
 // run <matter dir> <palette.json>
-#include "matter/matter.h"
-#include "sandbox/sandbox.h"
-#include "sandbox/stage.h"
+#include "library/matter/matter/matter.h"
+#include "library/matter/sandbox/sandbox.h"
+#include "library/matter/sandbox/stage.h"
 #include <json/json.h>
 #include <chrono>
 #include <cmath>

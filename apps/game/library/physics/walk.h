@@ -1,0 +1,155 @@
+// Terra Firma
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+#pragma once
+
+#include "src/shared/core/irr_v3d.h"
+
+/*
+	Walking (sprint 58): how a body moves under its own power. A pure rule:
+	from what the player asks (which way, jump) and how the body is (its
+	velocity, standing or not, what it stands on), the velocity it moves at
+	next. physics::World's characters move at it.
+
+	It has inertia. On the ground it gets up to walking speed in about a
+	quarter of a second, and past it, to a run, more slowly; it brakes
+	harder than it starts; changing direction at speed is a curve, not a
+	snap. In the air it barely steers. It moves relative to what it stands
+	on, so a cart carries it. A jump is a height, not a speed: the speed
+	that height takes under this gravity.
+
+	Gravity is the field's where it is (sprint 59): in a grid's axes it's
+	all but straight down, so "up" for walking stays the grid's +y, and in
+	the air the whole pull acts.
+*/
+namespace physics {
+
+constexpr float HOP = 0.45f; // × what's left of a jump's rise, Space let go early
+
+// Balance (sprint 126): how far a body's weight is from over its feet, 0 fine to 1 as far as it can go and
+// stay up. A landing's is how hard it came down and how far from the way it's going it's trying to go.
+float landingStagger(float fall, v3f velocity, v3f asked);
+// Its shin caught something it went up over: at a run that's a trip, hands down and scramble.
+constexpr float TRIP_RISE = 0.3f, TRIP_PACE = 5, TRIP_TIME = 0.5f; // nodes, nodes/s, s
+inline bool trips(float rise, float pace) { return rise >= TRIP_RISE && pace >= TRIP_PACE; }
+
+// Past what balance can take, it goes down (sprint 127): over whichever way it's going, on the ground a while
+// by how hard it was, and up again. Asked to, it gets up sooner and quicker. The same state a blow will use.
+// How much of the near world a flight wants. The map's built for walking past it:
+// at speed or high over the land, its blocks are gone before they're any use, and
+// the far view is the land instead. Only clear of the land (Body::move).
+struct FlightTier
+{
+	float speed; // nodes/s, or
+	float above; // nodes over the land: from either, this tier
+	float near;  // nodes of map blocks it asks for
+};
+constexpr FlightTier FLIGHT_TIERS[] = { { 100, 128, 64 }, { 400, 512, 16 } };
+// (0: walking's, all of it.) Eases out a fifth lower than it came in, so it doesn't flip on the line.
+inline int flightTier(float speed, float above, int was)
+{
+	int tier = 0;
+	for (int i = 0; i < (int)(sizeof(FLIGHT_TIERS) / sizeof(FLIGHT_TIERS[0])); i++) {
+		const float k = i < was ? 0.8f : 1.f;
+		if (speed >= FLIGHT_TIERS[i].speed * k || above >= FLIGHT_TIERS[i].above * k)
+			tier = i + 1;
+	}
+	return tier;
+}
+constexpr float FALLS_FROM = 0.85f;  // of landingStagger
+constexpr float FALLS_AT = 11;       // nodes/s down, however it landed
+class Fallen
+{
+public:
+	Fallen(float severity, bool face_down);
+	void step(float dt, bool wants_up);
+	bool done() const { return m_up >= 1; }
+	bool rising() const { return m_up > 0; }
+	float riseAt() const { return m_up; }       // 0..1 through getting up
+	bool handsDown() const;                      // braced, or pushing up off them
+	float angle() const;                         // radians over from upright: + face down, - on its back
+private:
+	float m_t = 0, m_rest, m_up = 0, m_up_time = 0;
+	bool m_face_down;
+};
+
+// How a body holds itself (arc-movement, sprint 116). Each is a row of STANCES.
+enum class Stance : unsigned char { STAND, CROUCH, PRONE, SLIDE, ROLL, VAULT, MANTLE, HANG, WALL_RUN, DOWN };
+struct StanceInfo
+{
+	float height;      // nodes: its capsule (0: as tall as the body is)
+	float speed;       // × walking
+	bool jumps;
+	float eye_drop;    // nodes: the view below standing
+	float eye_forward; // nodes: and ahead of the feet
+};
+constexpr StanceInfo STANCES[] = {
+	{ 0, 1, true, 0, 0 },
+	{ 1.2f, 0.5f, true, 0.6f, 0.08f },
+	{ 0.7f, 0.25f, false, 1.2f, 0.28f },
+	{ 0.9f, 1, true, 0.75f, 0.1f },
+	{ 0.9f, 1, false, 0.8f, 0.1f },
+	{ 0.9f, 1, false, 0.3f, 0 },
+	{ 0.9f, 1, false, 0.3f, 0 },
+	{ 1.2f, 1, false, 0, 0 },
+	{ 1.2f, 1, false, 0, 0 },
+	{ 0.7f, 0, false, 1.2f, 0.28f },
+};
+inline const StanceInfo &stanceInfo(Stance s) { return STANCES[(int)s]; }
+
+struct Gait
+{
+	float walk = 3.5f;       // nodes/s: a jog, as a person goes
+	float run = 1;           // × walk at most when running (sprint: the caller's)
+	float start = 18;        // nodes/s² up to walking speed
+	float push_on = 5;       // nodes/s² from walking up to running
+	float brake = 28;        // nodes/s² slowing (letting go, or turning back)
+	float air = 3;           // nodes/s² steering in the air
+	float air_reach = 1.5f;  // nodes/s: only slower than this can it steer at all. A jump's a throw:
+	                         // what it left the ground with it keeps; a standing hop can still reach a ledge
+	float flow = 1;          // × a run at most, reached slowly by holding a clean line
+	float flow_on = 0.5f;    // nodes/s² from a run up to that
+	float jump = 1.25f;      // nodes high
+	v3f gravity{ 0, -9.81f, 0 }; // nodes/s²
+};
+
+// A kick thrown slower than this plants it: it stops for it. Faster, it's a flying kick, off the ground (sprint 105).
+constexpr float FLYING_KICK_FROM = 4.5f; // nodes/s
+
+struct Intent
+{
+	float forward = 0, right = 0; // −1..1 each (a stick's: it's capped at 1 together)
+	float yaw = 0;                // radians: which way "forward" is (Luanti's: 0 faces +z)
+	bool jump = false;
+};
+
+struct Footing
+{
+	v3f velocity;
+	bool on_ground = false;
+	v3f ground_velocity{ 0 };
+	v3f ground_normal{ 0, 1, 0 };
+};
+
+// Its velocity after `dt` more of walking.
+v3f walk(const Gait &gait, const Intent &intent, const Footing &now, float dt);
+// Sliding: friction and the slope act on what it came in with, it hardly steers.
+v3f slide(const Gait &gait, const Intent &intent, const Footing &now, float dt);
+// Rolling: it keeps going, at least at a walk, the way it was going (or asked, from a standstill).
+v3f roll(const Gait &gait, const Intent &intent, const Footing &now, float dt);
+
+constexpr float SLIDE_FROM = 4.4f, SLIDE_TO = 2.5f; // nodes/s across: fast enough to start one, and where it ends
+constexpr float SLIDE_KICK = 6;                     // nodes/s it drops into one at, at least
+constexpr float ROLL_LATE = 0.2f;                   // s after a hard landing a crouch still makes it a roll
+constexpr float ROLL_TIME = 0.7f;                // s, landing and all
+constexpr float ROLL_ABSORB = 0.14f;             // s the legs take the fall before they spring it forward into the roll
+constexpr float HARD_LANDING = 7;                // nodes/s down: a roll takes it, or it costs speed and hurts
+constexpr float STUMBLE = 0.4f;                  // what's kept across, landing that hard with no roll
+
+// What a body's holding moves to. `asked` is what the player wants, only ever
+// STAND, CROUCH or PRONE; slides and rolls come of how it's moving as they ask.
+Stance nextStance(Stance now, Stance asked, float pace, bool on_ground, float roll_left);
+// Landing at this speed down, asking this: whether it rolls out of it.
+inline bool rollsOut(float fall, Stance asked) { return fall >= HARD_LANDING && asked != Stance::STAND; }
+
+} // namespace physics

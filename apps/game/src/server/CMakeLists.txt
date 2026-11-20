@@ -2,30 +2,30 @@ file(GLOB common_server_HDRS "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
 
 set(common_server_SRCS
 	${common_server_HDRS}
-	${CMAKE_CURRENT_SOURCE_DIR}/access.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/activeobjectmgr.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/ban.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/blockmodifier.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/clientiface.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/commands.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/defs.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/interact.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/kinds.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/registry.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/lakes.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/entity_sao.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/player_sao.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/rollback.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/serveractiveobject.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/serverinventorymgr.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/serverlist.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/sky.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/terra.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/gravity.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/planet.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/weather.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/player.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/matter.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/unit_sao.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/universe.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/app/access/access.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/state/objects/activeobjectmgr.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/app/access/ban.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/state/blockmodifier.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/app/network/clientiface.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/mods/commands.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/mods/defs.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/mods/interact.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/mods/kinds.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/mods/registry.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/run/rules/lakes.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/state/objects/entity_sao.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/players/player_sao.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/state/rollback.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/state/objects/serveractiveobject.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/state/objects/serverinventorymgr.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/app/serverlist.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/run/rules/sky.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/terra.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/run/rules/gravity.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/run/rules/planet.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/run/rules/weather.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/players/player.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/run/rules/matter.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/state/objects/unit_sao.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/load/universe.cpp
 	PARENT_SCOPE)

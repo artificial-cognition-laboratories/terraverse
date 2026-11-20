@@ -2,8 +2,8 @@
 // Runs the same pure code the game does (physics/pose, reach, skeleton); only the driving here
 // is a script, standing in for client/body. Each move: side and three-quarter, frame by frame.
 //   bun pose-sheet <out-dir>
-#include "physics/reach.h"
-#include "physics/skeleton.h"
+#include "library/physics/reach.h"
+#include "library/physics/skeleton.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>

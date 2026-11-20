@@ -6,8 +6,8 @@
 // A square of 64×64 columns, each width apart, round the widest river on land
 // (a place with everything in it: land, a river, a coast), and the same
 // square again (what a tile's neighbour or a second look costs).
-#include "terragen/world.h"
-#include "terragen/grid.h"
+#include "library/world/terragen/world.h"
+#include "library/world/terragen/grid.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>

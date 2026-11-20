@@ -1,6 +1,6 @@
 // Prints every soil point terragen defines (index sand silt clay organic), for
 // the palette script: the grid lives in one place, src/terragen/soil.cpp.
-#include "terragen/world.h"
+#include "library/world/terragen/world.h"
 #include <cstdio>
 using namespace terragen;
 int main()
