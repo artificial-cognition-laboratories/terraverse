@@ -13,6 +13,8 @@
 - Since the hierarchy move (2c006128) terragen and its tests are their own targets, configured before
   src/CMakeLists.txt sets the engine's MSVC flags: Windows-wide options (/EHsc, /MD, compiler-rt
   builtins, clang-cl required) live at the top of apps/game/CMakeLists.txt.
+- Cache keys hash apps/game/vcpkg.json and apps/game/cmake/Modules/CEF.cmake (were stale after the
+  move, hashing nothing); vcpkg restore falls back to any older cache of its triplet (ABI-hashed, safe).
 - Release scripts (manifest.ts, gate.sh) read engine sources by path: a move breaks them silently,
   only a tag or the gate would notice. A dispatch run exercises manifest.ts (publish's first step).
 - `.github/workflows/launcher.yml`: the launcher (Tauri/Rust). Warm: Linux 3.9 min, Windows 3.3 min.
@@ -63,9 +65,11 @@ kind's median (the API doesn't say whether caches hit).
    - [x] Compiles (sidecar SOCK_CLOEXEC, st_mtimespec), links (curl/FreeType targets, system OpenAL),
      unit tests pass (shell guarded), 2026-11-18.
    - [x] 2026-11-20: `apps/game/scripts/release/smoke-server.sh`, Linux and Windows on it (2d28a08f).
-   - [ ] **Next:** macos.yml calls smoke-server.sh on `.output/bin/luanti` (no package yet); then macOS
-     joins release.yml as a non-publishing job; macos.yml goes. Check macos.yml's paths survived the
-     move first (it hasn't run since) (moves the inline YAML boot checks into a script too: milestone 6). Then add macOS to
+   - [x] 2026-11-20: macos.yml builds UI and terra and smoke-boots `.output/bin/luanti` (run 44836357243,
+     green, 22 min: a world boots headless on macOS).
+   - [ ] **Next:** macOS joins release.yml as a non-publishing job on master pushes (build, unit tests,
+     smoke on the run-in-place build); macos.yml goes. Adds ~10 macOS runner-min per push (10x billed:
+     check the minutes number after). (moves the inline YAML boot checks into a script too: milestone 6). Then add macOS to
      release.yml as a **non-publishing** job on master pushes (it can't publish until it packages), so
      every push keeps macOS compiling; macos.yml goes.
    - [ ] vcpkg overlay triplet: arm64-osx with VCPKG_OSX_DEPLOYMENT_TARGET 13.0 (cold vcpkg once).
@@ -100,7 +104,7 @@ kind's median (the API doesn't say whether caches hit).
 Over the next few sessions we want to get everything setup properly to allow macos. So choose chunks of work to do. getting the repo itself in line and setting up the appropriate ci. you are tasked with the full thing. within a few sessions we should have macos online. permission to make the changes you need to get this working and online. keep track of this work and your plan until the job is complete.
 
 ## Log
-- 2026-11-20: The hierarchy move broke master in 8 places (terra, launcher, ops.h gen, two publish key paths, terragen on gcc-12 and clang-cl, winresource.rc, the deleted official-mods server folder, manifest.ts, gate.sh); fixed one CI round at a time, green at 9c412f43. Smoke boot is one script for all platforms (2d28a08f). My first commit swept in a staged deletion (restored b6d9f331). Green rate 60% → 33% over the window (all red from the move), now green.
+- 2026-11-20: The hierarchy move broke master in 8 places (terra, launcher, ops.h gen, two publish key paths, terragen on gcc-12 and clang-cl, winresource.rc, the deleted official-mods server folder, manifest.ts, gate.sh); fixed one CI round at a time, green at 9c412f43. Smoke boot is one script for all platforms (2d28a08f). Cache keys fixed (stale since the move) with an ABI-safe vcpkg fallback; macOS boots a world headless in CI (milestone 2 step 3). My first commit swept in a staged deletion (restored b6d9f331). Green rate 60% → 33% over the window (all red from the move), now green.
 - 2026-11-19: Master red again (sprint 119 + registry). Fixed Linux Package (builtin/ gone), verified by local package + smoke boot. Windows terra failure undiagnosed: GitHub's API unreachable all session; 00c128d6's run not watched. Green rate 69% → 60%.
 - 2026-11-17: First session. Fixed red master: the launcher test `leaves_the_appimage_behind` assumed ':'-separated path lists and failed on Windows; it is now `#[cfg(unix)]`. Baseline green rate: 43%.
 - 2026-11-18: Master red since 05ec8cb6, fixed through five layers (gitignored terra sources, release's path filter, terra on Windows, cxxabi.h, sprint 116's red tests skipped by name); 4 green in a row since. CI's unit tests honour skip.txt. `bun ci:status` (milestone 3 done). macOS from nothing to green on a dispatch run: compiles, links, unit tests pass, warm 3.6 min. Green rate 43% → 69%.
