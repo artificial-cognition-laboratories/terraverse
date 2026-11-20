@@ -7,9 +7,9 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include "src/shared/core/irr_v3d.h"
-#include "src/shared/core/irrlichttypes.h"
-#include "src/shared/util/string.h"
+#include "src/shared/base/irr_v3d.h"
+#include "src/shared/base/irrlichttypes.h"
+#include "src/shared/util/text/string.h"
 
 class Database
 {

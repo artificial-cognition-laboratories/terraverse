@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include "src/shared/core/irr_aabb3d.h"
-#include "src/shared/core/irr_v3d.h"
-#include "src/shared/map/mapnode.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/base/irr_aabb3d.h"
+#include "src/shared/base/irr_v3d.h"
+#include "src/shared/map/block/mapnode.h"
+#include "src/shared/game/content/nodedef.h"
 #include "library/geometry/shape/shape.h"
 #include <array>
 #include <cmath>

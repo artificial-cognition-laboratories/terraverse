@@ -5,7 +5,7 @@
 
 #include "library/space/air/optics.h"
 #include "library/space/air/tables.h"
-#include "library/world/terragen/system.h"
+#include "library/world/terragen/src/system/system.h"
 #include <cmath>
 #include <string>
 

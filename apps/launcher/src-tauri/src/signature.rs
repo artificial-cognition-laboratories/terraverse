@@ -5,7 +5,7 @@ use base64::Engine;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 
 /// The key the game checks updates against: one file, read by both.
-pub const UPDATE_KEY: &str = include_str!("../../../../scripts/release/update-key.pub");
+pub const UPDATE_KEY: &str = include_str!("../../../../apps/game/scripts/release/update-key.pub");
 
 /// An Ed25519 public key in PEM: the last 32 bytes of its SubjectPublicKeyInfo.
 fn key(pem: &str) -> Option<VerifyingKey> {

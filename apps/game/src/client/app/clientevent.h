@@ -5,8 +5,8 @@
 #pragma once
 
 #include <string>
-#include "src/shared/core/irrlichttypes.h"
-#include "src/shared/objects/hud_element.h" // HudElementStat
+#include "src/shared/base/irrlichttypes.h"
+#include "src/shared/game/objects/hud_element.h" // HudElementStat
 
 struct ParticleParameters;
 struct ParticleSpawnerParameters;

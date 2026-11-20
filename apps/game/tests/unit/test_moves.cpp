@@ -3,15 +3,15 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/platform/filesys.h"
-#include "src/shared/platform/porting.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/platform/system/porting.h"
 #include "library/matter/matter/matter.h"
 #include "library/matter/sandbox/stage.h"
-#include "src/client/views/scenes/course.h"
-#include "src/client/views/scenes/finepowder.h"
+#include "src/client/views/scenes/kinds/course.h"
+#include "src/client/world/sim/fine/finepowder.h"
 #include "src/client/views/game/water/liquidlook.h"
-#include "src/client/views/scenes/finewater.h"
-#include "src/client/views/scenes/relief.h"
+#include "src/client/world/sim/fine/finewater.h"
+#include "src/client/views/scenes/kinds/relief.h"
 #include <map>
 #include <algorithm>
 #include <cmath>

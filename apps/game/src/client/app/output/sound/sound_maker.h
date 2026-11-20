@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "src/shared/content/sound_spec.h"
+#include "src/shared/game/content/sound_spec.h"
 
 class ISoundManager;
 class NodeDefManager;
@@ -13,7 +13,7 @@ class MtEvent;
 
 // TODO move this together with the game.cpp interact code to its own file.
 #include "src/client/app/input/mtevent.h"
-#include "src/shared/map/mapnode.h"
+#include "src/shared/map/block/mapnode.h"
 class NodeDugEvent : public MtEvent
 {
 public:

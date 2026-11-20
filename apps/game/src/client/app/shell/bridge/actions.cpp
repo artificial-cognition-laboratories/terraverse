@@ -5,8 +5,8 @@
 #include "src/client/app/shell/bridge/bridge.h"
 #include "src/client/world/session/client.h"
 #include "src/client/world/objects/localplayer.h"
-#include "src/shared/items/inventory.h"
-#include "src/shared/items/inventorymanager.h"
+#include "src/shared/game/items/inventory.h"
+#include "src/shared/game/items/inventorymanager.h"
 
 namespace shell {
 

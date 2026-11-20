@@ -4,8 +4,8 @@
 #include "tests/unit/test.h"
 
 #include "src/server/world/run/machines/workshop/library.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/platform/filesys.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/platform/system/filesys.h"
 
 using namespace workshop;
 

@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "src/shared/core/gamedef.h"
-#include "src/shared/items/inventory.h"
+#include "src/shared/base/gamedef.h"
+#include "src/shared/game/items/inventory.h"
 #include "src/server/world/state/objects/serverinventorymgr.h"
 
 

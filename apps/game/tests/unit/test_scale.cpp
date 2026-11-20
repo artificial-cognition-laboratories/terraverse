@@ -4,8 +4,8 @@
 #include "tests/unit/test.h"
 
 #include "library/world/planet/atlas.h"
-#include "library/world/terragen/code.h"
-#include "library/world/terragen/world.h"
+#include "library/world/terragen/src/code/code.h"
+#include "library/world/terragen/src/world.h"
 #include <chrono>
 #include <cmath>
 #include <vector>

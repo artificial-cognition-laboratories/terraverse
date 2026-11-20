@@ -6,9 +6,9 @@
 
 #include <sstream>
 
-#include "src/shared/core/gamedef.h"
-#include "src/shared/items/inventory.h"
-#include "src/shared/items/itemdef.h"
+#include "src/shared/base/gamedef.h"
+#include "src/shared/game/items/inventory.h"
+#include "src/shared/game/items/itemdef.h"
 
 class TestInventory : public TestBase {
 public:

@@ -2,25 +2,25 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2017 celeron55, Perttu Ahola <celeron55@gmail.com>
 
-#include "src/shared/util/serialize.h" // serializeJsonString
-#include "src/shared/util/pointedthing.h"
+#include "src/shared/util/data/serialize.h" // serializeJsonString
+#include "src/shared/game/pointing/pointedthing.h"
 #include "src/client/world/session/client.h"
 #include "src/client/world/session/clientenvironment.h"
 #include "src/client/views/game/sky/solar.h"
 #include "src/client/world/objects/clientsimpleobject.h"
-#include "src/client/render/meshgen/clientmap.h"
+#include "src/client/render/map/clientmap.h"
 #include "src/client/world/objects/localplayer.h"
-#include "src/client/render/meshgen/mapblock_mesh.h"
+#include "src/client/render/map/mesh/mapblock_mesh.h"
 #include "src/client/app/input/mtevent.h"
-#include "src/shared/objects/collision.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/platform/profiler.h"
+#include "src/shared/game/objects/collision.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/platform/system/profiler.h"
 #include "src/shared/map/raycast.h"
-#include "src/shared/map/voxelalgorithms.h"
-#include "src/shared/platform/settings.h"
+#include "src/shared/map/voxel/voxelalgorithms.h"
+#include "src/shared/platform/settings/settings.h"
 #include "src/client/world/objects/content_cao.h"
-#include "src/shared/platform/porting.h"
-#include "src/client/render/core/renderingengine.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/client/render/renderingengine.h"
 
 /*
 	ClientEnvironment

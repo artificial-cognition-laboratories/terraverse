@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/app/shell/host/inbox.h"
-#include "src/shared/core/exceptions.h"
+#include "src/shared/base/exceptions.h"
 #include <include/base/cef_callback.h>
 #include <include/cef_task.h>
 #include <include/wrapper/cef_closure_task.h>

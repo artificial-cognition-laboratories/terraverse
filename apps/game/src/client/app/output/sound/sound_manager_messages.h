@@ -5,7 +5,7 @@
 #pragma once
 
 #include "src/client/app/output/sound/sound.h"
-#include "src/shared/content/sound_spec.h"
+#include "src/shared/game/content/sound_spec.h"
 #include <variant>
 
 namespace sound {

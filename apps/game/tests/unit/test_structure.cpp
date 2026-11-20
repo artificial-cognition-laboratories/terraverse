@@ -3,8 +3,8 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/core/dummygamedef.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/base/dummygamedef.h"
+#include "src/shared/game/content/nodedef.h"
 #include "library/physics/structure.h"
 #include "library/physics/world.h"
 #include "src/server/world/run/machines/piece/machine.h"

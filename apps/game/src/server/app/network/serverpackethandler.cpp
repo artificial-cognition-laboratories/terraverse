@@ -2,39 +2,39 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2015 nerzhul, Loic Blot <loic.blot@unix-experience.fr>
 
-#include "src/shared/chat/chatmessage.h"
+#include "src/shared/game/chat/chatmessage.h"
 #include "src/server/app/server.h"
-#include "src/server/mods/interact.h"
+#include "src/server/game/interact.h"
 #include "src/server/world/terra.h" // Terra Firma
 #include "src/server/world/run/rules/matter.h" // Terra Firma
-#include "src/shared/online/gate.h"
-#include "src/server/mods/sidecar/sidecar.h"
+#include "src/shared/platform/online/gate.h"
+#include "src/server/app/mods/sidecar/sidecar.h"
 #include <json/json.h>
 #include <sstream>
 #include "src/server/world/state/environment/serverenvironment.h"
-#include "src/shared/platform/log.h"
+#include "src/shared/platform/system/log.h"
 #include "src/server/world/load/emerge.h"
-#include "src/shared/items/itemdef.h"
-#include "src/shared/map/mapblock.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/platform/porting.h" // strcasecmp
-#include "src/shared/objects/remoteplayer.h"
-#include "src/shared/environment/rollback_interface.h"
-#include "src/shared/core/serialization.h"
-#include "src/shared/platform/settings.h"
+#include "src/shared/game/items/itemdef.h"
+#include "src/shared/map/block/mapblock.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/platform/system/porting.h" // strcasecmp
+#include "src/shared/game/objects/remoteplayer.h"
+#include "src/shared/game/environment/rollback_interface.h"
+#include "src/shared/base/serialization.h"
+#include "src/shared/platform/settings/settings.h"
 #include "src/server/world/run/sculpt/sculpt.h"
 #include "src/server/world/state/objects/entity_sao.h"
 #include "src/server/world/run/machines/workshop/workshop.h"
-#include "src/shared/items/tool.h"
-#include "src/shared/network/connection.h"
-#include "src/shared/network/networkexceptions.h"
-#include "src/shared/network/networkpacket.h"
-#include "src/shared/network/networkprotocol.h"
+#include "src/shared/game/items/tool.h"
+#include "src/shared/platform/network/connection.h"
+#include "src/shared/platform/network/networkexceptions.h"
+#include "src/shared/platform/network/networkpacket.h"
+#include "src/shared/platform/network/networkprotocol.h"
 #include "src/server/app/network/serveropcodes.h"
 #include "src/server/players/player_sao.h"
 #include "src/server/world/state/objects/serverinventorymgr.h"
-#include "src/shared/util/base64.h"
-#include "src/shared/util/pointedthing.h"
+#include "src/shared/util/text/base64.h"
+#include "src/shared/game/pointing/pointedthing.h"
 #include "src/client/world/session/clientdynamicinfo.h"
 
 #include <algorithm>

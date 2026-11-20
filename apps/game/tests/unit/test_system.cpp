@@ -3,9 +3,9 @@
 
 #include "tests/unit/test.h"
 
-#include "library/world/terragen/system.h"
+#include "library/world/terragen/src/system/system.h"
 #include "src/client/app/shell/bridge/system.h"
-#include "library/world/terragen/body.h"
+#include "library/world/terragen/src/system/body.h"
 #include <cmath>
 #include <stdexcept>
 

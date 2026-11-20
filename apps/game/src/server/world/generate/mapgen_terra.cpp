@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/server/world/generate/mapgen_terra.h"
-#include "src/server/world/generate/terra_column.h"
+#include "src/server/world/generate/land/terra_column.h"
 #include <optional>
 #include "src/server/world/load/emerge.h"
-#include "src/shared/core/exceptions.h"
-#include "src/server/world/generate/mg_biome.h"
-#include "src/server/world/generate/mg_decoration.h"
-#include "src/server/world/generate/mg_ore.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/map/voxel.h"
+#include "src/shared/base/exceptions.h"
+#include "src/server/world/generate/luanti/mg_biome.h"
+#include "src/server/world/generate/luanti/mg_decoration.h"
+#include "src/server/world/generate/luanti/mg_ore.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/map/voxel/voxel.h"
 
 using namespace terragen;
 

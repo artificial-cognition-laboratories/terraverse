@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "library/matter/fill/fill.h"
-#include "src/shared/core/constants.h"
-#include "src/shared/core/exceptions.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/base/exceptions.h"
 #include "library/geometry/shape/shape.h"
-#include "src/shared/util/serialize.h"
+#include "src/shared/util/data/serialize.h"
 #include <map>
 #include <mutex>
 #include <vector>

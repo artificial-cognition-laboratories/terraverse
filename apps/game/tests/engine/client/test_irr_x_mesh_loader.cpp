@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "catch_amalgamated.hpp"
-#include "src/shared/content/subgames.h"
-#include "src/shared/platform/filesys.h"
+#include "src/shared/game/content/subgames.h"
+#include "src/shared/platform/system/filesys.h"
 
-#include "src/shared/core/irrlichttypes.h"
+#include "src/shared/base/irrlichttypes.h"
 #include "irr_ptr.h"
 
 #include "EDriverTypes.h"
@@ -15,7 +15,7 @@
 #include "SkinnedMesh.h"
 #include "irrlicht.h"
 
-#include "src/shared/core/catch.h"
+#include "src/shared/base/catch.h"
 #include "matrix4.h"
 
 TEST_CASE("x") {

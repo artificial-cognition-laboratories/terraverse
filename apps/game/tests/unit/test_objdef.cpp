@@ -4,8 +4,8 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/core/exceptions.h"
-#include "src/shared/content/objdef.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/game/content/objdef.h"
 
 class TestObjDef : public TestBase
 {

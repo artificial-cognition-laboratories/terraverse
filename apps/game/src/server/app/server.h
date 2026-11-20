@@ -4,25 +4,25 @@
 
 #pragma once
 
-#include "src/shared/core/irr_v3d.h"
+#include "src/shared/base/irr_v3d.h"
 #include "src/shared/map/map.h"
 class EntitySAO;
 namespace pile { class Piles; }
 namespace workshop { class Workshop; class Materials; }
 namespace orbit { class Field; }
 namespace sidecar { class Sidecar; }
-#include "src/shared/objects/hud_element.h" // HudElementStat
-#include "src/shared/core/gamedef.h"
-#include "src/shared/content/subgames.h"
-#include "src/shared/network/peerhandler.h"
-#include "src/shared/network/socket.h"
-#include "src/shared/util/thread.h"
-#include "src/shared/util/basic_macros.h"
-#include "src/shared/util/metricsbackend.h"
+#include "src/shared/game/objects/hud_element.h" // HudElementStat
+#include "src/shared/base/gamedef.h"
+#include "src/shared/game/content/subgames.h"
+#include "src/shared/platform/network/peerhandler.h"
+#include "src/shared/platform/network/socket.h"
+#include "src/shared/util/data/thread.h"
+#include "src/shared/util/data/basic_macros.h"
+#include "src/shared/util/timing/metricsbackend.h"
 #include "src/server/app/network/clientiface.h"
-#include "src/shared/threading/ordered_mutex.h"
-#include "src/shared/platform/translation.h"
-#include "src/shared/content/sound_spec.h"
+#include "src/shared/platform/threading/ordered_mutex.h"
+#include "src/shared/platform/system/translation.h"
+#include "src/shared/game/content/sound_spec.h"
 #include <atomic>
 #include <csignal>
 #include <string>
@@ -34,7 +34,7 @@ namespace sidecar { class Sidecar; }
 #include <string_view>
 #include <shared_mutex>
 #include <condition_variable>
-#include "src/shared/network/connection.h" // Terra Firma: IConnection::StrayHandler
+#include "src/shared/platform/network/connection.h" // Terra Firma: IConnection::StrayHandler
 
 class BanManager;
 namespace online { class Gate; }
@@ -75,7 +75,7 @@ struct ServerTerra; // Terra Firma
 #include "library/world/planet/atlas.h" // Terra Firma
 #include "library/world/planet/pager.h" // Terra Firma
 #include "library/space/orbit/flight.h" // Terra Firma
-#include "library/world/terragen/worlds.h" // Terra Firma
+#include "library/world/terragen/src/code/worlds.h" // Terra Firma
 struct SunParams;
 
 namespace con {

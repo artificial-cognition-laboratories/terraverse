@@ -7,13 +7,13 @@
 #include "src/client/app/shell/bridge/bridge.h"
 #include "src/client/world/player/body.h"
 #include "src/client/world/session/client.h"
-#include "library/world/terragen/worlds.h"
+#include "library/world/terragen/src/code/worlds.h"
 #include "src/client/world/objects/localplayer.h"
 #include "src/client/app/shell/host/shell.h"
-#include "src/client/views/scenes/preview.h"
+#include "src/client/views/preview/preview.h"
 #include "src/client/app/shell/bridge/system.h"
 #include "src/client/app/menus/mainmenumanager.h"
-#include "src/shared/platform/porting.h"
+#include "src/shared/platform/system/porting.h"
 
 namespace shell {
 

@@ -4,11 +4,11 @@
 #include "src/client/app/shell/bridge/screens.h"
 #include "src/client/app/shell/host/shell.h"
 #include "src/client/app/shell/host/ui.h"
-#include "src/shared/core/exceptions.h"
+#include "src/shared/base/exceptions.h"
 #include "src/client/app/menus/mainmenumanager.h"
 #include "src/client/app/input/keycode.h"
 #include "src/client/app/menus/modalMenu.h"
-#include "src/shared/platform/log.h"
+#include "src/shared/platform/system/log.h"
 #include <IGUIEnvironment.h>
 #include <functional>
 #include <json/json.h>

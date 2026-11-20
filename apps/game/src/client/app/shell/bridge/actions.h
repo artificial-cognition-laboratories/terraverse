@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "src/shared/items/inventorymanager.h"
-#include "src/shared/core/irrlichttypes.h"
+#include "src/shared/game/items/inventorymanager.h"
+#include "src/shared/base/irrlichttypes.h"
 #include <json/json.h>
 #include <string>
 

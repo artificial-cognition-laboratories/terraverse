@@ -4,7 +4,7 @@
 
 #include "tests/engine/test.h"
 
-#include "src/shared/core/catch.h"
+#include "src/shared/base/catch.h"
 
 int run_catch2_tests(int argc, char *argv[])
 {

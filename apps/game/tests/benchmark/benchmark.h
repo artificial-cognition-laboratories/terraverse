@@ -4,6 +4,6 @@
 
 #pragma once
 
-#include "src/shared/core/config.h"
+#include "src/shared/base/config.h"
 
 int run_catch2_benchmarks(int argc, char *argv[]);

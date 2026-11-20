@@ -1,7 +1,7 @@
 #pragma once
 
 #include <json/json.h>
-#include "util/base64.h"
+#include "text/base64.h"
 
 #include <cstdint>
 #include <functional>

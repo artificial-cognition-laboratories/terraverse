@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/app/shell/bridge/loading.h"
-#include "library/world/terragen/code.h"
-#include "library/world/terragen/progress.h"
+#include "library/world/terragen/src/code/code.h"
+#include "library/world/terragen/src/base/progress.h"
 #include <algorithm>
 #include <cmath>
 #include <vector>

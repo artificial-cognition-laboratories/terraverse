@@ -4,9 +4,9 @@
 
 #include "src/client/views/game/hud/statusTextHelper.h"
 
-#include "src/client/render/core/text/static_text.h"
+#include "src/client/render/fonts/static_text.h"
 
-#include "src/client/render/core/renderingengine.h"
+#include "src/client/render/renderingengine.h"
 
 StatusTextHelper::StatusTextHelper(gui::IGUIEnvironment *guienv, gui::IGUIElement *parent)
 {

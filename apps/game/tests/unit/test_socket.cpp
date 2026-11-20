@@ -4,12 +4,12 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/core/constants.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/network/address.h"
-#include "src/shared/network/networkexceptions.h"
-#include "src/shared/network/socket.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/platform/network/address.h"
+#include "src/shared/platform/network/networkexceptions.h"
+#include "src/shared/platform/network/socket.h"
 
 class TestSocket : public TestBase {
 public:

@@ -3,7 +3,7 @@
 
 #include "src/client/app/shell/host/cpu_canvas.h"
 #include "src/client/app/shell/host/gpu_canvas.h"
-#include "src/shared/platform/log.h"
+#include "src/shared/platform/system/log.h"
 #include "library/trace/trace.h"
 #include <mutex>
 #include <stdexcept>

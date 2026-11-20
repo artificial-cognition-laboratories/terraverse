@@ -3,7 +3,7 @@
 // Copyright (C) 2018 nerzhul, Loic Blot <loic.blot@unix-experience.fr>
 
 #include "tests/unit/test.h"
-#include "src/shared/map/voxel.h"
+#include "src/shared/map/voxel/voxel.h"
 
 class TestVoxelArea : public TestBase
 {

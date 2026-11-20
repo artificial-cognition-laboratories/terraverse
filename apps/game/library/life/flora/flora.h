@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "library/world/terragen/fixed.h"
+#include "library/world/terragen/src/base/fixed.h"
 #include <array>
 #include <cstdint>
 #include <string>

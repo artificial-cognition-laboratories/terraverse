@@ -7,7 +7,7 @@
 # writes the manifest naming every build, signs it, and publishes them together.
 #
 # Linux is built on the oldest system we support (Ubuntu 22.04, glibc 2.35), so
-# the result runs on that and anything newer. scripts/release/package-linux.sh
+# the result runs on that and anything newer. apps/game/scripts/release/package-linux.sh
 # bundles the libraries a desktop may lack. Windows builds with clang-cl
 # (terragen's fixed point needs __int128) against vcpkg.
 name: release
@@ -30,8 +30,8 @@ on:
       - 'CMakeLists.txt'
       - 'vcpkg.json'
       - '.gitignore'
-      - 'scripts/release/**'
-      - 'scripts/stage-runtime.sh'
+      - 'apps/game/scripts/release/**'
+      - 'apps/game/scripts/stage-runtime.sh'
       - '.github/workflows/release.yml'
   workflow_dispatch:
     inputs:
@@ -112,14 +112,17 @@ jobs:
       - name: Build the engine
         env:
           SCCACHE_GHA_ENABLED: "true"
-        run: cmake --build .output/build -j"$(nproc)" -- -k && bash scripts/stage-runtime.sh
+        run: cmake --build .output/build -j"$(nproc)" -- -k && bash apps/game/scripts/stage-runtime.sh
 
-      # bun run test's script (built above): tests in scripts/test/skip.txt are skipped by name.
+      # bun run test's script (built above): tests in apps/game/tests/run/skip.txt are skipped by name.
+      # terragen's own tests are fixed point: every platform must pass them alike.
       - name: Unit tests
-        run: BUILT=1 bash scripts/test.sh TestOnline TestRelease TestTerragen
+        run: |
+          BUILT=1 bash apps/game/tests/run/engine.sh TestOnline TestRelease TestTerragenMatter
+          ctest --test-dir .output/build -L '^terragen$' -L '^hot$' --output-on-failure
 
       - name: Package
-        run: scripts/release/package-linux.sh "$VERSION"
+        run: apps/game/scripts/release/package-linux.sh "$VERSION"
 
       # The package on its own: its libraries resolve, and a world boots.
       - name: Smoke test the package
@@ -231,20 +234,22 @@ jobs:
 
       # -k 0: one run reports every compile error, not just the first.
       - name: Build the engine
-        run: cmake --build .output/build -- -k 0 && bash scripts/stage-runtime.sh
+        run: cmake --build .output/build -- -k 0 && bash apps/game/scripts/stage-runtime.sh
 
       # Through cmd: Git Bash refused to run luanti.exe directly. Tests in
-      # scripts/test/skip.txt are skipped by name, as bun run test does.
+      # apps/game/tests/run/skip.txt are skipped by name, as bun run test does.
       - name: Unit tests
         run: |
-          export TF_TEST_SKIP="$(bash scripts/test/skips.sh)"
+          export TF_TEST_SKIP="$(bash apps/game/tests/run/skips.sh)"
           cd .output/bin
-          for module in TestOnline TestRelease TestTerragen; do
+          for module in TestOnline TestRelease TestTerragenMatter; do
             cmd.exe //C "luanti.exe --test-module $module"
           done
+          cd ../..
+          ctest --test-dir .output/build -L '^terragen$' -L '^hot$' --output-on-failure
 
       - name: Package
-        run: scripts/release/package-windows.sh "$VERSION"
+        run: apps/game/scripts/release/package-windows.sh "$VERSION"
 
       # The package on its own: it starts, says its version, and a world boots
       # with the player's data outside the package.
@@ -298,7 +303,7 @@ jobs:
       - name: Write the manifest
         run: |
           out=.output/releases
-          bun scripts/release/manifest.ts "$VERSION" "$out/manifest.json" \
+          bun apps/game/scripts/release/manifest.ts "$VERSION" "$out/manifest.json" \
             linux-x86_64="$out/terraverse-$VERSION-linux-x86_64.tar.zst" \
             windows-x86_64="$out/terraverse-$VERSION-windows-x86_64.tar.zst"
           cat "$out/manifest.json"
@@ -318,12 +323,12 @@ jobs:
           openssl pkeyutl -verify -pubin -inkey "$GITHUB_WORKSPACE/scripts/release/update-key.pub" \
             -rawin -in manifest.json -sigfile manifest.json.sig
 
-      # What the launcher shows for this version: scripts/release/notes/<tag>.md
+      # What the launcher shows for this version: apps/game/scripts/release/notes/<tag>.md
       # when written, with GitHub's list of changes after it either way.
       - name: Release notes
         if: github.ref_type == 'tag'
         run: |
-          notes="scripts/release/notes/$VERSION.md"
+          notes="apps/game/scripts/release/notes/$VERSION.md"
           if [ -f "$notes" ]; then cp "$notes" .output/releases/notes.md; else : > .output/releases/notes.md; fi
 
       # A tag with a suffix (v0.3.0-beta.1) is a pre-release: the launcher's beta channel.

@@ -6,10 +6,10 @@
 mixed in one folder) plus 10 Catch2 `TEST_CASE`s, and upstream's `apps/game/src/test/` (Irrlicht
 matrix, k-d tree, translations; built into the same binary). Run by:
 - `luanti --run-unittests`: all modules in one process, sequential. **579 s** on this machine, and red (6 tests).
-- `bun run test [Module...]` (`scripts/test.sh`, added 2026-11-17): builds, asks the binary for
+- `bun run test [Module...]` (`apps/game/tests/run/engine.sh`, added 2026-11-17): builds, asks the binary for
   its modules (`--list-test-modules`), runs each in its own process in parallel plus Catch
   (`--run-tests`), prints per-module time and each failure with its repro command. Skips by name
-  from `scripts/test/skip.txt` via `TF_TEST_SKIP` (hook in `unittest/test.cpp`).
+  from `apps/game/tests/run/skip.txt` via `TF_TEST_SKIP` (hook in `unittest/test.cpp`).
 - Wall clock is held by **TestTerragen (297 s alone)**; next TestAtlasRender 84, TestBodies 54,
   TestPlanetAtlas 36, TestFar 29, TestFarPalette 15, TestMoves 12. Everything else < 10 s.
 
@@ -20,8 +20,8 @@ TestMoves`), matter, far, palette, atlas-world, window, bodies, atlas-land, atla
 atlas-debug, atlas-dig. Folders without a command: `air-check`, `milkyway-check`, `motion`.
 Timings not yet measured.
 
-**Release gate** (`scripts/release/gate.sh` via `arc gate terraverse`): key checks, build,
-every unit module via `BUILT=1 bash scripts/test.sh` (since 2026-11-19; before, only TestOnline,
+**Release gate** (`apps/game/scripts/release/gate.sh` via `arc gate terraverse`): key checks, build,
+every unit module via `BUILT=1 bash apps/game/tests/run/engine.sh` (since 2026-11-19; before, only TestOnline,
 TestRelease, TestTerragen), UI typecheck+build, 20 s headless boot.
 81 modules today (incl. Catch), 6 tests skipped by name (skip.txt). `bun run test`: 227 s wall.
 `serial.txt` is empty; time budgets are held by `bun check:budgets` (someone else's, 2026-11-18).
@@ -66,7 +66,7 @@ Own numbers:
 
 ## Tried
 
-- Running wall-clock-budget modules alone after the parallel batch (`scripts/test/serial.txt`): TestSandbox still failed alone at load ~3 from other work on the machine. Kept the mechanism (empty), skipped the two tests on a job instead.
+- Running wall-clock-budget modules alone after the parallel batch (`apps/game/tests/run/serial.txt`): TestSandbox still failed alone at load ~3 from other work on the machine. Kept the mechanism (empty), skipped the two tests on a job instead.
 
 ## Proposals
 

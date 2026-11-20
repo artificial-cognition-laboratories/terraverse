@@ -4,10 +4,10 @@
 #include "src/client/app/shell/bridge/wiki.h"
 #include "src/client/app/shell/bridge/bridge.h"
 #include "src/client/app/shell/host/shell.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/platform/porting.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/core/exceptions.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/base/exceptions.h"
 #include <cmath>
 #include <fstream>
 

@@ -5,9 +5,9 @@
 #include "tests/unit/test.h"
 
 #include <cmath>
-#include "src/shared/util/numeric.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/core/noise.h"
+#include "src/shared/util/math/numeric.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/base/noise.h"
 
 class TestRandom : public TestBase {
 public:

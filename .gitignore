@@ -152,7 +152,7 @@ lib/irrlichtmt
 # Generated mod storage database
 client/mod_storage.sqlite
 
-# release packages (scripts/release)
+# release packages (apps/game/scripts/release)
 dist/
 
 # Terra Firma: ArcLabs sign-ins (credentials!), side-by-side profiles, the Lab's scratch worlds

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "src/shared/content/subgames.h"
+#include "src/shared/game/content/subgames.h"
 #include <json/json.h>
 #include <optional>
 #include <string>

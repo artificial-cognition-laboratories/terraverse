@@ -5,7 +5,7 @@
 
 #include "src/client/views/game/sky/sky.h"
 #include "src/client/views/game/sky/solar.h"
-#include "src/shared/map/daynightratio.h"
+#include "src/shared/map/light/daynightratio.h"
 
 class TestSolar : public TestBase {
 public:

@@ -4,9 +4,9 @@
 
 #include "tests/unit/test.h"
 
-#include "src/server/world/generate/mg_schematic.h"
-#include "src/shared/core/gamedef.h"
-#include "src/shared/content/nodedef.h"
+#include "src/server/world/generate/luanti/mg_schematic.h"
+#include "src/shared/base/gamedef.h"
+#include "src/shared/game/content/nodedef.h"
 
 class TestSchematic : public TestBase {
 public:

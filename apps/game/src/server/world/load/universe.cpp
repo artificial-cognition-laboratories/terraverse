@@ -1,11 +1,11 @@
 #include "src/server/world/load/universe.h"
 
-#include "src/shared/content/subgames.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/platform/settings.h"
-#include "library/world/terragen/atlas.h"
-#include "library/world/terragen/code.h"
+#include "src/shared/game/content/subgames.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/platform/settings/settings.h"
+#include "library/world/terragen/src/out/atlas.h"
+#include "library/world/terragen/src/code/code.h"
 #include <algorithm>
 #include <cmath>
 

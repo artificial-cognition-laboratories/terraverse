@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
-#include "src/shared/core/gamedef.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/network/networkprotocol.h"
+#include "src/shared/base/gamedef.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/platform/network/networkprotocol.h"
 
-#include "src/shared/core/catch.h"
+#include "src/shared/base/catch.h"
 
 #include <ios>
 #include <sstream>

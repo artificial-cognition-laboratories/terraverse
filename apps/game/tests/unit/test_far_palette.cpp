@@ -3,13 +3,13 @@
 
 #include "tests/unit/test.h"
 
-#include "src/client/views/game/far/baked.h"
-#include "src/client/views/game/far/mesh.h"
-#include "src/client/views/game/far/tiles.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/map/light.h"
-#include "src/shared/platform/porting.h"
+#include "src/client/views/game/far/bake/baked.h"
+#include "src/client/views/game/far/land/mesh.h"
+#include "src/client/views/game/far/tiles/tiles.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/map/light/light.h"
+#include "src/shared/platform/system/porting.h"
 #include <chrono>
 #include <cmath>
 #include <fstream>

@@ -6,8 +6,8 @@
 #include "src/server/world/run/pile/pile.h"
 #include "src/server/world/run/pile/piles.h"
 #include "src/shared/map/dummymap.h"
-#include "src/shared/core/gamedef.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/base/gamedef.h"
+#include "src/shared/game/content/nodedef.h"
 #include <cstdlib>
 
 using namespace pile;

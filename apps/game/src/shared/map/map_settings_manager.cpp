@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 kwolekr, Ryan Kwolek <kwolekr@minetest.net>
 
-#include "src/shared/platform/filesys.h"
-#include "src/shared/platform/log.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/platform/system/log.h"
 #include "src/server/world/generate/mapgen.h"
-#include "src/shared/platform/settings.h"
+#include "src/shared/platform/settings/settings.h"
 
 #include "src/shared/map/map_settings_manager.h"
 

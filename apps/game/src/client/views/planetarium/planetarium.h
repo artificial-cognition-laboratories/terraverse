@@ -3,17 +3,17 @@
 
 #pragma once
 
-#include "src/client/views/game/far/palette.h"
-#include "src/client/views/game/far/terrain.h"
-#include "src/client/views/game/far/tiles.h"
+#include "src/client/views/game/far/bake/palette.h"
+#include "src/client/views/game/far/land/terrain.h"
+#include "src/client/views/game/far/tiles/tiles.h"
 #include "library/world/planet/atlas.h"
 #include "src/client/views/planetarium/camera.h"
-#include "src/client/views/planetarium/globe.h"
-#include "src/client/views/planetarium/markers.h"
-#include "src/client/views/planetarium/paint.h"
-#include "src/client/views/planetarium/seams.h"
-#include "src/client/views/planetarium/shot.h"
-#include "src/client/views/planetarium/system.h"
+#include "src/client/views/planetarium/globe/globe.h"
+#include "src/client/views/planetarium/overlays/markers.h"
+#include "src/client/views/planetarium/overlays/paint.h"
+#include "src/client/views/planetarium/globe/seams.h"
+#include "src/client/views/planetarium/run/shot.h"
+#include "src/client/views/planetarium/space/system.h"
 #include <chrono>
 #include <future>
 #include <unordered_set>

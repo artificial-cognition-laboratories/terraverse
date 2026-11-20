@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "tests/unit/test.h"
-#include "src/shared/core/exceptions.h"
-#include "library/world/terragen/worlds.h"
+#include "src/shared/base/exceptions.h"
+#include "library/world/terragen/src/code/worlds.h"
 
 #include <chrono>
 #include <cmath>
@@ -11,21 +11,21 @@
 #include <map>
 #include <set>
 
-#include "src/client/views/game/far/horizon.h"
-#include "src/client/views/game/far/tilecache.h"
-#include "src/client/views/game/far/mesh.h"
-#include "src/client/views/game/far/palette.h"
-#include "src/shared/map/light.h"
-#include "src/shared/core/constants.h"
+#include "src/client/views/game/far/land/horizon.h"
+#include "src/client/views/game/far/tiles/tilecache.h"
+#include "src/client/views/game/far/land/mesh.h"
+#include "src/client/views/game/far/bake/palette.h"
+#include "src/shared/map/light/light.h"
+#include "src/shared/base/constants.h"
 #include <algorithm>
-#include "src/client/views/game/far/tiling.h"
-#include "src/server/world/generate/atlas_land.h"
-#include "src/client/views/game/far/terrain.h"
-#include "src/server/world/generate/terra_column.h"
+#include "src/client/views/game/far/tiles/tiling.h"
+#include "src/server/world/generate/land/atlas_land.h"
+#include "src/client/views/game/far/land/terrain.h"
+#include "src/server/world/generate/land/terra_column.h"
 #include "library/world/planet/atlas.h"
-#include "src/shared/network/networkpacket.h"
-#include "src/shared/network/networkprotocol.h"
-#include "src/shared/util/pointer.h"
+#include "src/shared/platform/network/networkpacket.h"
+#include "src/shared/platform/network/networkprotocol.h"
+#include "src/shared/util/data/pointer.h"
 
 using namespace far;
 

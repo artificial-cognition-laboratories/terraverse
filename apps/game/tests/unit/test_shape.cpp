@@ -5,9 +5,9 @@
 
 #include "library/geometry/shape/shape.h"
 #include "src/shared/map/dummymap.h"
-#include "src/shared/map/mapblock.h"
-#include "src/shared/core/noise.h"
-#include "src/shared/core/serialization.h"
+#include "src/shared/map/block/mapblock.h"
+#include "src/shared/base/noise.h"
+#include "src/shared/base/serialization.h"
 #include <sstream>
 
 using namespace shape;

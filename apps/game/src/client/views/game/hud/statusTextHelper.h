@@ -5,7 +5,7 @@
 #pragma once
 
 #include "irr_ptr.h"
-#include "src/shared/core/irrlichttypes.h"
+#include "src/shared/base/irrlichttypes.h"
 
 #include <IGUIEnvironment.h>
 #include <IGUIStaticText.h>

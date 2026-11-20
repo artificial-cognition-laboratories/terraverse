@@ -5,11 +5,11 @@
 
 #pragma once
 
-#include "src/shared/objects/object_properties.h"
+#include "src/shared/game/objects/object_properties.h"
 #include "src/server/world/state/objects/serveractiveobject.h"
 #include <quaternion.h>
 #include <AnimSpec.h>
-#include "src/shared/util/numeric.h"
+#include "src/shared/util/math/numeric.h"
 
 class UnitSAO : public ServerActiveObject
 {

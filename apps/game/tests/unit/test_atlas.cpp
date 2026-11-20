@@ -3,7 +3,7 @@
 
 #include "tests/unit/test.h"
 
-#include "library/world/terragen/atlas.h"
+#include "library/world/terragen/src/out/atlas.h"
 #include <algorithm>
 #include <cmath>
 #include <random>

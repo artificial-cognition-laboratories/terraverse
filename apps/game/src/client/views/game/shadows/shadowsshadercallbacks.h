@@ -4,8 +4,8 @@
 
 #pragma once
 #include <IMaterialRendererServices.h>
-#include "src/client/render/core/shader.h"
-#include "src/shared/util/string.h"
+#include "src/client/render/shaders/shader.h"
+#include "src/shared/util/text/string.h"
 
 // Used by main game rendering
 

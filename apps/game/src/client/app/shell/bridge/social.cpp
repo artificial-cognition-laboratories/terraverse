@@ -3,10 +3,10 @@
 
 #include "src/client/app/shell/bridge/social.h"
 #include "src/client/app/shell/bridge/bridge.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/platform/httpfetch.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/platform/porting.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/platform/system/httpfetch.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/platform/system/porting.h"
 #include <cctype>
 
 namespace shell {

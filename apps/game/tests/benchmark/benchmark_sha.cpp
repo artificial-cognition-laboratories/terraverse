@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include "src/shared/core/catch.h"
-#include "src/shared/util/hashing.h"
+#include "src/shared/base/catch.h"
+#include "src/shared/util/hash/hashing.h"
 #include <string>
 
 TEST_CASE("benchmark_sha")

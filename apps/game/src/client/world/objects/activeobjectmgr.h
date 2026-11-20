@@ -6,7 +6,7 @@
 
 #include <functional>
 #include <vector>
-#include "src/shared/objects/activeobjectmgr.h"
+#include "src/shared/game/objects/activeobjectmgr.h"
 #include "src/client/world/objects/clientobject.h"
 
 namespace client

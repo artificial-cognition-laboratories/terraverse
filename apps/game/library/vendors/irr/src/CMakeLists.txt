@@ -246,7 +246,7 @@ endif()
 set(link_includes
 	"${PROJECT_SOURCE_DIR}/include"
 	"${CMAKE_CURRENT_SOURCE_DIR}"
-	"${CMAKE_SOURCE_DIR}/src/shared/core" # irrlichttypes.h
+	"${CMAKE_SOURCE_DIR}/src/shared/base" # irrlichttypes.h
 	"${CMAKE_SOURCE_DIR}" # what it includes, by full path
 
 	"${ZLIB_INCLUDE_DIR}"

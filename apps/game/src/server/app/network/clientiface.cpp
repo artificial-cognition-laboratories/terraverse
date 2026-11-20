@@ -4,25 +4,25 @@
 
 #include <sstream>
 #include "src/server/app/network/clientiface.h"
-#include "src/shared/platform/debug.h"
-#include "src/shared/network/connection.h"
-#include "src/shared/network/networkexceptions.h"
-#include "src/shared/network/networkpacket.h"
+#include "src/shared/platform/system/debug.h"
+#include "src/shared/platform/network/connection.h"
+#include "src/shared/platform/network/networkexceptions.h"
+#include "src/shared/platform/network/networkpacket.h"
 #include "src/server/app/network/serveropcodes.h"
-#include "src/shared/platform/porting.h" // porting::getTimeS
-#include "src/shared/objects/remoteplayer.h"
-#include "src/shared/core/serialization.h" // SER_FMT_VER_INVALID
-#include "src/shared/platform/settings.h"
-#include "src/shared/map/mapblock.h"
+#include "src/shared/platform/system/porting.h" // porting::getTimeS
+#include "src/shared/game/objects/remoteplayer.h"
+#include "src/shared/base/serialization.h" // SER_FMT_VER_INVALID
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/map/block/mapblock.h"
 #include "src/server/world/state/environment/serverenvironment.h"
 #include "src/shared/map/map.h"
 #include "src/server/world/load/emerge.h"
 #include "src/server/world/state/objects/entity_sao.h"
 #include "src/server/players/player_sao.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/util/pointedthing.h"
-#include "src/shared/util/string.h"
-#include "src/shared/map/face_position_cache.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/game/pointing/pointedthing.h"
+#include "src/shared/util/text/string.h"
+#include "src/shared/map/light/face_position_cache.h"
 #include "library/trace/trace.h" // TEMP(2026-11-19)
 
 static std::string string_sanitize_ascii(const std::string &s, u32 max_length)

@@ -4,7 +4,7 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/util/areastore.h"
+#include "src/shared/util/math/areastore.h"
 
 class TestAreaStore : public TestBase {
 public:

@@ -53,7 +53,7 @@ alongside, but these are how the developer judges the area. Measure from `gh run
   waiting on a job. Never disable a check, loosen a test or add blind retries to get green; if a
   step is genuinely flaky, find out why. While you work on it, it may be skipped by name in CI,
   citing a job, and listed in your report until it's fixed.
-- CI runs the same commands a developer runs locally (`bun run …`, `scripts/build.sh`), so a CI
+- CI runs the same commands a developer runs locally (`bun run …`, `apps/game/scripts/build.sh`), so a CI
   failure always reproduces on this machine. No logic that exists only in YAML: moving the inline
   steps that exist today (unit tests, smoke boot, packaging) into scripts is part of the job.
 - Pin actions and tool versions; bump them deliberately, one at a time.

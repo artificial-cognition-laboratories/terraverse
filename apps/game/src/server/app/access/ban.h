@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "src/shared/util/string.h"
+#include "src/shared/util/text/string.h"
 #include <string>
 #include <mutex>
 

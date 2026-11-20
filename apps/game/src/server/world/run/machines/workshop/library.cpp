@@ -3,9 +3,9 @@
 
 #include "src/server/world/run/machines/workshop/library.h"
 
-#include "src/shared/core/exceptions.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/util/serialize.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/util/data/serialize.h"
 #include <algorithm>
 #include <sstream>
 #include <stdexcept>

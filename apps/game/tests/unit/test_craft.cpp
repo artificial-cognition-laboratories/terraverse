@@ -4,9 +4,9 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/items/inventory.h" // ItemStack
-#include "src/shared/items/craftdef.h"
-#include "src/shared/items/itemdef.h"
+#include "src/shared/game/items/inventory.h" // ItemStack
+#include "src/shared/game/items/craftdef.h"
+#include "src/shared/game/items/itemdef.h"
 
 class TestCraft : public TestBase
 {

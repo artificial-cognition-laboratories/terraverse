@@ -7,9 +7,9 @@
 #include <functional>
 #include <vector>
 #include <set>
-#include "src/shared/objects/activeobjectmgr.h"
+#include "src/shared/game/objects/activeobjectmgr.h"
 #include "src/server/world/state/objects/serveractiveobject.h"
-#include "src/shared/util/k_d_tree.h"
+#include "src/shared/util/math/k_d_tree.h"
 
 namespace server
 {

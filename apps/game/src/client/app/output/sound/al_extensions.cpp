@@ -4,8 +4,8 @@
 
 #include "src/client/app/output/sound/al_extensions.h"
 
-#include "src/shared/platform/settings.h"
-#include "src/shared/util/string.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/util/text/string.h"
 #include <unordered_set>
 
 namespace sound {

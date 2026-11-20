@@ -3,16 +3,16 @@
 
 #pragma once
 
-#include "src/client/views/game/far/terrain.h"
-#include "src/server/world/generate/terra_species.h"
+#include "src/client/views/game/far/land/terrain.h"
+#include "src/server/world/generate/place/terra_species.h"
 #include "library/matter/matter/matter.h"
-#include "library/world/terragen/system.h"
-#include "library/world/terragen/world.h"
+#include "library/world/terragen/src/system/system.h"
+#include "library/world/terragen/src/world.h"
 #include "library/world/rivers/basin.h"
 #include "library/world/rivers/rivers.h"
 #include "library/world/weather/weather.h"
-#include "src/shared/core/irr_v3d.h"
-#include "src/shared/objects/player.h"
+#include "src/shared/base/irr_v3d.h"
+#include "src/shared/game/objects/player.h"
 #include <set>
 #include <string>
 #include <json/json.h>

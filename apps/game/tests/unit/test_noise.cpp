@@ -5,8 +5,8 @@
 #include "tests/unit/test.h"
 
 #include <cmath>
-#include "src/shared/core/exceptions.h"
-#include "src/shared/core/noise.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/base/noise.h"
 
 class TestNoise : public TestBase {
 public:

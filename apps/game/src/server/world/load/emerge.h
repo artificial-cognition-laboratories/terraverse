@@ -8,9 +8,9 @@
 #include "library/geometry/shape/shape.h"
 #include "library/life/sprig/sprig.h"
 #include <mutex>
-#include "src/shared/network/networkprotocol.h"
-#include "src/shared/core/irr_v3d.h"
-#include "src/shared/util/metricsbackend.h"
+#include "src/shared/platform/network/networkprotocol.h"
+#include "src/shared/base/irr_v3d.h"
+#include "src/shared/util/timing/metricsbackend.h"
 #include "src/server/world/generate/mapgen.h" // for MapgenParams
 #include "src/shared/map/map.h"
 

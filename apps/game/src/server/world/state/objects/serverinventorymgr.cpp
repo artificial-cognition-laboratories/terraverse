@@ -4,9 +4,9 @@
 
 #include "src/server/world/state/objects/serverinventorymgr.h"
 #include "src/shared/map/map.h"
-#include "src/shared/content/nodemetadata.h"
+#include "src/shared/game/content/nodemetadata.h"
 #include "src/server/players/player_sao.h"
-#include "src/shared/objects/remoteplayer.h"
+#include "src/shared/game/objects/remoteplayer.h"
 #include "src/server/app/server.h"
 #include "src/server/world/state/environment/serverenvironment.h"
 

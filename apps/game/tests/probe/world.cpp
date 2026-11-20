@@ -2,14 +2,14 @@
 // (sprint 119: were Lua mods in scripts/{terragen,far,bodies}-check). See probe.h.
 #include "tests/probe/probe.h"
 
-#include "src/shared/environment/environment.h"
-#include "src/shared/platform/filesys.h"
+#include "src/shared/game/environment/environment.h"
+#include "src/shared/platform/system/filesys.h"
 #include "src/shared/map/map.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/game/content/nodedef.h"
 #include "src/server/app/server.h"
 #include "src/server/world/terra.h"
 #include "src/server/world/state/environment/serverenvironment.h"
-#include "library/world/terragen/system.h"
+#include "library/world/terragen/src/system/system.h"
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -55,7 +55,7 @@ std::string kind(Context &c, const std::string &name)
 
 } // namespace
 
-// scripts/far-check.sh: the far view draws each column as terraSurface says the generator
+// apps/game/tests/checks/far.sh: the far view draws each column as terraSurface says the generator
 // makes it. Areas generated for real and compared, column by column: the ground (its
 // block and height) and any water over it. FAR_BODY: another body's land, not the home's.
 void far(Context &c)
@@ -152,7 +152,7 @@ void far(Context &c)
 	});
 }
 
-// scripts/terragen-check.sh: the surface node at each place listed in the world's
+// apps/game/tests/checks/terragen.sh: the surface node at each place listed in the world's
 // points.txt (a direction per line, 2^30 a unit: terragen::Place); each column's water
 // and solid surface, and what the world model says there (with the clock it read). Lines
 // keyed by the place's number.
@@ -265,7 +265,7 @@ void terragen(Context &c)
 	c.after(1, [ready] { (*ready)(); });
 }
 
-// scripts/bodies-check.sh (sprint 40): the home and its moon in one window; a mark on each,
+// apps/game/tests/checks/bodies.sh (sprint 40): the home and its moon in one window; a mark on each,
 // kept as a place; every tile of both pushed out of the map (past the pager's hold), and
 // each mark found again by its place.
 void bodies(Context &c)

@@ -3,9 +3,9 @@
 
 #include "library/geometry/shape/shape.h"
 
-#include "src/shared/core/constants.h"
-#include "src/shared/util/numeric.h"
-#include "src/shared/util/serialize.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/util/math/numeric.h"
+#include "src/shared/util/data/serialize.h"
 
 #include <bitset>
 #include <cmath>

@@ -4,7 +4,7 @@
 #pragma once
 
 #include "src/client/app/shell/host/canvas.h"
-#include "src/shared/core/irrlichttypes.h"
+#include "src/shared/base/irrlichttypes.h"
 #include <include/internal/cef_types_wrappers.h>
 #include <mutex>
 #include <vector>

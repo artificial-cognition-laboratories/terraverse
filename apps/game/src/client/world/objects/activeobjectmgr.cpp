@@ -3,8 +3,8 @@
 // Copyright (C) 2010-2018 nerzhul, Loic BLOT <loic.blot@unix-experience.fr>
 
 #include <cmath>
-#include "src/shared/platform/log.h"
-#include "src/shared/platform/profiler.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/platform/system/profiler.h"
 #include "src/client/world/objects/activeobjectmgr.h"
 
 namespace client

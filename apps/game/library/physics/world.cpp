@@ -3,8 +3,8 @@
 
 #include "library/physics/world.h"
 #include "library/physics/aero.h"
-#include "src/shared/platform/profiler.h"
-#include "library/world/terragen/parallel.h"
+#include "src/shared/platform/system/profiler.h"
+#include "library/world/terragen/src/base/parallel.h"
 
 #include <Jolt/Jolt.h>
 #include <set>
@@ -49,7 +49,7 @@
 #include <cmath>
 #include <limits>
 #include <map>
-#include "src/shared/threading/pool.h"
+#include "src/shared/platform/threading/pool.h"
 #include <future>
 #include <mutex>
 #include <tuple>

@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes.h"
-#include "src/shared/items/inventory.h" // ItemStack
-#include "src/shared/util/basic_macros.h"
-#include "src/shared/util/numeric.h"
+#include "src/shared/base/irrlichttypes.h"
+#include "src/shared/game/items/inventory.h" // ItemStack
+#include "src/shared/util/data/basic_macros.h"
+#include "src/shared/util/math/numeric.h"
 #include <plane3d.h>
 #include <array>
 #include <vector>

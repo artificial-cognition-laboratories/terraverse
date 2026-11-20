@@ -4,7 +4,7 @@
 
 #include "src/client/app/output/sound/proxy_sound_manager.h"
 
-#include "src/shared/platform/filesys.h"
+#include "src/shared/platform/system/filesys.h"
 
 namespace sound {
 

@@ -4,24 +4,24 @@
 #include "src/server/world/run/machines/workshop/ground_read.h"
 #include "src/client/world/player/body.h"
 #include "library/physics/tuning.h"
-#include "src/shared/platform/profiler.h"
+#include "src/shared/platform/system/profiler.h"
 #include <sstream>
 
 #include "src/client/world/session/client.h"
-#include "src/shared/objects/collision.h"
+#include "src/shared/game/objects/collision.h"
 #include "src/client/world/objects/content_cao.h"
 #include "src/client/world/objects/localplayer.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/platform/porting.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/platform/system/porting.h"
 #include "src/shared/map/map.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/game/content/nodedef.h"
 #include "src/server/world/run/machines/piece/machine.h"
 #include "library/world/planet/atlas.h"
-#include "src/shared/platform/settings.h"
-#include "library/world/terragen/planet.h"
-#include "library/world/terragen/worlds.h"
+#include "src/shared/platform/settings/settings.h"
+#include "library/world/terragen/src/system/planet.h"
+#include "library/world/terragen/src/code/worlds.h"
 #include "src/server/world/run/machines/workshop/motion.h"
-#include "library/world/terragen/parallel.h"
+#include "library/world/terragen/src/base/parallel.h"
 #include <cmath>
 #include <functional>
 

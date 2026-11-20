@@ -4,8 +4,8 @@
 #include "tests/unit/test.h"
 
 #include "library/world/fluid/fluid.h"
-#include "src/shared/platform/porting.h"
-#include "src/shared/platform/filesys.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/platform/system/filesys.h"
 #include "library/world/weather/weather.h"
 #include <cmath>
 

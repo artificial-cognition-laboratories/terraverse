@@ -5,7 +5,7 @@
 #include "src/client/app/output/sound/sound_maker.h"
 
 #include "src/client/app/input/mtevent.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/game/content/nodedef.h"
 #include "src/client/app/output/sound/sound.h"
 
 void SoundMaker::playPlayerStep()

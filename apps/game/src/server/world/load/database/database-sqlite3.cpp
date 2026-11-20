@@ -4,14 +4,14 @@
 
 #include "src/server/world/load/database/database-sqlite3.h"
 
-#include "src/shared/platform/log.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/platform/porting.h"
-#include "src/shared/util/string.h"
-#include "src/shared/objects/remoteplayer.h"
-#include "src/shared/core/printing.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/util/text/string.h"
+#include "src/shared/game/objects/remoteplayer.h"
+#include "src/shared/base/printing.h"
 #include "src/server/players/player_sao.h"
 
 #include <cassert>

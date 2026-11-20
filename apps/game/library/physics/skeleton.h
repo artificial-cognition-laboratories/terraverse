@@ -10,7 +10,7 @@
 
 /*
 	Where a figure's bones go from a pose's joints (arc-movement, sprint 121). Pure,
-	so what client/figure draws and what scripts/pose-sheet renders are the same answer.
+	so what client/figure draws and what library/physics/tools/pose-sheet renders are the same answer.
 	In nodes, each bone against its parent: lower holds hips and thighs; hips the chest;
 	the chest the head and upper arms; then down each limb.
 */

@@ -1,5 +1,5 @@
 // Terra Firma: the check's probe of an atlas's seams, crossed (sprint 119: was a Lua mod in
-// scripts/atlas-seam-check; layout v2: planet.paper.md, section 3). See probe.h.
+// tests/checks/atlas-seam.sh; layout v2: planet.paper.md, section 3). See probe.h.
 //
 // Courses of stone are laid along real paths on the planet, so each is whole across the
 // seam it tests; then, over each, a walker crosses at the floor's height (never in seam,
@@ -7,10 +7,10 @@
 // before the seam flows past it. And on a segment's seam, sand dropped above lands below.
 #include "tests/probe/probe.h"
 
-#include "src/shared/objects/collision.h"
+#include "src/shared/game/objects/collision.h"
 #include "src/shared/map/map.h"
 #include "src/server/app/server.h"
-#include "src/server/mods/kinds.h"
+#include "src/server/game/kinds.h"
 #include "src/server/world/state/objects/entity_sao.h"
 #include "src/server/world/state/environment/serverenvironment.h"
 #include <cmath>

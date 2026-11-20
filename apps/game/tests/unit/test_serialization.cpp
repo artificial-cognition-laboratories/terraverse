@@ -4,8 +4,8 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/util/string.h"
-#include "src/shared/util/serialize.h"
+#include "src/shared/util/text/string.h"
+#include "src/shared/util/data/serialize.h"
 #include <cmath>
 
 class TestSerialization : public TestBase {

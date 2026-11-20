@@ -3,12 +3,12 @@
 // Copyright (C) 2015 est31 <MTest31@outlook.com>
 
 #include <inttypes.h>
-#include "src/shared/core/config.h"
+#include "src/shared/base/config.h"
 #if USE_CURSES
-#include "src/shared/core/version.h"
+#include "src/shared/base/version.h"
 #include "src/server/app/console/terminal_chat_console.h"
-#include "src/shared/util/string.h"
-#include "src/shared/chat/chat_interface.h"
+#include "src/shared/util/text/string.h"
+#include "src/shared/game/chat/chat_interface.h"
 
 TerminalChatConsole g_term_console;
 

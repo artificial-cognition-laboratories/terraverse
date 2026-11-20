@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/views/planetarium/camera.h"
-#include "src/shared/core/constants.h"
+#include "src/shared/base/constants.h"
 #include <algorithm>
 #include <cmath>
 

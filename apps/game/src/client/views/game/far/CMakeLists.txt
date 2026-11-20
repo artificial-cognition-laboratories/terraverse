@@ -3,21 +3,21 @@
 # tiles, `palette` and `baked` are read anywhere. `mesh`, `palette_live` (textures),
 # `tiles` and `view` are the client's.
 set(far_SRCS
-	${CMAKE_CURRENT_SOURCE_DIR}/terrain.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/tiling.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/horizon.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/palette.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/baked.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/land/terrain.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/tiles/tiling.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/land/horizon.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/bake/palette.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/bake/baked.cpp
 	PARENT_SCOPE)
 
 set(far_client_SRCS
-	${CMAKE_CURRENT_SOURCE_DIR}/coverage.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/export.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/landbake.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/mask.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/mesh.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/palette_live.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/tilecache.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/tiles.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/tiles/coverage.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/bake/export.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/bake/landbake.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/tiles/mask.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/land/mesh.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/bake/palette_live.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/tiles/tilecache.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/tiles/tiles.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/view.cpp
 	PARENT_SCOPE)

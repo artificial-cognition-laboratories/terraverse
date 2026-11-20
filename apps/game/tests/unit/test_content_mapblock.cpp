@@ -4,18 +4,18 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/core/gamedef.h"
-#include "src/shared/items/inventory.h" // ItemStack
-#include "src/shared/core/dummygamedef.h"
-#include "src/client/render/meshgen/content_mapblock.h"
-#include "src/client/render/meshgen/mapblock_mesh.h"
-#include "src/client/render/meshgen/collector.h"
-#include "src/client/render/meshgen/node_visuals.h"
+#include "src/shared/base/gamedef.h"
+#include "src/shared/game/items/inventory.h" // ItemStack
+#include "src/shared/base/dummygamedef.h"
+#include "src/client/render/map/mesh/content_mapblock.h"
+#include "src/client/render/map/mesh/mapblock_mesh.h"
+#include "src/client/render/map/mesh/collector.h"
+#include "src/client/render/map/mesh/node_visuals.h"
 #include <memory>
 #include "tests/unit/mesh_compare.h"
 #include "src/server/world/run/ground/ground.h" // Terra Firma
 #include "library/geometry/shape/shape.h" // Terra Firma
-#include "src/shared/core/noise.h"
+#include "src/shared/base/noise.h"
 #include <map>
 
 namespace {

@@ -3,8 +3,8 @@
 
 #include "src/server/world/run/machines/workshop/starters.h"
 
-#include "src/shared/core/gamedef.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/base/gamedef.h"
+#include "src/shared/game/content/nodedef.h"
 #include "src/server/world/run/sculpt/sculpt.h"
 #include <map>
 #include <stdexcept>

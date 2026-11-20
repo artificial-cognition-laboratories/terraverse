@@ -4,11 +4,11 @@
 
 #include "src/client/app/output/sound/sound.h"
 
-#include "src/shared/platform/filesys.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/platform/porting.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/util/numeric.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/util/math/numeric.h"
 #include <algorithm>
 #include <string>
 #include <vector>

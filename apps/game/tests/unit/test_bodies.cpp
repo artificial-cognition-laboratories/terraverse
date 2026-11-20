@@ -7,13 +7,13 @@
 
 #include "src/server/world/load/database/database-planet.h"
 #include "src/server/world/load/database/database-sqlite3.h"
-#include "src/shared/platform/filesys.h"
+#include "src/shared/platform/system/filesys.h"
 #include "library/world/planet/atlas.h"
-#include "src/client/views/scenes/preview.h"
-#include "library/world/terragen/grid.h"
-#include "library/world/terragen/system.h"
-#include "library/world/terragen/worlds.h"
-#include "library/world/terragen/world.h"
+#include "src/client/views/preview/preview.h"
+#include "library/world/terragen/src/grid/grid.h"
+#include "library/world/terragen/src/system/system.h"
+#include "library/world/terragen/src/code/worlds.h"
+#include "library/world/terragen/src/world.h"
 #include <cmath>
 #include <cstdio>
 #include <set>

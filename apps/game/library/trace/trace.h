@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes.h"
+#include "src/shared/base/irrlichttypes.h"
 #include "library/trace/net.h"
 #include <string>
 #include <string_view>

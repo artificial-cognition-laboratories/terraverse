@@ -4,9 +4,9 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/core/gamedef.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/content/content_mapnode.h"
+#include "src/shared/base/gamedef.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/game/content/content_mapnode.h"
 
 class TestMapNode : public TestBase
 {

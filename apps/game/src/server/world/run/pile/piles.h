@@ -4,8 +4,8 @@
 #pragma once
 
 #include "src/server/world/run/pile/pile.h"
-#include "src/shared/core/irr_v3d.h"
-#include "src/shared/map/mapnode.h"
+#include "src/shared/base/irr_v3d.h"
+#include "src/shared/map/block/mapnode.h"
 #include "library/geometry/shape/shape.h"
 #include <functional>
 #include <map>

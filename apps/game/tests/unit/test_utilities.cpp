@@ -7,11 +7,11 @@
 #include <cmath>
 #include <limits>
 #include <string_view>
-#include "src/shared/util/enriched_string.h"
-#include "src/shared/util/numeric.h"
-#include "src/shared/util/string.h"
-#include "src/shared/util/base64.h"
-#include "src/shared/util/colorize.h"
+#include "src/shared/util/text/enriched_string.h"
+#include "src/shared/util/math/numeric.h"
+#include "src/shared/util/text/string.h"
+#include "src/shared/util/text/base64.h"
+#include "src/shared/util/text/colorize.h"
 
 using namespace std::string_view_literals;
 

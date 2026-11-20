@@ -3,12 +3,12 @@
 
 #include "src/shared/map/map.h"
 #include "src/server/app/server.h"
-#include "src/server/mods/interact.h"
+#include "src/server/game/interact.h"
 #include "src/server/world/run/rules/matter.h"
 #include "src/server/world/terra.h"
 #include "src/server/world/state/environment/serverenvironment.h"
-#include "src/shared/platform/settings.h"
-#include "library/world/terragen/world.h"
+#include "src/shared/platform/settings/settings.h"
+#include "library/world/terragen/src/world.h"
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -16,7 +16,7 @@
 
 namespace probe {
 
-// scripts/mods-check.sh: the fixture's /check typed at the console, once before the
+// apps/game/tests/checks/mods/check.sh: the fixture's /check typed at the console, once before the
 // sidecar is crashed and once after it restarts: its commands must answer both times.
 void mods(Context &c)
 {
@@ -31,7 +31,7 @@ void mods(Context &c)
 	c.after(5, [typed] { typed("1 again"); });
 }
 
-// scripts/matter-check.sh: a fire pit, built and lit on a live server, run for simulated
+// apps/game/tests/checks/matter.sh: a fire pit, built and lit on a live server, run for simulated
 // minutes: clay floor and walls, leaves (tinder) under a log, the leaves lit by an ember.
 // Then a family block: peat (soil, its most organic point), heated, burns its organic part.
 void matter(Context &c)
@@ -104,7 +104,7 @@ void matter(Context &c)
 	});
 }
 
-// scripts/atlas-dig-check.sh (sprint 30): the ground round the equator emerged; then
+// apps/game/tests/checks/atlas-dig.sh (sprint 30): the ground round the equator emerged; then
 // nodes dug one at a time down a shaft, the server's steps after each timed (it relights
 // round every change, and sends what changed).
 void atlasDig(Context &c)
@@ -154,7 +154,7 @@ void atlasDig(Context &c)
 	});
 }
 
-// scripts/window-check.sh (sprint 39): a mark made at the spawn survives its tile leaving
+// apps/game/tests/checks/window.sh (sprint 39): a mark made at the spawn survives its tile leaving
 // the map (the window filled with elsewhere, past the pager's hold) and coming back.
 void window(Context &c)
 {

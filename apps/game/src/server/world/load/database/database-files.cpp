@@ -3,14 +3,14 @@
 // Copyright (C) 2017 nerzhul, Loic Blot <loic.blot@unix-experience.fr>
 
 #include "src/server/world/load/database/database-files.h"
-#include "src/shared/core/convert_json.h"
-#include "src/shared/objects/remoteplayer.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/platform/debug.h"
-#include "src/shared/platform/filesys.h"
+#include "src/shared/base/convert_json.h"
+#include "src/shared/game/objects/remoteplayer.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/platform/system/debug.h"
+#include "src/shared/platform/system/filesys.h"
 #include "src/server/players/player_sao.h"
-#include "src/shared/util/string.h"
+#include "src/shared/util/text/string.h"
 #include <json/json.h>
 #include <cassert>
 

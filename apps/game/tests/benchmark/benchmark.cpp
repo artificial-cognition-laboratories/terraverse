@@ -4,7 +4,7 @@
 
 #include "tests/benchmark/benchmark.h"
 
-#include "src/shared/core/catch.h"
+#include "src/shared/base/catch.h"
 
 int run_catch2_benchmarks(int argc, char *argv[])
 {

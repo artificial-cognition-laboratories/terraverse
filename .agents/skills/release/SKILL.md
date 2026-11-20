@@ -43,7 +43,7 @@ Each target ships only if its own files changed since it last shipped:
 ("nothing to ship") and stop. **No changes, no release.**
 
 **Version drift is yours to fix.** If `package.json` names a version with no tag (an earlier run
-failed after bumping), read `scripts/release` to see what `release:tag` will do. Make sure the
+failed after bumping), read `apps/game/scripts/release` to see what `release:tag` will do. Make sure the
 next tag is the next free version with no skipped number, and correct `package.json` if it isn't.
 
 **Uncommitted changes.** You run in the developer's checkout, and arc refuses a dirty tree. If the
@@ -86,7 +86,7 @@ until it's green or you've reached rung 4.
 Ship in this order: `terraverse`, `launcher`, `site`.
 
 - **Release notes** (terraverse and launcher): before deploying, write
-  `scripts/release/notes/<tag>.md` from the commits since the last tag (see the README there):
+  `apps/game/scripts/release/notes/<tag>.md` from the commits since the last tag (see the README there):
   a bold line naming the release, then what a player will notice. Skip internal refactors.
   Commit it.
 - `arc deploy <target>`, with a shell timeout of at least 60 minutes (or in the background):

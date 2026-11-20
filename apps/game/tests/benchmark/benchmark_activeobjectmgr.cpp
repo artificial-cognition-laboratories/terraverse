@@ -1,9 +1,9 @@
 // Luanti
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include "src/shared/core/catch.h"
+#include "src/shared/base/catch.h"
 #include "src/server/world/state/objects/activeobjectmgr.h"
-#include "src/shared/util/numeric.h"
+#include "src/shared/util/math/numeric.h"
 
 namespace {
 

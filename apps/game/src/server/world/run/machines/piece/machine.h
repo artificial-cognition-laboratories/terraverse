@@ -5,7 +5,7 @@
 
 #include "src/server/world/run/machines/piece/object.h"
 #include "library/geometry/shape/shape.h"
-#include "src/shared/core/irr_aabb3d.h"
+#include "src/shared/base/irr_aabb3d.h"
 #include <optional>
 #include <string>
 #include <vector>

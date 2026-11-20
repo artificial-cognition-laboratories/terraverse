@@ -8,8 +8,8 @@
 // the server's thread, one step at a time, never blocking it.
 #pragma once
 
-#include "src/shared/core/irrlichttypes_bloated.h"
-#include "src/shared/map/mapnode.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
+#include "src/shared/map/block/mapnode.h"
 #include "library/world/planet/atlas.h"
 #include <atomic>
 #include <functional>

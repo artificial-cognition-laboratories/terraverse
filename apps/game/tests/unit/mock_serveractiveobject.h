@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2022 Luanti core developers & community
 
-#include "src/shared/util/guid.h"
+#include "src/shared/util/hash/guid.h"
 #include "src/server/world/state/environment/serverenvironment.h"
 #include "src/server/world/state/objects/serveractiveobject.h"
 #include <string>

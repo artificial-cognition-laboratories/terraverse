@@ -3,16 +3,16 @@
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "src/server/world/state/rollback.h"
-#include "src/shared/core/exceptions.h"
+#include "src/shared/base/exceptions.h"
 #include <list>
-#include "src/shared/platform/log.h"
-#include "src/shared/core/gamedef.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/util/string.h"
-#include "src/shared/util/numeric.h"
-#include "src/shared/items/inventorymanager.h" // deserializing InventoryLocations
+#include "src/shared/platform/system/log.h"
+#include "src/shared/base/gamedef.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/util/text/string.h"
+#include "src/shared/util/math/numeric.h"
+#include "src/shared/game/items/inventorymanager.h" // deserializing InventoryLocations
 #include "sqlite3.h"
-#include "src/shared/platform/filesys.h"
+#include "src/shared/platform/system/filesys.h"
 
 #define POINTS_PER_NODE (16.0f)
 

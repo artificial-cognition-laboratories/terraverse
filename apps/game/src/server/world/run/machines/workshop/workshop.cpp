@@ -3,18 +3,18 @@
 
 #include "src/server/world/run/machines/workshop/workshop.h"
 
-#include "src/shared/core/gamedef.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/platform/porting.h"
+#include "src/shared/base/gamedef.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/platform/system/porting.h"
 #include "src/server/world/run/machines/piece/frame.h"
-#include "src/shared/objects/remoteplayer.h"
+#include "src/shared/game/objects/remoteplayer.h"
 #include "src/server/world/state/objects/entity_sao.h"
 #include "src/server/players/player_sao.h"
 #include "src/server/world/state/environment/serverenvironment.h"
-#include "src/shared/platform/settings.h"
+#include "src/shared/platform/settings/settings.h"
 #include "src/server/world/run/machines/workshop/starters.h"
-#include "src/shared/platform/log.h"
+#include "src/shared/platform/system/log.h"
 #include <algorithm>
 #include <cmath>
 #include <map>

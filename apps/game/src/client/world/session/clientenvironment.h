@@ -4,13 +4,13 @@
 
 #pragma once
 
-#include "src/shared/environment/skyparams.h"
+#include "src/shared/game/environment/skyparams.h"
 
-#include "src/shared/environment/environment.h"
-#include "src/shared/util/numeric.h" // IntervalLimiter
+#include "src/shared/game/environment/environment.h"
+#include "src/shared/util/math/numeric.h" // IntervalLimiter
 #include "src/client/world/objects/activeobjectmgr.h" // client::ActiveObjectMgr
 #include "irr_ptr.h"
-#include "src/shared/core/config.h"
+#include "src/shared/base/config.h"
 #include <set>
 
 #if !IS_CLIENT_BUILD

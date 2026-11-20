@@ -8,8 +8,8 @@
 #include <memory>
 
 #include "src/shared/map/map.h"
-#include "src/shared/util/container.h" // UniqueQueue
-#include "src/shared/util/metricsbackend.h" // ptr typedefs
+#include "src/shared/util/data/container.h" // UniqueQueue
+#include "src/shared/util/timing/metricsbackend.h" // ptr typedefs
 #include "src/shared/map/map_settings_manager.h"
 
 class Settings;

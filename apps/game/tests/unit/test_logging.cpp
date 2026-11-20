@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "tests/unit/test.h"
-#include "src/shared/platform/log_internal.h"
+#include "src/shared/platform/system/log_internal.h"
 
 using std::ostream;
 

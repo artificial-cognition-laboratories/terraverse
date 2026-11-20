@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "library/world/terragen/atlas.h"
-#include "library/world/terragen/sphere.h"
+#include "library/world/terragen/src/out/atlas.h"
+#include "library/world/terragen/src/base/sphere.h"
 #include <array>
 #include <atomic>
 #include <deque>

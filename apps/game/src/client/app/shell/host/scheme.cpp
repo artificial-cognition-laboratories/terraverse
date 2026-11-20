@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/app/shell/host/scheme.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/platform/log.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/platform/system/log.h"
 #include <include/cef_parser.h>
 #include <include/wrapper/cef_stream_resource_handler.h>
 

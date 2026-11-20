@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes.h"
+#include "src/shared/base/irrlichttypes.h"
 #include <position2d.h>
 
 namespace video { class IVideoDriver; class ITexture; }

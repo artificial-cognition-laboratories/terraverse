@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include "src/shared/core/irr_aabb3d.h"
-#include "src/shared/core/irr_v3d.h"
+#include "src/shared/base/irr_aabb3d.h"
+#include "src/shared/base/irr_v3d.h"
 #include "src/shared/map/map.h"
-#include "src/shared/map/voxel.h"
+#include "src/shared/map/voxel/voxel.h"
 #include <line3d.h>
 #include <memory>
 #include <optional>

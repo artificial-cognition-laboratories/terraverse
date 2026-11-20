@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "src/shared/core/irr_v3d.h"
-#include "src/shared/core/irrlichttypes.h"
+#include "src/shared/base/irr_v3d.h"
+#include "src/shared/base/irrlichttypes.h"
 #include <iostream>
 #include <unordered_map>
 

@@ -2,10 +2,10 @@
 // scripts/atlas-*-check). See probe.h.
 #include "tests/probe/probe.h"
 
-#include "src/shared/map/daynightratio.h"
+#include "src/shared/map/light/daynightratio.h"
 #include "src/server/world/load/emerge.h"
 #include "src/shared/map/map.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/game/content/nodedef.h"
 #include "src/server/app/server.h"
 #include "src/server/world/terra.h"
 #include "src/server/world/state/environment/serverenvironment.h"
@@ -79,7 +79,7 @@ void emergeAll(Context &c, const std::vector<Box> &boxes, std::function<void(con
 
 } // namespace
 
-// scripts/atlas-debug-check.sh (sprint 30): the debug sphere, generated: boxes where things
+// apps/game/tests/checks/atlas-debug.sh (sprint 30): the debug sphere, generated: boxes where things
 // meet, every node checked (above the ground air in full sun, the ground painted, storage
 // that's no cell seam), and every paint somewhere.
 void atlasDebug(Context &c)
@@ -138,7 +138,7 @@ void atlasDebug(Context &c)
 	});
 }
 
-// scripts/atlas-world-check.sh (sprint 30): an atlas world, generated: boxes where the
+// apps/game/tests/checks/atlas-world.sh (sprint 30): an atlas world, generated: boxes where the
 // atlas's storage changes emerged, then every node checked: a node that stores a cell is
 // generated content, never seam or ignore; one that stores no cell is seam. Then the land
 // along the equator, and a new player's spawn.
@@ -256,7 +256,7 @@ void atlasWorld(Context &c)
 	});
 }
 
-// scripts/atlas-land-check.sh (planning/sprint-32-atlas-lod.md): what the generator places
+// apps/game/tests/checks/atlas-land.sh (planning/sprint-32-atlas-lod.md): what the generator places
 // is terra::AtlasLand's, node for node, where the atlas changes. The world may differ only
 // by what came after the terrain: the planting (trees, plants, snow) and liquid that flowed.
 void atlasLand(Context &c)

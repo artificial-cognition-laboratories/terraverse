@@ -4,7 +4,7 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/platform/profiler.h"
+#include "src/shared/platform/system/profiler.h"
 
 class TestProfiler : public TestBase
 {

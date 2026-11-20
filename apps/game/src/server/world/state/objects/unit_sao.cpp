@@ -5,7 +5,7 @@
 
 #include "src/server/world/state/objects/unit_sao.h"
 #include "src/server/world/state/environment/serverenvironment.h"
-#include "src/shared/util/serialize.h"
+#include "src/shared/util/data/serialize.h"
 
 UnitSAO::UnitSAO(ServerEnvironment *env, v3f pos) : ServerActiveObject(env, pos)
 {

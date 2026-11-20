@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes_bloated.h"
-#include "src/shared/map/mapnode.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
+#include "src/shared/map/block/mapnode.h"
 #include "library/geometry/shape/shape.h"
 #include <optional>
 #include <unordered_map>

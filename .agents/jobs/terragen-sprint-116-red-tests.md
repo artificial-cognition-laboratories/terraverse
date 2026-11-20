@@ -12,7 +12,7 @@ failing until phase 4's plateaus (rivers from the sea cut their interiors), and 
 rebaked once, with the TF25 bump, when every phase is done. But the sprint was committed part-way, so
 master's release runs went red on them.
 
-Both are skipped by name in `scripts/test/skip.txt` (CI's unit tests read it). Remove the two lines
+Both are skipped by name in `apps/game/tests/run/skip.txt` (CI's unit tests read it). Remove the two lines
 when the sprint rebakes the golden (TF25) and the plateaus stand again.
 
 Note for the sprint: until TF25, generation changed under TF24 without a version bump, so a TF24 code

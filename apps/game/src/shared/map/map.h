@@ -13,15 +13,15 @@
 #include <unordered_map>
 #include <memory>
 
-#include "src/shared/core/irrlichttypes_bloated.h"
-#include "src/shared/map/mapblock.h" // for forEachNodeInArea
-#include "src/shared/map/mapnode.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
+#include "src/shared/map/block/mapblock.h" // for forEachNodeInArea
+#include "src/shared/map/block/mapnode.h"
 #include "library/geometry/shape/shape.h"
 #include "src/server/world/run/ground/ground.h"
-#include "src/shared/core/constants.h"
-#include "src/shared/map/voxel.h"
-#include "src/shared/map/modifiedstate.h"
-#include "src/shared/util/numeric.h" // for forEachNodeInArea
+#include "src/shared/base/constants.h"
+#include "src/shared/map/voxel/voxel.h"
+#include "src/shared/map/block/modifiedstate.h"
+#include "src/shared/util/math/numeric.h" // for forEachNodeInArea
 
 class MapSector;
 namespace planet { class Atlas; } // Terra Firma

@@ -3,10 +3,10 @@
 // Copyright (C) 2016 juhdanad, Daniel Juhasz <juhdanad@gmail.com>
 
 #include "src/shared/map/raycast.h"
-#include "src/shared/core/irr_v3d.h"
-#include "src/shared/core/irr_aabb3d.h"
+#include "src/shared/base/irr_v3d.h"
+#include "src/shared/base/irr_aabb3d.h"
 #include <quaternion.h>
-#include "src/shared/core/constants.h"
+#include "src/shared/base/constants.h"
 
 bool RaycastSort::operator() (const PointedThing &pt1,
 	const PointedThing &pt2) const

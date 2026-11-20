@@ -5,14 +5,14 @@
 #include "tests/unit/test.h"
 #include <cstdlib>
 
-#include "src/shared/core/catch.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/items/itemdef.h"
-#include "src/shared/core/dummygamedef.h"
-#include "src/shared/platform/log_internal.h"
-#include "src/shared/util/numeric.h"
-#include "src/shared/platform/porting.h"
-#include "src/shared/platform/debug.h"
+#include "src/shared/base/catch.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/game/items/itemdef.h"
+#include "src/shared/base/dummygamedef.h"
+#include "src/shared/platform/system/log_internal.h"
+#include "src/shared/util/math/numeric.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/platform/system/debug.h"
 
 #include <iostream>
 
@@ -341,7 +341,7 @@ std::string TestBase::getTestTempFile()
 }
 
 // Terraverse: tests known to fail because the code is wrong, named
-// "Module.test" in TF_TEST_SKIP (space separated; scripts/test/skip.txt
+// "Module.test" in TF_TEST_SKIP (space separated; apps/game/tests/run/skip.txt
 // cites the job for each), are reported as skipped instead of run.
 static bool skipped(const std::string &module, const char *name)
 {

@@ -8,17 +8,17 @@ namespace piece { class Machine; }
 class Figure;
 #include "library/physics/walk.h" // Terra Firma: stances
 
-#include "src/shared/core/irrlichttypes.h"
+#include "src/shared/base/irrlichttypes.h"
 
 #include <EMaterialTypes.h>
 #include <IDummyTransformationSceneNode.h>
 #include <AnimSpec.h>
 
-#include "src/shared/objects/object_properties.h"
+#include "src/shared/game/objects/object_properties.h"
 #include "src/client/world/objects/clientobject.h"
-#include "src/shared/core/constants.h"
-#include "src/shared/items/itemgroup.h"
-#include "src/client/render/core/tile.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/game/items/itemgroup.h"
+#include "src/client/render/textures/tile.h"
 #include <cassert>
 #include <memory>
 #include <memory>

@@ -11,6 +11,23 @@ get_filename_component(REPO_DIR "${CMAKE_SOURCE_DIR}/../.." ABSOLUTE)
 set(PROJECT_NAME_CAPITALIZED "Luanti")
 
 set(CMAKE_CXX_STANDARD 17)
+
+# Faster rebuilds where the tools are installed: ccache for compiles already
+# done (a branch switched back, a clean build), mold for links in a second.
+# Neither changes what's built, so their absence is only slower.
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+	set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+	set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+endif()
+find_program(MOLD_PROGRAM mold)
+if(MOLD_PROGRAM AND NOT WIN32 AND NOT APPLE)
+	set(CMAKE_LINKER_TYPE MOLD)
+endif()
+message(STATUS "ccache: ${CCACHE_PROGRAM}, mold: ${MOLD_PROGRAM}")
+
+# ctest at the build's root runs the libraries' tests (tests/library)
+enable_testing()
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(GCC_MINIMUM_VERSION "7.5")
 set(CLANG_MINIMUM_VERSION "7.0.1")
@@ -23,7 +40,7 @@ set(VERSION_EXTRA "" CACHE STRING "Stuff to append to version string")
 
 # Change to false for releases
 set(DEVELOPMENT_BUILD TRUE)
-# Terra Firma: a release build's identity, its tag (scripts/release); empty in development
+# Terra Firma: a release build's identity, its tag (apps/game/scripts/release); empty in development
 set(TERRAFIRMA_VERSION "" CACHE STRING "Release tag, e.g. v0.2.0: the build id friends' games compare")
 
 set(VERSION_STRING "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")

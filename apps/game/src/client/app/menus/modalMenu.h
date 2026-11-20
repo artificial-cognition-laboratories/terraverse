@@ -5,11 +5,11 @@
 #pragma once
 
 #include "IGUIElement.h"
-#include "src/shared/core/irrlichttypes_bloated.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
 #include "irr_ptr.h"
 
 #ifdef __ANDROID__
-	#include "src/shared/platform/porting_android.h"
+	#include "src/shared/platform/system/porting_android.h"
 #endif
 
 struct PointerAction {

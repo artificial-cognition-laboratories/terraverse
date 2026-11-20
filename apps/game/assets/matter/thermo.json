@@ -1,5 +1,5 @@
 {
- "note": "Written by scripts/matter-data/build.py: don't edit by hand.",
+ "note": "Written by apps/game/scripts/bake/matter-data/build.py: don't edit by hand.",
  "substances": {
   "water": {
    "formation": -285.83,

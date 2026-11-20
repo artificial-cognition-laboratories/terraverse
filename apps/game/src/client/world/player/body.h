@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "src/client/views/game/far/terrain.h"
-#include "src/shared/core/irr_v3d.h"
+#include "src/client/views/game/far/land/terrain.h"
+#include "src/shared/base/irr_v3d.h"
 #include "library/space/orbit/field.h"
 #include "library/physics/mover.h"
 #include "library/physics/pose.h"
@@ -16,7 +16,7 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
-#include "src/shared/threading/pool.h"
+#include "src/shared/platform/threading/pool.h"
 #include <optional>
 #include <utility>
 #include <vector>

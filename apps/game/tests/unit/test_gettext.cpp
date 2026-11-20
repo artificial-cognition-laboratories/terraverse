@@ -1,6 +1,6 @@
 #include "tests/unit/test.h"
-#include "src/shared/platform/porting.h"
-#include "src/shared/platform/gettext.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/platform/system/gettext.h"
 
 class TestGettext : public TestBase
 {

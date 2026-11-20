@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "src/shared/core/irr_aabb3d.h"
-#include "src/shared/core/irr_v3d.h"
+#include "src/shared/base/irr_aabb3d.h"
+#include "src/shared/base/irr_v3d.h"
 #include <functional>
 #include <memory>
 #include <optional>

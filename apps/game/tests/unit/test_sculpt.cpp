@@ -7,9 +7,9 @@
 #include "src/client/world/player/hold.h"
 #include "src/server/world/run/machines/piece/frame.h"
 #include "src/client/world/player/hand.h"
-#include "src/shared/core/dummygamedef.h"
+#include "src/shared/base/dummygamedef.h"
 #include "src/shared/map/dummymap.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/game/content/nodedef.h"
 #include <algorithm>
 #include <cmath>
 #include <set>

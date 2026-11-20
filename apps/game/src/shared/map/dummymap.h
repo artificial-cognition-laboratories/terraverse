@@ -5,7 +5,7 @@
 #pragma once
 
 #include "src/shared/map/map.h"
-#include "src/shared/map/mapsector.h"
+#include "src/shared/map/block/mapsector.h"
 
 class DummyMap : public Map
 {

@@ -3,13 +3,13 @@
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "src/client/app/input/keycode.h"
-#include "src/shared/platform/gettext.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/platform/log.h"
-#include "src/client/render/core/renderingengine.h"
-#include "src/shared/util/basic_macros.h"
-#include "src/shared/util/numeric.h"
-#include "src/shared/util/string.h"
+#include "src/shared/platform/system/gettext.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/platform/system/log.h"
+#include "src/client/render/renderingengine.h"
+#include "src/shared/util/data/basic_macros.h"
+#include "src/shared/util/math/numeric.h"
+#include "src/shared/util/text/string.h"
 #include <unordered_map>
 #include <vector>
 

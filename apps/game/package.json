@@ -1,0 +1,48 @@
+{
+  "name": "@terraverse/game",
+  "private": true,
+  "scripts": {
+    "dev": "bun scripts/dev.ts",
+    "build": "cmake -S . -B ../../.output/build -DRUN_IN_PLACE=TRUE && bash scripts/build.sh -j && bun run stage && bun run --cwd src/client/app/shell/interface build",
+    "stage": "bash scripts/stage-runtime.sh",
+    "components": "bun run --cwd src/client/app/shell/interface gallery",
+
+    "test": "bash tests/run/library.sh all && bash tests/run/engine.sh",
+    "test:hot": "bash tests/run/library.sh hot",
+    "test:slow": "bash tests/run/library.sh slow",
+    "test:engine": "bash tests/run/engine.sh",
+    "check": "bash tests/run/check.sh",
+
+    "check:terragen": "bash tests/checks/terragen.sh",
+    "check:land": "bash tests/checks/land.sh",
+    "check:oracle": "bash tests/checks/oracle.sh",
+    "check:wiki": "bash tests/checks/wiki/check.sh",
+    "check:budgets": "bash tests/checks/budgets.sh",
+    "check:moves": "bun run stage && ../../.output/bin/luanti --test-module TestMoves",
+    "check:matter": "bash tests/checks/matter.sh",
+    "check:interact": "bash tests/checks/interact.sh",
+    "check:far": "bash tests/checks/far.sh",
+    "check:mods": "bash tests/checks/mods/check.sh",
+    "check:dev": "bash tests/checks/dev.sh",
+    "check:registry": "bash tests/checks/registry.sh",
+    "check:palette": "bash scripts/bake/palette.sh --check",
+    "check:atlas-world": "bash tests/checks/atlas-world.sh",
+    "check:atlas-land": "bash tests/checks/atlas-land.sh",
+    "check:atlas-seams": "bash tests/checks/atlas-seam.sh",
+    "check:atlas-debug": "bash tests/checks/atlas-debug.sh",
+    "check:atlas-dig": "bash tests/checks/atlas-dig.sh",
+    "check:bodies": "bash tests/checks/bodies.sh",
+    "check:window": "bash tests/checks/window.sh",
+    "check:ui": "bash tests/checks/ui.sh",
+
+    "palette": "bash scripts/bake/palette.sh",
+    "pose-sheet": "bash library/physics/tools/pose-sheet.sh",
+    "perf:gen": "bash tests/checks/perf-gen.sh",
+    "shots:map": "bash scripts/map-shots.sh",
+
+    "release:gate": "bash scripts/release/gate.sh",
+    "release:tag": "bun scripts/release/tag.ts",
+    "release:wait": "bun scripts/release/wait.ts",
+    "package:linux": "bash scripts/release/package-linux.sh"
+  }
+}

@@ -10,13 +10,13 @@
 #include <utility> // std::function
 #include <vector>
 
-#include "src/shared/environment/environment.h"
-#include "src/shared/util/guid.h"
+#include "src/shared/game/environment/environment.h"
+#include "src/shared/util/hash/guid.h"
 #include "src/shared/map/map.h" // MapEventReceiver
 #include "src/server/world/state/objects/activeobjectmgr.h"
 #include "src/server/world/state/blockmodifier.h"
-#include "src/shared/util/numeric.h"
-#include "src/shared/util/metricsbackend.h"
+#include "src/shared/util/math/numeric.h"
+#include "src/shared/util/timing/metricsbackend.h"
 
 class ActiveObject;
 class MetricsBackend;

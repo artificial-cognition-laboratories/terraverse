@@ -3,17 +3,17 @@
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "src/client/app/menus/guiChatConsole.h"
-#include "src/shared/chat/chat.h"
+#include "src/shared/game/chat/chat.h"
 #include "src/client/world/session/client.h"
 #include "src/client/app/input/keycode.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/platform/porting.h"
-#include "src/client/render/core/texturesource.h"
-#include "src/client/render/core/fontengine.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/platform/gettext.h"
-#include "src/client/render/core/text/CGUITTFont.h"
-#include "src/shared/util/string.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/client/render/textures/texturesource.h"
+#include "src/client/render/fonts/fontengine.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/platform/system/gettext.h"
+#include "src/client/render/fonts/CGUITTFont.h"
+#include "src/shared/util/text/string.h"
 #include <CGUIScrollBar.h>
 #include <IOSOperator.h>
 #include <IVideoDriver.h>

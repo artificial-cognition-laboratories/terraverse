@@ -4,10 +4,10 @@
 
 #include "tests/unit/test.h"
 #include "src/shared/map/dummymap.h"
-#include "src/shared/environment/environment.h"
-#include "src/shared/core/printing.h"
+#include "src/shared/game/environment/environment.h"
+#include "src/shared/base/printing.h"
 
-#include "src/shared/objects/collision.h"
+#include "src/shared/game/objects/collision.h"
 
 class TestCollision : public TestBase {
 public:

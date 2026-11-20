@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "library/world/terragen/planet.h"
+#include "library/world/terragen/src/system/planet.h"
 #include <vector>
 
 /*

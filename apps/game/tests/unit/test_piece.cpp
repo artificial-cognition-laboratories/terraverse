@@ -6,10 +6,10 @@
 #include "src/server/world/run/machines/piece/object.h"
 #include "src/server/world/run/machines/piece/header.h"
 #include "src/server/world/run/sculpt/sculpt.h"
-#include "src/shared/core/dummygamedef.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/objects/object_properties.h"
-#include "src/shared/util/serialize.h"
+#include "src/shared/base/dummygamedef.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/game/objects/object_properties.h"
+#include "src/shared/util/data/serialize.h"
 #include <sstream>
 
 using namespace piece;

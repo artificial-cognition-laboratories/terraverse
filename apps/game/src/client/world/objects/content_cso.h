@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes_bloated.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
 #include "src/client/world/objects/clientsimpleobject.h"
 
 namespace scene

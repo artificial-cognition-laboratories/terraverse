@@ -6,11 +6,11 @@
 
 #include <memory>
 
-#include "src/shared/core/gamedef.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/map/voxel.h"
+#include "src/shared/base/gamedef.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/map/voxel/voxel.h"
 #include "src/shared/map/dummymap.h"
-#include "src/shared/core/printing.h"
+#include "src/shared/base/printing.h"
 
 class TestVoxelManipulator : public TestBase {
 public:

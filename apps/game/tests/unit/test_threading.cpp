@@ -6,8 +6,8 @@
 
 #include <atomic>
 #include <iostream>
-#include "src/shared/threading/semaphore.h"
-#include "src/shared/threading/thread.h"
+#include "src/shared/platform/threading/semaphore.h"
+#include "src/shared/platform/threading/thread.h"
 
 
 class TestThreading : public TestBase {

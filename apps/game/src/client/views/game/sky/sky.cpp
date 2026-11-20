@@ -7,13 +7,13 @@
 #include "src/client/views/game/sky/solar.h"
 
 #include "src/client/views/game/camera.h"
-#include "src/client/render/core/renderingengine.h"
-#include "src/client/render/core/texturesource.h"
-#include "src/shared/core/noise.h" // easeCurve
-#include "src/shared/objects/player.h" // CameraMode
-#include "src/shared/platform/profiler.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/util/numeric.h"
+#include "src/client/render/renderingengine.h"
+#include "src/client/render/textures/texturesource.h"
+#include "src/shared/base/noise.h" // easeCurve
+#include "src/shared/game/objects/player.h" // CameraMode
+#include "src/shared/platform/system/profiler.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/util/math/numeric.h"
 
 #include <ICameraSceneNode.h>
 #include <ISceneManager.h>

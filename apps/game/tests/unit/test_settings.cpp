@@ -5,9 +5,9 @@
 #include "tests/unit/test.h"
 
 #include <cmath>
-#include "src/shared/platform/settings.h"
-#include "src/shared/platform/defaultsettings.h"
-#include "src/shared/core/noise.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/platform/settings/defaultsettings.h"
+#include "src/shared/base/noise.h"
 
 class TestSettings : public TestBase {
 public:

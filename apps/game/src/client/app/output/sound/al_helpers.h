@@ -8,9 +8,9 @@
 
 #pragma once
 
-#include "src/shared/platform/log.h"
-#include "src/shared/util/basic_macros.h"
-#include "src/shared/core/irr_v3d.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/util/data/basic_macros.h"
+#include "src/shared/base/irr_v3d.h"
 
 #if defined(_WIN32)
 	#include <al.h>

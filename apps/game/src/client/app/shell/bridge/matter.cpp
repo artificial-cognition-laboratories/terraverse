@@ -4,8 +4,8 @@
 #include "src/client/app/shell/bridge/matter.h"
 #include "library/matter/matter/mixture.h"
 #include "src/client/app/shell/bridge/bridge.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/platform/porting.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/platform/system/porting.h"
 #include <cmath>
 
 namespace shell {

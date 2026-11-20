@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "src/shared/core/irr_v3d.h"
+#include "src/shared/base/irr_v3d.h"
 #include "library/physics/skeleton.h"
 #include <ISceneNode.h>
 #include <SColor.h>

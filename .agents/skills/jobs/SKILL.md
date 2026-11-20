@@ -37,7 +37,7 @@ their files is in the way of a job, block that job and say so.
 
 1. **Understand it.** Read the job and work out what's actually meant. A bug report names a
    symptom and maybe a version: find when it started (`git log`, the release notes in
-   `scripts/release/notes/`, `git bisect` if you need to) and why.
+   `apps/game/scripts/release/notes/`, `git bisect` if you need to) and why.
 2. **Reproduce it** where you can: a test, a `check:*`, a headless boot, or the running game
    (`bun dev`, the `run` skill, a screenshot). Agents may run the engine and client to see their
    work.

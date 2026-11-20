@@ -3,13 +3,13 @@
 
 #pragma once
 
-#include "src/shared/content/subgames.h"
+#include "src/shared/game/content/subgames.h"
 #include "src/client/app/shell/bridge/community.h"
-#include "src/shared/online/join.h"
-#include "src/client/views/scenes/planetarium.h"
+#include "src/shared/platform/online/join.h"
+#include "src/client/views/scenes/kinds/planetarium.h"
 #include "src/client/app/shell/host/shell.h"
 #include "library/world/planet/atlas.h"
-#include "src/client/views/game/far/baked.h"
+#include "src/client/views/game/far/bake/baked.h"
 #include <map>
 #include <mutex>
 #include <optional>

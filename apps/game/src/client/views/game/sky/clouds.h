@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes_bloated.h"
-#include "src/shared/core/constants.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
+#include "src/shared/base/constants.h"
 #include "irr_ptr.h"
-#include "src/shared/environment/skyparams.h"
+#include "src/shared/game/environment/skyparams.h"
 #include <ISceneNode.h>
 #include <SMaterial.h>
 #include <CMeshBuffer.h>

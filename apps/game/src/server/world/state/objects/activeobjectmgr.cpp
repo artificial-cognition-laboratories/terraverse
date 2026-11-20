@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2018 nerzhul, Loic BLOT <loic.blot@unix-experience.fr>
 
-#include "src/shared/platform/log.h"
-#include "src/shared/map/mapblock.h"
-#include "src/shared/platform/profiler.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/map/block/mapblock.h"
+#include "src/shared/platform/system/profiler.h"
 #include "src/server/world/state/objects/activeobjectmgr.h"
 
 namespace server

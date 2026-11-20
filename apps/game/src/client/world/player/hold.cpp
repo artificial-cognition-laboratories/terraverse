@@ -3,9 +3,9 @@
 
 #include "src/client/world/player/hold.h"
 
-#include "src/shared/core/constants.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/util/numeric.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/util/math/numeric.h"
 #include <algorithm>
 #include <cmath>
 

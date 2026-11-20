@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "src/shared/environment/skyparams.h"
+#include "src/shared/game/environment/skyparams.h"
 #include <optional>
 
 /*

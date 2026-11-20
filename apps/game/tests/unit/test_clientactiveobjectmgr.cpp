@@ -6,7 +6,7 @@
 
 #include "src/client/world/objects/activeobjectmgr.h"
 
-#include "src/shared/core/catch.h"
+#include "src/shared/base/catch.h"
 
 #include <unordered_set>
 #include <utility>

@@ -3,10 +3,10 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/core/exceptions.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/release/release.h"
-#include "src/shared/platform/settings.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/platform/release/release.h"
+#include "src/shared/platform/settings/settings.h"
 #include <fstream>
 
 using namespace release;

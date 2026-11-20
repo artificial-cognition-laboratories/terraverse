@@ -6,12 +6,12 @@
 #include "src/server/players/player_sao.h"
 #include "library/physics/walk.h" // Terra Firma: stances
 #include "library/world/planet/atlas.h" // Terra Firma
-#include "src/shared/content/nodedef.h"
-#include "src/shared/objects/remoteplayer.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/game/objects/remoteplayer.h"
 #include "src/server/app/server.h"
 #include "src/server/world/state/environment/serverenvironment.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/util/serialize.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/util/data/serialize.h"
 
 PlayerSAO::PlayerSAO(ServerEnvironment *env_, RemotePlayer *player_, session_t peer_id_,
 		bool is_singleplayer):

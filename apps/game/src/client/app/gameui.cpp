@@ -5,22 +5,22 @@
 
 #include "src/client/app/gameui.h"
 #include "src/client/world/player/body.h" // Terra Firma
-#include "src/client/render/core/text/static_text.h"
-#include "src/shared/platform/gettext.h"
+#include "src/client/render/fonts/static_text.h"
+#include "src/shared/platform/system/gettext.h"
 #include "src/client/app/menus/mainmenumanager.h"
 #include "src/client/app/menus/guiChatConsole.h"
 #include "src/client/views/game/hud/statusTextHelper.h"
-#include "src/shared/util/enriched_string.h"
-#include "src/shared/util/pointedthing.h"
+#include "src/shared/util/text/enriched_string.h"
+#include "src/shared/game/pointing/pointedthing.h"
 #include "src/client/world/session/client.h"
-#include "src/client/render/meshgen/clientmap.h"
-#include "src/client/render/core/fontengine.h"
-#include "src/shared/objects/hud_element.h" // HUD_FLAG_*
-#include "src/shared/content/nodedef.h"
+#include "src/client/render/map/clientmap.h"
+#include "src/client/render/fonts/fontengine.h"
+#include "src/shared/game/objects/hud_element.h" // HUD_FLAG_*
+#include "src/shared/game/content/nodedef.h"
 #include "src/client/world/objects/localplayer.h"
-#include "src/shared/platform/profiler.h"
-#include "src/client/render/core/renderingengine.h"
-#include "src/shared/core/version.h"
+#include "src/shared/platform/system/profiler.h"
+#include "src/client/render/renderingengine.h"
+#include "src/shared/base/version.h"
 #include <IGUIFont.h>
 
 inline static const char *yawToDirectionString(int yaw)

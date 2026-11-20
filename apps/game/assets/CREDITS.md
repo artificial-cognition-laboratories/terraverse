@@ -18,14 +18,14 @@ Source: [Phyronnaz/VoxelAssets, GoodVibes](https://github.com/Phyronnaz/VoxelAss
 
 Terra Firma copies selected original PNG files with `tf_goodvibes_` prefixes and uses them for its block faces. The PNG artwork is unchanged. Dry grass and tundra apply colour tints at runtime. Animated water uses the source pack's water texture. A copy of the source licence is in `registry/textures/base/pack/GOODVIBES-LICENSE.txt`, beside the textures (the engine's since sprint 119).
 
-Since sprint 9 the textures are fetched by `scripts/assets/goodvibes.py` from the same pinned revision. Most are copied unchanged (rocks, ores, lava, clay, trees, leaves, plants, from the pack's `minecraft` and `biomesoplenty` folders); the animated lava is scaled down. Some are **derived** from the pack's own art (changes made, as CC BY 4.0 requires noting):
+Since sprint 9 the textures are fetched by `apps/game/scripts/bake/assets/goodvibes.py` from the same pinned revision. Most are copied unchanged (rocks, ores, lava, clay, trees, leaves, plants, from the pack's `minecraft` and `biomesoplenty` folders); the animated lava is scaled down. Some are **derived** from the pack's own art (changes made, as CC BY 4.0 requires noting):
 
 - basalt, gneiss, slate, shale, limestone, salt: the pack's andesite, granite, stone and diorite, retinted;
 - copper, tin, lead, magnetite and sulfur ores: the pack's iron or gold ore specks recoloured, on its stone (magnetite on retinted andesite);
 - gold-bearing gravel: the gold ore's specks set into the pack's gravel.
 - anorthosite, breccia, regolith and mare regolith (sprint 95): the pack's diorite, gravel and stone, retinted;
 - ilmenite and KREEP ores: the iron or gold ore's specks recoloured, on retinted andesite or diorite.
-- the plant blocks' bark, wood, leaf and flesh (sprint 113, `tf_flora_*`, by `scripts/flora-palette.py`): the pack's oak log, oak log top, oak leaves and cactus side, greyed and lightened for a palette to colour (the leaves' gaps filled grey).
+- the plant blocks' bark, wood, leaf and flesh (sprint 113, `tf_flora_*`, by `apps/game/scripts/bake/flora-palette.py`): the pack's oak log, oak log top, oak leaves and cactus side, greyed and lightened for a palette to colour (the leaves' gaps filled grey).
 
 Several leaf and plant textures are greyscale in the pack (meant to be tinted per biome); the game multiplies them by a green at runtime.
 

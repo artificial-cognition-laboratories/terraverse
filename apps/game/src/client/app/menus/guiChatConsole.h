@@ -5,7 +5,7 @@
 #pragma once
 
 #include "src/client/app/menus/modalMenu.h"
-#include "src/shared/chat/chat.h"
+#include "src/shared/game/chat/chat.h"
 #include "irr_ptr.h"
 #include <IGUIEnvironment.h>
 

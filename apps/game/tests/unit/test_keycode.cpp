@@ -5,7 +5,7 @@
 #include "tests/unit/test.h"
 
 #include <string>
-#include "src/shared/core/exceptions.h"
+#include "src/shared/base/exceptions.h"
 #include "src/client/app/input/keycode.h"
 
 class TestKeycode : public TestBase {

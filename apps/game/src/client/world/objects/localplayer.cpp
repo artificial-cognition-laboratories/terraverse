@@ -9,14 +9,14 @@
 #include "library/geometry/shape/shape.h" // Terra Firma
 #include <cmath>
 #include "src/client/app/input/mtevent.h"
-#include "src/shared/objects/collision.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/environment/environment.h"
+#include "src/shared/game/objects/collision.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/game/environment/environment.h"
 #include "src/shared/map/map.h"
 #include "src/client/world/session/client.h"
 #include "src/client/world/objects/content_cao.h"
-#include "src/shared/objects/hud_element.h"
+#include "src/shared/game/objects/hud_element.h"
 
 /*
 	PlayerSettings

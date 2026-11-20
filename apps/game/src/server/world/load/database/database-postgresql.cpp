@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2016 Loic Blot <loic.blot@unix-experience.fr>
 
-#include "src/shared/core/config.h"
+#include "src/shared/base/config.h"
 
 #if USE_POSTGRESQL
 
@@ -15,9 +15,9 @@
 #include <netinet/in.h>
 #endif
 
-#include "src/shared/platform/debug.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/objects/remoteplayer.h"
+#include "src/shared/platform/system/debug.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/game/objects/remoteplayer.h"
 #include "src/server/players/player_sao.h"
 #include <cstdlib>
 

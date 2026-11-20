@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include "src/shared/core/irr_v3d.h"
+#include "src/shared/base/irr_v3d.h"
 #include "library/matter/matter/block.h"
 #include "library/matter/matter/matter.h"
-#include "src/shared/map/mapnode.h"
+#include "src/shared/map/block/mapnode.h"
 #include "library/matter/sandbox/sandbox.h"
 #include "library/matter/sandbox/world.h"
 #include <memory>

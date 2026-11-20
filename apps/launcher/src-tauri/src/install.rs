@@ -170,7 +170,7 @@ fn sha256(path: &Path) -> Result<String> {
     Ok(hex::encode(hash.finalize()))
 }
 
-/// A .tar.zst holding one folder (scripts/release/package-linux.sh): that
+/// A .tar.zst holding one folder (apps/game/scripts/release/package-linux.sh): that
 /// folder becomes the version. tar refuses entries that would land outside.
 fn unpack(archive: &Path, scratch: &Path, target: &Path) -> Result<()> {
     if scratch.exists() {
@@ -190,7 +190,7 @@ fn unpack(archive: &Path, scratch: &Path, target: &Path) -> Result<()> {
         .context(|| format!("reading {}", scratch.display()))?;
     let root = match (entries.pop(), entries.is_empty()) {
         (Some(only), true) if only.is_dir() => only,
-        _ => return Err(Failure::Bug("the build isn't one folder; scripts/release/package-linux.sh makes one".into())),
+        _ => return Err(Failure::Bug("the build isn't one folder; apps/game/scripts/release/package-linux.sh makes one".into())),
     };
     std::fs::rename(&root, target).context(|| format!("moving the build to {}", target.display()))?;
     std::fs::remove_dir_all(scratch).context(|| format!("clearing {}", scratch.display()))

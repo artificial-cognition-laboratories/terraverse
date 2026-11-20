@@ -1,10 +1,10 @@
 // Luanti
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include "src/shared/platform/translation.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/content/subgames.h"
-#include "src/shared/core/catch.h"
+#include "src/shared/platform/system/translation.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/game/content/subgames.h"
+#include "src/shared/base/catch.h"
 
 #define CONTEXT L"context"
 #define TEXTDOMAIN_PO L"translation_po"

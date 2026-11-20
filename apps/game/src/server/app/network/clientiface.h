@@ -4,13 +4,13 @@
 
 #pragma once
 
-#include "src/shared/core/irr_v3d.h"                   // for irrlicht datatypes
+#include "src/shared/base/irr_v3d.h"                   // for irrlicht datatypes
 
-#include "src/shared/network/address.h"
-#include "src/shared/network/networkprotocol.h" // session_t
-#include "src/shared/threading/mutex_auto_lock.h"
+#include "src/shared/platform/network/address.h"
+#include "src/shared/platform/network/networkprotocol.h" // session_t
+#include "src/shared/platform/threading/mutex_auto_lock.h"
 #include "src/client/world/session/clientdynamicinfo.h"
-#include "src/shared/core/constants.h" // PEER_ID_INEXISTENT
+#include "src/shared/base/constants.h" // PEER_ID_INEXISTENT
 
 #include <memory>
 #include <mutex>

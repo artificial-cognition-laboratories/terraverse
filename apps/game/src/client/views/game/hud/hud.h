@@ -10,8 +10,8 @@
 #include <SMaterial.h>
 #include <CMeshBuffer.h>
 #include "irr_ptr.h"
-#include "src/shared/core/irr_aabb3d.h"
-#include "src/shared/objects/hud_element.h"
+#include "src/shared/base/irr_aabb3d.h"
+#include "src/shared/game/objects/hud_element.h"
 
 class Client;
 class ITextureSource;

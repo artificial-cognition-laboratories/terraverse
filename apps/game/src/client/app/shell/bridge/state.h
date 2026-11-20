@@ -4,9 +4,9 @@
 #pragma once
 
 #include <json/json.h>
-#include "src/shared/core/irrlichttypes.h"
-#include "src/shared/core/irr_v2d.h"
-#include "src/shared/items/inventory.h"
+#include "src/shared/base/irrlichttypes.h"
+#include "src/shared/base/irr_v2d.h"
+#include "src/shared/game/items/inventory.h"
 #include <optional>
 #include <utility>
 #include <string>

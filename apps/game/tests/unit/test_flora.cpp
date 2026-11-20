@@ -3,11 +3,11 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/core/exceptions.h"
+#include "src/shared/base/exceptions.h"
 #include "library/life/flora/flora.h"
 #include "library/life/flora/forest.h"
-#include "src/shared/map/mapblock.h"
-#include "src/shared/core/serialization.h"
+#include "src/shared/map/block/mapblock.h"
+#include "src/shared/base/serialization.h"
 #include "library/life/sprig/sprig.h"
 #include <algorithm>
 #include <cstring>

@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "library/world/rivers/rivers.h"
-#include "library/world/terragen/grid.h"
-#include "library/world/terragen/sphere.h"
-#include "library/world/terragen/world.h"
+#include "library/world/terragen/src/grid/grid.h"
+#include "library/world/terragen/src/base/sphere.h"
+#include "library/world/terragen/src/world.h"
 #include "library/world/weather/weather.h"
 #include <algorithm>
 #include <cmath>

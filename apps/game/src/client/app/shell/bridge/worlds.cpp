@@ -3,15 +3,15 @@
 
 #include "src/client/app/shell/bridge/worlds.h"
 #include "src/client/app/shell/bridge/bridge.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/platform/porting.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/platform/system/porting.h"
 #include "src/server/world/load/universe.h"
-#include "src/shared/platform/settings.h"
-#include "library/world/terragen/atlas.h"
-#include "library/world/terragen/code.h"
-#include "src/shared/util/string.h"
+#include "src/shared/platform/settings/settings.h"
+#include "library/world/terragen/src/out/atlas.h"
+#include "library/world/terragen/src/code/code.h"
+#include "src/shared/util/text/string.h"
 #include <algorithm>
 #include <ctime>
 

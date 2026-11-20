@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes.h"
+#include "src/shared/base/irrlichttypes.h"
 #include <dimension2d.h>
 #include <vector2d.h>
 #include <functional>

@@ -1,12 +1,12 @@
 // Luanti
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include "src/shared/core/catch.h"
+#include "src/shared/base/catch.h"
 #include "catch_amalgamated.hpp"
 #include "irrMath.h"
 #include "matrix4.h"
-#include "src/shared/core/irr_v3d.h"
-#include "src/shared/util/numeric.h"
+#include "src/shared/base/irr_v3d.h"
+#include "src/shared/util/math/numeric.h"
 #include <functional>
 
 using matrix4 = core::matrix4;

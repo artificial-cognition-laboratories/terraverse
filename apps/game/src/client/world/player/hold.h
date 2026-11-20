@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "src/shared/core/irr_v2d.h"
-#include "src/shared/core/irr_v3d.h"
+#include "src/shared/base/irr_v2d.h"
+#include "src/shared/base/irr_v3d.h"
 #include <line3d.h>
 #include <matrix4.h>
 #include <optional>

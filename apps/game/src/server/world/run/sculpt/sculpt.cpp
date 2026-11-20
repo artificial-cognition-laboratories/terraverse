@@ -4,7 +4,7 @@
 #include "src/server/world/run/sculpt/sculpt.h"
 
 #include "src/shared/map/map.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/game/content/nodedef.h"
 
 #include <cmath>
 #include <algorithm>

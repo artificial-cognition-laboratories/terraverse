@@ -4,8 +4,8 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/util/container.h"
-#include "src/shared/util/bitmap.h"
+#include "src/shared/util/data/container.h"
+#include "src/shared/util/math/bitmap.h"
 
 class TestDataStructures : public TestBase
 {

@@ -3,10 +3,10 @@
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "src/server/world/state/objects/serveractiveobject.h"
-#include "src/shared/items/inventory.h"
-#include "src/shared/items/inventorymanager.h"
-#include "src/shared/core/constants.h" // BS
-#include "src/shared/util/serialize.h"
+#include "src/shared/game/items/inventory.h"
+#include "src/shared/game/items/inventorymanager.h"
+#include "src/shared/base/constants.h" // BS
+#include "src/shared/util/data/serialize.h"
 #include "src/server/world/state/environment/serverenvironment.h"
 
 ServerActiveObject::ServerActiveObject(ServerEnvironment *env, v3f pos):

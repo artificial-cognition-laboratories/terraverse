@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/server/world/run/pile/piles.h"
-#include "src/shared/items/itemgroup.h"
+#include "src/shared/game/items/itemgroup.h"
 #include "src/shared/map/map.h"
 #include "src/server/world/run/ground/ground.h"
-#include "src/shared/map/mapblock.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/platform/profiler.h"
+#include "src/shared/map/block/mapblock.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/platform/system/profiler.h"
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>

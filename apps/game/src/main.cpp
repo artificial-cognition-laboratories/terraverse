@@ -3,47 +3,47 @@
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include <map>
-#include "src/shared/core/irrlichttypes_bloated.h"
-#include "src/shared/chat/chat_interface.h"
-#include "src/shared/platform/debug.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
+#include "src/shared/game/chat/chat_interface.h"
+#include "src/shared/platform/system/debug.h"
 #include "tests/unit/test.h"
 #include "src/server/app/server.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/core/version.h"
-#include "src/shared/platform/defaultsettings.h"
-#include "src/shared/platform/migratesettings.h"
-#include "src/shared/platform/gettext.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/platform/log_internal.h"
-#include "src/shared/util/serialize.h"
-#include "src/shared/util/quicktune.h"
-#include "src/shared/platform/httpfetch.h"
-#include "src/shared/core/gameparams.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/base/version.h"
+#include "src/shared/platform/settings/defaultsettings.h"
+#include "src/shared/platform/settings/migratesettings.h"
+#include "src/shared/platform/system/gettext.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/platform/system/log_internal.h"
+#include "src/shared/util/data/serialize.h"
+#include "src/shared/util/timing/quicktune.h"
+#include "src/shared/platform/system/httpfetch.h"
+#include "src/shared/base/gameparams.h"
 #if CHECK_CLIENT_BUILD()
-#include "src/client/views/game/far/export.h" // Terra Firma
+#include "src/client/views/game/far/bake/export.h" // Terra Firma
 #include "src/server/world/load/universe.h" // Terra Firma
-#include "src/server/mods/sidecar/ops.h" // Terra Firma
-#include "library/world/terragen/code.h" // Terra Firma
-#include "src/client/views/planetarium/standalone.h" // Terra Firma
-#include "src/client/views/planetarium/shot.h" // Terra Firma
+#include "src/server/app/mods/sidecar/ops.h" // Terra Firma
+#include "library/world/terragen/src/code/code.h" // Terra Firma
+#include "src/client/views/planetarium/run/standalone.h" // Terra Firma
+#include "src/client/views/planetarium/run/shot.h" // Terra Firma
 #include "src/client/views/planetarium/camera.h" // Terra Firma
 #endif
 #include "src/server/world/load/database/database.h"
-#include "src/shared/core/config.h"
-#include "src/shared/objects/player.h"
-#include "src/shared/platform/porting.h"
-#include "src/shared/core/serialization.h" // SER_FMT_VER_HIGHEST_*
+#include "src/shared/base/config.h"
+#include "src/shared/game/objects/player.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/base/serialization.h" // SER_FMT_VER_HIGHEST_*
 #include "src/server/world/state/environment/serverenvironment.h"
 #include "src/server/world/state/servermap.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/network/socket.h"
-#include "src/shared/network/networkexceptions.h"
-#include "src/shared/map/mapblock.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/platform/network/socket.h"
+#include "src/shared/platform/network/networkexceptions.h"
+#include "src/shared/map/block/mapblock.h"
 #if USE_CURSES
 	#include "src/server/app/console/terminal_chat_console.h"
 #endif
 #if CHECK_CLIENT_BUILD()
-#include "src/client/app/clientlauncher.h"
+#include "src/client/app/shell/launch/clientlauncher.h"
 #include "src/client/app/game.h" // Terra Firma: g_game_restart_for_mods
 #if USE_SHELL
 #include "src/client/app/shell/host/shell.h"
@@ -137,8 +137,8 @@ static int g_dedicated_exit = 0;
 static OptionList allowed_options;
 
 #if USE_SHELL
-#include "library/world/terragen/grid.h"
-#include "library/world/terragen/progress.h"
+#include "library/world/terragen/src/grid/grid.h"
+#include "library/world/terragen/src/base/progress.h"
 #include <filesystem>
 // Terra Firma: built planet grids kept between runs, named by what they're
 // built from; the river levels and atlas layouts by all terragen's sources
@@ -263,7 +263,7 @@ int main(int argc, char *argv[])
 			|| cmd_args.getFlag("list-test-modules")) {
 		porting::attachOrCreateConsole();
 #if BUILD_UNITTESTS
-		// Terraverse: scripts/test.sh runs each module in its own process, in parallel
+		// Terraverse: apps/game/tests/run/engine.sh runs each module in its own process, in parallel
 		if (cmd_args.getFlag("list-test-modules"))
 			return list_test_modules() ? 0 : 1;
 		if (cmd_args.exists("test-module"))

@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include "src/client/views/scenes/course.h"
-#include "src/client/views/scenes/flora.h"
+#include "src/client/views/scenes/kinds/course.h"
+#include "src/client/views/scenes/kinds/flora.h"
 #include "src/client/app/shell/bridge/matter.h"
-#include "src/client/views/scenes/relief.h"
+#include "src/client/views/scenes/kinds/relief.h"
 #include "library/space/orbit/flight.h"
 #include "src/client/views/scenes/scene.h"
 #include "library/matter/sandbox/stage.h"

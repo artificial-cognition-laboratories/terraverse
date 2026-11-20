@@ -1,17 +1,17 @@
 // Terra Firma: the check's probe of digging, placing and what falls (sprint 119:
-// scripts/interact-check.sh), on a live server: what server/interact and server/kinds do
+// apps/game/tests/checks/interact.sh), on a live server: what server/interact and server/kinds do
 // in place of Lua's item.lua, item_entity.lua and falling.lua.
 #include "tests/probe/probe.h"
 
-#include "src/shared/items/inventory.h"
-#include "src/shared/items/itemdef.h"
+#include "src/shared/game/items/inventory.h"
+#include "src/shared/game/items/itemdef.h"
 #include "src/shared/map/map.h"
 #include "src/server/app/server.h"
-#include "src/server/mods/interact.h"
-#include "src/server/mods/kinds.h"
+#include "src/server/game/interact.h"
+#include "src/server/game/kinds.h"
 #include "src/server/world/state/objects/entity_sao.h"
 #include "src/server/world/state/environment/serverenvironment.h"
-#include "src/shared/util/pointedthing.h"
+#include "src/shared/game/pointing/pointedthing.h"
 #include <memory>
 
 namespace probe {

@@ -1,0 +1,602 @@
+// Luanti
+// SPDX-License-Identifier: LGPL-2.1-or-later
+// Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
+
+#include "src/client/app/menus/mainmenumanager.h"
+#include "src/shared/base/gameparams.h"
+#include "src/client/views/game/sky/clouds.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/client/app/game.h"
+#include "src/shared/game/objects/player.h"
+#include "src/shared/game/chat/chat.h"
+#include "src/shared/platform/system/gettext.h"
+#include "src/client/app/input/inputhandler.h"
+#include "src/shared/platform/system/profiler.h"
+#include "src/shared/base/exceptions.h"
+#include "src/client/render/fonts/fontengine.h"
+#include "src/client/app/shell/launch/clientlauncher.h"
+#include "src/shared/base/version.h"
+#include "src/client/render/renderingengine.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/base/gettime.h"
+#include "src/shared/util/math/numeric.h"
+#include "src/shared/util/timing/tracy_wrapper.h"
+#include "src/shared/platform/system/porting.h"
+#if USE_SHELL
+#include "src/client/app/shell/bridge/account.h"
+#include "src/client/app/shell/bridge/menu.h"
+#include "src/client/app/shell/host/shell.h"
+#include "src/client/app/shell/bridge/entering.h"
+#include "src/client/app/shell/bridge/social.h"
+#include "src/client/app/shell/bridge/worlds.h"
+#include <random>
+#endif
+#include <IGUISpriteBank.h>
+#include <ICameraSceneNode.h>
+#include <unordered_map>
+
+#if USE_SOUND
+	#include "src/client/app/output/sound/sound_openal.h"
+#endif
+
+/* mainmenumanager.h
+ */
+gui::IGUIEnvironment *guienv = nullptr;
+gui::IGUIStaticText *guiroot = nullptr;
+MainMenuManager g_menumgr;
+
+// Passed to menus to allow disconnecting and exiting
+MainGameCallback *g_gamecallback = nullptr;
+
+#if 0
+// This can be helpful for the next code cleanup
+static void dump_start_data(const GameStartData &data)
+{
+	std::cout <<
+		"\ndedicated   " << (int)data.is_dedicated_server <<
+		"\nport        " << data.socket_port <<
+		"\nworld_path  " << data.world_spec.path <<
+		"\nworld game  " << data.world_spec.gameid <<
+		"\ngame path   " << data.game_spec.path <<
+		"\nplayer name " << data.name <<
+		"\naddress     " << data.address << std::endl;
+}
+#endif
+
+ClientLauncher::~ClientLauncher()
+{
+	delete input;
+
+	g_settings->deregisterAllChangedCallbacks(this);
+
+	if (g_menucloudsmgr) {
+		assert(g_menucloudsmgr->getReferenceCount() == 1);
+		g_menucloudsmgr->drop();
+		g_menucloudsmgr = nullptr;
+	}
+
+	if (g_menuclouds) {
+		assert(g_menuclouds->getReferenceCount() == 1);
+		g_menuclouds->drop();
+		g_menuclouds = nullptr;
+	}
+
+	delete g_fontengine;
+	g_fontengine = nullptr;
+	delete g_gamecallback;
+	g_gamecallback = nullptr;
+
+	assert(g_menumgr.menuCount() == 0);
+
+#if USE_SHELL
+	// the wiki unregisters its verbs from the shell, so it goes first
+	m_wiki.reset();
+	// Its texture and IME element belong to the device about to be deleted.
+	m_shell.reset();
+#endif
+	delete m_rendering_engine;
+
+	// CGUIEnvironment causes calls to `deletingMenu`, which needs `guienv != nullptr`.
+	guiroot = nullptr;
+	guienv = nullptr;
+
+	// delete event receiver only after all Irrlicht stuff is gone
+	delete receiver;
+
+#if USE_SOUND
+	g_sound_manager_singleton.reset();
+#endif
+}
+
+
+bool ClientLauncher::run(const GameParams &game_params, const Settings &cmd_args)
+{
+	GameStartData start_data;
+	static_cast<GameParams &>(start_data) = game_params;
+
+	init_args(start_data, cmd_args);
+
+	try {
+		init_engine();
+	} catch (BaseException &e) {
+		errorstream << e.what() << std::endl;
+		RenderingEngine::showErrorMessageBox(e.what());
+		return false;
+	}
+
+	sanity_check(m_rendering_engine->get_video_driver() != nullptr);
+
+	m_rendering_engine->setupTopLevelWindow();
+
+	// Create game callback for menus
+	g_gamecallback = new MainGameCallback();
+
+	m_rendering_engine->setResizable(true);
+
+#if USE_SOUND
+	g_sound_manager_singleton = createSoundManagerSingleton();
+#endif
+
+	init_input();
+
+	guienv = m_rendering_engine->get_gui_env();
+	config_guienv();
+	g_settings->registerChangedCallback("dpi_change_notifier", setting_changed_callback, this);
+	g_settings->registerChangedCallback("display_density_factor", setting_changed_callback, this);
+	g_settings->registerChangedCallback("gui_scaling", setting_changed_callback, this);
+	g_settings->registerChangedCallback("smooth_scrolling", setting_changed_callback, this);
+
+	try {
+		g_fontengine = new FontEngine(guienv);
+	} catch (BaseException &e) {
+		errorstream << e.what() << std::endl;
+		RenderingEngine::showErrorMessageBox(e.what());
+		return false;
+	}
+
+	// Create the menu clouds
+	// This is only global so it can be used by RenderingEngine::draw_load_screen().
+	assert(!g_menucloudsmgr && !g_menuclouds);
+	std::unique_ptr<IWritableShaderSource> ssrc;
+	try {
+		ssrc.reset(createShaderSource());
+		ssrc->addShaderUniformSetterFactory(std::make_unique<FogShaderUniformSetterFactory>());
+
+		g_menucloudsmgr = m_rendering_engine->get_scene_manager()->createNewSceneManager();
+
+		auto tm = mt_localtime();
+		u32 seed = (tm.tm_year << 16) | tm.tm_yday; // unique clouds every day
+		g_menuclouds = new Clouds(g_menucloudsmgr, ssrc.get(), -1, seed);
+	} catch (BaseException &e) {
+		errorstream << e.what() << std::endl;
+		RenderingEngine::showErrorMessageBox(e.what());
+		return false;
+	}
+#if USE_SHELL
+	// A profile is another player on this machine: Chromium locks its cache
+	// to one process, and each player signs in on their own.
+	const std::string profile = cmd_args.exists("profile") ? cmd_args.get("profile") : "";
+	if (!profile.empty() && !string_allowed(profile, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"))
+		throw BaseException("--profile takes letters, digits, _ and -");
+	m_shell = std::make_unique<shell::Shell>(shell::Shell::Opts{
+		m_rendering_engine->get_video_driver(),
+		guienv,
+		m_rendering_engine->get_raw_device()->getCursorControl(),
+		cmd_args.exists("shell-url") ? cmd_args.get("shell-url") : g_settings->get("shell_url"),
+		porting::path_share + DIR_DELIM "ui" DIR_DELIM "dist",
+		porting::path_cache + DIR_DELIM + (profile.empty() ? "shell" : "shell-" + profile),
+		RenderingEngine::getDisplayDensity(),
+		g_settings->getBool("shell_gpu"),
+		cmd_args.exists("arclabs-url") ? cmd_args.get("arclabs-url") : g_settings->get("arclabs_url"),
+		profile.empty() ? porting::path_user : porting::path_user + DIR_DELIM "profiles" DIR_DELIM + profile,
+		cmd_args.getFlag("ui-check"),
+	});
+	m_wiki = std::make_unique<shell::Wiki>(*m_shell); // answers in the menu and in game alike
+#endif
+
+	g_menuclouds->setHeight(100.0f);
+	g_menuclouds->update(v3f(0, 0, 0), m_rendering_engine->m_menu_clouds_color);
+	scene::ICameraSceneNode* camera;
+	camera = g_menucloudsmgr->addCameraSceneNode(NULL, v3f(0, 0, 0), v3f(0, 60, 100));
+	camera->setFarValue(10000);
+
+	/*
+		GUI stuff
+	*/
+
+	ChatBackend chat_backend;
+
+	// If an error occurs, this is set to something by menu().
+	// It is then displayed before the menu shows on the next call to menu()
+	GameErrorData errordata;
+
+	bool first_loop = true;
+
+	/*
+		Menu-game loop
+	*/
+	bool retval         = true;
+	volatile auto *kill = porting::signal_handler_killstatus();
+
+	while (m_rendering_engine->run() && !*kill &&
+		!g_gamecallback->shutdown_requested) {
+		// Set the window caption
+		auto driver_name = m_rendering_engine->getVideoDriver()->getName();
+		std::string caption = std::string("Terraverse") +
+			" " + g_version_hash +
+			" [" + gettext("Main Menu") + "]" +
+			" [" + driver_name + "]";
+
+		m_rendering_engine->get_raw_device()->
+			setWindowCaption(utf8_to_wide(caption).c_str());
+
+#ifdef NDEBUG
+		try {
+#endif
+			guienv->clear();
+
+			/*
+				We need some kind of a root node to be able to add
+				custom gui elements directly on the screen.
+				Otherwise they won't be automatically drawn.
+			*/
+			guiroot = guienv->addStaticText(L"",
+				core::rect<s32>(0, 0, 10000, 10000));
+
+#if USE_SHELL
+			m_shell->setMode(shell::Mode::Menu);
+#endif
+			bool should_run_game = launch_game(errordata, start_data, cmd_args);
+
+			// Reset the reconnect_requested flag
+			errordata.reconnect_requested = false;
+
+			// If skip_main_menu, we only want to startup once
+			if (skip_main_menu && !first_loop)
+				break;
+			first_loop = false;
+
+			if (!should_run_game) {
+				if (skip_main_menu)
+					break;
+				continue;
+			}
+
+			// Break out of menu-game loop to shut down cleanly
+			if (!m_rendering_engine->run() || *kill)
+				break;
+
+#if USE_SHELL
+			// the page stays on the menu, over the world chosen, till the
+			// game's first frame (Game::arrive): Mode::Game from there
+			m_shell->setMode(shell::Mode::Entering);
+			m_shell->entering().begin();
+#endif
+			the_game(
+				kill,
+				input,
+				m_rendering_engine,
+				start_data,
+				errordata,
+				chat_backend
+			);
+#if USE_SHELL
+			m_shell->entering().end(); // (a game that ended before it was there)
+#endif
+#ifdef NDEBUG
+		} catch (std::exception &e) {
+			errordata.message = "Some exception: " + debug_describe_exc(e);
+			errorstream << errordata.message << std::endl;
+		}
+#endif
+
+		m_rendering_engine->get_scene_manager()->clear();
+
+		/* Save the settings when leaving the game.
+		 * This makes sure that setting changes made in-game are persisted even
+		 * in case of a later unclean exit from the mainmenu.
+		 * This is especially useful on Android because closing the app from the
+		 * "Recents screen" results in an unclean exit.
+		 * Caveat: This means that the settings are saved twice when exiting Luanti.
+		 */
+		if (!g_settings_path.empty())
+			g_settings->updateConfigFile(g_settings_path.c_str());
+
+		// If no main menu, show error and exit
+		if (skip_main_menu) {
+			if (!errordata.message.empty())
+				retval = false;
+			break;
+		}
+	} // Menu-game loop
+
+	// If profiler was enabled print it one last time
+	if (g_settings->getFloat("profiler_print_interval") > 0) {
+		infostream << "Profiler:" << std::endl;
+		g_profiler->print(infostream);
+		g_profiler->clear();
+	}
+
+	return retval;
+}
+
+#if USE_SHELL
+// Terra Firma: a friend's world, or one of the player's own — hosted for
+// friends while signed in to ArcLabs, alone otherwise.
+bool ClientLauncher::online(GameStartData &start_data, shell::Choice &choice, std::string &error_message)
+{
+	start_data.online = online::Launch();
+	const std::string username = m_shell->account().username();
+	std::optional<online::Api> api = m_shell->social().api();
+	if ((choice.join || api) && !is_valid_player_name(username)) {
+		error_message = "Your ArcLabs username \"" + username + "\" can't be a player name here "
+			"(at most 20 letters, digits, - and _).";
+		return false;
+	}
+
+	if (choice.join && !api) {
+		error_message = "Signed out of ArcLabs before joining.";
+		return false;
+	}
+	if (choice.join) {
+		online::JoinPlan &plan = *choice.join;
+		start_data.mode = GameClientData::GM_JOIN;
+		start_data.world_path.clear();
+		start_data.address = plan.target.serializeString();
+		start_data.socket_port = plan.target.getPort();
+		start_data.name = username;
+		start_data.password = plan.ticket;
+		start_data.online = { online::Launch::Kind::Join, *api, plan.socket, plan.host_name };
+		return true;
+	}
+
+	start_data.world_spec = *choice.world;
+	start_data.world_path = choice.world->path;
+	start_data.address.clear();
+	if (!api) {
+		start_data.mode = GameClientData::GM_SINGLEPLAYER;
+		return true;
+	}
+	start_data.mode = GameClientData::GM_HOST_AND_JOIN;
+	start_data.name = username;
+	// The host's own client's ticket: random, and never leaves this process.
+	std::random_device random;
+	std::string secret;
+	for (int i = 0; i < 32; i++)
+		secret += "0123456789abcdef"[random() & 15];
+	start_data.password = secret;
+	start_data.socket_port = 0; // any free port: STUN tells friends which
+	start_data.online = { online::Launch::Kind::Host, *api, nullptr, "" };
+	return true;
+}
+#endif
+
+void ClientLauncher::init_args(GameStartData &start_data, const Settings &cmd_args)
+{
+	skip_main_menu = cmd_args.getFlag("go");
+
+	start_data.address = g_settings->get("address");
+	if (cmd_args.exists("address")) {
+		// Join a remote server
+		start_data.mode = GameClientData::GM_JOIN;
+		start_data.address = cmd_args.get("address");
+		start_data.world_path.clear();
+		start_data.name = g_settings->get("name");
+	}
+	if (!start_data.world_path.empty()) {
+		// Start a singleplayer instance
+		start_data.mode = GameClientData::GM_SINGLEPLAYER;
+		start_data.address = "";
+	}
+
+	if (cmd_args.exists("name"))
+		start_data.name = cmd_args.get("name");
+
+	// If a world was commanded, select it
+	if (!start_data.world_path.empty()) {
+		if (!start_data.name.empty())
+			start_data.mode = GameClientData::GM_HOST_AND_JOIN;
+
+		auto &spec = start_data.world_spec;
+
+		spec.path = start_data.world_path;
+		spec.gameid = getWorldGameId(spec.path, true);
+		spec.name = _("[--world parameter]");
+	}
+
+	random_input = g_settings->getBool("random_input")
+			|| cmd_args.getFlag("random-input");
+}
+
+void ClientLauncher::init_engine()
+{
+	receiver = new MyEventReceiver();
+	// Note: this can throw
+	m_rendering_engine = new RenderingEngine(receiver);
+}
+
+void ClientLauncher::init_input()
+{
+	if (random_input)
+		input = new RandomInputHandler();
+	else
+		input = new RealInputHandler(receiver);
+}
+
+void ClientLauncher::setting_changed_callback(const std::string &name, void *data)
+{
+	static_cast<ClientLauncher*>(data)->config_guienv();
+}
+
+static video::ITexture *loadTexture(video::IVideoDriver *driver, const char *path)
+{
+	// FIXME?: it would be cleaner to do this through a ITextureSource, but we don't have one
+	video::ITexture *texture = nullptr;
+	verbosestream << "Loading texture " << path << std::endl;
+	if (auto *image = driver->createImageFromFile(path); image) {
+		texture = driver->addTexture(fs::GetFilenameFromPath(path), image);
+		image->drop();
+	}
+	return texture;
+}
+
+void ClientLauncher::config_guienv()
+{
+	gui::IGUISkin *skin = guienv->getSkin();
+
+	skin->setColor(gui::EGDC_WINDOW_SYMBOL, video::SColor(255, 255, 255, 255));
+	skin->setColor(gui::EGDC_BUTTON_TEXT, video::SColor(255, 255, 255, 255));
+	skin->setColor(gui::EGDC_3D_LIGHT, video::SColor(0, 0, 0, 0));
+	skin->setColor(gui::EGDC_3D_HIGH_LIGHT, video::SColor(255, 30, 30, 30));
+	skin->setColor(gui::EGDC_3D_SHADOW, video::SColor(255, 0, 0, 0));
+	skin->setColor(gui::EGDC_HIGH_LIGHT, video::SColor(255, 70, 120, 50));
+	skin->setColor(gui::EGDC_HIGH_LIGHT_TEXT, video::SColor(255, 255, 255, 255));
+	skin->setColor(gui::EGDC_EDITABLE, video::SColor(255, 128, 128, 128));
+	skin->setColor(gui::EGDC_FOCUSED_EDITABLE, video::SColor(255, 96, 134, 49));
+
+	float density = rangelim(g_settings->getFloat("gui_scaling"), 0.5f, 20) *
+		RenderingEngine::getDisplayDensity();
+	skin->setScale(density);
+	skin->setSize(gui::EGDS_CHECK_BOX_WIDTH, (s32)(17.0f * density));
+	skin->setSize(gui::EGDS_SCROLLBAR_SIZE, (s32)(21.0f * density));
+	skin->setSize(gui::EGDS_WINDOW_BUTTON_WIDTH, (s32)(15.0f * density));
+
+	skin->setBehavior(gui::EGDB_SMOOTH_SCROLL, g_settings->getBool("smooth_scrolling"));
+	skin->setBehavior(gui::EGDB_SCOLLBAR_JUMP_TO_CLICKED, true);
+
+	static u32 orig_sprite_id = skin->getIcon(gui::EGDI_CHECK_BOX_CHECKED);
+	static std::unordered_map<std::string, u32> sprite_ids;
+
+	if (density > 1.5f) {
+		// Texture dimensions should be a power of 2
+		std::string path = porting::path_share + "/textures/base/pack/";
+		if (density > 3.5f)
+			path.append("checkbox_64.png");
+		else if (density > 2.0f)
+			path.append("checkbox_32.png");
+		else
+			path.append("checkbox_16.png");
+
+		auto cached_id = sprite_ids.find(path);
+		if (cached_id != sprite_ids.end()) {
+			skin->setIcon(gui::EGDI_CHECK_BOX_CHECKED, cached_id->second);
+		} else {
+			auto *driver = m_rendering_engine->get_video_driver();
+			auto *texture = loadTexture(driver, path.c_str());
+			s32 id = skin->getSpriteBank()->addTextureAsSprite(texture);
+			if (id != -1) {
+				skin->setIcon(gui::EGDI_CHECK_BOX_CHECKED, id);
+				sprite_ids.emplace(path, id);
+			}
+		}
+	} else {
+		skin->setIcon(gui::EGDI_CHECK_BOX_CHECKED, orig_sprite_id);
+	}
+}
+
+bool ClientLauncher::launch_game(GameErrorData &errordata, GameStartData &start_data,
+		const Settings &cmd_args)
+{
+	std::string &error_message = errordata.message;
+
+	// Prepare and check the start data to launch a game
+	if (cmd_args.exists("password"))
+		start_data.password = cmd_args.get("password");
+
+	if (cmd_args.exists("password-file")) {
+		std::ifstream passfile(cmd_args.get("password-file"));
+		if (passfile.good()) {
+			std::getline(passfile, start_data.password);
+		} else {
+			error_message = gettext("Provided password file "
+					"failed to open: ")
+					+ cmd_args.get("password-file");
+			errorstream << error_message << std::endl;
+			return false;
+		}
+	}
+
+	/*
+	 * Show the GUI menu
+	 */
+#if USE_SHELL
+	if (!skip_main_menu) {
+		shell::Worlds worlds(g_settings->get("game_id"));
+		shell::Menu menu({ *m_shell, m_rendering_engine, *receiver, worlds });
+		std::optional<shell::Choice> choice = menu.run(error_message);
+		error_message.clear(); // shown by the page
+
+		if (!choice) {
+			g_gamecallback->shutdown_requested = true;
+			return false;
+		}
+		if (!online(start_data, *choice, error_message))
+			return false;
+	}
+#else
+	// the Lua main menu is gone (sprint 119): without the shell, a world is given on the command line
+	if (!skip_main_menu) {
+		error_message = "This build has no menu: start a world with --world, or connect with --address.";
+		errorstream << error_message << std::endl;
+		return false;
+	}
+#endif
+
+	if (!start_data.isSinglePlayer() && start_data.name.empty()) {
+		error_message = gettext("Please choose a name!");
+		errorstream << error_message << std::endl;
+		return false;
+	}
+
+	// If using simple singleplayer mode, override
+	if (start_data.isSinglePlayer()) {
+		start_data.name = "singleplayer";
+		start_data.password = "";
+		// let the OS pick one for us
+		start_data.socket_port = 0;
+	} else {
+		g_settings->set("name", start_data.name);
+	}
+
+	if (!is_valid_player_name(start_data.name)) {
+		error_message = gettext("Player name is invalid.");
+		return false;
+	}
+
+	// For singleplayer and local server
+	if (start_data.isAnyServer()) {
+		auto &worldspec = start_data.world_spec;
+		if (worldspec.path.empty()) {
+			errordata.setError(
+				gettext("No world selected and no address provided. Nothing to do.")
+			);
+			return false;
+		}
+
+		infostream << "Selected world: " << worldspec.name
+			<< " [" << worldspec.path << "]" << std::endl;
+
+		// Figure out which game we'll be using
+		// Note that start_data.game_spec contains the gameid from the command line
+		bool world_exists = getWorldExists(worldspec.path);
+		if (world_exists) {
+			auto world_game = findWorldSubgame(worldspec.path);
+			if (world_game.isValid())
+				start_data.game_spec = world_game;
+		}
+
+		if (!start_data.game_spec.isValid()) {
+			std::string msg;
+			if (world_exists) {
+				msg = gettext("Could not find or load game: ") + worldspec.gameid;
+			} else {
+				msg = gettext("World does not exist and no game selected to create one.");
+			}
+			errordata.setError(msg);
+			return false;
+		}
+	}
+
+	return true;
+}
+

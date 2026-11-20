@@ -3,13 +3,13 @@
 
 #include "src/client/app/shell/bridge/items.h"
 #include "src/client/world/session/client.h"
-#include "src/client/render/core/texturesource.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/items/itemdef.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/util/string.h"
+#include "src/client/render/textures/texturesource.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/game/items/itemdef.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/util/text/string.h"
 #include <IImage.h>
 #include <IVideoDriver.h>
 #include <cstring>

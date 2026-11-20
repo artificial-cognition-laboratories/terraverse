@@ -3,9 +3,9 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/core/exceptions.h"
-#include "src/shared/online/endpoint.h"
-#include "src/shared/online/stun.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/platform/online/endpoint.h"
+#include "src/shared/platform/online/stun.h"
 
 using namespace online;
 

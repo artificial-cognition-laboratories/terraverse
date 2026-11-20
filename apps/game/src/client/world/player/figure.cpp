@@ -3,8 +3,8 @@
 
 #include "src/client/world/player/figure.h"
 
-#include "src/client/render/core/mesh.h"
-#include "src/shared/core/constants.h"
+#include "src/client/render/mesh/mesh.h"
+#include "src/shared/base/constants.h"
 #include <cmath>
 #include <IAnimatedMesh.h>
 #include <IMeshSceneNode.h>

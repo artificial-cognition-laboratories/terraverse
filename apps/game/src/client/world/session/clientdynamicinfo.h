@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes_bloated.h"
-#include "src/shared/core/config.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
+#include "src/shared/base/config.h"
 
 
 struct ClientDynamicInfo

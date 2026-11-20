@@ -63,7 +63,7 @@ struct Substance
 	// creeps, and cooling lava stiffens
 	double viscosity_liquid, viscosity_at, viscosity_activation;
 	bool approximate;                        // some anchors are estimates
-	// Sprint 79, from thermo.json (scripts/matter-data): its enthalpy of
+	// Sprint 79, from thermo.json (apps/game/scripts/bake/matter-data): its enthalpy of
 	// formation, kJ/mol, in its standard state (as it is at 298.15 K and
 	// 1 atm); and, for the fluids CoolProp models, its saturation curve
 	// (vapour pressure and liquid density, by temperature, rising)

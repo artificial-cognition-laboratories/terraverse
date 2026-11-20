@@ -6,8 +6,8 @@
 
 #include "src/server/world/load/emerge.h"
 #include "src/server/world/generate/mapgen.h"
-#include "src/server/world/generate/mg_biome.h"
-#include "src/shared/core/printing.h"
+#include "src/server/world/generate/luanti/mg_biome.h"
+#include "src/shared/base/printing.h"
 #include "tests/unit/mock_server.h"
 
 class TestMapgen : public TestBase

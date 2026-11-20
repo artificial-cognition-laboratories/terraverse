@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "src/client/views/game/far/tiling.h"
-#include "src/client/views/game/far/tiles.h"
+#include "src/client/views/game/far/tiles/tiling.h"
+#include "src/client/views/game/far/tiles/tiles.h"
 #include <matrix4.h>
 #include <optional>
 

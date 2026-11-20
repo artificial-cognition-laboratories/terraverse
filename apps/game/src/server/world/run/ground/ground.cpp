@@ -3,7 +3,7 @@
 
 #include "src/server/world/run/ground/ground.h"
 
-#include "src/shared/core/constants.h"
+#include "src/shared/base/constants.h"
 
 #include <algorithm>
 #include <array>

@@ -3,11 +3,11 @@
 
 #include "src/server/world/run/machines/workshop/fracture.h"
 
-#include "src/shared/core/constants.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/core/gamedef.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/base/gamedef.h"
 #include "src/server/world/run/machines/workshop/motion.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/game/content/nodedef.h"
 #include <algorithm>
 #include <array>
 #include <cmath>

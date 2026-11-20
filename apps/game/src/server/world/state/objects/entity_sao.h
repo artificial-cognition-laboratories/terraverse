@@ -6,8 +6,8 @@
 #pragma once
 
 #include "src/server/world/state/objects/unit_sao.h"
-#include "src/shared/util/guid.h"
-#include "src/server/mods/kinds.h"
+#include "src/shared/util/hash/guid.h"
+#include "src/server/game/kinds.h"
 #include <memory>
 
 class EntitySAO : public UnitSAO

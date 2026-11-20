@@ -3,8 +3,8 @@
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "src/client/world/objects/content_cao.h"
-#include "src/shared/platform/porting.h"
-#include "src/shared/platform/profiler.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/platform/system/profiler.h"
 #include <array>
 #include "src/server/world/run/machines/piece/frame.h" // Terra Firma
 #include "src/server/world/run/machines/piece/machine.h" // Terra Firma
@@ -17,32 +17,32 @@
 #include <ISceneNode.h>
 #include <AnimatedMeshSceneNode.h>
 #include "src/client/world/session/client.h"
-#include "src/client/render/core/renderingengine.h"
+#include "src/client/render/renderingengine.h"
 #include "src/client/app/output/sound/sound.h"
-#include "src/client/render/core/texturesource.h"
-#include "src/client/render/meshgen/mapblock_mesh.h"
-#include "src/client/render/meshgen/content_mapblock.h"
-#include "src/client/render/meshgen/collector.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/util/basic_macros.h"
-#include "src/shared/util/numeric.h"
-#include "src/shared/util/serialize.h"
+#include "src/client/render/textures/texturesource.h"
+#include "src/client/render/map/mesh/mapblock_mesh.h"
+#include "src/client/render/map/mesh/content_mapblock.h"
+#include "src/client/render/map/mesh/collector.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/util/data/basic_macros.h"
+#include "src/shared/util/math/numeric.h"
+#include "src/shared/util/data/serialize.h"
 #include "src/client/views/game/camera.h" // CameraModes
-#include "src/shared/objects/collision.h"
+#include "src/shared/game/objects/collision.h"
 #include "src/client/world/objects/content_cso.h"
 #include "src/client/world/objects/clientobject.h"
-#include "src/shared/environment/environment.h"
-#include "src/shared/items/itemdef.h"
+#include "src/shared/game/environment/environment.h"
+#include "src/shared/game/items/itemdef.h"
 #include "src/client/world/objects/localplayer.h"
 #include "src/shared/map/map.h"
-#include "src/client/render/core/mesh.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/items/tool.h"
-#include "src/client/render/meshgen/wieldmesh.h"
+#include "src/client/render/mesh/mesh.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/game/items/tool.h"
+#include "src/client/render/items/wieldmesh.h"
 
-#include "src/client/render/core/shader.h"
-#include "src/client/render/meshgen/minimap.h"
+#include "src/client/render/shaders/shader.h"
+#include "src/client/views/game/minimap/minimap.h"
 #include <quaternion.h>
 #include <SMesh.h>
 #include <IMeshBuffer.h>

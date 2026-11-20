@@ -14,11 +14,11 @@ Likely sprint 116 (0f12048e4, "Land by the book": steeper relief), but not confi
     ./.output/bin/luanti --test-module TestScale
 
 CI runs only TestOnline, TestRelease and TestTerragen today, so these don't hold master red. When the
-fast tier runs the whole suite in CI they will: fix or skip them by name (scripts/test/skip.txt) first.
+fast tier runs the whole suite in CI they will: fix or skip them by name (apps/game/tests/run/skip.txt) first.
 
 ## Agent notes (2026-11-18, jobs bot)
 
-Skipped both by name in `scripts/test/skip.txt` (committed), so the fast tier can take the whole
+Skipped both by name in `apps/game/tests/run/skip.txt` (committed), so the fast tier can take the whole
 suite; the fixes stay open here.
 
 - **TestScale.testEverySize**: real, and sprint 116's. At radius 1M, 40° N, x=589086..589114 the

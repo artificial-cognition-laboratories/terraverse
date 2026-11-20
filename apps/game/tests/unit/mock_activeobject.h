@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2022 Luanti core developers & community
 
-#include "src/shared/objects/activeobject.h"
+#include "src/shared/game/objects/activeobject.h"
 
 class MockActiveObject : public ActiveObject
 {

@@ -6,8 +6,8 @@
 
 #include "tests/unit/mock_server.h"
 
-#include "src/shared/util/string.h"
-#include "src/shared/util/serialize.h"
+#include "src/shared/util/text/string.h"
+#include "src/shared/util/data/serialize.h"
 
 class TestServerShutdownState : public TestBase
 {

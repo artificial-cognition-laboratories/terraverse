@@ -12,8 +12,8 @@
 
 #include <queue>
 
-#include "src/shared/util/thread.h"
-#include "src/shared/threading/event.h"
+#include "src/shared/util/data/thread.h"
+#include "src/shared/platform/threading/event.h"
 
 class Server;
 class ServerMap;

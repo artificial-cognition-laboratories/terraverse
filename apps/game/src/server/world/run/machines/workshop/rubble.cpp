@@ -4,7 +4,7 @@
 #include "src/server/world/run/machines/workshop/rubble.h"
 
 #include "src/shared/map/map.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/game/content/nodedef.h"
 #include <chrono>
 
 namespace workshop {

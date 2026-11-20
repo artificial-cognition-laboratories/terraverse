@@ -5,12 +5,12 @@
 
 #pragma once
 
-#include "src/shared/core/constants.h"
-#include "src/shared/items/inventorymanager.h" // InventoryLocation
-#include "src/shared/content/metadata.h"
-#include "src/shared/network/networkprotocol.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/game/items/inventorymanager.h" // InventoryLocation
+#include "src/shared/game/content/metadata.h"
+#include "src/shared/platform/network/networkprotocol.h"
 #include "src/server/world/state/objects/unit_sao.h"
-#include "src/shared/util/numeric.h"
+#include "src/shared/util/math/numeric.h"
 #include <set>
 
 /*

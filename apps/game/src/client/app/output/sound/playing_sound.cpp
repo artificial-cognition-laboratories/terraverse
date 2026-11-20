@@ -10,7 +10,7 @@
 
 #include "src/client/app/output/sound/al_extensions.h"
 #include "src/client/app/output/sound/sound_constants.h"
-#include "src/shared/platform/porting.h"
+#include "src/shared/platform/system/porting.h"
 #include <cassert>
 #include <cmath>
 

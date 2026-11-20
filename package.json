@@ -4,10 +4,18 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun scripts/dev.ts",
-    "dev:site": "bun --cwd apps/site run dev",
-    "dev:launcher": "bun --cwd apps/launcher run dev",
-    "build:game": "cmake -S apps/game -B .output/build -DRUN_IN_PLACE=TRUE && bash scripts/build.sh -j && bash scripts/stage-runtime.sh && bun --cwd apps/game/src/client/app/shell/interface run build"
+    "dev": "bun run --cwd apps/game dev",
+    "dev:site": "bun run --cwd apps/site dev",
+    "dev:launcher": "bun run --cwd apps/launcher dev",
+    "build:game": "bun run --cwd apps/game build",
+
+    "test:hot": "bun run --cwd apps/game test:hot",
+    "check": "bun run --cwd apps/game check",
+    "test:game": "bun run --cwd apps/game test",
+    "test:cli": "todo",
+    "test:launcher": "todo",
+
+    "ci:status": "bun scripts/ci/status.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"

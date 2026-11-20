@@ -19,7 +19,7 @@ or void along seams, from above.
 
 Look at how each seam block's territory edge is placed (planet/ atlas cut planes, client
 `bendOntoAtlas` in mapblock_mesh.cpp): the two sides should share one edge, or overlap by a hair.
-Skipped by name in `scripts/test/skip.txt` (TestAtlasRender.testViewsMatchThePlanet) until then.
+Skipped by name in `apps/game/tests/run/skip.txt` (TestAtlasRender.testViewsMatchThePlanet) until then.
 
 Likely shape of it (not verified): block (374,-1,-1336)'s edge lies exactly on a node boundary
 (x = -23.1177 constant, unclipped), while block (-642,-1,-1336)'s is clipped to the seam plane

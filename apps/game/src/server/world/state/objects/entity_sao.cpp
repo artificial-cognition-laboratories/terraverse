@@ -7,13 +7,13 @@
 #include "library/world/planet/atlas.h" // Terra Firma
 #include "src/server/app/server.h"
 #include "AnimSpec.h"
-#include "src/shared/objects/collision.h"
-#include "src/shared/core/constants.h"
-#include "src/shared/items/inventory.h"
-#include "src/shared/core/printing.h"
+#include "src/shared/game/objects/collision.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/game/items/inventory.h"
+#include "src/shared/base/printing.h"
 #include "src/server/players/player_sao.h"
 #include "src/server/world/state/environment/serverenvironment.h"
-#include "src/shared/util/serialize.h"
+#include "src/shared/util/data/serialize.h"
 
 EntitySAO::EntitySAO(ServerEnvironment *env, v3f pos, const std::string &data)
 	: UnitSAO(env, pos)

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes_bloated.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
 #include "irr_ptr.h"
 #include "ISceneNode.h"
 #include "S3DVertex.h"
@@ -14,8 +14,8 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
-#include "src/shared/content/particles.h"
-#include "src/shared/util/numeric.h"
+#include "src/shared/game/content/particles.h"
+#include "src/shared/util/math/numeric.h"
 
 namespace video {
 	class ITexture;

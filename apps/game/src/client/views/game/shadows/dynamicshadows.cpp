@@ -7,7 +7,7 @@
 #include "src/client/views/game/shadows/dynamicshadows.h"
 #include "src/client/world/session/client.h"
 #include "src/client/world/session/clientenvironment.h"
-#include "src/client/render/meshgen/clientmap.h"
+#include "src/client/render/map/clientmap.h"
 #include "src/client/views/game/camera.h"
 #include <ICameraSceneNode.h>
 #include <IVideoDriver.h>

@@ -7,7 +7,7 @@ Dummy database class
 */
 
 #include "src/server/world/load/database/database-dummy.h"
-#include "src/shared/objects/remoteplayer.h"
+#include "src/shared/game/objects/remoteplayer.h"
 
 
 bool Database_Dummy::saveBlock(const v3s16 &pos, std::string_view data)

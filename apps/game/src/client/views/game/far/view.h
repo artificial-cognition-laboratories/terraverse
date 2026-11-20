@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "src/client/views/game/far/terrain.h"
+#include "src/client/views/game/far/land/terrain.h"
 #include "irr_ptr.h"
-#include "src/shared/core/irrlichttypes_bloated.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
 #include <ISceneNode.h>
 #include <SMaterial.h>
 #include <functional>

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/server/world/load/database/database-planet.h"
-#include "src/shared/core/exceptions.h"
+#include "src/shared/base/exceptions.h"
 #include "library/world/planet/atlas.h"
 
 MapDatabasePlanet::MapDatabasePlanet(std::unique_ptr<MapDatabase> home, const planet::Atlas &atlas, Open open) :

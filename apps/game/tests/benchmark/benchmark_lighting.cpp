@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2022 Luanti Authors
 
-#include "src/shared/core/catch.h"
-#include "src/shared/map/voxelalgorithms.h"
-#include "src/shared/core/dummygamedef.h"
+#include "src/shared/base/catch.h"
+#include "src/shared/map/voxel/voxelalgorithms.h"
+#include "src/shared/base/dummygamedef.h"
 #include "src/shared/map/dummymap.h"
 
 TEST_CASE("benchmark_lighting")

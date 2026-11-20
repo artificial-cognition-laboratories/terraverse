@@ -3,7 +3,7 @@
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "src/client/world/objects/clientobject.h"
-#include "src/shared/platform/debug.h"
+#include "src/shared/platform/system/debug.h"
 
 /*
 	ClientActiveObject

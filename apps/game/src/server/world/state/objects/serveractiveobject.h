@@ -9,9 +9,9 @@
 #include <optional>
 #include <queue>
 #include "AnimSpec.h"
-#include "src/shared/core/irrlichttypes_bloated.h"
-#include "src/shared/objects/activeobject.h"
-#include "src/shared/items/itemgroup.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
+#include "src/shared/game/objects/activeobject.h"
+#include "src/shared/game/items/itemgroup.h"
 
 
 /*

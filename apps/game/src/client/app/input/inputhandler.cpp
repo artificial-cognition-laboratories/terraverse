@@ -3,15 +3,15 @@
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2017 nerzhul, Loic Blot <loic.blot@unix-experience.fr>
 
-#include "src/shared/platform/porting.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/util/numeric.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/util/math/numeric.h"
 #include "src/client/app/input/inputhandler.h"
 #include "src/client/app/menus/mainmenumanager.h"
-#include "src/shared/objects/hud_element.h"
-#include "src/shared/platform/log_internal.h"
-#include "src/client/render/core/renderingengine.h"
-#include "src/shared/core/config.h"
+#include "src/shared/game/objects/hud_element.h"
+#include "src/shared/platform/system/log_internal.h"
+#include "src/client/render/renderingengine.h"
+#include "src/shared/base/config.h"
 #if USE_SHELL
 #include "src/client/app/shell/host/shell.h"
 #endif

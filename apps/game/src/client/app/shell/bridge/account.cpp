@@ -3,11 +3,11 @@
 
 #include "src/client/app/shell/bridge/account.h"
 #include "src/client/app/shell/bridge/bridge.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/platform/httpfetch.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/platform/porting.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/platform/system/httpfetch.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/platform/system/porting.h"
 #include <sstream>
 #include <sys/stat.h>
 

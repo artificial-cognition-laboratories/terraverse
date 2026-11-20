@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes.h"
+#include "src/shared/base/irrlichttypes.h"
 #include "src/client/app/input/keys.h"
 #include <Keycodes.h>
 #include <IEventReceiver.h>

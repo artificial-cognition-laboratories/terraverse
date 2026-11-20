@@ -3,13 +3,13 @@
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include <iostream>
-#include "src/shared/core/version.h"
-#include "src/shared/platform/settings.h"
+#include "src/shared/base/version.h"
+#include "src/shared/platform/settings/settings.h"
 #include "src/server/app/serverlist.h"
-#include "src/shared/platform/log.h"
+#include "src/shared/platform/system/log.h"
 #include <json/json.h>
-#include "src/shared/core/convert_json.h"
-#include "src/shared/platform/httpfetch.h"
+#include "src/shared/base/convert_json.h"
+#include "src/shared/platform/system/httpfetch.h"
 #include "src/server/app/server.h"
 
 namespace ServerList

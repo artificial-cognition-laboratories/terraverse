@@ -6,7 +6,7 @@
 #include <IMaterialRendererServices.h>
 #include <SMaterial.h>
 #include <S3DVertex.h>
-#include "src/client/render/core/shader.h"
+#include "src/client/render/shaders/shader.h"
 
 class ShadowScreenQuad
 {

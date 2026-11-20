@@ -3,12 +3,12 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes_bloated.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
 #include "library/physics/skeleton.h"
 #include "library/physics/world.h"
-#include "src/client/views/scenes/finepowder.h"
-#include "src/client/views/scenes/finewater.h"
-#include "src/client/views/scenes/plume.h"
+#include "src/client/world/sim/fine/finepowder.h"
+#include "src/client/world/sim/fine/finewater.h"
+#include "src/client/world/sim/fine/plume.h"
 #include "library/matter/sandbox/stage.h"
 #include <IEventReceiver.h>
 #include <S3DVertex.h>

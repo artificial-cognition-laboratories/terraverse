@@ -9,26 +9,26 @@
 
 #include <cmath>
 #include <iostream>
-#include "src/shared/core/config.h"
-#include "src/shared/core/constants.h"
-#include "src/shared/core/printing.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/platform/log.h"
+#include "src/shared/base/config.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/base/printing.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/platform/system/log.h"
 #include "src/server/world/state/environment/serverenvironment.h"
 #include "src/server/world/state/servermap.h"
-#include "src/shared/map/mapblock.h"
-#include "src/server/world/generate/mg_biome.h"
-#include "src/server/world/generate/mg_ore.h"
-#include "src/server/world/generate/mg_decoration.h"
-#include "src/server/world/generate/mg_schematic.h"
-#include "src/shared/platform/porting.h"
-#include "src/shared/platform/profiler.h"
+#include "src/shared/map/block/mapblock.h"
+#include "src/server/world/generate/luanti/mg_biome.h"
+#include "src/server/world/generate/luanti/mg_ore.h"
+#include "src/server/world/generate/luanti/mg_decoration.h"
+#include "src/server/world/generate/luanti/mg_schematic.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/platform/system/profiler.h"
 #include "src/server/app/server.h"
-#include "src/shared/core/serialization.h"
-#include "src/shared/util/serialize.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/map/voxel.h"
-#include "library/world/terragen/parallel.h" // Terra Firma: background()
+#include "src/shared/base/serialization.h"
+#include "src/shared/util/data/serialize.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/map/voxel/voxel.h"
+#include "library/world/terragen/src/base/parallel.h" // Terra Firma: background()
 
 EmergeParams::~EmergeParams()
 {

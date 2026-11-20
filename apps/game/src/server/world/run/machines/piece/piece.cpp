@@ -4,14 +4,14 @@
 #include "src/server/world/run/machines/piece/piece.h"
 #include "src/server/world/run/machines/piece/header.h"
 
-#include "src/shared/core/exceptions.h"
-#include "src/shared/core/gamedef.h"
-#include "src/shared/map/mapblock.h"
-#include "src/shared/map/mapsector.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/base/gamedef.h"
+#include "src/shared/map/block/mapblock.h"
+#include "src/shared/map/block/mapsector.h"
+#include "src/shared/game/content/nodedef.h"
 #include "src/shared/map/raycast.h"
-#include "src/shared/util/numeric.h"
-#include "src/shared/util/serialize.h"
+#include "src/shared/util/math/numeric.h"
+#include "src/shared/util/data/serialize.h"
 #include <map>
 #include <sstream>
 #include <tuple>

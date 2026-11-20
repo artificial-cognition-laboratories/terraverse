@@ -6,18 +6,18 @@
 #include "library/world/planet/atlas.h" // Terra Firma
 #include "src/server/world/run/ground/ground.h" // Terra Firma
 #include <algorithm>
-#include "src/shared/map/mapsector.h"
-#include "src/shared/map/mapblock.h"
-#include "src/shared/map/voxel.h"
-#include "src/shared/map/voxelalgorithms.h"
-#include "src/shared/platform/porting.h"
-#include "src/shared/content/nodemetadata.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/platform/profiler.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/core/gamedef.h"
-#include "src/shared/environment/rollback_interface.h"
-#include "src/shared/environment/environment.h"
+#include "src/shared/map/block/mapsector.h"
+#include "src/shared/map/block/mapblock.h"
+#include "src/shared/map/voxel/voxel.h"
+#include "src/shared/map/voxel/voxelalgorithms.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/game/content/nodemetadata.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/platform/system/profiler.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/base/gamedef.h"
+#include "src/shared/game/environment/rollback_interface.h"
+#include "src/shared/game/environment/environment.h"
 #include <queue>
 #include <limits>
 

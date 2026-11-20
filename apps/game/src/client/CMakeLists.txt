@@ -28,67 +28,67 @@ file(GLOB_RECURSE client_HDRS "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
 set(client_SRCS
 	${client_HDRS}
 	${sound_SRCS}
-	${CMAKE_CURRENT_SOURCE_DIR}/render/meshgen/collector.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/anaglyph.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/core.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/factory.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/plain.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/sidebyside.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/stereo.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/secondstage.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/pipeline.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/map/mesh/collector.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/pipeline/stereo/anaglyph.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/core.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/pipeline/factory.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/pipeline/plain.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/pipeline/stereo/sidebyside.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/pipeline/stereo/stereo.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/pipeline/secondstage.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/pipeline/pipeline.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/objects/activeobjectmgr.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/camera.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/session/client.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/session/clientenvironment.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/app/clientlauncher.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/meshgen/clientmap.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/world/network/clientmedia.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/app/shell/launch/clientlauncher.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/map/clientmap.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/app/mods/clientmedia.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/objects/clientobject.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/sky/clouds.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/objects/content_cao.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/objects/content_cso.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/meshgen/content_mapblock.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/meshgen/sprigs.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/world/network/filecache.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/fontengine.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/map/mesh/content_mapblock.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/map/mesh/sprigs.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/app/network/filecache.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/fonts/fontengine.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/app/game.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/app/gameui.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/guiscalingfilter.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/textures/guiscalingfilter.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/hud/hud.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/hud/drawItemStack.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/app/menus/modalMenu.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/app/menus/guiChatConsole.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/hud/statusTextHelper.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/text/CGUITTFont.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/text/static_text.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/imagefilters.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/fonts/CGUITTFont.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/fonts/static_text.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/textures/imagefilters.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/app/input/inputhandler.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/meshgen/item_visuals_manager.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/items/item_visuals_manager.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/app/input/keycode.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/objects/localplayer.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/player/body.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/player/figure.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/views/game/water/liquids.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/meshgen/mapblock_mesh.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/mesh.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/meshgen/mesh_generator_thread.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/meshgen/minimap.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/meshgen/node_visuals.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/liquids.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/map/mesh/mapblock_mesh.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/mesh/mesh.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/map/mesh_generator_thread.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/views/game/minimap/minimap.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/map/mesh/node_visuals.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/sky/particles.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/renderingengine.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/shader.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/renderingengine.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/shaders/shader.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/sky/sky.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/sky/atlas_view.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/player/hand.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/player/hold.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/sky/solar.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/app/output/sound/sound_maker.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/tile.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/texturepaths.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/texturesource.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/core/imagesource.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/render/meshgen/wieldmesh.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/textures/tile.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/textures/texturepaths.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/textures/texturesource.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/textures/imagesource.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/items/wieldmesh.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/shadows/dynamicshadows.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/shadows/dynamicshadowsrender.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/shadows/shadowsshadercallbacks.cpp

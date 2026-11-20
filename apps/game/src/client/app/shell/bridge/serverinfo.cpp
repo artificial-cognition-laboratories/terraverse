@@ -5,7 +5,7 @@
 #include "src/server/app/server.h"
 #include "src/client/world/session/client.h"
 #include "src/server/world/state/environment/serverenvironment.h"
-#include "src/shared/core/version.h"
+#include "src/shared/base/version.h"
 
 namespace shell {
 

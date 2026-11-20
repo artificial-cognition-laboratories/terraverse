@@ -3,7 +3,7 @@
 
 #include "src/server/world/run/machines/piece/frame.h"
 
-#include "src/shared/core/exceptions.h"
+#include "src/shared/base/exceptions.h"
 #include <array>
 
 namespace piece {

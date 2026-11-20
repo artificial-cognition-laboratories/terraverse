@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2022 Luanti Authors
 
-#include "src/shared/core/catch.h"
-#include "src/shared/util/serialize.h"
+#include "src/shared/base/catch.h"
+#include "src/shared/util/data/serialize.h"
 #include <sstream>
 #include <ios>
 

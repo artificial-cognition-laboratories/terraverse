@@ -5,7 +5,7 @@
 #include "src/client/app/shell/bridge/bridge.h"
 #include "src/client/app/shell/host/shell.h"
 #include "src/client/world/session/client.h"
-#include "src/shared/core/exceptions.h"
+#include "src/shared/base/exceptions.h"
 #include <sstream>
 
 namespace shell {

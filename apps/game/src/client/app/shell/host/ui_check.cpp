@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/app/shell/host/ui_check.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/platform/porting.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/platform/system/porting.h"
 #include "library/trace/trace.h"
 #include <IEventReceiver.h>
 #include <algorithm>

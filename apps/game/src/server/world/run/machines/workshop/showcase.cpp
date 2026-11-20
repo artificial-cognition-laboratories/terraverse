@@ -3,11 +3,11 @@
 
 #include "src/server/world/run/machines/workshop/showcase.h"
 
-#include "src/shared/core/constants.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/core/gamedef.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/base/gamedef.h"
 #include "src/server/world/run/machines/workshop/motion.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/game/content/nodedef.h"
 #include "src/server/world/run/machines/piece/machine.h"
 #include "src/server/world/run/machines/workshop/starters.h"
 

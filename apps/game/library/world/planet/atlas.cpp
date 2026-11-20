@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "library/world/planet/atlas.h"
-#include "src/shared/platform/log.h"
+#include "src/shared/platform/system/log.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>

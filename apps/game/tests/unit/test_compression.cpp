@@ -6,10 +6,10 @@
 
 #include <sstream>
 
-#include "src/shared/platform/log.h"
-#include "src/shared/core/serialization.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/core/noise.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/base/serialization.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/base/noise.h"
 
 class TestCompression : public TestBase {
 public:

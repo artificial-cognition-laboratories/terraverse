@@ -4,7 +4,7 @@
 #include "library/trace/trace.h"
 #include "src/client/app/shell/host/surface.h"
 #include "src/client/app/shell/host/pixels.h"
-#include "src/shared/core/exceptions.h"
+#include "src/shared/base/exceptions.h"
 #include <IVideoDriver.h>
 #include <cstring>
 #include <mutex>

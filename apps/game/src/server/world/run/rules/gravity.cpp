@@ -15,7 +15,7 @@
 #include "src/server/world/load/emerge.h"
 #include "src/server/world/generate/mapgen.h"
 #include "library/space/orbit/flight.h"
-#include "src/shared/objects/remoteplayer.h"
+#include "src/shared/game/objects/remoteplayer.h"
 #include "src/server/players/player_sao.h"
 #include "src/server/world/state/environment/serverenvironment.h"
 #include <algorithm>

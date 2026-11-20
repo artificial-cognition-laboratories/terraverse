@@ -6,9 +6,9 @@
 #include "src/server/world/state/blockmodifier.h"
 #include "src/server/world/state/environment/serverenvironment.h"
 #include "src/server/world/state/servermap.h"
-#include "src/shared/map/mapblock.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/core/gamedef.h"
+#include "src/shared/map/block/mapblock.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/base/gamedef.h"
 
 /*
 	ABMs

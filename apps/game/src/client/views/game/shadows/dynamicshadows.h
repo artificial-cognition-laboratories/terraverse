@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes_bloated.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
 #include <matrix4.h>
-#include "src/shared/core/constants.h"
+#include "src/shared/base/constants.h"
 
 class Camera;
 class Client;

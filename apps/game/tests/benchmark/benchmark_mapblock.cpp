@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2023 Luanti Authors
 
-#include "src/shared/core/catch.h"
-#include "src/shared/map/mapblock.h"
+#include "src/shared/base/catch.h"
+#include "src/shared/map/block/mapblock.h"
 #include <vector>
 
 typedef std::vector<MapBlock*> MBContainer;

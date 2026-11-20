@@ -3,7 +3,7 @@
 
 #include "src/server/world/run/machines/workshop/entities.h"
 
-#include "src/shared/objects/object_properties.h"
+#include "src/shared/game/objects/object_properties.h"
 #include "src/server/world/run/machines/piece/header.h"
 #include "src/server/world/run/machines/piece/machine.h"
 #include "src/server/world/state/objects/entity_sao.h"

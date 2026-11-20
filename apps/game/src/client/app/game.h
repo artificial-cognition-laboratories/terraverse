@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes.h"
-#include "src/shared/core/config.h"
+#include "src/shared/base/irrlichttypes.h"
+#include "src/shared/base/config.h"
 #include <csignal>
 #include <string>
 

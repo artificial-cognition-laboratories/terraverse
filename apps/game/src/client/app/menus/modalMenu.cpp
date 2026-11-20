@@ -6,11 +6,11 @@
 #include <IEventReceiver.h>
 #include <IGUIComboBox.h>
 #include <IGUIEditBox.h>
-#include "src/client/render/core/renderingengine.h"
+#include "src/client/render/renderingengine.h"
 #include "src/client/app/menus/modalMenu.h"
 #include <IGUIEnvironment.h>
-#include "src/shared/platform/porting.h"
-#include "src/shared/platform/settings.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/platform/settings/settings.h"
 
 PointerAction PointerAction::fromEvent(const SEvent &event) {
 	switch (event.EventType) {

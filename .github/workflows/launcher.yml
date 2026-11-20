@@ -202,7 +202,7 @@ jobs:
             > "$out/rolling/launcher.json"
           cat "$out/rolling/launcher.json"
 
-      # The game's key: install.sh trusts only what it signed (scripts/release/update-key.pub).
+      # The game's key: install.sh trusts only what it signed (apps/game/scripts/release/update-key.pub).
       - name: Sign launcher.json
         if: github.ref_type == 'tag'
         env:

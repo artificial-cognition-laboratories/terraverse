@@ -3,16 +3,16 @@
 ## Map
 - `.github/workflows/release.yml`: the game on Linux (ubuntu-22.04, gcc-12, sccache) and Windows
   (clang-cl, vcpkg x64-windows, sccache). Each: UI build, terra (gen:check, tsc, bun test, compile),
-  engine, unit tests (TestOnline, TestRelease, TestTerragen: Linux through `scripts/test.sh`, Windows
-  through cmd with `TF_TEST_SKIP` from `scripts/test/skips.sh`, so `scripts/test/skip.txt` applies to
+  engine, unit tests (TestOnline, TestRelease, TestTerragen: Linux through `apps/game/tests/run/engine.sh`, Windows
+  through cmd with `TF_TEST_SKIP` from `apps/game/tests/run/skips.sh`, so `apps/game/tests/run/skip.txt` applies to
   both), package, smoke boot. Publish only on a tag (a dispatch keeps an artifact, nothing else). Push
   filter: apps/game, apps/cli, packages/types, assets, library, cmake, CMakeLists, vcpkg.json,
-  .gitignore, scripts/release, stage-runtime, the workflow. Warm jobs: Linux 10.0 min, Windows 14.6 min;
+  .gitignore, apps/game/scripts/release, stage-runtime, the workflow. Warm jobs: Linux 10.0 min, Windows 14.6 min;
   Windows cold 36.4 min.
 - `.github/workflows/launcher.yml`: the launcher (Tauri/Rust). Warm: Linux 3.9 min, Windows 3.3 min.
 - `.github/workflows/macos.yml`: **dispatch only**, the macOS bring-up. macos-15 arm64, vcpkg arm64-osx
-  static (cache ~73 MB), CEF macosarm64, sccache. `scripts/release/configure-macos.sh`, build `-k 0`,
-  `scripts/release/build-errors.sh` (errors by file and undefined symbols, in the job summary), stage,
+  static (cache ~73 MB), CEF macosarm64, sccache. `apps/game/scripts/release/configure-macos.sh`, build `-k 0`,
+  `apps/game/scripts/release/build-errors.sh` (errors by file and undefined symbols, in the job summary), stage,
   then the three unit modules. **Green** since run 44412675690. Warm 3.6 min (configure 35 s, build 2 min,
   tests 41 s); cold 30 min (vcpkg 19 min, engine 11 min).
 - `scripts/ci/status.ts` (`bun ci:status [--since date]`): what's running, each workflow's latest
@@ -21,7 +21,7 @@
   targets (`CURL_LINK`, `FREETYPE_LINK` in apps/game/src/CMakeLists.txt), OpenAL is the system framework
   (configure-macos.sh). The shell is **not wired**: `Shell` throws "not wired on macOS yet", `main`
   skips `runHelper` on Apple. So: tests and `--server` can run, the client can't.
-  Still non-portable: `scripts/test.sh` with no module args uses `mapfile` (bash 4; macOS has 3.2);
+  Still non-portable: `apps/game/tests/run/engine.sh` with no module args uses `mapfile` (bash 4; macOS has 3.2);
   vcpkg's openal-soft is still built on osx though unused (drop it with `"platform": "!osx"` the next
   time vcpkg.json changes anyway: changing it now makes Windows rebuild vcpkg cold, ~36 min);
   vcpkg builds for macOS 15 while the engine targets 13.0 (ld warns; needs an overlay triplet with
@@ -54,7 +54,7 @@ kind's median (the API doesn't say whether caches hit).
    - [x] Dispatch-only macos.yml (2026-11-18).
    - [x] Compiles (sidecar SOCK_CLOEXEC, st_mtimespec), links (curl/FreeType targets, system OpenAL),
      unit tests pass (shell guarded), 2026-11-18.
-   - [ ] Headless server boot on the runner: `scripts/release/smoke-server.sh` shared by all three
+   - [ ] Headless server boot on the runner: `apps/game/scripts/release/smoke-server.sh` shared by all three
      platforms (moves the inline YAML boot checks into a script too: milestone 6). Then add macOS to
      release.yml as a **non-publishing** job on master pushes (it can't publish until it packages), so
      every push keeps macOS compiling; macos.yml goes.
@@ -62,7 +62,7 @@ kind's median (the API doesn't say whether caches hit).
    - [ ] The app: `.app` bundle with CEF's framework and its helper apps (`<name> Helper.app`,
      GPU/Renderer/Plugin variants), `CefScopedLibraryLoader` LoadInMain in main and LoadInHelper in a
      helper executable, then drop the Shell guard. Verify by a client start on the runner (screenshot).
-   - [ ] `scripts/release/package-macos.sh` (ad-hoc signed; Developer ID + notarisation waits on the
+   - [ ] `apps/game/scripts/release/package-macos.sh` (ad-hoc signed; Developer ID + notarisation waits on the
      developer's answer in the charter), smoke test, publish in release.yml: release-path change, needs
      the charter's dispatch proof.
    - [ ] Launcher (Tauri) on macOS in launcher.yml.

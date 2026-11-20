@@ -4,12 +4,12 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/core/noise.h"
-#include "src/shared/platform/settings.h"
+#include "src/shared/base/noise.h"
+#include "src/shared/platform/settings/settings.h"
 #include "src/server/world/generate/mapgen_terra.h"
 #include "src/server/world/load/emerge.h"
-#include "src/shared/util/hashing.h"
-#include "src/shared/core/printing.h"
+#include "src/shared/util/hash/hashing.h"
+#include "src/shared/base/printing.h"
 #include "src/shared/map/map_settings_manager.h"
 
 class TestMapSettingsManager : public TestBase {

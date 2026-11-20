@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes.h"
+#include "src/shared/base/irrlichttypes.h"
 #include <include/cef_client.h>
 #include <include/wrapper/cef_message_router.h>
 #include <atomic>

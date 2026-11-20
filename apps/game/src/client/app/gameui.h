@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes.h"
+#include "src/shared/base/irrlichttypes.h"
 #include <IGUIEnvironment.h>
 #include <memory>
 #include "src/client/app/game.h"

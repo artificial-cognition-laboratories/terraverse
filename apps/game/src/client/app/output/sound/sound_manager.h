@@ -12,9 +12,9 @@
 #include "src/client/app/output/sound/al_extensions.h"
 #include "src/client/app/output/sound/sound_constants.h"
 #include "src/client/app/output/sound/sound_manager_messages.h"
-#include "src/shared/content/sound_spec.h"
-#include "src/shared/threading/thread.h"
-#include "src/shared/util/container.h" // MutexedQueue
+#include "src/shared/game/content/sound_spec.h"
+#include "src/shared/platform/threading/thread.h"
+#include "src/shared/util/data/container.h" // MutexedQueue
 
 namespace sound {
 

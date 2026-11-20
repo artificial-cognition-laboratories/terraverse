@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2023 Luanti Authors
 
-#include "src/shared/core/catch.h"
-#include "src/shared/core/dummygamedef.h"
+#include "src/shared/base/catch.h"
+#include "src/shared/base/dummygamedef.h"
 #include "src/shared/map/map.h"
-#include "src/shared/map/mapsector.h"
+#include "src/shared/map/block/mapsector.h"
 
 namespace {
 class TestMap : public Map {

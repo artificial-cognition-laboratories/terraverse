@@ -4,7 +4,7 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/core/exceptions.h"
+#include "src/shared/base/exceptions.h"
 #include "irr_ptr.h"
 #include "IReferenceCounted.h"
 

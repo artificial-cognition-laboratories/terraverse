@@ -8,8 +8,8 @@
 #include "src/client/app/shell/bridge/screens.h"
 #include "src/client/app/shell/bridge/state.h"
 #include "src/client/app/shell/host/ui.h"
-#include "src/client/views/scenes/planetarium.h"
-#include "library/world/terragen/worlds.h"
+#include "src/client/views/scenes/kinds/planetarium.h"
+#include "library/world/terragen/src/code/worlds.h"
 #include <optional>
 #include <string>
 

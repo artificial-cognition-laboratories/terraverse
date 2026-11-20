@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "src/shared/online/http.h"
-#include "src/shared/online/join.h"
+#include "src/shared/platform/online/http.h"
+#include "src/shared/platform/online/join.h"
 #include <json/json.h>
 #include <atomic>
 #include <functional>

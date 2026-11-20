@@ -16,7 +16,7 @@ target_include_directories(tiniergltf
   INTERFACE
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
 	"${JSON_INCLUDE_DIR}" # Set in FindJson.cmake
-  "${CMAKE_SOURCE_DIR}/src/shared" # util/base64.h
+  "${CMAKE_SOURCE_DIR}/src/shared/util" # text/base64.h
 )
 
 target_link_libraries(tiniergltf)

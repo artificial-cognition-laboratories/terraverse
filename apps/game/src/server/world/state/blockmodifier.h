@@ -10,8 +10,8 @@
 #include <unordered_set>
 #include <unordered_map>
 
-#include "src/shared/core/irr_v3d.h"
-#include "src/shared/map/mapnode.h"
+#include "src/shared/base/irr_v3d.h"
+#include "src/shared/map/block/mapnode.h"
 
 class ServerEnvironment;
 class ServerMap;

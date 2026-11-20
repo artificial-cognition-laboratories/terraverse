@@ -4,8 +4,8 @@
 #include "tests/unit/test.h"
 
 #include "src/client/views/game/sky/atlas_view.h"
-#include "src/shared/core/constants.h"
-#include "src/shared/util/numeric.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/util/math/numeric.h"
 #include <map>
 #include <set>
 

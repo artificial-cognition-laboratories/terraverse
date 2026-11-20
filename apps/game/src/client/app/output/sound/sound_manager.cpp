@@ -9,10 +9,10 @@
 #include "src/client/app/output/sound/sound_manager.h"
 
 #include "src/client/app/output/sound/sound_singleton.h"
-#include "src/shared/util/numeric.h" // myrand()
-#include "src/shared/util/tracy_wrapper.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/platform/porting.h"
+#include "src/shared/util/math/numeric.h" // myrand()
+#include "src/shared/util/timing/tracy_wrapper.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/platform/system/porting.h"
 
 namespace sound {
 

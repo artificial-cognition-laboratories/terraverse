@@ -5,11 +5,11 @@
 #include "src/client/world/objects/content_cso.h"
 #include <IBillboardSceneNode.h>
 #include <ISceneManager.h>
-#include "src/client/render/core/texturesource.h"
+#include "src/client/render/textures/texturesource.h"
 #include "src/client/world/session/clientenvironment.h"
 #include "src/client/world/session/client.h"
 #include "src/shared/map/map.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/game/content/nodedef.h"
 
 class SmokePuffCSO: public ClientSimpleObject
 {

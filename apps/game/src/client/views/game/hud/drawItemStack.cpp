@@ -5,16 +5,16 @@
 #include "src/client/views/game/hud/drawItemStack.h"
 
 #include <string>
-#include "src/shared/platform/settings.h"
+#include "src/shared/platform/settings/settings.h"
 #include "src/client/world/session/client.h"
-#include "src/shared/platform/porting.h"
-#include "src/shared/items/inventory.h"
-#include "src/shared/items/itemdef.h"
-#include "src/client/render/core/mesh.h"
-#include "src/client/render/meshgen/wieldmesh.h"
-#include "src/client/render/core/texturesource.h"
-#include "src/client/render/core/guiscalingfilter.h"
-#include "src/client/render/meshgen/item_visuals_manager.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/game/items/inventory.h"
+#include "src/shared/game/items/itemdef.h"
+#include "src/client/render/mesh/mesh.h"
+#include "src/client/render/items/wieldmesh.h"
+#include "src/client/render/textures/texturesource.h"
+#include "src/client/render/textures/guiscalingfilter.h"
+#include "src/client/render/items/item_visuals_manager.h"
 #include <IMesh.h>
 #include <IMeshBuffer.h>
 

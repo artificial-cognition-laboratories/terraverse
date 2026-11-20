@@ -3,9 +3,9 @@
 
 #include "library/trace/trace.h"
 #include "src/client/app/shell/bridge/entering.h"
-#include "src/client/views/scenes/planetarium.h"
+#include "src/client/views/scenes/kinds/planetarium.h"
 #include "src/client/app/shell/host/shell.h"
-#include "src/shared/platform/porting.h"
+#include "src/shared/platform/system/porting.h"
 #include <IVideoDriver.h>
 #include <ICursorControl.h>
 #include <algorithm>

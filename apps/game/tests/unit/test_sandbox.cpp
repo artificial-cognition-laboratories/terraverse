@@ -5,7 +5,7 @@
 #include "tests/unit/test.h"
 #include "tests/unit/cpu_time.h"
 
-#include "src/shared/platform/porting.h"
+#include "src/shared/platform/system/porting.h"
 #include "library/matter/sandbox/sandbox.h"
 #include "library/matter/sandbox/world.h"
 #include <map>

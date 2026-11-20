@@ -5,22 +5,22 @@
 #include "src/client/views/game/camera.h"
 #include "src/client/world/player/body.h" // Terra Firma
 #include "src/client/world/session/client.h"
-#include "src/client/render/meshgen/clientmap.h"     // MapDrawControl
+#include "src/client/render/map/clientmap.h"     // MapDrawControl
 #include "library/world/planet/atlas.h" // Terra Firma
 #include "src/client/world/objects/localplayer.h"
-#include "src/shared/objects/player.h"
+#include "src/shared/game/objects/player.h"
 #include <cmath>
-#include "src/client/render/core/renderingengine.h"
+#include "src/client/render/renderingengine.h"
 #include "src/client/world/objects/content_cao.h"
-#include "src/shared/platform/settings.h"
-#include "src/client/render/meshgen/wieldmesh.h"
-#include "src/shared/core/noise.h"         // easeCurve
+#include "src/shared/platform/settings/settings.h"
+#include "src/client/render/items/wieldmesh.h"
+#include "src/shared/base/noise.h"         // easeCurve
 #include "src/client/app/input/mtevent.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/util/numeric.h"
-#include "src/shared/core/constants.h"
-#include "src/client/render/core/fontengine.h"
-#include "src/shared/platform/gettext.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/util/math/numeric.h"
+#include "src/shared/base/constants.h"
+#include "src/client/render/fonts/fontengine.h"
+#include "src/shared/platform/system/gettext.h"
 
 #include <ICameraSceneNode.h>
 #include <IGUIFont.h>

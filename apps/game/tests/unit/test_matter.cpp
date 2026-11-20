@@ -6,7 +6,7 @@
 #include "library/matter/matter/grains.h"
 #include "library/matter/matter/matter.h"
 #include "library/matter/matter/mixture.h"
-#include "src/shared/platform/porting.h"
+#include "src/shared/platform/system/porting.h"
 
 using namespace matter;
 

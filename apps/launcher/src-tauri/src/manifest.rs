@@ -1,5 +1,5 @@
 // The versions there are: every GitHub release that carries a manifest signed
-// by CI (scripts/release/manifest.ts), checked against the key the game trusts.
+// by CI (apps/game/scripts/release/manifest.ts), checked against the key the game trusts.
 // A pre-release is a beta; the release's text is its notes. The last list is
 // kept, so the launcher still knows what it has when offline.
 

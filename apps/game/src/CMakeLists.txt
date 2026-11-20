@@ -81,7 +81,7 @@ if(BUILD_CLIENT AND ENABLE_SHELL)
 endif()
 
 
-# Terra Firma: hosts ask the router to open their port (shared/online/upnp.cpp)
+# Terra Firma: hosts ask the router to open their port (shared/platform/online/upnp.cpp)
 option(ENABLE_UPNP "Open the hosting port with UPnP (miniupnpc)" TRUE)
 set(USE_UPNP FALSE)
 if(BUILD_CLIENT AND ENABLE_UPNP)
@@ -341,7 +341,7 @@ if(WIN32)
 			NOMINMAX
 		)
 		# Terra Firma: <windows.h>'s `near` and `far` macros, gone before anything sees them
-		add_compile_options("/FI${CMAKE_CURRENT_SOURCE_DIR}/windows_names.h")
+		add_compile_options("/FI${CMAKE_CURRENT_SOURCE_DIR}/shared/platform/system/windows_names.h")
 		# Terra Firma: terragen's fixed point uses __int128, so Windows builds
 		# with clang-cl; its 128-bit division lives in compiler-rt.
 		if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -459,53 +459,23 @@ add_custom_target(GenerateVersion
 
 
 
-add_subdirectory(${GAME_DIR}/src/shared/threading ${CMAKE_CURRENT_BINARY_DIR}/threading)
-add_subdirectory(${GAME_DIR}/src/shared/content ${CMAKE_CURRENT_BINARY_DIR}/content)
+add_subdirectory(${GAME_DIR}/src/shared/platform/threading ${CMAKE_CURRENT_BINARY_DIR}/threading)
+add_subdirectory(${GAME_DIR}/src/shared/game/content ${CMAKE_CURRENT_BINARY_DIR}/content)
 add_subdirectory(${GAME_DIR}/src/server/world/load/database ${CMAKE_CURRENT_BINARY_DIR}/database)
 add_subdirectory(${GAME_DIR}/src/server/world/generate ${CMAKE_CURRENT_BINARY_DIR}/mapgen)
+if(BUILD_UNITTESTS) # (first: the libraries below declare their tests with its library_test)
+	add_subdirectory(${GAME_DIR}/tests/library ${CMAKE_CURRENT_BINARY_DIR}/library_tests)
+endif()
 add_subdirectory(${GAME_DIR}/library/world/terragen ${CMAKE_CURRENT_BINARY_DIR}/terragen)
 add_subdirectory(${GAME_DIR}/library/life/flora ${CMAKE_CURRENT_BINARY_DIR}/flora)
 
-# The hash of what terragen's grids are built from: kept grids are named by it
-# (sorted: a list's order mustn't change the hash)
-list(SORT terragen_grid_SRCS)
-file(WRITE "${PROJECT_BINARY_DIR}/terragen_grid_sources.txt" "${terragen_grid_SRCS}") # (a list in -D would split the command)
-add_custom_command(
-	OUTPUT "${PROJECT_BINARY_DIR}/terragen_grid_sources.cpp"
-	COMMAND ${CMAKE_COMMAND}
-	-D "PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
-	-D "PROJECT_BINARY_DIR=${PROJECT_BINARY_DIR}"
-	-D "GRID_SRCS_FILE=${PROJECT_BINARY_DIR}/terragen_grid_sources.txt"
-	-D "TEMPLATE=${GAME_DIR}/library/world/terragen/grid_sources.cpp.in"
-	-D "OUTPUT=${PROJECT_BINARY_DIR}/terragen_grid_sources.cpp"
-	-P "${CMAKE_SOURCE_DIR}/cmake/Modules/HashGridSources.cmake"
-	DEPENDS
-		${terragen_grid_SRCS}
-		"${GAME_DIR}/library/world/terragen/grid_sources.cpp.in"
-		"${CMAKE_SOURCE_DIR}/cmake/Modules/HashGridSources.cmake")
-# And of all terragen: what a world model's kept river levels and atlas
-# layouts are named by (anything outside it may change and keep them)
-file(GLOB terragen_all_SRCS "${GAME_DIR}/library/world/terragen/*.cpp" "${GAME_DIR}/library/world/terragen/*.h")
-list(SORT terragen_all_SRCS)
-file(WRITE "${PROJECT_BINARY_DIR}/terragen_sources.txt" "${terragen_all_SRCS}")
-add_custom_command(
-	OUTPUT "${PROJECT_BINARY_DIR}/terragen_sources.cpp"
-	COMMAND ${CMAKE_COMMAND}
-	-D "GRID_SRCS_FILE=${PROJECT_BINARY_DIR}/terragen_sources.txt"
-	-D "TEMPLATE=${GAME_DIR}/library/world/terragen/terragen_sources.cpp.in"
-	-D "OUTPUT=${PROJECT_BINARY_DIR}/terragen_sources.cpp"
-	-P "${CMAKE_SOURCE_DIR}/cmake/Modules/HashGridSources.cmake"
-	DEPENDS
-		${terragen_all_SRCS}
-		"${GAME_DIR}/library/world/terragen/terragen_sources.cpp.in"
-		"${CMAKE_SOURCE_DIR}/cmake/Modules/HashGridSources.cmake")
 # And of what a far tile's built from (all of terragen, the terra generator's
 # columns, the atlas, the far view's land): kept far tiles are named by it
-file(GLOB far_tile_SRCS
-	"${GAME_DIR}/library/world/terragen/*.cpp" "${GAME_DIR}/library/world/terragen/*.h"
-	"${GAME_DIR}/src/server/world/generate/terra_*.cpp" "${GAME_DIR}/src/server/world/generate/terra_*.h"
-	"${GAME_DIR}/src/server/world/generate/atlas_land.*" "${GAME_DIR}/library/world/planet/atlas.*"
-	"${GAME_DIR}/src/client/views/game/far/terrain.*" "${GAME_DIR}/src/client/views/game/far/tiling.*" "${GAME_DIR}/src/client/views/game/far/tilecache.*")
+file(GLOB_RECURSE far_tile_SRCS
+	"${GAME_DIR}/library/world/terragen/src/*.cpp" "${GAME_DIR}/library/world/terragen/src/*.h"
+	"${GAME_DIR}/src/server/world/generate/place/terra_*.cpp" "${GAME_DIR}/src/server/world/generate/place/terra_*.h" "${GAME_DIR}/src/server/world/generate/land/terra_*.cpp" "${GAME_DIR}/src/server/world/generate/land/terra_*.h"
+	"${GAME_DIR}/src/server/world/generate/land/atlas_land.*" "${GAME_DIR}/library/world/planet/atlas.*"
+	"${GAME_DIR}/src/client/views/game/far/land/terrain.*" "${GAME_DIR}/src/client/views/game/far/tiles/tiling.*" "${GAME_DIR}/src/client/views/game/far/tiles/tilecache.*")
 list(SORT far_tile_SRCS)
 file(WRITE "${PROJECT_BINARY_DIR}/far_sources.txt" "${far_tile_SRCS}")
 add_custom_command(
@@ -519,7 +489,7 @@ add_custom_command(
 		${far_tile_SRCS}
 		"${GAME_DIR}/src/client/views/game/far/far_sources.cpp.in"
 		"${CMAKE_SOURCE_DIR}/cmake/Modules/HashGridSources.cmake")
-add_subdirectory(${GAME_DIR}/src/shared/release ${CMAKE_CURRENT_BINARY_DIR}/release)
+add_subdirectory(${GAME_DIR}/src/shared/platform/release ${CMAKE_CURRENT_BINARY_DIR}/release)
 add_subdirectory(${GAME_DIR}/library/world/planet ${CMAKE_CURRENT_BINARY_DIR}/planet)
 add_subdirectory(${GAME_DIR}/src/client/views/game/far ${CMAKE_CURRENT_BINARY_DIR}/far)
 add_subdirectory(${GAME_DIR}/library/space/air ${CMAKE_CURRENT_BINARY_DIR}/air)
@@ -528,7 +498,7 @@ add_subdirectory(${GAME_DIR}/library/geometry/shape ${CMAKE_CURRENT_BINARY_DIR}/
 add_subdirectory(${GAME_DIR}/library/matter/fill ${CMAKE_CURRENT_BINARY_DIR}/fill)
 add_subdirectory(${GAME_DIR}/library/life/sprig ${CMAKE_CURRENT_BINARY_DIR}/sprig)
 add_subdirectory(${GAME_DIR}/src/server/world/run/pile ${CMAKE_CURRENT_BINARY_DIR}/pile)
-add_subdirectory(${GAME_DIR}/src/server/mods/sidecar ${CMAKE_CURRENT_BINARY_DIR}/sidecar)
+add_subdirectory(${GAME_DIR}/src/server/app/mods/sidecar ${CMAKE_CURRENT_BINARY_DIR}/sidecar)
 add_subdirectory(${GAME_DIR}/tests/probe ${CMAKE_CURRENT_BINARY_DIR}/probe)
 add_subdirectory(${GAME_DIR}/src/server/world/run/sculpt ${CMAKE_CURRENT_BINARY_DIR}/sculpt)
 add_subdirectory(${GAME_DIR}/src/server/world/run/machines/piece ${CMAKE_CURRENT_BINARY_DIR}/piece)
@@ -542,8 +512,8 @@ add_subdirectory(${GAME_DIR}/library/space/orbit ${CMAKE_CURRENT_BINARY_DIR}/orb
 add_subdirectory(${GAME_DIR}/library/world/weather ${CMAKE_CURRENT_BINARY_DIR}/weather)
 add_subdirectory(${GAME_DIR}/library/world/rivers ${CMAKE_CURRENT_BINARY_DIR}/rivers)
 add_subdirectory(${GAME_DIR}/library/matter/sandbox ${CMAKE_CURRENT_BINARY_DIR}/sandbox)
-add_subdirectory(${GAME_DIR}/src/shared/online ${CMAKE_CURRENT_BINARY_DIR}/online)
-add_subdirectory(${GAME_DIR}/src/shared/network ${CMAKE_CURRENT_BINARY_DIR}/network)
+add_subdirectory(${GAME_DIR}/src/shared/platform/online ${CMAKE_CURRENT_BINARY_DIR}/online)
+add_subdirectory(${GAME_DIR}/src/shared/platform/network ${CMAKE_CURRENT_BINARY_DIR}/network)
 add_subdirectory(${GAME_DIR}/src/shared/util ${CMAKE_CURRENT_BINARY_DIR}/util)
 add_subdirectory(${GAME_DIR}/src/server ${CMAKE_CURRENT_BINARY_DIR}/server)
 
@@ -560,40 +530,38 @@ endif()
 # CHECK_CLIENT_BUILD() macro. If you wrongly add something here there will be
 # a compiler error and you need to instead add it to client_SRCS or common_SRCS.
 set(independent_SRCS
-	shared/objects/activeobject.cpp
-	shared/chat/chat.cpp
-	shared/content/content_nodemeta.cpp
-	shared/core/convert_json.cpp
-	shared/items/craftdef.cpp
-	shared/platform/debug.cpp
-	shared/map/face_position_cache.cpp
-	shared/platform/gettext_plural_form.cpp
-	shared/platform/httpfetch.cpp
-	shared/objects/hud_element.cpp
-	shared/items/inventory.cpp
-	shared/items/itemstackmetadata.cpp
-	shared/map/lighting.cpp
-	shared/platform/log.cpp
-	shared/content/metadata.cpp
-	shared/map/nameidmapping.cpp
-	shared/content/nodemetadata.cpp
-	shared/content/nodetimer.cpp
-	shared/core/noise.cpp
-	shared/content/objdef.cpp
-	shared/objects/object_properties.cpp
-	shared/content/particles.cpp
-	shared/platform/profiler.cpp
-	shared/core/serialization.cpp
-	shared/platform/settings.cpp
-	shared/content/sound_spec.cpp
-	shared/objects/staticobject.cpp
+	shared/game/objects/activeobject.cpp
+	shared/game/chat/chat.cpp
+	shared/game/content/content_nodemeta.cpp
+	shared/base/convert_json.cpp
+	shared/game/items/craftdef.cpp
+	shared/platform/system/debug.cpp
+	shared/map/light/face_position_cache.cpp
+	shared/platform/system/gettext_plural_form.cpp
+	shared/platform/system/httpfetch.cpp
+	shared/game/objects/hud_element.cpp
+	shared/game/items/inventory.cpp
+	shared/game/items/itemstackmetadata.cpp
+	shared/map/light/lighting.cpp
+	shared/platform/system/log.cpp
+	shared/game/content/metadata.cpp
+	shared/map/block/nameidmapping.cpp
+	shared/game/content/nodemetadata.cpp
+	shared/game/content/nodetimer.cpp
+	shared/base/noise.cpp
+	shared/game/content/objdef.cpp
+	shared/game/objects/object_properties.cpp
+	shared/game/content/particles.cpp
+	shared/platform/system/profiler.cpp
+	shared/base/serialization.cpp
+	shared/platform/settings/settings.cpp
+	shared/game/content/sound_spec.cpp
+	shared/game/objects/staticobject.cpp
 	server/app/console/terminal_chat_console.cpp
-	shared/content/texture_override.cpp
-	shared/content/tileanimation.cpp
-	shared/items/tool.cpp
-	${PROJECT_BINARY_DIR}/terragen_grid_sources.cpp
+	shared/game/content/texture_override.cpp
+	shared/game/content/tileanimation.cpp
+	shared/game/items/tool.cpp
 	${PROJECT_BINARY_DIR}/far_sources.cpp
-	${PROJECT_BINARY_DIR}/terragen_sources.cpp
 	${common_network_SRCS}
 	${content_SRCS}
 	${database_SRCS}
@@ -607,41 +575,40 @@ file(GLOB common_HDRS "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
 set(common_SRCS
 	${common_HDRS}
 	${CMAKE_CURRENT_SOURCE_DIR}/client/world/session/clientdynamicinfo.cpp
-	shared/objects/collision.cpp
-	shared/content/content_mapnode.cpp
-	shared/platform/defaultsettings.cpp
+	shared/game/objects/collision.cpp
+	shared/game/content/content_mapnode.cpp
+	shared/platform/settings/defaultsettings.cpp
 	server/world/load/emerge.cpp
-	shared/environment/environment.cpp
-	shared/platform/filesys.cpp
-	shared/platform/gettext.cpp
-	shared/items/inventorymanager.cpp
-	shared/items/itemdef.cpp
-	shared/map/light.cpp
+	shared/game/environment/environment.cpp
+	shared/platform/system/filesys.cpp
+	shared/platform/system/gettext.cpp
+	shared/game/items/inventorymanager.cpp
+	shared/game/items/itemdef.cpp
+	shared/map/light/light.cpp
 	main.cpp
 	shared/map/map_settings_manager.cpp
 	shared/map/map.cpp
-	shared/map/mapblock.cpp
-	shared/map/mapnode.cpp
-	shared/map/mapsector.cpp
-	shared/content/nodedef.cpp
-	shared/objects/pathfinder.cpp
-	shared/objects/player.cpp
-	shared/platform/porting.cpp
+	shared/map/block/mapblock.cpp
+	shared/map/block/mapnode.cpp
+	shared/map/block/mapsector.cpp
+	shared/game/content/nodedef.cpp
+	shared/game/objects/pathfinder.cpp
+	shared/game/objects/player.cpp
+	shared/platform/system/porting.cpp
 	shared/map/raycast.cpp
-	shared/map/reflowscan.cpp
-	shared/objects/remoteplayer.cpp
-	shared/environment/rollback_interface.cpp
+	shared/map/voxel/reflowscan.cpp
+	shared/game/objects/remoteplayer.cpp
+	shared/game/environment/rollback_interface.cpp
 	server/app/server.cpp
 	server/world/state/environment/serverenvironment.cpp
 	server/world/state/servermap.cpp
-	shared/platform/translation.cpp
-	shared/core/version.cpp
-	shared/map/voxel.cpp
-	shared/map/voxelalgorithms.cpp
+	shared/platform/system/translation.cpp
+	shared/base/version.cpp
+	shared/map/voxel/voxel.cpp
+	shared/map/voxel/voxelalgorithms.cpp
 	${benchmark_SRCS}
 	${common_server_SRCS}
 	${mapgen_SRCS}
-	${terragen_SRCS}
 	${flora_SRCS}
 	${planet_SRCS}
 	${far_SRCS}
@@ -672,11 +639,11 @@ set(common_SRCS
 )
 
 if(ANDROID)
-	list(APPEND common_SRCS shared/platform/porting_android.cpp)
+	list(APPEND common_SRCS shared/platform/system/porting_android.cpp)
 endif()
 
 if(BUILD_UNITTESTS OR BUILD_BENCHMARKS)
-	list(APPEND common_SRCS shared/core/catch.cpp)
+	list(APPEND common_SRCS shared/base/catch.cpp)
 endif()
 
 # This gives us the icon and file version information
@@ -861,6 +828,7 @@ if(BUILD_CLIENT)
 		${ZLIB_LIBRARIES}
 		libzip::zip
 		IrrlichtMt::IrrlichtMt
+		terragen
 		${ZSTD_LIBRARY}
 		${SOUND_LIBRARIES}
 		${SQLITE3_LIBRARY}
@@ -979,6 +947,7 @@ if(BUILD_SERVER)
 	target_link_libraries(
 		${PROJECT_NAME}server
 		Jolt
+		terragen
 		${ZLIB_LIBRARIES}
 		${ZSTD_LIBRARY}
 		${SQLITE3_LIBRARY}

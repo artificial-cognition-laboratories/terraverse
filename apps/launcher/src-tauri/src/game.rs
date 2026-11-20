@@ -1,5 +1,5 @@
 // Running a version: the game's own entry (`terraverse`, from
-// scripts/release/package-linux.sh, or `bin\terraverse.exe` from package-windows.sh) with TERRAVERSE_HOME set, its output kept
+// apps/game/scripts/release/package-linux.sh, or `bin\terraverse.exe` from package-windows.sh) with TERRAVERSE_HOME set, its output kept
 // in logs/, watched until it exits. A clean exit is a quit; anything else is a
 // crash, offered as a report.
 

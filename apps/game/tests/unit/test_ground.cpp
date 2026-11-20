@@ -5,13 +5,13 @@
 
 #include "src/server/world/run/ground/ground.h"
 #include "src/server/world/run/machines/workshop/motion.h"
-#include "src/shared/objects/collision.h"
-#include "src/shared/core/dummygamedef.h"
+#include "src/shared/game/objects/collision.h"
+#include "src/shared/base/dummygamedef.h"
 #include "src/shared/map/dummymap.h"
-#include "src/shared/environment/environment.h"
-#include "src/shared/objects/object_properties.h"
-#include "src/shared/network/networkprotocol.h"
-#include "src/shared/core/noise.h"
+#include "src/shared/game/environment/environment.h"
+#include "src/shared/game/objects/object_properties.h"
+#include "src/shared/platform/network/networkprotocol.h"
+#include "src/shared/base/noise.h"
 #include <chrono>
 #include <sstream>
 #include <map>

@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes_bloated.h"
-#include "src/shared/objects/activeobject.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
+#include "src/shared/game/objects/activeobject.h"
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>

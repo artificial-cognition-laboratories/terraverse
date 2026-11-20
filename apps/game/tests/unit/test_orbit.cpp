@@ -6,7 +6,7 @@
 #include "library/space/orbit/field.h"
 #include "library/space/orbit/flight.h"
 #include "library/world/planet/atlas.h"
-#include "library/world/terragen/climate.h"
+#include "library/world/terragen/src/grid/climate.h"
 #include <cmath>
 
 using namespace orbit;

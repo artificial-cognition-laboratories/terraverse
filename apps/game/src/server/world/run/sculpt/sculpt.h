@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include "src/shared/core/irr_v3d.h"
-#include "src/shared/map/mapnode.h"
+#include "src/shared/base/irr_v3d.h"
+#include "src/shared/map/block/mapnode.h"
 #include "library/geometry/shape/shape.h"
-#include "src/shared/map/voxel.h"
+#include "src/shared/map/voxel/voxel.h"
 #include <line3d.h>
 #include <deque>
 #include <functional>

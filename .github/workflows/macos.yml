@@ -54,7 +54,7 @@ jobs:
       - name: Configure
         run: |
           mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
-          scripts/release/configure-macos.sh dev
+          apps/game/scripts/release/configure-macos.sh dev
 
       - name: Save vcpkg builds
         if: always()
@@ -68,13 +68,15 @@ jobs:
         run: |
           set -o pipefail
           cmake --build .output/build -- -k 0 2>&1 | tee build.log
-          bash scripts/stage-runtime.sh
+          bash apps/game/scripts/stage-runtime.sh
 
       - name: List the errors
         if: failure()
-        run: scripts/release/build-errors.sh build.log
+        run: apps/game/scripts/release/build-errors.sh build.log
 
-      # The same modules as Linux and Windows. TestTerragen is fixed point: any
-      # difference from Linux is a bug, not a platform tolerance.
+      # The same modules as Linux and Windows. terragen's tests are fixed point:
+      # any difference from Linux is a bug, not a platform tolerance.
       - name: Unit tests
-        run: BUILT=1 bash scripts/test.sh TestOnline TestRelease TestTerragen
+        run: |
+          BUILT=1 bash apps/game/tests/run/engine.sh TestOnline TestRelease TestTerragenMatter
+          ctest --test-dir .output/build -L '^terragen$' -L '^hot$' --output-on-failure

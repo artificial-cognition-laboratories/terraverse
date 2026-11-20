@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "src/shared/core/irr_v2d.h"
-#include "src/shared/core/irr_v3d.h"
-#include "src/shared/core/irrlichttypes.h"
+#include "src/shared/base/irr_v2d.h"
+#include "src/shared/base/irr_v3d.h"
+#include "src/shared/base/irrlichttypes.h"
 #include "library/world/planet/atlas.h"
 #include <matrix4.h>
 #include <array>
@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include "src/shared/core/irr_aabb3d.h"
+#include "src/shared/base/irr_aabb3d.h"
 
 /*
 	An atlas planet as the eye sees it (planning/sprint-30-atlas.md, phase

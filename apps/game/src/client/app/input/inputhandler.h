@@ -5,10 +5,10 @@
 #pragma once
 
 #include <functional>
-#include "src/shared/core/exceptions.h"
+#include "src/shared/base/exceptions.h"
 
-#include "src/shared/core/irrlichttypes.h"
-#include "src/shared/core/irr_v2d.h"
+#include "src/shared/base/irrlichttypes.h"
+#include "src/shared/base/irr_v2d.h"
 #include <array>
 #include <bitset>
 #include <map>
@@ -16,8 +16,8 @@
 #include <unordered_map>
 #include <utility>
 #include "src/client/app/input/keycode.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/util/string.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/util/text/string.h"
 
 class InputHandler;
 

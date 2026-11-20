@@ -3,12 +3,12 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/platform/porting.h"
+#include "src/shared/platform/system/porting.h"
 #include "library/world/rivers/basin.h"
 #include "library/world/rivers/rivers.h"
-#include "library/world/terragen/grid.h"
-#include "library/world/terragen/sphere.h"
-#include "library/world/terragen/world.h"
+#include "library/world/terragen/src/grid/grid.h"
+#include "library/world/terragen/src/base/sphere.h"
+#include "library/world/terragen/src/world.h"
 #include "library/world/weather/weather.h"
 #include <cmath>
 

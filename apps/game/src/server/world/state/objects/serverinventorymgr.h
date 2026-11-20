@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "src/shared/items/inventorymanager.h"
+#include "src/shared/game/items/inventorymanager.h"
 #include <cassert>
 #include <functional>
 #include <memory>

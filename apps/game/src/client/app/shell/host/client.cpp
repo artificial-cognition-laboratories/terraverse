@@ -4,7 +4,7 @@
 #include "src/client/app/shell/host/client.h"
 #include "src/client/app/shell/host/canvas.h"
 #include "src/client/app/shell/host/inbox.h"
-#include "src/shared/platform/log.h"
+#include "src/shared/platform/system/log.h"
 #include "library/trace/trace.h"
 #include <cmath>
 

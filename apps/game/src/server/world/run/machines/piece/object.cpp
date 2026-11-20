@@ -3,8 +3,8 @@
 
 #include "src/server/world/run/machines/piece/object.h"
 
-#include "src/shared/core/exceptions.h"
-#include "src/shared/util/serialize.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/util/data/serialize.h"
 #include <random>
 #include <sstream>
 

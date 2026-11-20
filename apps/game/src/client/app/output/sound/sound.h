@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "src/shared/core/irr_v3d.h"
-#include "src/shared/core/config.h"
+#include "src/shared/base/irr_v3d.h"
+#include "src/shared/base/config.h"
 #include <limits>
 #include <string>
 #include <unordered_map>

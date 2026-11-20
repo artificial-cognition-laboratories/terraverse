@@ -3,7 +3,7 @@
 
 #include "tests/unit/test.h"
 
-#include "library/world/terragen/sphere.h"
+#include "library/world/terragen/src/base/sphere.h"
 #include <algorithm>
 #include <cmath>
 #include <set>

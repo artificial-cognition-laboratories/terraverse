@@ -4,8 +4,8 @@
 #include "src/server/world/run/machines/workshop/ground_read.h"
 #include "src/server/world/run/ground/ground.h"
 #include "src/shared/map/map.h"
-#include "src/shared/map/mapblock.h"
-#include "src/shared/content/nodedef.h"
+#include "src/shared/map/block/mapblock.h"
+#include "src/shared/game/content/nodedef.h"
 #include "library/world/planet/atlas.h"
 #include <array>
 

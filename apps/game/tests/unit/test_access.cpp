@@ -2,8 +2,8 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/core/exceptions.h"
-#include "src/shared/platform/filesys.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/platform/system/filesys.h"
 #include "src/server/app/access/access.h"
 #include <fstream>
 #include <stdexcept>

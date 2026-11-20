@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2023 sfan5
 
-#include "src/shared/core/catch.h"
-#include "src/shared/util/container.h"
+#include "src/shared/base/catch.h"
+#include "src/shared/util/data/container.h"
 
 // Testing the standard library is not useful except to compare
 //#define TEST_STDLIB

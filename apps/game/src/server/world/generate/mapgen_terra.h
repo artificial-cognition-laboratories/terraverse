@@ -4,18 +4,18 @@
 #pragma once
 
 #include "library/world/planet/atlas.h"
-#include "src/server/world/generate/atlas_land.h"
+#include "src/server/world/generate/land/atlas_land.h"
 #include "library/world/planet/atlas.h"
 #include <optional>
 
 #include "src/server/world/generate/mapgen.h"
-#include "library/world/terragen/world.h"
-#include "library/world/terragen/worlds.h"
+#include "library/world/terragen/src/world.h"
+#include "library/world/terragen/src/code/worlds.h"
 #include <memory>
 #include <mutex>
 #include <vector>
-#include "src/server/world/generate/terra_column.h"
-#include "src/server/world/generate/terra_flora.h"
+#include "src/server/world/generate/land/terra_column.h"
+#include "src/server/world/generate/place/terra_flora.h"
 #include <string>
 #include <unordered_map>
 

@@ -4,13 +4,13 @@
 
 #pragma once
 
-#include "src/shared/core/irrlichttypes_bloated.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
 #include <ISceneNode.h>
 #include <CMeshBuffer.h>
 #include <array>
 #include "src/client/views/game/camera.h" // CameraMode
 #include "irr_ptr.h"
-#include "src/shared/environment/skyparams.h"
+#include "src/shared/game/environment/skyparams.h"
 
 #define SKY_MATERIAL_COUNT 12
 

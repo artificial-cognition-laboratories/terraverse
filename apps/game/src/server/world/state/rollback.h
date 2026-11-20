@@ -5,8 +5,8 @@
 #pragma once
 
 #include <string>
-#include "src/shared/core/irr_v3d.h"
-#include "src/shared/environment/rollback_interface.h"
+#include "src/shared/base/irr_v3d.h"
+#include "src/shared/game/environment/rollback_interface.h"
 #include <list>
 #include <vector>
 #include <deque>

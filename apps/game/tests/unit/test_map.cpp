@@ -20,7 +20,7 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #include <cstdio>
 #include <unordered_set>
 #include <unordered_map>
-#include "src/shared/map/mapblock.h"
+#include "src/shared/map/block/mapblock.h"
 #include "src/shared/map/dummymap.h"
 
 class TestMap : public TestBase

@@ -12,7 +12,7 @@
 	dust, traced along each way out from a star in the disc. The band, the
 	dark lanes down it, the reddening at their edges and where the nebulae
 	lie all come from that, not from painting. Pure (no engine): render it
-	alone with scripts/milkyway-check/render.cpp. Visual only: floats, and
+	alone with apps/game/library/space/milkyway/tools/render.cpp. Visual only: floats, and
 	not part of any world's determinism.
 */
 namespace milkyway {

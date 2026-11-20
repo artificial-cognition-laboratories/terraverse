@@ -3,8 +3,8 @@
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "src/server/world/load/database/database.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/core/irrlichttypes.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/base/irrlichttypes.h"
 
 
 /****************

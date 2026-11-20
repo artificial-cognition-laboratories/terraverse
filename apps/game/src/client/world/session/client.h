@@ -8,17 +8,17 @@
 #include "src/server/world/run/machines/piece/machine.h"
 #include "src/server/world/run/sculpt/sculpt.h"
 #include "src/server/world/run/machines/workshop/motion.h" // Terra Firma: Materials, Grip
-#include "src/shared/core/gamedef.h"
-#include "src/shared/core/gameparams.h"
-#include "src/shared/items/inventorymanager.h"
-#include "src/shared/core/irrlichttypes.h"
-#include "src/shared/map/lighting.h"
-#include "src/shared/network/address.h"
-#include "src/shared/network/networkprotocol.h" // multiple enums
-#include "src/shared/network/peerhandler.h"
-#include "src/shared/util/numeric.h"
-#include "src/shared/util/string.h" // StringMap
-#include "src/client/views/game/far/terrain.h" // Terra Firma: far::Horizon
+#include "src/shared/base/gamedef.h"
+#include "src/shared/base/gameparams.h"
+#include "src/shared/game/items/inventorymanager.h"
+#include "src/shared/base/irrlichttypes.h"
+#include "src/shared/map/light/lighting.h"
+#include "src/shared/platform/network/address.h"
+#include "src/shared/platform/network/networkprotocol.h" // multiple enums
+#include "src/shared/platform/network/peerhandler.h"
+#include "src/shared/util/math/numeric.h"
+#include "src/shared/util/text/string.h" // StringMap
+#include "src/client/views/game/far/land/terrain.h" // Terra Firma: far::Horizon
 #include "library/world/planet/atlas.h" // Terra Firma
 
 #include <map>
@@ -28,7 +28,7 @@
 #include <set>
 #include <unordered_set>
 #include <vector>
-#include "src/client/views/game/water/liquids.h" // Terra Firma: liquids::Stream
+#include "src/client/world/sim/water/liquids.h" // Terra Firma: liquids::Stream
 
 #if !IS_CLIENT_BUILD
 #error Do not include in server builds

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "src/shared/platform/log_internal.h"
+#include "src/shared/platform/system/log_internal.h"
 #include <json/json.h>
 #include <deque>
 #include <mutex>

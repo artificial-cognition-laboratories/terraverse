@@ -2,39 +2,39 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
-#include "src/shared/release/release.h" // Terra Firma
-#include "src/shared/core/version.h" // Terra Firma
+#include "src/shared/platform/release/release.h" // Terra Firma
+#include "src/shared/base/version.h" // Terra Firma
 #include "src/server/app/server.h"
 #include "library/trace/marks.h"
 #include "src/server/world/run/machines/workshop/workshop.h"
 #include "library/space/orbit/field.h"
-#include "library/world/terragen/planet.h"
-#include "src/server/mods/commands.h"
+#include "library/world/terragen/src/system/planet.h"
+#include "src/server/game/commands.h"
 #include "src/server/app/access/access.h"
 #include "src/server/world/state/objects/entity_sao.h"
 #include "src/server/world/run/pile/piles.h"
 
-#include "src/shared/objects/activeobject.h"
-#include "src/shared/chat/chat_interface.h"
-#include "src/shared/chat/chatmessage.h"
-#include "src/shared/core/config.h"
-#include "src/shared/core/constants.h"
-#include "src/shared/content/content_nodemeta.h"
-#include "src/shared/items/craftdef.h"
-#include "src/shared/environment/environment.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/core/gameparams.h"
-#include "src/shared/platform/gettext.h"
-#include "src/shared/core/irr_v2d.h"
-#include "src/shared/items/itemdef.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/map/mapblock.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/content/particles.h"
-#include "src/shared/platform/profiler.h"
-#include "src/shared/objects/remoteplayer.h"
+#include "src/shared/game/objects/activeobject.h"
+#include "src/shared/game/chat/chat_interface.h"
+#include "src/shared/game/chat/chatmessage.h"
+#include "src/shared/base/config.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/game/content/content_nodemeta.h"
+#include "src/shared/game/items/craftdef.h"
+#include "src/shared/game/environment/environment.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/base/gameparams.h"
+#include "src/shared/platform/system/gettext.h"
+#include "src/shared/base/irr_v2d.h"
+#include "src/shared/game/items/itemdef.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/map/block/mapblock.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/game/content/particles.h"
+#include "src/shared/platform/system/profiler.h"
+#include "src/shared/game/objects/remoteplayer.h"
 #include "src/server/app/access/ban.h"
-#include "src/shared/online/gate.h"
+#include "src/shared/platform/online/gate.h"
 #include "src/server/world/state/environment/serverenvironment.h"
 #include "src/server/world/state/servermap.h"
 #include "src/server/players/player_sao.h"
@@ -42,37 +42,37 @@
 #include "src/server/world/state/objects/serveractiveobject.h"
 #include "src/server/world/state/objects/serverinventorymgr.h"
 #include "src/server/app/serverlist.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/platform/translation.h"
-#include "src/shared/util/base64.h"
-#include "src/shared/util/hashing.h"
-#include "src/shared/util/hex.h"
-#include "src/shared/util/serialize.h"
-#include "src/shared/util/string.h"
-#include "src/shared/util/thread.h"
-#include "src/shared/util/tracy_wrapper.h"
-#include "src/shared/core/version.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/platform/system/translation.h"
+#include "src/shared/util/text/base64.h"
+#include "src/shared/util/hash/hashing.h"
+#include "src/shared/util/text/hex.h"
+#include "src/shared/util/data/serialize.h"
+#include "src/shared/util/text/string.h"
+#include "src/shared/util/data/thread.h"
+#include "src/shared/util/timing/tracy_wrapper.h"
+#include "src/shared/base/version.h"
 
 // Mapgen
 #include "src/server/world/load/emerge.h"
 #include "src/server/world/generate/mapgen.h"
-#include "src/server/world/generate/mg_biome.h"
+#include "src/server/world/generate/luanti/mg_biome.h"
 #include "src/server/world/generate/mapgen_terra.h"
-#include "src/client/views/game/far/horizon.h"
+#include "src/client/views/game/far/land/horizon.h"
 
 // Modding
-#include "src/server/mods/sidecar/sidecar.h"
-#include "src/server/mods/registry.h" // Terra Firma
+#include "src/server/app/mods/sidecar/sidecar.h"
+#include "src/server/game/registry.h" // Terra Firma
 #include "tests/probe/probe.h" // Terra Firma
-#include "src/server/mods/interact.h" // Terra Firma
+#include "src/server/game/interact.h" // Terra Firma
 
 // Network
-#include "src/shared/network/connection.h"
-#include "src/shared/network/networkexceptions.h"
-#include "src/shared/network/networkpacket.h"
-#include "src/shared/network/networkprotocol.h"
+#include "src/shared/platform/network/connection.h"
+#include "src/shared/platform/network/networkexceptions.h"
+#include "src/shared/platform/network/networkpacket.h"
+#include "src/shared/platform/network/networkprotocol.h"
 #include "src/server/app/network/serveropcodes.h"
-#include "src/shared/core/serialization.h" // SER_FMT_VER_INVALID
+#include "src/shared/base/serialization.h" // SER_FMT_VER_INVALID
 
 // Database
 #include "src/server/world/load/database/database.h"

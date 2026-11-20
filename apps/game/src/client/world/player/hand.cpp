@@ -3,7 +3,7 @@
 
 #include "src/client/world/player/hand.h"
 
-#include "src/shared/core/exceptions.h"
+#include "src/shared/base/exceptions.h"
 #include <algorithm>
 #include <iterator>
 #include <utility>

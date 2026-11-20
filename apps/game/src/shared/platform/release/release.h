@@ -1,0 +1,49 @@
+// Terra Firma
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+#pragma once
+
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace release {
+
+// The key CI signs manifests with. gate.sh checks it against apps/game/scripts/release/update-key.pub.
+extern const char *const UPDATE_KEY;
+
+// A release version, in order: 0.3.0-beta.1 < 0.3.0-beta.2 < 0.3.0 < 0.3.1.
+// Pre-release parts compare as numbers when they are, else as words (alpha <
+// beta < rc), as semver has it; the launcher orders them the same way
+// (apps/launcher/src-tauri/src/version.rs).
+struct Version
+{
+	std::vector<int> core;
+	std::vector<std::string> pre; // empty for a release
+};
+bool operator<(const Version &a, const Version &b);
+inline bool operator>(const Version &a, const Version &b) { return b < a; }
+inline bool operator==(const Version &a, const Version &b) { return a.core == b.core && a.pre == b.pre; }
+inline bool operator!=(const Version &a, const Version &b) { return !(a == b); }
+
+// "v0.1.1", "0.1.1" or "0.3.0-beta.1". Nothing for a development build, whose
+// id is a git hash.
+std::optional<Version> parse(const std::string &version);
+
+// Started by the launcher (apps/launcher sets TERRAVERSE_LAUNCHER=1): it installs
+// and switches versions, so the game points there rather than at `terraverse update`.
+bool launched();
+
+// Does the signature (base64) cover exactly these bytes, under this PEM public key?
+bool verify(const std::string &bytes, const std::string &signature, const std::string &key);
+
+// The version a signed manifest names. Nothing if it can't be trusted.
+std::optional<std::string> latest(const std::string &manifest, const std::string &signature, const std::string &key);
+
+// Before a server opens a world: refuses one saved by a newer release (throws
+// BaseException, for the player to read), copies one saved by another release
+// into backups/, and records this build as the last to save it. Development
+// builds change nothing, so working on the game never stamps a world.
+void openWorld(const std::string &world, const std::string &build, const std::string &backups);
+
+} // namespace release

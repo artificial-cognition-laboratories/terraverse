@@ -4,14 +4,14 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/platform/log.h"
-#include "src/shared/platform/porting.h"
-#include "src/shared/platform/settings.h"
-#include "src/shared/util/serialize.h"
-#include "src/shared/network/peerhandler.h"
-#include "src/shared/network/mtp/internal.h"
-#include "src/shared/network/networkexceptions.h"
-#include "src/shared/network/networkpacket.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/util/data/serialize.h"
+#include "src/shared/platform/network/peerhandler.h"
+#include "src/shared/platform/network/mtp/internal.h"
+#include "src/shared/platform/network/networkexceptions.h"
+#include "src/shared/platform/network/networkpacket.h"
 
 class TestConnection : public TestBase {
 public:

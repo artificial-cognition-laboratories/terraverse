@@ -293,14 +293,14 @@ Matter Matter::load(const std::string &dir)
 		m.m_substances[n].weathers = x;
 	}
 
-	// each one's thermodynamics (sprint 79): baked by scripts/matter-data
+	// each one's thermodynamics (sprint 79): baked by apps/game/scripts/bake/matter-data
 	Json::Value thermo = readJson(dir + "/thermo.json");
 	if (!thermo["substances"].isObject())
 		throw MatterError(dir + ": thermo.json needs \"substances\"");
 	for (Substance &x : m.m_substances) {
 		const std::string where = "thermo.json " + x.id;
 		if (!thermo["substances"].isMember(x.id))
-			throw MatterError(where + ": missing (run scripts/matter-data/build.py)");
+			throw MatterError(where + ": missing (run apps/game/scripts/bake/matter-data/build.py)");
 		const Json::Value &t = thermo["substances"][x.id];
 		x.formation = number(t, "formation", where);
 		x.standard = x.state(298.15, ATMOSPHERE);

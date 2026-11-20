@@ -7,11 +7,11 @@ set(common_server_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/app/access/ban.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/state/blockmodifier.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/app/network/clientiface.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/mods/commands.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/mods/defs.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/mods/interact.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/mods/kinds.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/mods/registry.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/game/commands.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/game/defs.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/game/interact.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/game/kinds.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/game/registry.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/run/rules/lakes.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/state/objects/entity_sao.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/players/player_sao.cpp

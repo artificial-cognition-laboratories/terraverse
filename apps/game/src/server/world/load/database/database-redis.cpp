@@ -2,17 +2,17 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2014 celeron55, Perttu Ahola <celeron55@gmail.com>
 
-#include "src/shared/core/config.h"
+#include "src/shared/base/config.h"
 
 #if USE_REDIS
 
 #include "src/server/world/load/database/database-redis.h"
 
-#include "src/shared/platform/settings.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/core/printing.h"
-#include "src/shared/util/string.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/base/printing.h"
+#include "src/shared/util/text/string.h"
 
 #include <hiredis.h>
 #include <cassert>

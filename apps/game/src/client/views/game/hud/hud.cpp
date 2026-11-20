@@ -8,26 +8,26 @@
 #include <string>
 #include <iostream>
 #include <cmath>
-#include "src/shared/platform/settings.h"
-#include "src/shared/util/numeric.h"
-#include "src/shared/platform/log.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/shared/util/math/numeric.h"
+#include "src/shared/platform/system/log.h"
 #include "src/client/world/session/client.h"
-#include "src/shared/items/inventory.h"
-#include "src/client/render/core/shader.h"
+#include "src/shared/game/items/inventory.h"
+#include "src/client/render/shaders/shader.h"
 #include "src/client/world/objects/localplayer.h"
 #include "src/client/views/game/camera.h"
-#include "src/client/render/core/fontengine.h"
-#include "src/client/render/core/guiscalingfilter.h"
-#include "src/client/render/core/mesh.h"
-#include "src/client/render/core/renderingengine.h"
-#include "src/client/render/meshgen/minimap.h"
-#include "src/client/render/core/texturesource.h"
-#include "src/shared/util/enriched_string.h"
-#include "src/client/render/core/text/CGUITTFont.h"
+#include "src/client/render/fonts/fontengine.h"
+#include "src/client/render/textures/guiscalingfilter.h"
+#include "src/client/render/mesh/mesh.h"
+#include "src/client/render/renderingengine.h"
+#include "src/client/views/game/minimap/minimap.h"
+#include "src/client/render/textures/texturesource.h"
+#include "src/shared/util/text/enriched_string.h"
+#include "src/client/render/fonts/CGUITTFont.h"
 #include "src/client/views/game/hud/drawItemStack.h"
 #include <ICameraSceneNode.h>
 #include <IMesh.h>
-#include "src/shared/core/config.h"
+#include "src/shared/base/config.h"
 
 #define OBJECT_CROSSHAIR_LINE_SIZE 8
 #define CROSSHAIR_LINE_SIZE 10

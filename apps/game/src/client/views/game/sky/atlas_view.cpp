@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/views/game/sky/atlas_view.h"
-#include "src/shared/core/constants.h" // BS
-#include "src/shared/util/numeric.h"
+#include "src/shared/base/constants.h" // BS
+#include "src/shared/util/math/numeric.h"
 #include <algorithm>
 #include <cmath>
 

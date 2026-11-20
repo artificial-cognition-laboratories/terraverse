@@ -9,12 +9,12 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/host/cpu_canvas.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/debugger.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/entering.cpp
-	${GAME_DIR}/src/client/views/scenes/course.cpp
-	${GAME_DIR}/src/client/views/scenes/finewater.cpp
-	${GAME_DIR}/src/client/views/scenes/finepowder.cpp
-	${GAME_DIR}/src/client/views/scenes/plume.cpp
-	${GAME_DIR}/src/client/views/scenes/relief.cpp
-	${GAME_DIR}/src/client/views/scenes/flora.cpp
+	${GAME_DIR}/src/client/views/scenes/kinds/course.cpp
+	${GAME_DIR}/src/client/world/sim/fine/finewater.cpp
+	${GAME_DIR}/src/client/world/sim/fine/finepowder.cpp
+	${GAME_DIR}/src/client/world/sim/fine/plume.cpp
+	${GAME_DIR}/src/client/views/scenes/kinds/relief.cpp
+	${GAME_DIR}/src/client/views/scenes/kinds/flora.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/gpu_canvas.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/gpu_egl.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/gpu_programs.cpp
@@ -27,13 +27,13 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/options.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/pixels.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/process.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/../../views/scenes/preview.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/../../views/preview/preview.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/scheme.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/serverinfo.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/screens.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/session.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/loading.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/../../views/scenes/planetarium.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/../../views/scenes/kinds/planetarium.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/shell.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/social.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/state.cpp

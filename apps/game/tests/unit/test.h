@@ -9,10 +9,10 @@
 #include <sstream>
 #include <vector>
 
-#include "src/shared/core/irrlichttypes_bloated.h"
-#include "src/shared/platform/porting.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/map/mapnode.h"
+#include "src/shared/base/irrlichttypes_bloated.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/map/block/mapnode.h"
 
 class TestFailedException { // don’t derive from std::exception to avoid accidental catch
 public:

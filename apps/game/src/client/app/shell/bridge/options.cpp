@@ -3,9 +3,9 @@
 
 #include "src/client/app/shell/bridge/options.h"
 #include "src/client/app/shell/bridge/bridge.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/platform/settings.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/platform/settings/settings.h"
 #include <cmath>
 #include <vector>
 

@@ -3,11 +3,11 @@
 
 #include "tests/unit/test.h"
 
-#include "src/shared/core/constants.h"
+#include "src/shared/base/constants.h"
 #include "src/client/views/planetarium/camera.h"
-#include "src/client/views/planetarium/paint.h"
-#include "library/world/terragen/worlds.h"
-#include "library/world/terragen/code.h"
+#include "src/client/views/planetarium/overlays/paint.h"
+#include "library/world/terragen/src/code/worlds.h"
+#include "library/world/terragen/src/code/code.h"
 #include <chrono>
 #include <set>
 #include <algorithm>

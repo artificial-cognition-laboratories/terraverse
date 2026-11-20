@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include "src/shared/objects/player.h"
-#include "src/shared/core/constants.h"
-#include "src/shared/map/lighting.h"
+#include "src/shared/game/objects/player.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/map/light/lighting.h"
 #include <string>
 
 class Client;

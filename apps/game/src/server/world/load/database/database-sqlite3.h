@@ -7,7 +7,7 @@
 #include <cstring>
 #include <string>
 #include "src/server/world/load/database/database.h"
-#include "src/shared/core/exceptions.h"
+#include "src/shared/base/exceptions.h"
 
 extern "C" {
 #include "sqlite3.h"

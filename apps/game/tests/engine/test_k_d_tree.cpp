@@ -1,10 +1,10 @@
 // Copyright (C) 2024 Lars Müller
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include "src/shared/core/catch.h"
+#include "src/shared/base/catch.h"
 #include "irrTypes.h"
-#include "src/shared/core/noise.h"
-#include "src/shared/util/k_d_tree.h"
+#include "src/shared/base/noise.h"
+#include "src/shared/util/math/k_d_tree.h"
 
 #include <algorithm>
 #include <unordered_set>

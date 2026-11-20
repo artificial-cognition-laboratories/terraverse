@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "library/world/terragen/body.h"
+#include "library/world/terragen/src/system/body.h"
 #include <array>
 
 /*

@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/app/shell/bridge/bridge.h"
-#include "src/shared/core/convert_json.h"
-#include "src/shared/core/exceptions.h"
-#include "src/shared/platform/log.h"
+#include "src/shared/base/convert_json.h"
+#include "src/shared/base/exceptions.h"
+#include "src/shared/platform/system/log.h"
 #include "library/trace/trace.h"
 #include <json/json.h>
 #include <sstream>

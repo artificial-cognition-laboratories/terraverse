@@ -6,8 +6,8 @@
 
 #if CHECK_CLIENT_BUILD()
 
-#include "src/shared/platform/settings.h"
-#include "src/client/render/core/renderingengine.h"
+#include "src/shared/platform/settings/settings.h"
+#include "src/client/render/renderingengine.h"
 
 ClientDynamicInfo ClientDynamicInfo::getCurrent()
 {

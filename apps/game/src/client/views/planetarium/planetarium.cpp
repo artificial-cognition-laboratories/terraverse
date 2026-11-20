@@ -1,13 +1,13 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include "library/world/terragen/worlds.h"
+#include "library/world/terragen/src/code/worlds.h"
 #include "src/client/views/planetarium/planetarium.h"
-#include "src/client/render/core/shader.h"
-#include "src/client/views/planetarium/ribbon.h"
-#include "src/shared/core/constants.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/core/exceptions.h"
+#include "src/client/render/shaders/shader.h"
+#include "src/client/views/planetarium/overlays/ribbon.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/base/exceptions.h"
 #include <IEventReceiver.h>
 #include <IVideoDriver.h>
 #include <SMaterial.h>

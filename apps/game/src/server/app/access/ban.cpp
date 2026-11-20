@@ -5,13 +5,13 @@
 
 #include "src/server/app/access/ban.h"
 #include <fstream>
-#include "src/shared/threading/mutex_auto_lock.h"
+#include "src/shared/platform/threading/mutex_auto_lock.h"
 #include <sstream>
-#include "src/shared/util/strfnd.h"
-#include "src/shared/util/string.h"
-#include "src/shared/platform/log.h"
-#include "src/shared/platform/filesys.h"
-#include "src/shared/core/exceptions.h"
+#include "src/shared/util/text/strfnd.h"
+#include "src/shared/util/text/string.h"
+#include "src/shared/platform/system/log.h"
+#include "src/shared/platform/system/filesys.h"
+#include "src/shared/base/exceptions.h"
 
 BanManager::BanManager(const std::string &banfilepath):
 		m_banfilepath(banfilepath)

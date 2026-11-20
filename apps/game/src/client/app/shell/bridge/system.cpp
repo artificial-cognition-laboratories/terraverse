@@ -3,9 +3,9 @@
 
 #include "src/client/app/shell/bridge/system.h"
 #include "src/client/app/shell/bridge/bridge.h"
-#include "library/world/terragen/body.h"
-#include "library/world/terragen/code.h"
-#include "library/world/terragen/system.h"
+#include "library/world/terragen/src/system/body.h"
+#include "library/world/terragen/src/code/code.h"
+#include "library/world/terragen/src/system/system.h"
 #include <cmath>
 #include <cstring>
 #include <stdexcept>

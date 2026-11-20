@@ -3,15 +3,15 @@
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "library/trace/trace.h"
-#include "src/client/render/core/renderingengine.h"
-#include "src/client/render/core/shader.h"
+#include "src/client/render/renderingengine.h"
+#include "src/client/render/shaders/shader.h"
 #include "src/client/views/game/sky/clouds.h"
-#include "src/shared/core/constants.h"
-#include "src/shared/util/numeric.h"
-#include "src/shared/core/printing.h"
-#include "src/shared/core/noise.h"
-#include "src/shared/platform/profiler.h"
-#include "src/shared/platform/settings.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/util/math/numeric.h"
+#include "src/shared/base/printing.h"
+#include "src/shared/base/noise.h"
+#include "src/shared/platform/system/profiler.h"
+#include "src/shared/platform/settings/settings.h"
 #include <cmath>
 #include <limits>
 

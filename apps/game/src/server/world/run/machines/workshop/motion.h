@@ -5,8 +5,8 @@
 
 #include "library/space/orbit/field.h"
 
-#include "src/shared/core/irr_v3d.h"
-#include "src/shared/map/mapnode.h"
+#include "src/shared/base/irr_v3d.h"
+#include "src/shared/map/block/mapnode.h"
 #include "library/physics/structure.h"
 #include "library/physics/world.h"
 #include <future>

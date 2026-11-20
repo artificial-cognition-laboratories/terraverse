@@ -5,7 +5,7 @@
 
 #include "library/world/fluid/fluid.h"
 #include "library/matter/matter/matter.h"
-#include "library/world/terragen/world.h"
+#include "library/world/terragen/src/world.h"
 #include <functional>
 #include <memory>
 #include <string>

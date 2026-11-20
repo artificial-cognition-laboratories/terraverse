@@ -4,14 +4,14 @@
 #include "tests/unit/test.h"
 
 #include <sstream>
-#include "src/shared/core/gamedef.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/map/mapblock.h"
-#include "src/shared/core/serialization.h"
-#include "src/shared/core/noise.h"
-#include "src/shared/items/inventory.h"
-#include "src/shared/util/serialize.h"
-#include "src/shared/map/voxel.h"
+#include "src/shared/base/gamedef.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/map/block/mapblock.h"
+#include "src/shared/base/serialization.h"
+#include "src/shared/base/noise.h"
+#include "src/shared/game/items/inventory.h"
+#include "src/shared/util/data/serialize.h"
+#include "src/shared/map/voxel/voxel.h"
 
 class TestMapBlock : public TestBase
 {

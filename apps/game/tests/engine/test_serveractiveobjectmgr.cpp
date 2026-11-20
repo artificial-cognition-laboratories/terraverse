@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2018 nerzhul, Loic Blot <loic.blot@unix-experience.fr>
 
-#include "src/shared/objects/activeobjectmgr.h"
-#include "src/shared/core/catch.h"
+#include "src/shared/game/objects/activeobjectmgr.h"
+#include "src/shared/base/catch.h"
 #include "irrTypes.h"
-#include "src/shared/core/irr_aabb3d.h"
+#include "src/shared/base/irr_aabb3d.h"
 #include "tests/unit/mock_serveractiveobject.h"
 #include <algorithm>
 #include <iterator>

@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include "src/shared/chat/chat.h"
-#include "src/shared/threading/thread.h"
-#include "src/shared/util/container.h"
-#include "src/shared/platform/log_internal.h"
+#include "src/shared/game/chat/chat.h"
+#include "src/shared/platform/threading/thread.h"
+#include "src/shared/util/data/container.h"
+#include "src/shared/platform/system/log_internal.h"
 
 #include <csignal>
 #include <set>

@@ -8,11 +8,11 @@
 
 namespace planet { class Atlas; } // Terra Firma
 
-#include "src/shared/core/constants.h"
-#include "src/shared/core/noise.h"
-#include "src/shared/content/nodedef.h"
-#include "src/shared/util/string.h"
-#include "src/shared/util/container.h"
+#include "src/shared/base/constants.h"
+#include "src/shared/base/noise.h"
+#include "src/shared/game/content/nodedef.h"
+#include "src/shared/util/text/string.h"
+#include "src/shared/util/data/container.h"
 #include <utility>
 #include <set>
 

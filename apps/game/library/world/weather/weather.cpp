@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "library/world/weather/weather.h"
-#include "library/world/terragen/planet.h"
+#include "library/world/terragen/src/system/planet.h"
 #include <stdexcept>
 #include <algorithm>
 #include <cmath>

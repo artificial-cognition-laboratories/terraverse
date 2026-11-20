@@ -6,8 +6,8 @@
 
 #include <queue>
 #include <quaternion.h>
-#include "src/shared/map/voxelalgorithms.h"
-#include "src/shared/util/pointedthing.h"
+#include "src/shared/map/voxel/voxelalgorithms.h"
+#include "src/shared/game/pointing/pointedthing.h"
 
 //! Sorts PointedThings based on their distance.
 struct RaycastSort
