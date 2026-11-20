@@ -11,7 +11,7 @@
     "types": ["vite/client", "node"],
     "skipLibCheck": true,
     "noEmit": true,
-    "paths": { "@game/*": ["../game/ui/src/*"] }
+    "paths": { "@game/*": ["../game/src/client/app/shell/interface/src/*"] }
   },
   "include": ["src/**/*.ts", "src/**/*.vue", "vite.config.ts"]
 }

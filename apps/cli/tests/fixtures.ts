@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Terra } from "../src/terra"
 
-export const SERVER_FIXTURE = `${import.meta.dir}/../../../scripts/mods-check/server`
+export const SERVER_FIXTURE = `${import.meta.dir}/../../game/tests/checks/mods/fixture`
 
 /** A fresh copy of the check's server, and terra opened with this bun as its own. */
 export function serverFixture() {

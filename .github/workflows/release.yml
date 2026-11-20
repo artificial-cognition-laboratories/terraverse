@@ -320,7 +320,7 @@ jobs:
           (umask 077; printf '%s\n' "$UPDATE_SIGNING_KEY" > "$key")
           cd .output/releases
           openssl pkeyutl -sign -inkey "$key" -rawin -in manifest.json -out manifest.json.sig
-          openssl pkeyutl -verify -pubin -inkey "$GITHUB_WORKSPACE/scripts/release/update-key.pub" \
+          openssl pkeyutl -verify -pubin -inkey "$GITHUB_WORKSPACE/apps/game/scripts/release/update-key.pub" \
             -rawin -in manifest.json -sigfile manifest.json.sig
 
       # What the launcher shows for this version: apps/game/scripts/release/notes/<tag>.md

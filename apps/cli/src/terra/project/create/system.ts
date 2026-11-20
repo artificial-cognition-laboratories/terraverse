@@ -1,8 +1,8 @@
 // The star system a new server starts with: a fresh seed, laid out as the game lays out a
-// new world. Encoded by the game's own encoder (apps/game/ui), so a new server's code is
+// new world. Encoded by the game's own encoder (apps/game/src/client/app/shell/interface), so a new server's code is
 // always this build's, never a version that went stale.
-import { Companion } from "../../../../../game/ui/src/system/stars"
-import { DEFAULTS, encodeWorldCode, NEW_WORLD_SIZE, NEW_WORLD_STYLE, randomSeed } from "../../../../../game/ui/src/worldgen/config"
+import { Companion } from "../../../../../game/src/client/app/shell/interface/src/system/stars"
+import { DEFAULTS, encodeWorldCode, NEW_WORLD_SIZE, NEW_WORLD_STYLE, randomSeed } from "../../../../../game/src/client/app/shell/interface/src/worldgen/config"
 
 /** A new world code, as the game's create screen would make with nothing changed. */
 export function freshSystem(): string {

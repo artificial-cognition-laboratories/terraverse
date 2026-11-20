@@ -24,6 +24,7 @@ on:
     paths:
       - 'apps/launcher/**'
       - 'apps/game/src/client/app/shell/interface/src/kit/**'
+      - 'apps/game/src/client/app/shell/interface/src/theme.css'
       - '.github/workflows/launcher.yml'
   workflow_dispatch:
 
@@ -213,7 +214,7 @@ jobs:
           (umask 077; printf '%s\n' "$UPDATE_SIGNING_KEY" > "$key")
           cd .output/launcher/rolling
           openssl pkeyutl -sign -inkey "$key" -rawin -in launcher.json -out launcher.json.sig
-          openssl pkeyutl -verify -pubin -inkey "$GITHUB_WORKSPACE/scripts/release/update-key.pub" \
+          openssl pkeyutl -verify -pubin -inkey "$GITHUB_WORKSPACE/apps/game/scripts/release/update-key.pub" \
             -rawin -in launcher.json -sigfile launcher.json.sig
 
       - name: Attach to the release
