@@ -7,7 +7,7 @@ root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 cd "$root"
 
 # The key the game trusts must be the key CI signs with.
-grep -qF "$(sed -n 2p apps/game/scripts/release/update-key.pub)" apps/game/src/online/release/release.cpp \
+grep -qF "$(sed -n 2p apps/game/scripts/release/update-key.pub)" apps/game/src/shared/platform/release/release.cpp \
 	|| { echo "gate: release.cpp's UPDATE_KEY isn't apps/game/scripts/release/update-key.pub" >&2; exit 1; }
 grep -qF "$(sed -n 2p apps/game/scripts/release/update-key.pub)" apps/game/scripts/release/install.sh \
 	|| { echo "gate: install.sh's PUBLIC_KEY isn't apps/game/scripts/release/update-key.pub" >&2; exit 1; }
