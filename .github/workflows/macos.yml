@@ -1,6 +1,6 @@
 # macOS on Apple silicon, while it's brought up: run by hand only, never on a push
 # or a tag, and never published. It configures and builds the engine, lists every
-# compile error in the job summary, then runs the unit tests. When it builds, tests
+# compile error in the job summary, runs the unit tests and boots a world headless. When it builds, tests
 # and boots, its job moves into release.yml beside Linux and Windows, and this file goes.
 # The plan: .agents/owners/ci/state.md.
 name: macos
@@ -30,6 +30,19 @@ jobs:
         with:
           bun-version: 1.4.0
 
+      - name: Build the UI
+        working-directory: apps/game/src/client/app/shell/interface
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+
+      # terra: the sidecar that runs the game's TypeScript mods beside the engine
+      - name: Build terra
+        working-directory: apps/cli
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+
       # vcpkg's ports build with autotools; Ninja drives the engine.
       - name: Install build tools
         run: brew install ninja autoconf autoconf-archive automake libtool pkg-config
@@ -40,14 +53,18 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .output/vcpkg-cache
-          key: vcpkg-arm64-osx-${{ hashFiles('vcpkg.json') }}-${{ github.run_id }}
-          restore-keys: vcpkg-arm64-osx-${{ hashFiles('vcpkg.json') }}-
+          key: vcpkg-arm64-osx-${{ hashFiles('apps/game/vcpkg.json') }}-${{ github.run_id }}
+          # vcpkg names each built package by its ABI hash, so an older cache is safe to
+          # start from: a vcpkg.json change rebuilds only what it changed.
+          restore-keys: |
+            vcpkg-arm64-osx-${{ hashFiles('apps/game/vcpkg.json') }}-
+            vcpkg-arm64-osx-
 
       - name: Cache CEF
         uses: actions/cache@v4
         with:
           path: .output/build/_deps
-          key: cef-macosarm64-${{ hashFiles('cmake/Modules/CEF.cmake') }}
+          key: cef-macosarm64-${{ hashFiles('apps/game/cmake/Modules/CEF.cmake') }}
 
       - uses: mozilla-actions/sccache-action@v0.0.9
 
@@ -61,7 +78,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .output/vcpkg-cache
-          key: vcpkg-arm64-osx-${{ hashFiles('vcpkg.json') }}-${{ github.run_id }}
+          key: vcpkg-arm64-osx-${{ hashFiles('apps/game/vcpkg.json') }}-${{ github.run_id }}
 
       # -k 0: one run reports every compile error, not just the first.
       - name: Build the engine
@@ -80,3 +97,7 @@ jobs:
         run: |
           BUILT=1 bash apps/game/tests/run/engine.sh TestOnline TestRelease TestTerragenMatter
           ctest --test-dir .output/build -L '^terragen$' -L '^hot$' --output-on-failure
+
+      # No package yet: the run-in-place build, booted as the packages are.
+      - name: Smoke boot
+        run: apps/game/scripts/release/smoke-server.sh .output/bin/luanti Luanti

@@ -21,17 +21,11 @@ on:
     tags: ['v*']
     branches: [master]
     paths:
-      - 'apps/game/**'
+      - 'apps/game/**' # the engine, its build files, vcpkg.json, assets, release scripts
       - 'apps/cli/**'
-      - 'library/types/**'
-      - 'assets/**'
       - 'library/**'
-      - 'cmake/**'
-      - 'CMakeLists.txt'
-      - 'vcpkg.json'
+      - 'registry/mods/**' # the official mods, staged into every package
       - '.gitignore'
-      - 'apps/game/scripts/release/**'
-      - 'apps/game/scripts/stage-runtime.sh'
       - '.github/workflows/release.yml'
   workflow_dispatch:
     inputs:
@@ -70,7 +64,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .output/build/_deps
-          key: cef-linux64-${{ hashFiles('cmake/Modules/CEF.cmake') }}
+          key: cef-linux64-${{ hashFiles('apps/game/cmake/Modules/CEF.cmake') }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -159,14 +153,18 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .output/vcpkg-cache
-          key: vcpkg-x64-windows-${{ hashFiles('vcpkg.json') }}-${{ github.run_id }}
-          restore-keys: vcpkg-x64-windows-${{ hashFiles('vcpkg.json') }}-
+          key: vcpkg-x64-windows-${{ hashFiles('apps/game/vcpkg.json') }}-${{ github.run_id }}
+          # vcpkg names each built package by its ABI hash, so an older cache is safe to
+          # start from: a vcpkg.json change rebuilds only what it changed.
+          restore-keys: |
+            vcpkg-x64-windows-${{ hashFiles('apps/game/vcpkg.json') }}-
+            vcpkg-x64-windows-
 
       - name: Cache CEF
         uses: actions/cache@v4
         with:
           path: .output/build/_deps
-          key: cef-windows64-${{ hashFiles('cmake/Modules/CEF.cmake') }}
+          key: cef-windows64-${{ hashFiles('apps/game/cmake/Modules/CEF.cmake') }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -223,7 +221,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .output/vcpkg-cache
-          key: vcpkg-x64-windows-${{ hashFiles('vcpkg.json') }}-${{ github.run_id }}
+          key: vcpkg-x64-windows-${{ hashFiles('apps/game/vcpkg.json') }}-${{ github.run_id }}
 
       # -k 0: one run reports every compile error, not just the first.
       - name: Build the engine
