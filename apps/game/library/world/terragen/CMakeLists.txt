@@ -87,6 +87,11 @@ add_library(terragen STATIC
 	"${CMAKE_CURRENT_BINARY_DIR}/terragen_sources.cpp")
 target_include_directories(terragen PUBLIC "${GAME_DIR}")
 target_link_libraries(terragen PUBLIC Threads::Threads)
+# Its own directory sees none of the engine's MSVC flags (src/CMakeLists.txt sets them later),
+# and clang-cl compiles without C++ exceptions unless told: terragen throws.
+if(MSVC)
+	target_compile_options(terragen PRIVATE /EHsc)
+endif()
 
 if(BUILD_UNITTESTS)
 	library_test(terragen

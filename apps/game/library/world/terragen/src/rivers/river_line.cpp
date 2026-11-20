@@ -3,6 +3,7 @@
 
 #include "library/world/terragen/src/rivers/river_line.h"
 #include <algorithm>
+#include <cstddef>
 
 namespace terragen {
 
@@ -156,7 +157,7 @@ RiverLine::At RiverLine::at(fix t) const
 {
 	if (m_x.empty())
 		return { 0, 0 };
-	const size_t i = (size_t)std::max<ptrdiff_t>(0, std::upper_bound(m_t.begin(), m_t.end(), t) - m_t.begin() - 1);
+	const size_t i = (size_t)std::max<std::ptrdiff_t>(0, std::upper_bound(m_t.begin(), m_t.end(), t) - m_t.begin() - 1);
 	if (i + 1 >= m_t.size())
 		return { (int64_t)m_x.back() << (FRAC - NEAR), (int64_t)m_y.back() << (FRAC - NEAR) };
 	const int64_t span = std::max<int64_t>(1, m_t[i + 1] - m_t[i]);
