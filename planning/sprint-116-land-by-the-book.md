@@ -410,6 +410,123 @@ indexed a block of 4³ cubes at a time. What the port changed:
   phase 6b's): its windows sit on cell centres, where every trunk starts.
 - Region renders still read steep: slope p90 58° in the range (real 30–40°).
 
+**6c: a network, not walks** (after the planetarium: joints dislocated, a
+stream one width down its length, a stream on a pillar, square joins,
+streams of a level crossing). Measured first (scratch `net.cpp`: join
+angles, widths at joins, crossings, water over land), then fixed by rule:
+
+- **A level is a tree of nodes** (Dendry's own form): a cube's hashed point
+  drains to its neighbour with the steepest fall, one reachable without
+  crossing a coarser channel or climbing a rise between, else to the
+  nearest coarser channel. Nodes draining to one merge; the free walks
+  (three lattices long, blind to their own level) overlapped and crossed.
+- **Edges are Hermite curves** leaving toward their foot and arriving along
+  the way the water goes on, so a chain runs smooth through its nodes; a
+  swing and an S across, flat at the ends.
+- **Joins aslant**: a node joining a coarser channel meets it ADVANCE of its
+  distance downstream of the nearest point. Join angles 76° mean (71% over
+  75°) → 42° (5%).
+- **Water adds up**: width grows down an edge by Hack's law (A ∝ ℓ^1.7, ℓ a
+  lattice less how far it still is from the coarser channel), never wider
+  than what it runs into; a grid run's grows across its cell.
+- **Land is never raised for water**: beds held under the land the coarser
+  left at every point of an edge (so a tributary crosses a floodplain
+  nearly flat), and where a channel still crosses a deeper valley its water
+  runs on that valley's floor (`read()`), not on a pillar.
+- Crossings left are mostly at confluences (a tributary entering a wide
+  trunk through its bank). Cost 31 µs a column (was 38), far tile 33 (42).
+- Still open: valleys don't taper at their heads (shallow grooves where a
+  bed sits just under a hill), and the grid's own runs: straight trunks in
+  the belts and long parallel rivers on plains (the grid's merging, next).
+
+**6d: banks, and rivers by kind**
+
+- **A stream's channel is cut into its valley's floor** (`Streams::read`):
+  water a twelfth of its width under the floor (½–2 blocks), never over the
+  land; its bed a sixth of its width under that (at least a block), round
+  across; banks sloping from the water's edge to the land over half its
+  width (at least 2 blocks). The water one block over the plain was 6c's
+  own `bed = land + 1`. Being in any channel's water outranks another's bank.
+- **A grid river has a kind** (`river_kind.h`): braided (steep for its
+  load, `braids()`), bedrock (hard rock, thin cover, not flat), meandering
+  (deep sediment, or nearly flat on soft rock), else confined. A table gives
+  each its wander, width, share of bends with a point bar (all, a third,
+  none), bank slope (twice on a bend's outside) and lip. TF24.dGVycmE: 16%
+  bedrock, 41% confined, 30% meandering, 13% braided.
+- Caught on the way: a bank's rise in 32 bits wrapped negative far from a
+  steep river (columns 24 000 blocks under the sea; `testCoarse`).
+- Next: the big rivers' shapes (meanders sized by width and kind), then the
+  grid's merging.
+
+**6e: meanders** (`river_line.h`, a leaf: a run's line, built once)
+
+- A meander turns, not waves: the line's direction follows Kinoshita's
+  curve (θ = θ₀ sin φ, skewed by a third harmonic, most loops leaning
+  downstream), so a large θ₀ folds past square into goosenecks and U-turns.
+  The old line, a sine across the run, could only wave.
+- A loop is 20 widths along the river (11 down its valley at a sinuosity of
+  1.8); each loop's angle 0.6–1.4 of the river's, its length 0.7–1.3, so no
+  two are alike. Scaled and sheared to end on the run's ends, bowed by the
+  ends' slopes so runs join as before.
+- θ₀ by kind: meandering 83° (loops to 112°), confined 46°, bedrock 14°,
+  braided 7°, as far as grade and banks let it. Sinuosity, TF24.dGVycmE:
+  meandering 2.02, confined 1.12, bedrock and braided 1.01.
+- Bars from the line's curvature (widest where it turns sharpest, on the
+  inside); ground() takes the nearest point of a polyline searched by boxes
+  (no Gauss–Newton). 34 µs a column (31 before), far tile 40 / 33.
+
+**6f: rivers as wide as their water**
+
+- **`Grid::discharge`**: what runs off (each cell's rain less what the land
+  gives back, Turc–Pike's `runoff()`), added up downstream. Width is by it,
+  not by the rain on the area: a dry basin's river is thin, a big one only
+  where many wet ones join. Streams take the same (`Streams::water`: rain ×
+  discharge / drained).
+- **Bold, not 8×**: width is `river::WIDTH` √water × `river::bold` (2.5,
+  never more than the heights' own exaggeration, so an Earth-sized planet's
+  rivers are as they are). Before, as much wider as the land's taller: 8×
+  on the default planet. TF24.dGVycmE at 628 320 round: median drawn river
+  6 blocks (was 21), p90 23 (102), the widest 82 (250); the narrowest 2–4,
+  where the widest streams end.
+- **A river system's own character**: each outlet's rivers turn 0.5–1.2 of
+  their kind's. Meandering needs a deeper cover (0.8). Sinuosity:
+  meandering 1.60, confined 1.08.
+- **`braids()` takes the water, not a width**: a small planet's rivers are
+  held to a block wide, and read back to Q they braided a third of the time
+  (the code's own 16 384-round planet). Its line 7× Leopold–Wolman's (was 10×
+  with Q twice what runs off): 9.7% braided at both sizes (HEAD 11–13%).
+- `bun run test`: 81 modules pass, the known skips.
+
+**6g: water adds up through the streams; rivers bend by their land**
+
+- **A node's water is all that drains through it** (`Streams::area`): its
+  own lattice's square of what runs off, and every node of its level whose
+  `choice()` drains to it (upstream is uphill, so it ends; both cached).
+  Hack's estimate gave a stream of ten tributaries one's width. `edge()` is
+  now the curve, bed and width; `choice()` the decision. WET 0.0015 (was
+  0.004: the estimate wetted heads it shouldn't), ~4 900 wet streams in the
+  `net.cpp` patch as before; never wider than what they run into.
+- **How the hills hold a river** (`RunShape::confined`): its valley's depth
+  (Streams' at the cell's scale, 0.64 k_s · cell) over its width, free under
+  0.75, held over 4. Held, it turns as its valley does, round spurs one every
+  0.18 of a cell, 29° at most; free, its kind's loops. It meanders only
+  where free. Under 8 blocks wide a river turns less (loops are built on a
+  floodplain). TF24.dGVycmE: 37% held (sinuosity 1.03), free 1.26;
+  meandering 1.47.
+- **Valleys follow their rivers**: a drawn run's Streams branch follows its
+  line loop by loop (8 points a loop, was 12 a run), so the valley bends
+  with the meanders and what joins it meets the water; free of the hills its
+  floor is 1.5 widths either side of the water (its meanders' floodplain).
+- **`unwarped()` iterates** (4 steps): read once at the warped place, it was
+  off by the warp's own change across it, 12–80 blocks on a river's line: the
+  valleys, and every stream joining a drawn river, missed the water. Now
+  under a block.
+- **Reaches vary**: a slow noise along the land (a few cells a swing) scales
+  each run's turns 0.5–1.4 of its system's character.
+- Open: a drawn river in TF24.dGVycmE's held patch (0.82578,0.24478) shows
+  no water past a junction; not traced yet.
+- `bun run test`: 81 modules pass, the known skips.
+
 ### Phase 7: speed
 Aim: a settings change shows its land in about a second.
 - **Steady state directly.** At equilibrium with n = 1 the land is a single

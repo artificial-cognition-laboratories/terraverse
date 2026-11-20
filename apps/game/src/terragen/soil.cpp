@@ -140,14 +140,15 @@ struct Current
 	int bed;       // the band its bed keeps
 	int64_t flood; // how high its floods stand over its bed: twice its depth (blocks, fixed)
 };
-Current currentOf(int64_t width, fix slope, fix rain, int64_t radius, fix metre)
+Current currentOf(int64_t width, fix slope, int64_t radius, fix metre)
 {
 	// R/R⊕, as log₂: how many of our blocks a real metre across is
 	const fix scale = log2Wide(radius) - log2Wide((int64_t)EARTH_RADIUS_M << FRAC);
-	// √area (blocks) = width · blocks-per-metre / 0.0012
-	const fix root = log2Wide(std::max<int64_t>(width, ONE)) + log2(metre) - log2(ratio(12, 10000));
+	// √water (blocks) = width / bold / 0.0012 (World::riverWidth)
+	const fix root = log2Wide(std::max<int64_t>(width, ONE)) - log2(river::bold(metre)) - log2(river::WIDTH);
 	const fix area_km2 = 2 * (root - scale) - log2Wide((int64_t)1000000 << FRAC);
-	const fix flow = area_km2 + log2(ratio(1, 100)) + log2(clamp(rain, ratio(5, 100), toFix(8)));
+	// (the water's what runs off: the rain's already in it)
+	const fix flow = area_km2 + log2(ratio(1, 100));
 	const fix depth = log2(ratio(27, 100)) + mul(flow, ratio(4, 10));
 	// the slope in real terms: its rise in metres (blocks / metre) over its
 	// run in metres (blocks · R⊕/R)
@@ -163,20 +164,22 @@ Current currentOf(int64_t width, fix slope, fix rain, int64_t radius, fix metre)
 }
 } // namespace
 
-bool braids(int64_t width, fix slope, fix rain, int64_t radius, fix metre, fix glacial)
+bool braids(int64_t water, fix slope, int64_t radius, fix metre, fix glacial)
 {
-	// (Q and the slope as currentOf has them, log₂)
+	// (Q and the slope as currentOf has them, log₂; from the water itself,
+	// not its width: a small planet's narrowest rivers are held to a block)
 	const fix scale = log2Wide(radius) - log2Wide((int64_t)EARTH_RADIUS_M << FRAC);
-	const fix root = log2Wide(std::max<int64_t>(width, ONE)) + log2(metre) - log2(ratio(12, 10000));
+	const fix root = log2Wide(std::max<int64_t>(water, 1) << FRAC) / 2;
 	const fix area_km2 = 2 * (root - scale) - log2Wide((int64_t)1000000 << FRAC);
 	// (its floods' flow, a few times its usual, is what shapes its bed)
-	const fix flow = area_km2 + log2(ratio(5, 100)) + log2(clamp(rain, ratio(5, 100), toFix(8)));
+	const fix flow = area_km2 + log2(ratio(5, 100));
 	const fix real = log2(std::max<fix>(slope, 1)) + scale - log2(metre);
-	// (the line ten times Leopold and Wolman's: the grid's runs fall over a
+	// (the line seven times Leopold and Wolman's: the grid's runs fall over a
 	// cell, steeper than a reach of river does, and at theirs half of every
-	// world's rivers braided; at this about one in nine, mostly below ranges
-	// and the ice, as on Earth)
-	const fix line = log2(ratio(120, 1000)) - mul(flow, ratio(44, 100)) - mul(glacial, log2(toFix(3)));
+	// world's rivers braided; at this about one in ten, mostly below ranges
+	// and the ice, as on Earth, on any size of planet. Ten times when Q was
+	// the rain on the area, not what runs off it: twice the water.)
+	const fix line = log2(ratio(80, 1000)) - mul(flow, ratio(44, 100)) - mul(glacial, log2(toFix(3)));
 	return real > line;
 }
 
@@ -351,8 +354,8 @@ Soil World::soilWith(const Place &at, const Ground &ground, const Strata &strata
 	const bool lake = ground.kind == Water::Lake;
 	const bool channel = ground.kind == Water::River || (width > 0 && gap <= width / 2);
 	if (channel && width == 0) // a world too small for channels below the grid: the cell's river
-		width = riverWidth((m_grid->drained[cell] * (m_cell_blocks >> FRAC) >> FRAC) * (m_cell_blocks >> FRAC));
-	const Current flow = currentOf(std::max<int64_t>(width, ONE), grade, c.rain, m_radius, m_metre);
+		width = riverWidth((m_grid->discharge[cell] * (m_cell_blocks >> FRAC) >> FRAC) * (m_cell_blocks >> FRAC));
+	const Current flow = currentOf(std::max<int64_t>(width, ONE), grade, m_radius, m_metre);
 	const int bed = flow.bed;
 	const int64_t half = width / 2;
 	const int64_t bank = half + std::max<int64_t>(width / 2, 2 * ONE);

@@ -27,9 +27,11 @@ class World;
 	receiver (a drawn river's line as ground() draws it, others smooth
 	between the centres), its bed the grid's water. Each finer level is a
 	lattice of cubes half as wide (four times the streams, each half as long):
-	a hashed point in each cube lying on the ground walks down the land the
-	coarser levels carved till a coarser channel takes it, and that walk is
-	its channel, its bed falling all the way. Then the land: from the grid's
+	a hashed point in each cube lying on the ground is a node, and drains to
+	its neighbour node lowest by slope on the land the coarser levels carved,
+	or to a coarser channel when that's nearer or steeper. Its edge there is
+	its channel, a curve running on through the nodes, its bed falling all the
+	way; nodes draining to one merge, so a level's a tree, not crossing walks. Then the land: from the grid's
 	smooth surface, each level's channels cut their valleys into what the
 	coarser left, the land the lowest of them, so ridges stand where valleys
 	meet. A channel carries water where what it drains, by the rain there,
@@ -64,6 +66,7 @@ public:
 		int level = -1;              // 0 the grid's .. levels()
 		int64_t bed = 0;             // its water's level, blocks, fixed
 		int64_t width = 0;           // blocks, fixed
+		int64_t from = 0;            // from its line, blocks, fixed
 		fix hillside = 0;            // −1 a valley floor .. 1 a ridge
 	};
 	// The land at a place, from `above` (the land there before its valleys,
@@ -93,7 +96,7 @@ private:
 	static constexpr int64_t FROM_GRID = INT64_MIN;
 	int64_t carve(const V &p, int64_t above, int upto, Read *wet, int64_t within) const;
 	// the grid's fields at a place, straight across its triangle of cells
-	// (the walks read them a hundred times a branch: the amplifier's smooth
+	// (the edges read them dozens of times each: the amplifier's smooth
 	// kernel was most of their time)
 	struct Here
 	{
@@ -103,10 +106,15 @@ private:
 	};
 	Here here(const V &p) const;
 	int64_t depth(const Here &h, int level) const; // a valley's depth at a level's scale
-	fix rain(const Here &h) const;
+	fix water(const Here &h) const; // what runs off, of a cell's average rain
 	std::shared_ptr<const std::unordered_map<uint64_t, std::vector<std::shared_ptr<const Branch>>>> indexed(int level, int64_t bi, int64_t bj, int64_t bl) const;
 	std::shared_ptr<const Branch> grown(int level, int64_t i, int64_t j, int64_t l) const;
-	std::shared_ptr<const Branch> walk(int level, int64_t i, int64_t j, int64_t l) const; // (streams_grow.cpp)
+	struct Node;
+	Node node(int level, int64_t i, int64_t j, int64_t l) const;
+	struct Choice;
+	Choice choice(int level, int64_t i, int64_t j, int64_t l) const;
+	int64_t area(int level, int64_t i, int64_t j, int64_t l) const; // what drains through it, cells (fixed)
+	std::shared_ptr<const Branch> edge(int level, int64_t i, int64_t j, int64_t l) const; // (streams_grow.cpp)
 	std::shared_ptr<const Branch> run(int32_t c) const;
 	// the channels near a place on a level
 	void near(const V &p, const Here &h, int level, const std::function<void(const Branch &)> &f) const;

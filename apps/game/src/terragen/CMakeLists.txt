@@ -19,6 +19,7 @@ set(terragen_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/lid.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/streams.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/streams_grow.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/river_line.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/noise.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/parallel.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/planet.cpp
@@ -37,7 +38,7 @@ set(terragen_SRCS ${terragen_SRCS} PARENT_SCOPE) # (and here: the grid's hash be
 # (the drainage land, soil, cover, the preview, the atlas). A kept grid is
 # named by their hash, so a change to how columns are read keeps the planets
 # already worked out (grid_file.cpp); anything else here works them out again.
-set(terragen_sampling streams.cpp streams_grow.cpp soil.cpp vegetation.cpp preview.cpp atlas.cpp progress.cpp)
+set(terragen_sampling streams.cpp streams_grow.cpp river_line.cpp soil.cpp vegetation.cpp preview.cpp atlas.cpp progress.cpp)
 file(GLOB terragen_headers "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
 set(terragen_grid_SRCS ${terragen_headers})
 foreach(src ${terragen_SRCS})

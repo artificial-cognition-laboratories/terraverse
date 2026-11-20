@@ -54,6 +54,10 @@ struct Grid
 	// sheet's, which flows away as ice). Rivers are drawn by it; the land's
 	// valleys, which the ice ages' glaciers cut as well, by `drained`
 	std::vector<int64_t> runoff;
+	// …and of that what's left once the land's given its share back to the
+	// air (Turc–Pike: runoff()), so a dry basin's river is a thin one: what
+	// a river carries, and what its width is by (fixed cell units)
+	std::vector<int64_t> discharge;
 	std::vector<uint8_t> lake;     // 1 where water pools at least a block deep
 	std::vector<uint8_t> pan;      // 1 on a closed basin's dry floor: salt, where its water dried
 	// On lake cells, the lake's one surface: its outlet, the lowest filled
@@ -150,6 +154,6 @@ constexpr fix VEIN_CORE = ratio(1, 2);
 inline fix alluvium(fix sediment) { return clamp(sediment * 16, 0, ONE); }
 
 // Distinct noise streams, so the fields are independent.
-enum Stream : uint32_t { CONTINENT = 0, COAST = 3, RIDGE = 7, HEAT = 13, DETAIL = 41, SOIL_NOISE = 53, BLEND = 59, MEANDER = 71, SHORE = 79, SCOURED = 83, GULLIES = 89, BASINS = 97, RIFTS = 419, ALPINE = 431, RIVER_BEDS = 467, PROVINCE_EDGES = 491, BRAIDS = 503, DUNES = 509, RAVINES = 521, CRAGS = 523, LAVA_PLAINS = 541, KARST = 547 }; // (479 was the rivers' wander)
+enum Stream : uint32_t { CONTINENT = 0, COAST = 3, RIDGE = 7, HEAT = 13, DETAIL = 41, SOIL_NOISE = 53, BLEND = 59, MEANDER = 71, SHORE = 79, SCOURED = 83, GULLIES = 89, BASINS = 97, RIFTS = 419, ALPINE = 431, RIVER_BEDS = 467, PROVINCE_EDGES = 491, BRAIDS = 503, DUNES = 509, RAVINES = 521, CRAGS = 523, LAVA_PLAINS = 541, KARST = 547, RIVER_REACHES = 557 }; // (479 was the rivers' wander)
 
 } // namespace terragen

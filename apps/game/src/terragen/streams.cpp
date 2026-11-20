@@ -87,10 +87,31 @@ Streams::Read Streams::read(const Place &p, int64_t above, int64_t least) const
 	Read out;
 	const int64_t top = above + mulShift(depth(here(v), 0), UP, FRAC);
 	out.land = carve(v, top, upto, &out, least * 4 / 10);
-	// a wet channel's water lies on its own floor: a finer dry valley cut beside it
-	// never takes the ground from under it
-	if (out.level >= 0)
-		out.land = std::max(out.land, out.bed - ONE);
+	// the channel, cut into its valley's floor: water a freeboard under the
+	// floor (and never over the land: where it crosses a valley cut deeper
+	// than its own, a tributary over its trunk's floodplain, it runs down that
+	// one's), its bed a depth under the water across the channel, and banks
+	// sloping from the water's edge up to the land; the land's never raised
+	if (out.level >= 0) {
+		const int64_t w = out.width;
+		const int64_t water = std::min(out.bed, out.land) - std::clamp<int64_t>(mulShift(w, FREEBOARD, FRAC), ONE / 2, 2 * ONE);
+		const int64_t half = w / 2, bank = bankOf(w);
+		if (out.from < half) {
+			const int64_t deep = std::max<int64_t>(mulShift(w, DEEP, FRAC), ONE);
+			const fix across = (fix)(((__int128)out.from << FRAC) / std::max<int64_t>(half, 1));
+			out.land = std::min(out.land, water - mulShift(deep, ONE - mul(across, across), FRAC));
+			out.bed = water;
+		} else if (out.from < least * 4 / 10) {
+			// (a far tile's: water drawn a cell wide, its land as it is)
+			out.bed = std::min(water, out.land);
+		} else {
+			// (a bank: smooth, steepest just over the water)
+			const fix t = (fix)std::clamp<int64_t>(((__int128)(out.from - half) << FRAC) / bank, 0, ONE);
+			if (out.land > water)
+				out.land = std::min(out.land, water + mulShift(out.land - water, mul(t, toFix(2) - t), FRAC));
+			out.level = -1;
+		}
+	}
 	return out;
 }
 
@@ -110,11 +131,14 @@ int64_t Streams::carve(const V &p, int64_t above, int upto, Read *wet, int64_t w
 			if (!b.within(p, S + b.widest / 2 + within))
 				return;
 			const Near n = nearest(b, p);
-			if (wet && n.width > 0 && !b.drawn && n.d < std::max(n.width / 2, within) && n.width > widest) {
-				widest = n.width;
+			// (in a channel's water before on any's bank; then the widest)
+			const int64_t rank = n.width + (n.d < std::max(n.width / 2, within) ? INT64_MAX / 2 : 0);
+			if (wet && n.width > 0 && !b.drawn && n.d < std::max(n.width / 2 + bankOf(n.width), within) && rank > widest) {
+				widest = rank;
 				wet->level = m;
 				wet->bed = n.bed;
 				wet->width = n.width;
+				wet->from = n.d;
 			}
 			if (n.bed >= was)
 				return;
@@ -157,11 +181,18 @@ int64_t Streams::depth(const Here &h, int level) const
 	return mulShift(mulShift(mulShift(RELIEF, ks, FRAC), m_cell_blocks, FRAC), m_scale[(size_t)level], FRAC);
 }
 
-fix Streams::rain(const Here &h) const
+// what runs off here, of a cell's average rain: its rain, less what the land
+// gives back to the air (the share of what passes through it that's still
+// water, Grid::discharge of Grid::drained)
+fix Streams::water(const Here &h) const
 {
 	int64_t sum = 0;
-	for (int k = 0; k < 3; k++)
-		sum += (int64_t)h.weights[k] * m_grid.rain(h.cells[k]);
+	for (int k = 0; k < 3; k++) {
+		const int32_t c = h.cells[k];
+		const int64_t drained = m_grid.drained[(size_t)c];
+		const fix kept = drained > 0 ? (fix)std::min<int64_t>(ONE, (m_grid.discharge[(size_t)c] << FRAC) / drained) : 0;
+		sum += (int64_t)h.weights[k] * mul(m_grid.rain(c), kept);
+	}
 	return (fix)(sum >> FRAC);
 }
 
@@ -219,7 +250,7 @@ void Streams::near(const V &p, const Here &h, int level, const std::function<voi
 			}
 }
 
-// A block of cubes' index: every branch whose walk could reach the block,
+// A block of cubes' index: every edge that could reach the block,
 // from the heads round it, filed under each cube of the block it passes
 std::shared_ptr<const Streams::Kept::Shard::Block> Streams::indexed(int level, int64_t bi, int64_t bj, int64_t bl) const
 {
@@ -237,7 +268,7 @@ std::shared_ptr<const Streams::Kept::Shard::Block> Streams::indexed(int level, i
 		return r2 >= inner && r2 <= outer;
 	};
 	auto made = std::make_shared<Kept::Shard::Block>();
-	const int64_t H = STEPS / 4 + 1;
+	const int64_t H = 2; // (an edge reaches its neighbour, and bends a little past)
 	const int64_t i0 = bi * BLOCK, j0 = bj * BLOCK, l0 = bl * BLOCK;
 	for (int64_t a = i0 - H; a < i0 + BLOCK + H; a++)
 		for (int64_t b = j0 - H; b < j0 + BLOCK + H; b++)
@@ -279,7 +310,7 @@ std::shared_ptr<const Streams::Branch> Streams::grown(int level, int64_t i, int6
 	}
 	// (built outside the lock: building asks for coarser branches; two
 	// threads building the same build the same)
-	std::shared_ptr<const Branch> made = walk(level, i, j, l);
+	std::shared_ptr<const Branch> made = edge(level, i, j, l);
 	std::lock_guard<std::mutex> hold(shard.lock);
 	if (shard.heads.size() >= SHARD_MOST)
 		shard.heads.clear();

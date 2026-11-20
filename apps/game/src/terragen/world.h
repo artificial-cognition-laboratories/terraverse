@@ -5,6 +5,8 @@
 
 #include "amplify.h"
 #include "streams.h"
+#include "river_kind.h"
+#include "river_line.h"
 #include "code.h"
 #include "fixed.h"
 #include "geology.h"
@@ -89,8 +91,8 @@ Soil soilLayer(const Soil &column, int32_t below);
 // a single channel. Leopold and Wolman's line, slope > 0.012·Q^−0.44 (Q in
 // m³/s, drawn ten times higher for the grid's runs: soil.cpp), Q and the slope in the planet's own metres as soil reads them;
 // glacial meltwater, laden with outwash, braids at a third of the slope.
-// `width` its single channel's (blocks, fixed), `glacial` 0..1.
-bool braids(int64_t width, fix slope, fix rain, int64_t radius, fix metre, fix glacial);
+// `water` what runs off over its area (blocks², World::riverWidth's), `glacial` 0..1.
+bool braids(int64_t water, fix slope, int64_t radius, fix metre, fix glacial);
 // The minerals each rock weathers by (soil.cpp): its own copy of
 // assets/matter (rocks.json minerals and grain, substances.json weathers),
 // since terragen reads no files; TestTerragen holds it to the data.
@@ -222,6 +224,21 @@ public:
 	// Whether a grid cell's run to its receiver is drawn as water: a river,
 	// or a creek with a share of a river's flow (sprint 107)
 	bool drawn(int32_t c) const;
+	// A drawn run's river: its meander loops, its width (blocks, fixed) and
+	// how the hills hold it (0 free .. 1 held): what its valley's cut to fit
+	struct RunLook
+	{
+		int32_t loops = 0;
+		int64_t width = 0;
+		fix confined = ONE;
+	};
+	RunLook runLook(int32_t c) const
+	{
+		if (m_runs.empty() || m_runs[(size_t)c].run == 0)
+			return {};
+		const RunShape &s = m_runs[(size_t)c];
+		return { s.line.loops(), s.width, s.confined };
+	}
 	// The place a drawn run's line passes at `t` (0 at the cell, 1 at its
 	// receiver), as ground() draws it: in the rivers' warp, bowed and swung.
 	// Where a stream below the grid ends on it, so it meets the water.
@@ -300,7 +317,7 @@ public:
 public:
 	// A river's width (blocks, fixed, at least one) for what drains to it
 	// (blocks² of average rain): its streams' and the grid's runs' alike
-	int64_t riverWidth(int64_t area) const;
+	int64_t riverWidth(int64_t water) const; // blocks, fixed, for what runs off over its area (blocks²)
 	// blocks a metre of height is (blocksPerMetre)
 	fix metre() const { return m_metre; }
 	// the streams below the grid, if this world has them (for tools that draw them)
@@ -348,13 +365,10 @@ private:
 	{
 		int64_t width = 0;  // blocks, fixed
 		int64_t run = 0;    // its length, blocks, fixed (0: not drawn)
-		int64_t loops = 1;  // meander loops along it
 		bool braided = false; // a braided river's: wide, straight, split round bars
-		int64_t swing = 0, reach_side = 0; // how far they swing (signed), and at most (blocks, fixed)
-		fix m0 = 0, m1 = 0; // its slopes across the run at each end (Hermite's)
-		// the line's offset across the run at t (blocks, fixed), the meander's
-		// part of it, and its rate (per unit t)
-		void line(fix t, int64_t &side, int64_t &off, int64_t &rate) const;
+		river::Kind kind = river::Kind::Confined;
+		fix confined = 0; // 0 a river free on its floodplain .. 1 held in its valley by the hills
+		RiverLine line; // its meanders, in the run's frame
 	};
 	std::vector<RunShape> m_runs;
 	void shapeRuns();

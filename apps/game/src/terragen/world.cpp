@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "world.h"
+#include "drainage.h"
 #include "lid.h"
 #include "climate.h"
 #include "planet.h"
@@ -169,20 +170,21 @@ fix blocksPerMetre(const WorldCode &code)
 	return sqrtWide64(ratio) >> 8;
 }
 
-// Rivers' width (sprint 110): as real rivers', RIVER_WIDTH × √ of the area
-// they drain (m²): a metre for a square kilometre, 40 m for a thousand, two
-// kilometres for the Amazon's (hydraulic geometry: width as √ of discharge,
-// discharge as the area). A planet's area is (R / R⊕)² of what Earth's
-// would be and its heights √(R / R⊕) (blocksPerMetre), and a river's as wide
-// as its valley is deep: × √(R⊕ / R) all told. (By the planet's size, they
-// were as much wider as it was bigger than the default: on half the Earth, a
-// big river 15 km across, a sixth of a cell.)
-static const fix RIVER_WIDTH = ratio(12, 10000);
-
-int64_t World::riverWidth(int64_t area) const
+// Rivers' width (sprint 110, by water since 116): as real rivers', RIVER_WIDTH
+// × √ of the area they drain (m²) at Earth's rain: a metre for a square
+// kilometre, 40 m for a thousand, two kilometres for the Amazon's (hydraulic
+// geometry: width as √ of discharge). `water` is what runs off (Grid::
+// discharge) over its area, in blocks², so a dry basin's river is thin. A
+// planet R / R⊕ of Earth's is that much smaller across, so in blocks a river
+// is river::WIDTH √water whatever its size, made river::BOLD times wider to be
+// seen and sailed (never more than the land's own heights are made taller,
+// √(R⊕ / R): a planet Earth's size has rivers as they are). Before, as wide
+// as the heights: 8× on the default planet, and a river draining a few
+// hundred km² was 170 m across.
+int64_t World::riverWidth(int64_t water) const
 {
-	const int64_t metres = (int64_t)isqrt((uint64_t)std::max<int64_t>(0, area)) * RIVER_WIDTH; // fixed, at Earth's scale
-	return std::max<int64_t>(toFix(1), (int64_t)(((__int128)metres << FRAC) / std::max<fix>(1, m_metre)));
+	const int64_t blocks = mulShift((int64_t)isqrt((uint64_t)std::max<int64_t>(0, water)) * river::WIDTH, river::bold(m_metre), FRAC);
+	return std::max<int64_t>(toFix(1), blocks);
 }
 
 int64_t World::radiusOf(const WorldCode &code)
@@ -754,11 +756,28 @@ static bool grows(Biome b)
 static const fix MEANDER_FLAT = ratio(1, 1000), MEANDER_STEEP = ratio(12, 1000);
 // and how much of that its banks let it, on the softest rock and the hardest
 static const fix MEANDER_SOFT = ratio(120, 100), MEANDER_HARD = ratio(35, 100);
-// A braided river (sprint 112): this many times a single channel's width;
-// its bars, gravel islands at its water's level, stand where noise of about
+// a river system's own character: its meanders' turns RIVER_CHARACTER_LEAST
+// to that and RIVER_CHARACTER_SPREAD of its kind's
+static const fix RIVER_CHARACTER_LEAST = ratio(50, 100), RIVER_CHARACTER_SPREAD = ratio(70, 100);
+// and each reach's along it, REACH_LEAST to REACH_MOST of that
+static const fix REACH_LEAST = ratio(50, 100), REACH_MOST = ratio(140, 100);
+// How the hills hold a river (RunShape::confined): its valley's depth
+// (VALLEY_DEPTH · k_s · cell: Streams' at the cell's scale, RELIEF · 2^FALL)
+// over its width, free under CONFINED_FROM, held over CONFINED_TO
+static const fix VALLEY_DEPTH = ratio(64, 100);
+// Steps unwarped() takes to find the column ground() warps onto a place
+static const int UNWARP_STEPS = 4;
+static const fix CONFINED_FROM = ratio(75, 100), CONFINED_TO = toFix(4);
+// Held, it bends round its valley's spurs: one every SPUR of a cell along it,
+// turning SPUR_TURN at most (radians, 29°)
+static const fix SPUR = ratio(18, 100), SPUR_TURN = ratio(50, 100);
+// Under SMALL blocks wide, a river wanders more than it loops
+static const int32_t SMALL = 8;
+// A free loop's length along the river: RiverLine::LOOP widths
+static int64_t riverLoop(int64_t width) { return RiverLine::LOOP * std::max<int64_t>(width, toFix(4)); }
+// A braided river (sprint 112): its width river_kind.h's; its bars, gravel islands at its water's level, stand where noise of about
 // BRAID_BAR of its widths' wavelength along it (BRAID_LONG times shorter
 // across) is over BRAID_DRY (of its swing, ±1), none within a block of its edges
-static const int64_t BRAID_WIDER = 3;
 static const fix BRAID_BAR = ratio(12, 10), BRAID_DRY = ratio(10, 100);
 static const int32_t BRAID_LONG = 4;
 // and never wider than a cell over this: wider, a run between two centres is
@@ -1012,14 +1031,10 @@ static const uint32_t DELTAS = 409;
 // A creek: a run drawn as water below a river's flow, from this share of it
 // (the streams below the grid end on it, so it carries them on to a river)
 static const int64_t CREEK_SHARE = 4;
-// The narrowest a run's meanders are sized for (blocks)
-static const int32_t LOOP_WIDTH_LEAST = 8;
 // Far tiles: a run's drawn once it drains this many cells of rain per (tile
 // in cells)², and a channel below the grid once its runs are this many tiles long
 static const fix SHOWN = toFix(16);
 static const int64_t STREAM_TILES = 24;
-// How steeply the ground rises from a run's bank where it's cut down to it (blocks a block)
-static const fix VALLEY_WALL = ratio(1, 2);
 // Falls: a run's drop between profile points gathers into one step where
 // it's at least FALL_LEAST blocks, no gentler than 1 in FALL_GRADE, over rock
 // at least FALL_HARD hard (HARD)
@@ -1033,22 +1048,17 @@ bool World::drawn(int32_t c) const
 	return g.base[c] >= 0 && g.river_threshold != INT64_MAX && g.runoff[c] * CREEK_SHARE >= g.river_threshold;
 }
 
-void World::RunShape::line(fix t, int64_t &side, int64_t &off, int64_t &rate) const
-{
-	const int64_t t2 = mul(t, t), t3 = mul((fix)t2, t);
-	const fix phase = (fix)((int64_t)PI * loops * t >> FRAC);
-	side = mulShift(swing, sin(phase), FRAC);
-	off = side + mulShift(run, mul(m0, (fix)(t - 2 * t2 + t3)) + mul(m1, (fix)(t3 - t2)), FRAC);
-	rate = mulShift(mulShift(swing, cos(phase), FRAC), (int64_t)PI * loops, FRAC)
-			+ mulShift(run, mul(m0, (fix)(ONE - 4 * (int64_t)t + 3 * t2)) + mul(m1, (fix)(3 * t2 - 2 * (int64_t)t)), FRAC);
-}
-
 void World::shapeRuns()
 {
 	const Grid &g = *m_grid;
 	const Sphere &sphere = gridSphere();
 	constexpr int NEAR = 8; // fractional bits of a position (ground()'s)
 	m_runs.assign((size_t)g.size(), RunShape{});
+	// each cell's river's outlet: a river system's character is its own, all
+	// along it (one winds lazily, its neighbour on the same plain straighter)
+	std::vector<int32_t> outlet((size_t)g.size());
+	for (int32_t c : upstreamOrder(g.receiver))
+		outlet[(size_t)c] = g.receiver[c] < 0 ? c : outlet[(size_t)g.receiver[c]];
 	for (int32_t i = 0; i < g.size(); i++) {
 		const int32_t r = g.receiver[i];
 		if (r < 0 || !drawn(i))
@@ -1066,7 +1076,8 @@ void World::shapeRuns()
 		// by the same rule, so a stream grows on into its river), never wider
 		// than a sixth of a cell, the land it drains between
 		const int64_t cell = m_cell_blocks >> FRAC;
-		const int64_t width = std::min(riverWidth(mulShift(g.drained[i], cell * cell, FRAC)), m_cell_blocks / WIDEST);
+		const int64_t water = mulShift(g.discharge[i], cell * cell, FRAC);
+		const int64_t width = std::min(riverWidth(water), m_cell_blocks / WIDEST);
 		shape.width = width;
 		// positions from the cell's centre, blocks to 1/256
 		const Place from(sphere.centre(i));
@@ -1080,16 +1091,10 @@ void World::shapeRuns()
 		const int64_t len2 = (sx * sx + sy * sy + sz * sz) >> NEAR;
 		if (len2 == 0)
 			continue;
-		// Meanders: the channel swings to one side and back, in loops
-		// about eleven widths long (as rivers do), a whole number of them
-		// to the run so it's on the line at both ends and runs join.
 		const int64_t len = std::max<int64_t>(1, (int64_t)isqrt((uint64_t)(len2 << NEAR))); // 1/256 blocks
-		// (a creek's loops as a few-block stream's: shorter, it's a sawtooth)
-		shape.loops = std::max<int64_t>(1, (len << (FRAC - NEAR)) / (11 * std::max<int64_t>(width, toFix(LOOP_WIDTH_LEAST))));
-		// How far it swings: a river on the flat wanders (up to three widths
-		// either side, a floodplain's loops), one falling steeply barely does;
-		// by the run's fall over its length, from MEANDER_FLAT to MEANDER_STEEP
-		// (a fraction of the run too, so the bends never fold)
+		// How sharply it turns: a river on the flat wanders (a floodplain's
+		// loops), one falling steeply barely does; by the run's fall over its
+		// length, from MEANDER_FLAT to MEANDER_STEEP
 		const int64_t fall = std::max<int64_t>(0, (int64_t)waterBlocks(g.filled[i]) - (g.base[r] < 0 ? 0 : waterBlocks(g.filled[r]))) << FRAC;
 		shape.run = std::max<int64_t>(ONE, len << (FRAC - NEAR));
 		const fix grade = (fix)std::min<int64_t>(ONE, (fall << FRAC) / shape.run);
@@ -1097,20 +1102,45 @@ void World::shapeRuns()
 		// hold the river to its line (MEANDER_HARD to MEANDER_SOFT of it)
 		const fix banks = MEANDER_SOFT + mul(MEANDER_HARD - MEANDER_SOFT, hardness(from.dir()));
 		fix wander_by = mul(ONE - smooth(clamp(div(grade - MEANDER_FLAT, MEANDER_STEEP - MEANDER_FLAT), 0, ONE)), banks);
-		// A river steep for what it carries braids (braids(), sprint 112):
-		// BRAID_WIDER times as wide, among bars, and nearly straight
-		if (drawn(i) && braids(width, grade, g.rain(i), m_radius, m_metre,
-					glacial(i, (int64_t)waterBlocks(g.filled[i]) << FRAC))) {
-			shape.braided = true;
-			shape.width = std::min<int64_t>(width * BRAID_WIDER, m_cell_blocks / WIDEST);
-			wander_by = wander_by / 4;
-		}
-		shape.reach_side = std::min<int64_t>(mulShift(width, ratio(1, 4) + mul(wander_by, ratio(11, 4)), FRAC), shape.run / (4 * shape.loops));
+		// Its kind (river_kind.h): braided where it's steep for what it
+		// carries (braids(), sprint 112), cut into the rock, confined in its
+		// valley or meandering on its own sediment; each its width, wander,
+		// bars and banks
+		// How the hills hold it: its valley's depth (the streams' valley at the
+		// cell's scale, VALLEY_DEPTH · k_s · cell) against its width. A river
+		// far smaller than its valley is held to it, and bends round its spurs;
+		// one as wide as its valley's deep is on a plain of its own making
+		const int64_t valley = mulShift(mulShift(VALLEY_DEPTH, std::max<fix>(0, m_amplifier->steepnesses()[(size_t)i]), FRAC), m_cell_blocks, FRAC);
+		const int64_t deep = (valley << FRAC) / std::max<int64_t>(width, ONE); // fixed
+		shape.confined = smooth(clamp(div((fix)std::clamp<int64_t>(deep - CONFINED_FROM, -ONE, toFix(1000)), CONFINED_TO - CONFINED_FROM), 0, ONE));
+		const bool braid = braids(water, grade, m_radius, m_metre, glacial(i, (int64_t)waterBlocks(g.filled[i]) << FRAC));
+		shape.kind = river::kindOf(braid, alluvium(g.sediment[i]), hardness(from.dir()), grade, shape.confined);
+		shape.braided = shape.kind == river::Kind::Braided;
+		const river::Look &look = river::look(shape.kind);
+		shape.width = std::min<int64_t>(mulShift(width, look.width, FRAC), m_cell_blocks / WIDEST);
+		// its meanders' sharpest turn: its kind's, as far as its grade and banks let it
+		uint32_t own = (uint32_t)outlet[(size_t)i] * 0x9e3779b1u ^ m_code.seed_hash ^ 0x5bd1e995u;
+		own ^= own >> 15;
+		own *= 0x85ebca77u;
+		own ^= own >> 13;
+		// and its reaches': winding more here, straighter there, by a slow
+		// noise along the land (a few cells a swing)
+		const fix reach = clamp(HALF + fbm(from, m_code.seed_hash + RIVER_REACHES, m_meander / 3, 2, HALF) * 2, 0, ONE);
+		const fix character = mul(RIVER_CHARACTER_LEAST + (fix)(own % (uint32_t)(RIVER_CHARACTER_SPREAD + 1)), REACH_LEAST + mul(REACH_MOST - REACH_LEAST, reach));
+		// (a small river turns less: loops are built on a floodplain, by a
+		// river with the water to build one; under SMALL wide it wanders)
+		const fix size = clamp(div((fix)std::min<int64_t>(width, toFix(1000)), toFix(SMALL)), ratio(35, 100), ONE);
+		const fix free = mul(mul(mul(look.turn, std::min<fix>(ONE, wander_by)), character), size);
+		// held by the hills, it turns as its valley does, round the spurs
+		// from either side, SPUR_TURN at most, a bend each SPUR of a cell
+		const fix angle = free + mul(std::min<fix>(SPUR_TURN, free + SPUR_TURN / 2) - free, shape.confined);
+		const int64_t loop = riverLoop(width) + mulShift(mulShift(m_cell_blocks, SPUR, FRAC) - riverLoop(width), shape.confined, FRAC);
 		uint32_t hash = ((uint32_t)i * 0x9e3779b1u) ^ m_code.seed_hash;
 		hash ^= hash >> 15;
 		hash *= 0x85ebca77u;
 		hash ^= hash >> 13;
-		shape.swing = (shape.reach_side * (int64_t)(32768 + (hash & 32767)) >> 16) * ((hash >> 16) & 1 ? 1 : -1);
+		// (most loops lean downstream, as the water's push carries them; some up)
+		const fix skew = (fix)(ratio(6, 100) + (fix)(hash % (uint32_t)ratio(9, 100))) * ((hash >> 24) % 5 == 0 ? -1 : 1);
 		// The run bowed so it leaves and arrives along the way the river
 		// runs through each end (halfway between the run before and this,
 		// this and the next): runs share their direction where they meet,
@@ -1133,22 +1163,31 @@ void World::shapeRuns()
 			const int64_t on = (tx * sx + ty * sy + tz * sz) / cl, off = (tx * nx + ty * ny + tz * nz) / nl;
 			return on <= 0 ? 0 : (fix)std::clamp<int64_t>((off << FRAC) / on, -ONE, ONE);
 		};
-		shape.m0 = slopeAt(m_upstream[i], i);
-		shape.m1 = slopeAt(r, g.base[r] < 0 ? -1 : g.receiver[r]);
+		shape.line = RiverLine({ shape.run, loop, angle, skew, slopeAt(m_upstream[i], i),
+				slopeAt(r, g.base[r] < 0 ? -1 : g.receiver[r]), hash });
 	}
 }
 
 Place World::unwarped(const Place &p) const
 {
-	// (the rivers' warp, ground()'s, read at the warped place: close enough
-	// at its scale, a cell or two long)
-	int64_t w[3];
-	for (int k = 0; k < 3; k++) {
-		const fix f = fbm(p, m_code.seed_hash + MEANDER + (uint32_t)k, m_meander / 2, 2, HALF) / 3
-				+ fbm(p, m_code.seed_hash + MEANDER + 3 + (uint32_t)k, m_meander * 2, 2, HALF) / 16;
-		w[k] = (int64_t)f * gridSphere().spacing() >> (2 * FRAC - PLACE_FRAC);
+	// the column ground() warps onto p: at with at + warp(at) = p. Read once
+	// at p the warp was off by its own change across it, up to 80 blocks on a
+	// river's line, so valleys and streams missed the water; each read at the
+	// last guess closes it (a third of a cell's waves two cells long: a few
+	// steps to under a block)
+	const auto warp = [&](const Place &at, int k) {
+		const fix f = fbm(at, m_code.seed_hash + MEANDER + (uint32_t)k, m_meander / 2, 2, HALF) / 3
+				+ fbm(at, m_code.seed_hash + MEANDER + 3 + (uint32_t)k, m_meander * 2, 2, HALF) / 16;
+		return (int64_t)f * gridSphere().spacing() >> (2 * FRAC - PLACE_FRAC);
+	};
+	Place at = p;
+	for (int step = 0; step < UNWARP_STEPS; step++) {
+		int64_t w[3];
+		for (int k = 0; k < 3; k++)
+			w[k] = warp(at, k);
+		at = placeOf((int64_t)p.x - w[0], (int64_t)p.y - w[1], (int64_t)p.z - w[2]);
 	}
-	return placeOf((int64_t)p.x - w[0], (int64_t)p.y - w[1], (int64_t)p.z - w[2]);
+	return at;
 }
 
 void World::profileRuns()
@@ -1289,17 +1328,20 @@ Place World::onRun(int32_t c, fix t) const
 	const Sphere &sphere = gridSphere();
 	const Place a(sphere.centre(c)), b(sphere.centre(m_grid->receiver[c]));
 	const int64_t sx = (int64_t)b.x - a.x, sy = (int64_t)b.y - a.y, sz = (int64_t)b.z - a.z;
-	const Place on = placeOf((int64_t)a.x + mulShift(sx, t, FRAC), (int64_t)a.y + mulShift(sy, t, FRAC), (int64_t)a.z + mulShift(sz, t, FRAC));
+	const auto along = [&](fix u) {
+		return placeOf((int64_t)a.x + mulShift(sx, u, FRAC), (int64_t)a.y + mulShift(sy, u, FRAC), (int64_t)a.z + mulShift(sz, u, FRAC));
+	};
 	// (a dry body's runs are never shaped: straight between the centres)
 	if (m_runs.empty() || m_runs[c].run == 0)
-		return on;
+		return along(t);
+	// t along the line's own length: its point, x along the run and y across
 	const RunShape &shape = m_runs[c];
-	int64_t side, off, rate;
-	shape.line(t, side, off, rate);
+	const RiverLine::At p = shape.line.at(t);
+	const Place on = along((fix)std::clamp<int64_t>((p.x << FRAC) / shape.run, -ONE, 2 * ONE));
 	// across the run (run × up, as ground() reads it), the offset in place units
 	const int64_t ux = on.x >> 16, uy = on.y >> 16, uz = on.z >> 16;
 	const Dir n = normalise(((sy >> 8) * uz - (sz >> 8) * uy), ((sz >> 8) * ux - (sx >> 8) * uz), ((sx >> 8) * uy - (sy >> 8) * ux));
-	const int64_t by = (int64_t)(((__int128)off << PLACE_FRAC) / m_radius);
+	const int64_t by = (int64_t)(((__int128)p.y << PLACE_FRAC) / m_radius);
 	return placeOf((int64_t)on.x + mulShift(by, n.x, FRAC), (int64_t)on.y + mulShift(by, n.y, FRAC), (int64_t)on.z + mulShift(by, n.z, FRAC));
 }
 
@@ -1334,7 +1376,7 @@ void World::deltas()
 		d.side[2] = mul(up.x, d.sea[1]) - mul(up.y, d.sea[0]);
 		const int64_t root = sqrtWide64(flow);
 		const int64_t cell = m_cell_blocks >> FRAC;
-		d.width = std::min(riverWidth(mulShift(g.drained[i], cell * cell, FRAC)), m_cell_blocks / WIDEST);
+		d.width = std::min(riverWidth(mulShift(g.discharge[i], cell * cell, FRAC)), m_cell_blocks / WIDEST);
 		d.radius = std::min(d.width * DELTA_WIDTHS, mulShift(m_cell_blocks, DELTA_MOST, FRAC));
 		d.arms = 3 + (int)std::min<int64_t>(3, root >> FRAC >> 1);
 		const int16_t k = (int16_t)m_deltas.size();
@@ -1559,6 +1601,8 @@ Ground World::ground(const Place &at, fix sun) const
 	fix best_grade = 0;    // how steeply it runs there (rise over run)
 	int best_bend = 0; // the column's side of the bend: 1 inside (a bar), −1 outside (a cut bank), 0 on a straight
 	bool best_braided = false;
+	river::Kind best_kind = river::Kind::Confined;
+	bool best_barred = false; // this bend's one with a point bar
 	int32_t best_along = 0, best_across = 0, best_run = -1; // blocks along and across the nearest run's line
 	// (in a lake or the sea, the river is the water there: no channel, no banks)
 	const bool open = out.kind != Water::Lake && out.kind != Water::Sea;
@@ -1594,42 +1638,28 @@ Ground World::ground(const Place &at, fix sun) const
 		const int64_t width = shape.width, half = t_widened ? std::max(width / 2, tile * 40 / 100) : width / 2;
 		int bend = 0;
 		int64_t bar = 0;
-		int32_t run_along = 0, run_across = 0;
+		int32_t run_along = 0, run_across = 0, loop = 0;
 		int64_t dist = (int64_t)isqrt((uint64_t)(px * px + py * py + pz * pz)) << (FRAC - NEAR);
 		{
 			const int64_t len = std::max<int64_t>(1, (int64_t)isqrt((uint64_t)(len2 << NEAR))); // 1/256 blocks
-			const int64_t run = shape.run;
 			// across: the column against the run's side (run × up, the column's own up)
 			const int64_t ux = at.x >> 16, uy = at.y >> 16, uz = at.z >> 16;
 			const int64_t nx = (sy * uz - sz * uy) >> 14, ny = (sz * ux - sx * uz) >> 14, nz = (sx * uy - sy * ux) >> 14;
 			const int64_t across = ((a[0] * nx + a[1] * ny + a[2] * nz) / len) << (FRAC - NEAR);
 			// and along it from its start (blocks, fixed; past either end too)
 			const int64_t x = (along << FRAC) / len;
-			// The nearest point on the line: from the run's, a few steps
-			// (Gauss–Newton) along it. Straight across the run is further
-			// than square to the line where it runs steeply across, so the
-			// river would swell there, pinch where it runs along, and end its
-			// runs in points
-			fix u = t;
-			int64_t side = 0, off = 0, rate = 0;
-			for (int step = 0; step < 4; step++) {
-				shape.line(u, side, off, rate);
-				const __int128 on = (__int128)run * (mulShift(run, u, FRAC) - x) + (__int128)(across + off) * rate;
-				const __int128 norm = (__int128)run * run + (__int128)rate * rate;
-				u = (fix)std::clamp<__int128>(u - (on << FRAC) / std::max<__int128>(norm, 1), 0, ONE);
-			}
-			shape.line(u, side, off, rate);
-			t = u;
-			const int64_t ga = (mulShift(run, u, FRAC) - x) >> (FRAC - NEAR), gb = (across + off) >> (FRAC - NEAR);
-			dist = (int64_t)isqrt((uint64_t)(ga * ga + gb * gb)) << (FRAC - NEAR);
-			// the line swung toward the outside of its bend: there the water
-			// cuts the bank, on the inside it slows and lays its load down
-			const int64_t rel = across + off;
-			run_along = (int32_t)(mulShift(run, u, FRAC) >> FRAC);
-			run_across = (int32_t)(rel >> FRAC);
-			bend = rel == 0 || side == 0 ? 0 : (rel > 0) == (side > 0) ? 1 : -1;
-			// a bar is a crescent: widest at the bend's apex, nothing where the line crosses back
-			bar = shape.reach_side > 0 ? width * std::abs(side) / shape.reach_side : 0;
+			// the nearest point of its line (square to the line, not across
+			// the run: the river doesn't swell where it runs steeply across)
+			const RiverLine::Near n = shape.line.nearest(x, -across);
+			t = n.t;
+			dist = n.dist;
+			run_along = (int32_t)(n.along >> FRAC);
+			run_across = (int32_t)(n.across >> FRAC);
+			loop = n.loop;
+			// inside a bend the water slows and lays its load down (a bar,
+			// widest where it turns sharpest); outside it cuts the bank
+			bend = n.curve == 0 || n.across == 0 ? 0 : (n.curve > 0) == (n.across > 0) ? 1 : -1;
+			bar = mulShift(width, std::abs(n.curve), FRAC);
 		}
 		if (dist - half >= best_gap) {
 			next_gap = std::min(next_gap, dist - half);
@@ -1641,6 +1671,15 @@ Ground World::ground(const Place &at, fix sun) const
 			best_bar = bar;
 			best_bend = bend;
 			best_braided = shape.braided;
+			best_kind = shape.kind;
+			{
+				// (a kind's share of its bends barred, bend by bend)
+				uint32_t h = ((uint32_t)i * 0x9e3779b1u) ^ ((uint32_t)loop * 0x85ebca77u) ^ m_code.seed_hash;
+				h ^= h >> 15;
+				h *= 0x2c1b3c6du;
+				h ^= h >> 12;
+				best_barred = (fix)(h & (ONE - 1)) < river::look(shape.kind).bars;
+			}
 			best_along = run_along;
 			best_across = run_across;
 			best_run = i;
@@ -1702,7 +1741,7 @@ Ground World::ground(const Place &at, fix sun) const
 		const int32_t wave = (int32_t)std::max<int64_t>(4, mulShift(2 * best_half, BRAID_BAR, FRAC) >> FRAC);
 		braid_bar = value3(best_along, best_across * BRAID_LONG, best_run, m_code.seed_hash + BRAIDS, wave) > BRAID_DRY;
 	}
-	if (best_bend > 0 && best_dist >= best_half && best_dist < best_half + best_bar && out.kind == Water::None &&
+	if (best_bend > 0 && best_barred && best_dist >= best_half && best_dist < best_half + best_bar && out.kind == Water::None &&
 			out.terrain > best_level) {
 		out.river_bar = true;
 		out.terrain = best_level;
@@ -1721,17 +1760,21 @@ Ground World::ground(const Place &at, fix sun) const
 				out.water = best_level;
 				out.kind = Water::River;
 			}
-		} else if (out.terrain < best_level + 1 + (best_bend < 0 ? 2 : 0)) {
-			// the bank holds the river in; outside a bend it's cut steep
-			out.terrain = best_level + 1 + (best_bend < 0 ? 2 : 0);
+		} else if (out.terrain < best_level + river::look(best_kind).lip) {
+			// the bank holds the river in, its lip over the water its kind's
+			out.terrain = best_level + river::look(best_kind).lip;
 		}
 	}
 	// The ground beside a run slopes down to it: where the land stands over
-	// its water, it's cut back to walls rising VALLEY_WALL a block out from
-	// the bank (the river's cut into the land; the land never holds it up)
+	// its water, it's cut back to banks rising from the lip at its kind's
+	// slope, twice that on a bend's outside, where the water cuts (the
+	// river's cut into the land; the land never holds it up)
 	if (best_gap != INT64_MAX && best_dist >= best_half && out.kind == Water::None) {
 		const int64_t out_from = std::min<int64_t>(best_dist - best_half, toFix(1 << 14));
-		const int32_t wall = best_level + 1 + (best_bend < 0 ? 2 : 0) + floorInt((fix)mulShift(out_from, VALLEY_WALL, FRAC));
+		const fix bank = river::look(best_kind).bank * (best_bend < 0 ? 2 : 1);
+		// (in 64 bits: a far column times a steep bank passes a fix)
+		const int64_t rise = std::min<int64_t>(mulShift(out_from, bank, FRAC) >> FRAC, 1 << 20);
+		const int32_t wall = best_level + river::look(best_kind).lip + (int32_t)rise;
 		out.terrain = std::min(out.terrain, wall);
 	}
 	// Streams: the wet channels below the grid's rivers, on their own beds

@@ -173,6 +173,7 @@ void standWater(Grid &g, const std::vector<fix> &rain, const std::vector<fix> &m
 	g.receiver = way.receiver;
 	g.drained = accumulate(way.receiver, way.order, rain);
 	g.runoff = accumulate(way.receiver, way.order, melted);
+	g.discharge = accumulate(way.receiver, way.order, sheds);
 	g.lake.assign(n, 0);
 	g.pan.assign(n, 0);
 	g.lake_level.assign(n, 0);
@@ -822,6 +823,10 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 		const std::vector<int32_t> order = upstreamOrder(g->receiver);
 		g->drained = accumulate(g->receiver, order, rain);
 		g->runoff = accumulate(g->receiver, order, melted);
+		std::vector<fix> sheds(n);
+		for (size_t i = 0; i < n; i++)
+			sheds[i] = runoff(melted[i], g->heat[i] - mul(std::max<fix>(0, g->eroded[i]), LAPSE));
+		g->discharge = accumulate(g->receiver, order, sheds);
 	}
 
 	g->river_threshold = g->stream_threshold = riverThreshold(code);

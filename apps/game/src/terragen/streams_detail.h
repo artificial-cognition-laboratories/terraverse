@@ -29,11 +29,26 @@ constexpr fix CRITICAL = ratio(55, 100), VALLEY = ratio(1, 8);
 // depth under it (Streams::floor), its ridges up to UP of that over it
 constexpr fix UP = ONE;
 // What a channel drains (cells of average rain) for it to carry water
-constexpr fix WET = ratio(4, 1000);
-// A walk: STEPS of a quarter lattice at most
-constexpr int STEPS = 12;
-// A grid run's line, in pieces
-constexpr int RUN_PIECES = 12;
+constexpr fix WET = ratio(15, 10000);
+// A channel in its valley's floor: its water FREEBOARD of its width under the
+// floor (at least a half block, at most two), its bed DEEP of its width under
+// that (at least a block), and banks sloping from the water's edge up to the
+// floor over BANKS of its width (at least two blocks)
+constexpr fix FREEBOARD = ratio(1, 12), DEEP = ratio(1, 6), BANKS = ratio(1, 2);
+inline int64_t bankOf(int64_t width) { return std::max<int64_t>(mulShift(width, BANKS, FRAC), 2 * ONE); }
+// A node's edge to what it drains to, in pieces
+constexpr int EDGE_PIECES = 8;
+// A node's edge leaves along, and arrives along, TANGENT of its length in the
+// way the water goes (so edges run on through nodes without a kink)
+constexpr fix TANGENT = ratio(1, 2);
+// It joins a coarser channel this much of its distance downstream of the
+// nearest point (a tributary meets its trunk at about 60°, not square)
+constexpr fix ADVANCE = ratio(6, 10);
+// A grid run's line, in pieces; a drawn river's, at least this many a meander loop
+constexpr int RUN_PIECES = 12, DRAWN_PIECES = 8;
+// A drawn river free of the hills: its valley's floor this many of its widths
+// either side of it (its meanders' floodplain)
+constexpr fix FLOODPLAIN = ratio(15, 10);
 // how far a run that isn't a drawn river swings across its line, of its length
 constexpr fix BEND = ratio(18, 100);
 constexpr int SUB = 8; // fractional bits of a position in blocks
@@ -66,6 +81,8 @@ struct Near
 	int64_t d = INT64_MAX, bed = 0, width = 0; // blocks, fixed
 	V q{ 0, 0, 0 };
 	const Streams::Branch *b = nullptr;
+	size_t seg = 0; // q's piece of b, and how far along it
+	fix t = 0;
 };
 
 } // namespace streams
@@ -97,11 +114,30 @@ struct Streams::Branch
 	}
 };
 
+// A level's node: a cube's hashed point, if it lies on land, and the land
+// there as the coarser levels left it
+struct Streams::Node
+{
+	bool real = false;
+	V p{ 0, 0, 0 };
+	int64_t height = 0; // blocks, fixed
+};
+
+// Where a node drains: a neighbour (down: its cube), a coarser channel, or nowhere
+struct Streams::Choice
+{
+	bool real = false, down = false;
+	int64_t a = 0, b = 0, c = 0;
+};
+
 struct Streams::Kept
 {
 	struct Shard
 	{
 		std::mutex lock;
+		std::unordered_map<uint64_t, Node> nodes;
+		std::unordered_map<uint64_t, Choice> choices;
+		std::unordered_map<uint64_t, int64_t> areas;
 		std::unordered_map<uint64_t, std::shared_ptr<const Branch>> heads;
 		// a block's index: each of its cubes' branches passing through
 		using Block = std::unordered_map<uint64_t, std::vector<std::shared_ptr<const Branch>>>;
@@ -144,6 +180,8 @@ inline Near nearest(const Streams::Branch &b, const V &p)
 	n.q = { a.x + ((c.x - a.x) * at_t >> FRAC), a.y + ((c.y - a.y) * at_t >> FRAC), a.z + ((c.z - a.z) * at_t >> FRAC) };
 	n.d = (int64_t)isqrt((uint64_t)best) << (FRAC - SUB);
 	n.b = &b;
+	n.seg = at;
+	n.t = at_t;
 	n.bed = b.bed[at] + mulShift(b.bed[at + 1] - b.bed[at], at_t, FRAC);
 	n.width = b.width[at] + mulShift(b.width[at + 1] - b.width[at], at_t, FRAC);
 	return n;
