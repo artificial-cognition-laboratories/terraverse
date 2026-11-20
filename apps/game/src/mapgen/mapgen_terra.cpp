@@ -154,6 +154,11 @@ int MapgenTerra::spawnLevelAt(int body, double latitude, double longitude) const
 	return water_level + g.terrain + 2;
 }
 
+// TEMP(2026-11-19): trees and ground plants are off. Flora is half built (being
+// rewritten as species) and its meshes (millions of vertices a forest block)
+// stall the client; it comes back on when that work gets its own focus.
+static constexpr bool PLANTS = false;
+
 void MapgenTerra::makeChunk(BlockMakeData *data)
 {
 	assert(data->vmanip);
@@ -193,7 +198,8 @@ void MapgenTerra::makeChunk(BlockMakeData *data)
 		m_emerge->oremgr->placeAllOres(this, blockseed, node_min, node_max);
 	if (flags & MG_DECORATIONS)
 		m_emerge->decomgr->placeAllDecos(this, blockseed, node_min, node_max);
-	plantTrees(data);
+	if (PLANTS)
+		plantTrees(data);
 	dustTopNodes();
 
 	updateLiquid(&data->transforming_liquid, full_node_min, full_node_max);

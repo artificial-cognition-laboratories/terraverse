@@ -1,12 +1,11 @@
 <script setup lang="ts">
 /**
- * The frame chart, as Luanti's: frame time on a scale with the target (60 fps)
- * across the middle, upside down: frames that make it fill green above it (the
- * spare time), frames over it are a red line below. How close each frame came to its
- * budget, at a glance (a column's mean; under the line its slowest frame faint behind),
- * and the reading says how much was work and how much
- * spare (the main thread's Wait). A pixel column shows its slowest frame;
- * past twice the target it's cut at the bottom.
+ * The frame chart, as Luanti's: one line, the target (60 fps) across the
+ * middle, read two ways. A frame that made its target is above it, green, by
+ * the time it had to spare (what it slept), filled to the middle. One that
+ * didn't is below it, red, by its fps. Both halves scale to the window: the
+ * most spare at the top, the least fps at the bottom. Each pixel column is
+ * its frames' mean, its worst faint behind, so one hitch isn't averaged away.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from "vue"
 import type { PerfFrame } from "../../bridge/index.ts"
@@ -15,7 +14,8 @@ import type { Window } from "./view.ts"
 
 const props = defineProps<{ frames: readonly PerfFrame[]; window: Window; cursor: number | null; height: number }>()
 
-const TARGET_MS = 1000 / 60
+const TARGET_FPS = 60
+const TARGET_MS = 1000 / TARGET_FPS
 const MAIN = "Main"
 const WAIT = "Wait"
 const GOOD = "#4caf6a"
@@ -68,83 +68,102 @@ function draw() {
 
     const { startMs, endMs } = props.window
     const span = Math.max(endMs - startMs, 1e-6)
-    // a column per device pixel's worth of time: its frames' mean (the typical
-    // frame) and its slowest (a hitch, faint). The slowest alone painted every
-    // column with one hitch in it red, as if the game never made its target.
+    // a column per device pixel's worth of time: its frames' mean work (the
+    // typical frame) and its most (a hitch, faint behind)
     const msPerPixel = span / Math.max(width.value * dpr, 1)
-    const columns: { x: number; mean: number; most: number }[] = []
+    const columns: { x: number; work: number; mostWork: number }[] = []
     let group = Number.NaN
-    let sum = 0
     let n = 0
     for (let k = firstFrom(startMs); k < props.frames.length; k++) {
         const f = props.frames[k]!
         if (f.start > endMs) break
         const at = Math.floor(f.end / msPerPixel)
         const x = ((f.end - startMs) / span) * width.value
-        const ms = f.end - f.start
+        const work = workOf(f)
         const last = columns[columns.length - 1]
         if (at !== group || !last) {
-            columns.push({ x: x, mean: ms, most: ms })
+            columns.push({ x: x, work: work, mostWork: work })
             group = at
-            sum = ms
             n = 1
         } else {
-            sum += ms
             n++
             last.x = x
-            last.mean = sum / n
-            last.most = Math.max(last.most, ms)
+            last.work += (work - last.work) / n
+            last.mostWork = Math.max(last.mostWork, work)
         }
     }
     const top = 18 // the reading's row
-    const full = TARGET_MS * 2 // the target across the middle
-    const scale = (props.height - top) / full
-    // upside down, as spare time reads: a quick frame high, a slow one low,
-    // so the green line rides the top and a frame over the target drops red below it
-    const yOf = (ms: number) => top + Math.min(ms, full) * scale
-    const target = yOf(TARGET_MS)
-    // Over the line (frames that made the target, their spare time) solid
-    // green; under it (frames over the target) a red line only, the column's
-    // slowest frame a faint one behind it.
-    g.fillStyle = GOOD
+    const half = (props.height - top) / 2
+    const mid = top + half
+    // Each half scaled to the window, as the other charts: the top is the
+    // most spare time in it, the bottom its least fps (the worst frames', so
+    // a hitch never runs off the chart)
+    let mostSpare = 0
+    let leastFps = TARGET_FPS
+    for (const c of columns) {
+        mostSpare = Math.max(mostSpare, TARGET_MS - c.work)
+        leastFps = Math.min(leastFps, 1000 / Math.max(c.mostWork, 1e-3))
+    }
+    mostSpare = Math.max(mostSpare, TARGET_MS * 0.05) // (a window with none still has a top half)
+    leastFps = Math.min(leastFps, TARGET_FPS * 0.95)
+    // One line, read two ways: a frame that made its target sits above the
+    // middle by the time it had to spare (target − work, what it slept); one
+    // that didn't sits below it by its fps, the target at the middle
+    const yOf = (work: number) => {
+        if (work <= TARGET_MS) return mid - Math.min(1, (TARGET_MS - work) / mostSpare) * half
+        const fps = 1000 / work
+        return mid + Math.min(1, (TARGET_FPS - fps) / (TARGET_FPS - leastFps)) * half
+    }
+    // the spare time: solid green from the middle up to the line
+    g.fillStyle = "rgb(76 175 106 / 0.45)"
     for (let i = 0; i < columns.length; i++) {
         const c = columns[i]!
-        if (c.mean > TARGET_MS) continue
+        const y = yOf(c.work)
+        if (y >= mid) continue
         const x0 = i ? columns[i - 1]!.x : c.x - 1
-        g.fillRect(x0, yOf(c.mean), Math.max(1 / dpr, c.x - x0), target - yOf(c.mean))
+        g.fillRect(x0, y, Math.max(1 / dpr, c.x - x0), mid - y)
     }
-    const under = (pick: (c: (typeof columns)[number]) => number, color: string) => {
-        g.beginPath()
-        columns.forEach((c, i) => {
-            const y = yOf(Math.max(pick(c), TARGET_MS))
-            if (i) g.lineTo(c.x, y)
-            else g.moveTo(c.x, y)
-        })
-        g.strokeStyle = color
-        g.lineWidth = 1.2
-        g.lineJoin = "round"
-        g.stroke()
+    // the line, green above the middle and red below (clipped each side)
+    const line = (pick: (c: (typeof columns)[number]) => number, alpha: number) => {
+        for (const [y0, y1, color] of [
+            [0, mid, `rgb(76 175 106 / ${alpha})`],
+            [mid, props.height, `rgb(224 82 79 / ${alpha})`],
+        ] as const) {
+            g.save()
+            g.beginPath()
+            g.rect(0, y0, width.value, y1 - y0)
+            g.clip()
+            g.beginPath()
+            columns.forEach((c, i) => {
+                if (i) g.lineTo(c.x, yOf(pick(c)))
+                else g.moveTo(c.x, yOf(pick(c)))
+            })
+            g.strokeStyle = color
+            g.lineWidth = 1.2
+            g.lineJoin = "round"
+            g.stroke()
+            g.restore()
+        }
     }
-    under((c) => c.most, "rgb(224 82 79 / 0.3)")
-    under((c) => c.mean, OVER)
-    const mid = Math.round(target) + 0.5
+    line((c) => c.mostWork, 0.35) // the column's worst frame, faint
+    line((c) => c.work, 1)
+    const across = Math.round(mid) + 0.5
     g.strokeStyle = "rgb(255 255 255 / 0.5)"
     g.setLineDash([3, 3])
     g.beginPath()
-    g.moveTo(0, mid)
-    g.lineTo(width.value, mid)
+    g.moveTo(0, across)
+    g.lineTo(width.value, across)
     g.stroke()
     g.setLineDash([])
-    // the scale at the right, as the other charts': the most spare at the top
-    // (a frame of no work), the target in the middle, as far over at the bottom
+    // the scale at the right: all spare at the top, the target, the least fps
     g.font = "9px ui-monospace, monospace"
     g.textAlign = "right"
     g.fillStyle = "rgb(255 255 255 / 0.45)"
     g.textBaseline = "top"
-    g.fillText("16,667 µs spare", width.value - 4, top + 1)
+    g.fillText(`${us(mostSpare)} sleep`, width.value - 4, top + 1)
     g.textBaseline = "bottom"
-    g.fillText("60 fps", width.value - 4, mid - 1)
-    g.fillText("16,667 µs over", width.value - 4, props.height - 2)
+    g.fillText(`${TARGET_FPS} fps`, width.value - 4, across - 1)
+    g.fillText(`${leastFps.toFixed(leastFps < 10 ? 1 : 0)} fps`, width.value - 4, props.height - 2)
     g.textAlign = "left"
     if (props.cursor !== null && props.cursor >= startMs && props.cursor <= endMs) {
         g.fillStyle = "rgb(255 255 255 / 0.35)"
