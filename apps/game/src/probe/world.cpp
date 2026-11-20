@@ -222,7 +222,7 @@ void terragen(Context &c)
 					if (ch == ' ')
 						ch = '_';
 				ServerEnvironment &env = c.env();
-				c.say(format("TERRA %d %d %.17g %d %d %.6f %.6f %.6f %.6f %.6f %s %s %.6f %s", id, (int)env.getDayCount(),
+				c.say(format("TERRA %d %d %.17g %u %u %.6f %.6f %.6f %.6f %.6f %s %s %.6f %s", id, (int)env.getDayCount(),
 						(double)env.getTimeOfDayF(), calendar.year, calendar.day, calendar.date, sun.latitude,
 						sun.declination, sun.elevation, sun.daylight, sun.season, climate.biome.c_str(),
 						climate.temperature, province.c_str()));

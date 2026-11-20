@@ -228,7 +228,7 @@ std::optional<TerraWorldFacts> terraWorldFacts(Server *server);
 // core.terra's). Each throws BaseException on seam, or where terra didn't make the world.
 struct TerraCalendar
 {
-	int year, day; // from 1
+	uint32_t year, day; // from 1
 	double date;   // 0..1 through the year (0: the northern spring equinox)
 	int year_days;
 };
