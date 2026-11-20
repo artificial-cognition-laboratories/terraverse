@@ -129,8 +129,9 @@ export function Pack(opts: { root: string }) {
             cpSync(join(opts.root, path), to)
         }
         const out = join(work, `${top}.tgz`)
-        // tar is on every platform terra runs on (Windows ships bsdtar); -C keeps members relative
-        const proc = Bun.spawn(["tar", "-czf", out, "-C", work, top], { stdout: "pipe", stderr: "pipe" })
+        // tar is on every platform terra runs on (Windows ships bsdtar). Run from work with relative
+        // names: GNU tar (Git's, first on a CI runner's PATH) reads "C:\…" as a remote host
+        const proc = Bun.spawn(["tar", "-czf", `${top}.tgz`, top], { cwd: work, stdout: "pipe", stderr: "pipe" })
         const [code, error] = await Promise.all([proc.exited, new Response(proc.stderr).text()])
         if (code !== 0) throw err("UNEXPECTED", { detail: `tar couldn't pack ${relative(opts.root, work)}: ${error.trim()}` })
         return Buffer.from(await Bun.file(out).arrayBuffer())
