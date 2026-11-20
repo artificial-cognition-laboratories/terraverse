@@ -6,7 +6,7 @@
 #ifndef USE_CMAKE_CONFIG_H
 #define USE_CMAKE_CONFIG_H
 #endif
-#include "config.h"
+#include "src/shared/base/config.h"
 #undef USE_CMAKE_CONFIG_H
 
 #ifdef __MINGW32__

@@ -121,9 +121,12 @@ if(ANDROID)
 endif()
 
 
-# Terra Firma: M_PI for every target, Irrlicht's included, as glibc gives it
+# Terra Firma: M_PI for every target, Irrlicht's included, as glibc gives it; and C++
+# exceptions, which clang-cl leaves off unless told. The libraries added below (terragen,
+# its tests) are configured before src/CMakeLists.txt sets the engine's MSVC flags.
 if(MSVC)
 	add_compile_definitions(_USE_MATH_DEFINES)
+	add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/EHsc>)
 endif()
 
 if(TRUE)

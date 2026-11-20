@@ -26,13 +26,15 @@ stage apps/game/assets/matter matter
 stage apps/game/assets/world world
 stage apps/game/assets/misc misc
 
-# TEMP(2026-11-20): apps/game/server (the official mods' server folder) was removed in the
-# monorepo move and has no new home yet. Until it does, the server folder staged before
-# the move (.output/server) is left as it was; a fresh checkout runs worlds without the
-# official mods (Server: a world given no server folder runs the share's, if prepared).
-if [[ ! -f "$out/server/.terra/manifest.json" ]]; then
-    echo "stage: no official mods staged (apps/game/server was removed; see TEMP above)" >&2
-fi
+# The game's own server folder (apps/game/server): its official TypeScript mods, prepared
+# from source here, then only what runs (.terra's build and manifest, which point nowhere
+# outside it) staged as the engine's default server folder.
+[[ -d "$root/apps/cli/node_modules" ]] || (cd "$root/apps/cli" && bun install --frozen-lockfile >/dev/null)
+bun "$root/apps/cli/bin/terra.ts" prepare "$root/apps/game/server" >/dev/null
+rm -rf "$out/server"
+mkdir -p "$out/server/.terra"
+cp "$root/apps/game/server/package.json" "$root/apps/game/server/server.config.ts" "$out/server/"
+cp -a "$root/apps/game/server/.terra/build" "$root/apps/game/server/.terra/manifest.json" "$out/server/.terra/"
 
 # CMake writes translated .mo files here when gettext is available. Keep
 # bundled translations as a fallback without deleting generated output.
