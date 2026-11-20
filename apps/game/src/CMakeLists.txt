@@ -342,18 +342,7 @@ if(WIN32)
 		)
 		# Terra Firma: <windows.h>'s `near` and `far` macros, gone before anything sees them
 		add_compile_options("/FI${CMAKE_CURRENT_SOURCE_DIR}/shared/platform/system/windows_names.h")
-		# Terra Firma: terragen's fixed point uses __int128, so Windows builds
-		# with clang-cl; its 128-bit division lives in compiler-rt.
-		if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-			message(FATAL_ERROR "Windows builds need clang-cl (terragen uses __int128): -DCMAKE_CXX_COMPILER=clang-cl")
-		endif()
-		execute_process(COMMAND ${CMAKE_CXX_COMPILER} /clang:--rtlib=compiler-rt /clang:-print-libgcc-file-name
-			OUTPUT_VARIABLE clang_builtins OUTPUT_STRIP_TRAILING_WHITESPACE)
-		file(TO_CMAKE_PATH "${clang_builtins}" clang_builtins) # its backslashes are escapes to CMake
-		if(NOT EXISTS "${clang_builtins}")
-			message(FATAL_ERROR "clang-cl's compiler-rt builtins not found (asked: \"${clang_builtins}\")")
-		endif()
-		list(APPEND PLATFORM_LIBS "${clang_builtins}")
+		# Terra Firma: clang-cl and compiler-rt's builtins are required in apps/game/CMakeLists.txt
 	endif()
 	list(APPEND PLATFORM_LIBS ws2_32.lib version.lib shlwapi.lib winmm.lib iphlpapi.lib)
 

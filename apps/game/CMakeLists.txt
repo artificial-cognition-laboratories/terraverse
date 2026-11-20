@@ -121,12 +121,24 @@ if(ANDROID)
 endif()
 
 
-# Terra Firma: M_PI for every target, Irrlicht's included, as glibc gives it; and C++
-# exceptions, which clang-cl leaves off unless told. The libraries added below (terragen,
-# its tests) are configured before src/CMakeLists.txt sets the engine's MSVC flags.
+# Terra Firma: what every Windows target needs, set here because the libraries added below
+# (terragen, its tests) are configured before src/CMakeLists.txt sets the engine's MSVC
+# flags, and clang-cl's own defaults differ: M_PI, as glibc gives it; C++ exceptions; the
+# DLL runtime the engine and its vcpkg libraries use (clang-cl alone picks the static one);
+# and compiler-rt's builtins, where terragen's __int128 division lives.
 if(MSVC)
 	add_compile_definitions(_USE_MATH_DEFINES)
-	add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/EHsc>)
+	add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/EHsc> $<IF:$<CONFIG:Debug>,/MDd,/MD>)
+	if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+		message(FATAL_ERROR "Windows builds need clang-cl (terragen uses __int128): -DCMAKE_CXX_COMPILER=clang-cl")
+	endif()
+	execute_process(COMMAND ${CMAKE_CXX_COMPILER} /clang:--rtlib=compiler-rt /clang:-print-libgcc-file-name
+		OUTPUT_VARIABLE clang_builtins OUTPUT_STRIP_TRAILING_WHITESPACE)
+	file(TO_CMAKE_PATH "${clang_builtins}" clang_builtins) # its backslashes are escapes to CMake
+	if(NOT EXISTS "${clang_builtins}")
+		message(FATAL_ERROR "clang-cl's compiler-rt builtins not found (asked: \"${clang_builtins}\")")
+	endif()
+	link_libraries("${clang_builtins}")
 endif()
 
 if(TRUE)
