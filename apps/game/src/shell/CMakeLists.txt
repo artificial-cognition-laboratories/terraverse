@@ -6,6 +6,7 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/client.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/community.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/console.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/cpu_canvas.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/debugger.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/entering.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/course.cpp
@@ -14,9 +15,14 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/plume.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/relief.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/flora.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/gpu_canvas.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/gpu_egl.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/gpu_programs.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/ime.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/inbox.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/input.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/items.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/latency.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/menu.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/options.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pixels.cpp
@@ -32,6 +38,7 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/social.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/state.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/ui.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ui_check.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/system.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/matter.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/wiki.cpp

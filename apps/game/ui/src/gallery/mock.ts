@@ -276,6 +276,7 @@ export function MockBridge() {
     let entering: ReturnType<typeof setInterval> | undefined // a world being entered (play)
     const handlers: Handlers = {
         ready: () => null,
+        "page.perf": () => null,
         // no native planet in the gallery: the page around it is what's shown
         // (a body made over a few seconds, stage by stage, as the engine tells it: the create screen's bar)
         "planetarium.show": () => {

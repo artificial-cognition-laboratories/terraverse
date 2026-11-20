@@ -134,10 +134,9 @@ public:
 	void initialize(Client *client, Hud *hud);
 	void finalize();
 
-	bool run()
-	{
-		return m_device->run();
-	}
+	// The window's events, then the page's frame begun: Chromium draws it
+	// alongside ours, with this frame's input (shell::Shell::beginFrame).
+	bool run();
 
 	// FIXME: this is still global when it shouldn't be
 	static ShadowRenderer *get_shadow_renderer()

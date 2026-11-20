@@ -512,6 +512,8 @@ export type EngineMessage =
 export type Intents = {
     ready: { request: {}; response: null }
     capture: { request: { keyboard: boolean }; response: null }
+    /** The page's own cost over the last second (ms): debugger counters (bridge/pagePerf.ts). */
+    "page.perf": { request: { longestTask: number; busy: number; longestGap: number }; response: null }
     /** The debugger's page only (debugger.html), from here to debugger.close. */
     "debugger.dock": { request: { side: DockSide }; response: null }
     /** Its edge is held: the engine sizes it by the mouse until the button comes up. */

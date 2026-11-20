@@ -15,9 +15,11 @@
 #include "planetarium.h"
 #include "porting.h"
 #include "input.h"
-#include "pixels.h"
 #include "scheme.h"
-#include "surface.h"
+#include "canvas.h"
+#include "latency.h"
+#include "ui_check.h"
+#include "inbox.h"
 #include "exceptions.h"
 #include "filesys.h"
 #include "log.h"
@@ -27,6 +29,8 @@
 #include <IVideoDriver.h>
 #include <json/json.h>
 #include <cctype>
+#include <chrono>
+#include <thread>
 #include <vector>
 
 shell::Shell *g_shell = nullptr;
@@ -67,9 +71,12 @@ struct Shell::Impl
 	Opts opts;
 	std::string item_dir;
 	Viewport viewport;
-	Pixels pixels;
-	Surface surface;
+	Inbox inbox; // before what posts to it
+	// the page's frames (the GPU's if it can): before Input, which reads it;
+	// let go before Chromium shuts down, after the page closes (~Shell)
+	std::unique_ptr<Canvas> canvas;
 	Input input;
+	Latency latency;
 	Ime ime;
 	Options options;
 	Bridge bridge;
@@ -83,6 +90,7 @@ struct Shell::Impl
 	std::unique_ptr<Planetarium> planetarium; // its verbs come off before the rest goes
 	std::unique_ptr<Entering> entering;
 	std::unique_ptr<Debugger> debugger;
+	std::unique_ptr<UiCheck> check; // with --ui-check
 	// The window, and the game's part of it (the driver's screen) beside the debugger.
 	core::dimension2du window, screen;
 	core::vector2di offset;
@@ -92,18 +100,22 @@ struct Shell::Impl
 	bool ready = false;
 	unsigned loads = 0; // pageLoads()
 	bool keyboard = false;
+	bool begun = false; // this frame's asked of Chromium (beginFrame)
 	Mode mode = Mode::Menu;
 	std::vector<Json::Value> pending;
 
 	explicit Impl(const Opts &o) :
 		opts(o),
 		item_dir(o.cache_dir + "/items"),
-		surface(o.driver),
-		input(o.cursor, pixels, viewport),
-		ime(o.guienv)
+		canvas(makeCanvas(o.driver, o.gpu, "the page")),
+		input(o.cursor, *canvas, viewport),
+		ime(o.guienv),
+		bridge(inbox)
 	{
 		auto size = o.driver->getScreenSize();
-		viewport = { size.Width, size.Height, o.scale };
+		viewport.width = size.Width;
+		viewport.height = size.Height;
+		viewport.scale = o.scale;
 		window = screen = size;
 	}
 
@@ -162,7 +174,9 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(wired(opts)))
 	CefSettings settings;
 	settings.windowless_rendering_enabled = true;
 	settings.no_sandbox = true; // the suid chrome-sandbox helper is not installed
-	settings.multi_threaded_message_loop = false; // pumped from frame()
+	// Chromium on a thread of its own: however long its work, a frame never
+	// waits on it (what reaches the engine comes through the Inbox)
+	settings.multi_threaded_message_loop = true;
 	settings.log_severity = LOGSEVERITY_WARNING;
 	CefString(&settings.root_cache_path) = opts.cache_dir;
 	CefString(&settings.log_file) = opts.cache_dir + "/chromium.log";
@@ -171,6 +185,10 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(wired(opts)))
 	if (!CefInitialize(mainArgs(), settings, app, nullptr))
 		throw BaseException("shell: Chromium failed to initialize (see " +
 				opts.cache_dir + "/chromium.log)");
+	// Chromium's browser takes SIGINT and SIGTERM for its own shutdown (its
+	// CrShutdownDetector thread), so the engine's kill flag never saw a quit.
+	// Set back once its UI thread is running: by then it's done installing.
+	onChromium([] { porting::signal_handler_init(); });
 
 	CefRegisterSchemeHandlerFactory(SCHEME, UI_HOST, new UiScheme(opts.ui_dir));
 	CefRegisterSchemeHandlerFactory(SCHEME, ITEM_HOST, new UiScheme(m->item_dir));
@@ -183,6 +201,15 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(wired(opts)))
 		if (!intent["keyboard"].isBool())
 			throw Refused("capture needs a boolean 'keyboard'");
 		m->onCapture(intent["keyboard"].asBool());
+		return Json::Value();
+	});
+	// The page's own cost (ui/src/bridge/pagePerf.ts), once a second: counters for the debugger.
+	m->bridge.on("page.perf", [](const Json::Value &intent) {
+		if (!intent["longestTask"].isNumeric() || !intent["busy"].isNumeric() || !intent["longestGap"].isNumeric())
+			throw Refused("page.perf needs longestTask, busy and longestGap (ms)");
+		trace::count("UI: page longest task", intent["longestTask"].asDouble() * 1000, trace::Fold::Max);
+		trace::count("UI: page script", intent["busy"].asDouble() * 1000, trace::Fold::Sum);
+		trace::count("UI: page frame gap", intent["longestGap"].asDouble() * 1000, trace::Fold::Max);
 		return Json::Value();
 	});
 	// Available on every screen, menu or game.
@@ -286,22 +313,32 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(wired(opts)))
 	m->planetarium = std::make_unique<Planetarium>(Planetarium::Opts{ *this });
 	m->entering = std::make_unique<Entering>(Entering::Opts{ *this, opts.driver, opts.cursor });
 	m->debugger = std::make_unique<Debugger>(Debugger::Opts{ opts.driver, opts.cursor, opts.url, opts.scale,
-			[this](bool on) { m->ime.capture(on); } });
+			[this](bool on) { m->ime.capture(on); }, m->inbox, opts.gpu, opts.ui_dir });
 	m->router = CefMessageRouterBrowserSide::Create(routerConfig());
-	m->router->AddHandler(&m->bridge, true);
-	m->client = new Client(m->pixels, m->viewport, m->router, [this] { m->onNavigate(); });
+	m->client = new Client(*m->canvas, m->viewport, m->inbox, m->router, [this] { m->onNavigate(); });
 
 	CefWindowInfo window;
 	window.SetAsWindowless(0);
+	window.shared_texture_enabled = m->canvas->shared();
+	// its frames when we ask (beginFrame), in step with ours, not on a timer of its own
+	window.external_begin_frame_enabled = true;
 	CefBrowserSettings browser_settings;
 	browser_settings.windowless_frame_rate = 60;
 	browser_settings.background_color = 0; // transparent: the game shows through
 
-	m->browser = CefBrowserHost::CreateBrowserSync(window, m->client, opts.url,
-			browser_settings, nullptr, nullptr);
+	onChromium([&] {
+		m->router->AddHandler(&m->bridge, true);
+		m->browser = CefBrowserHost::CreateBrowserSync(window, m->client, opts.url,
+				browser_settings, nullptr, nullptr);
+	});
 	if (!m->browser)
 		throw BaseException("shell: could not create the page browser");
 
+	if (opts.ui_check)
+		m->check = std::make_unique<UiCheck>(UiCheck::Opts{
+			[this](const SEvent &event) { return onEvent(event); },
+			[this] { return m->ready; },
+		});
 	infostream << "shell: loading " << opts.url << std::endl;
 	g_shell = this;
 }
@@ -314,13 +351,14 @@ Shell::~Shell()
 
 	m->browser->GetHost()->CloseBrowser(true);
 	while (!m->client->closed())
-		CefDoMessageLoopWork();
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	m->browser = nullptr;
 
-	m->router->RemoveHandler(&m->bridge);
+	onChromium([&] { m->router->RemoveHandler(&m->bridge); });
 	m->router = nullptr;
 	m->bridge.stop(); // no answers posted into a Chromium that's shutting down
 	m->client = nullptr;
+	m->canvas.reset(); // (its GL context on Chromium's thread goes with it)
 
 	CefShutdown();
 }
@@ -330,8 +368,23 @@ bool Shell::debuggerOpen() const
 	return m->debugger && m->debugger->open();
 }
 
+void Shell::beginFrame()
+{
+	if (m->begun)
+		return;
+	m->begun = true;
+	// (its last frame still on the GPU: not yet, or it would paint over it)
+	if (m->canvas->settled())
+		m->browser->GetHost()->SendExternalBeginFrame();
+	else // (its last paint still on the GPU: what the page's frame gaps are, if it isn't its script)
+		trace::count("UI: page frames held [#]", 1, trace::Fold::Sum);
+	m->debugger->beginFrame();
+}
+
 void Shell::frame()
 {
+	beginFrame(); // (a loop that drew without pumping the window)
+	m->begun = false;
 	{
 		TF_ZONE("UI");
 		frameUi();
@@ -343,8 +396,8 @@ void Shell::frame()
 void Shell::frameUi()
 {
 	{
-		TF_ZONE("Chromium");
-		CefDoMessageLoopWork();
+		TF_ZONE("UI: inbox"); // the page's intents, run by the engine
+		m->inbox.run();
 	}
 	m->account->step();
 	m->social->step();
@@ -372,7 +425,13 @@ void Shell::frameUi()
 
 	if (m->underlayDraw)
 		m->underlayDraw(m->opts.driver);
-	m->surface.draw(m->pixels);
+	const Canvas::Painted painted = m->canvas->taken();
+	m->latency.painted(painted.first, painted.paints, painted.area);
+	if (m->canvas->draw({ 0, 0 }))
+		m->latency.shown(trace::now());
+	m->latency.report();
+	if (m->check)
+		m->check->step(driver->getScreenSize());
 
 	if (m->debugger->open()) {
 		TF_ZONE("Debugger");
@@ -398,6 +457,8 @@ bool Shell::onEvent(const SEvent &event)
 		return true;
 
 	const bool took = m->input.handle(event, m->browser->GetHost(), m->keyboard);
+	if (took)
+		m->latency.input(trace::now());
 	if (!m->underlayMouse || event.EventType != EET_MOUSE_INPUT_EVENT)
 		return took;
 	// (a drag carries on over the page's panels)

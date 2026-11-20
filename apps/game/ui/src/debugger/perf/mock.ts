@@ -16,7 +16,7 @@ const MAIN: Phase[] = [
         { name: "Draw3D", ms: 3.2, inside: [{ name: "CM::updateDrawList", ms: 0.9 }] },
         { name: "Far view update", ms: 1.3 },
         { name: "DrawHUD", ms: 0.4 },
-        { name: "UI", ms: 0.9, inside: [{ name: "Chromium", ms: 0.4 }, { name: "Page upload", ms: 0.3 }] },
+        { name: "UI", ms: 0.9, inside: [{ name: "UI: inbox", ms: 0.4 }, { name: "Page upload", ms: 0.3 }] },
     ] },
 ]
 

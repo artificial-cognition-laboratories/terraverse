@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "pixels.h"
+#include "trace/trace.h"
 #include <algorithm>
 #include <array>
 
@@ -18,6 +19,7 @@ static const auto UNPREMULTIPLY = [] {
 
 void Pixels::write(const void *premultiplied, u32 w, u32 h, const std::vector<CefRect> &changed)
 {
+	std::lock_guard<std::mutex> guard(lock);
 	std::vector<CefRect> rects = changed;
 	if (w != width || h != height) {
 		width = w;
@@ -26,10 +28,14 @@ void Pixels::write(const void *premultiplied, u32 w, u32 h, const std::vector<Ce
 		rects = { CefRect(0, 0, (int)w, (int)h) }; // nothing old is reusable
 	}
 
+	if (painted.paints++ == 0)
+		painted.first = trace::now();
 	const u8 *src = static_cast<const u8 *>(premultiplied);
 	for (const CefRect &r : rects) {
 		u32 x0 = (u32)std::max(0, r.x), y0 = (u32)std::max(0, r.y);
 		u32 x1 = std::min(w, (u32)(r.x + r.width)), y1 = std::min(h, (u32)(r.y + r.height));
+		if (x1 > x0 && y1 > y0)
+			painted.area += (double)(x1 - x0) * (y1 - y0) / ((double)w * h);
 		for (u32 y = y0; y < y1; y++) {
 			const u8 *s = src + ((size_t)y * w + x0) * 4;
 			u8 *d = bgra.data() + ((size_t)y * w + x0) * 4;
@@ -47,6 +53,7 @@ void Pixels::write(const void *premultiplied, u32 w, u32 h, const std::vector<Ce
 
 u8 Pixels::alphaAt(s32 x, s32 y) const
 {
+	std::lock_guard<std::mutex> guard(lock);
 	if (x < 0 || y < 0 || (u32)x >= width || (u32)y >= height)
 		return 0;
 	return bgra[((size_t)y * width + x) * 4 + 3];

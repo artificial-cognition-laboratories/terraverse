@@ -33,6 +33,7 @@
     "package:linux": "bash scripts/release/package-linux.sh",
     "check:atlas-world": "bash scripts/atlas-world-check.sh",
     "check:window": "bash scripts/window-check.sh",
+    "check:ui": "bash scripts/ui-check.sh",
     "check:bodies": "bash scripts/bodies-check.sh",
     "check:atlas-land": "bash scripts/atlas-land-check.sh",
     "check:atlas-seams": "bash scripts/atlas-seam-check.sh",

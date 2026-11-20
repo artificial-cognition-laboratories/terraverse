@@ -14,8 +14,7 @@ using namespace matter;
 
 const Matter &MatterVerbs::table()
 {
-	if (!m_table)
-		m_table = Matter::load(porting::path_share + DIR_DELIM "matter");
+	std::call_once(m_loaded, [this] { m_table = Matter::load(porting::path_share + DIR_DELIM "matter"); });
 	return *m_table;
 }
 

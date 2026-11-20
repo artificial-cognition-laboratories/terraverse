@@ -3,7 +3,7 @@
 
 #include "input.h"
 #include "client.h"
-#include "pixels.h"
+#include "canvas.h"
 #include <IEventReceiver.h>
 #include <ICursorControl.h>
 #include <Keycodes.h>
@@ -16,8 +16,8 @@ static const int BUTTON_FLAGS[] = {
 	EVENTFLAG_RIGHT_MOUSE_BUTTON,  // MBT_RIGHT
 };
 
-Input::Input(gui::ICursorControl *cursor, const Pixels &pixels, const Viewport &viewport) :
-	m_cursor(cursor), m_pixels(pixels), m_viewport(viewport)
+Input::Input(gui::ICursorControl *cursor, const Canvas &canvas, const Viewport &viewport) :
+	m_cursor(cursor), m_canvas(canvas), m_viewport(viewport)
 {
 }
 
@@ -49,7 +49,7 @@ bool Input::mouse(const SEvent &event, CefRefPtr<CefBrowserHost> host)
 			(in.Control ? EVENTFLAG_CONTROL_DOWN : 0) |
 			(m_held >= 0 ? BUTTON_FLAGS[m_held] : 0);
 
-	bool over = m_pixels.alphaAt(in.X, in.Y) > 0;
+	bool over = m_canvas.alphaAt(in.X, in.Y) > 0;
 
 	cef_mouse_button_type_t button;
 	switch (in.Event) {

@@ -2,16 +2,18 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "client.h"
-#include "pixels.h"
+#include "canvas.h"
+#include "inbox.h"
 #include "log.h"
+#include "trace/trace.h"
 #include <cmath>
 
 namespace shell {
 
-Client::Client(Pixels &pixels, const Viewport &viewport,
+Client::Client(Canvas &canvas, const Viewport &viewport, Inbox &inbox,
 		CefRefPtr<CefMessageRouterBrowserSide> router,
 		std::function<void()> on_navigate) :
-	m_pixels(pixels), m_viewport(viewport), m_router(router),
+	m_canvas(canvas), m_viewport(viewport), m_inbox(inbox), m_router(router),
 	m_on_navigate(std::move(on_navigate))
 {
 }
@@ -45,7 +47,15 @@ void Client::OnPaint(CefRefPtr<CefBrowser> browser, PaintElementType type,
 {
 	if (type != PET_VIEW)
 		return; // <select> popups are not composited yet
-	m_pixels.write(buffer, width, height, dirty);
+	m_canvas.paint(buffer, width, height, dirty);
+}
+
+void Client::OnAcceleratedPaint(CefRefPtr<CefBrowser> browser, PaintElementType type,
+		const RectList &dirty, const CefAcceleratedPaintInfo &info)
+{
+	if (type != PET_VIEW)
+		return; // <select> popups are not composited yet
+	m_canvas.paint(info, dirty);
 }
 
 void Client::OnBeforeClose(CefRefPtr<CefBrowser> browser)
@@ -59,7 +69,7 @@ bool Client::OnBeforeBrowse(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> f
 {
 	m_router->OnBeforeBrowse(browser, frame);
 	if (frame->IsMain())
-		m_on_navigate();
+		m_inbox.post(m_on_navigate);
 	return false;
 }
 
@@ -69,7 +79,7 @@ void Client::OnRenderProcessTerminated(CefRefPtr<CefBrowser> browser, Terminatio
 	m_router->OnRenderProcessTerminated(browser);
 	errorstream << "shell: page renderer died (" << error_code << ": "
 			<< error_string.ToString() << "), reloading" << std::endl;
-	m_on_navigate();
+	m_inbox.post(m_on_navigate);
 	browser->Reload();
 }
 

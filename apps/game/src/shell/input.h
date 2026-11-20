@@ -11,7 +11,7 @@ namespace gui { class ICursorControl; }
 
 namespace shell {
 
-struct Pixels;
+class Canvas;
 struct Viewport;
 
 /*
@@ -23,7 +23,7 @@ struct Viewport;
 class Input
 {
 public:
-	Input(gui::ICursorControl *cursor, const Pixels &pixels, const Viewport &viewport);
+	Input(gui::ICursorControl *cursor, const Canvas &canvas, const Viewport &viewport);
 
 	bool handle(const SEvent &event, CefRefPtr<CefBrowserHost> host, bool keyboard);
 
@@ -33,7 +33,7 @@ private:
 	bool text(const SEvent &event, CefRefPtr<CefBrowserHost> host);
 
 	gui::ICursorControl *m_cursor;
-	const Pixels &m_pixels;
+	const Canvas &m_canvas;
 	const Viewport &m_viewport;
 	// The button held since a press landed on the page; the page owns the
 	// mouse until it is released, so drags can leave its opaque area.

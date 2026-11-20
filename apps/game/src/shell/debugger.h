@@ -17,6 +17,8 @@ namespace gui { class ICursorControl; }
 
 namespace shell {
 
+class Inbox;
+
 /*
 	The debugger: a page of its own beside the game, as a browser's devtools sit
 	beside the site. While it's open the game is given a smaller screen (the
@@ -35,12 +37,17 @@ public:
 		float scale;     // device pixels per CSS pixel
 		// Text input on or off (the IME), for whichever page holds the keyboard.
 		std::function<void(bool)> capture;
+		Inbox &inbox; // the shell's: its page's intents run with the game page's
+		bool gpu;     // Chromium rasterises on the GPU: its frames may come shared
+		std::string ui_dir; // terra://ui/, served to its page as to the game's
 	};
 
 	explicit Debugger(const Opts &opts);
 	~Debugger();
 
 	bool open() const;
+	// Its page's frame asked of Chromium (Shell::beginFrame), while it's open.
+	void beginFrame();
 	void toggle();
 
 	// The game's screen in a window this size: all of it while closed.

@@ -6,30 +6,35 @@
 #include "irrlichttypes.h"
 #include <include/cef_client.h>
 #include <include/wrapper/cef_message_router.h>
+#include <atomic>
 #include <functional>
 
 namespace shell {
 
-struct Pixels;
+class Canvas;
+class Inbox;
 
 // The page's size in device pixels, and how many of them make one CSS pixel.
+// Set on the main thread, read on Chromium's (GetViewRect).
 struct Viewport
 {
-	u32 width = 0;
-	u32 height = 0;
-	float scale = 1.0f;
+	std::atomic<u32> width{ 0 };
+	std::atomic<u32> height{ 0 };
+	std::atomic<float> scale{ 1.0f };
 };
 
 /*
-	Chromium's view of the one browser: where it paints (into Pixels), how big
+	Chromium's view of the one browser: where it paints (a Canvas), how big
 	it is (Viewport), and the router plumbing that carries bridge queries.
+	Every callback runs on Chromium's UI thread: `on_navigate` is posted to
+	the main thread's Inbox, in order with the page's intents.
 */
 class Client : public CefClient, public CefRenderHandler,
 		public CefLifeSpanHandler, public CefRequestHandler,
 		public CefDisplayHandler, public CefLoadHandler
 {
 public:
-	Client(Pixels &pixels, const Viewport &viewport,
+	Client(Canvas &canvas, const Viewport &viewport, Inbox &inbox,
 			CefRefPtr<CefMessageRouterBrowserSide> router,
 			std::function<void()> on_navigate);
 
@@ -48,6 +53,8 @@ public:
 	bool GetScreenInfo(CefRefPtr<CefBrowser> browser, CefScreenInfo &info) override;
 	void OnPaint(CefRefPtr<CefBrowser> browser, PaintElementType type,
 			const RectList &dirty, const void *buffer, int width, int height) override;
+	void OnAcceleratedPaint(CefRefPtr<CefBrowser> browser, PaintElementType type,
+			const RectList &dirty, const CefAcceleratedPaintInfo &info) override;
 
 	// CefLifeSpanHandler
 	void OnBeforeClose(CefRefPtr<CefBrowser> browser) override;
@@ -67,11 +74,12 @@ public:
 			ErrorCode code, const CefString &text, const CefString &url) override;
 
 private:
-	Pixels &m_pixels;
+	Canvas &m_canvas;
 	const Viewport &m_viewport;
+	Inbox &m_inbox;
 	CefRefPtr<CefMessageRouterBrowserSide> m_router;
 	std::function<void()> m_on_navigate;
-	bool m_closed = false;
+	std::atomic<bool> m_closed{ false };
 
 	IMPLEMENT_REFCOUNTING(Client);
 };

@@ -6,6 +6,7 @@
 #include <json/json.h>
 #include "irrlichttypes.h"
 #include "irr_v2d.h"
+#include "inventory.h"
 #include <optional>
 #include <utility>
 #include <string>
@@ -67,6 +68,9 @@ private:
 	Opts m_opts;
 	std::unordered_map<std::string, std::string> m_sent;
 	std::unordered_set<std::string> m_sent_items;
+	// The inventory as last sent: compared as stacks each frame, made into
+	// JSON only when it differs (every slot as JSON, each frame, cost ms)
+	std::optional<Inventory> m_inventory;
 	Json::Value m_new_items = Json::objectValue;
 };
 

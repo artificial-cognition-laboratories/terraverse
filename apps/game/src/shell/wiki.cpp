@@ -29,9 +29,11 @@ static double number(const Json::Value &v, const char *field)
 
 Wiki::Wiki(Shell &shell) : m_shell(shell)
 {
-	m_shell.on("matter.list", [this](const Json::Value &) { return m_matter.list(); });
-	m_shell.on("matter.state", [this](const Json::Value &intent) { return m_matter.state(intent); });
-	m_shell.on("matter.react", [this](const Json::Value &intent) { return m_matter.react(intent); });
+	// Pure (the matter table alone), and loading the table took 42 ms of a
+	// frame: on the bridge's one worker, which also keeps its lazy load to one thread
+	m_shell.onAsync("matter.list", [this](const Json::Value &) { return m_matter.list(); });
+	m_shell.onAsync("matter.state", [this](const Json::Value &intent) { return m_matter.state(intent); });
+	m_shell.onAsync("matter.react", [this](const Json::Value &intent) { return m_matter.react(intent); });
 	// sandboxes are touched from the main thread and, stepping, from a worker
 	// (a busy demo at speed takes tens of ms a step: never on the frame)
 	m_shell.on("sandbox.create", [this](const Json::Value &intent) {

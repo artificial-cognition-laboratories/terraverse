@@ -4,13 +4,15 @@
 #include "debugger.h"
 #include "app.h"
 #include "bridge.h"
+#include "inbox.h"
 #include "client.h"
 #include "console.h"
 #include "process.h"
 #include "trace/marks.h"
 #include "input.h"
-#include "pixels.h"
-#include "surface.h"
+#include "canvas.h"
+#include "scheme.h"
+#include <include/cef_request_context.h>
 #include "exceptions.h"
 #include "log.h"
 #include "settings.h"
@@ -24,7 +26,9 @@
 #include <IEventReceiver.h>
 #include <IVideoDriver.h>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <thread>
 
 namespace shell {
 
@@ -187,8 +191,7 @@ struct Debugger::Impl
 {
 	Opts opts;
 	Viewport viewport; // the panel's, for its page
-	Pixels pixels;
-	Surface surface;
+	std::unique_ptr<Canvas> canvas; // before Input, which reads it
 	Input input;
 	Bridge bridge;
 	Console console;
@@ -214,8 +217,9 @@ struct Debugger::Impl
 
 	explicit Impl(const Opts &o) :
 		opts(o),
-		surface(o.driver),
-		input(o.cursor, pixels, viewport),
+		canvas(makeCanvas(o.driver, o.gpu, "the debugger")),
+		input(o.cursor, *canvas, viewport),
+		bridge(o.inbox),
 		dock(dockNamed(g_settings->get("debugger_dock"))),
 		size(g_settings->getS32("debugger_size"))
 	{
@@ -311,19 +315,28 @@ struct Debugger::Impl
 		});
 
 		router = CefMessageRouterBrowserSide::Create(routerConfig());
-		router->AddHandler(&bridge, true);
-		client = new Client(pixels, viewport, router, [this] {
+		client = new Client(*canvas, viewport, opts.inbox, router, [this] {
 			ready = false;
 			capture(false);
 		});
 
 		CefWindowInfo window;
 		window.SetAsWindowless(0);
+		window.shared_texture_enabled = canvas->shared();
+		window.external_begin_frame_enabled = true; // (Shell::beginFrame)
 		CefBrowserSettings settings;
 		settings.windowless_frame_rate = 60;
 		settings.background_color = CefColorSetARGB(255, 12, 14, 16); // --stone-0: nothing of the game behind it
 		const std::string url = besides(opts.url);
-		browser = CefBrowserHost::CreateBrowserSync(window, client, url, settings, nullptr, nullptr);
+		onChromium([&] {
+			router->AddHandler(&bridge, true);
+			// A context of its own (in memory, nothing kept): Chromium then
+			// can't put its page in the game page's renderer, where its charts
+			// redrawing held the game page's frames up (a 50 ms gap a second)
+			CefRefPtr<CefRequestContext> context = CefRequestContext::CreateContext(CefRequestContextSettings(), nullptr);
+			context->RegisterSchemeHandlerFactory(SCHEME, UI_HOST, new UiScheme(opts.ui_dir));
+			browser = CefBrowserHost::CreateBrowserSync(window, client, url, settings, nullptr, context);
+		});
 		if (!browser)
 			throw BaseException("debugger: could not create its page");
 		infostream << "debugger: loading " << url << std::endl;
@@ -470,12 +483,13 @@ Debugger::~Debugger()
 		return;
 	m->browser->GetHost()->CloseBrowser(true);
 	while (!m->client->closed())
-		CefDoMessageLoopWork();
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	m->browser = nullptr;
-	m->router->RemoveHandler(&m->bridge);
+	onChromium([&] { m->router->RemoveHandler(&m->bridge); });
 	m->router = nullptr;
 	m->bridge.stop();
 	m->client = nullptr;
+	m->canvas.reset(); // while Chromium's up: its GL context goes on Chromium's thread
 }
 
 void Debugger::serverInfo(std::function<Json::Value()> describe)
@@ -486,6 +500,12 @@ void Debugger::serverInfo(std::function<Json::Value()> describe)
 bool Debugger::open() const
 {
 	return m->open;
+}
+
+void Debugger::beginFrame()
+{
+	if (m->open && m->browser && m->canvas->settled())
+		m->browser->GetHost()->SendExternalBeginFrame();
 }
 
 void Debugger::toggle()
@@ -532,7 +552,7 @@ void Debugger::draw(core::dimension2du window)
 	m->sendServer();
 	// what its page hasn't painted yet (opening, or growing) is its own ground
 	m->opts.driver->draw2DRectangle(video::SColor(255, 12, 14, 16), panel);
-	m->surface.draw(m->pixels, panel.UpperLeftCorner);
+	m->canvas->draw(panel.UpperLeftCorner);
 }
 
 bool Debugger::onEvent(const SEvent &event, core::dimension2du window)

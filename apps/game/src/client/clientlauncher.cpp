@@ -190,6 +190,7 @@ bool ClientLauncher::run(const GameParams &game_params, const Settings &cmd_args
 		g_settings->getBool("shell_gpu"),
 		cmd_args.exists("arclabs-url") ? cmd_args.get("arclabs-url") : g_settings->get("arclabs_url"),
 		profile.empty() ? porting::path_user : porting::path_user + DIR_DELIM "profiles" DIR_DELIM + profile,
+		cmd_args.getFlag("ui-check"),
 	});
 	m_wiki = std::make_unique<shell::Wiki>(*m_shell); // answers in the menu and in game alike
 #endif

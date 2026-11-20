@@ -19,11 +19,12 @@ public:
 	explicit Surface(video::IVideoDriver *driver);
 	~Surface();
 
-	// With its top-left corner here on the screen.
-	void draw(Pixels &pixels, core::position2di at = { 0, 0 });
+	// With its top-left corner here on the screen. Whether it took a newly
+	// painted page to the GPU first.
+	bool draw(Pixels &pixels, core::position2di at = { 0, 0 });
 
 private:
-	void upload(Pixels &pixels);
+	void upload(Pixels &pixels); // holding its lock
 
 	video::IVideoDriver *m_driver;
 	video::ITexture *m_texture = nullptr;

@@ -7,6 +7,7 @@
 #include "exceptions.h"
 #include <IVideoDriver.h>
 #include <cstring>
+#include <mutex>
 
 namespace shell {
 
@@ -20,16 +21,21 @@ Surface::~Surface()
 		m_driver->removeTexture(m_texture);
 }
 
-void Surface::draw(Pixels &pixels, core::position2di at)
+bool Surface::draw(Pixels &pixels, core::position2di at)
 {
-	if (pixels.dirty)
+	// (Chromium mid-paint: last frame's page, and this one next frame)
+	bool fresh = false;
+	if (std::unique_lock<std::mutex> guard(pixels.lock, std::try_to_lock); guard && pixels.dirty) {
 		upload(pixels);
+		fresh = true;
+	}
 	if (!m_texture)
-		return;
+		return fresh;
 
 	core::dimension2du size = m_texture->getOriginalSize();
 	core::rect<s32> rect(0, 0, size.Width, size.Height);
 	m_driver->draw2DImage(m_texture, rect + at, rect, nullptr, nullptr, true);
+	return fresh;
 }
 
 void Surface::upload(Pixels &pixels)

@@ -49,12 +49,18 @@ public:
 		bool gpu;              // Chromium rasterises on the GPU
 		std::string arclabs;   // the ArcLabs API accounts and friends come from
 		std::string account_dir; // where sign-ins are saved: the user folder, or a profile's
+		bool ui_check = false;   // held to its budgets, then quit (--ui-check: ui_check.h)
 	};
 
 	explicit Shell(const Opts &opts);
 	~Shell();
 
-	// Once per frame, immediately before endScene(): pumps Chromium, draws the page.
+	// Once per frame, once the window's events are in (RenderingEngine::run):
+	// asks Chromium for the page's frame. It draws while the world does, so
+	// what this frame's input changed is ready to draw at its end. Later
+	// calls in the frame do nothing.
+	void beginFrame();
+	// Once per frame, immediately before endScene(): the page's intents run, the page drawn.
 	void frame();
 	// True when the page took the event and the engine must not see it.
 	bool onEvent(const SEvent &event);

@@ -519,3 +519,11 @@ void RenderingEngine::autosaveScreensizeAndCo(
 	if (is_window_maximized != initial_window_maximized)
 		g_settings->setBool("window_maximized", is_window_maximized);
 }
+
+bool RenderingEngine::run()
+{
+	const bool open = m_device->run();
+	if (g_shell)
+		g_shell->beginFrame();
+	return open;
+}

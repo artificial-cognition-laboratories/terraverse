@@ -529,6 +529,8 @@ static void set_allowed_options(OptionList *allowed_options)
 	allowed_options->insert(std::make_pair("go", ValueSpec(VALUETYPE_FLAG,
 			_("Skip main menu, go directly in-game"))));
 #if USE_SHELL
+	allowed_options->insert(std::make_pair("ui-check", ValueSpec(VALUETYPE_FLAG,
+			_("Sweep the mouse over the menu's page, judge the UI against its budgets, and quit (bun check:ui)"))));
 	allowed_options->insert(std::make_pair("shell-url", ValueSpec(VALUETYPE_STRING,
 			_("Load the UI from this URL instead of shell_url (e.g. a dev server)"))));
 	allowed_options->insert(std::make_pair("arclabs-url", ValueSpec(VALUETYPE_STRING,

@@ -5,6 +5,7 @@
 
 #include "matter/matter.h"
 #include <json/json.h>
+#include <mutex>
 #include <optional>
 
 namespace shell {
@@ -29,6 +30,7 @@ public:
 
 private:
 	std::optional<matter::Matter> m_table;
+	std::once_flag m_loaded; // loaded by whichever asks first: the bridge's worker or the main thread
 };
 
 } // namespace shell

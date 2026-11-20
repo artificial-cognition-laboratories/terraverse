@@ -17,12 +17,14 @@
 #include "hud_element.h"
 #include "inventory.h"
 #include "planet/atlas.h"
+#include "trace/trace.h"
 #include <cmath>
 
 namespace shell {
 
 void State::update(const HudView &view)
 {
+	TF_ZONE("UI: state"); // every section built and compared, each frame
 	LocalPlayer *player = m_opts.client->getEnv().getLocalPlayer();
 	// The player's object (and with it max HP/breath) arrives a moment after
 	// the session starts; until then there is nothing true to report.
@@ -50,19 +52,26 @@ void State::update(const HudView &view)
 		library.append(name);
 	send("library", library);
 	send("player", this->player(*player));
-	if (m_opts.client->getAtlas() && m_opts.client->getCamera())
+	if (m_opts.client->getAtlas() && m_opts.client->getCamera()) {
+		TF_ZONE("UI: state: map pose");
 		if (std::optional<Json::Value> pose = mapPose(*player))
 			send("mapPose", *pose);
+	}
 	send("hotbar", hotbar(*player));
-	Json::Value inv = inventory(*player);
-	sendNewItems(); // before the inventory that references them
-	send("inventory", inv);
+	if (!m_inventory || *m_inventory != player->inventory) {
+		TF_ZONE("UI: state: inventory");
+		Json::Value inv = inventory(*player);
+		sendNewItems(); // before the inventory that references them
+		send("inventory", inv);
+		m_inventory.emplace(player->inventory);
+	}
 }
 
 void State::forget()
 {
 	m_sent.clear();
 	m_sent_items.clear();
+	m_inventory.reset();
 	m_new_items = Json::objectValue;
 }
 
