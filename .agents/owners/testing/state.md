@@ -1,32 +1,31 @@
 # Testing: state
 
-## Map (2026-11-17)
+## Map (2026-11-20, after the developer's re-sort into apps/game/{src,library,tests,scripts})
 
-**C++ unit tests**: `apps/game/src/unittest/` (85 legacy modules, ~750 tests, ours and upstream's
-mixed in one folder) plus 10 Catch2 `TEST_CASE`s, and upstream's `apps/game/src/test/` (Irrlicht
-matrix, k-d tree, translations; built into the same binary). Run by:
-- `luanti --run-unittests`: all modules in one process, sequential. **579 s** on this machine, and red (6 tests).
-- `bun run test [Module...]` (`apps/game/tests/run/engine.sh`, added 2026-11-17): builds, asks the binary for
-  its modules (`--list-test-modules`), runs each in its own process in parallel plus Catch
-  (`--run-tests`), prints per-module time and each failure with its repro command. Skips by name
-  from `apps/game/tests/run/skip.txt` via `TF_TEST_SKIP` (hook in `unittest/test.cpp`).
-- Wall clock is held by **TestTerragen (297 s alone)**; next TestAtlasRender 84, TestBodies 54,
-  TestPlanetAtlas 36, TestFar 29, TestFarPalette 15, TestMoves 12. Everything else < 10 s.
+Entry points (`apps/game/package.json`; root `bun check`, `bun test:hot`, `bun test:game` forward):
 
-**check:* harnesses** (`package.json` → `scripts/*.sh`, each with its own `scripts/<name>/` folder):
-land (terragen+TestTerragen+far in parallel), terragen, streams, lab (headless server per
-scenario, `timeout 60` each), wiki (g++ builds sandbox standalone), moves (= `--test-module
-TestMoves`), matter, far, palette, atlas-world, window, bodies, atlas-land, atlas-seams,
-atlas-debug, atlas-dig. Folders without a command: `air-check`, `milkyway-check`, `motion`.
-Timings not yet measured.
+| Command | Runner | What | Wall (this machine) |
+|---|---|---|---|
+| `bun test:hot [lib]` | `tests/run/library.sh hot` → ctest | pure libraries' quick doctest cases (terragen: 9) | **5 s** |
+| `bun test:slow [lib]` | `library.sh slow` | goldens, Earth-sized worlds (terragen: 4) | **114 s** (was 439 s; soil.slow 439 → 87 s) |
+| `bun run test:engine` | `tests/run/engine.sh` | 81 engine unit modules in parallel + Catch, skips from `tests/run/skip.txt` | **47 s** |
+| `bun check` | `tests/run/check.sh` | hot + engine + UI typecheck: the **fast tier** | ≈ 55 s + typecheck |
+| `bun run test` (apps/game) | library all + engine | the **full tier** (the gate runs engine.sh) | ≈ 160 s |
 
-**Release gate** (`apps/game/scripts/release/gate.sh` via `arc gate terraverse`): key checks, build,
-every unit module via `BUILT=1 bash apps/game/tests/run/engine.sh` (since 2026-11-19; before, only TestOnline,
-TestRelease, TestTerragen), UI typecheck+build, 20 s headless boot.
-81 modules today (incl. Catch), 6 tests skipped by name (skip.txt). `bun run test`: 227 s wall.
-`serial.txt` is empty; time budgets are held by `bun check:budgets` (someone else's, 2026-11-18).
+- Library tests: `apps/game/library/<area>/<lib>/tests/*.cpp`, doctest, suites labelled hot/slow
+  (`* doctest::test_suite("slow")`), one binary per library (`.output/tests/terragen_tests`),
+  ctest entries per source file. `TEST_NOTES=1` prints each test's `note()` line.
+  Heaviest slow: terragen.soil.slow 87 s (100 river windows × 400 `World::ground` reads at
+  Earth size, ~6 ms each, now on every core), ranges.slow 19 s.
+- Engine unit modules: `apps/game/tests/unit/` (legacy Luanti framework + ours). 3 tests
+  skipped by name (skip.txt, each cites a job). Budgets held by `bun check:budgets`.
+- check:* harnesses: `apps/game/tests/checks/*.sh` (land, terragen, oracle, wiki, budgets,
+  moves, matter, interact, far, mods, dev, registry, palette, atlas-*, bodies, window, ui,
+  perf-gen). Not timed yet.
+- Profiling here: `perf` needs `-e cpu-clock:u` (paranoid 2) and still wrote empty files from
+  the tool shell; gdb attach is blocked (ptrace_scope 1). Instrument with timers instead.
 
-**UI tests**: none. **Tests on push**: none (CI owner's area).
+**UI tests**: `check:ui` exists (not yet looked at). **Tests on push**: CI owner's.
 
 ## Numbers
 
@@ -34,53 +33,50 @@ Scoreboard (charter definitions):
 
 | Date | Fast tier | Full tier | Suites/typical change | Systems w/o tests | Escaped bugs |
 |---|---|---|---|---|---|
-| 2026-11-17 | none defined; all unit modules 579 s sequential, see below parallel | none defined (gate ≈ build + TestTerragen ~5 min + UI) | no selection exists: all or by memory | not yet audited | 0 counted (6 red unit tests found on master, pre-release-report baseline) |
-| 2026-11-19 | none defined (all modules 227 s) | gate ≈ build + 227 s tests + UI (not timed end to end) | no selection: all | not yet audited | 0 counted |
+| 2026-11-17 | none defined | gate ≈ build + ~5 min tests + UI | no selection | not audited | 0 |
+| 2026-11-19 | none defined (all modules 227 s) | gate ≈ build + 227 s + UI | no selection | not audited | 0 |
+| 2026-11-20 | `bun check` ≈ 55 s + typecheck (hot 5 s, engine 47 s) | `bun run test` ≈ 160 s (slow 114 + engine 47; was ≈ 490) | no selection: all | not audited | 0 |
 
 Own numbers:
 
-| Date | All unit modules, wall | Failing unit tests on master |
-|---|---|---|
-| 2026-11-17 | 579 s sequential → 326 s `bun run test` | 6 wrong + 2 load-flaky (5 jobs, 8 skipped by name) |
-| 2026-11-19 | 227 s (others' terragen work shortened it, not me) | 0 failing, 6 skipped; TestFarPalette load-flake fixed |
+| Date | Engine modules wall | Library slow wall | Failing tests on master |
+|---|---|---|---|
+| 2026-11-17 | 326 s | (inside TestTerragen) | 8 skipped |
+| 2026-11-19 | 227 s | (inside TestTerragen) | 6 skipped |
+| 2026-11-20 | 47 s (terragen moved out by the developer) | 439 → 114 s | 3 skipped |
 
 ## Plan
 
-1. **(current) One way in for the unit tests.** Done when `bun run test` runs every module, green
-   with skips cited, wall ≤ 330 s (met 2026-11-17: 326 s). Next: wall ≤ 120 s. TestTerragen is
-   the floor: `testSoilByWater` alone is **181 s** of its 297 s, then testCoarse 19, testSoil 17,
-   testDeterminismGolden 17, testCoasts 11. Step: profile testSoilByWater (shared planet build?
-   too many columns sampled?) and cut its waste without checking less.
-   Also: fix `testing-wall-clock-budgets` (own job): count instead of time for correctness, CPU
-   time for the perf half; un-skip TestSandbox's two.
-2. **Fast tier ≤ 120 s.** Done when `bun run test --fast` (unit modules + quick checks) is ≤ 120 s
-   wall and runs every module. Mainly: TestTerragen and TestAtlasRender sharing built planets.
+1. ~~Unit tests one way in, ≤ 120 s.~~ Met 2026-11-20: fast tier ≈ 55 s, full ≈ 160 s.
+2. **(current) Full tier ≤ 120 s.** Done when `bun run test` (apps/game) is ≤ 120 s wall.
+   Steps: ranges.slow (19 s) and the next slowest engine modules (re-list with engine.sh);
+   soil.slow is now bounded by cores (465 s CPU): next lever is fewer `ground` reads that
+   don't land in a bed or floodplain (most of the 40 000 are discarded), or a cheaper read.
 3. **Selection by system.** Done when the median "suites run for a typical change" over the
-   last 20 commits is measured and < half of all suites. Steps: map folders → modules/checks in
-   one table (`scripts/test/systems.tsv`), `bun run test <system>` and `--changed`.
+   last 20 commits is measured and < half of all suites. Steps: one table folder → suites
+   (`tests/run/systems.tsv`), `bun run test <system>` and `--changed`.
 4. **Time and fold the check:* harnesses.** Done when every check:* has a timing in Map and
    shared server-boot/world-staging lives in one helper used by ≥ 4 harnesses.
 5. **Coverage audit.** Done when "systems without tests" is counted from AGENTS.md's folder
-   table and is 0 for player-visible systems (shell UI and online likely first gaps).
-6. ~~Full tier in the gate.~~ Landed 2026-11-19 (approved).
+   table and is 0 for player-visible systems.
 
 ## Tried
 
-- Running wall-clock-budget modules alone after the parallel batch (`apps/game/tests/run/serial.txt`): TestSandbox still failed alone at load ~3 from other work on the machine. Kept the mechanism (empty), skipped the two tests on a job instead.
+- Running wall-clock-budget modules alone after the parallel batch: still load-flaky; budgets
+  now live in `check:budgets` (someone else's).
+- perf/gdb sampling from the agent shell: see Map; use timers.
 
 ## Proposals
 
-- (none open; the gate proposal was approved and landed 2026-11-19)
+- (none open)
 
 ## Log
 
-- 2026-11-19: the gate runs every unit module (approved proposal). Fixed TestFarPalette's
-  load flake (fixed 15 s tile wait → wait until built, 180 s hang guard). `bun run test` green,
-  227 s. Next: milestone 1's ≤ 120 s (re-profile TestTerragen; the tree had uncommitted
-  streams work, so measure again on a clean master).
-
-- 2026-11-17: first session. Mapped the suites; found 6 failing unit tests on master (jobs
-  `testing-atlas-render-fails`, `testing-far-palette-fails`, `testing-moves-bones-stay-out`,
-  `testing-scale-every-size`); added `bun run test` (parallel, per-module timings, skips cite
-  jobs) and the `--list-test-modules` / `TF_TEST_SKIP` hooks. All unit modules 579 s → 326 s,
-  green with 8 named skips. TestSandbox's budget tests are load-flaky (own job).
+- 2026-11-20: map rebuilt after the re-sort. soil.slow runs its 100 river windows on every
+  core (results bit-identical, sums joined in river order): slow tier 439 → 114 s, full tier
+  ≈ 490 → 160 s. Found SoilByWater's steep-bed check never runs (0 samples): job
+  `testing-soil-steep-beds-never-sampled`.
+- 2026-11-19: the gate runs every unit module (approved proposal). TestFarPalette load flake
+  fixed. `bun run test` 227 s.
+- 2026-11-17: first session. Mapped suites; 6 failing tests → jobs and named skips; added
+  `bun run test` (parallel, per-module timings). 579 s → 326 s.

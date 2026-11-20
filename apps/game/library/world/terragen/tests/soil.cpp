@@ -209,10 +209,20 @@ TEST_CASE("SoilByWater" * doctest::test_suite("slow"))
 		if (g.river(i) && g.receiver[i] >= 0 && g.base[g.receiver[i]] >= 0)
 			rivers.push_back(i);
 	std::sort(rivers.begin(), rivers.end(), [&](int32_t a, int32_t b) { return g.drained[a] > g.drained[b]; });
-	double bed_fine = 0, plain_fine = 0, steep_stones = 0, gentle_stones = 0;
-	int beds = 0, plains = 0, steep = 0, gentle = 0;
-	for (size_t r = 0; r < rivers.size() && r < 400; r += 4) {
-		const Place c(sphere.centre(rivers[r]));
+	// each river's window on its own thread (a ground read is milliseconds at
+	// this size), its sums joined in river order so the totals don't depend
+	// on the machine
+	struct Sums {
+		double bed_fine = 0, plain_fine = 0, steep_stones = 0, gentle_stones = 0;
+		int beds = 0, plains = 0, steep = 0, gentle = 0;
+	};
+	std::vector<int32_t> chosen;
+	for (size_t r = 0; r < rivers.size() && r < 400; r += 4)
+		chosen.push_back(rivers[r]);
+	std::vector<Sums> each(chosen.size());
+	parallelFor((int32_t)chosen.size(), [&](int32_t r) {
+		Sums &m = each[r];
+		const Place c(sphere.centre(chosen[r]));
 		for (int k = 0; k < 400; k++) {
 			// a 20 km square round the cell's centre, at its own precision
 			const int64_t step = (int64_t)(PLACE_ONE / (w.radius() / 65536.0) * 1000);
@@ -223,16 +233,23 @@ TEST_CASE("SoilByWater" * doctest::test_suite("slow"))
 			const Soil s = w.soil(at, gr, w.strata(at, gr));
 			const double fine = (s.silt + s.clay) / 65536.0 * (1 - s.stones / 65536.0), stones = s.stones / 65536.0;
 			if (gr.kind == Water::River && gr.river_width > 0 && gr.river_dist < gr.river_width / 2) {
-				bed_fine += fine;
-				beds++;
-				if (gr.river_slope > ratio(3, 1000)) { steep_stones += stones; steep++; }
-				else if (gr.river_slope < ratio(5, 10000)) { gentle_stones += stones; gentle++; }
+				m.bed_fine += fine;
+				m.beds++;
+				if (gr.river_slope > ratio(3, 1000)) { m.steep_stones += stones; m.steep++; }
+				else if (gr.river_slope < ratio(5, 10000)) { m.gentle_stones += stones; m.gentle++; }
 			} else if (gr.kind == Water::None && gr.river_width > 0 && gr.river_dist > gr.river_width * 2 &&
 					gr.river_dist < gr.river_width * 4 && gr.terrain - gr.river_level <= 2) {
-				plain_fine += fine;
-				plains++;
+				m.plain_fine += fine;
+				m.plains++;
 			}
 		}
+	});
+	double bed_fine = 0, plain_fine = 0, steep_stones = 0, gentle_stones = 0;
+	int beds = 0, plains = 0, steep = 0, gentle = 0;
+	for (const Sums &m : each) {
+		bed_fine += m.bed_fine; plain_fine += m.plain_fine;
+		steep_stones += m.steep_stones; gentle_stones += m.gentle_stones;
+		beds += m.beds; plains += m.plains; steep += m.steep; gentle += m.gentle;
 	}
 	note() << "soil by water: fines in beds " << bed_fine / std::max(beds, 1) << " (" << beds << "), on floodplains "
 			<< plain_fine / std::max(plains, 1) << " (" << plains << "); stones in steep beds " << steep_stones / std::max(steep, 1)
