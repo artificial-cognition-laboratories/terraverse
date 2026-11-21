@@ -71,9 +71,10 @@ std::optional<GroundSnapshot> GroundSnapshot::take(Map &map, v3s16 block)
 	return s;
 }
 
-std::vector<aabb3f> GroundSnapshot::boxes(const NodeDefManager *ndef, const planet::Atlas *atlas) const
+std::vector<aabb3f> GroundSnapshot::boxes(const NodeDefManager *ndef, const planet::Atlas *atlas, Seam seam) const
 {
 	std::vector<aabb3f> boxes;
+	const content_t open = seam == Seam::Open ? ndef->getId("core:seam") : CONTENT_IGNORE;
 	std::vector<aabb3f> nb;
 	const v3s16 base = m_block * MAP_BLOCKSIZE;
 	// each node's ground as smoothing sees it, and whether the atlas cuts it, found once
@@ -152,7 +153,7 @@ std::vector<aabb3f> GroundSnapshot::boxes(const NodeDefManager *ndef, const plan
 				const v3s16 rel(x, y, z);
 				const v3s16 p = base + rel;
 				const MapNode n = node(p);
-				if (!ndef->get(n).walkable)
+				if (!ndef->get(n).walkable || (open != CONTENT_IGNORE && n.getContent() == open))
 					continue;
 				const bool inner = x > 0 && y > 0 && z > 0 && x < MAP_BLOCKSIZE - 1 && y < MAP_BLOCKSIZE - 1
 						&& z < MAP_BLOCKSIZE - 1;

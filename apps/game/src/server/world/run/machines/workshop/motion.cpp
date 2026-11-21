@@ -437,7 +437,7 @@ bool groundBoxes(Map &map, const NodeDefManager *ndef, v3s16 block, std::vector<
 	const std::optional<GroundSnapshot> snap = GroundSnapshot::take(map, block);
 	if (!snap)
 		return false;
-	boxes = snap->boxes(ndef, map.getAtlas());
+	boxes = snap->boxes(ndef, map.getAtlas(), Seam::Wall); // a machine isn't carried across: the seam stops it
 	return true;
 }
 

@@ -193,6 +193,8 @@ private:
 	const planet::Atlas *m_atlas = nullptr; // the field's: a new atlas, a new world
 	std::unique_ptr<orbit::Field> m_field;
 	bool solidAt(v3s16 p) const;
+	// a node of the planet's seam: open to the body, which is carried across it
+	bool isSeam(const MapNode &n) const;
 	physics::Field m_pull; // m_field's, as the physics asks it
 	float m_scale = 1; // mods' gravity override
 	std::unique_ptr<physics::World> m_world;

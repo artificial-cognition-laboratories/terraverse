@@ -24,6 +24,10 @@ namespace workshop {
 	smoothing, the cut checks and the node boxes, up to tens of ms a block in
 	a forest or by a shore, which was the player's physics spiking flying fast).
 */
+// The planet's seam (core:seam, between its grids): a wall, or open to a mover
+// the atlas carries across it (Atlas::carry), which must reach it to cross
+enum class Seam { Wall, Open };
+
 class GroundSnapshot
 {
 public:
@@ -32,7 +36,7 @@ public:
 
 	// Its boxes: nodes, from the block's least node's centre. `ndef` and
 	// `atlas` (none: not a planet) outlive the call; both are read only.
-	std::vector<aabb3f> boxes(const NodeDefManager *ndef, const planet::Atlas *atlas) const;
+	std::vector<aabb3f> boxes(const NodeDefManager *ndef, const planet::Atlas *atlas, Seam seam) const;
 
 	// The margin round the block it holds: what a loose node's smoothing reads.
 	static constexpr int MARGIN = 6; // 1 + ground::REACH + 2

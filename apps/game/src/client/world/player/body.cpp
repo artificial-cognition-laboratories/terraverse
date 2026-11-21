@@ -95,7 +95,7 @@ bool Body::standIn(v3s16 block, std::vector<aabb3f> &boxes)
 
 std::vector<aabb3f> Body::buildStandIn(v3s16 block)
 {
-	// each node solid at or under its column's ground; a seam is solid (nothing passes it)
+	// each node solid at or under its column's ground; a seam open (crossed: GroundSnapshot's Seam::Open)
 	const v3s16 base = block * MAP_BLOCKSIZE;
 	std::map<std::tuple<int, int, int, int64_t, int64_t>, s32> grounds; // by column
 	bool solid[MAP_BLOCKSIZE][MAP_BLOCKSIZE][MAP_BLOCKSIZE];
@@ -105,7 +105,7 @@ std::vector<aabb3f> Body::buildStandIn(v3s16 block)
 				const v3s16 p = base + v3s16(x, y, z);
 				const std::optional<planet::Atlas::Cell> c = m_atlas->cell(planet::Atlas::moverNode(p.X, p.Y, p.Z));
 				if (!c) {
-					solid[z][y][x] = true;
+					solid[z][y][x] = false;
 					continue;
 				}
 				const auto key = std::make_tuple(c->body, (int)c->region, c->index, c->i, c->j);
@@ -158,7 +158,14 @@ bool Body::solidAt(v3s16 p) const
 	if (const std::optional<shape::Shape> s = map.solidShape(p))
 		return s->half();
 	const MapNode n = map.getNode(p);
+	if (isSeam(n))
+		return false; // no wall to kick off or climb: it's crossed
 	return n.getContent() == CONTENT_IGNORE || m_client->ndef()->get(n).walkable; // (not loaded: not to be stepped into)
+}
+
+bool Body::isSeam(const MapNode &n) const
+{
+	return m_atlas && n.getContent() == m_client->ndef()->getId("core:seam");
 }
 
 physics::Here Body::here(const v3d &foot, v3f velocity) const
@@ -213,7 +220,10 @@ bool Body::ensureWorld()
 				m_standins.erase(it);
 			const NodeDefManager *ndef = client->ndef();
 			const planet::Atlas *atlas = map.getAtlas();
-			return [snap = std::move(*snap), ndef, atlas]() { return snap.boxes(ndef, atlas); };
+			// the seam open: walked into, it's carried across (Atlas::carry) as its
+			// middle reaches it. Solid, a capsule's side met it a radius short, a
+			// wall it kicked off, crossed only by a step long enough to get in
+			return [snap = std::move(*snap), ndef, atlas]() { return snap.boxes(ndef, atlas, workshop::Seam::Open); };
 		}
 		std::vector<aabb3f> boxes;
 		if (!standIn(block, boxes))
@@ -406,15 +416,24 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 			[this](v3s16 n) { return solidAt(n); },
 			[this](v3s16 n) {
 				const MapNode node = m_client->getEnv().getMap().getNode(n);
-				return node.getContent() == CONTENT_IGNORE || m_client->ndef()->get(node).walkable;
+				return !isSeam(node) && (node.getContent() == CONTENT_IGNORE || m_client->ndef()->get(node).walkable);
 			},
 			[this](const v3d &foot, v3f velocity) { return here(foot, velocity); },
 			[this](const v3d &from, const v3d &to, v3f velocity) { return m_field->carry(from, to, velocity); },
 			[this](const v3d &was, const v3d &now, const v3d &measured) -> std::optional<v3d> {
 				const std::optional<planet::Atlas::Carried> c = m_atlas ?
 						m_atlas->carry(was.X, was.Y, was.Z, now.X, now.Y, now.Z) : std::nullopt;
-				if (!c)
+				if (!c) {
+					// into the seam (open to the body) and not carried: the grid across
+					// isn't paged in yet. Back where it was, still: in the seam the
+					// server would start it again at the spawn (terraOffSeam)
+					if (m_atlas && m_atlas->charted(planet::Atlas::moverNode(was.X, was.Y, was.Z))
+							&& !m_atlas->charted(planet::Atlas::moverNode(now.X, now.Y, now.Z))) {
+						m_world->place(m_mover->id(), was, v3f());
+						return was;
+					}
 					return std::nullopt;
+				}
 				// over a seam: into the grid it's in now, the same motion in its
 				// axes, the view turned with the ground
 				const v3d there(c->x, c->y, c->z);
