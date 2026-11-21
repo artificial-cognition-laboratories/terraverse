@@ -20,7 +20,7 @@ try {
     const site = join(stage, "site")
     await mkdir(site)
     await cp(join(here, ".output/public"), site, { recursive: true })
-    for (const file of ["Dockerfile", "nginx.conf"]) await cp(join(here, file), join(stage, file))
+    for (const file of ["Dockerfile", "nginx.conf"]) await cp(join(here, "build", file), join(stage, file))
 
     // install.sh carries the key the game trusts; refuse to ship one that disagrees
     const key = (await readFile(join(release, "update-key.pub"), "utf8")).trim()
