@@ -18,11 +18,12 @@ import Inspector from "./Inspector.vue"
 import { LOOKS, Looks } from "./looks.ts"
 import { worldSettings } from "./rules.ts"
 import LineupPage from "./LineupPage.vue"
+import ModsPage from "./ModsPage.vue"
 import StarsPage from "./StarsPage.vue"
 import WorldTab from "./WorldTab.vue"
 import Viewer from "./Viewer.vue"
 
-type Group = "start" | "stars" | "lineup" | "body" | "surface" | "rules"
+type Group = "start" | "mods" | "stars" | "lineup" | "body" | "surface" | "rules"
 
 const emit = defineEmits<{ go: [screen: Screen] }>()
 const props = defineProps<{ initialCode?: string | null; home: SystemWire }>()
@@ -89,6 +90,7 @@ const code = computed(() => encodeWorldCode(draft.config))
 const title = computed(() => RAIL.find((item) => item.id === group.value)!.label)
 const RAIL = [
     { id: "start", label: "Start", rows: ["...AAA...", "..ABBBA..", ".ABBBBBA.", "ABBBBBBBA", "ABBBBBBBA", ".ABBBBBA.", "..ABBBA..", "...AAA...", "........."], palette: { A: "#c9d4dc", B: "#40b8ec" } },
+    { id: "mods", label: "Mods", rows: [".........", ".AAA.BBB.", ".AAA.BBB.", ".AAA.BBB.", ".........", ".BBB.AAA.", ".BBB.ACA.", ".BBB.AAA.", "........."], palette: { A: "#c9d4dc", B: "#40b8ec", C: "#ffb040" } },
     { id: "stars", label: "Stars", rows: ["....A....", "....A....", ".B..A..B.", "..BAAAB..", "AAABABAAA", "..BAAAB..", ".B..A..B.", "....A....", "....A...."], palette: { A: "#c9d4dc", B: "#d9ae69" } },
     { id: "lineup", label: "Planets", shortLabel: "Orbit", rows: ["A........", "AA..B....", "AA..B..C.", "AA..B..C.", "AA..B..C.", "AA..B....", "A........", ".........", "........."], palette: { A: "#d9ae69", B: "#46a6d5", C: "#c9d4dc" } },
     { id: "body", label: "Body", rows: ["..AAAAA..", ".ABBBBBA.", "ABBBBBAAA", "ABBBBAAAA", "ABBBBBAAA", "ABBBBBBAA", ".ABBBBBA.", "..AAAAA..", "........."], palette: { A: "#c9d4dc", B: "#46a6d5" } },
@@ -101,7 +103,7 @@ function pick(id: string) {
 }
 watch(() => draft.system.selected, (id) => {
     if (id === STAR) group.value = "stars"
-    else if (group.value === "start" || group.value === "stars" || group.value === "rules") group.value = "body"
+    else if (group.value === "start" || group.value === "mods" || group.value === "stars" || group.value === "rules") group.value = "body"
 })
 
 onMounted(async () => {
@@ -115,7 +117,7 @@ async function create() {
     problem.value = null
     busy.value = true
     try {
-        const world = await bridge.send("worlds.create", { name: draft.name, code: code.value, settings: worldSettings(draft.mode, draft.rules, draft.config) })
+        const world = await bridge.send("worlds.create", { name: draft.name, code: code.value, settings: worldSettings(draft.mode, draft.rules, draft.config), mods: [...draft.mods] })
         await bridge.send("play", { path: world.path })
     } catch (err) {
         if (!(err instanceof BridgeError && err.refused)) console.error(err)
@@ -134,7 +136,8 @@ async function create() {
         </template>
         <template #workspace>
             <div class="controls">
-                <GameTab v-if="group === 'start'" :draft="draft" />
+                <GameTab v-if="group === 'start'" :draft="draft" @mods="group = 'mods'" @browse="emit('go', 'community')" />
+                <ModsPage v-else-if="group === 'mods'" :draft="draft" />
                 <StarsPage v-else-if="group === 'stars'" :draft="draft" />
                 <LineupPage v-else-if="group === 'lineup'" :draft="draft" @reset="resetSystem" />
                 <Inspector v-else-if="group === 'body'" :draft="draft" />
@@ -150,7 +153,7 @@ async function create() {
             :image="looks.image" :tag="startTag" @pick="pick" /></div>
         <div class="go">
             <span v-if="problem" class="problem" role="alert">{{ problem }}</span>
-            <Button variant="primary" :disabled="busy || !draft.name.trim()" @click="create">Create & play »</Button>
+            <Button variant="primary" :busy="busy" :disabled="!draft.name.trim()" @click="create">{{ busy && draft.mods.length ? "Getting mods…" : "Create & play »" }}</Button>
         </div>
     </div>
     </div>

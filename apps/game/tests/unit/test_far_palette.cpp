@@ -34,6 +34,7 @@ public:
 	void testSeaIsWater();
 	void testTintPaintsTheLand();
 	void testInsideTheCutIsFine();
+	void testStandInsAreNearlyAsFine();
 };
 
 static TestFarPalette g_test_instance;
@@ -47,6 +48,7 @@ void TestFarPalette::runTests(IGameDef *gamedef)
 	TEST(testSeaIsWater);
 	TEST(testTintPaintsTheLand);
 	TEST(testInsideTheCutIsFine);
+	TEST(testStandInsAreNearlyAsFine);
 }
 
 namespace {
@@ -342,3 +344,38 @@ void TestFarPalette::testInsideTheCutIsFine()
 	UTEST(n_cut >= n_whole / 2, "inside the cut %zu tiles, without one %zu: it's coarser there", n_cut, n_whole);
 }
 
+
+// A hole where a finer tile isn't built yet is stood in for by a tile at most a
+// couple of levels coarser, never any ancestor: a root's quarter, kilometres
+// wide at its own coarse heights, stood across the sky over a player who'd
+// just arrived, and flickered as they moved.
+void TestFarPalette::testStandInsAreNearlyAsFine()
+{
+	const Baked b = shipped();
+	const Horizon h{ "TF24.dGVycmE", 1, b.content };
+	const planet::Atlas atlas = planet::Atlas::resident(terragen::Atlas::standard(8192 / (2 * M_PI) * 4));
+	const double sea = atlas.body(planet::Atlas::HOME).params().radius + h.water_level + 1;
+	const float CUT = 300, SPLIT = 2;
+	Tiles tiles(atlas, planet::Atlas::HOME, h, b.palette, 2);
+	// the far side of the planet built, so only the coarse planet's there for the eye's own side
+	settle(tiles, Eye{ { -sea, 0, 0 }, 2, CUT, 1500, SPLIT, true });
+	const Eye eye{ { sea, 0, 0 }, 2, CUT, 1500, SPLIT, true };
+	const Tiling &g = tiles.tiling();
+	size_t seen = 0;
+	for (int i = 0; i < 3; i++) {
+		tiles.update(eye);
+		for (const Tiles::Drawn &t : tiles.behind()) {
+			// how near its hole is, so how fine the eye wants it there
+			UASSERT(t.hole);
+			const Tiling::Vec m = g.middle(*t.hole);
+			const double d = std::hypot(m.x * sea / g.radius() - eye.at.x, m.y * sea / g.radius() - eye.at.y,
+					m.z * sea / g.radius() - eye.at.z) - g.diagonal(*t.hole) / 2;
+			const double wanted = std::max((d - CUT) / SPLIT, (double)TILE);
+			UTEST(t.key.span() <= 4 * wanted + 1, "a level %d tile (%d blocks) stands in where the eye wants about %.0f",
+					t.key.level, t.key.span(), wanted);
+			seen++;
+		}
+	}
+	infostream << "far stand-ins: " << seen << " over 3 updates" << std::endl;
+	UTEST(seen > 0, "no stand-ins in %d updates: the eye's tiles were all built, so this tested nothing", 3);
+}

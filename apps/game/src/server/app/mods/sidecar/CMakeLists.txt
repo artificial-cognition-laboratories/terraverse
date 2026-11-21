@@ -3,4 +3,6 @@
 set(sidecar_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/msgpack.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/sidecar.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/terra.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ledger.cpp
 	PARENT_SCOPE)

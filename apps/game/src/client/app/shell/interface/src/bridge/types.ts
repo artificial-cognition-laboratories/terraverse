@@ -28,7 +28,16 @@ export type World = {
     name: string; path: string; code: string | null
     mode: "survival" | "creative" | null; damage: boolean | null
     pinned: boolean; lastOpened: number | null; rules: Record<string, string>
+    /** How many mods it runs beyond the game's own. */
+    mods: number
 }
+/**
+ * One mod a world runs (shell/bridge/world_server.cpp). `blocks`: the blocks it has put in
+ * this world (mod_blocks.json), which make it impossible to take out.
+ */
+export type WorldMod = { name: string; version: string; official: boolean; blocks: string[] }
+/** `own`: the world has its own server folder; false, it runs the game's until its mods change. */
+export type WorldMods = { own: boolean; mods: WorldMod[] }
 
 /** Local content: reported by src/shell/community.cpp, not a remote catalog. */
 export type CommunityTexture = {
@@ -575,7 +584,12 @@ export type Intents = {
     /** A local texture pack is used after restarting Terraverse; empty id restores defaults. */
     "community.texture.set": { request: { id: string }; response: null }
     /** settings: written to the world's world.mt — creative_mode, enable_damage, tf_* (src/shell/worlds.cpp) */
-    "worlds.create": { request: { name: string; code: string; settings: Record<string, string | number | boolean> }; response: World }
+    /** `mods`: registry mods (@scope/name) on top of the game's own, fetched into the world's server folder before it answers. */
+    "world.mods": { request: { path: string }; response: WorldMods }
+    /** `mods`: @scope/name, or @scope/name@1.2.3 to move to that version. */
+    "world.mods.add": { request: { path: string; mods: string[] }; response: WorldMods }
+    "world.mods.remove": { request: { path: string; name: string }; response: WorldMods }
+    "worlds.create": { request: { name: string; code: string; settings: Record<string, string | number | boolean>; mods: string[] }; response: World }
     /** terragen's preview of a world code; date 0..1 through the year (src/shell/menu.cpp) */
     /** `body`: in game, a body of the world (its world is its own, not a code) */
     "worldgen.preview": { request: { code: string; body?: string; date: number | null; resolution: number }; response: PreviewWire }

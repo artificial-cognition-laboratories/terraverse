@@ -9,6 +9,7 @@
   "scripts": {
     "build": "mkdir -p ../../.output/bin && bun build --compile --minify bin/terra.ts --outfile ../../.output/bin/terra",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint --deny-warnings src tests bin scripts",
     "test": "bun test",
     "gen": "bun scripts/ops.ts && bun scripts/globals.ts",
     "gen:check": "bun scripts/ops.ts --check && bun scripts/globals.ts --check"
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@types/bun": "1.4.4",
+    "oxlint": "1.94.0",
     "typescript": "7.0.2"
   }
 }

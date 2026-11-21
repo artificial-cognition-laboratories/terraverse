@@ -81,6 +81,20 @@ needed.
 Commit each fix on its own, with a message saying what broke and why, then re-gate. Keep going
 until it's green or you've reached rung 4.
 
+## 2b. Official mods
+
+The game ships its official TypeScript mods (`registry/mods/*`) and every new world pins them
+at the exact versions in their `package.json`, resolved on the ArcLabs registry when a player adds
+another mod. CI publishes any version that isn't on the registry yet, on the tag, before the game's
+packages (`apps/game/scripts/release/publish-mods.ts`, the CI owner's). Your part:
+
+- For each `registry/mods/<mod>` whose files changed since its version was published
+  (`git log` since the commit that last changed its `version`), **bump its version** (patch; minor
+  if it adds or renames a block, setting or command) and commit `Release <name>@<version>`. A
+  published version never changes, so an unbumped change fails the publish step.
+- If the publish step fails, the game's packages don't go up. Fix it like any red step; a mod
+  version already published is never republished or deleted, only bumped past.
+
 ## 3. Release
 
 Ship in this order: `terraverse`, `launcher`, `site`.

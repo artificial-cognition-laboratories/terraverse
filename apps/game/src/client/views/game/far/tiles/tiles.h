@@ -13,6 +13,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <tuple>
 #include <vector>
 
@@ -90,6 +91,8 @@ public:
 		TileKey key;
 		Tiling::Vec middle; // where its mesh is from, on the planet
 		const std::vector<irr_ptr<TileBuffer>> &parts;
+		// behind(): the quarter of it (a child's key) it stands in over; else none
+		std::optional<TileKey> hole = std::nullopt;
 	};
 	// What update() chose, ready to draw.
 	std::vector<Drawn> drawn() const;
@@ -167,6 +170,9 @@ private:
 	// whether any of a tile is within what the eye sees (Eye::look)
 	bool seen(const TileKey &key, const Eye &eye) const;
 	bool choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::vector<std::pair<float, Key>> &want);
+	// Whether a tile `span` wide may stand in for `hole` (Eye::keep_fine): no
+	// coarser than STAND_IN times what the eye would draw there
+	bool fits(s32 span, const Key &hole, const Eye &eye) const;
 	bool install(); // whether it took any
 	// Whether the eye's as it was when the tiles were last chosen (choosing
 	// again would choose the same): to within a centimetre, looking the same way

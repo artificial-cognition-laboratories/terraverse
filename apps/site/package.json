@@ -8,6 +8,7 @@
     "preview": "bunx serve .output/public",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
+    "lint": "oxlint --deny-warnings app scripts nuxt.config.ts content.config.ts",
     "check": "nuxt typecheck && bash ../../apps/game/scripts/release/install-check.sh && nuxt generate",
     "deploy": "bun run scripts/deploy.ts",
     "verify": "bun run scripts/verify.ts",
@@ -22,8 +23,9 @@
     "vue": "^3.5.25"
   },
   "devDependencies": {
+    "oxlint": "1.94.0",
     "sass-embedded": "^1.87.0",
-    "vue-tsc": "^3.1.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "vue-tsc": "^3.1.0"
   }
 }

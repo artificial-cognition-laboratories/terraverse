@@ -1,21 +1,21 @@
 <script setup lang="ts">
 import { computed } from "vue"
 import PixelIcon from "../../game/PixelIcon.vue"
-import { Button, Field, IconChoice, Section, Segmented, Slider } from "../../kit/index.ts"
+import { Button, Field, IconChoice, Monogram, Section, Segmented, Slider } from "../../kit/index.ts"
 import { DEFAULTS, EARTH_RADIUS, SIZES, WORLD_PRESETS, type WorldConfig } from "../../worldgen/config.ts"
 import { worldName } from "../../worldgen/names.ts"
 import { matching, STYLE_CHOICES, type WorldDraftHandle } from "./draft.ts"
 import { body as bodyOf } from "../../system/model.ts"
-import { RULE_PRESETS, type Mode } from "./rules.ts"
+import { RULE_PRESETS } from "./rules.ts"
 import SeedField from "./SeedField.vue"
+import Experiences from "./Experiences.vue"
+import { experience } from "./experiences.ts"
 
 const props = defineProps<{ draft: WorldDraftHandle }>()
+const emit = defineEmits<{ mods: []; browse: [] }>()
+const worldMods = computed(() => [...experience(props.draft.mode).mods, ...props.draft.mods])
 
 const DICE = ["KKKKKKK", "K.....K", "K.K...K", "K..K..K", "K...K.K", "K.....K", "KKKKKKK"] as const
-const MODES = [
-    { id: "survival", label: "Survival", rows: ["...SS...", "..SSSS..", ".SSSSSS.", "...SS...", "...SS...", "...SS...", "..SSSS.."], palette: { S: "#c9d4dc" } },
-    { id: "creative", label: "Creative", rows: ["...C...", ".C.C.C.", "..CCC..", "CCCCCCC", "..CCC..", ".C.C.C.", "...C..."], palette: { C: "#d9ae69" } },
-] as const satisfies readonly { id: Mode; label: string; rows: readonly string[]; palette: Record<string, string> }[]
 const LAND_ICONS = {
     continents: ["BBBBBBBBB", "BBLLBBBBB", "BLLLLBBLB", "BLLLLBLLB", "BBLLBBBLL", "BBBLBBBBB", "BBBBBBBBB"],
     archipelago: ["BBBBBBBBB", "BLBBBBLBB", "BLLBBBBBB", "BBBBLLBBB", "BBLBBBBLB", "BBBBBLBBB", "BBBBBBBBB"],
@@ -108,13 +108,17 @@ const sizeNote = computed(() => {
         </Section>
 
         <Section title="How you play">
-            <IconChoice v-model="draft.mode" label="Game mode" :options="MODES" />
-            <p class="choice-note">{{ draft.mode === 'survival' ? 'Gather, build and stay alive.' : 'Build freely with every block and no danger.' }}</p>
+            <Experiences v-model="draft.mode" @browse="emit('browse')" />
             <div v-if="draft.mode === 'survival'" class="style-block">
                 <span class="sub-label">Survival style</span>
                 <Segmented v-model="style" :options="RULE_PRESETS.map((preset) => ({ value: preset.id, label: preset.label }))" />
                 <p class="choice-note">{{ styleNote }}</p>
             </div>
+            <button class="mods" type="button" @click="emit('mods')">
+                <span class="stack"><Monogram v-for="name in worldMods.slice(0, 4)" :key="name" :name="name" :size="24" /></span>
+                <span class="mods-copy"><strong>Mods</strong><small>{{ worldMods.length }} in this world{{ draft.mods.length ? ` · ${draft.mods.length} added by you` : "" }}</small></span>
+                <span class="go">Change »</span>
+            </button>
         </Section>
 
         <Section title="Planet shape">
@@ -145,5 +149,13 @@ const sizeNote = computed(() => {
 .taken { color: var(--danger); font-size: 11px; }
 .choice-note { margin: -5px 0 0; min-height: 16px; color: var(--ink-dim); font-size: 11px; }
 .style-block { display: grid; gap: 10px; }
+.mods { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--stone-3); background: none; color: var(--ink); text-align: left; }
+.mods:hover { border-color: var(--accent-lo); }
+.stack { display: flex; }
+.stack > * + * { margin-left: -8px; }
+.mods-copy { display: grid; gap: 2px; min-width: 0; }
+.mods-copy strong { font: 11px var(--font-display); text-transform: uppercase; }
+.mods-copy small { color: var(--ink-faint); font-size: 10px; }
+.go { color: var(--accent-hi); font: 10px var(--font-display); text-transform: uppercase; white-space: nowrap; }
 .sub-label { color: var(--ink-dim); font-size: 11px; }
 </style>

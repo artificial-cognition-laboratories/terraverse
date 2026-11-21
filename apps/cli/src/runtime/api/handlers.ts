@@ -19,7 +19,7 @@ export function Handlers(opts: { running: RunningT }) {
 
         function run(...args: A): void {
             // a handler that registers or disposes another changes the next run, not this one
-            for (const entry of [...entries]) opts.running.run(entry.mod, entry.fn, ...args)
+            for (const entry of Array.from(entries)) opts.running.run(entry.mod, entry.fn, ...args)
         }
 
         return { add: add, run: run }

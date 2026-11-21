@@ -6,6 +6,7 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/host/client.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/community.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/registry.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/bridge/world_server.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/console.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/cpu_canvas.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/debugger.cpp

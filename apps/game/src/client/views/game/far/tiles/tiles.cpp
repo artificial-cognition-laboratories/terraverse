@@ -39,6 +39,13 @@ static constexpr u32 KEEP_UPDATES = 120; // a tile wanted this lately isn't evic
 static constexpr float STAY_WHOLE = 0.85f;
 // How many levels finer a tile not built yet looks for finer ones to stand in for it.
 static constexpr s32 FINER_DEPTH = 3;
+// How much wider than what the eye would draw there a stand-in may be (two
+// levels). Any ancestor stood in, a root's quarter kilometres wide stood over
+// a hole near the eye at its own coarse heights: drawn behind the land, but
+// nothing's in front of the sky, so it stood across it, and came and went as
+// tiles were chosen again. A hole with nothing near enough built stays open,
+// a moment, till its own tile is.
+static constexpr float STAND_IN = 4;
 
 /*
 	A tile's mesh as it's installed: one buffer if it fits 16-bit indices,
@@ -453,7 +460,7 @@ std::vector<Tiles::Drawn> Tiles::behind() const
 	std::vector<Drawn> out;
 	out.reserve(m_behind.size());
 	for (const auto &[key, child] : m_behind)
-		out.push_back({ key.tile(), place(key).middle, m_tiles.at(key).quarters[child] });
+		out.push_back({ key.tile(), place(key).middle, m_tiles.at(key).quarters[child], key.child(child).tile() });
 	return out;
 }
 
@@ -576,7 +583,9 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 			return true;
 		if (!eye.keep_fine)
 			draw.resize(mark);
-		return false;
+		// with keep_fine, the parent stands in for it only if it isn't too coarse
+		// to: else it's a hole, and no coarser tile's asked to fill it
+		return eye.keep_fine && !fits(key.tile().span() * 2, key, eye);
 	}
 
 	size_t mark = draw.size();
@@ -591,13 +600,16 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 		// behind the finer ones that are there, so only the hole shows it: swapped
 		// for them, a whole view flashed coarse for each new tile. Only its
 		// quarters over the holes: the rest of it, at its own coarser heights,
-		// showed past the finer land's edge, a block of it above or below the ground
+		// showed past the finer land's edge, a block of it above or below the ground.
+		// A quarter too coarse for its hole is left out: the hole stays open
 		it->second.used = m_frame;
 		for (s32 c = 0; c < 4; c++)
-			if (!there[c])
+			if (!there[c] && fits(key.tile().span(), key.child(c), eye))
 				m_behind.emplace_back(key, c);
 		return true;
 	}
+	if (eye.keep_fine && !fits(key.tile().span() * 2, key, eye))
+		return true; // its parent's too coarse to stand in: the holes stay open
 	if (it != m_tiles.end() && it->second.ready) {
 		draw.resize(mark);
 		draw.push_back(key);
@@ -605,6 +617,16 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 		return true;
 	}
 	return false;
+}
+
+bool Tiles::fits(s32 span, const Key &hole, const Eye &eye) const
+{
+	// the span the eye would draw at the hole's distance: a tile splits while
+	// nearer than `split` of its spans past the cut (choose), so about this
+	const float d = distance(hole.tile(), eye);
+	const float seen = std::sqrt(d * d + eye.altitude * eye.altitude);
+	const float wanted = std::max((seen - eye.cut) / eye.split, (float)TILE);
+	return (float)span <= STAND_IN * wanted;
 }
 
 bool Tiles::install()

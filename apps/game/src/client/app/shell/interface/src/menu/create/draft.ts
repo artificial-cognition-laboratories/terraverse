@@ -45,6 +45,8 @@ export function WorldDraft(opts: { home: SystemWire }) {
         taken: [] as string[],
         mode: "survival" as Mode,
         rules: { ...DEFAULT_RULES } as Rules,
+        /** Registry mods added on top of the experience's own (experiences.ts), by name. */
+        mods: [] as string[],
         config: { ...DEFAULTS, companion: Companion(), size: NEW_WORLD_SIZE, style: NEW_WORLD_STYLE, seed: randomSeed() } as WorldConfig,
         /** The planetary system: causes only (src/system/model.ts). */
         system: system,

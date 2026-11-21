@@ -47,6 +47,38 @@ kind's median (the API doesn't say whether caches hit).
 | 2026-11-18 | 9/13 = 69% (since 11-17 21:00; the last 4 release runs green in a row) | 9.6 min (11 pushes) | release linux 10.0, windows 14.6; launcher 3.9 / 3.3; macos 3.6 min | release windows 36.4 min; macos 30 min | 2/2 (v0.1.4, launcher-v0.1.2) | 305 (324 min over 1.1 days, includes tonight's bring-up) |
 
 ## Plan
+0. **(tonight, the developer's direction, before macOS) Official mods publish with each release.**
+   Why: every new world pins the official mods (`registry/mods/*`, today `@terraverse/materials`
+   and `@terraverse/commands`) at the exact versions the game ships, in its own server folder
+   (`shell/bridge/world_server.cpp`, `<world>/server/package.json`). Adding any registry mod to a
+   world runs `terra install`, which resolves those pins **on the registry**. So a released game
+   whose official mod versions aren't published breaks "add a mod" for every new world.
+   Done when: a tag publishes every official mod whose version isn't on the registry yet, before
+   the game's packages go up, and a dispatch run proves it with `--dry-run`.
+   - [ ] `apps/game/scripts/release/publish-mods.ts` (no logic in YAML): for each folder in
+     `registry/mods/`, read its `package.json` name and version; ask the registry
+     (`GET {ARCLABS}/api/terrafirma/registry/packages/<name>`) whether that version exists.
+     Published: skip it (versions are immutable). Not published: `terra publish <folder> --json`.
+     `--dry-run` runs `terra publish --dry-run` instead and publishes nothing. Fails loudly on
+     any refusal: a release must not go out pinning a version the registry doesn't have.
+   - [ ] Same content, same version: a mod whose files changed since its version was published
+     must have its version bumped, or worlds made by different builds would pin one version with
+     two meanings. The script detects it (compare against the published tarball's contents, or
+     record the commit each version was published from: your call, keep it simple) and fails
+     with "bump <name>". The release bot does the bump (its skill says so).
+   - [ ] release.yml: a job that runs it on a tag, after packaging and the smoke boot are green and
+     **before** the game's packages publish. Linux only: the mods are TypeScript, one publish is
+     enough. Dispatch and master pushes run it with `--dry-run` (a master push must never publish).
+   - [ ] Credential. `terra publish` reads a signed-in account from `~/.config/terra/account.json`
+     (`apps/cli/src/terra/registry/account.ts`); it has no token from the environment. Add one
+     (e.g. `TERRA_TOKEN` read by `Account`, taking precedence over the file: the smallest change,
+     in apps/cli, with a test) and use a GitHub secret for it. The account must be a member of the
+     `terraverse` org on ArcLabs (the developer owns it). **Needs the developer:** the secret
+     itself; ask under Questions for the developer, and until it exists, ship everything else with
+     the publish step running `--dry-run` and saying so in the job summary.
+   - [ ] `bun check:registry` already exercises publish against staging (`../arclabs`): reuse its
+     helpers rather than writing a second registry client.
+
 1. **Master green.** Done when: master green rate is 100% over 5 consecutive master runs.
    - [x] 2026-11-17: the Windows launcher test.
    - [x] 2026-11-18: terra's gitignored `server/build/`; release.yml not running on apps/cli; terra's
@@ -100,6 +132,8 @@ kind's median (the API doesn't say whether caches hit).
 - (none)
 
 ## Direction
+
+2026-11-21 (the developer): publish the official mods with every release, tonight, before going on with macOS. Milestone 0 above has the why and the shape.
 
 Over the next few sessions we want to get everything setup properly to allow macos. So choose chunks of work to do. getting the repo itself in line and setting up the appropriate ci. you are tasked with the full thing. within a few sessions we should have macos online. permission to make the changes you need to get this working and online. keep track of this work and your plan until the job is complete.
 

@@ -40,9 +40,10 @@ namespace shell {
 
 // The world the menu's universe is when none has been visited yet.
 
-static Json::Value worldJson(const Worlds &worlds, const WorldSpec &world)
+static Json::Value worldJson(const Worlds &worlds, const WorldServer &server, const WorldSpec &world)
 {
 	Json::Value out;
+	out["mods"] = server.added(world.path);
 	out["name"] = world.name;
 	out["path"] = world.path;
 	Settings settings;
@@ -134,10 +135,24 @@ static std::string stringField(const Json::Value &intent, const char *field)
 	return intent[field].asString();
 }
 
+static std::vector<std::string> stringList(const Json::Value &intent, const char *field)
+{
+	if (!intent[field].isArray())
+		throw Refused(std::string("missing list field '") + field + "'");
+	std::vector<std::string> out;
+	for (const Json::Value &v : intent[field]) {
+		if (!v.isString())
+			throw Refused(std::string("'") + field + "' holds something that isn't a string");
+		out.push_back(v.asString());
+	}
+	return out;
+}
+
 Menu::Menu(const Opts &opts) :
 	m_shell(opts.shell), m_intents(opts.shell), m_engine(opts.engine), m_worlds(opts.worlds),
 	m_community(opts.worlds, g_settings->get("game_id")),
 	m_registry({ /* .intents = */ m_intents, /* .api = */ g_settings->get("arclabs_url") }),
+	m_world_server({ .game = porting::path_share + DIR_DELIM "server" }),
 	m_receiver(opts.receiver),
 	m_planetarium(opts.shell.planetarium())
 {
@@ -187,12 +202,31 @@ Menu::Menu(const Opts &opts) :
 	m_intents.onAsync("worlds.list", [this](const Json::Value &) {
 		Json::Value out(Json::arrayValue);
 		for (const auto &world : m_worlds.list())
-			out.append(worldJson(m_worlds, world));
+			out.append(worldJson(m_worlds, m_world_server, world));
 		return out;
 	});
-	m_intents.on("worlds.create", [this](const Json::Value &intent) {
-		return worldJson(m_worlds, m_worlds.create(stringField(intent, "name"), stringField(intent, "code"),
-				intent["settings"]));
+	// seconds when it fetches mods (terra install): off the main thread. A world whose
+	// mods can't be had isn't left behind half made.
+	m_intents.onAsync("worlds.create", [this](const Json::Value &intent) {
+		const std::vector<std::string> mods = stringList(intent, "mods");
+		WorldSpec world = m_worlds.create(stringField(intent, "name"), stringField(intent, "code"), intent["settings"]);
+		try {
+			m_world_server.make(world.path, mods);
+		} catch (...) {
+			m_worlds.remove(world.path);
+			throw;
+		}
+		return worldJson(m_worlds, m_world_server, world);
+	});
+	// a world's mods: reading is quick, changing them runs terra (seconds), so all off the main thread
+	m_intents.onAsync("world.mods", [this](const Json::Value &intent) {
+		return m_world_server.mods(m_worlds.find(stringField(intent, "path")).path);
+	});
+	m_intents.onAsync("world.mods.add", [this](const Json::Value &intent) {
+		return m_world_server.add(m_worlds.find(stringField(intent, "path")).path, stringList(intent, "mods"));
+	});
+	m_intents.onAsync("world.mods.remove", [this](const Json::Value &intent) {
+		return m_world_server.remove(m_worlds.find(stringField(intent, "path")).path, stringField(intent, "name"));
 	});
 	m_intents.on("worlds.delete", [this](const Json::Value &intent) {
 		m_worlds.remove(stringField(intent, "path"));

@@ -62,6 +62,8 @@
 
 // Modding
 #include "src/server/app/mods/sidecar/sidecar.h"
+#include "src/server/app/mods/sidecar/terra.h"
+#include "src/server/app/mods/sidecar/ledger.h"
 #include "src/server/game/registry.h" // Terra Firma
 #include "tests/probe/probe.h" // Terra Firma
 #include "src/server/game/interact.h" // Terra Firma
@@ -3064,25 +3066,11 @@ bool Server::sidecarCommand(const std::string &player, const std::string &name, 
 // declared into items and nodes, before registration closes (sprint 119).
 void Server::startSidecar()
 {
-	// TERRA_CLI: the terra that started this engine, when it isn't the one beside it
-	// (terral, terra from source, which then runs the sidecar from source too)
 	std::string terra;
-	if (const char *given = std::getenv("TERRA_CLI"); given && *given) {
-		terra = given;
-		if (!fs::PathExists(terra))
-			throw ServerError("TypeScript mods: TERRA_CLI names " + terra + ", and there's nothing there");
-	} else {
-		char exe[1024];
-		if (!porting::getCurrentExecPath(exe, sizeof exe))
-			throw ServerError("TypeScript mods: can't tell where this engine is, to find terra beside it");
-#ifdef _WIN32
-		terra = fs::RemoveLastPathComponent(exe) + DIR_DELIM + "terra.exe";
-#else
-		terra = fs::RemoveLastPathComponent(exe) + DIR_DELIM + "terra";
-#endif
-		if (!fs::PathExists(terra))
-			throw ServerError("TypeScript mods need terra beside the engine, and there's none at " + terra +
-					" (build it: cd apps/cli && bun run build)");
+	try {
+		terra = sidecar::Terra::locate().path();
+	} catch (const sidecar::Error &e) {
+		throw ServerError(std::string("TypeScript mods: ") + e.what());
 	}
 
 	sidecar::Host host;
@@ -3122,6 +3110,12 @@ void Server::startSidecar()
 
 	// each a block of its substance, which the world's matter and machines then take up
 	registerModContent(this, content);
+	// what each mod put in this world, so the menu can tell what removing it would leave behind
+	try {
+		sidecar::Ledger({ /* .world = */ m_path_world }).record(content);
+	} catch (const sidecar::Error &e) {
+		throw ServerError(std::string("TypeScript mods: ") + e.what());
+	}
 	actionstream << "mods: " << content.blocks.size() << " blocks from " << m_server_folder << std::endl;
 }
 

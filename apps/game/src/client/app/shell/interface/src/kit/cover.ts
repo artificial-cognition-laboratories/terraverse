@@ -29,8 +29,9 @@ export function cover(seed: string, width = 32): CoverArt {
         const ridge = Math.round(base + Math.sin(x * 0.21 + w0) * 2.4 + Math.sin(x * 0.53 + w1) * 1.1 + Math.sin(x * 0.07 + w2) * 3)
         let y = Math.max(2, ridge)
         land.forEach((fill, layer) => {
-            const h = layer === land.length - 1 ? height - y : layer === 0 ? 1 : 2 + Math.floor(random() * 2)
-            pixels.push({ x: x, y: y, h: h, fill: fill })
+            // the bottom stratum fills to the edge; a low ridge can run the rest off it
+            const h = Math.min(height - y, layer === land.length - 1 ? height - y : layer === 0 ? 1 : 2 + Math.floor(random() * 2))
+            if (h > 0) pixels.push({ x: x, y: y, h: h, fill: fill })
             y += h
         })
     }

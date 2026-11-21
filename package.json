@@ -15,7 +15,9 @@
     "test:cli": "todo",
     "test:launcher": "todo",
 
-    "ci:status": "bun scripts/ci/status.ts"
+    "ci:status": "bun scripts/ci/status.ts",
+
+    "setup:terral": "echo 'todo add terral to path'"
   },
   "devDependencies": {
     "@types/bun": "latest"

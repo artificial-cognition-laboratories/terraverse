@@ -4,17 +4,17 @@ import Monogram from "./Monogram.vue"
 
 /**
  * One thing in a grid you can open: its cover, mark, name, who made it and a line about it.
- * `meta` is the footer (stars, players, version); badges sit on the cover.
+ * `meta` is the footer (stars, players, version); badges sit on the cover. `on`: the chosen one, when cards are a choice.
  */
 withDefaults(defineProps<{
     title: string; seed: string; by?: string | null; description?: string | null
-    image?: string | null; icon?: string | null; badges?: readonly string[]; dense?: boolean
-}>(), { by: null, description: null, image: null, icon: null, badges: () => [], dense: false })
+    image?: string | null; icon?: string | null; badges?: readonly string[]; dense?: boolean; on?: boolean
+}>(), { by: null, description: null, image: null, icon: null, badges: () => [], dense: false, on: false })
 defineEmits<{ open: [] }>()
 </script>
 
 <template>
-    <button class="card" :class="{ dense }" type="button" @click="$emit('open')">
+    <button class="card" :class="{ dense, on }" type="button" :aria-pressed="on || undefined" @click="$emit('open')">
         <div class="art">
             <Cover :seed="seed" :image="image" />
             <span v-if="badges.length" class="badges"><span v-for="b in badges" :key="b">{{ b }}</span></span>
@@ -47,5 +47,7 @@ strong { overflow: hidden; font: 11px var(--font-display); text-transform: upper
 .by { overflow: hidden; color: var(--ink-faint); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .description { display: -webkit-box; margin: 8px 10px 0; overflow: hidden; color: var(--ink-dim); font-size: 11px; line-height: 1.45; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: calc(11px * 1.45 * 2); }
 .meta { display: flex; gap: 12px; margin-top: auto; padding: 10px; color: var(--ink-faint); font-size: 10px; white-space: nowrap; overflow: hidden; }
+.card.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.card.on strong { color: var(--accent-hi); }
 .dense .description { -webkit-line-clamp: 1; min-height: 0; }
 </style>

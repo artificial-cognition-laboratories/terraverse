@@ -71,7 +71,10 @@ impl Installs {
 
     pub fn cancel(&self, id: &str) -> Result<()> {
         match self.running.lock().unwrap().get(id) {
-            Some(flag) => Ok(flag.store(true, Ordering::Relaxed)),
+            Some(flag) => {
+                flag.store(true, Ordering::Relaxed);
+                Ok(())
+            }
             None => refused(format!("{id} isn't downloading.")),
         }
     }

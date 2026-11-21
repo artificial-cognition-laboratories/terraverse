@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
-import { BridgeError, type Friend, type Invite, type Loading, type Player, type World } from "../bridge/index.ts"
+import { BridgeError, type Friend, type Invite, type Loading, type Player, type PublicServer, type World } from "../bridge/index.ts"
 import { useBridge } from "../bridge/use.ts"
 import PixelIcon from "../game/PixelIcon.vue"
 import { useStore } from "../game/store.ts"
@@ -9,6 +9,8 @@ import { usePlanetarium } from "../planetarium/use.ts"
 import { decodeWorldCode } from "../worldgen/config.ts"
 import { Copier } from "./create/copy.ts"
 import type { Screen } from "./screens.ts"
+import OnlineList from "./OnlineList.vue"
+import WorldMods from "./WorldMods.vue"
 import { chipsOf, GEAR, PIN, planetIcon, RAIL, sizeLabel, type Section } from "./worldIcons.ts"
 
 type Entry =
@@ -32,6 +34,7 @@ const confirming = ref(false)
 const busy = ref(false)
 const problem = ref<string | null>(null)
 const naming = ref("")
+const server = ref<PublicServer | null>(null) // the chosen public server, under Online
 
 const orderedWorlds = computed(() => [...(worlds.value ?? [])].sort((a, b) =>
     Number(b.pinned) - Number(a.pinned) || (b.lastOpened ?? 0) - (a.lastOpened ?? 0) || a.name.localeCompare(b.name)))
@@ -68,7 +71,7 @@ const groups = computed<ListGroup[]>(() => {
             { label: "Recent", entries: orderedWorlds.value.filter((w) => !w.pinned && w.lastOpened !== null).map(localEntry) },
             { label: "New worlds", entries: orderedWorlds.value.filter((w) => !w.pinned && w.lastOpened === null).map(localEntry) },
         ]
-        : friendGroups.value
+        : section.value === "friends" ? friendGroups.value : []
     const term = query.value.trim().toLowerCase()
     return raw.map((group) => ({ ...group, entries: group.entries.filter((entry) => entry.search.toLowerCase().includes(term)) }))
         .filter((group) => group.entries.length)
@@ -121,6 +124,7 @@ async function action(run: () => Promise<unknown>) {
     finally { busy.value = false }
 }
 function play(world: World) { return action(() => bridge.send("play", { path: world.path })) }
+function joinServer(s: PublicServer) { return action(() => bridge.send("servers.join", { id: s.id })) }
 function join(player: Player) { return action(() => bridge.send("social.join", { id: player.id, name: player.username })) }
 function signIn() { return action(() => bridge.send("account.signIn", {})) }
 function pin(world: World) { return action(async () => {
@@ -192,6 +196,8 @@ onBeforeUnmount(() => { void orbits(true) })
                     <Button size="sm" :disabled="busy" @click="pin(local)">{{ local.pinned ? "Unpin world" : "Pin world" }}</Button>
                 </section>
 
+                <WorldMods :key="local.path" :path="local.path" @changed="refreshWorlds" />
+
                 <section v-if="local.code">
                     <h3>Planet code</h3>
                     <p class="dim">The same land and climate can be shared. Buildings and world rules stay in this save.</p>
@@ -216,7 +222,8 @@ onBeforeUnmount(() => { void orbits(true) })
         </template>
 
         <template v-else #list>
-            <div v-if="section === 'mine' && worlds === null" class="list-message">Reading your worlds…</div>
+            <OnlineList v-if="section === 'online'" v-model="server" :query="query" @join="joinServer" />
+            <div v-else-if="section === 'mine' && worlds === null" class="list-message">Reading your worlds…</div>
             <div v-else-if="section === 'friends' && store.account?.status === 'signedIn' && !store.social?.view" class="list-message">Finding friends' worlds…</div>
             <template v-else-if="groups.length">
                 <section v-for="group in groups" :key="group.label" class="list-group">
@@ -281,6 +288,7 @@ onBeforeUnmount(() => { void orbits(true) })
             </template>
             <Button v-else-if="local" variant="primary" :disabled="busy" @click="play(local)">Play »</Button>
             <Button v-else-if="friend" variant="primary" :disabled="busy" @click="join(friend.player)">Join »</Button>
+            <Button v-else-if="section === 'online' && server" variant="primary" :disabled="busy || !server.compatible" @click="joinServer(server)">Join »</Button>
         </div>
     </div>
     </div>

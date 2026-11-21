@@ -9,6 +9,8 @@
     "ui": "vite --port 5175 --strictPort",
     "ui:build": "vue-tsc --noEmit && vite build",
     "typecheck": "vue-tsc --noEmit",
+    "lint": "oxlint --deny-warnings src scripts vite.config.ts",
+    "lint:rust": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
     "tauri": "tauri",
     "release:gate": "bun scripts/release.ts gate",
     "release:tag": "bun scripts/release.ts tag",
@@ -22,6 +24,7 @@
     "@tauri-apps/cli": "^2",
     "@types/node": "^26.6.6",
     "@vitejs/plugin-vue": "^6.0.10",
+    "oxlint": "1.94.0",
     "typescript": "^5",
     "vite": "^8.3.5",
     "vue-tsc": "^3.3.13"

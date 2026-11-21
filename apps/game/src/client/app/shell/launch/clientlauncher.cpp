@@ -29,6 +29,7 @@
 #include "src/client/app/shell/bridge/entering.h"
 #include "src/client/app/shell/bridge/social.h"
 #include "src/client/app/shell/bridge/worlds.h"
+#include "src/client/app/shell/bridge/world_server.h"
 #include <random>
 #endif
 #include <IGUISpriteBank.h>
@@ -352,6 +353,7 @@ bool ClientLauncher::online(GameStartData &start_data, shell::Choice &choice, st
 
 	start_data.world_spec = *choice.world;
 	start_data.world_path = choice.world->path;
+	start_data.server_folder = shell::WorldServer::folder(choice.world->path); // its own mods, or the game's
 	start_data.address.clear();
 	if (!api) {
 		start_data.mode = GameClientData::GM_SINGLEPLAYER;

@@ -1,6 +1,7 @@
 // A stand-in engine for the component gallery: canned replies to every
 // intent, and emit() to push engine messages through the real store.
 
+import { MockWorldMods } from "./mockWorldMods.ts"
 import { inject, type InjectionKey } from "vue"
 import { BridgeError } from "../bridge"
 import { FailureCode } from "../bridge/types"
@@ -49,12 +50,13 @@ export function MockBridge() {
     const listeners = new Set<(message: EngineMessage) => void>()
     let worlds: World[] = [
         { name: "Pine Ridge", path: "/worlds/pine_ridge", code: encodeWorldCode({ ...DEFAULTS, seed: "pine ridge" }),
-            mode: "survival", damage: true, pinned: true, lastOpened: 1792500000,
+            mode: "survival", damage: true, pinned: true, lastOpened: 1792500000, mods: 2,
             rules: { tf_difficulty: "normal", tf_seasons: "true", tf_weather: "wild", tf_hunger: "normal" } },
         { name: "Saltwater", path: "/worlds/saltwater", code: encodeWorldCode({ ...DEFAULTS, seed: "saltwater" }),
-            mode: "creative", damage: false, pinned: false, lastOpened: 1791000000,
+            mode: "creative", damage: false, pinned: false, lastOpened: 1791000000, mods: 0,
             rules: { tf_difficulty: "peaceful", tf_seasons: "false", tf_weather: "mild" } },
     ]
+    const worldMods = MockWorldMods()
     const worldCodes = new Map(worlds.map((world) => [world.path, world.code!]))
     const publicServers: PublicServer[] = [
         { id: "amber-crossing", name: "Amber Crossing", description: "A shared survival world shaped by seasons, trade routes, and towns.", host: "ArcLabs",
@@ -311,11 +313,17 @@ export function MockBridge() {
         "net.capture": () => ({ messages: [], heads: [] }),
         "perf.export": () => ({ path: "/home/you/.terraverse/traces/trace.json" }),
         "update.check": () => ({ current: "v0.1.1", latest: "0.1.2", available: true, launcher: false }),
-        "worlds.list": () => worlds,
+        "worlds.list": () => worlds.map((w) => ({ ...w, mods: worldMods.added(w.path) })),
+        "world.mods": ({ path }) => worldMods.mods(path),
+        "world.mods.add": ({ path, mods }) => worldMods.add(path, mods),
+        "world.mods.remove": ({ path, name }) => {
+            try { return worldMods.remove(path, name) }
+            catch (err) { throw refuse("world.mods.remove", err instanceof Error ? err.message : String(err)) }
+        },
         "worlds.create": ({ name, code, settings }) => {
             const world: World = { name: name, path: `/worlds/${name.toLowerCase().replace(/\W+/g, "_")}`,
                 code, mode: settings.creative_mode ? "creative" : "survival", damage: Boolean(settings.enable_damage),
-                pinned: false, lastOpened: null,
+                pinned: false, lastOpened: null, mods: 0,
                 rules: Object.fromEntries(Object.entries(settings).filter(([key]) => key.startsWith("tf_")).map(([key, value]) => [key, String(value)])) }
             worlds = [...worlds, world]
             worldCodes.set(world.path, code)

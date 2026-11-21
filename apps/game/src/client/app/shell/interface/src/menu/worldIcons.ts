@@ -1,7 +1,7 @@
 import type { World } from "../bridge/index.ts"
 
 // The Play page's pixel icons, and what a world's row says with them.
-export type Section = "mine" | "friends"
+export type Section = "mine" | "friends" | "online"
 type Icon = { rows: readonly string[]; palette: Record<string, string> }
 export type Chip = Icon & { label: string; text: string }
 
@@ -12,6 +12,8 @@ export const RAIL: ({ id: Section; label: string; shortLabel: string } & Icon)[]
         rows: ["...SSS...", ".SSGGSSS.", ".SGGGGSS.", "SSSGGSSDS", "SSSSSSGDS", "SGGSSGGDS", ".SGGSSDD.", ".SSSDDDD.", "...DDD..."] },
     { id: "friends", label: "Friends", shortLabel: "Friends", palette: { A: STEEL, B: SKY },
         rows: [".........", "..AA..BB.", ".AAAABBBB", ".AAAABBBB", "..AA..BB.", ".........", "AAAAABBBB", "AAAAABBBB", "AAAAABBBB"] },
+    { id: "online", label: "Online", shortLabel: "Online", palette: { A: STEEL, B: SKY, G: GRASS },
+        rows: ["AAAAAAAAA", "AGAAAAABA", "AAAAAAAAA", ".........", "AAAAAAAAA", "AGAAAAABA", "AAAAAAAAA", "....A....", "..AAAAA.."] },
 ]
 export const GEAR: Icon = { palette: { G: STEEL },
     rows: ["...GGG...", ".G.GGG.G.", "..GGGGG..", "GGGG.GGGG", "GGG...GGG", "GGGG.GGGG", "..GGGGG..", ".G.GGG.G.", "...GGG..."] }
@@ -33,6 +35,9 @@ const SEASONS: Chip = { label: "Seasons", text: "", palette: { S: SNOW },
 const WILD: Chip = { label: "Wild weather", text: "", palette: { C: STEEL, B: SUN },
     rows: ["..CCC..", ".CCCCC.", "CCCCCCC", "...BB..", "..BB...", ".BBB...", "..B...."] }
 
+const MODS: Chip = { label: "Mods", text: "", palette: { A: STEEL, B: SKY },
+    rows: ["AAA.BBB", "AAA.BBB", "AAA.BBB", ".......", "BBB.AAA", "BBB.AAA", "BBB.AAA"] }
+
 /** A world's row: always what kind of game it is; the rest only when it's out of the ordinary. */
 export function chipsOf(world: World): Chip[] {
     const chips: Chip[] = []
@@ -42,6 +47,7 @@ export function chipsOf(world: World): Chip[] {
         chips.push({ label: `Difficulty: ${difficulty}`, text: difficulty, palette: { L: SKY, D: SHADE }, rows: rungs(DIFFICULTY[difficulty]) })
     if (world.rules.tf_seasons === "true") chips.push(SEASONS)
     if (world.rules.tf_weather === "wild") chips.push(WILD)
+    if (world.mods) chips.push({ ...MODS, label: `${world.mods} mods beyond the game's`, text: `+${world.mods} mod${world.mods === 1 ? "" : "s"}` })
     return chips
 }
 
