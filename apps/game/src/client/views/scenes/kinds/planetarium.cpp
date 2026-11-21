@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/views/scenes/kinds/planetarium.h"
+#include "src/client/views/planetarium/framing.h"
+#include "library/trace/trace.h"
 #include "src/shared/base/exceptions.h"
 #include "src/shared/platform/system/log.h"
 #include "src/client/app/shell/bridge/bridge.h"
@@ -26,10 +28,6 @@ constexpr double LEAN_EASE = 1.2;          // seconds to most of the way: slow, 
 constexpr double TURN_SECONDS = 8 * 60;    // one of the planet's days, on the menu
 constexpr double WANDER = 0.35;            // of the lean, with the mouse still
 constexpr double WARM_MS = 3;              // a frame's share of uploading the next body's land
-// A held camera, put where the page leaves room: far out, turned to it (a
-// sphere seen square on); close in, the lens shifted (the ground nearly a
-// plane, and a shifted lens looks straight down on a plane, undistorted)
-constexpr double SHIFT_BELOW = 0.15, TURN_ABOVE = 1.0; // radii up
 
 using planetarium::MarkerLayer;
 using View = planetarium::Planetarium;
@@ -232,6 +230,7 @@ void Planetarium::collect()
 
 void Planetarium::show(View::Opts body)
 {
+	TF_ZONE("Planetarium: a body shown");
 	if (m_parked && !shown() && m_parked->body() == body.body && m_parked->code() == body.horizon.code) {
 		// the one hidden last (or prepared): back as it was, its land already built
 		m_current = std::move(m_parked);
@@ -380,12 +379,11 @@ v2f Planetarium::room() const
 
 planetarium::Framing Planetarium::framingFor(Shot shot) const
 {
-	const float aspect = (float)m_screen.X / std::max(1u, m_screen.Y);
 	if (shot == Shot::Home)
-		return View::framingOf(leaned(), aspect);
+		return planetarium::framing::of(leaned(), (float)m_screen.X, (float)m_screen.Y);
 	// the home shot's star way across the screen and its side of the body, so
 	// from there it's a swing round toward the day side; framed in what the page leaves
-	const planetarium::Framing home = View::framingOf(planetarium::HOME_SHOT, aspect);
+	const planetarium::Framing home = planetarium::framing::of(planetarium::HOME_SHOT, (float)m_screen.X, (float)m_screen.Y);
 	return planetarium::Framing{ planetarium::PLAY_ALTITUDE, v2f(), planetarium::PLAY_OFF, home.roll, home.around, 1.f };
 }
 
@@ -406,7 +404,6 @@ void Planetarium::compose(View &p)
 	}
 	m_scene.now = f;
 	// in the room the page leaves, as it's eased to (tick)
-	p.frame(v2f());
 	p.aim(f.centre + m_roomNow);
 	p.skyLevel(f.sky);
 	p.compose(f, 0);
@@ -449,8 +446,8 @@ Json::Value Planetarium::scene(const Json::Value &intent)
 	// from wherever it's framed now, mid-move or not, or where the mouse left it
 	if (m_held && m_current) {
 		m_scene.now = m_current->framed();
-		// the centre as compose takes it: the page's room is its own, a shift counted as a turn
-		m_scene.now->centre += m_current->shift() - m_roomNow;
+		// the centre as compose takes it: the page's room is its own
+		m_scene.now->centre -= m_roomNow;
 	}
 	m_held = false;
 	m_scene.from = m_scene.now;
@@ -460,10 +457,8 @@ Json::Value Planetarium::scene(const Json::Value &intent)
 	for (View *p : { m_current.get(), m_next.get() })
 		if (p) {
 			apply(*p);
-			if (!shot) { // the page's view from here: its own frame (planetarium.frame), straight on
-				p->aim(v2f());
+			if (!shot) // the page's view from here: aimed at the middle of its room (draw)
 				p->skyLevel(1);
-			}
 		}
 	if (!shot)
 		m_scene.now.reset();
@@ -745,7 +740,10 @@ bool Planetarium::handle(const SEvent &event)
 
 void Planetarium::draw(video::IVideoDriver *driver)
 {
-	collect();
+	{
+		TF_ZONE("Planetarium: collect");
+		collect();
+	}
 	const core::dimension2du screen = driver->getScreenSize();
 	m_screen = v2u32(screen.Width, screen.Height);
 	if (m_next) {
@@ -779,19 +777,18 @@ void Planetarium::draw(video::IVideoDriver *driver)
 				(s32)std::lround((m_view->x + m_view->width) * k), (s32)std::lround((m_view->y + m_view->height) * k));
 		view.clipAgainst(core::recti(0, 0, screen.Width, screen.Height));
 	}
-	// the planet framed in what the page leaves free: the view's middle moved there
-	const float k = m_opts.shell.scale();
-	const double w = std::max(1, view.getWidth()), h = std::max(1, view.getHeight());
-	const double cx = (m_insets.left - m_insets.right) * k / 2, cy = (m_insets.top - m_insets.bottom) * k / 2;
-	// the picture as it is this frame: eased, leaned, turned, on the window's shape
+	// the picture as it is this frame: eased, leaned, turned, on the window's
+	// shape; else the camera turned to put the planet in what the page leaves free
 	if (m_scene.shot && !m_held)
 		compose(*m_current);
-	else if (m_held) {
-		const double w = std::clamp((m_current->radiiUp() - SHIFT_BELOW) / (TURN_ABOVE - SHIFT_BELOW), 0.0, 1.0);
-		m_current->aim((m_heldCentre + m_roomNow) * (f32)w);
-		m_current->frame((m_heldCentre + m_roomNow) * (f32)(1 - w));
-	} else
-		m_current->frame(v2f((f32)(cx / (w / 2)), (f32)(-cy / (h / 2))));
+	else if (m_held)
+		m_current->aim(m_heldCentre + m_roomNow);
+	else {
+		// (in the view's own halves: it may be only part of the window)
+		const float k = m_opts.shell.scale();
+		const double w = std::max(1, view.getWidth()), h = std::max(1, view.getHeight());
+		m_current->aim(v2f((f32)((m_insets.left - m_insets.right) * k / w), (f32)(-(m_insets.top - m_insets.bottom) * k / h)));
+	}
 	m_current->draw(driver, view);
 	m_retiring.reset();
 	tellHover(*m_current);

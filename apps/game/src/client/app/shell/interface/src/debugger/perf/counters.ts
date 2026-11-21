@@ -5,12 +5,15 @@
  */
 export const GROUPS = [
     { id: "map", title: "Map", prefixes: ["MapBlocks", "MapBlock ", "CM::", "SHADOW ", "renderMap"] },
+    { id: "draws", title: "Draw calls", prefixes: ["Draws:"] },
+    { id: "triangles", title: "Triangles", prefixes: ["Triangles:"] },
     { id: "gpu", title: "GPU", prefixes: ["Irr:"] },
     { id: "objects", title: "Objects", prefixes: ["ActiveObjectMgr", "ParticleManager"] },
     { id: "server", title: "Server env", prefixes: ["ServerEnv", "Server:", "Server::", "SEnv"] },
     { id: "meshing", title: "Meshing", prefixes: ["MeshUpdateQueue", "num_processed_meshes", "Client: Mesh"] },
     { id: "network", title: "Network", prefixes: ["client_received_packets", "packets_lost", "Net:"] },
     { id: "water", title: "Water", prefixes: ["Water"] },
+    { id: "drawlist", title: "Draw list blocks", prefixes: ["Draw list:"] },
     { id: "far", title: "Far view tiles", prefixes: ["Far view: tiles", "Far view: stand-ins"] },
     { id: "emerge", title: "Emerge", prefixes: ["EmergeThread", "ServerMap"] },
 ] as const

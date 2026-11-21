@@ -193,7 +193,7 @@ void SystemLayer::draw(video::IVideoDriver *driver, const Camera &camera, double
 	driver->setTransform(video::ETS_VIEW, camera.view);
 	if (m_galaxy) {
 		TF_ZONE("Space: galaxy");
-		m_galaxy->draw(driver, camera.aspect, m_opts.skyFov > 0 ? m_opts.skyFov : camera.fov, camera.shift, m_skyLevel);
+		m_galaxy->draw(driver, camera.aspect, camera.fov, camera.height, m_skyLevel);
 	}
 	if (m_orbits)
 		orbits(driver, camera, day);
@@ -212,7 +212,7 @@ void SystemLayer::draw(video::IVideoDriver *driver, const Camera &camera, double
 		const double reach = shown * (b.index < 0 ? GLOW : 1.2);
 		const float near = (float)std::max({ (depth - reach) * BS, shown * 0.001 * BS, 0.1 * BS });
 		const float far = (float)std::max((depth + reach) * BS, (double)near * 2);
-		driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(camera.aspect, near, far, camera.shift, camera.fov));
+		driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(camera.aspect, near, far, camera.fov));
 		if (m_cutaway && b.index == (int)*m_cutaway) {
 			const V p = scene(s.position((size_t)b.index, day));
 			const double d = length(p);
@@ -359,7 +359,7 @@ void SystemLayer::rim(video::IVideoDriver *driver, const Camera &camera, const B
 	const double focal = camera.height / (2 * std::tan(camera.fov / 2));
 	if (b.radius * focal / std::max(b.distance, b.radius) < 2)
 		return; // a dot has no edge to see
-	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(camera.aspect, near, far, camera.shift, camera.fov));
+	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(camera.aspect, near, far, camera.fov));
 	driver->setTransform(video::ETS_VIEW, camera.view);
 	const V way = toStar((size_t)b.index, day);
 	m_rim->draw(driver, (size_t)b.index, v3f((f32)b.at.x, (f32)b.at.y, (f32)b.at.z) * BS, (f32)(b.radius * BS),
@@ -552,7 +552,7 @@ void SystemLayer::glare(video::IVideoDriver *driver, const Camera &camera, const
 		}
 		if (shown <= 0)
 			continue;
-		const f32 x = d.X / d.Z * (f32)f / camera.aspect + camera.shift.X, y = d.Y / d.Z * (f32)f + camera.shift.Y;
+		const f32 x = d.X / d.Z * (f32)f / camera.aspect, y = d.Y / d.Z * (f32)f;
 		const f32 h = (f32)(reach * 2 / camera.height), w = h / camera.aspect;
 		const u32 level = (u32)(255 * shown);
 		const video::SColor c(255, level, level, level);
@@ -630,7 +630,7 @@ void SystemLayer::orbits(video::IVideoDriver *driver, const Camera &camera, doub
 		}
 	}
 	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(camera.aspect, (f32)(0.5 * BS),
-			(f32)((m_extent * 3 + length(camera.at)) * BS), camera.shift, camera.fov));
+			(f32)((m_extent * 3 + length(camera.at)) * BS), camera.fov));
 	ribbons.draw(driver, false); // behind everything: drawn first
 }
 

@@ -196,6 +196,7 @@ private:
 	size_t m_bytes = 0; // every held tile's (Entry::bytes)
 	size_t m_pending = 0;
 	std::unique_ptr<terragen::Step> m_coarse; // the roots as they're built, till the coarse planet's all there (terragen/progress.h)
+	u32 m_settling = 0; // frames changed but still, since last chosen (update)
 	video::IVideoDriver *m_driver; // none: tiles go to the GPU as they're drawn
 	std::shared_ptr<const Tint> m_tint;
 	u32 m_tints = 0; // tints set so far: a tile painted by this one is up to date

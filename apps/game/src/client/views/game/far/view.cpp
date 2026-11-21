@@ -1,6 +1,7 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include "src/client/render/gputime/gputime.h"
 #include "library/trace/trace.h"
 #include "src/client/views/game/far/view.h"
 #include "src/client/views/game/far/tiles/mask.h"
@@ -43,7 +44,6 @@ struct DrawState
 	float place[4] = {}; // the eye: map x, z (blocks), altitude (m), unused
 	float air = 1;      // m: the air's scale height
 	float behind = 0;   // 1: a stand-in, behind everything
-	float parts = 0;    // what of a tile's drawn: 0 the land, 1 its skirts, 2 both (far/mesh.cpp)
 	float level = -1;   // with far_view_debug_levels: the tile being drawn's level, to tint it by (−1: none)
 	// the near world's columns in the tile's region (far/mask.h): 0 none
 	float mask = 0;
@@ -69,7 +69,6 @@ public:
 		m_place_pixel.set(m_state->place, services);
 		m_air.set(&m_state->air, services);
 		m_behind.set(&m_state->behind, services);
-		m_parts.set(&m_state->parts, services);
 		m_level.set(&m_state->level, services);
 		m_mask.set(&m_state->mask, services);
 		m_mask_shift.set(m_state->mask_shift, services);
@@ -89,7 +88,6 @@ private:
 	CachedPixelShaderSetting<float, 4> m_place_pixel{"farPlace"};
 	CachedPixelShaderSetting<float> m_air{"farAir"};
 	CachedPixelShaderSetting<float> m_behind{"farBehind"};
-	CachedPixelShaderSetting<float> m_parts{"farParts"};
 	CachedPixelShaderSetting<float> m_level{"farLevel"};
 	CachedPixelShaderSetting<float> m_mask{"farMask"};
 	CachedPixelShaderSetting<float, 2> m_mask_shift{"farMaskShift"};
@@ -279,6 +277,7 @@ void View::OnRegisterSceneNode()
 void View::render()
 {
 	TF_ZONE("Far view render"); // Terra Firma: inside Draw3D, timed (the debugger)
+	gpu::Zone gpu("Far view");
 	video::IVideoDriver *driver = SceneManager->getVideoDriver();
 	scene::ICameraSceneNode *camera = SceneManager->getActiveCamera();
 	if (!camera || SceneManager->getSceneNodeRenderPass() != scene::ESNRP_SKY_BOX)
@@ -290,8 +289,11 @@ void View::render()
 	// the near world was drawn by this too, its land a few blocks off over it,
 	// and one just let go was drawn by neither, a hole.
 	m_material.setTexture(0, nullptr); // (the material lets go of the mask's old textures before they go)
-	m_mask->update(m_map->coverage(), (s16)std::floor((m_eye.Y + 0.5f) / MAP_BLOCKSIZE));
-	m_open = openFrom(m_map->coverage(), m_eye, m_cut);
+	{
+		TF_ZONE("Far view: mask");
+		m_mask->update(m_map->coverage(), (s16)std::floor((m_eye.Y + 0.5f) / MAP_BLOCKSIZE));
+		m_open = openFrom(m_map->coverage(), m_eye, m_cut);
+	}
 	// The camera's frustum as it draws this frame (its sides; the near and far
 	// planes aren't the far view's). Not Camera::getFrustumCuller's, taken in
 	// update(): the node's frustum is made as it renders, so that was the last
@@ -371,7 +373,7 @@ void View::render()
 		}
 		return out;
 	};
-	// `under`: the near world's ground, unmasked, for the backdrop (only near it)
+	// `under`: the near world's ground, unmasked, for the cracks (only near it)
 	const auto draw = [&](const std::vector<Placed> &tiles, bool under) {
 		for (const Placed &p : tiles) {
 			if (under && p.near > m_state->cut)
@@ -391,50 +393,45 @@ void View::render()
 		TF_ZONE("Far view: place");
 		behind = placed(behind_tiles);
 		drawn = placed(drawn_tiles);
+		// by face: the mask's texture changes once a face, not back and forth
+		// (each a material set, dear on the CPU)
+		const auto byFace = [](const Placed &a, const Placed &b) { return a.tile->key.face < b.tile->key.face; };
+		std::stable_sort(behind.begin(), behind.end(), byFace);
+		std::stable_sort(drawn.begin(), drawn.end(), byFace);
+		trace::count("Far view: tiles [#]", (double)drawn_tiles.size(), trace::Fold::Sum);
+		trace::count("Far view: tiles in sight [#]", (double)drawn.size(), trace::Fold::Sum);
+		trace::count("Far view: stand-ins in sight [#]", (double)behind.size(), trace::Fold::Sum);
 	}
-	// The backdrop: what shows only through gaps in the land, its depth dropped
-	// after, so it can never cover any. The stand-ins (where a finer tile isn't
-	// built yet) and every tile's skirts (far/mesh.cpp), in the far view's own
-	// depth (in the camera's, a tenth of a block near, kilometres off their own
-	// walls came through their tops, flickering); then, in the camera's, the
-	// land under the near world, which shows only through the cracks between
-	// its blocks' meshes.
+	// First, in the camera's depth, the land under the near world, which
+	// shows only through the cracks between its blocks' meshes; its depth
+	// dropped after. Then the land, in its own depth (against the camera's
+	// near plane, a tenth of a block, kilometres off a tile's walls behind its
+	// ground came through), and in the same pass what fills its gaps: each
+	// tile's skirts and the stand-ins, kept behind all land by the shader (the
+	// depth's back slice: far_globe_shader). Once a backdrop pass of their
+	// own, every tile drawn twice. The near world draws over it all, and only
+	// where it has land.
 	const core::matrix4 projection = driver->getTransform(video::ETS_PROJECTION);
 	core::matrix4 own;
 	own.buildProjectionMatrixPerspectiveFovLH(camera->getFOV(), camera->getAspectRatio(),
 			std::max(m_open * nearShare(camera) * BS, 0.1f * BS), std::max(camera->getFarValue(), m_reach));
 	driver->setMaterial(m_material);
-	driver->setTransform(video::ETS_PROJECTION, own);
-	{
-		TF_ZONE("Far view: backdrop");
-		m_state->behind = 1;
-		m_state->parts = 2;
-		draw(behind, false);
-		m_state->behind = 0;
-		m_state->parts = 1;
-		draw(drawn, false);
-	}
-	driver->clearBuffers(video::ECBF_DEPTH);
-	driver->setTransform(video::ETS_PROJECTION, projection);
 	{
 		TF_ZONE("Far view: under");
-		m_state->parts = 2;
+		gpu::Zone gpu("Far view: under");
 		draw(drawn, true);
 	}
-	m_state->mask = 0;
 	driver->clearBuffers(video::ECBF_DEPTH);
-	// The land, alone (no stand-ins, no skirts: a stand-in drawn level with it
-	// stood higher than the finer land beside it and hid it, flat slabs coming
-	// and going as tiles were built; a skirt, a wall round a tile not built
-	// yet), in its own depth: against the camera's near plane, a tenth of a
-	// block, kilometres off a tile's walls behind its ground came through.
-	// The near world draws over it, and only where it has land.
 	driver->setTransform(video::ETS_PROJECTION, own);
-	m_state->parts = 0;
 	{
 		TF_ZONE("Far view: land");
-		draw(drawn, false);
+		gpu::Zone gpu("Far view: land");
+		draw(drawn, false); // first: the stand-ins behind are mostly hidden by it, early
+		m_state->behind = 1;
+		draw(behind, false);
+		m_state->behind = 0;
 	}
+	m_state->mask = 0;
 	driver->setTransform(video::ETS_PROJECTION, projection);
 	driver->clearBuffers(video::ECBF_DEPTH);
 }

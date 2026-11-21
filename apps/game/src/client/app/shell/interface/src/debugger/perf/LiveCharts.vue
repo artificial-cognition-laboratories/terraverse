@@ -11,6 +11,7 @@
  * places. A line with nothing for a while is a gap, not a reason to move.
  */
 import { wheelDelta } from "./wheel.ts"
+import { smoothEnd } from "./smoothEnd.ts"
 import { computed, ref, watch } from "vue"
 import type { PerfFrame } from "../../bridge/index.ts"
 import { threadOrder } from "./capture.ts"
@@ -28,14 +29,12 @@ const ZONE_LINES = 5
 const COUNTER_LINES = 6
 const SPAN = { least: 500, most: 15_000 }
 
-// The window: always ending at the newest frame; Shift-wheel sets its width.
-const span = ref(6000) // opens on six seconds: frame by frame at the panel's width; Shift-wheel goes out to fifteen
+// The window: ending at the engine's now, a little behind the newest frame;
+// Shift-wheel sets its width.
+const span = ref(SPAN.most) // opens on fifteen seconds; Shift-wheel zooms in
 emit("span", span.value)
-const win = computed<Window>(() => {
-    const last = props.frames[props.frames.length - 1]
-    const end = last ? last.end : 1
-    return { startMs: end - span.value, endMs: end }
-})
+const end = smoothEnd(() => props.frames[props.frames.length - 1]?.end)
+const win = computed<Window>(() => ({ startMs: end.value - span.value, endMs: end.value }))
 
 /**
  * Charts kept: key → their lines' names, in the order first given. Only ever
@@ -73,9 +72,14 @@ function addThread(k: Kept, thread: string) {
     changed = true
 }
 
+// Twice a second, not every message: each pass looks over two seconds of
+// frames, and every message's was much of the page's garbage.
+const RANK_EVERY_MS = 500
+let ranked = -Infinity
 watch(() => props.frames, (frames) => {
     const last = frames[frames.length - 1]
-    if (!last) return
+    if (!last || last.end - ranked < RANK_EVERY_MS) return
+    ranked = last.end
     const zoneSums = new Map<string, Map<string, number>>()
     const counterPeaks = new Map<string, Map<string, number>>()
     for (let i = frames.length - 1; i >= 0 && frames[i]!.end > last.end - 2000; i--) {

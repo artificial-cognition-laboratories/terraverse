@@ -334,7 +334,9 @@ std::optional<Choice> Menu::run(const std::string &error)
 	volatile auto *kill = porting::signal_handler_killstatus();
 	const u64 frame_ms = 1000 / 60;
 
-	while (m_engine->run() && !*kill && !m_choice && !m_quit) {
+	// (the window's events: the page's input, and the planet's mouse)
+	const auto pump = [&] { TF_ZONE("Window events"); return m_engine->run(); };
+	while (pump() && !*kill && !m_choice && !m_quit) {
 		{
 			std::lock_guard<std::mutex> lock(m_join_lock);
 			if (m_join) {
@@ -345,9 +347,15 @@ std::optional<Choice> Menu::run(const std::string &error)
 			}
 		}
 		u64 start = porting::getTimeMs();
-		driver->beginScene(true, true, video::SColor(255, 12, 14, 12));
+		{
+			TF_ZONE("Begin scene");
+			driver->beginScene(true, true, video::SColor(255, 12, 14, 12));
+		}
 		m_planetarium.pointer(cursor->getPosition());
-		m_planetarium.tick((start - last) / 1000.0); // the universe's clock (the page may stop it, or set it)
+		{
+			TF_ZONE("Planetarium: tick"); // a body made on the worker goes on screen here
+			m_planetarium.tick((start - last) / 1000.0); // the universe's clock (the page may stop it, or set it)
+		}
 		last = start;
 		{
 			TF_ZONE("Planetarium");

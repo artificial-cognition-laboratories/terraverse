@@ -97,6 +97,8 @@ World::World(const WorldCode &code) :
 	// the land below the grid where water wears it: the erosion filter's (sprint 116)
 	if (code.processes.water)
 		m_amplifier.emplace(*m_grid, m_radius >> FRAC, m_cell_blocks, m_height, m_metre, code.seed_hash);
+	if (code.processes.water)
+		m_landforms.emplace(Landforms::Opts{ /* grid */ *m_grid, /* code */ m_code, /* radius */ m_radius >> FRAC, /* meander */ m_meander });
 	if (code.processes.water) {
 		const Grid &g = *m_grid;
 		m_upstream.assign((size_t)g.size(), -1);
@@ -692,7 +694,9 @@ int32_t World::surface(fix e, const Place &d) const
 		// (and none under a stream's water: its bed is its own, which the
 		// filter dug under on ground steep enough, sprint 120)
 		const int64_t fine = up > 0 && read.level < 0 ? mulShift(m_amplifier->relief(d), up, FRAC) : 0;
-		const int64_t land = read.land + std::clamp<int64_t>(fine, -base / 2, INT32_MAX / 2);
+		// and the landforms its setting, rock and climate make (the catalogue's), off the streams
+		const int64_t form = read.level < 0 ? m_landforms->height({ d, e, hardness(d.dir()), t_least > 0 ? blocksFine(t_least) : 0 }) : 0;
+		const int64_t land = read.land + std::clamp<int64_t>(fine, -base / 2, INT32_MAX / 2) + form;
 		return std::max(1, floorInt((fix)std::clamp<int64_t>(land, INT32_MIN / 2, INT32_MAX / 2)));
 	}
 	// The sea floor and a dry body's land: noise, fading to nothing at the

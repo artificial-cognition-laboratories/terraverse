@@ -33,7 +33,7 @@ public:
 	Galaxy(IShaderSource *ssrc, scene::IMeshBuffer *sphere);
 	~Galaxy();
 	// The view already set (turned, not moved: the sky's at infinity).
-	void draw(video::IVideoDriver *driver, float aspect, float fov, v2f shift, float level);
+	void draw(video::IVideoDriver *driver, float aspect, float fov, u32 height, float level);
 
 private:
 	struct SkyUniforms;

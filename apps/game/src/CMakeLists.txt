@@ -577,6 +577,7 @@ set(common_SRCS
 	main.cpp
 	shared/map/map_settings_manager.cpp
 	shared/map/map.cpp
+	shared/map/shapes_down.cpp
 	shared/map/block/mapblock.cpp
 	shared/map/block/mapnode.cpp
 	shared/map/block/mapsector.cpp

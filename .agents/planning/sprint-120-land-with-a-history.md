@@ -201,6 +201,86 @@ grow sharp ranges, and escarpments retreat.
   - The streams patch in `ranges.cpp` takes the most uplifted land a stream crosses.
     The most uplifted cell was a dry island peak.
 
+### Phase 5, built (coasts by process)
+
+- First, `history.cpp` (427 lines) was split: the plates' motion each step (crust
+  handed between cells, gaps opened into floor, slivers tidied) is `grid/drift.*`.
+  Renders and stats were byte-identical on 4 codes before and after.
+- `grid/coast.*` cuts the coasts on the base heights, after the climate and before the
+  rivers (`build()` has one call to it). Two processes:
+  - **The sea comes in** over low ground it reaches, where the setting lets it
+    (`SettingRow::sea`): forelands, sags, rifts, failed rifts and passive margins fully,
+    platforms half, below 200 m. This makes gulfs and inland seas (the Persian Gulf,
+    Hudson Bay, the Red Sea).
+  - **Waves wear** coastal cells weaker than they are strong (Sapoval et al. 2004,
+    damped erosion). Strength comes from the cell's own rock, its terrane's, the lie of
+    the rock, its setting's `hard`, and its height. A cell's waves scale with how much
+    sea lies within 4 cells, so a bay shelters itself and the wearing stops (in under
+    10 rounds). The Coast setting sets their strength.
+  - The sea's level then moves so the land's share stays exact (by rank, so equal
+    heights at the shore split).
+- Measured with the scratch probe `coast.cpp`: box counting over the coast cells of
+  landmasses of 600+ cells, in boxes of 2 to 16 cells. A smooth shape scores 1.05 (the
+  hexagons' staircase).
+
+  | Code | Before | After |
+  |---|---|---|
+  | TF24.dGVycmE (low, old) | 1.14 | 1.28 |
+  | TF24.YmZ2bmVmZzQ | 1.19 | 1.34 |
+  | TF24.YWJj (arcs) | 1.12 | 1.15 |
+  | TF24.a3U3eWd1Y2c (high) | 1.06 | 1.09 |
+  | supercontinent | 1.12 | 1.15 |
+  | archipelago | | 1.18 |
+
+  Low, old worlds reach the target; worlds whose coasts are arcs and young belts stay
+  smooth. That matches Earth, where Chile's and Japan's ocean sides are straight and the
+  Atlantic's drowned margins are not. That's variety, kept as is.
+- Not done at grid scale: rias and fjords (5–50 km wide, under a cell) belong to the
+  column, in phase 6's catalogue. Deltas need the erosion to build land at a river's
+  mouth, inside `build()`'s erosion loop (`grid.cpp`, 938 lines). That waits until
+  `grid.cpp` is split.
+
+### Phase 6, built (the landform catalogue)
+
+- First, `grid.cpp` (943 lines, `build()` alone about 500) was split by stage, each its
+  own file with one call from `build()`:
+  - `crust.*`: the base land from the history, and the impacts;
+  - `wear.*`: the glacial scour and the erosion rounds;
+  - `water.*`: evaporation, runoff, standing water and the river threshold;
+  - `fertility.*`;
+  - `surf()` moved into `coast.*`.
+
+  `grid.cpp` is now 260 lines. Renders and stats were byte-identical on 4 codes
+  (relief, settings, rain, sediment) against the pre-split source.
+- `column/landform/` (a module; its door is `landform.h`) holds the `LANDFORMS`
+  table. Each row gives the settings the landform forms in, its rock (hardness),
+  rain and warmth bands, whether it needs limestone, its shape, its wave and height in
+  blocks, and its share of the ground. One builder (`Landforms`) reads every row.
+  `World` owns one and adds its height in `surface()`, off the streams.
+- Sizes are in blocks, as the dunes' are. A planet is scaled down by R / R⊕ across but
+  only √ of that up, so at a body's own metres an inselberg would be a block wide.
+- Seven rows, built from six shapes (dome, cone, tower, table, scarp, ridged):
+
+  | Landform | Forms in | Climate |
+  |---|---|---|
+  | inselbergs | craton, swell, old belt, suture; hard rock | seasonal, over 10 °C |
+  | mesas and buttes | platform, flood basalt, sag, failed rift | dry |
+  | cuestas | platform, margin, foreland | any |
+  | tower karst | limestone platforms and basins | wet, over 18 °C |
+  | badlands | foreland, sag, rift; soft rock | dry |
+  | cinder cones | rift, plume swell, flood basalt | any |
+  | drumlins | low old ground | cold now (under ice then) |
+
+- Measured with the scratch probes `forms.cpp` (share of land per row) and
+  `formimg.cpp` (each row's own height at its strongest site). Each row covers 0–5%
+  of land per world. Tower karst forms on one of the 4 codes, because it needs wet,
+  hot limestone. The "Landforms" test checks that no row covers more than a sixth of a
+  world, and that all but 2 rows form across the Earth-like codes.
+- Not yet in the table: the dunes, dolines, folds, canyons and deltas still in
+  `world.cpp` (1863 lines). They move in one at a time, and `world.cpp` shrinks as
+  they do. Drumlins aren't yet aligned to the ice's flow, and cuestas form rings (a
+  basin's rim) rather than following a dip direction.
+
 Every phase changes generation: bump the code version, update the goldens, and run
 `bun check:land`.
 

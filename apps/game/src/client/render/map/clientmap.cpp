@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
+#include "src/client/render/gputime/gputime.h"
 #include "src/client/render/map/clientmap.h"
 #include "src/client/views/game/sky/atlas_view.h" // Terra Firma
 #include "src/client/world/objects/localplayer.h" // Terra Firma
@@ -515,6 +516,30 @@ void ClientMap::updateDrawList()
 						sp.Y < p_blocks_min.Z || sp.Y > p_blocks_max.Z)
 					continue;
 			}
+			// Terra Firma: on a planet the flat map's box doesn't say what's in
+			// range (a seam brings a far region near), but where the column is
+			// seen does: one of its own blocks (loaded, so charted; one at the
+			// camera's height mostly wasn't, and nothing was skipped) placed,
+			// less the column's height either way of it, clearly past the
+			// range, and the column's skipped whole. Asking every loaded block
+			// (thousands, a hundred in range) was the draw list's spikes.
+			if (!m_control.range_all && atlas && !sector->empty()) {
+				const auto &blocks = sector->getBlocks();
+				s16 low = blocks.begin()->first, high = low;
+				for (const auto &entry : blocks) {
+					low = std::min(low, entry.first);
+					high = std::max(high, entry.first);
+				}
+				const s16 y = blocks.begin()->first;
+				const v3f middle((MAP_BLOCKSIZE * 0.5f - 0.5f) * BS);
+				const std::optional<v3f> seen = atlas->where(v3s16(sp.X, y, sp.Y), middle);
+				// the column's height from that block, a block's reach, and some (the planet's curve)
+				const f32 tall = (f32)std::max(y - low, high - y) * MAP_BLOCKSIZE * BS;
+				const f32 reach = m_control.wanted_range * BS + tall + 3 * MAP_BLOCKSIZE * BS;
+				if (seen && (*seen + intToFloat(m_camera_offset, BS)).getDistanceFrom(m_camera_position) > reach)
+					continue;
+			}
+			trace::count("Draw list: columns visited [#]", 1, trace::Fold::Sum);
 
 			// Loop through blocks in sector
 			for (const auto &entry : sector->getBlocks()) {
@@ -1117,6 +1142,7 @@ void ClientMap::renderMap(video::IVideoDriver* driver, s32 pass)
 	ZoneScoped;
 
 	const bool is_transparent_pass = pass == scene::ESNRP_TRANSPARENT;
+	gpu::Zone gpu(is_transparent_pass ? "Map: transparent" : "Map: solid"); // Terra Firma (the debugger)
 
 	std::string prefix;
 	if (pass == scene::ESNRP_SOLID)

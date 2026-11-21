@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2022 x2048, Dmitry Kostenko <codeforsmile@gmail.com>
 
+#include "src/client/render/gputime/gputime.h"
 #include "library/trace/trace.h"
 #include "src/client/render/pipeline/pipeline.h"
 #include "src/client/world/session/client.h"
@@ -302,7 +303,9 @@ void RenderPipeline::run(PipelineContext &context)
 
 	// Terra Firma: each step a zone, named by its class (a pipeline nests its own)
 	for (auto &step: m_pipeline) {
-		trace::Zone zone(trace::internType(typeid(*step)));
+		const u32 name = trace::internType(typeid(*step));
+		trace::Zone zone(name);
+		gpu::Zone gpu(trace::nameOf(name));
 		step->run(context);
 	}
 

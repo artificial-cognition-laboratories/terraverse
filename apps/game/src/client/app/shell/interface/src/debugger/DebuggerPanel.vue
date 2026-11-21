@@ -195,7 +195,6 @@ button { display: flex; align-items: center; border: 0; background: none; color:
 [role=tab] { position: relative; flex: none; gap: 6px; padding: 0 12px 0 10px; white-space: nowrap; }
 [role=tab]:hover { color: var(--dt-ink); background: var(--dt-hover); }
 [role=tab].on { color: var(--dt-ink); background: var(--dt-bg); }
-[role=tab].on::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--dt-accent); }
 [role=tab].on svg { stroke: var(--dt-accent); }
 
 .hang { position: relative; display: flex; align-items: center; padding: 0 2px; }

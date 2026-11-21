@@ -48,7 +48,10 @@ public:
 	bool open() const;
 	// Its page's frame asked of Chromium (Shell::beginFrame), while it's open.
 	void beginFrame();
-	void toggle();
+	// Its page loaded, hidden, so opening it shows it at once: once the game's page is up,
+	// not to slow that. Opening loads it if it isn't yet.
+	void load(core::dimension2du window);
+	void toggle(core::dimension2du window);
 
 	// The game's screen in a window this size: all of it while closed.
 	core::dimension2du screen(core::dimension2du window) const;

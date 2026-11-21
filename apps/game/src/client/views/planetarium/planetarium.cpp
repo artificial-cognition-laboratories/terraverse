@@ -3,6 +3,7 @@
 
 #include "library/world/terragen/src/code/worlds.h"
 #include "src/client/views/planetarium/planetarium.h"
+#include "src/client/views/planetarium/framing.h"
 #include "src/client/render/shaders/shader.h"
 #include "src/client/views/planetarium/overlays/ribbon.h"
 #include "src/shared/base/constants.h"
@@ -65,10 +66,6 @@ static double farthest(const Planetarium::Opts &o)
 	return std::max(out * 1.5, 6 * seaOf(o));
 }
 
-// The galaxy behind, through a wider lens than the rest (OrbitCamera::FOV):
-// its picture's texels, magnified by the narrow one, showed. Drawn wider, it
-// turns a little slower than what's in front of it, as a far backdrop would.
-static constexpr float SKY_FOV = 1.0f; // radians, vertical
 // A press let go within this many pixels of where it was is a click, not a drag.
 static constexpr s32 CLICK = 4;
 
@@ -80,12 +77,13 @@ Planetarium::Planetarium(Opts opts) :
 	m_camera(m_sea, farthest(opts)),
 	m_seams(opts.atlas.body(opts.body).params(), m_sea),
 	m_markers(m_sea),
-	m_system({ opts.system, tiledOf(opts), opts.atlas.body(opts.body).params().radius / opts.system->radius(tiledOf(opts)), true, true, SKY_FOV }),
+	m_system({ opts.system, tiledOf(opts), opts.atlas.body(opts.body).params().radius / opts.system->radius(tiledOf(opts)), true, true }),
 	m_body(opts.body),
 	m_tiled(tiledOf(opts)),
 	m_target(m_tiled),
 	m_world(opts.atlas),
-	m_horizon(opts.horizon)
+	m_horizon(opts.horizon),
+	m_tinting({ m_world, m_horizon, opts.body })
 {
 	for (int b = 0; b < m_world.bodies(); b++)
 		if (b != m_body)
@@ -111,7 +109,7 @@ void Planetarium::day(double days, std::optional<double> timeOfDay)
 
 void Planetarium::layer(std::optional<Layer> layer)
 {
-	m_layer = std::move(layer);
+	m_tinting.layer(std::move(layer));
 	tint(m_body);
 	for (Baked &b : m_baked)
 		if (b.tiles)
@@ -127,61 +125,7 @@ void Planetarium::tint(int body)
 			return;
 		tiles = b->tiles.get();
 	}
-	tiles->tint(tintFor(body));
-}
-
-std::shared_ptr<const terragen::World> Planetarium::worldOf(int body)
-{
-	auto found = m_worlds.find(body);
-	if (found == m_worlds.end()) {
-		const terragen::WorldCode home = terragen::WorldCode::decode(m_horizon.code);
-		const terragen::WorldCode code = body == planet::Atlas::HOME ? home
-				: terragen::bodyWorlds(home, m_world.body(planet::Atlas::HOME).params()).at(body).code;
-		// a thread of its own, not std::async: a Planetarium let go mid-build mustn't wait for it
-		std::promise<std::shared_ptr<const terragen::World>> built;
-		found = m_worlds.emplace(body, built.get_future().share()).first;
-		std::thread([code, built = std::move(built)]() mutable {
-			try {
-				built.set_value(terragen::worldFor(code));
-			} catch (...) {
-				built.set_exception(std::current_exception());
-			}
-		}).detach();
-	}
-	if (found->second.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
-		return nullptr;
-	return found->second.get(); // (rethrows what building it threw)
-}
-
-std::shared_ptr<const far::Tiles::Tint> Planetarium::tintFor(int body)
-{
-	// what's explored is the tiled body's: the others aren't shown under it
-	if (!m_layer || (m_layer->explored && body != m_body))
-		return nullptr;
-	if (m_layer->image) {
-		if (body != m_body)
-			return nullptr; // the page's painting is the tiled body's
-		auto painter = std::make_shared<Painter>(Painter::Opts{ nullptr, m_layer->overlay, m_layer->image });
-		return std::make_shared<const far::Tiles::Tint>([painter](video::SColor own, const far::Tiling::Vec &at) {
-			return painter->colour(own, at);
-		});
-	}
-	const std::shared_ptr<const terragen::World> world = worldOf(body);
-	if (!world) {
-		m_untinted.insert(body);
-		return nullptr;
-	}
-	auto painter = std::make_shared<Painter>(Painter::Opts{ world, m_layer->overlay, nullptr, m_layer->date,
-		body == m_body ? m_layer->explored : std::nullopt, m_layer->grid });
-	return std::make_shared<const far::Tiles::Tint>([painter](video::SColor own, const far::Tiling::Vec &at) {
-		return painter->colour(own, at);
-	});
-}
-
-// Contour lines on the elevation overlay: blocks between them (every fifth bold)
-float Planetarium::contour() const
-{
-	return m_layer && !m_layer->image && m_layer->overlay == Overlay::Elevation ? 50.f : 0.f;
+	tiles->tint(m_tinting.tintFor(body));
 }
 
 double Planetarium::spinOf(size_t index) const
@@ -217,12 +161,12 @@ bool Planetarium::drawBaked(video::IVideoDriver *driver, const core::matrix4 &lo
 	// the camera in the body's own frame: from its centre, turned back, at its scale
 	const double k = m_system.radius(index) / b->sea, spin = spinOf(index);
 	const OrbitCamera::Vec eye = OrbitCamera::turn({ -at.x / k, -at.y / k, -at.z / k }, -spin);
-	b->tiles->update(OrbitCamera::eyeAt(eye, b->sea, (float)m_screen.Y * std::tan(OrbitCamera::FOV / 2) / std::tan(m_fov / 2)));
+	b->tiles->update(OrbitCamera::eyeAt(eye, b->sea, OrbitCamera::focal((float)m_screen.Y, m_fov)));
 	if (!b->tiles->based())
 		return false; // its sphere till its coarse land is there
-	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, lens(), m_fov));
+	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, m_fov));
 	driver->setTransform(video::ETS_VIEW, look);
-	driver->setMaterial(m_system.lit(index, m_day, v3f((f32)at.x, (f32)at.y, (f32)at.z) * BS, 0, !m_layer, contour()));
+	driver->setMaterial(m_system.lit(index, m_day, v3f((f32)at.x, (f32)at.y, (f32)at.z) * BS, 0, !m_tinting.layer(), m_tinting.contour()));
 	// where it is, turned on its axis, at the scene's scale; a tile from its middle
 	core::matrix4 place, turn, scale;
 	place.setTranslation(v3f((f32)at.x, (f32)at.y, (f32)at.z) * BS);
@@ -253,7 +197,6 @@ void Planetarium::align(const Planetarium &was)
 	m_camera = cameraFor(m_tiled);
 	m_camera.place(across(c.up()), across(c.north()), c.altitude() / was.m_sea * m_sea);
 	m_aim = was.m_aim;
-	m_shift = was.m_shift;
 }
 
 bool Planetarium::warm(video::IVideoDriver *driver, double ms)
@@ -337,65 +280,25 @@ double Planetarium::litLongitude() const
 	return std::atan2(sun.z, sun.x) + 0.7; // (off to one side: a day side with its edge of night in view)
 }
 
-Framing Planetarium::framed() const
+OrbitCamera::Vec Planetarium::sun() const
 {
-	using Vec = OrbitCamera::Vec;
-	const auto dot = [](const Vec &a, const Vec &b) { return a.x * b.x + a.y * b.y + a.z * b.z; };
-	const auto cross = [](const Vec &a, const Vec &b) {
-		return Vec{ a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x };
-	};
-	const auto unit = [&](const Vec &v) { const double l = std::sqrt(dot(v, v)); return Vec{ v.x / l, v.y / l, v.z / l }; };
-	// as compose builds it, read the other way
-	const OrbitCamera &camera = m_flight ? m_flight->end : m_camera;
+	// the star's way from the tiled body, in its ground's frame (the camera's)
 	const terragen::System::Vec way = m_system.toStar(m_tiled, m_day);
-	const Vec sun = unit(OrbitCamera::turn({ way.x, way.y, way.z }, -m_spin));
-	const Vec ahead{ -camera.up().x, -camera.up().y, -camera.up().z };
-	const double off = std::acos(std::clamp(dot(ahead, sun), -1.0, 1.0));
-	const Vec side = unit(cross(sun, std::abs(sun.y) < 0.9 ? Vec{ 0, 1, 0 } : Vec{ 1, 0, 0 }));
-	const Vec other = cross(sun, side);
-	const Vec toward = unit({ sun.x - ahead.x * std::cos(off), sun.y - ahead.y * std::cos(off), sun.z - ahead.z * std::cos(off) });
-	const Vec north = camera.north();
-	return Framing{ camera.altitude() / m_sea, m_aim, off, std::atan2(dot(north, toward), dot(north, cross(ahead, toward))),
-		std::atan2(dot(ahead, other), dot(ahead, side)), m_system.skyLevel() };
+	const OrbitCamera::Vec v = OrbitCamera::turn({ way.x, way.y, way.z }, -m_spin);
+	const double l = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+	return { v.x / l, v.y / l, v.z / l };
 }
 
-Framing Planetarium::framingOf(const Shot &shot, float aspect)
+Framing Planetarium::framed() const
 {
-	// The camera looks at the body's centre, drawn where the shot has it by
-	// the lens (lens()): the star, where the shot has it, is that far across
-	// the screen from it. Its way from the camera: how far off it is, and
-	// which way across the screen
-	const double t = std::tan(OrbitCamera::FOV / 2);
-	const v2f across = shot.star - shot.centre;
-	core::vector3df s((f32)(across.X * t * aspect), (f32)(across.Y * t), 1);
-	s.normalize();
-	return Framing{ shot.altitude, shot.centre, std::acos(std::clamp((double)s.Z, -1.0, 1.0)),
-		std::atan2((double)s.Y, (double)s.X), shot.around, shot.sky };
+	return framing::read(m_flight ? m_flight->end : m_camera, sun(), m_sea, m_aim, m_system.skyLevel());
 }
 
 void Planetarium::compose(const Framing &framing, double seconds)
 {
-	using Vec = OrbitCamera::Vec;
-	const auto cross = [](const Vec &a, const Vec &b) {
-		return Vec{ a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x };
-	};
-	const auto dot = [](const Vec &a, const Vec &b) { return a.x * b.x + a.y * b.y + a.z * b.z; };
-	const auto unit = [&](const Vec &v) { const double l = std::sqrt(dot(v, v)); return Vec{ v.x / l, v.y / l, v.z / l }; };
-	const auto mix = [](const Vec &a, double p, const Vec &b, double q) {
-		return Vec{ a.x * p + b.x * q, a.y * p + b.y * q, a.z * p + b.z * q };
-	};
-	// the star in the camera's frame (the ground's)
-	const terragen::System::Vec way = m_system.toStar(m_tiled, m_day);
-	const Vec sun = unit(OrbitCamera::turn({ way.x, way.y, way.z }, -m_spin));
-	const double off = framing.off, dx = std::cos(framing.roll), dy = std::sin(framing.roll);
-	const Vec side = unit(cross(sun, std::abs(sun.y) < 0.9 ? Vec{ 0, 1, 0 } : Vec{ 1, 0, 0 }));
-	const Vec other = cross(sun, side);
-	const Vec ahead = mix(sun, std::cos(off), mix(side, std::cos(framing.around), other, std::sin(framing.around)), std::sin(off));
-	// the screen's up, so the star's on the way (dx, dy) from the centre
-	const Vec toward = unit(mix(sun, 1, ahead, -dot(sun, ahead)));
-	const Vec north = mix(toward, dy, cross(ahead, toward), dx);
+	const framing::Place at = framing::place(framing, sun());
 	OrbitCamera camera = cameraFor(m_tiled);
-	camera.place({ -ahead.x, -ahead.y, -ahead.z }, north, framing.altitude * m_sea);
+	camera.place(at.up, at.north, framing.altitude * m_sea);
 	fly({ m_tiled, std::nullopt, std::nullopt, std::nullopt, std::nullopt, seconds, camera });
 }
 
@@ -454,18 +357,17 @@ Planetarium::Pose Planetarium::pose() const
 	return { { look.x + d.x / dl * out, look.y + d.y / dl * out, look.z + d.z / dl * out }, look };
 }
 
-// The body's centre is put where it's aimed by sliding the lens, never by
-// turning the camera: a sphere off the camera's axis draws as an egg,
-// stretched away from the middle of the view
-v2f Planetarium::lens() const
+// The body's centre is drawn where it's aimed by turning the camera off it,
+// never by sliding the lens: the sky behind stays the sky
+core::matrix4 Planetarium::aim() const
 {
-	return m_shift + m_aim;
+	return OrbitCamera::aimed(m_aim, (float)m_screen.X / std::max(1u, m_screen.Y), m_fov);
 }
 
 core::matrix4 Planetarium::view() const
 {
 	if (!m_flight)
-		return m_target == m_tiled ? OrbitCamera::turned(m_camera.view(), -m_spin) : m_camera.view();
+		return aim() * (m_target == m_tiled ? OrbitCamera::turned(m_camera.view(), -m_spin) : m_camera.view());
 	const Pose p = pose();
 	core::vector3df ahead((f32)(p.look.x - p.at.x), (f32)(p.look.y - p.at.y), (f32)(p.look.z - p.at.z));
 	ahead.normalize();
@@ -480,7 +382,7 @@ core::matrix4 Planetarium::view() const
 	up.normalize();
 	core::matrix4 m;
 	m.buildCameraLookAtMatrixLH(core::vector3df(0), ahead, up);
-	return m;
+	return aim() * m;
 }
 
 OrbitCamera::Vec Planetarium::endUp() const
@@ -506,58 +408,22 @@ std::optional<Planetarium::Hover> Planetarium::hoverFor(const OrbitCamera::Vec &
 	if (!m_mouse)
 		return std::nullopt;
 	const double t = std::tan(m_fov / 2), focal = m_screen.Y / (2 * t);
-	const size_t count = m_system.system().spec().bodies.size();
-	// where a body (or the star, i == count) is on screen, if in front of the camera
-	struct Seen { v2f at; float shown, off; double distance; };
-	const auto see = [&](size_t i) -> std::optional<Seen> {
+	// where each body (then the star) is on screen, if in front of the camera
+	std::vector<std::optional<hover::Seen>> seen;
+	for (size_t i = 0; i <= star(); i++) {
 		const OrbitCamera::Vec c = centreOf(i);
 		core::vector3df v((f32)(c.x - eye.x), (f32)(c.y - eye.y), (f32)(c.z - eye.z));
 		const double distance = v.getLength();
 		look.transformVect(v); // (the view has no translation: the camera is the origin)
-		if (v.Z <= 0)
-			return std::nullopt; // behind
-		const double x = v.X / (v.Z * t * aspect) + lens().X, y = v.Y / (v.Z * t) + lens().Y;
-		const v2f at((f32)(m_corner.X + (x + 1) / 2 * m_screen.X), (f32)(m_corner.Y + (1 - y) / 2 * m_screen.Y));
-		const float dx = at.X - m_mouse->X, dy = at.Y - m_mouse->Y;
-		return Seen{ at, (f32)(radiusOf(i) / distance * focal), std::sqrt(dx * dx + dy * dy), distance };
-	};
-	// what's nearest under the mouse hides whatever's behind it (the body it's
-	// round too, though that isn't itself offered when it fills the screen)
-	double blocked = INFINITY;
-	for (size_t i = 0; i <= count; i++)
-		if (const std::optional<Seen> s = see(i); s && s->off <= s->shown)
-			blocked = std::min(blocked, s->distance);
-	std::optional<Hover> best;
-	double nearest = 0;
-	bool bestInside = false;
-	for (size_t i = 0; i <= count; i++) {
-		// the bodies, then the star (i == count)
-		const bool star = i == count;
-		const std::optional<Seen> s = see(i);
-		if (!s || s->distance > blocked)
+		if (v.Z <= 0) {
+			seen.push_back(std::nullopt); // behind
 			continue;
-		const v2f at = s->at;
-		const float shown = s->shown, off = s->off;
-		const double distance = s->distance;
-		// what's hovered now keeps it a little past where it would start:
-		// on an edge it doesn't flick on and off frame to frame
-		const bool held = m_hover && m_hover->body == (star ? std::nullopt : std::optional<size_t>(i));
-		if (i == m_target && shown > m_screen.Y * (held ? 0.5f : 0.4f))
-			continue; // the body it's round, filling the screen
-		if (off > std::max(shown, 10.f) + (held ? 14 : 4))
-			continue;
-		// a disc the mouse is inside beats a dot's reach round it (a planet's
-		// dot drawn over the star isn't the star's click), the nearest in
-		// front among discs; among reaches, the one whose middle is closest
-		const bool inside = off <= shown;
-		const double rank = inside ? distance : off;
-		if (!best || inside > bestInside || (inside == bestInside && rank < nearest)) {
-			best = Hover{ star ? std::nullopt : std::optional<size_t>(i), at, shown };
-			nearest = rank;
-			bestInside = inside;
 		}
+		const double x = v.X / (v.Z * t * aspect), y = v.Y / (v.Z * t);
+		const v2f at((f32)(m_corner.X + (x + 1) / 2 * m_screen.X), (f32)(m_corner.Y + (1 - y) / 2 * m_screen.Y));
+		seen.push_back(hover::Seen{ at, (f32)(radiusOf(i) / distance * focal), distance });
 	}
-	return best;
+	return hover::under({ seen, v2f((f32)m_mouse->X, (f32)m_mouse->Y), m_target, (f32)m_screen.Y, m_hover });
 }
 
 std::optional<Planetarium::Pick> Planetarium::takeClick()
@@ -574,8 +440,9 @@ std::optional<Planetarium::Pick> Planetarium::pick(double x, double y) const
 	if (m_flight || m_target != m_tiled)
 		return std::nullopt; // nothing to pick on another body (yet), nor mid-flight
 	// the ray from the camera through the pixel, onto the sea's sphere
+	// (the camera's in its own frame: its view unturned, aimed)
 	const OrbitCamera::Vec o = m_camera.position(),
-			d = m_camera.ray(x - m_corner.X, y - m_corner.Y, m_screen.X, m_screen.Y, lens());
+			d = OrbitCamera::ray(aim() * m_camera.view(), x - m_corner.X, y - m_corner.Y, m_screen.X, m_screen.Y, m_fov);
 	const double b = o.x * d.x + o.y * d.y + o.z * d.z;
 	const double c = o.x * o.x + o.y * o.y + o.z * o.z - m_sea * m_sea;
 	const double disc = b * b - c;
@@ -646,17 +513,10 @@ bool Planetarium::handle(const SEvent &event)
 void Planetarium::update(v2u32 screen)
 {
 	m_screen = screen;
+	m_fov = OrbitCamera::fovFor((float)screen.X, (float)screen.Y);
 	// bodies whose world model has been built since the layer was asked for
-	for (auto it = m_untinted.begin(); it != m_untinted.end();) {
-		const int body = *it;
-		auto waiting = m_worlds.find(body);
-		if (waiting != m_worlds.end() && waiting->second.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
-			++it;
-			continue;
-		}
-		it = m_untinted.erase(it);
+	for (const int body : m_tinting.ripe())
 		tint(body);
-	}
 	const auto now = std::chrono::steady_clock::now();
 	const double dt = m_last.time_since_epoch().count() ? std::chrono::duration<double>(now - m_last).count() : 0;
 	m_last = now;
@@ -667,15 +527,14 @@ void Planetarium::update(v2u32 screen)
 		m_flight.reset();
 	}
 	const auto tilesFrom = std::chrono::steady_clock::now();
-	far::Eye tilesEye = OrbitCamera::eyeAt(OrbitCamera::turn(eye(), -m_spin), m_sea, (float)screen.Y * std::tan(OrbitCamera::FOV / 2) / std::tan(m_fov / 2)); // (a long lens: finer for what fills the screen)
+	far::Eye tilesEye = OrbitCamera::eyeAt(OrbitCamera::turn(eye(), -m_spin), m_sea, OrbitCamera::focal((float)screen.Y, m_fov));
 	// a spot that was fine stays fine while one of its tiles is rebuilt: a
 	// coarser one fills only that tile's hole (panning, the whole spot had
 	// gone coarse for a moment)
 	tilesEye.keep_fine = true;
 	if (!m_flight && m_target == m_tiled) {
 		// round it: what it sees is the screen, by the view's own axes in the
-		// ground's frame (as draw() turns it), wider for the picture moved off
-		// centre (shift), and a margin
+		// ground's frame (as draw() turns it), and a margin
 		const core::matrix4 v = OrbitCamera::turned(view(), m_spin);
 		const auto axis = [&](int k) { return far::Tiling::Vec{ v[k], v[4 + k], v[8 + k] }; };
 		const double t = std::tan(m_fov / 2) * VIEW_MARGIN;
@@ -683,8 +542,8 @@ void Planetarium::update(v2u32 screen)
 		tilesEye.right = axis(0);
 		tilesEye.upward = axis(1);
 		tilesEye.look = axis(2);
-		tilesEye.wide = (float)(t * aspect * (1 + std::abs((double)lens().X)));
-		tilesEye.high = (float)(t * (1 + std::abs((double)lens().Y)));
+		tilesEye.wide = (float)(t * aspect);
+		tilesEye.high = (float)t;
 	}
 	m_tiles.update(tilesEye);
 	if (!m_globe && m_tiles.based())
@@ -746,12 +605,12 @@ void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 	m_hover = hoverFor(eye, look, aspect);
 	m_system.highlight(m_hover ? m_hover->body : std::nullopt);
 	// the system round it, far to near; the body its tiles, in its turn
-	m_system.draw(driver, SystemLayer::Camera{ { eye.x, eye.y, eye.z }, look, m_fov, aspect, lens(), screen.Height }, m_day, [&](float near, float far) {
+	m_system.draw(driver, SystemLayer::Camera{ { eye.x, eye.y, eye.z }, look, m_fov, aspect, screen.Height }, m_day, [&](float near, float far) {
 		// round it: the camera's own range, tight to the ground; from afar, the layer's
 		if (round)
-			driver->setTransform(video::ETS_PROJECTION, m_camera.projection(aspect, lens(), m_fov));
+			driver->setTransform(video::ETS_PROJECTION, m_camera.projection(aspect, m_fov));
 		else {
-			driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, lens(), m_fov));
+			driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, m_fov));
 		}
 		driver->setTransform(video::ETS_VIEW, spun);
 		// (an overlay is there to be read, on the night side too)
@@ -762,7 +621,7 @@ void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 		const double up = std::hypot(ground.x, ground.y, ground.z) - m_sea;
 		const double focal = screen.Height / (2 * std::tan(m_fov / 2));
 		const double root = (double)(1 << m_tiles.tiling().roots().front().level) * focal / std::max(up, 1.0); // its cells' pixels
-		m_globed = !m_layer && m_globe && m_globe->ready() && root < OrbitCamera::cell * (m_globed ? GLOBE_LEAVE : 1.0);
+		m_globed = !m_tinting.layer() && m_globe && m_globe->ready() && root < OrbitCamera::cell * (m_globed ? GLOBE_LEAVE : 1.0);
 		if (m_globed) {
 			core::matrix4 world;
 			world.setScale((f32)(m_sea * BS));
@@ -771,7 +630,7 @@ void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 					m_spin, true, 0, true), world);
 		}
 		video::SMaterial lit = m_system.lit(m_tiled, m_day, v3f((float)-ground.x, (float)-ground.y, (float)-ground.z) * BS,
-				m_spin, !m_layer, contour());
+				m_spin, !m_tinting.layer(), m_tinting.contour());
 		// What isn't built yet shows a coarser tile behind the finer ones that
 		// are (Eye::keep_fine), not instead of them all: drawn after them, its
 		// depth squeezed to just short of the far plane (Lit::standIns), so it

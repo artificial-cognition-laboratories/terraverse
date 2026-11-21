@@ -154,7 +154,7 @@ private:
 	bool m_shown = false, m_heat = false, m_dirty = false, m_outline = true;
 	core::recti m_rect;
 	float m_right = 0;
-	v2f shift() const;
+	v2f aim() const; // where the turning point is drawn (−1..1): the camera turned to it, the lens symmetric
 	std::optional<Frame> m_frame;
 	const std::vector<sandbox::StageBlock> *m_blocks = nullptr;
 	std::vector<video::SColor> m_substances;

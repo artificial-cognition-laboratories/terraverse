@@ -49,13 +49,15 @@ enum class Setting : uint8_t {
 	`hard`, how readily its rock wears, of the usual (granite and basalt
 	slowly; a basin's soft beds fast); `worn`, how far it was levelled before
 	the history's last steps (a shield is a plain cut across old mountains'
-	roots, worn for longer than the history runs).
+	roots, worn for longer than the history runs). And what the coasts read
+	(coast.h): `sea`, how readily the sea comes in over it where it lies low
+	(a sinking basin's, a rift's: the Persian Gulf, Hudson Bay, the Red Sea).
 */
 struct SettingRow
 {
 	const char *name;
 	Province province;
-	fix still, rise, sink, hard, worn;
+	fix still, rise, sink, hard, worn, sea;
 };
 extern const SettingRow SETTINGS[(int)Setting::Count];
 

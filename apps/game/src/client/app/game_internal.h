@@ -27,6 +27,7 @@
 #include "src/client/views/game/sky/sky.h"
 #include "src/shared/game/pointing/pointedthing.h"
 #include "src/shared/base/config.h"
+#include "src/client/render/gputime/gputime.h"
 #if USE_SHELL
 #include "src/client/app/shell/host/session.h"
 #include "src/shared/platform/online/host.h"
@@ -359,6 +360,7 @@ private:
 	irr_ptr<Sky> sky;
 	irr_ptr<planetarium::Sky> space; // Terra Firma: the system round the planet, behind far_view
 	irr_ptr<far::View> far_view; // Terra Firma: the horizon, on a terra world
+	std::unique_ptr<gpu::Clock> gpu_clock; // Terra Firma: the GPU's time by part of the frame (the debugger)
 	irr_ptr<liquids::Layer> liquid_layer; // Terra Firma: liquid in the world's open space (sprint 81)
 	int far_body = 0;            // Terra Firma: the atlas body far_view draws
 	// Terra Firma: the planet viewer, while it's open (it takes the input)

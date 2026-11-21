@@ -103,3 +103,13 @@ say so in the report.
   certificate and an App Store Connect API key as GitHub secrets. Until then I'll ship ad-hoc signed
   builds (they run on Apple silicon after that one manual step). Do you want to enrol, and if so, which
   account? The launcher (Tauri) needs the same for its updates.
+
+- **2026-11-21, the `TERRA_TOKEN` secret.** Each tag now publishes any official mod version the registry
+  doesn't have (`apps/game/scripts/release/publish-mods.ts`), signed in by a repo secret `TERRA_TOKEN`:
+  a terra key for an account in the `terraverse` org on ArcLabs. Today both mods are already published
+  at 0.1.0, so nothing is blocked; the first tag after a mod's version is bumped will fail at "Publish the
+  official mods" until the secret exists. To make it: sign in to terra as that account in a scratch
+  config (`XDG_CONFIG_HOME=$(mktemp -d) terra login`), then
+  `gh secret set TERRA_TOKEN -R artificial-cognition-laboratories/terraverse` with the `key` from the
+  `account.json` it wrote. A dedicated bot account (not yours) is better: the key can publish anything the
+  org owns. Which account?
