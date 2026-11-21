@@ -16,6 +16,8 @@ set(terragen_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/grid.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/grid_file.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/history.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/past.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/setting.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/surface/maria.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/surface/lid.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/rivers/streams.cpp

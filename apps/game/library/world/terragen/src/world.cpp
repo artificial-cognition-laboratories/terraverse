@@ -689,7 +689,9 @@ int32_t World::surface(fix e, const Place &d) const
 		// (the filter's ruggedness up the hillsides, none on a valley's floor:
 		// a stream's bed is the streams' own)
 		const fix up = smooth((read.hillside + ONE) / 2);
-		const int64_t fine = up > 0 ? mulShift(m_amplifier->relief(d), up, FRAC) : 0;
+		// (and none under a stream's water: its bed is its own, which the
+		// filter dug under on ground steep enough, sprint 120)
+		const int64_t fine = up > 0 && read.level < 0 ? mulShift(m_amplifier->relief(d), up, FRAC) : 0;
 		const int64_t land = read.land + std::clamp<int64_t>(fine, -base / 2, INT32_MAX / 2);
 		return std::max(1, floorInt((fix)std::clamp<int64_t>(land, INT32_MIN / 2, INT32_MAX / 2)));
 	}

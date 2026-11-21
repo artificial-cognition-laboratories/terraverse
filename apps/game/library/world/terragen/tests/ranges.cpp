@@ -192,9 +192,12 @@ TEST_CASE("Streams")
 	// Streams below the grid (sprint 116, phase 6b), across a patch of a
 	// range: some carry water, their water never stands over its land, and
 	// what's read is the same from a world that has kept nothing
+	// (the most pushed-up land a stream crosses: the most pushed-up of all can
+	// be a small island at its own peak, with none)
 	int32_t centre = -1;
 	for (int32_t i = 0; i < grid->size(); i++)
-		if (grid->base[i] > 0 && (centre < 0 || grid->tectonics.belt[i] > grid->tectonics.belt[centre]))
+		if (grid->base[i] > 0 && grid->runoff[i] >= grid->stream_threshold &&
+				(centre < 0 || grid->tectonics.belt[i] > grid->tectonics.belt[centre]))
 			centre = i;
 	const terragen::Place at(terragen::gridSphere().centre(centre));
 	const int64_t radius = world.radius() >> terragen::FRAC;

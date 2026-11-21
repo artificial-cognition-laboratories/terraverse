@@ -40,8 +40,10 @@ TEST_CASE("Soil")
 		const double clay = s.clay / 65536.0, stones = s.stones / 65536.0, organic = s.organic / 65536.0;
 		if (g.column.heat > ratio(30, 100) && g.column.wet > ratio(30, 100)) { wet_clay.add(clay); wet_stones.add(stones); }
 		if (g.column.wet < -ratio(30, 100)) { dry_clay.add(clay); dry_stones.add(stones); }
-		if (g.column.heat < -ratio(20, 100) && g.column.wet > ratio(10, 100)) cold_organic.add(organic);
-		if (g.column.heat > ratio(30, 100)) warm_organic.add(organic);
+		// (rot by climate: soil made where it lies, not a swamp's or a
+		// floodplain's, which hold peat in any climate, the Congo's too)
+		if (!s.laid && g.column.heat < -ratio(20, 100) && g.column.wet > ratio(10, 100)) cold_organic.add(organic);
+		if (!s.laid && g.column.heat > ratio(30, 100)) warm_organic.add(organic);
 		// (slopes in one climate: deserts are flat and stony, and so are the
 		// till plains the ice left, where it's cold)
 		const bool temperate = g.column.wet > -ratio(15, 100) && g.column.wet < ratio(40, 100) && g.column.heat > ratio(5, 100);
@@ -100,16 +102,22 @@ TEST_CASE("Soil")
 TEST_CASE("ColdAndDryWater")
 {
 	const auto g = gridFor(WorldCode::decode("TF24.YmZ2bmVmZzQ"));
-	int rivers_on_ice = 0, pan = 0, land = 0;
+	// (what it adds of its own: its runoff less what drains into it; a river
+	// from warmer ground upstream may still cross it, as the Lena's lower
+	// reaches cross the frozen north)
+	std::vector<int64_t> inflow(g->size(), 0);
+	for (int32_t c = 0; c < g->size(); c++)
+		if (g->receiver[c] >= 0)
+			inflow[g->receiver[c]] += g->runoff[c];
+	int fed_by_ice = 0, pan = 0, land = 0;
 	for (int32_t c = 0; c < g->size(); c++) {
 		land += g->base[c] >= 0;
 		pan += g->pan[c];
 		const fix celsius = celsiusOf(g->heat[c] - mul(std::max<fix>(0, g->eroded[c]), LAPSE));
-		// (what drains through from warmer ground upstream may still run)
-		if (g->river(c) && celsius < -toFix(15) && g->runoff[c] < g->river_threshold * 4)
-			rivers_on_ice++;
+		if (g->base[c] >= 0 && celsius < -toFix(15) && g->runoff[c] > inflow[c])
+			fed_by_ice++;
 	}
-	REQUIRE_EQ(int(rivers_on_ice), 0);
+	REQUIRE_EQ(fed_by_ice, 0);
 	REQUIRE(pan > 0);
 	REQUIRE(pan * 100 < land); // under 1% of the land
 	// and some rivers braid, steep for what they carry, a minority (sprint 112)

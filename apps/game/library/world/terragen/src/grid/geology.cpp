@@ -4,6 +4,7 @@
 #include "library/world/terragen/src/grid/geology.h"
 #include "library/world/terragen/src/grid/grid.h"
 #include "library/world/terragen/src/grid/plates.h"
+#include "library/world/terragen/src/grid/setting.h"
 #include "library/world/terragen/src/base/noise.h"
 #include "library/world/terragen/src/world.h"
 #include <algorithm>
@@ -30,7 +31,7 @@ namespace {
 enum GeoStream : uint32_t {
 	VOLCANO = 107, HOTSPOT = 109, SEDIMENT = 113, FOLD = 127,
 	PLUTON = 131, VEIN = 137, METAL = 139, MAGNETITE = 149, BANDED = 151, CAVE_A = 157, CAVE_B = 163,
-	TUBE = 167, CAVERN = 173, SULFUR = 179, PHASE = 181, INLAND_BASIN = 191, ILMENITE = 193, KREEP = 197, FLINT = 433,
+	TUBE = 167, CAVERN = 173, SULFUR = 179, PHASE = 181, ILMENITE = 193, KREEP = 197, FLINT = 433,
 };
 
 const int GIANT_SHIELDS = 5, PATERAE = 200;
@@ -147,6 +148,7 @@ Tectonics tectonics(const WorldCode &c, const History &h)
 	t.plate.resize(n);
 	t.formed.resize(n);
 	t.age.resize(n);
+	t.past.resize(n);
 	// where each plate is today: the middle of its cells, and whether it's
 	// mostly ocean floor (the denser side sinks)
 	std::vector<std::array<int64_t, 3>> middle(count, { 0, 0, 0 });
@@ -157,6 +159,7 @@ Tectonics tectonics(const WorldCode &c, const History &h)
 		t.plate[i] = cell.plate;
 		t.formed[i] = cell.formed;
 		t.age[i] = cell.age;
+		t.past[i] = cell.past;
 		middle[cell.plate][0] += d.x;
 		middle[cell.plate][1] += d.y;
 		middle[cell.plate][2] += d.z;
@@ -414,45 +417,12 @@ std::vector<Volcano> volcanoes(const WorldCode &c, const Grid &g)
 
 std::vector<Province> provinces(const WorldCode &c, const Grid &g)
 {
+	// what its history made it (setting.h) says what rock lies under it
 	const Sphere &sphere = gridSphere();
-	const Tectonics &t = g.tectonics;
 	size_t n = (size_t)sphere.size();
 	std::vector<Province> out(n);
-	for (size_t i = 0; i < n; i++) {
-		// a lid: the old crust, and the lava that flooded it (all of it, where
-		// eruptions keep burying it)
-		if (c.processes.eruptions > 0) {
-			out[i] = Province::Volcanic;
-			continue;
-		}
-		if (c.processes.regime == Regime::Lid) {
-			out[i] = g.mare[i] > 0 ? Province::Mare : Province::Highland;
-			continue;
-		}
-		int32_t d = t.distance[i];
-		fix e = g.eroded[i];
-		if (e < 0) {
-			out[i] = t.boundary[i] == Boundary::Divergent && d <= 2 ? Province::Rift : Province::OceanFloor;
-			continue;
-		}
-		// what the history built here, or the boundary at work now; ranges
-		// older than most of the history are worn to the shield's basement
-		const Formed f = t.formed[i];
-		const bool young = t.age[i] < HISTORY_STEPS * 3 / 4;
-		const bool converging = t.boundary[i] == Boundary::Convergent && d <= 4;
-		if ((f == Formed::Arc && young) || (converging && t.side[i] == Side::Overriding))
-			out[i] = Province::Arc;
-		else if ((f == Formed::Orogen && young) || converging)
-			out[i] = Province::Orogen;
-		else if ((f == Formed::Rift && t.age[i] < 8) || (t.boundary[i] == Boundary::Divergent && d <= 3))
-			out[i] = Province::Rift;
-		else if (e < ratio(12, 100) || (e < ratio(22, 100) && g.rain((int32_t)i) > ONE) ||
-				// broad sagging basins inside plates, where old seas and swamps laid down their beds
-				(t.distance[i] > 8 && noise(sphere.centre((int32_t)i), c.seed_hash + INLAND_BASIN, 4) > ratio(30, 100)))
-			out[i] = Province::Basin;
-		else
-			out[i] = Province::Shield;
-	}
+	for (size_t i = 0; i < n; i++)
+		out[i] = SETTINGS[(int)g.setting[i]].province;
 	// lava fields around every volcano
 	const int64_t radius = World::radiusOf(c);
 	for (const Volcano &v : g.volcanoes) {

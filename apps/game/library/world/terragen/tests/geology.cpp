@@ -98,6 +98,31 @@ TEST_CASE("Volcanoes")
 	REQUIRE(lava);
 }
 
+// Each place has a history (sprint 120): every world on a plate planet has
+// six or more tectonic settings on its land, none over 35% of it.
+TEST_CASE("Settings")
+{
+	for (const char *text : WATER_CODES) {
+		World w(WorldCode::decode(text));
+		const Grid &g = w.grid();
+		const Sphere &sphere = gridSphere();
+		double share[(int)Setting::Count] = {}, land = 0;
+		for (int32_t i = 0; i < g.size(); i++)
+			if (g.eroded[i] >= 0) {
+				share[(int)g.setting[i]] += sphere.area(i);
+				land += sphere.area(i);
+			}
+		int kinds = 0;
+		for (int s = 0; s < (int)Setting::Count; s++) {
+			INFO(std::string(text), " ", SETTINGS[s].name);
+			CHECK(share[s] <= 0.35 * land);
+			kinds += share[s] > 0.01 * land;
+		}
+		INFO(std::string(text));
+		CHECK(kinds >= 6);
+	}
+}
+
 // Rock follows the province: sediment over basement in basins, basalt under
 // the sea floor, granite or gneiss in the shields.
 TEST_CASE("Strata")
@@ -157,5 +182,13 @@ TEST_CASE("OresAndCaves")
 		REQUIRE(ores[(int)o] > 0);
 	REQUIRE(ores[(int)Ore::None] > 50 * (ores[(int)Ore::Copper] + ores[(int)Ore::Iron])); // ore is the exception
 	auto share = [&](Rock r) { return blocks[(int)r] ? (double)carved[(int)r] / blocks[(int)r] : 0.0; };
-	REQUIRE((blocks[(int)Rock::Limestone] > 0 && share(Rock::Limestone) > 2 * share(Rock::Granite)));
+	// (against all the other rock: granite alone is too few blocks where the
+	// shields are platforms' cover, sprint 120)
+	int64_t rest = 0, rest_carved = 0;
+	for (int r = 0; r < (int)Rock::Count; r++)
+		if (r != (int)Rock::Limestone) {
+			rest += blocks[r];
+			rest_carved += carved[r];
+		}
+	REQUIRE((blocks[(int)Rock::Limestone] > 0 && share(Rock::Limestone) > 2.0 * rest_carved / std::max<int64_t>(1, rest)));
 }

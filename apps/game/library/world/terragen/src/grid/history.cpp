@@ -6,6 +6,7 @@
 #include "library/world/terragen/src/grid/geology.h"
 #include "library/world/terragen/src/grid/grid.h"
 #include "library/world/terragen/src/base/noise.h"
+#include "library/world/terragen/src/grid/past.h"
 #include "library/world/terragen/src/grid/plates.h"
 #include <algorithm>
 #include <queue>
@@ -45,7 +46,7 @@ const fix STEP_CELLS = ratio(3, 2);
 // into the one going under (the foreland), an arc's peak a few cells in.
 const fix COLLIDE = ratio(7, 100);
 const fix ARC = ratio(9, 100); // (at a cone's peak; between cones, nothing)
-const int32_t COLLIDE_REACH = 9, UNDER_REACH = 5, ARC_PEAK = 3, ARC_REACH = 7;
+const int32_t COLLIDE_REACH = 4, UNDER_REACH = 2, ARC_PEAK = 2, ARC_REACH = 4;
 // The highest crust stands: a plateau as thick as crust gets.
 const fix TOP = ratio(18, 10);
 // Ocean floor: shallow at the ridge where it forms, sinking as it cools
@@ -60,6 +61,9 @@ const fix SHALLOW = ratio(4, 100);
 // folds over itself and scatters each plate's cells into its neighbours'.
 const fix WANDER = toFix(5);
 const int32_t WANDER_FREQUENCY = 2;
+// Plates: this many and one more for each continent asked for (Earth has
+// 15 or so that matter)
+const int PLATES = 9;
 // How fast recent uplift fades from `rate`, per step.
 const fix FADE = ratio(3, 4);
 // The rivers between steps (as the finished land's: grid.cpp).
@@ -147,7 +151,7 @@ History history(const WorldCode &c)
 	// (a stagnant lid is one plate that doesn't turn: the crust stays as it
 	// formed, its highlands and its low plains, and only ages)
 	const bool lid = c.processes.regime == Regime::Lid;
-	const int count = lid ? 1 : 6 + c.continents;
+	const int count = lid ? 1 : PLATES + c.continents;
 	if (count > 32)
 		throw std::logic_error("history: plates are kept in a 32-bit mask");
 	for (int k = 0; k < count; k++) {
@@ -168,26 +172,20 @@ History history(const WorldCode &c)
 	const fix shore = levelAbove(mass, c.land);
 	const fix shelf = levelAbove(mass, std::min<fix>(c.land + ratio(6, 100), ratio(95, 100)));
 	out.cells.resize(n);
-	// (rough enough that edges wander and step like real ones, not run in
-	// the long straight lines between centres)
-	const fix WARP = ratio(30, 100);
+	// Plates of uneven sizes (Earth's: the Pacific a fifth of it, six or so a
+	// tenth, the rest small), grown out from their centres, each at its own
+	// pace, over ground rough enough that their edges wander and step
+	const std::vector<uint8_t> grown = past::grow(out.plates, c);
+	const auto owner = [&](const Dir &at) { return grown[sphere.cell(at)]; };
+	const past::Terranes pieces = past::terranes(c);
 	parallelFor((int32_t)n, [&](int32_t i) {
 		const Dir &d = sphere.centre(i);
 		History::Cell &cell = out.cells[i];
 		cell.home = d;
-		const Dir w = normalise((int64_t)d.x + mul(fbm(d, c.seed_hash + PLATE_WARP, 4, 5, ratio(55, 100)), WARP),
-				(int64_t)d.y + mul(fbm(d, c.seed_hash + PLATE_WARP + 1, 4, 5, ratio(55, 100)), WARP),
-				(int64_t)d.z + mul(fbm(d, c.seed_hash + PLATE_WARP + 2, 4, 5, ratio(55, 100)), WARP));
-		int64_t best = INT64_MIN;
-		for (int k = 0; k < count; k++) {
-			const int64_t near = dot(w, out.plates[k].centre);
-			if (near > best) {
-				best = near;
-				cell.plate = (uint8_t)k;
-			}
-		}
-		cell.age = HISTORY_STEPS;
 		cell.continental = mass[i] >= shelf;
+		// (a continent goes a piece at a time, to its piece's middle's plate)
+		cell.plate = cell.continental ? owner(pieces.centres[pieces.of[i]]) : grown[i];
+		cell.age = HISTORY_STEPS;
 		if (cell.continental) {
 			// plains that level off inland (land / (land + 0.3) · 0.4), shelves under the sea
 			const fix land = mass[i] - shore;
@@ -217,6 +215,8 @@ History history(const WorldCode &c)
 		out.events.push_back({ step, kind, sphere.centre(at) });
 	};
 
+	past::inherit(out.cells, pieces);
+	const std::vector<past::Plume> plumes = past::plumes(c);
 	std::vector<History::Cell> next(n);
 	std::vector<uint8_t> gap(n);
 	for (int32_t step = 0; step < HISTORY_STEPS; step++) {
@@ -307,6 +307,7 @@ History history(const WorldCode &c)
 					if (!gap[*q] && next[*q].continental) {
 						next[*q].formed = Formed::Rift;
 						next[*q].age = 0;
+						next[*q].past.stretched = 0;
 						for (const int32_t *r = sphere.neighboursBegin(j); r != sphere.neighboursEnd(j); r++)
 							if (!gap[*r] && next[*r].plate != next[*q].plate)
 								record(step, History::Kind::Opening, next[*q].plate, next[*r].plate, j);
@@ -328,6 +329,11 @@ History history(const WorldCode &c)
 		for (History::Cell &cell : cells)
 			if (cell.age < INT16_MAX)
 				cell.age++;
+		past::age(cells);
+		past::lift(cells, plumes, step);
+		// (where two continents met, the seam stays in the crust)
+		for (int32_t at : collisions)
+			cells[at].past.suture = true;
 
 		// Uplift: ranges where continents collide (broad, highest at the
 		// suture), arcs a few cells into the plate above sinking floor

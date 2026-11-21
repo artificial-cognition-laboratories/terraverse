@@ -90,6 +90,23 @@ enum class Formed : uint8_t { Craton, Orogen, Arc, Rift, Ocean };
 	new ocean floor forms. Per cell, what stands there today.
 */
 constexpr int32_t HISTORY_STEPS = 32;
+
+/*
+	What a cell's crust went through besides how it formed (sprint 120,
+	past.h): steps since a plume last lifted it and since it was last
+	stretched (NEVER: not yet), whether two continents were sewn together
+	across it, whether a plume's head flooded it with basalt, and whether
+	shallow seas once laid flat beds over its basement (a platform's cover).
+*/
+struct Past
+{
+	static constexpr int16_t NEVER = INT16_MAX;
+	int16_t plumed = NEVER;
+	int16_t stretched = NEVER;
+	bool suture = false;
+	bool flooded = false;
+	bool covered = false;
+};
 constexpr int32_t STEP_MYR = 15;   // million years a step stands for
 struct History
 {
@@ -107,6 +124,7 @@ struct History
 		uint8_t plate = 0;
 		bool continental = false;
 		Formed formed = Formed::Ocean;
+		Past past;
 	};
 	enum class Kind : uint8_t { Collision, Opening, Arc };
 	struct Event
@@ -150,6 +168,7 @@ struct Tectonics
 	// (old, nothing rising, far from an active edge), 0 in a young belt, a
 	// rift or ocean floor. Old land is worn low and smooth (sprint 107).
 	std::vector<fix> stable;
+	std::vector<Past> past;        // from the history
 };
 
 Tectonics tectonics(const WorldCode &code, const History &h);

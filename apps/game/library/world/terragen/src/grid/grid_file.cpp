@@ -24,7 +24,7 @@ namespace fs = std::filesystem;
 
 namespace {
 
-constexpr size_t GRID_SIZE = 1328;
+constexpr size_t GRID_SIZE = 1376;
 
 std::mutex g_lock;
 std::string g_dir, g_build, g_grid_build;
@@ -91,8 +91,8 @@ void fields(IO &io, G &g)
 	auto &t = g.tectonics;
 	field(io, t.plates); field(io, t.plate); field(io, t.boundary); field(io, t.distance); field(io, t.side);
 	field(io, t.belt); field(io, t.relief); field(io, t.formed); field(io, t.age); field(io, t.fold);
-	field(io, t.plateau); field(io, t.oldness); field(io, t.front); field(io, t.stable);
-	field(io, g.history); field(io, g.province); field(io, g.volcanoes); field(io, g.rise); field(io, g.canyons);
+	field(io, t.plateau); field(io, t.oldness); field(io, t.front); field(io, t.stable); field(io, t.past);
+	field(io, g.history); field(io, g.setting); field(io, g.province); field(io, g.volcanoes); field(io, g.rise); field(io, g.canyons);
 	field(io, g.volcano_start); field(io, g.volcano_list); field(io, g.craters); field(io, g.crater_stamp);
 	field(io, g.crater_young); field(io, g.crater_start); field(io, g.crater_list); field(io, g.crater_from);
 	field(io, g.mare); field(io, g.mare_level); field(io, g.titanium); field(io, g.thin);

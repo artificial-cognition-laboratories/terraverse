@@ -238,12 +238,15 @@ Routing route(const std::vector<fix> &h, const Balance *balance)
 	// Each basin that spills has its pit's path up to the pass reversed, so
 	// the pit drains out over it; its lake stands at the pass, or at the lake
 	// downstream if that's higher (one lake over both). A closed one's pit
-	// stays where its water ends.
+	// stays where its water ends, under the lake downstream if that rises over its pass.
 	for (size_t k = 1; k < queue.size(); k++) {
 		const int32_t b = queue[k];
-		if (closed[b])
-			continue;
 		const Pass &q = passes[link[b]];
+		if (closed[b]) {
+			if (level[parent[b]] > q.level)
+				level[b] = std::max(level[b], level[parent[b]]);
+			continue;
+		}
 		const bool from_a = basin[q.a] == parent[b];
 		level[b] = std::max(q.level, level[parent[b]]);
 		int32_t c = from_a ? q.b : q.a, to = from_a ? q.a : q.b;

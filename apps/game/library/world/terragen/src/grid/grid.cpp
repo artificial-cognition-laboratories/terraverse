@@ -84,7 +84,7 @@ const int64_t HEAVY = 2;
 // Each round, where the plates collide the land is pushed up by this much
 // (times the belt, 0..1: the history's recent uplift), against which rivers
 // wear it: a range stands where the two balance, not as the history left it.
-const fix UPLIFT = ratio(11, 2000) * STEP;
+const fix UPLIFT = ratio(15, 2000) * STEP;
 // Hillslopes creep (erosion.h): each round a land cell trades this share of
 // its height difference with each land neighbour, which fills the cells'
 // sharpest notches. Soil creep is a hillside's process: across a cell's
@@ -106,10 +106,12 @@ const int64_t PAN_WET = 3;
 // which flows away as ice, not in rivers (Greenland's, Antarctica's)
 const fix MELT_FROM = -toFix(5), MELT_NONE = -toFix(15);
 // Sinking basins (see build): this many cells in from the sea at the least,
-// in noise this many waves round, where it's over BASIN_RARITY (of an fbm's
-// typical swing, 1), sagging up to BASIN_DEPTH once BASIN_RISE over it
-const int32_t BASIN_INLAND = 3, BASIN_WAVES = 9;
-const fix BASIN_RARITY = ratio(40, 100), BASIN_RISE = ratio(35, 100), BASIN_DEPTH = ratio(30, 160), BASIN_SINK = ratio(5, 100);
+// where a setting sags (its `sink`, setting.h), up to BASIN_DEPTH
+const int32_t BASIN_INLAND = 2;
+// How broad the lie of the land is that old ground was worn toward: rounds
+// of averaging over neighbours (some √WORN_PASSES cells)
+const int WORN_PASSES = 12;
+const fix BASIN_DEPTH = ratio(30, 160), BASIN_SINK = ratio(5, 100);
 
 } // namespace
 
@@ -580,6 +582,32 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 	// deep sea (Grid::sediment, testSediment).
 	std::vector<fix> h = g->base;
 	g->sediment.assign(n, 0);
+	// What its history made each cell (setting.h) says how it rises, sags and
+	// wears, and how far it was levelled before: toward the broad lie of the
+	// land round it (WORN_PASSES of averaging), not to one plain
+	const std::vector<Setting> made = settings(code, *g, g->base);
+	if (code.processes.water) {
+		std::vector<fix> lie = h;
+		for (int pass = 0; pass < WORN_PASSES; pass++) {
+			const std::vector<fix> was = lie;
+			parallelFor((int32_t)n, [&](int32_t i) {
+				int64_t sum = was[i];
+				int32_t count = 1;
+				for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++)
+					if (was[*p] >= 0) {
+						sum += was[*p];
+						count++;
+					}
+				lie[i] = (fix)(sum / count);
+			});
+		}
+		for (size_t i = 0; i < n; i++)
+			if (h[i] > 0) {
+				const fix was = h[i];
+				h[i] = std::max<fix>(h[i] + mul(lie[i] - h[i], SETTINGS[(int)made[i]].worn), ratio(1, 160));
+				g->uplifted += (int64_t)(h[i] - was) * sphere.area((int32_t)i); // (the sediment's balance holds)
+			}
+	}
 	// What's rising now starts from the crust it stands on and rises under
 	// rivers already running (antecedent rivers cut gorges through ranges
 	// that rose across them): its height over that comes off, and uplift
@@ -621,14 +649,14 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 		for (size_t i = 0; i < n; i++) {
 			if (g->base[i] <= 0 || inland[i] < BASIN_INLAND)
 				continue;
-			const fix where = fbm(sphere.centre((int32_t)i), code.seed_hash + BASINS, BASIN_WAVES, 3, HALF) * 3 - BASIN_RARITY;
+			// (the crust's own sag: a plume gone, a range's weight beside it)
+			const fix where = SETTINGS[(int)made[i]].sink;
 			if (where <= 0)
 				continue;
 			// (none in a rising range; deepest well in from the coast)
-			// (a shield's slower rise isn't more sinking: read against a young land's)
 			const fix away = ONE - clamp(std::max<fix>(g->tectonics.belt[i], ratio(18, 100)) * 2, 0, ONE);
 			const fix in = clamp((fix)((int64_t)(inland[i] - BASIN_INLAND + 1) * ONE / BASIN_INLAND), 0, ONE);
-			sinks[i] = mul(mul(mul(mul(smooth(clamp(div(where, BASIN_RISE), 0, ONE)), away), in), BASIN_DEPTH), BASIN_SINK);
+			sinks[i] = mul(mul(mul(mul(where, away), in), BASIN_DEPTH), BASIN_SINK);
 		}
 	}
 	// (a plateau's thick crust barely wears: a twentieth of the rest; and
@@ -638,7 +666,7 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 	const fix pace = code.processes.water ? ONE : ONE / STEP;
 	std::vector<fix> erodibility(n), hard(n);
 	for (size_t i = 0; i < n; i++)
-		hard[i] = mul(mul(ERODIBILITY, pace), ONE - g->tectonics.plateau[i] * 19 / 20);
+		hard[i] = mul(mul(mul(ERODIBILITY, pace), ONE - g->tectonics.plateau[i] * 19 / 20), SETTINGS[(int)made[i]].hard);
 	std::vector<int64_t> heavy_laid(n, 0); // heavy grains in each cell's sediment, as height × area
 	// the last round's, per cell: what it wore, and what it laid (and of the
 	// heavy grains): where it wore at least as much, that's load in transit
@@ -671,7 +699,10 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 				// (a plateau stands as high as thick crust floats: it has stopped rising)
 				// (× the Mountains setting, 0.5..1.5: the history's belt is capped,
 				// so how hard the plates push shows here, in how high ranges stand)
-				const fix up = mul(mul(mul(UPLIFT, HALF + code.mountains), g->tectonics.belt[i]), ONE - g->tectonics.plateau[i]);
+				// (and a setting's own: a swell's, a margin's shoulder; a craton's long stopped)
+				const SettingRow &row = SETTINGS[(int)made[i]];
+				const fix push = mul(g->tectonics.belt[i], row.still) + row.rise;
+				const fix up = mul(mul(mul(UPLIFT, HALF + code.mountains), push), ONE - g->tectonics.plateau[i]);
 				h[i] += up;
 				g->uplifted += (int64_t)up * sphere.area((int32_t)i);
 				// (sinking is the crust's doing, not the rivers': uplift's
@@ -854,6 +885,7 @@ std::shared_ptr<Grid> build(const WorldCode &code, const std::function<void(cons
 		}
 	}
 	g->surf = surf(code, *g);
+	g->setting = settings(code, *g, g->eroded);
 	g->province = provinces(code, *g);
 	g->fertility = fertility(code, *g);
 	return g;

@@ -2,7 +2,7 @@
 // shaded relief, lakes, rivers by flow — and prints how long the grid took and
 // what share is land. For tuning generation by eye:
 //   apps/game/library/world/terragen/tools/tool.sh render apps/game/library/world/terragen/tools/render.cpp
-//   ./render TF24.dGVycmE out.png [scale] [relief|plates|provinces|rain|season|biomes|fertility|currents|sediment|soil|uplift]
+//   ./render TF24.dGVycmE out.png [scale] [relief|plates|provinces|settings|rain|season|biomes|fertility|currents|sediment|soil|uplift]
 #include "library/world/terragen/src/world.h"
 #include "library/world/terragen/src/code/worlds.h"
 #include "library/world/terragen/src/base/sphere.h"
@@ -62,6 +62,33 @@ int main(int argc, char **argv)
 	std::printf("grid %.0f ms · land %.1f%% (asked %.0f%%) · lakes %d cells · rivers %d cells\n",
 		ms, 100.0 * land / all, 100.0 * code.land / ONE, lakes, rivers);
 
+	// each setting's share of the land (sprint 120: none over 35%, six or more
+	// on an Earth), its median height, and its relief: the median and 90th
+	// percentile of the fall to its lowest neighbour (m, a unit is 5 km)
+	{
+		double share[(int)Setting::Count] = {};
+		std::vector<double> height[(int)Setting::Count], relief[(int)Setting::Count];
+		for (int i = 0; i < g->size(); i++)
+			if (g->eroded[i] >= 0) {
+				const int s = (int)g->setting[i];
+				share[s] += sphere.area(i);
+				fix low = g->eroded[i];
+				for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++)
+					low = std::min(low, std::max<fix>(0, g->eroded[*p]));
+				height[s].push_back(g->eroded[i] * 5000.0 / ONE);
+				relief[s].push_back((g->eroded[i] - low) * 5000.0 / ONE);
+			}
+		const auto at = [](std::vector<double> v, double q) {
+			if (v.empty()) return 0.0;
+			std::nth_element(v.begin(), v.begin() + (ptrdiff_t)(q * (v.size() - 1)), v.end());
+			return v[(size_t)(q * (v.size() - 1))];
+		};
+		for (int s = 0; s < (int)Setting::Count; s++)
+			if (share[s] > 0)
+				std::printf("  %-13s %5.1f%%  height %5.0f m  relief %4.0f / %4.0f m\n", SETTINGS[s].name, 100.0 * share[s] / std::max(1.0, land),
+						at(height[s], 0.5), at(relief[s], 0.5), at(relief[s], 0.9));
+	}
+
 	// the map, equirectangular: each pixel the cell at its place
 	const int MAP = 256;
 	int W = MAP * scale;
@@ -95,6 +122,14 @@ int main(int argc, char **argv)
 					else if (t.boundary[i] == Boundary::Divergent) { r = 40; gg = 220; b = 240; }
 					else { r = 240; gg = 220; b = 40; }
 				}
+			} else if (mode == "settings") {
+				// each setting its own colour (setting.h's order); the sea dark
+				static const unsigned char SC[(int)Setting::Count][3] = {
+					{ 150, 140, 120 }, { 200, 190, 140 }, { 120, 170, 90 }, { 220, 150, 80 }, { 70, 50, 60 }, { 60, 200, 200 },
+					{ 100, 130, 200 }, { 230, 220, 170 }, { 200, 60, 50 }, { 150, 90, 120 }, { 170, 200, 110 }, { 240, 240, 240 },
+					{ 230, 120, 40 }, { 50, 30, 30 }, { 60, 140, 160 }, { 30, 50, 90 }, { 160, 160, 160 }, { 80, 80, 80 } };
+				const unsigned char *sc = SC[(int)g->setting[i]];
+				r = sc[0] * shade; gg = sc[1] * shade; b = sc[2] * shade;
 			} else if (mode == "provinces") {
 				static const unsigned char PC[7][3] = { { 150, 140, 130 }, { 170, 80, 70 }, { 210, 140, 60 },
 					{ 90, 170, 160 }, { 120, 170, 90 }, { 60, 40, 40 }, { 40, 70, 130 } };

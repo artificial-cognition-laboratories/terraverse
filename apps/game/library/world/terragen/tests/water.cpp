@@ -246,10 +246,12 @@ TEST_CASE("Sediment")
 TEST_CASE("LakesAreFlat")
 {
 	const Sphere &sphere = gridSphere();
+	// (lakes on the worlds together, so the test isn't empty: an archipelago
+	// of low islands may hold none at the grid's scale, sprint 120)
+	int lakes = 0;
 	for (const char *text : WATER_CODES) {
 		World w(WorldCode::decode(text));
 		const Grid &g = w.grid();
-		int lakes = 0;
 		for (int32_t i = 0; i < g.size(); i++) {
 			if (!g.lake[i])
 				continue;
@@ -258,6 +260,6 @@ TEST_CASE("LakesAreFlat")
 				if (g.lake[*p])
 					REQUIRE_EQ(fix(g.lake_level[i]), fix(g.lake_level[*p]));
 		}
-		REQUIRE(lakes > 0);
 	}
+	REQUIRE(lakes > 0);
 }

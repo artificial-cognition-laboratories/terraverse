@@ -9,6 +9,7 @@
 #include "library/world/terragen/src/surface/craters.h"
 #include "library/world/terragen/src/base/fixed.h"
 #include "library/world/terragen/src/grid/geology.h"
+#include "library/world/terragen/src/grid/setting.h"
 #include "library/world/terragen/src/surface/lid.h"
 #include "library/world/terragen/src/base/sphere.h"
 #include <cstdint>
@@ -87,6 +88,7 @@ struct Grid
 	// (volcano_list[volcano_start[i] .. volcano_start[i + 1]])
 	Tectonics tectonics;
 	std::vector<History::Event> history; // what happened to the plates (history.cpp), oldest first
+	std::vector<Setting> setting;   // what its history made each cell (setting.h)
 	std::vector<Province> province;
 	std::vector<Volcano> volcanoes;
 	// a lid's rise and the canyons split from it (lid.h); no rise: at (0, 0, 0)
@@ -154,6 +156,6 @@ constexpr fix VEIN_CORE = ratio(1, 2);
 inline fix alluvium(fix sediment) { return clamp(sediment * 16, 0, ONE); }
 
 // Distinct noise streams, so the fields are independent.
-enum Stream : uint32_t { CONTINENT = 0, COAST = 3, RIDGE = 7, HEAT = 13, DETAIL = 41, SOIL_NOISE = 53, BLEND = 59, MEANDER = 71, SHORE = 79, SCOURED = 83, GULLIES = 89, BASINS = 97, RIFTS = 419, ALPINE = 431, RIVER_BEDS = 467, PROVINCE_EDGES = 491, BRAIDS = 503, DUNES = 509, RAVINES = 521, CRAGS = 523, LAVA_PLAINS = 541, KARST = 547, RIVER_REACHES = 557 }; // (479 was the rivers' wander)
+enum Stream : uint32_t { CONTINENT = 0, COAST = 3, RIDGE = 7, HEAT = 13, DETAIL = 41, SOIL_NOISE = 53, BLEND = 59, MEANDER = 71, SHORE = 79, SCOURED = 83, GULLIES = 89, RIFTS = 419, ALPINE = 431, RIVER_BEDS = 467, PROVINCE_EDGES = 491, BRAIDS = 503, DUNES = 509, RAVINES = 521, CRAGS = 523, LAVA_PLAINS = 541, KARST = 547, RIVER_REACHES = 557 }; // (479 was the rivers' wander, 97 the basins')
 
 } // namespace terragen
