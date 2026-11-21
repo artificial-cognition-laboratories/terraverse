@@ -82,10 +82,11 @@ for (const w of workflows) {
 
 // ── the Scoreboard ───────────────────────────────────────────────────────────
 // Master push runs. A cancelled run is superseded, and doesn't count, when a newer run of the
-// same workflow on master started before it ended; cancelled otherwise counts as red.
+// same workflow on master (pushed or dispatched: they share a concurrency group) started before
+// it ended; cancelled otherwise counts as red. Newer is by run id: two can start in one second.
 const master = runs.filter(r => r.headBranch === "master" && r.event === "push" && r.status === "completed")
 const superseded = (r: Run) => r.conclusion === "cancelled" &&
-    master.some(o => o.workflowName === r.workflowName && Date.parse(o.createdAt) > Date.parse(r.createdAt) && Date.parse(o.createdAt) <= Date.parse(r.updatedAt))
+    runs.some(o => o.workflowName === r.workflowName && o.headBranch === "master" && o.databaseId > r.databaseId && Date.parse(o.createdAt) <= Date.parse(r.updatedAt))
 const counted = master.filter(r => !superseded(r))
 const green = counted.filter(r => r.conclusion === "success").length
 
