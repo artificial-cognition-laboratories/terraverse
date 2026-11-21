@@ -21,7 +21,7 @@ type CliOpts = {
  */
 export function Cli(opts: CliOpts) {
     const terra = Terra({ exec: opts.exec, ...(opts.engine ? { engine: opts.engine } : {}) })
-    const presentation = Presentation({ renderer: opts.renderer })
+    const presentation = Presentation({ ...(opts.renderer ? { capture: opts.renderer } : {}), registry: terra.registry.where })
     const boundary = Boundary({ presentation: presentation })
     const commands = Commands({ terra: terra, presentation: presentation, version: pkg.version })
 
@@ -29,6 +29,7 @@ export function Cli(opts: CliOpts) {
     function dispatch(argv: readonly string[]): Promise<number> {
         return boundary.run(() => {
             const args = parseArgs(argv)
+            presentation.mode.configure(args)
             return commands.find(args)(args)
         })
     }

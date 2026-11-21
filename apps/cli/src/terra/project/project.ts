@@ -6,6 +6,7 @@ import { KINDS, type ProjectKind } from "./kinds"
 import { Packages } from "./packages"
 import { Prepare } from "./prepare"
 import { Server } from "./server"
+import { Snapshot } from "./snapshot"
 import { Typegen } from "./typegen"
 
 type ProjectOpts = {
@@ -46,6 +47,10 @@ export function Project(opts: ProjectOpts) {
         /** Its config file, changed by machine: a value set or removed, the author's layout kept. */
         config: editor,
         prepare: prepare.run,
+        /** Its package.json, read and checked: its name and version. */
+        pkg: () => packages.read(`${opts.root}/package.json`),
+        /** Some of its files as they are now, to put back. */
+        snapshot: (files: readonly string[]) => Snapshot({ root: opts.root, files: files }),
         server: server,
     }
 }

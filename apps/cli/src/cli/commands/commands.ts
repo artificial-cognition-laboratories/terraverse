@@ -22,12 +22,12 @@ export function Commands(opts: { terra: TerraT; presentation: PresentationT; ver
     const prepare = PrepareCommand({ terra: opts.terra, presentation: opts.presentation })
     const host = HostCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare })
     const runtime = RuntimeCommand({ terra: opts.terra })
-    const init = InitCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare })
+    const init = InitCommand({ terra: opts.terra, presentation: opts.presentation })
     const dev = DevCommand({ terra: opts.terra, presentation: opts.presentation })
     const play = PlayCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare })
     const account = AccountCommand({ terra: opts.terra, presentation: opts.presentation })
-    const publish = PublishCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare })
-    const install = InstallCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare })
+    const publish = PublishCommand({ terra: opts.terra, presentation: opts.presentation })
+    const install = InstallCommand({ terra: opts.terra, presentation: opts.presentation })
     const info = InfoCommand({ terra: opts.terra, presentation: opts.presentation })
 
     const table: Record<string, Command> = {

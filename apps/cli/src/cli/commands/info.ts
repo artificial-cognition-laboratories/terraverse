@@ -21,8 +21,8 @@ export function InfoCommand(opts: { terra: TerraT; presentation: PresentationT }
         const { name } = parseSpec(given)
         const page = await opts.terra.registry.page(name)
         if (!page) throw err("MOD_NOT_PUBLISHED", { detail: name })
-        if (flags.on(args, "json")) {
-            p.line(JSON.stringify(page))
+        if (p.mode.machine) {
+            p.emit(JSON.stringify(page))
             return 0
         }
 

@@ -69,7 +69,7 @@ echo "SECRET=1" > .env
 step "a dry run lists what would go"          0 "assets/textures/brick.png"          -- terra publish --dry-run
 step "but never .env"                         0 "^"                                  -- bash -c "! bun '$root/apps/cli/bin/terra.ts' publish --dry-run --json | grep -q '\.env'"
 step "README media travels on its own"        0 '"media":\[\{"path":"docs/shot.png"' -- terra publish --dry-run --json
-step "publish"                                0 "Published $mod@0.1.0"               -- terra publish
+step "publish"                                0 "published $mod@0.1.0"               -- terra publish
 step "the same version is refused"            1 "already published"                  -- terra publish
 
 cp mod.config.ts mod.config.bak

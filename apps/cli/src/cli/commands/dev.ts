@@ -1,4 +1,4 @@
-import { errorReport, header, status } from "@arcforge/arcline"
+import { devServer, errorReport, status } from "@arcforge/arcline"
 import type { DevEvent, DevOptions, TerraT } from "../../terra"
 import { flags, type Args } from "../args"
 import type { PresentationT } from "../presentation"
@@ -19,29 +19,34 @@ export function DevCommand(opts: { terra: TerraT; presentation: PresentationT })
 
     async function run(args: Args): Promise<number> {
         flags.only(args, ["headless", "port", "fresh", "in"])
-        const headless = flags.on(args, "headless")
         const options: DevOptions = {
-            mode: headless ? "server" : "game",
+            mode: flags.on(args, "headless") ? "server" : "game",
             port: flags.port(args, 30000),
             fresh: flags.on(args, "fresh"),
             in: flags.value(args, "in") ?? null,
         }
-        if (headless) p.line(status(r, "info", "Headless", `join localhost:${options.port} from the game`))
-        return opts.terra.dev.run(args.positional[0] ?? ".", { options: options, report: show })
+        return opts.terra.dev.run(args.positional[0] ?? ".", { options: options, report: event => show(event, options) })
     }
 
-    function show(event: DevEvent): void {
+    function show(event: DevEvent, options: DevOptions): void {
         switch (event.kind) {
             case "prepared":
                 if (event.first) {
-                    p.line()
-                    p.line(header(r, { title: "Developing", subtitle: event.prepared.title }))
-                    p.line()
+                    p.line(devServer(r, {
+                        title: "Terraverse",
+                        info: [
+                            ["Server", event.prepared.title],
+                            ["Mods", event.prepared.mods.map(m => m.name).join(", ") || "none"],
+                        ],
+                        ...(options.mode === "server" ? { links: [["Join", `localhost:${options.port}`] as [string, string]] } : {}),
+                        readyMs: event.ms,
+                    }))
+                    return
                 }
-                p.line(status(r, "ok", event.first ? "Prepared" : "Rebuilt", `${plural(event.prepared.mods.length, "mod")} · ${event.ms}ms`))
+                p.line(status(r, "ok", "Rebuilt", `${plural(event.prepared.mods.length, "mod")} · ${event.ms}ms`))
                 return
             case "failed":
-                for (const line of errorReport(r, event.error)) p.line(line)
+                for (const line of errorReport(p.diagnostics, event.error)) p.diagnostics.line(line)
                 return
             case "waiting":
                 p.line(status(r, "pending", "Waiting for a save"))

@@ -5,7 +5,7 @@
     "": {
       "name": "@terraverse/cli",
       "dependencies": {
-        "@arcforge/arcline": "2.0.244",
+        "@arcforge/arcline": "2.0.245",
         "@babel/parser": "8.1.0",
         "msgpackr": "2.1.4",
       },
@@ -16,13 +16,13 @@
     },
   },
   "packages": {
-    "@arcforge/arcline": ["@arcforge/arcline@2.0.244", "", { "dependencies": { "@arcforge/err": "2.0.244", "@arcforge/theme": "2.0.244", "@arcforge/types": "2.0.244" }, "peerDependencies": { "typescript": "^5" }, "bin": { "arcline": "bin/arcline.ts" } }, "sha512-b71ZafoRtLjZiBIC8cc7JgKtVwgUqCXy2a8vTYJ7qbbdCqP3RO1lT0WCMrHm00LUwCaeezXdv7RVr7BCZs/gVQ=="],
+    "@arcforge/arcline": ["@arcforge/arcline@2.0.245", "", { "dependencies": { "@arcforge/err": "2.0.245", "@arcforge/theme": "2.0.245", "@arcforge/types": "2.0.245" }, "peerDependencies": { "typescript": "^5" }, "bin": { "arcline": "bin/arcline.ts" } }, "sha512-zBrn95N1eYi9uvejl6jDqAiWBtYuQUWBUjMBKe5iLbWXU4S0uW9ioT+41IvxZfwCB2kjyXR0yi+HBpmZd5fFhw=="],
 
-    "@arcforge/err": ["@arcforge/err@2.0.244", "", { "dependencies": { "@arcforge/types": "2.0.244" } }, "sha512-MGRSZOFkRpWhLb+B7F/2bs9r+gcoZpJD1C/aGCOOr4eAPfpiZYxLIqY1JCFSRTPCNzI6rmXDAqMvL6aktdYLrg=="],
+    "@arcforge/err": ["@arcforge/err@2.0.245", "", { "dependencies": { "@arcforge/types": "2.0.245" } }, "sha512-yQiXQPE8VAwa7/UMmmkUHJc0E3aUlCtgG3fHI7ORlvT9zxdtn1H+bc1fZvaV6VlosqL3kQPdPop2xsFt67E6wA=="],
 
-    "@arcforge/theme": ["@arcforge/theme@2.0.244", "", { "dependencies": { "@arcforge/types": "2.0.244" } }, "sha512-48IvDG66hQYu3UZ3S9atGZs7iLBfdDUnoVigrYTAqXSsuk0JgNNAHyabBOJ84dSC2k3gtWWPQyHg6fNM4OBu4g=="],
+    "@arcforge/theme": ["@arcforge/theme@2.0.245", "", { "dependencies": { "@arcforge/types": "2.0.245" } }, "sha512-q17CRvFMF9xZS5avTDJFWlSx0E1IHXA7yaQXhCrxM0mInffw4qOyPU47Dw+X2ReYb9gSg/0cS5GQ5FD9TX3nSw=="],
 
-    "@arcforge/types": ["@arcforge/types@2.0.244", "", { "dependencies": { "@types/bun": "^1.2.0", "h3": "^1.13.0" } }, "sha512-7Wr3yrN6wN8moRZpvtnBnwvp5NeOaMHorMU7ZHyZhCiOF7sGHGF0GoncvpC/FBMZPhKSVIuz/SUCXD5Wm7xsYg=="],
+    "@arcforge/types": ["@arcforge/types@2.0.245", "", { "dependencies": { "@types/bun": "^1.2.0", "h3": "^1.13.0" } }, "sha512-nFPSccvj/57gH8/hmZOZKsB9Wsu6kN3WC427UG6mYrh7eZ74KmsJwAtrGA7Q2u4TO1pP8v3vQZcY1puyJ6Ce5A=="],
 
     "@babel/helper-string-parser": ["@babel/helper-string-parser@8.1.2", "", {}, "sha512-TRz5Z0MgfIfWqwEIq/pCpUpEXQxUt2Ig2ZbxG3SdmhSbHMAFFYGOix0kI4JLV371/TA+qWnQ4xWHPWjojkyRFA=="],
 

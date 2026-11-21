@@ -14,7 +14,7 @@
     "gen:check": "bun scripts/ops.ts --check && bun scripts/globals.ts --check"
   },
   "dependencies": {
-    "@arcforge/arcline": "2.0.244",
+    "@arcforge/arcline": "2.0.245",
     "@babel/parser": "8.1.0",
     "msgpackr": "2.1.4"
   },

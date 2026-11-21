@@ -1,13 +1,7 @@
-import { header, hyperlink, next, status, type RendererHandle } from "@arcforge/arcline"
+import { countdown, header, hyperlink, next, status, type RendererHandle } from "@arcforge/arcline"
 import type { Identity, TerraT } from "../../terra"
 import { flags, type Args } from "../args"
 import type { PresentationT } from "../presentation"
-
-/** m:ss, the way a countdown is read. */
-function countdown(ms: number): string {
-    const s = Math.max(0, Math.floor(ms / 1000))
-    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`
-}
 
 /**
  * terra login · terra logout · terra whoami — your ArcLabs account, as terra holds it.
@@ -38,7 +32,7 @@ export function AccountCommand(opts: { terra: TerraT; presentation: Presentation
         p.line("")
         p.line(`   ${r.c.dim("Code")}   ${r.c.bold(r.c.primary(pending.code))}`)
         p.line("")
-        const live = p.live((rr: RendererHandle, left: number, frame: string) => status(rr, "pending", "waiting for approval", `${countdown(left)} left`, frame), pending.expiresAt - Date.now())
+        const live = p.live((rr: RendererHandle, left: number, frame: string) => status(rr, "pending", "waiting for approval", `${countdown(left / 1000)} left`, frame), pending.expiresAt - Date.now())
         const tick = setInterval(() => live.set(pending.expiresAt - Date.now()), 1000)
         try {
             const identity = await account.complete(pending)
@@ -64,8 +58,8 @@ export function AccountCommand(opts: { terra: TerraT; presentation: Presentation
     async function whoami(args: Args): Promise<number> {
         flags.only(args, ["json"])
         const identity = await account.whoami()
-        if (flags.on(args, "json")) {
-            p.line(JSON.stringify(identity))
+        if (p.mode.machine) {
+            p.emit(JSON.stringify(identity))
             return 0
         }
         p.line(status(p.renderer, "ok", who(identity), account.base))

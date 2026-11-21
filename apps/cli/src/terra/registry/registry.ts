@@ -3,7 +3,7 @@ import { join } from "node:path"
 import { err } from "../../errors"
 import { Configs, MOD_API } from "../project"
 import { record, type ApiT } from "./api"
-import { Pack, type Contents } from "./pack"
+import { Pack, type Contents, type PackedFile } from "./pack"
 
 /** What package.json says and mod.config.ts must not: one file is a mod's identity. */
 const IDENTITY_FIELDS = ["name", "version", "description", "dependencies"] as const
@@ -17,6 +17,9 @@ export function npmUrl(base: string): string {
 }
 
 /** One version of a mod, as the registry describes it. */
+/** What a publish does after preparing, in order. */
+export type PublishStep = "verifying" | "packing" | "uploading"
+
 export type ModVersion = {
     version: string
     /** The mod API it was built against. */
@@ -103,9 +106,11 @@ export function Registry(opts: { api: ApiT }) {
         return { ...Pack({ root: root }).contents(), name: name, version: version, api: api, title: read.title, settings: read.settings }
     }
 
-    /** Publish the mod at `root`: checked, packed, uploaded. */
-    async function publish(root: string): Promise<{ name: string; version: string; api: number; media: number }> {
+    /** Publish the mod at `root`: checked, packed, uploaded, each step reported as it starts. */
+    async function publish(root: string, e: { progress?: (step: PublishStep) => void } = {}): Promise<{ name: string; version: string; api: number; media: PackedFile[] }> {
+        e.progress?.("verifying")
         const checked = await check(root)
+        e.progress?.("packing")
         const packed = await Pack({ root: root }).pack()
         const form = new FormData()
         form.append("source", new Blob([new Uint8Array(packed.source)]), "source.tar.gz")
@@ -114,10 +119,11 @@ export function Registry(opts: { api: ApiT }) {
         if (packed.readme !== null) form.append("readme", packed.readme)
         if (packed.assets) form.append("assets", new Blob([new Uint8Array(packed.assets)]), "assets.tar.gz")
 
+        e.progress?.("uploading")
         const body = record(await opts.api.upload("/api/terrafirma/registry/publish", form), "the publish")
         if (body.name !== checked.name || body.version !== checked.version)
             throw err("REGISTRY_REFUSED", { detail: `published as ${String(body.name)}@${String(body.version)}, not ${checked.name}@${checked.version}` })
-        return { name: checked.name, version: checked.version, api: checked.api, media: packed.media.length }
+        return { name: checked.name, version: checked.version, api: checked.api, media: packed.media }
     }
 
     /** A mod's page, or null when nothing's published under the name. */
@@ -198,7 +204,13 @@ export function Registry(opts: { api: ApiT }) {
         await opts.api.post("/api/terrafirma/registry/deprecate", { name: name, message: message })
     }
 
-    return { check: check, publish: publish, page: page, resolve: resolve, add: add, deprecate: deprecate }
+    /**
+     * Where the registry is: the API publishes go to, and where a mod's page is read. There's
+     * no web page for a mod yet, so its page is the API's own (a mod's JSON).
+     */
+    const where = { api: opts.api.base, web: `${opts.api.base}/api/terrafirma/registry/packages` }
+
+    return { where: where, check: check, publish: publish, page: page, resolve: resolve, add: add, deprecate: deprecate }
 }
 
 export type RegistryT = ReturnType<typeof Registry>
