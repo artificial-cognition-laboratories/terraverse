@@ -255,6 +255,97 @@ jobs:
           path: .output/releases/terraverse-${{ env.VERSION }}-windows-x86_64.tar.zst
           compression-level: 0 # already zstd
 
+  # macOS on Apple silicon: built, tested and booted on every push and tag, but not
+  # published yet (no package, and publish doesn't wait for it), so a red here never
+  # holds a release. The plan to ship it: .agents/owners/ci/state.md.
+  macos:
+    runs-on: macos-15 # arm64
+    timeout-minutes: 150
+    env:
+      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version || 'dev' }}
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.output/vcpkg-cache
+      SCCACHE_GHA_ENABLED: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Build the UI
+        working-directory: apps/game/src/client/app/shell/interface
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+
+      # terra: the CLI, and the sidecar that runs TypeScript mods beside the engine
+      - name: Build terra
+        working-directory: apps/cli
+        run: |
+          bun install --frozen-lockfile
+          bun run gen:check
+          bunx tsc --noEmit -p .
+          bun test
+          bun run build
+
+      # vcpkg's ports build with autotools; Ninja drives the engine.
+      - name: Install build tools
+        run: brew install ninja autoconf autoconf-archive automake libtool pkg-config
+
+      # vcpkg builds every dependency from source: keep what it built, even when a
+      # later step fails, so every run builds on the last.
+      - name: Restore vcpkg builds
+        uses: actions/cache/restore@v4
+        with:
+          path: .output/vcpkg-cache
+          key: vcpkg-arm64-osx-${{ hashFiles('apps/game/vcpkg.json') }}-${{ github.run_id }}
+          # ABI-hashed packages: an older cache is a safe start (as Windows).
+          restore-keys: |
+            vcpkg-arm64-osx-${{ hashFiles('apps/game/vcpkg.json') }}-
+            vcpkg-arm64-osx-
+
+      - name: Cache CEF
+        uses: actions/cache@v4
+        with:
+          path: .output/build/_deps
+          key: cef-macosarm64-${{ hashFiles('apps/game/cmake/Modules/CEF.cmake') }}
+
+      - uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Configure
+        run: |
+          mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+          apps/game/scripts/release/configure-macos.sh "$VERSION"
+
+      - name: Save vcpkg builds
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .output/vcpkg-cache
+          key: vcpkg-arm64-osx-${{ hashFiles('apps/game/vcpkg.json') }}-${{ github.run_id }}
+
+      # -k 0: one run reports every compile error, not just the first.
+      - name: Build the engine
+        run: |
+          set -o pipefail
+          cmake --build .output/build -- -k 0 2>&1 | tee build.log
+          bash apps/game/scripts/stage-runtime.sh
+
+      - name: List the errors
+        if: failure()
+        run: apps/game/scripts/release/build-errors.sh build.log
+
+      # The same modules as Linux and Windows: terragen's are fixed point, so any
+      # difference from Linux is a bug, not a platform tolerance.
+      - name: Unit tests
+        run: |
+          BUILT=1 bash apps/game/tests/run/engine.sh TestOnline TestRelease TestTerragenMatter
+          ctest --test-dir .output/build -L '^terragen$' -L '^hot$' --output-on-failure
+
+      # No package yet: the run-in-place build, booted as the packages are.
+      - name: Smoke boot
+        run: apps/game/scripts/release/smoke-server.sh .output/bin/luanti "$VERSION"
+
   # The official mods (registry/mods), which every world this release makes pins: a tag
   # publishes any version the registry doesn't have, before the game's packages go up, and
   # fails on a mod changed under a version already published. Anything else only checks:
