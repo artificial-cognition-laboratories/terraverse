@@ -49,6 +49,7 @@ kind's median (the API doesn't say whether caches hit).
 
 | Date | Master green rate | Time to signal (median) | Warm build (job) | Cold build | Release reliability | Runner min/day |
 |---|---|---|---|---|---|---|
+| 2026-11-21 | 7/8 = 88% (11-20 23:06 to 11-21 19:34; every finished run green since 451c28bb; the one red is a 2 s cancel during my own burst) | 11.0 min (7 pushes) | release linux 6.9, windows 11.0, macos 5.8 (branch); launcher 3.6 / 3.5 | none in window | 2/2 (v0.1.10, launcher-v0.1.4) | 190 (15 runs over 1.0 day) |
 | 2026-11-20 | 5/15 = 33% before tonight (the hierarchy move: 2c006128 onward red until 9c412f43) | 10.6 min (12 pushes) | release linux 10.2, windows 12.7; launcher 2.7 / 3.4 | release windows 60 min (vcpkg cold after the move) | 3/5 (v0.1.7, v0.1.8 failed on Windows) | 235 (398 min over 1.7 days) |
 | 2026-11-17 | 3/7 = 43% | not measured | release ~18 min wall | unknown | not measured | not measured |
 | 2026-11-19 | 3/5 = 60% (since 11-18 22:00; 7f82097d cancelled unsuperseded, 7321a457 red Windows terra, abd83088 red Linux Package + Windows terra) | not measured (GitHub API down) | not measured | not measured | 1/2 (v0.1.5 failed, v0.1.6 ok; launcher-v0.1.3 ok) | not measured |
@@ -83,11 +84,9 @@ kind's median (the API doesn't say whether caches hit).
    - [x] 2026-11-20: `apps/game/scripts/release/smoke-server.sh`, Linux and Windows on it (2d28a08f).
    - [x] 2026-11-20: macos.yml builds UI and terra and smoke-boots `.output/bin/luanti` (run 44836357243,
      green, 22 min: a world boots headless on macOS).
-   - [ ] **Next:** macOS joins release.yml as a non-publishing job on master pushes (build, unit tests,
-     smoke on the run-in-place build); macos.yml goes. Adds ~10 macOS runner-min per push (10x billed:
-     check the minutes number after). (moves the inline YAML boot checks into a script too: milestone 6). Then add macOS to
-     release.yml as a **non-publishing** job on master pushes (it can't publish until it packages), so
-     every push keeps macOS compiling; macos.yml goes.
+   - [x] 2026-11-21: macOS is a non-publishing job in release.yml on every push and tag (38b395f5);
+     macos.yml deleted. Branch run 44950944032: macOS 5.8 min warm.
+   - [ ] **Next:** the `.app` (below), since the shell is what stands between macOS and a playable client.
    - [ ] vcpkg overlay triplet: arm64-osx with VCPKG_OSX_DEPLOYMENT_TARGET 13.0 (cold vcpkg once).
    - [ ] The app: `.app` bundle with CEF's framework and its helper apps (`<name> Helper.app`,
      GPU/Renderer/Plugin variants), `CefScopedLibraryLoader` LoadInMain in main and LoadInHelper in a
@@ -122,6 +121,7 @@ kind's median (the API doesn't say whether caches hit).
 Over the next few sessions we want to get everything setup properly to allow macos. So choose chunks of work to do. getting the repo itself in line and setting up the appropriate ci. you are tasked with the full thing. within a few sessions we should have macos online. permission to make the changes you need to get this working and online. keep track of this work and your plan until the job is complete.
 
 ## Log
+- 2026-11-21: Official mods publish with each release (milestone 0, the developer's direction): terra reads TERRA_TOKEN (556ceb2b), publish-mods.ts and the mods job, which publish needs (91e750e4); a changed, unbumped mod fails a tag. macOS moved into release.yml, non-publishing (38b395f5), macos.yml gone. ci:status miscounted superseded cancels (a07919e6). Branch runs 44949973289 and 44950944032 green on every platform, packages within 2 KB of master's. Milestone 1 held (green streak 7). Green rate 33% to 88%.
 - 2026-11-20: The hierarchy move broke master in 8 places (terra, launcher, ops.h gen, two publish key paths, terragen on gcc-12 and clang-cl, winresource.rc, the deleted official-mods server folder, manifest.ts, gate.sh); fixed one CI round at a time, green at 9c412f43. Smoke boot is one script for all platforms (2d28a08f). Cache keys fixed (stale since the move) with an ABI-safe vcpkg fallback; macOS boots a world headless in CI (milestone 2 step 3). My first commit swept in a staged deletion (restored b6d9f331). Green rate 60% → 33% over the window (all red from the move), now green.
 - 2026-11-19: Master red again (sprint 119 + registry). Fixed Linux Package (builtin/ gone), verified by local package + smoke boot. Windows terra failure undiagnosed: GitHub's API unreachable all session; 00c128d6's run not watched. Green rate 69% → 60%.
 - 2026-11-17: First session. Fixed red master: the launcher test `leaves_the_appimage_behind` assumed ':'-separated path lists and failed on Windows; it is now `#[cfg(unix)]`. Baseline green rate: 43%.
