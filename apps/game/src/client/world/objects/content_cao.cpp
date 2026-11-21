@@ -1084,9 +1084,11 @@ void GenericCAO::updateLight(u32 day_night_ratio)
 		}
 	}
 	// Terra Firma: flying over the land it went black in air blocks that hold no
-	// light and bright between them, where none are loaded: up there it's the sun's
+	// light and bright between them, where none are loaded: up there it's the sun's.
+	// Decoded, as getInteriorLight's are (day in the low byte, night none): the
+	// level itself, 15 of 255, was all but black the moment it left the ground
 	if (!pos_ok || (m_is_local_player && m_client->getBody().inOpenSky()))
-		light_at_pos = LIGHT_SUN;
+		light_at_pos = decode_light(LIGHT_SUN);
 
 	video::SColor light;
 
