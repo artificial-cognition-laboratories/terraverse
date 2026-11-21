@@ -22,7 +22,7 @@ bash apps/game/scripts/stage-runtime.sh
 # apps/game/tests/run/skip.txt cites a job for, as CI's release run does. Three modules
 # alone let 6 failing tests reach master unseen (2026-11-17).
 BUILT=1 bash apps/game/tests/run/engine.sh
-(cd apps/game/src/client/app/shell/interface && bun run typecheck && bun run build)
+(cd apps/game/src/client/app/shell/interface && bun install --frozen-lockfile && bun run typecheck && bun run build)
 
 world=$(mktemp -d)
 trap 'rm -rf "$world"' EXIT
