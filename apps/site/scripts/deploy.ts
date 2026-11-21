@@ -10,8 +10,8 @@ const PROJECT = process.env.AXON_GCP_PROJECT_ID ?? "axon-487515"
 const REGION = process.env.AXON_GCP_REGION ?? "europe-west1"
 const SERVICE = process.env.TERRAVERSE_SITE_SERVICE ?? "terraverse-site"
 const IMAGE = `gcr.io/${PROJECT}/${SERVICE}:latest`
-const here = import.meta.dir
-const release = join(here, "../../apps/game/scripts/release")
+const here = join(import.meta.dir, "..") // the site, above scripts/
+const release = join(here, "../game/scripts/release")
 
 await $`bun run build`.cwd(here)
 

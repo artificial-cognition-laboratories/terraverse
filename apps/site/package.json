@@ -9,9 +9,9 @@
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
     "check": "nuxt typecheck && bash ../../apps/game/scripts/release/install-check.sh && nuxt generate",
-    "deploy": "bun run deploy.ts",
-    "verify": "bun run verify.ts",
-    "bake": "bash bake/bake.sh"
+    "deploy": "bun run scripts/deploy.ts",
+    "verify": "bun run scripts/verify.ts",
+    "bake": "bash scripts/bake.sh"
   },
   "dependencies": {
     "@iconify-json/simple-icons": "^1.2.86",
