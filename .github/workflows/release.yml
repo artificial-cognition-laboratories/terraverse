@@ -3,8 +3,9 @@
 # tag: repo.config.ts). Run it by hand to get the builds as artifacts without
 # releasing.
 #
-# Each platform builds, tests, packages and boots its package; then one job
-# writes the manifest naming every build, signs it, and publishes them together.
+# Each platform builds, tests, packages and boots its package, and the official mods
+# reach the registry; then one job writes the manifest naming every build, signs it,
+# and publishes them together.
 #
 # Linux is built on the oldest system we support (Ubuntu 22.04, glibc 2.35), so
 # the result runs on that and anything newer. apps/game/scripts/release/package-linux.sh
@@ -254,10 +255,36 @@ jobs:
           path: .output/releases/terraverse-${{ env.VERSION }}-windows-x86_64.tar.zst
           compression-level: 0 # already zstd
 
+  # The official mods (registry/mods), which every world this release makes pins: a tag
+  # publishes any version the registry doesn't have, before the game's packages go up, and
+  # fails on a mod changed under a version already published. Anything else only checks:
+  # a dispatch fails as the tag would, a master push warns (the release bot bumps).
+  # Beside the builds, not after: publishing what the tag holds is harmless if they fail.
+  mods:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Install terra
+        working-directory: apps/cli
+        run: bun install --frozen-lockfile
+
+      # TERRA_TOKEN: a terra key for an account in the terraverse org, given only to a tag.
+      - name: Publish the official mods
+        env:
+          TERRA_TOKEN: ${{ github.ref_type == 'tag' && secrets.TERRA_TOKEN || '' }}
+          FLAGS: ${{ github.ref_type == 'tag' && ' ' || github.event_name == 'push' && '--dry-run --warn-unbumped' || '--dry-run' }}
+        run: bun apps/game/scripts/release/publish-mods.ts $FLAGS
+
   # One manifest names every platform's build, signed once: a release is all
   # its platforms or none of them.
   publish:
-    needs: [linux, windows]
+    needs: [linux, windows, mods]
     if: github.event_name != 'push' || github.ref_type == 'tag'
     runs-on: ubuntu-22.04
     timeout-minutes: 15
