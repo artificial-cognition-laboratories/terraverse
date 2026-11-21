@@ -27,3 +27,13 @@ Likely shape of it (not verified): block (374,-1,-1336)'s edge lies exactly on a
 partial (cut) cell there isn't drawn, or A's territory stops short of it. Check `atlas.cut()` for the
 cells either side at that point, and the test's `seam` (airlike) node, which the test's ClientWorld puts
 where a block's slot is outside its territory.
+
+## Agent notes (2026-11-20, jobs bot)
+
+Still reproduces at 19:49's build (`ATLAS_EYE=58,137,22 … --test-module TestAtlasRender`: 1 of 3 fail).
+Not fixed tonight (ran out of budget on it). Lead to follow: the test's ClientWorld (`receive`,
+test_atlas_render.cpp:159) decides each node solid by its *cell's* centre, so a cut cell on B's side
+can come out air while A's neighbouring cut cell is solid at the same height; `clipToTerritory`
+(mapblock_mesh.cpp:807) then has nothing of B's to clip, and A's top stops at the seam plane. Print
+both cut cells' `solid(centre)` and `atlas.cut()` planes at the hit point first: if one is air, the
+crack is the test world's (or the generator's cut faces) rather than the renderer's.
