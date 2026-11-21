@@ -19,7 +19,7 @@ export default {
     deploy: {
         terraverse(release: Release) {
             const game = release.target({
-                cwd: ".",
+                cwd: "apps/game",
                 rationale: "GitHub Releases: a tag builds every platform in CI. A tag can't be taken back once friends have downloaded it, so the build, tests and a headless world boot pass here first.",
             })
             game.gate([release.script("release:gate")])
