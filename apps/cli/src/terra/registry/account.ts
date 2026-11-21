@@ -8,6 +8,11 @@ type AccountOpts = {
     base: string
     /** Where the key is kept: one file per API, so staging and production never mix. */
     file: string
+    /**
+     * A key from the environment (TERRA_TOKEN), for machines that can't sign in by the
+     * device flow: CI publishing the official mods. Wins over the file, which is left alone.
+     */
+    token?: string | null
 }
 
 /** A pending sign-in, as the person at the terminal needs it. */
@@ -37,7 +42,8 @@ export type Identity = {
  * sends a production key there.
  */
 export function Account(opts: AccountOpts) {
-    let key: string | null = read()
+    const token = opts.token || null
+    let key: string | null = token ?? read()
     const api: ApiT = Api({ base: opts.base, key: () => key })
 
     function read(): string | null {
@@ -63,6 +69,7 @@ export function Account(opts: AccountOpts) {
 
     /** Start a sign-in: the code to approve. */
     async function authorize(): Promise<Authorization & { device: string; interval: number }> {
+        if (token) throw err("USAGE", { detail: "signed in by TERRA_TOKEN: unset it to sign in as someone else" })
         const body = record(await api.post("/api/user/device/authorize", { client: "terra-cli" }, "none"), "the device authorization")
         const device = body.device_code, code = body.user_code, url = body.verification_uri_complete
         const expires = body.expires_in, interval = body.interval
@@ -99,6 +106,7 @@ export function Account(opts: AccountOpts) {
 
     /** Forget the key. Whether there was one. */
     function logout(): boolean {
+        if (token) throw err("USAGE", { detail: "signed in by TERRA_TOKEN: unset it to sign out" })
         const had = key !== null
         rmSync(opts.file, { force: true })
         key = null

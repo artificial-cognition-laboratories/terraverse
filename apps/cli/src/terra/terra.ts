@@ -27,7 +27,7 @@ export function Terra(opts: TerraOpts) {
     const places = Places({ env: process.env, platform: process.platform })
     const dev = Dev({ projects: projects, engine: engine, places: places })
     const arclabs = (opts.arclabs ?? process.env.ARCLABS_URL ?? DEFAULT_ARCLABS).replace(/\/+$/, "")
-    const account = Account({ base: arclabs, file: accountFile(places.config(), arclabs, DEFAULT_ARCLABS) })
+    const account = Account({ base: arclabs, file: accountFile(places.config(), arclabs, DEFAULT_ARCLABS), token: process.env.TERRA_TOKEN ?? null })
     const registry = Registry({ api: account.api })
 
     return {

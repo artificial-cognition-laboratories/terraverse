@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { accountFile, mediaLinks, npmUrl, Pack, parseSpec, withScope } from "../../src/terra/registry"
+import { Account, accountFile, mediaLinks, npmUrl, Pack, parseSpec, withScope } from "../../src/terra/registry"
 
 describe("a mod spec", () => {
     test("is a scoped name, with an optional exact version", () => {
@@ -60,6 +60,44 @@ describe("the account file", () => {
     test("is account.json for production, named by host for anything else", () => {
         expect(accountFile("/c", "https://prod", "https://prod")).toBe("/c/account.json")
         expect(accountFile("/c", "http://localhost:3099", "https://prod")).toBe("/c/account-localhost_3099.json")
+    })
+})
+
+describe("a key from TERRA_TOKEN", () => {
+    function saved(key: string): string {
+        const file = join(mkdtempSync(join(tmpdir(), "terra-account-test-")), "account.json")
+        writeFileSync(file, JSON.stringify({ key: key }) + "\n")
+        return file
+    }
+
+    test("is sent instead of the saved key, which is left alone", async () => {
+        let sent = "none"
+        const server = Bun.serve({ port: 0, fetch(request) {
+            sent = request.headers.get("authorization") ?? "none"
+            return Response.json({ id: "u1", username: "terraverse-ci", name: null })
+        } })
+        try {
+            const file = saved("from-the-file")
+            const account = Account({ base: `http://localhost:${server.port}`, file: file, token: "from-the-env" })
+            expect(account.signedIn()).toBe(true)
+            expect((await account.whoami()).username).toBe("terraverse-ci")
+            expect(sent).toBe("Bearer from-the-env")
+            expect(JSON.parse(await Bun.file(file).text()).key).toBe("from-the-file")
+        } finally {
+            server.stop(true)
+        }
+    })
+
+    test("signs in with no file at all, and an empty one is no key", () => {
+        const missing = join(mkdtempSync(join(tmpdir(), "terra-account-test-")), "account.json")
+        expect(Account({ base: "http://x", file: missing, token: "k" }).signedIn()).toBe(true)
+        expect(Account({ base: "http://x", file: missing, token: "" }).signedIn()).toBe(false)
+    })
+
+    test("refuses login and logout while it's set", async () => {
+        const account = Account({ base: "http://x", file: saved("f"), token: "k" })
+        expect(() => account.logout()).toThrow("TERRA_TOKEN")
+        await expect(account.authorize()).rejects.toThrow("TERRA_TOKEN")
     })
 })
 

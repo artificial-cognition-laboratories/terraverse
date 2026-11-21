@@ -76,7 +76,9 @@ terra logout
 
 terra signs in with its own key, separate from the game's: the game's can only play, and
 terra's can publish. `ARCLABS_URL` points terra at another server (local staging is
-`http://localhost:3099`), with its own sign-in.
+`http://localhost:3099`), with its own sign-in. Where nobody can approve a sign-in (CI
+publishing a mod), `TERRA_TOKEN` gives terra a key directly: it wins over the saved sign-in,
+and `terra login` and `terra logout` refuse while it's set.
 
 ```bash
 terra info @you/kilns                        # its versions, and the mod API each needs
