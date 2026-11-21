@@ -53,6 +53,7 @@ const self = useCopy()
 
 <style scoped lang="scss">
 .steps {
+    @include on-sky;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1rem;
@@ -103,7 +104,7 @@ const self = useCopy()
 }
 
 .plan {
-    @include panel($stone-0);
+    @include panel($night-0);
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
@@ -112,7 +113,7 @@ const self = useCopy()
     // The one most people want: lifted, with the ocean along its top
     &.featured {
         position: relative;
-        background: $stone-2;
+        background: $night-2;
         border-color: $primary-lo;
 
         &::before {
@@ -156,8 +157,8 @@ header p,
     font-size: 1.6rem;
     font-weight: 700;
     color: $ink;
-    border-top: 1px solid $stone-3;
-    border-bottom: 1px solid $stone-3;
+    border-top: 1px solid $night-3;
+    border-bottom: 1px solid $night-3;
 
     .unset {
         font-family: $font-display;
@@ -189,6 +190,7 @@ ul {
 
 // Below the plans, on the page itself: the free way, set apart but not boxed
 .self {
+    @include on-sky;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -218,8 +220,8 @@ ul {
     font-family: $font-mono;
     font-size: 0.85rem;
     color: $ink;
-    background: $stone-1;
-    border: 1px solid $stone-3;
+    background: $night-1;
+    border: 1px solid $night-3;
     cursor: pointer;
 
     .prompt {
@@ -232,7 +234,7 @@ ul {
     }
 
     &:hover {
-        border-color: $stone-4;
+        border-color: $night-4;
 
         .state {
             color: $primary-ink;

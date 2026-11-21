@@ -14,6 +14,7 @@ defineProps<{ points: readonly { title: string; text: string }[] }>()
 
 <style scoped lang="scss">
 .points {
+    @include on-sky;
     display: grid;
     gap: 1.25rem;
     margin: 0;

@@ -56,11 +56,11 @@ withDefaults(defineProps<{ to: string; variant?: "primary" | "ghost"; size?: "md
 }
 
 .ghost {
-    background: $stone-2;
+    background: $night-2;
     color: $ink;
 
     &:hover {
-        background: $stone-3;
+        background: $night-3;
     }
 }
 </style>

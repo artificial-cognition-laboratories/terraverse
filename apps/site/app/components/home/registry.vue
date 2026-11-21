@@ -53,14 +53,14 @@ const trending = SAMPLE_LISTINGS.slice(0, 4)
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: $ink;
-    border-bottom: 1px solid $stone-3;
+    border-bottom: 1px solid $night-3;
 }
 
 .row-head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    border-bottom: 1px solid $stone-3;
+    border-bottom: 1px solid $night-3;
     margin: 3rem 0 1rem;
 
     .label {
@@ -97,8 +97,8 @@ const trending = SAMPLE_LISTINGS.slice(0, 4)
     font-size: 0.68rem;
     text-transform: uppercase;
     color: $ink-dim;
-    background: $stone-1;
-    border: 1px solid $stone-3;
+    background: $night-1;
+    border: 1px solid $night-3;
     text-decoration: none;
     white-space: nowrap;
 

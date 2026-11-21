@@ -80,7 +80,7 @@ const tiles = computed<Tile[]>(() => {
 
     &:hover {
         border-color: $primary-ink;
-        background: $stone-2;
+        background: $night-2;
 
         .icon {
             color: $primary-ink;
@@ -107,13 +107,18 @@ const tiles = computed<Tile[]>(() => {
         }
     }
 
+    // dim what's on it, not the tile: the sky mustn't show through
     &.soon {
-        opacity: 0.45;
         cursor: default;
 
+        > * {
+            opacity: 0.45;
+        }
+
+
         &:hover {
-            border-color: $stone-3;
-            background: $stone-1;
+            border-color: $night-3;
+            background: $night-1;
 
             .icon {
                 color: inherit;

@@ -16,6 +16,7 @@ defineProps<{ kicker: string; title: string; lede?: string; link?: { label: stri
 
 <style scoped lang="scss">
 .heading {
+    @include on-sky;
     display: flex;
     align-items: flex-end;
     justify-content: space-between;

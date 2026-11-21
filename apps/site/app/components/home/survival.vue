@@ -55,8 +55,8 @@ li {
     place-items: center;
     width: 4rem;
     height: 4rem;
-    background: $stone-0;
-    border: 1px solid $stone-3;
+    background: $night-0;
+    border: 1px solid $night-3;
 }
 
 h3 {

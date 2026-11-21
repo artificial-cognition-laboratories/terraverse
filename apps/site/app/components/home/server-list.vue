@@ -40,13 +40,13 @@ defineProps<{ servers: readonly Server[] }>()
         text-transform: uppercase;
         text-align: left;
         color: $ink-faint;
-        border-bottom: 1px solid $stone-3;
+        border-bottom: 1px solid $night-3;
     }
 
     td {
         padding: 0.85rem 1rem;
         color: $ink-dim;
-        border-bottom: 1px solid $stone-2;
+        border-bottom: 1px solid $night-2;
         white-space: nowrap;
     }
 
@@ -78,7 +78,7 @@ defineProps<{ servers: readonly Server[] }>()
     width: 3.5rem;
     height: 0.4rem;
     margin-right: 0.6rem;
-    background: $stone-3;
+    background: $night-3;
     vertical-align: middle;
 
     span {

@@ -43,36 +43,6 @@ export function cover(seed: string, width = 32): CoverArt {
     return { width: width, height: height, sky: sky, pixels: pixels }
 }
 
-/**
- * A page's horizon: a wide, quiet scene with the land in its lower third, a far
- * range behind it, and the sky left clear above for words.
- */
-export function horizon(seed: string, width: number, height: number): CoverArt {
-    const random = rng(hash(seed))
-    const land = pick(LANDS, random())
-    const sky = pick(SKIES, random())
-    const pixels: Column[] = []
-    for (let i = 0; i < width / 6; i++) {
-        const dim = random() < 0.75
-        pixels.push({ x: Math.floor(random() * width), y: Math.floor(random() * height * 0.6), h: 1, fill: dim ? "rgb(232 236 239 / 0.18)" : STAR })
-    }
-    const [w0, w1, w2, w3] = [random() * 6, random() * 6, random() * 6, random() * 6]
-    const far = height * 0.66
-    const near = height * 0.8
-    for (let x = 0; x < width; x++) {
-        const back = Math.round(far + Math.sin(x * 0.045 + w3) * 4 + Math.sin(x * 0.13 + w1) * 1.5)
-        pixels.push({ x: x, y: back, h: height - back, fill: "rgb(232 236 239 / 0.05)" })
-        const ridge = Math.round(near + Math.sin(x * 0.03 + w0) * 3.5 + Math.sin(x * 0.11 + w1) * 1.6 + Math.sin(x * 0.29 + w2) * 0.7)
-        let y = ridge
-        land.forEach((fill, layer) => {
-            const h = Math.min(height - y, layer === land.length - 1 ? height - y : layer === 0 ? 1 : 2 + Math.floor(random() * 3))
-            if (h > 0) pixels.push({ x: x, y: y, h: h, fill: fill })
-            y += h
-        })
-    }
-    return { width: width, height: height, sky: sky, pixels: pixels }
-}
-
 /** One of a non-empty list, by a number in [0, 1). */
 function pick<T>(list: readonly [T, ...T[]], at: number): T {
     return list[Math.floor(at * list.length)] ?? list[0]

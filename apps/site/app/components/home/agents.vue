@@ -40,7 +40,7 @@ import { agents, links } from "~/config/home"
     font-family: $font-mono;
     font-size: 0.8rem;
     line-height: 1.6;
-    background: $stone-0;
+    background: $night-0;
     min-height: 20rem;
 
     li {

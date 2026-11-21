@@ -10,8 +10,10 @@ defineProps<{ html: string }>()
 
 <style scoped lang="scss">
 .code {
+    padding: 1.25rem 0;
     overflow-x: auto;
     counter-reset: line;
+    background: $night-0;
 
     :deep(pre) {
         margin: 0;
@@ -37,7 +39,7 @@ defineProps<{ html: string }>()
             width: 2rem;
             margin-right: 1.25rem;
             text-align: right;
-            color: $stone-4;
+            color: $night-4;
             user-select: none;
         }
     }

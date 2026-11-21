@@ -1,16 +1,9 @@
 <script setup lang="ts">
-import { hero, links } from "~/config/home"
-import { horizon } from "~/lib/cover"
-
-// One fixed world, so the prerendered page and the hydrated one draw the same
-const art = horizon(hero.code, 360, 150)
-const code = useCopy()
+import { facts, hero, links } from "~/config/home"
 </script>
 
 <template>
     <section class="hero">
-        <home-art class="sky" :art="art" anchor="bottom" />
-
         <div class="inner">
             <p class="kicker">{{ hero.kicker }}</p>
             <h1>{{ hero.title[0] }}<br /><em>{{ hero.title[1] }}</em></h1>
@@ -21,14 +14,11 @@ const code = useCopy()
                 <home-button :to="links.registry" variant="primary">Browse the registry »</home-button>
                 <home-button :to="links.docs">Read the docs</home-button>
             </div>
+            <ul class="facts">
+                <li v-for="fact in facts" :key="fact">{{ fact }}</li>
+            </ul>
         </div>
 
-        <button class="code" type="button" :title="`Copy ${hero.code}`" @click="code.copy(hero.code)">
-            <span class="mark" aria-hidden="true">»</span>
-            <span>this world is</span>
-            <code>{{ hero.code }}</code>
-            <span class="state">{{ code.label.value }}</span>
-        </button>
     </section>
 </template>
 
@@ -37,18 +27,13 @@ const code = useCopy()
     position: relative;
     display: flex;
     align-items: center;
-    min-height: clamp(640px, 100dvh, 920px);
-    // the land fills the foot of the scene: the words stay in the sky
-    padding: 52px 0 14rem;
+    min-height: clamp(640px, 92dvh, 880px);
+    padding: 52px 0 6rem;
     overflow: hidden;
 }
 
-.sky {
-    position: absolute;
-    inset: 0;
-}
-
 .inner {
+    @include on-sky;
     position: relative;
     width: 100%;
     max-width: $site-width;
@@ -96,44 +81,35 @@ h1 {
     margin-top: 1.25rem;
 }
 
-// Sits on the land, like a caption on a photograph
-.code {
-    position: absolute;
-    right: max(2rem, calc((100% - #{$site-width}) / 2 + 2rem));
-    bottom: 1.5rem;
+.facts {
     display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.45rem 0.8rem;
-    font-family: $font-mono;
-    font-size: 0.72rem;
-    color: $ink-dim;
-    background: rgba($stone-0, 0.7);
-    border: 1px solid rgba($ink, 0.08);
-    cursor: pointer;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.6rem;
+    margin: 2.5rem 0 0;
+    padding: 0;
+    list-style: none;
 
-    code {
-        color: $ink;
-    }
-
-    .mark {
-        color: $primary-ink;
-    }
-
-    .state {
-        min-width: 4.5em;
+    li {
+        font-family: $font-display;
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
         color: $ink-faint;
-        text-align: right;
-    }
+        white-space: nowrap;
 
-    &:hover .state {
-        color: $primary-ink;
+        &::before {
+            content: "■";
+            margin-right: 0.5rem;
+            color: $primary-ink;
+            font-size: 0.5rem;
+            vertical-align: 0.1em;
+        }
     }
 }
 
 @include mobile {
     .hero {
-        padding-bottom: 12rem;
+        padding-top: calc(52px + 2.5rem);
     }
 
     .inner {
@@ -143,11 +119,6 @@ h1 {
     .actions > * {
         width: 100%;
         justify-content: center;
-    }
-
-    .code {
-        left: 1.25rem;
-        right: auto;
     }
 }
 </style>

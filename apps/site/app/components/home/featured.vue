@@ -53,7 +53,7 @@ const command = computed(() => `terra install ${shown.value?.name ?? ""}`)
     display: grid;
     min-height: 300px;
     overflow: hidden;
-    border: 1px solid $stone-3;
+    border: 1px solid $night-3;
 }
 
 .art {
@@ -64,7 +64,7 @@ const command = computed(() => `terra install ${shown.value?.name ?? ""}`)
 .shade {
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, rgba($stone-0, 0.95) 0%, rgba($stone-0, 0.75) 45%, rgba($stone-0, 0) 80%);
+    background: linear-gradient(90deg, rgba($night-0, 0.95) 0%, rgba($night-0, 0.75) 45%, rgba($night-0, 0) 80%);
 }
 
 .text {
@@ -105,7 +105,7 @@ const command = computed(() => `terra install ${shown.value?.name ?? ""}`)
     font-family: $font-display;
     font-size: 0.9rem;
     color: $primary-ink;
-    background: $stone-1;
+    background: $night-1;
     border: 1px solid $primary-lo;
 }
 
@@ -144,8 +144,8 @@ p {
     font-family: $font-mono;
     font-size: 0.75rem;
     color: $ink-dim;
-    background: rgba($stone-0, 0.8);
-    border: 1px solid $stone-4;
+    background: rgba($night-0, 0.8);
+    border: 1px solid $night-4;
     cursor: pointer;
 
     .prompt {
@@ -178,7 +178,7 @@ p {
         width: 0.7rem;
         height: 0.7rem;
         padding: 0;
-        background: $stone-4;
+        background: $night-4;
         border: $bevel solid $edge;
         cursor: pointer;
 
@@ -194,7 +194,7 @@ p {
     }
 
     .shade {
-        background: rgba($stone-0, 0.82);
+        background: rgba($night-0, 0.82);
     }
 }
 </style>

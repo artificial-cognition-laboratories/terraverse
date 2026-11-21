@@ -15,14 +15,10 @@ withDefaults(defineProps<{ tone?: "base" | "lifted" }>(), { tone: "base" })
 .band {
     padding: 6.5rem 0;
 
-    &.base {
-        background: $stone-0;
-    }
-
+    // Every band is open to the sky behind the page; only the panels in it are stone.
+    // `tone` is kept for a band that needs ground of its own again.
     &.lifted {
-        background: $stone-1;
-        border-top: 1px solid $stone-2;
-        border-bottom: 1px solid $stone-2;
+        background: transparent;
     }
 }
 

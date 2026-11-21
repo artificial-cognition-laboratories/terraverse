@@ -79,17 +79,17 @@ const layer = computed(() => universe.layers[at.value] ?? universe.layers[0])
         color: inherit;
         background: transparent;
         border: 1px solid transparent;
-        border-left: 3px solid $stone-3;
+        border-left: 3px solid $night-3;
         cursor: pointer;
         transition: background 0.1s, border-color 0.1s;
 
         &:hover {
-            background: $stone-0;
+            background: $night-0;
         }
 
         &.on {
-            background: $stone-0;
-            border-color: $stone-3;
+            background: $night-0;
+            border-color: $night-3;
             border-left-color: $primary-ink;
 
             .n {
@@ -113,7 +113,7 @@ const layer = computed(() => universe.layers[at.value] ?? universe.layers[0])
     font-family: $font-display;
     font-size: 0.7rem;
     color: $ink-faint;
-    border: 1px solid $stone-3;
+    border: 1px solid $night-3;
 }
 
 .words {
@@ -141,8 +141,8 @@ const layer = computed(() => universe.layers[at.value] ?? universe.layers[0])
     margin: 0;
     aspect-ratio: 2 / 1;
     overflow: hidden;
-    background: $stone-0;
-    border: 1px solid $stone-3;
+    background: $night-0;
+    border: 1px solid $night-3;
 
     img {
         position: absolute;
@@ -167,7 +167,7 @@ const layer = computed(() => universe.layers[at.value] ?? universe.layers[0])
         font-family: $font-mono;
         font-size: 0.7rem;
         color: $ink;
-        background: rgba($stone-0, 0.8);
+        background: rgba($night-0, 0.8);
         border: 1px solid rgba($ink, 0.08);
     }
 
@@ -184,7 +184,7 @@ const layer = computed(() => universe.layers[at.value] ?? universe.layers[0])
 }
 
 .system {
-    @include panel($stone-0);
+    @include panel($night-0);
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
@@ -194,7 +194,7 @@ const layer = computed(() => universe.layers[at.value] ?? universe.layers[0])
     transition: border-color 0.1s;
 
     &:hover {
-        border-color: $stone-4;
+        border-color: $night-4;
 
         h3 {
             color: $primary-ink;
@@ -208,8 +208,8 @@ const layer = computed(() => universe.layers[at.value] ?? universe.layers[0])
     width: 4rem;
     height: 4rem;
     margin-bottom: 0.6rem;
-    background: $stone-1;
-    border: 1px solid $stone-3;
+    background: $night-1;
+    border: 1px solid $night-3;
 }
 
 h3 {

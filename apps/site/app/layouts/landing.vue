@@ -11,18 +11,19 @@
 // The hero runs up under the topnav, so the sky starts at the top of the window
 .landing-shell {
     min-height: 100dvh;
-    background: $stone-0;
+    // the sky's first colour (lib/sky.ts), under it before it's drawn
+    background: #04070b;
     color: $ink;
 
     :deep(.topnav) {
-        background: rgba($stone-0, 0.72);
+        background: rgba($night-0, 0.72);
         backdrop-filter: blur(10px);
         border-bottom: 1px solid rgba($ink, 0.06);
     }
 
     :deep(.footer) {
-        background: $stone-0;
-        border-top: 1px solid $stone-2;
+        background: transparent;
+        border-top: none;
     }
 }
 </style>

@@ -20,7 +20,7 @@ const copy = useCopy()
 
 <style scoped lang="scss">
 .command {
-    @include panel($stone-0);
+    @include panel($night-0);
     display: flex;
     gap: 0.8rem;
     align-items: center;
@@ -50,7 +50,7 @@ const copy = useCopy()
     }
 
     &:hover {
-        border-color: $stone-4;
+        border-color: $night-4;
 
         .state {
             color: $primary-ink;

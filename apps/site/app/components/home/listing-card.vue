@@ -40,7 +40,7 @@ const art = computed(() => cover(props.listing.name, 32))
     transition: background 0.1s;
 
     &:hover {
-        border-color: $stone-4;
+        border-color: $night-4;
 
         h3 {
             color: $primary-ink;
@@ -54,7 +54,7 @@ const art = computed(() => cover(props.listing.name, 32))
 
 .art {
     aspect-ratio: 16 / 9;
-    border-bottom: 1px solid $stone-3;
+    border-bottom: 1px solid $night-3;
 }
 
 .badge {
@@ -66,7 +66,7 @@ const art = computed(() => cover(props.listing.name, 32))
     font-size: 0.55rem;
     text-transform: uppercase;
     color: $primary-ink;
-    background: rgba($stone-0, 0.85);
+    background: rgba($night-0, 0.85);
     border: 1px solid $primary-ink;
 }
 
@@ -87,7 +87,7 @@ const art = computed(() => cover(props.listing.name, 32))
     font-family: $font-display;
     font-size: 0.75rem;
     color: $primary-ink;
-    background: $stone-1;
+    background: $night-1;
     border: 1px solid $primary-lo;
 }
 
@@ -139,6 +139,6 @@ p {
 .tag {
     margin-left: auto;
     padding: 0.1rem 0.4rem;
-    border: 1px solid $stone-4;
+    border: 1px solid $night-4;
 }
 </style>

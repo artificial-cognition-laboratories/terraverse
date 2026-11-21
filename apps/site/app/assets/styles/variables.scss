@@ -155,20 +155,23 @@ $text-value: 1.5rem; // headline numbers
 $font-display: "Silkscreen", $font-mono;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The landing and registry: the game's own menu, on the web. These are the
-// in-game shell's tokens (interface/src/theme.css), so a mod looks the same
-// on this site as it does in the game. Docs keep the terminal theme above.
+// The landing and registry: built from the night the landing hangs in (lib/sky.ts).
+//
+// Panels are made of the same dark as the sky, a step lifted, so they belong to
+// the scene and still sit plainly in front of it. Docs keep the terminal theme above.
 // ─────────────────────────────────────────────────────────────────────────────
 
-$stone-0: #0c0e10;
-$stone-1: #15181b;
-$stone-2: #1e2226;
-$stone-3: #2a2f34;
-$stone-4: #3a4148;
-$edge: #07080a;
-$ink: #e8ecef;
-$ink-dim: rgba(232, 236, 239, 0.62);
-$ink-faint: rgba(232, 236, 239, 0.36);
+$night-0: #070b11; // wells: code, inputs, the deepest ground of a panel
+$night-1: #0c121b; // a panel
+$night-2: #111a26; // a raised panel, a hover
+$night-3: #1c2737; // hairlines
+$night-4: #2b384a; // strong lines, quiet controls
+$edge: #04060a;
+$ink: #e7edf4;
+$ink-dim: rgba(231, 237, 244, 0.64);
+$ink-faint: rgba(231, 237, 244, 0.38);
+// The light the scene is lit by: a panel's top edge catches it
+$moonlit: rgba(201, 214, 227, 0.08);
 
 // One light, top-left, as in the game: never a hand-written bevel
 $bevel: 2px;

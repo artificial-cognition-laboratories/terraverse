@@ -64,12 +64,12 @@ const shown = computed(() => html.value?.[at.value])
 }
 
 .bar {
+    @include on-sky;
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
     gap: 1rem;
-    margin-bottom: 1.5rem;
-    border-bottom: 1px solid $stone-3;
+    border-bottom: 1px solid $night-3;
 }
 
 .tabs {

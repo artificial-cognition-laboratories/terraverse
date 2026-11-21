@@ -35,8 +35,8 @@ defineProps<{ title: string; note?: string }>()
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: $ink;
-    background: $stone-2;
-    border-bottom: 1px solid $stone-3;
+    background: $night-2;
+    border-bottom: 1px solid $night-3;
     white-space: nowrap;
     overflow: hidden;
 }
