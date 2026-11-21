@@ -23,7 +23,6 @@ struct PointedThing;
  * It includes:
  *   - status texts
  *   - debug texts
- *   - chat texts
  *   - hud flags
  */
 class GameUI
@@ -41,7 +40,6 @@ public:
 	// Flags that can, or may, change during main game loop
 	struct Flags
 	{
-		bool show_chat = true;
 		bool show_hud = true;
 		bool show_minimal_debug = false;
 		bool show_basic_debug = false;
@@ -70,16 +68,9 @@ public:
 			m_status_text->clearStatusText();
 	}
 
-	bool isChatVisible()
-	{
-		return m_flags.show_chat && m_recent_chat_count != 0 && m_profiler_current_page == 0;
-	}
-	void setChatText(const EnrichedString &chat_text, u32 recent_chat_count);
-	void updateChatSize();
 
 	void updateProfiler();
 
-	void toggleChat(Client *client);
 	void toggleHud();
 	void toggleProfiler();
 
@@ -98,9 +89,6 @@ private:
 
 	std::unique_ptr<StatusTextHelper> m_status_text = nullptr;
 
-	gui::IGUIStaticText *m_guitext_chat = nullptr; // Chat text
-	u32 m_recent_chat_count = 0;
-	core::rect<s32> m_current_chat_size{0, 0, 0, 0};
 
 	gui::IGUIStaticText *m_guitext_profiler = nullptr; // Profiler text
 	u8 m_profiler_current_page = 0;

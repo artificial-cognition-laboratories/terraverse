@@ -1704,8 +1704,6 @@ void Game::processKeyInput()
 #endif
 		if (!opened_map)
 			toggleMinimap(isKeyDown(KeyType::AUX1));
-	} else if (wasKeyPressed(KeyType::TOGGLE_CHAT)) {
-		m_game_ui->toggleChat(client);
 	} else if (wasKeyPressed(KeyType::TOGGLE_FOG)) {
 		toggleFog();
 	} else if (wasKeyDown(KeyType::TOGGLE_UPDATE_CAMERA)) {
@@ -2905,18 +2903,8 @@ void Game::updateChat(f32 dtime)
 		chat_backend->addUnparsedMessage(message);
 	}
 
-	// Remove old messages
+	// Remove old messages (the console still shows them: no list over the game)
 	chat_backend->step(dtime);
-
-	// Display all messages in a static text element
-	auto &buf = chat_backend->getRecentBuffer();
-	if (buf.getLinesModified()) {
-		buf.resetLinesModified();
-		m_game_ui->setChatText(chat_backend->getRecentChat(), buf.getLineCount());
-	}
-
-	// Make sure that the size is still correct
-	m_game_ui->updateChatSize();
 }
 
 void Game::updateCamera(f32 dtime)

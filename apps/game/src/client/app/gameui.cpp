@@ -44,25 +44,15 @@ void GameUI::init()
 	m_guitext2 = gui::StaticText::add(guienv, L"", core::recti(), false,
 		true, guiroot);
 
-	// Chat text
-	m_guitext_chat = gui::StaticText::add(guienv, L"", core::recti(),
-		false, true, guiroot);
-	u16 chat_font_size = g_settings->getU16("chat_font_size");
-	if (chat_font_size != 0) {
-		m_guitext_chat->setOverrideFont(g_fontengine->getFont(
-			rangelim(chat_font_size, 5, 72), FM_Unspecified));
-	}
-
+	// Terra Firma: no chat list over the game: Luanti's, in the corner, showed
+	// every join and log line. Chat comes back as part of the UI.
 
 	// Infotext of nodes and objects.
 	// If in debug mode, object debug infos shown here, too.
-	// Located on the left on the screen, below chat.
-	u32 chat_font_height = m_guitext_chat->getActiveFont()->getDimension(L"Ay").Height;
 	m_guitext_info = gui::StaticText::add(guienv, L"",
 		// Size is limited; text will be truncated after 6 lines.
 		core::rect<s32>(0, 0, 400, g_fontengine->getTextHeight() * 6) +
-			v2s32(100, chat_font_height *
-			(g_settings->getU16("recent_chat_messages") + 3)),
+			v2s32(100, g_fontengine->getTextHeight() * 3),
 			false, true, guiroot);
 
 	// Status message for in-game notifications (fly/fast mode, volume changes, etc.)
@@ -176,9 +166,6 @@ void GameUI::update(const RunStats &stats, Client *client, MapDrawControl *draw_
 	// Update status message element
 	if (m_status_text)
 		m_status_text->update(dtime);
-
-	// Hide chat when disabled by server or when console is visible
-	m_guitext_chat->setVisible(isChatVisible() && !chat_console->isVisible() && (player->hud_flags & HUD_FLAG_CHAT_VISIBLE));
 }
 
 void GameUI::initFlags()
@@ -189,36 +176,6 @@ void GameUI::initFlags()
 void GameUI::showTranslatedStatusText(const char *str)
 {
 	showStatusText(wstrgettext(str));
-}
-
-void GameUI::setChatText(const EnrichedString &chat_text, u32 recent_chat_count)
-{
-	setStaticText(m_guitext_chat, chat_text);
-
-	m_recent_chat_count = recent_chat_count;
-}
-
-void GameUI::updateChatSize()
-{
-	// Update gui element size and position
-	s32 chat_y = 5;
-
-	if (m_flags.show_minimal_debug)
-		chat_y += m_guitext->getTextHeight();
-	if (m_flags.show_basic_debug)
-		chat_y += m_guitext2->getTextHeight();
-
-	const v2u32 window_size = RenderingEngine::getWindowSize();
-
-	core::rect<s32> chat_size(10, chat_y, window_size.X - 20, 0);
-	chat_size.LowerRightCorner.Y = std::min((s32)window_size.Y,
-			m_guitext_chat->getTextHeight() + chat_y);
-
-	if (chat_size == m_current_chat_size)
-		return;
-	m_current_chat_size = chat_size;
-
-	m_guitext_chat->setRelativePosition(chat_size);
 }
 
 void GameUI::updateProfiler()
@@ -260,20 +217,6 @@ void GameUI::updateProfiler()
 	}
 }
 
-void GameUI::toggleChat(Client *client)
-{
-	if (client->getEnv().getLocalPlayer()->hud_flags & HUD_FLAG_CHAT_VISIBLE) {
-		m_flags.show_chat = !m_flags.show_chat;
-		if (m_flags.show_chat)
-			showTranslatedStatusText("Chat shown");
-		else
-			showTranslatedStatusText("Chat hidden");
-	} else {
-		showTranslatedStatusText("Chat currently disabled by game or mod");
-	}
-
-}
-
 void GameUI::toggleHud()
 {
 	m_flags.show_hud = !m_flags.show_hud;
@@ -301,11 +244,6 @@ void GameUI::toggleProfiler()
 
 void GameUI::clearText()
 {
-	if (m_guitext_chat) {
-		m_guitext_chat->remove();
-		m_guitext_chat = nullptr;
-	}
-
 	if (m_guitext) {
 		m_guitext->remove();
 		m_guitext = nullptr;
