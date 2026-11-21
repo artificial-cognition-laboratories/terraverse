@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue"
 import { BridgeError } from "../bridge/index.ts"
 import { useBridge } from "../bridge/use.ts"
-import { Button, Choice, ListEmpty, ListGroup, ListItem, Notice, Segmented, Slider, Toggle, WorkbenchPanel } from "../kit/index.ts"
+import { Button, Choice, ListEmpty, ListGroup, ListItem, Notice, PageIntro, Segmented, Slider, Toggle, WorkbenchPanel } from "../kit/index.ts"
 import { CATEGORIES, GRAPHICS_PRESETS, type Page, type Category, type Option, type SettingValue } from "./options.ts"
 import { BINDINGS } from "./bindings.ts"
 import Keybindings from "./Keybindings.vue"
@@ -170,10 +170,7 @@ onMounted(async () => {
         <template #content>
             <Notice v-if="problem" tone="danger">{{ problem }}</Notice>
             <p v-if="!values && !problem" class="dim">Reading settings…</p>
-            <header class="page-intro">
-                <h2>{{ page.title }}</h2>
-                <p>{{ page.note }}</p>
-            </header>
+            <PageIntro :title="page.title" :note="page.note" />
             <template v-if="values && page.preset">
                 <Choice v-model="chosenPreset" :options="presetOptions" :disabled="busy" />
                 <p class="dim">{{ preset ? "" : "Custom: your settings match no preset." }}</p>
@@ -200,9 +197,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.page-intro { display: grid; gap: 7px; padding-bottom: 16px; border-bottom: 1px solid var(--stone-4); }
-.page-intro h2 { margin: 0; font: 18px var(--font-display); text-transform: uppercase; }
-.page-intro p, .option-note { margin: 0; color: var(--ink-dim); font-size: 11px; line-height: 1.5; }
+.option-note { margin: 0; color: var(--ink-dim); font-size: 11px; line-height: 1.5; }
 .options { display: grid; }
 .option { padding: 12px 10px; border: var(--b) solid transparent; border-bottom-color: var(--stone-3); }
 .option.on { border-color: var(--edge); background: var(--stone-1); box-shadow: var(--sunk); }

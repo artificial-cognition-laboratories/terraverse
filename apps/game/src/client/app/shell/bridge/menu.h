@@ -5,6 +5,7 @@
 
 #include "src/shared/game/content/subgames.h"
 #include "src/client/app/shell/bridge/community.h"
+#include "src/client/app/shell/bridge/registry.h"
 #include "src/shared/platform/online/join.h"
 #include "src/client/views/scenes/kinds/planetarium.h"
 #include "src/client/app/shell/host/shell.h"
@@ -57,6 +58,7 @@ private:
 	RenderingEngine *m_engine;
 	const Worlds &m_worlds;
 	Community m_community;
+	Registry m_registry; // the mod registry, for the community panel
 	MyEventReceiver &m_receiver;
 	// The create screen's planet (the window's: Shell::planetarium) is the
 	// world being made, from a code

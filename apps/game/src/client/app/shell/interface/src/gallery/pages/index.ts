@@ -1,5 +1,6 @@
 import type { Component } from "vue"
 import Account from "./Account.vue"
+import Community from "./Community.vue"
 import Controls from "./Controls.vue"
 import Create from "./Create.vue"
 import Creative from "./Creative.vue"
@@ -14,6 +15,7 @@ import World from "./World.vue"
 export const PAGES = [
     { id: "controls", label: "Controls", component: Controls },
     { id: "panels", label: "Panels", component: Panels },
+    { id: "community", label: "Community", component: Community },
     { id: "hud", label: "HUD", component: Hud },
     { id: "inventory", label: "Inventory", component: Inventory },
     { id: "creative", label: "Creative", component: Creative },

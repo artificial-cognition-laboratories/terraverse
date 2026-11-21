@@ -13,7 +13,7 @@ import { WORKBENCH_SEARCH } from "./workbench.ts"
 const props = defineProps<{
     title: string
     section: string
-    groups: readonly { id: T; label: string; shortLabel?: string; rows: readonly string[]; palette: Record<string, string> }[]
+    groups: readonly { id: T; label: string; shortLabel?: string; end?: boolean; rows: readonly string[]; palette: Record<string, string> }[]
     railLabel: string
     searchLabel?: string
     searchPlaceholder?: string

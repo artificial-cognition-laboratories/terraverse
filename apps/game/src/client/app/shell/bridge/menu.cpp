@@ -137,6 +137,7 @@ static std::string stringField(const Json::Value &intent, const char *field)
 Menu::Menu(const Opts &opts) :
 	m_shell(opts.shell), m_intents(opts.shell), m_engine(opts.engine), m_worlds(opts.worlds),
 	m_community(opts.worlds, g_settings->get("game_id")),
+	m_registry({ /* .intents = */ m_intents, /* .api = */ g_settings->get("arclabs_url") }),
 	m_receiver(opts.receiver),
 	m_planetarium(opts.shell.planetarium())
 {

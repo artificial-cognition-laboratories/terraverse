@@ -42,6 +42,39 @@ export type PublicServer = {
     favorite: boolean; compatible: boolean
 }
 export type ServerDirectory = { status: "ready" | "unavailable"; servers: PublicServer[] }
+/**
+ * The ArcLabs registry (backend: api/terrafirma/registry). A listing is one search row;
+ * `type`, `categories`, `icon`, `banner` and `installs` aren't served by the backend yet,
+ * and are null / empty until it does: render nothing for them rather than invent.
+ */
+/** What a package is. Never a field named `kind`: that's the bridge's own, on every message and intent. */
+export type RegistryType = "mod" | "textures"
+/** `relevance`: the backend's own order, best match for a query and by stars without one. */
+export type RegistrySort = "relevance" | "trending" | "new" | "stars" | "updated"
+export type RegistryListing = {
+    name: string; title: string | null; description: string; owner: string
+    latestVersion: string; stars: number; updatedAt: string
+    type: RegistryType | null; categories: string[]; icon: string | null; banner: string | null
+    installs: number | null; installed: boolean; official: boolean
+}
+export type RegistrySearch = { query: string; sort: RegistrySort; categories: string[]; type: RegistryType | null; installed: boolean; page: number }
+export type RegistryResults = { listings: RegistryListing[]; total: number; page: number; pageSize: number }
+export type RegistryCategory = { id: string; label: string; count: number }
+/** Discover: the front page, a set of shelves each answered by one search. */
+export type RegistryShelf = { id: string; title: string; search: Partial<RegistrySearch>; listings: RegistryListing[] }
+export type RegistryFront = { featured: RegistryListing[]; categories: RegistryCategory[]; shelves: RegistryShelf[] }
+export type RegistryVersion = {
+    version: string; publishedAt: string; api: string; title: string | null
+    dependencies: Record<string, string>; withheld: string | null
+}
+export type RegistryFile = { path: string; size: number }
+export type RegistryMod = RegistryListing & {
+    readme: string; deprecated: string | null; versions: RegistryVersion[]
+    /** Where the README's relative media is served from (the latest version's); null without a version. */
+    media: string | null
+    /** The latest version's files, for the source tree; null until the backend lists them. */
+    files: RegistryFile[] | null
+}
 export type CommunityCatalog = {
     textures: CommunityTexture[]; worlds: CommunityWorld[]
 }
@@ -532,6 +565,11 @@ export type Intents = {
     "servers.list": { request: {}; response: ServerDirectory }
     "servers.join": { request: { id: string }; response: null }
     "servers.favorite.set": { request: { id: string; favorite: boolean }; response: null }
+    "registry.front": { request: {}; response: RegistryFront }
+    "registry.search": { request: RegistrySearch; response: RegistryResults }
+    "registry.mod": { request: { name: string }; response: RegistryMod }
+    /** One file of a mod's latest version, as text, for the source view. */
+    "registry.file": { request: { name: string; path: string }; response: string }
     "community.list": { request: {}; response: CommunityCatalog }
     /** User-installed mods are selected per world; built-ins are required by this build. */
     /** A local texture pack is used after restarting Terraverse; empty id restores defaults. */

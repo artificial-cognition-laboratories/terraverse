@@ -7,6 +7,7 @@ import { FailureCode } from "../bridge/types"
 import type { Account, Player, Social, SandboxFrame, BodyCard, BodyKind, SystemWire, CommunityCatalog, CreativeItem, EngineMessage, MatterElement, MatterSubstance, IntentKind, Intents, Loading, LoadingStage, PublicServer, ServerDirectory, SlotRef, Stack, StateSections, UiValues, World } from "../bridge"
 import { DEFAULTS, decodeWorldCode, encodeWorldCode } from "../worldgen/config"
 import { mockPreview, mockWeather } from "./mockWorld"
+import { mockRegistry } from "./mockRegistry"
 import { bindingScancode } from "../settings/bindings"
 
 // The gallery's stand-in for the engine's home system (src/terragen/system.cpp: SystemSpec::home): no engine here.
@@ -349,6 +350,10 @@ export function MockBridge() {
             if (!server?.compatible) throw refuse("servers.join", "that server is not compatible with this build")
             return null
         },
+        "registry.front": () => mockRegistry.front(),
+        "registry.search": (search) => mockRegistry.search(search),
+        "registry.mod": ({ name }) => mockRegistry.mod(name),
+        "registry.file": ({ name, path }) => mockRegistry.file(name, path),
         "community.list": () => communityView(),
         "community.texture.set": ({ id }) => {
             if (id && !community.textures.some((pack) => pack.id === id)) throw refuse("community.texture.set", "that texture pack is not installed")

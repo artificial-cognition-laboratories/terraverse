@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref } from "vue"
+import { onMounted, ref } from "vue"
 
-defineProps<{ label: string; placeholder?: string }>()
+/** `autofocus`: takes the keyboard when shown, so a page that opens on a search can be typed into at once. */
+const props = defineProps<{ label: string; placeholder?: string; autofocus?: boolean }>()
 const model = defineModel<string>({ required: true })
 const input = ref<HTMLInputElement | null>(null)
+onMounted(() => { if (props.autofocus) input.value?.focus({ preventScroll: true }) })
 defineExpose({ focus: () => input.value?.focus(), blur: () => input.value?.blur() })
 </script>
 
