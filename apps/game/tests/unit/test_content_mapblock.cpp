@@ -161,6 +161,7 @@ public:
 	void testInterliquidSame();
 	void testInterliquidDifferent();
 	void testSmoothedGroundHasNoHoles(); // Terra Firma
+	void testNoHolesWhereDetailChanges(); // Terra Firma
 	void testCutNodeIsItsSurface(); // Terra Firma
 };
 
@@ -174,6 +175,7 @@ void TestMapblockMeshGenerator::runTests(IGameDef *gamedef)
 	TEST(testInterliquidSame);
 	TEST(testInterliquidDifferent);
 	TEST(testSmoothedGroundHasNoHoles);
+	TEST(testNoHolesWhereDetailChanges);
 	TEST(testCutNodeIsItsSurface);
 }
 
@@ -400,6 +402,99 @@ void TestMapblockMeshGenerator::testSmoothedGroundHasNoHoles()
 	UASSERT(shaped > 500); // enough of it was sloped to mean something
 }
 
+}
+
+/*
+	Terra Firma: two blocks side by side, one meshed fine and the next coarse
+	(MeshUpdateQueue::detailAt's ring between them). Looked at across the
+	seam from the coarse side, just over its ground, a ray meets the fine
+	side's wall there, never passes under it: its wall stopped at a sloped
+	line (Top::beside) above the coarse neighbour's flat top, an open
+	triangle at each corner along the ring, the far land showing through.
+*/
+void TestMapblockMeshGenerator::testNoHolesWhereDetailChanges()
+{
+	MockGameDef gamedef;
+	const content_t dirt = gamedef.addSimpleNode("dirt", 13, true);
+	gamedef.finalize();
+
+	const s16 N = 16, M = 6;
+	std::map<std::pair<int, int>, int> tops;
+	for (int x = -M; x < 2 * N + M; x++)
+		for (int z = -M; z < N + M; z++)
+			tops[{ x, z }] = 8 + int(std::floor(2 * noise2d_value(x / 3.f, z / 3.f, 7) + noise2d(x, z, 11)));
+
+	// fine against each coarser detail (MeshUpdateQueue::detailAt's: 1, 4, 16)
+	for (u8 coarse : { 4, 16 }) {
+		std::vector<std::array<v3f, 3>> triangles;
+		// the block at x = 16·bx, meshed at `detail`
+		const auto mesh = [&](s16 bx, u8 detail) {
+			MeshMakeData data{gamedef.ndef(), N, MeshGrid{1}};
+			data.m_generate_minimap = false;
+			data.m_smooth_lighting = true;
+			data.m_enable_water_reflections = false;
+			data.m_blockpos = {bx, 0, 0};
+			data.m_detail = detail;
+			for (s16 x = N * bx - M; x < N * (bx + 1) + M; x++)
+			for (s16 y = -M; y < N + M; y++)
+			for (s16 z = -M; z < N + M; z++)
+				data.m_vmanip.setNode({x, y, z}, {content_t(y < tops[{ x, z }] ? dirt : CONTENT_AIR), 0, 0});
+			MeshCollector col{{}};
+			MapblockMeshGenerator mg{&data, &col};
+			mg.generate();
+			const v3f origin(N * bx, 0, 0);
+			for (auto &layer : col.prebuffers)
+				for (auto &buf : layer)
+					for (size_t i = 0; i + 2 < buf.indices.size(); i += 3)
+						triangles.push_back({ buf.vertices[buf.indices[i]].Pos / BS + origin,
+								buf.vertices[buf.indices[i + 1]].Pos / BS + origin, buf.vertices[buf.indices[i + 2]].Pos / BS + origin });
+		};
+
+		auto hit = [&](v3f o, v3f d) -> std::optional<v3f> {
+			std::optional<float> best;
+			for (const auto &t : triangles) {
+				v3f e1 = t[1] - t[0], e2 = t[2] - t[0], pv = d.crossProduct(e2);
+				float det = e1.dotProduct(pv);
+				if (std::fabs(det) < 1e-9f)
+					continue;
+				v3f tv = o - t[0];
+				float u = tv.dotProduct(pv) / det;
+				if (u < -1e-5f || u > 1 + 1e-5f)
+					continue;
+				v3f qv = tv.crossProduct(e1);
+				float v = d.dotProduct(qv) / det;
+				if (v < -1e-5f || u + v > 1 + 1e-5f)
+					continue;
+				float k = e2.dotProduct(qv) / det;
+				if (k > 0 && (!best || k < *best))
+					best = k;
+			}
+			if (!best)
+				return std::nullopt;
+			return o + d * *best;
+		};
+
+		triangles.clear();
+		mesh(0, 1);
+		mesh(1, coarse);
+		const float seam = N - 0.5f; // between node 15 (fine) and 16 (coarse)
+		int looked = 0;
+		for (int k = 0; k < 200; k++) {
+			const float z = 0.03f + k * (N - 1.06f) / 200;
+			// the coarse side's ground just past the seam, and the fine side's just before it
+			const auto low = hit(v3f(seam + 0.02f, 40, z), v3f(0, -1, 0));
+			const auto high = hit(v3f(seam - 0.02f, 40, z), v3f(0, -1, 0));
+			UASSERT(low && high);
+			// across the seam, over the coarse ground and under the fine
+			for (float y = low->Y + 0.01f; y < high->Y - 0.01f; y += 0.02f) {
+				const auto p = hit(v3f(seam + 0.4f, y, z), v3f(-1, 0, 0));
+				UTEST(p && p->X > seam - 1e-3f, "at z %.2f, %.2f up, a ray passes under the fine side's wall to x %.2f",
+						z, y, p ? p->X : -1.f);
+				looked++;
+			}
+		}
+	UTEST(looked > 100, "at detail %d only %d heights looked across: not enough of the seam had the coarse side lower", coarse, looked);
+	}
 }
 
 /*

@@ -2271,6 +2271,7 @@ void MapblockMeshGenerator::drawGround(const ground::Top &top)
 	bool open[4];
 	for (int s = 0; s < 4; s++)
 		open[s] = cutShape(p + v3s16(ground::SIDE_DIR[s][0], 0, ground::SIDE_DIR[s][1]));
+	const std::array<std::array<int, STEPS>, 4> under = wallBottoms(top, open);
 	for (int s = 0; s < 4; s++) {
 		const bool along_x = s >= 2;
 		const int edge = (s == 1 || s == 3) ? STEPS : 0;
@@ -2279,7 +2280,7 @@ void MapblockMeshGenerator::drawGround(const ground::Top &top)
 		// the base: it may not cover the side)
 		auto span = [&](int k) {
 			const int x = along_x ? k : (edge ? STEPS - 1 : 0), z = along_x ? (edge ? STEPS - 1 : 0) : k;
-			return std::make_pair(open[s] ? 0 : top.beside(s, k), int(top.cells[x][z]));
+			return std::make_pair(under[s][k], int(top.cells[x][z]));
 		};
 		for (int k = 0; k < STEPS;) {
 			const auto [low, h] = span(k);
@@ -2295,6 +2296,60 @@ void MapblockMeshGenerator::drawGround(const ground::Top &top)
 			k = k1;
 		}
 	}
+}
+
+/*
+	Terra Firma: how low each wall at a ground node's sides goes, by voxel
+	along the side. Down to where the neighbour stands no lower than
+	(Top::beside), a sloped line along the side, or to its base against a
+	cut node; and lower, to where the neighbour is drawn, if that's coarser
+	(coarsen: flat at its cells' mean). Against a coarser neighbour, a wall
+	to the sloped line left a triangle open under it at each corner, the far
+	land showing through, along the ring where meshes change detail. Inside
+	this mesh the neighbour's at this mesh's detail; past it, in another
+	mesh, at any.
+*/
+static_assert(ground::STEPS == shape::STEPS, "a ground voxel is a cut one's: wallBottoms is declared in the latter");
+std::array<std::array<int, shape::STEPS>, 4> MapblockMeshGenerator::wallBottoms(
+		const ground::Top &top, const bool (&open)[4]) const
+{
+	using ground::STEPS;
+	static constexpr u8 DETAILS[] = { 1, 4, 16 }; // MeshUpdateQueue::detailAt's
+	const v3s16 p = blockpos_nodes + cur_node.p;
+	std::array<std::array<int, STEPS>, 4> out;
+	for (int s = 0; s < 4; s++) {
+		for (int k = 0; k < STEPS; k++)
+			out[s][k] = open[s] ? 0 : top.beside(s, k);
+		if (open[s])
+			continue;
+		const v3s16 dir(ground::SIDE_DIR[s][0], 0, ground::SIDE_DIR[s][1]);
+		const v3s16 there = cur_node.p + dir; // in this mesh's nodes
+		const bool inside = there.X >= 0 && there.Z >= 0 && there.X < data->m_side_length && there.Z < data->m_side_length;
+		if (inside && data->m_detail <= 1)
+			continue; // drawn as finely as this: no lower than the line
+		// their surface: in the node beside this one, or the one under it (a
+		// column a node lower), its heights then a node down from this one's
+		std::optional<ground::Top> theirs = groundTop(p + dir);
+		int down = 0;
+		if (!theirs) {
+			theirs = groundTop(p + dir - v3s16(0, 1, 0));
+			down = STEPS;
+		}
+		if (!theirs)
+			continue;
+		for (u8 g : DETAILS) {
+			if (g <= 1 || (inside && g != data->m_detail))
+				continue;
+			const ground::Top drawn = coarsen(*theirs, g);
+			for (int k = 0; k < STEPS; k++) {
+				// their column against this side at k: on their far edge
+				const bool along_x = s >= 2;
+				const int x = along_x ? k : (s == 0 ? STEPS - 1 : 0), z = along_x ? (s == 2 ? STEPS - 1 : 0) : k;
+				out[s][k] = std::min(out[s][k], std::max(0, int(drawn.cells[x][z]) - down - ground::EDGE));
+			}
+		}
+	}
+	return out;
 }
 
 void MapblockMeshGenerator::voxelQuad(const TileSpec &tile, int face, std::array<v3f, 4> q,

@@ -166,6 +166,8 @@ private:
 	// Terra Firma: natural loose ground's shape (ground::Ground)
 	std::optional<ground::Top> groundTop(v3s16 p) const;
 	void drawGround(const ground::Top &top);
+	// how low each wall at its sides goes, by voxel along the side (sixteenths)
+	std::array<std::array<int, shape::STEPS>, 4> wallBottoms(const ground::Top &top, const bool (&open)[4]) const;
 	// Terra Firma: a cut node's sixteenths (MeshMakeData::m_shapes)
 	const shape::Shape *cutShape(v3s16 p) const;
 	void drawShape(const shape::Shape &s);
