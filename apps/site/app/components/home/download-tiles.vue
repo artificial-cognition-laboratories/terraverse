@@ -2,8 +2,8 @@
 import { platforms } from "~/config/downloads"
 
 /**
- * Every download as a large tile: the visitor's platform first and lit in the
- * brand's deep ocean, then the rest. A platform with nothing to download yet is shown, dimmed.
+ * Every download as a block of glass with its icon: the visitor's platform first
+ * and lit in the ocean, then the rest. A platform with nothing yet is shown, dim.
  */
 const { detected } = usePlatform()
 
@@ -22,7 +22,6 @@ const tiles = computed<Tile[]>(() => {
     const mine = platforms.find(p => p.id === detected.value)
     const ordered = mine ? [mine, ...platforms.filter(p => p !== mine)] : platforms
     return ordered.flatMap((p): Tile[] => {
-        const lit = p === mine
         if (!p.downloads.length) return [{ key: p.id, href: null, icon: p.icon, label: p.label, detail: "soon", lit: false, title: p.notReady ?? "" }]
         return p.downloads.map(d => ({
             key: d.href,
@@ -31,7 +30,7 @@ const tiles = computed<Tile[]>(() => {
             // one download names its OS; several name themselves
             label: p.downloads.length === 1 ? p.label : d.label,
             detail: d.detail,
-            lit: lit,
+            lit: p === mine,
             title: `${p.label} · ${d.label}`,
         }))
     })
@@ -40,24 +39,23 @@ const tiles = computed<Tile[]>(() => {
 
 <template>
     <div class="tiles">
-        <template v-for="t in tiles" :key="t.key">
-            <a v-if="t.href" :href="t.href" class="tile" :class="{ lit: t.lit }" :title="t.title">
-                <Icon :name="t.icon" class="icon" />
-                <span class="label">{{ t.label }}</span>
-                <span class="detail">{{ t.detail }}</span>
-            </a>
-            <div v-else class="tile soon" :title="t.title">
-                <Icon :name="t.icon" class="icon" />
-                <span class="label">{{ t.label }}</span>
-                <span class="detail">{{ t.detail }}</span>
-            </div>
-        </template>
+        <component
+            :is="t.href ? 'a' : 'div'"
+            v-for="t in tiles"
+            :key="t.key"
+            :href="t.href ?? undefined"
+            class="tile"
+            :class="{ lit: t.lit, soon: !t.href }"
+            :title="t.title"
+        >
+            <Icon :name="t.icon" class="icon" />
+            <span class="label">{{ t.label }}</span>
+            <span class="detail">{{ t.detail }}</span>
+        </component>
     </div>
 </template>
 
 <style scoped lang="scss">
-@use "sass:color";
-
 .tiles {
     display: flex;
     flex-wrap: wrap;
@@ -66,71 +64,50 @@ const tiles = computed<Tile[]>(() => {
 
 .tile {
     @include panel;
-    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.35rem;
-    width: 7.5rem;
+    gap: 0.3rem;
+    width: 8.5rem;
     aspect-ratio: 1;
     color: $ink;
     text-decoration: none;
-    transition: border-color 0.1s, background 0.1s;
+    transition: border-color 0.12s, background-color 0.12s, transform 0.12s;
 
-    &:hover {
-        border-color: $primary-ink;
-        background: $night-2;
+    &:is(a):hover {
+        border-color: rgba($primary-ink, 0.55);
+        transform: translateY(-2px);
 
         .icon {
-            color: $primary-ink;
+            color: $ink;
         }
     }
 
-    // The visitor's own: the deep ocean, lit like a button
+    // The visitor's own: glass tinted with the ocean, its edge lit
     &.lit {
-        color: #fff;
-        background: $primary;
-        border-color: $edge;
-        box-shadow: $raised;
+        background-color: rgba($primary, 0.42);
+        border-color: rgba($primary-ink, 0.55);
+
+        .icon {
+            color: #fff;
+        }
 
         .detail {
-            color: rgba(#fff, 0.7);
-        }
-
-        &:hover {
-            background: color.adjust($primary, $lightness: 6%);
-
-            .icon {
-                color: #fff;
-            }
+            color: rgba(#fff, 0.65);
         }
     }
 
-    // dim what's on it, not the tile: the sky mustn't show through
-    &.soon {
-        cursor: default;
-
-        > * {
-            opacity: 0.45;
-        }
-
-
-        &:hover {
-            border-color: $night-3;
-            background: $night-1;
-
-            .icon {
-                color: inherit;
-            }
-        }
+    &.soon > * {
+        opacity: 0.4;
     }
 }
 
 .icon {
-    font-size: 2.1rem;
-    margin-bottom: 0.4rem;
-    transition: color 0.1s;
+    font-size: 2.2rem;
+    margin-bottom: 0.6rem;
+    color: $ink-dim;
+    transition: color 0.12s;
 }
 
 .label {
@@ -140,7 +117,7 @@ const tiles = computed<Tile[]>(() => {
 }
 
 .detail {
-    font-size: 0.6rem;
+    font-size: 0.62rem;
     color: $ink-faint;
     white-space: nowrap;
 }

@@ -23,12 +23,14 @@ import { facts, hero, links } from "~/config/home"
 </template>
 
 <style scoped lang="scss">
+// Centred, the words and downloads on the axis between the sun and the moon
 .hero {
     position: relative;
     display: flex;
     align-items: center;
-    min-height: clamp(640px, 92dvh, 880px);
-    padding: 52px 0 6rem;
+    text-align: center;
+    min-height: clamp(700px, 96dvh, 960px);
+    padding: calc(52px + 5rem) 0 6rem;
     overflow: hidden;
 }
 
@@ -39,6 +41,10 @@ import { facts, hero, links } from "~/config/home"
     max-width: $site-width;
     margin: 0 auto;
     padding: 0 2rem;
+
+    :deep(.tiles) {
+        justify-content: center;
+    }
 }
 
 .kicker {
@@ -51,10 +57,10 @@ import { facts, hero, links } from "~/config/home"
 }
 
 h1 {
-    margin: 1.25rem 0 1.5rem;
+    margin: 1.5rem 0 1.75rem;
     font-family: $font-display;
     font-weight: 400;
-    font-size: clamp(2.2rem, 5vw, 3.75rem);
+    font-size: clamp(2.4rem, 7vw, 5.25rem);
     line-height: 1.05;
     color: $ink;
     text-shadow: 0 4px 0 $edge;
@@ -66,8 +72,8 @@ h1 {
 }
 
 .lede {
-    max-width: 34rem;
-    margin: 0 0 2.25rem;
+    max-width: 37rem;
+    margin: 0 auto 2.5rem;
     font-family: $font-sans;
     font-size: 1.1rem;
     line-height: 1.65;
@@ -77,13 +83,15 @@ h1 {
 .actions {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 0.75rem;
-    margin-top: 1.25rem;
+    margin-top: 1.5rem;
 }
 
 .facts {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 0.5rem 1.6rem;
     margin: 2.5rem 0 0;
     padding: 0;

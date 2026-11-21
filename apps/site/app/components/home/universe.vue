@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { links, universe } from "~/config/home"
-import { SYSTEM_ICONS } from "~/config/icons"
 
 // One region, layer by layer: the list on the left chooses what the map shows.
 // It opens on the terrain, the layer that reads at a glance.
 const at = ref(1)
-const layer = computed(() => universe.layers[at.value] ?? universe.layers[0])
 </script>
 
 <template>
@@ -35,20 +33,12 @@ const layer = computed(() => universe.layers[at.value] ?? universe.layers[0])
                     :key="l.id"
                     :src="l.image"
                     :class="{ on: i === at }"
-                    :alt="`${l.title} of ${universe.code}`"
+                    :alt="`${l.title} of one region of a generated world`"
                     draggable="false"
                 />
-                <figcaption v-if="layer"><span class="mark">»</span> {{ universe.code }} · {{ layer.title }}</figcaption>
             </figure>
         </div>
 
-        <div class="systems">
-            <NuxtLink v-for="f in universe.systems" :key="f.title" :to="f.to" class="system">
-                <span class="icon"><home-pixel-icon :icon="SYSTEM_ICONS[f.icon]" :size="36" /></span>
-                <h3>{{ f.title }}</h3>
-                <p>{{ f.text }}</p>
-            </NuxtLink>
-        </div>
     </home-band>
 </template>
 
@@ -77,24 +67,21 @@ const layer = computed(() => universe.layers[at.value] ?? universe.layers[0])
         padding: 1rem 1.1rem;
         text-align: left;
         color: inherit;
-        background: transparent;
-        border: 1px solid transparent;
-        border-left: 3px solid $night-3;
+        @include panel;
         cursor: pointer;
-        transition: background 0.1s, border-color 0.1s;
+        transition: border-color 0.1s;
 
         &:hover {
-            background: $night-0;
+            border-color: rgba($ink, 0.2);
         }
 
+        // The chosen layer: its edge lit, like every chosen thing on the page
         &.on {
-            background: $night-0;
-            border-color: $night-3;
-            border-left-color: $primary-ink;
+            border-color: rgba($primary-ink, 0.55);
 
             .n {
                 color: $primary-ink;
-                border-color: $primary-lo;
+                border-color: rgba($primary-ink, 0.55);
             }
 
             .words span {
@@ -113,7 +100,7 @@ const layer = computed(() => universe.layers[at.value] ?? universe.layers[0])
     font-family: $font-display;
     font-size: 0.7rem;
     color: $ink-faint;
-    border: 1px solid $night-3;
+    border: 1px solid $glass-edge;
 }
 
 .words {
@@ -142,7 +129,7 @@ const layer = computed(() => universe.layers[at.value] ?? universe.layers[0])
     aspect-ratio: 2 / 1;
     overflow: hidden;
     background: $night-0;
-    border: 1px solid $night-3;
+    border: 1px solid $glass-edge;
 
     img {
         position: absolute;
@@ -158,73 +145,6 @@ const layer = computed(() => universe.layers[at.value] ?? universe.layers[0])
             opacity: 1;
         }
     }
-
-    figcaption {
-        position: absolute;
-        left: 1rem;
-        bottom: 1rem;
-        padding: 0.4rem 0.7rem;
-        font-family: $font-mono;
-        font-size: 0.7rem;
-        color: $ink;
-        background: rgba($night-0, 0.8);
-        border: 1px solid rgba($ink, 0.08);
-    }
-
-    .mark {
-        color: $primary-ink;
-    }
-}
-
-.systems {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 1rem;
-    margin-top: 3rem;
-}
-
-.system {
-    @include panel($night-0);
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    min-width: 0;
-    padding: 1.5rem;
-    text-decoration: none;
-    transition: border-color 0.1s;
-
-    &:hover {
-        border-color: $night-4;
-
-        h3 {
-            color: $primary-ink;
-        }
-    }
-}
-
-.icon {
-    display: grid;
-    place-items: center;
-    width: 4rem;
-    height: 4rem;
-    margin-bottom: 0.6rem;
-    background: $night-1;
-    border: 1px solid $night-3;
-}
-
-h3 {
-    margin: 0;
-    font-family: $font-sans;
-    font-size: 1rem;
-    color: $ink;
-}
-
-p {
-    margin: 0;
-    font-family: $font-sans;
-    font-size: 0.88rem;
-    line-height: 1.55;
-    color: $ink-dim;
 }
 
 @include desktop-down {
@@ -235,15 +155,10 @@ p {
     .layers {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-
-    .systems {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
 }
 
 @include mobile {
-    .layers,
-    .systems {
+    .layers {
         grid-template-columns: minmax(0, 1fr);
     }
 }

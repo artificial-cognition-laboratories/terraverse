@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { platforms } from "~/config/downloads"
 
-/** Every way to get the game: the tiles, and the visitor's one-line install under them. */
+/** Every way to get the game: the tiles, and under them, as wide as they are, the one-line install. */
 const { detected } = usePlatform()
 const command = computed(() => (platforms.find(p => p.id === detected.value) ?? platforms[0])?.command)
 const copy = useCopy()
@@ -19,19 +19,31 @@ const copy = useCopy()
 </template>
 
 <style scoped lang="scss">
+// As wide as the row of tiles, so the command lines up under them
+.download {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 100%;
+
+    :deep(.tiles) {
+        flex-wrap: nowrap;
+    }
+}
+
 .command {
-    @include panel($night-0);
+    @include panel;
     display: flex;
     gap: 0.8rem;
     align-items: center;
     width: 100%;
-    margin-top: 0.75rem;
-    padding: 0.9rem 1.1rem;
+    padding: 0.95rem 1.1rem;
     font-family: $font-mono;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     text-align: left;
     color: $ink;
     cursor: pointer;
+    transition: border-color 0.1s;
 
     code {
         flex: 1;
@@ -50,10 +62,20 @@ const copy = useCopy()
     }
 
     &:hover {
-        border-color: $night-4;
+        border-color: rgba($primary-ink, 0.55);
 
         .state {
             color: $primary-ink;
+        }
+    }
+}
+
+@include mobile {
+    .download {
+        display: flex;
+
+        :deep(.tiles) {
+            flex-wrap: wrap;
         }
     }
 }

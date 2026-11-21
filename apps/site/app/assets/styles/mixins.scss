@@ -319,13 +319,19 @@ $prose-radius: 16px;
 
 // ── Landing ──────────────────────────────────────────────────────────────────
 
-/// A card or panel on the landing: the night a step lifted, a hairline edge, and
-/// a top edge that catches the moonlight. Opaque: no star shows through words.
-/// Bevels belong to buttons; a page of bevelled cards reads as noise.
-@mixin panel($ground: $night-1) {
-    background: $ground;
-    border: 1px solid $night-3;
-    box-shadow: inset 0 1px 0 $moonlit;
+/// Every card, panel and window on the landing: one block of glass, the night just
+/// lifted, blurred behind so no star sits in the words. One edge, 1px on all four
+/// sides; a panel that's chosen or lit changes that edge's colour, never its width.
+@mixin panel {
+    background: rgba($night-0, 0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid $glass-edge;
+}
+
+/// A small inset square on a panel (an icon's ground, a monogram): the same edge.
+@mixin well {
+    background: rgba($night-sky, 0.6);
+    border: 1px solid $glass-edge;
 }
 
 /// Words on the open sky: a tight halo of the night around each glyph, so no

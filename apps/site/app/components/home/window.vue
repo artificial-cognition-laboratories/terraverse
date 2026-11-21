@@ -1,13 +1,18 @@
 <script setup lang="ts">
-/** A framed panel with the game's title bar: `» title` on the left, an optional note on the right. */
-defineProps<{ title: string; note?: string }>()
+/**
+ * A window on the night: one block of glass with three dots at its top-left and,
+ * at its top-right, a label or whatever the `bar` slot holds (tabs).
+ */
+defineProps<{ label?: string }>()
 </script>
 
 <template>
     <figure class="window">
         <figcaption class="bar">
-            <span><span class="mark" aria-hidden="true">»</span> {{ title }}</span>
-            <span v-if="note" class="note">{{ note }}</span>
+            <span class="dots" aria-hidden="true"><i /><i /><i /></span>
+            <slot name="bar">
+                <span v-if="label" class="label">{{ label }}</span>
+            </slot>
         </figcaption>
         <div class="body">
             <slot />
@@ -17,38 +22,42 @@ defineProps<{ title: string; note?: string }>()
 
 <style scoped lang="scss">
 .window {
+    @include panel;
     margin: 0;
     display: flex;
     flex-direction: column;
     min-width: 0;
-    @include panel;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
 }
 
+// The same glass as the body: nothing divides them
 .bar {
     display: flex;
+    align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.7rem 1rem;
-    font-family: $font-display;
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: $ink;
-    background: $night-2;
-    border-bottom: 1px solid $night-3;
+    min-height: 2.8rem;
+    padding: 0 1rem;
     white-space: nowrap;
     overflow: hidden;
 }
 
-.mark {
-    color: $primary-ink;
+.dots {
+    display: flex;
+    flex: none;
+    gap: 0.4rem;
+
+    i {
+        width: 0.6rem;
+        height: 0.6rem;
+        border-radius: 50%;
+        background: $night-4;
+    }
 }
 
-.note {
+.label {
+    font-family: $font-mono;
+    font-size: 0.72rem;
     color: $ink-faint;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .body {

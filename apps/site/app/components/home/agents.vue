@@ -5,7 +5,7 @@ import { agents, links } from "~/config/home"
 <template>
     <home-band tone="lifted">
         <div class="split">
-            <home-window class="terminal" title="agent · @scout" note="headless">
+            <home-window class="terminal" label="@scout · headless">
                 <ol class="log">
                     <li v-for="(line, i) in agents.transcript" :key="i" :class="line.who">
                         <span class="who">{{ line.who === "agent" ? "»" : " " }}</span>
@@ -40,7 +40,6 @@ import { agents, links } from "~/config/home"
     font-family: $font-mono;
     font-size: 0.8rem;
     line-height: 1.6;
-    background: $night-0;
     min-height: 20rem;
 
     li {

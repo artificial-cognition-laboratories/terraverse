@@ -9,17 +9,14 @@ useHead({ title: "" })
     <div class="home">
         <home-sky :seed="hero.code" />
         <home-hero />
-        <home-survival />
-        <home-universe />
+        <home-limits />
+        <home-universe v-if="flags.universe" />
         <home-registry v-if="flags.registry" />
         <home-hosting v-if="flags.hosting" />
         <home-build />
         <home-agents v-if="flags.agents" />
         <home-open />
         <home-ground :seed="hero.code">
-            <div class="landing">
-                <home-world-code :code="hero.code" />
-            </div>
             <shared-footer />
         </home-ground>
     </div>
@@ -30,12 +27,5 @@ useHead({ title: "" })
 .home {
     position: relative;
     isolation: isolate;
-}
-
-.landing {
-    max-width: $site-width;
-    margin: 0 auto 2.5rem;
-    padding: 0 2rem;
-    text-align: right;
 }
 </style>

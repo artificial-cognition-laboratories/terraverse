@@ -13,7 +13,6 @@ defineProps<{ html: string }>()
     padding: 1.25rem 0;
     overflow-x: auto;
     counter-reset: line;
-    background: $night-0;
 
     :deep(pre) {
         margin: 0;

@@ -3,8 +3,8 @@ import { paint } from "~/lib/paint"
 import { PX, sky } from "~/lib/sky"
 
 /**
- * The night the landing hangs in, behind every section: a page-tall dithered sky,
- * two fields of stars, the sun and the moon. Each moves at its own depth as the
+ * The night the landing hangs in, behind every section: one flat dark, two
+ * fields of stars, the sun and the moon. Each moves at its own depth as the
  * page scrolls (`speed`: 1 is with the page, 0 is fixed to the window).
  */
 const props = defineProps<{ seed: string }>()
@@ -17,12 +17,10 @@ const FIELDS = [
 ] as const
 const BODIES = { sun: { speed: 0.12 }, moon: { speed: 0.32 } }
 
-const root = ref<HTMLElement | null>(null)
 const fields = ref<HTMLElement[]>([])
 const sun = ref<HTMLElement | null>(null)
 const moon = ref<HTMLElement | null>(null)
-const images = reactive<{ gradient: string; stars: string[]; sun: string; moon: string; size: { sun: number; moon: number } }>({
-    gradient: "",
+const images = reactive<{ stars: string[]; sun: string; moon: string; size: { sun: number; moon: number } }>({
     stars: [],
     sun: "",
     moon: "",
@@ -30,16 +28,6 @@ const images = reactive<{ gradient: string; stars: string[]; sun: string; moon: 
 })
 const drawn = ref(false)
 
-// The sky's height follows the page's, which settles as fonts and images arrive
-let skyHeight = 0
-function paintGradient() {
-    const height = Math.ceil((root.value?.offsetHeight ?? 0) / PX)
-    if (!height || height === skyHeight) return
-    skyHeight = height
-    images.gradient = paint(sky.gradient(height))
-}
-
-let observer: ResizeObserver | null = null
 onMounted(() => {
     images.stars = FIELDS.map(f => paint(sky.stars(`${props.seed}:${f.seed}`, f.tile.width, f.tile.height, f.count, f.glints)))
     const sunArt = sky.sun(7)
@@ -47,14 +35,8 @@ onMounted(() => {
     images.sun = paint(sunArt)
     images.moon = paint(moonArt)
     images.size = { sun: sunArt.width * PX, moon: moonArt.width * PX }
-    paintGradient()
-    if (root.value) {
-        observer = new ResizeObserver(paintGradient)
-        observer.observe(root.value)
-    }
     drawn.value = true
 })
-onBeforeUnmount(() => observer?.disconnect())
 
 useScrollFrame(scroll => {
     FIELDS.forEach((f, i) => {
@@ -69,10 +51,8 @@ useScrollFrame(scroll => {
 
 <template>
     <div
-        ref="root"
         class="sky"
         :class="{ drawn }"
-        :style="images.gradient ? { backgroundImage: `url(${images.gradient})`, backgroundSize: `${4 * PX}px 100%` } : {}"
         aria-hidden="true"
     >
         <div
@@ -97,9 +77,7 @@ useScrollFrame(scroll => {
     inset: 0;
     z-index: -1;
     overflow: hidden;
-    background-color: #04070b;
-    background-repeat: repeat-x;
-    image-rendering: pixelated;
+    background: $night-sky;
 }
 
 // Fixed to the window and shifted by their own depth, so they never run out
@@ -132,21 +110,21 @@ useScrollFrame(scroll => {
     }
 }
 
-// Both in the hero's right half, clear of its words
+// Either side of the hero's centred words: the sun high on the left, the moon lower right
 .sun {
-    top: 96px;
-    right: max(3vw, calc(50% - 600px + 6rem));
+    top: 110px;
+    left: max(4vw, calc(50% - 600px + 2rem));
 }
 
 .moon {
-    top: 300px;
-    right: max(8vw, calc(50% - 600px + 15rem));
+    top: 280px;
+    right: max(5vw, calc(50% - 600px + 3rem));
 }
 
 @include tablet {
     .sun {
         top: 72px;
-        right: 1.5rem;
+        left: 1.5rem;
     }
 
     .moon {

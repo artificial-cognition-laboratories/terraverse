@@ -2,7 +2,6 @@
 // (apps/game/.../interface/src/menu/community/icons.ts). TEMP(2026-11-21): a copy
 // until both apps import one package; change both together until then.
 
-const BRONZE = "#c98a4a", BRONZE_DARK = "#8a5a2b"
 const STEEL = "#c9d4dc", SHADE = "#6f7f8a", SKY = "#40b8ec", SUN = "#ffb040", EMBER = "#e0603d", GRASS = "#3c6e46", LEAF = "#4a9b64", EARTH = "#7a5232"
 
 export type PixelIcon = { rows: readonly string[]; palette: Record<string, string> }
@@ -30,19 +29,14 @@ export const CATEGORY_ICONS = {
 
 export type CategoryId = keyof typeof CATEGORY_ICONS
 
-/** The landing's systems that have no picture yet, drawn in the same hand. */
-export const SYSTEM_ICONS = {
-    matter: CATEGORY_ICONS.matter,
-    machines: CATEGORY_ICONS.machines,
-    movement: { palette: { G: STEEL, L: SKY },
-        rows: ["....GG...", "....GG...", "..LLLL...", ".L.LL.L..", "...LL..L.", "...GG....", "..G..G...", ".G....G..", "G......G."] },
+/** The landing's own icons, drawn in the same hand. */
+const LANDING_ICONS = {
     sky: { palette: { G: STEEL, L: SKY, O: SUN },
         rows: [".......O.", "...LLL...", "..LLLLL.G", ".LLLLLLG.", "GGGGGGG..", ".LLLLL...", "..LLL....", "G........", "........."] },
-    pick: { palette: { G: STEEL, D: SHADE, E: EARTH },
-        rows: [".GGGGGGG.", "GD..E..DG", "G...E...G", "....E....", "....E....", "....E....", "....E....", "....E....", "....E...."] },
-    axe: { palette: { B: BRONZE, D: BRONZE_DARK, E: EARTH },
-        rows: ["..BB.E...", ".BBBBE...", "BBBBBE...", "DBBBBE...", ".DD..E...", ".....E...", ".....E...", ".....E...", ".....E..."] },
-    cart: { palette: { G: STEEL, D: SHADE, E: EARTH, O: SUN },
-        rows: [".........", "..OO.OO..", ".OOOOOOO.", "GEEEEEEEG", "GEEEEEEEG", "GGGGGGGGG", ".DD...DD.", ".DD...DD.", "........."] },
+    open: { palette: { G: STEEL, D: SHADE, L: SKY },
+        rows: ["...GGG...", "..G...G..", "..G......", "..G......", ".LLLLLLL.", ".LLLDLLL.", ".LLLDLLL.", ".LLLLLLL.", "........."] },
 } satisfies Record<string, PixelIcon>
-export type SystemId = keyof typeof SYSTEM_ICONS
+
+/** Every icon the landing can draw, by name. */
+export const ICONS = { ...CATEGORY_ICONS, ...LANDING_ICONS }
+export type IconId = keyof typeof ICONS

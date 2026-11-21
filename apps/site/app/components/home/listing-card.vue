@@ -40,7 +40,7 @@ const art = computed(() => cover(props.listing.name, 32))
     transition: background 0.1s;
 
     &:hover {
-        border-color: $night-4;
+        border-color: rgba($primary-ink, 0.55);
 
         h3 {
             color: $primary-ink;
@@ -54,7 +54,7 @@ const art = computed(() => cover(props.listing.name, 32))
 
 .art {
     aspect-ratio: 16 / 9;
-    border-bottom: 1px solid $night-3;
+    border-bottom: 1px solid $glass-edge;
 }
 
 .badge {
@@ -87,8 +87,7 @@ const art = computed(() => cover(props.listing.name, 32))
     font-family: $font-display;
     font-size: 0.75rem;
     color: $primary-ink;
-    background: $night-1;
-    border: 1px solid $primary-lo;
+    @include well;
 }
 
 .names {
@@ -139,6 +138,6 @@ p {
 .tag {
     margin-left: auto;
     padding: 0.1rem 0.4rem;
-    border: 1px solid $night-4;
+    border: 1px solid $glass-edge;
 }
 </style>

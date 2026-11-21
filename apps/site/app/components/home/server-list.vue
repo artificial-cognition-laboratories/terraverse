@@ -40,13 +40,13 @@ defineProps<{ servers: readonly Server[] }>()
         text-transform: uppercase;
         text-align: left;
         color: $ink-faint;
-        border-bottom: 1px solid $night-3;
+        border-bottom: 1px solid $glass-edge;
     }
 
     td {
         padding: 0.85rem 1rem;
         color: $ink-dim;
-        border-bottom: 1px solid $night-2;
+        border-bottom: 1px solid rgba($ink, 0.05);
         white-space: nowrap;
     }
 

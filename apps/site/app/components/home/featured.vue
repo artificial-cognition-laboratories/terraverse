@@ -53,7 +53,7 @@ const command = computed(() => `terra install ${shown.value?.name ?? ""}`)
     display: grid;
     min-height: 300px;
     overflow: hidden;
-    border: 1px solid $night-3;
+    border: 1px solid $glass-edge;
 }
 
 .art {
@@ -105,8 +105,7 @@ const command = computed(() => `terra install ${shown.value?.name ?? ""}`)
     font-family: $font-display;
     font-size: 0.9rem;
     color: $primary-ink;
-    background: $night-1;
-    border: 1px solid $primary-lo;
+    @include well;
 }
 
 h3 {
@@ -144,8 +143,8 @@ p {
     font-family: $font-mono;
     font-size: 0.75rem;
     color: $ink-dim;
-    background: rgba($night-0, 0.8);
-    border: 1px solid $night-4;
+    background: rgba($night-sky, 0.8);
+    border: 1px solid $glass-edge;
     cursor: pointer;
 
     .prompt {
@@ -179,7 +178,7 @@ p {
         height: 0.7rem;
         padding: 0;
         background: $night-4;
-        border: $bevel solid $edge;
+        border: none;
         cursor: pointer;
 
         &.on {

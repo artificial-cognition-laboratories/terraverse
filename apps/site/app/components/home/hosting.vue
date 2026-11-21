@@ -93,7 +93,7 @@ const self = useCopy()
     font-family: $font-display;
     font-size: 0.8rem;
     color: $primary-ink !important;
-    border: 1px solid $primary-lo;
+    border: 1px solid $glass-edge;
 }
 
 .plans {
@@ -104,27 +104,15 @@ const self = useCopy()
 }
 
 .plan {
-    @include panel($night-0);
+    @include panel;
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
     padding: 1.75rem;
 
-    // The one most people want: lifted, with the ocean along its top
+    // The one most people want: its edge lit in the ocean
     &.featured {
-        position: relative;
-        background: $night-2;
-        border-color: $primary-lo;
-
-        &::before {
-            content: "";
-            position: absolute;
-            top: -1px;
-            left: -1px;
-            right: -1px;
-            height: 3px;
-            background: $primary-ink;
-        }
+        border-color: rgba($primary-ink, 0.55);
     }
 
     .button {
@@ -157,8 +145,8 @@ header p,
     font-size: 1.6rem;
     font-weight: 700;
     color: $ink;
-    border-top: 1px solid $night-3;
-    border-bottom: 1px solid $night-3;
+    border-top: 1px solid $glass-edge;
+    border-bottom: 1px solid $glass-edge;
 
     .unset {
         font-family: $font-display;
@@ -220,8 +208,7 @@ ul {
     font-family: $font-mono;
     font-size: 0.85rem;
     color: $ink;
-    background: $night-1;
-    border: 1px solid $night-3;
+    @include panel;
     cursor: pointer;
 
     .prompt {
@@ -234,7 +221,7 @@ ul {
     }
 
     &:hover {
-        border-color: $night-4;
+        border-color: rgba($primary-ink, 0.55);
 
         .state {
             color: $primary-ink;

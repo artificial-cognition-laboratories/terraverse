@@ -161,6 +161,8 @@ $font-display: "Silkscreen", $font-mono;
 // the scene and still sit plainly in front of it. Docs keep the terminal theme above.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// The sky behind the landing: one flat night (lib/sky.ts draws on it)
+$night-sky: #04070b;
 $night-0: #070b11; // wells: code, inputs, the deepest ground of a panel
 $night-1: #0c121b; // a panel
 $night-2: #111a26; // a raised panel, a hover
@@ -172,6 +174,8 @@ $ink-dim: rgba(231, 237, 244, 0.64);
 $ink-faint: rgba(231, 237, 244, 0.38);
 // The light the scene is lit by: a panel's top edge catches it
 $moonlit: rgba(201, 214, 227, 0.08);
+// Every glass edge on the landing: 1px, the same on all four sides
+$glass-edge: rgba(231, 237, 244, 0.1);
 
 // One light, top-left, as in the game: never a hand-written bevel
 $bevel: 2px;

@@ -1,4 +1,4 @@
-import type { CategoryId, SystemId } from "./icons"
+import type { CategoryId, IconId } from "./icons"
 
 /**
  * The landing page as data: every section reads its words and pictures from here.
@@ -8,6 +8,8 @@ import type { CategoryId, SystemId } from "./icons"
  * each turns off in one line when it's time to ship only what's real.
  */
 export const flags = {
+    // off until the maps are worth the section: hypsometric, in the page's palette
+    universe: false,
     registry: true,
     servers: true,
     hosting: true,
@@ -28,36 +30,33 @@ export const links = {
 
 export const hero = {
     kicker: "Free and open source · Open beta",
-    title: ["A universe", "to play in."],
+    title: ["A universe to", "play in."],
     lede: "A survival game on real planets, made of matter that melts, burns and flows. Then every mod, world and server the community makes on top.",
-    /** The world the hero shows, drawn from its code; the code is offered to play */
+    /** The seed the page's sky and ground are drawn from */
     code: "TF24.dGVycmE",
 }
 
 export const facts = ["Free forever", "Open source", "Multiplayer", "TypeScript mods", "Agent API", "Linux · Windows"]
 
-export const survival = {
-    kicker: "Out of the box",
-    title: "A survival game, first.",
-    lede: "Start with nothing on a planet nobody has walked. What's in the ground depends on what the ground is, and every tool you make is a material you found.",
-    points: [
-        { title: "Geology decides where you dig", text: "Ore follows the rock it formed in. A good deposit is worth a road.", icon: "pick" },
-        { title: "Recipes you can work out", text: "A bronze axe is an axe made of bronze. No wiki needed.", icon: "axe" },
-        { title: "Heavy things are hauled", text: "Carry it slowly, or build the cart that carries it for you.", icon: "cart" },
-    ] satisfies { title: string; text: string; icon: SystemId }[],
-}
-
-export interface Feature {
-    title: string
-    text: string
-    to: string
+/** What it is: the block game you know, and where this one goes past it. */
+export const limits = {
+    kicker: "What it is",
+    title: "The voxel game you know. Without the limits.",
+    lede: "Dig, build and survive in a world of blocks, the way you'd expect. Underneath, it's made to be built on, and to go where block games never went.",
+    items: [
+        { icon: "sky", now: "Whole planets, in real star systems", text: "Walk all the way around one, then fly to its moon. Every world comes from a code you can share." },
+        { icon: "matter", now: "Matter that melts, burns and flows", text: "Substances heat, react and change state. Water boils away on the Moon because of what water is." },
+        { icon: "machines", now: "Real physics underneath", text: "Parts, joints and engines on a physics engine. Build the car, then drive it over real terrain." },
+        { icon: "library", now: "One typed API, the same as ours", text: "TypeScript end to end. Every official mod is built on it, so anything the game does, yours can." },
+        { icon: "servers", now: "A server in a minute", text: "Hosted by us, or `terra host` on any machine. Friends join from their list, no addresses." },
+        { icon: "open", now: "Free and open source", text: "Free to play, forever. The engine is LGPL and the whole thing is built in the open." },
+    ] satisfies { icon: IconId; now: string; text: string }[],
 }
 
 export const universe = {
-    kicker: "Under every world",
-    title: "Not a map. A universe.",
-    lede: "Every system feeds the next. One region of one real world, layer by layer, as the generator made it.",
-    code: "TF24.dGVycmE",
+    kicker: "Every world",
+    title: "Every world is a real planet.",
+    lede: "Plates raised its mountains, rain carved its rivers, and climate decided what grows. Step through one region of one world, layer by layer, as the generator made it.",
     /** One crop of one world in four layers (scripts/bake.sh) */
     layers: [
         { id: "plates", title: "Plates", text: "Continents drift and collide. Where they meet, ranges rise.", image: "/home/layer-plates.webp" },
@@ -65,12 +64,6 @@ export const universe = {
         { id: "rain", title: "Rain", text: "Winds carry the sea's water inland until the mountains wring it out.", image: "/home/layer-rain.webp" },
         { id: "biomes", title: "Climate", text: "Heat and rain decide what grows, from ice cap to jungle.", image: "/home/layer-biomes.webp" },
     ],
-    systems: [
-        { title: "Matter and chemistry", text: "Substances heat, react and change state. Water boils away on the Moon.", to: "/wiki/materials", icon: "matter" },
-        { title: "Physics and machines", text: "Parts, joints and engines on a real physics engine. Build the car, then drive it.", to: "/wiki", icon: "machines" },
-        { title: "A body that moves", text: "Climb, vault, slide and fall. Movement is physical, not animated.", to: "/wiki", icon: "movement" },
-        { title: "A real sky", text: "Whole star systems from one world code. Orbits, and a sky seen from where you stand.", to: "/wiki", icon: "sky" },
-    ] satisfies (Feature & { icon: SystemId })[],
 }
 
 export const registry = {

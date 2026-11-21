@@ -3,8 +3,8 @@
 // the same on the server and in every browser.
 //
 // The art style, for everything drawn here: one art pixel is `PX` CSS pixels, colours
-// come from the generator's own palette, and depth is stepped colour bands with ordered
-// dithering where they meet, never a smooth gradient.
+// come from the generator's own palette, the sky is one flat night, and where two
+// colours meet in the art they step through ordered dithering, never a smooth gradient.
 
 export const PX = 5
 
@@ -19,34 +19,7 @@ const BAYER = [
     [15, 7, 13, 5],
 ] as const
 
-/**
- * The night from the top of the page to the horizon: equal steps, each one solid,
- * dithered into the next only across a narrow seam. Words sit on the solid parts.
- */
-const NIGHT = ["#04070b", "#060a0f", "#080d13", "#0a1018", "#0c131c", "#0f1722"] as const
-const SEAM = 5 // art pixels of dither each side of a step
-
 export const sky = {
-    /** The page-tall sky: 4 pixels wide, since a dither repeats every 4 and the sky is the same across. */
-    gradient(height: number): Art {
-        const pixels: Pixel[] = []
-        const step = height / NIGHT.length
-        for (let y = 0; y < height; y++) {
-            const band = Math.min(NIGHT.length - 1, Math.floor(y / step))
-            // the nearest step below or above, and how far into its seam this row is
-            const edge = Math.round(y / step) * step
-            const into = y - edge
-            const below = NIGHT[Math.min(NIGHT.length - 1, Math.round(y / step))] ?? NIGHT[0]
-            const above = NIGHT[Math.max(0, Math.round(y / step) - 1)] ?? NIGHT[0]
-            const seam = Math.abs(into) < SEAM && edge > 0 && edge < height
-            for (let x = 0; x < 4; x++) {
-                const fill = seam ? (dither(x, y, (into + SEAM) / (2 * SEAM)) ? below : above) : (NIGHT[band] ?? NIGHT[0])
-                pixels.push({ x: x, y: y, w: 1, h: 1, fill: fill })
-            }
-        }
-        return { width: 4, height: height, pixels: pixels }
-    },
-
     /** A tile of stars that repeats: `glints` of them are bright, with a cross of light. */
     stars(seed: string, width: number, height: number, count: number, glints: number): Art {
         const random = rng(hash(seed))

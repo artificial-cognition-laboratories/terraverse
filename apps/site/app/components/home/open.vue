@@ -21,11 +21,16 @@ import { links, open } from "~/config/home"
 <style scoped lang="scss">
 .split {
     display: grid;
-    grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 4rem;
     align-items: center;
     // The topnav is fixed: an anchor lands below it
     scroll-margin-top: 6rem;
+}
+
+// The downloads hold the right edge, level with the words on the left
+.split > :last-child {
+    justify-self: end;
 }
 
 .actions {
@@ -38,6 +43,10 @@ import { links, open } from "~/config/home"
     .split {
         grid-template-columns: minmax(0, 1fr);
         gap: 2.5rem;
+    }
+
+    .split > :last-child {
+        justify-self: start;
     }
 }
 </style>
