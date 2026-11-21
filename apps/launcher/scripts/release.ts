@@ -2,12 +2,12 @@
 // (repo.config.ts). Its version is tauri.conf.json's; a launcher-v<version> tag
 // builds and publishes it (.github/workflows/launcher.yml).
 //
-//   bun release.ts gate   the versions agree, the UI typechecks, the backend's tests pass
-//   bun release.ts tag    push, then tag launcher-v<version>
-//   bun release.ts wait   until the release and the rolling updater point at it
+//   bun scripts/release.ts gate   the versions agree, the UI typechecks, the backend's tests pass
+//   bun scripts/release.ts tag    push, then tag launcher-v<version>
+//   bun scripts/release.ts wait   until the release and the rolling updater point at it
 import { run } from "../../game/scripts/release/version"
 
-const here = import.meta.dir
+const here = `${import.meta.dir}/..` // the launcher, above scripts/
 const BUDGET_MS = 28 * 60_000 // under arc's 30-minute step limit
 const LOOK_MS = 30_000
 
@@ -67,7 +67,7 @@ async function wait() {
             }
         }
         if (Date.now() - started > BUDGET_MS)
-            throw new Error(`launcher: ${t} is still building${latest ? ` (${latest.url})` : ""}; run \`bun release.ts wait\` to keep waiting`)
+            throw new Error(`launcher: ${t} is still building${latest ? ` (${latest.url})` : ""}; run \`bun scripts/release.ts wait\` to keep waiting`)
         console.log(`launcher: waiting for ${t}${latest ? ` (${latest.status})` : ""}…`)
         await Bun.sleep(LOOK_MS)
     }
@@ -75,5 +75,5 @@ async function wait() {
 
 const steps: Record<string, () => Promise<void>> = { gate, tag, wait }
 const step = steps[process.argv[2] ?? ""]
-if (!step) throw new Error(`usage: bun release.ts ${Object.keys(steps).join("|")}`)
+if (!step) throw new Error(`usage: bun scripts/release.ts ${Object.keys(steps).join("|")}`)
 await step()
