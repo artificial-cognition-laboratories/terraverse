@@ -86,7 +86,7 @@ function sortBy(event: Event) {
 <style scoped lang="scss">
 .layout {
     display: grid;
-    grid-template-columns: $registry-side minmax(0, 1fr);
+    grid-template-columns: $side-width minmax(0, 1fr);
     gap: 3rem;
     align-items: start;
 }

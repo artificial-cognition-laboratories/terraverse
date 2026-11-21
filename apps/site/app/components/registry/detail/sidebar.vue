@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { CATEGORY_LABELS, type Mod } from "~/registry"
+import { useAccount } from "~/account"
 import type { Node } from "~/registry/tree"
 import type { Tab } from "~/registry/detail"
 import { format } from "~/lib/format"
@@ -11,6 +12,7 @@ import { format } from "~/lib/format"
 const props = defineProps<{ mod: Mod; tab: Tab; version: string; tree: readonly Node[]; open: ReadonlySet<string>; file: string | null }>()
 const emit = defineEmits<{ tab: [tab: Tab]; version: [version: string]; toggle: [path: string]; pick: [path: string] }>()
 
+const account = useAccount()
 const needs = computed(() => Object.keys(props.mod.versions.find(v => v.version === props.version)?.dependencies ?? {}).length)
 const contents = computed(() => [
     { id: "readme" as const, label: "Readme", icon: "readme" as const },
@@ -20,7 +22,7 @@ const contents = computed(() => [
 ])
 const stats = computed(() => [
     { icon: "download" as const, value: format.count(props.mod.installs), label: "installs" },
-    { icon: "star" as const, value: format.count(props.mod.stars), label: "stars" },
+    { icon: "star" as const, value: format.count(props.mod.stars + (account.stars.has(props.mod.name) ? 1 : 0)), label: "stars" },
     { icon: "dependencies" as const, value: format.count(props.mod.dependents.length), label: "dependents" },
 ])
 
@@ -30,9 +32,9 @@ function chose(event: Event) {
 </script>
 
 <template>
-    <registry-side class="sidebar">
-        <registry-side-nav :items="contents" :active="tab" @pick="emit('tab', $event)" />
-        <registry-side-stats :items="stats" />
+    <shared-side class="sidebar">
+        <shared-side-nav :items="contents" :active="tab" @pick="emit('tab', $event)" />
+        <shared-side-stats :items="stats" />
 
         <dl class="meta">
             <div><dt>Latest</dt><dd>v{{ mod.latestVersion }}</dd></div>
@@ -72,7 +74,7 @@ function chose(event: Event) {
                 />
             </ul>
         </section>
-    </registry-side>
+    </shared-side>
 </template>
 
 <style scoped lang="scss">

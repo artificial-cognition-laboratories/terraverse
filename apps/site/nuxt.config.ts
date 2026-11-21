@@ -57,7 +57,7 @@ export default defineNuxtConfig({
             markdown: {
                 highlight: {
                     theme: "dark-plus",
-                    langs: ["bash", "shell", "lua", "json", "cpp", "typescript", "toml", "ini"],
+                    langs: ["bash", "shell", "json", "cpp", "typescript", "toml", "ini", "vue"],
                 },
             },
         },
@@ -65,7 +65,12 @@ export default defineNuxtConfig({
 
     nitro: {
         preset: "static",
-        prerender: { routes: ["/", ...contentRoutes("docs"), ...contentRoutes("wiki")], failOnError: true },
+        // TEMP(2026-11-21): the wiki is one "coming soon" page; its content routes return with it
+        // The account's pages are reached from the profile menu, which only the browser draws: name them
+        prerender: {
+            routes: ["/", ...contentRoutes("docs"), "/wiki", "/signin", "/register", "/device", "/registry/starred"],
+            failOnError: true,
+        },
     },
 
     vite: {

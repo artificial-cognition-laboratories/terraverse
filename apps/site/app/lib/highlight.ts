@@ -30,14 +30,16 @@ function lines(html: string): string {
  */
 export const markdownHighlighter: Highlighter = async (code, lang) => {
     const { codeToHast, bundledLanguages } = await import("shiki")
-    const root = await codeToHast(code, { lang: lang in bundledLanguages ? lang : "text", theme: "dark-plus" })
+    // A fence's text ends in a newline; kept, it would be an empty last line
+    const root = await codeToHast(code.replace(/\n$/, ""), { lang: lang in bundledLanguages ? lang : "text", theme: "dark-plus" })
     const pre = root.children.find(isElement)
     const inner = pre?.children.find(isElement)
     if (!pre || !inner) throw new Error("Shiki's tree has no <pre><code>")
     return {
         // Each line is its own block, as in lines() above
         tree: inner.children.filter(n => !(n.type === "text" && n.value === "\n")),
-        inlineStyle: typeof pre.properties.style === "string" ? pre.properties.style : "",
+        // No inline style: Shiki's would paint its theme's grey behind the window's glass
+        inlineStyle: "",
     }
 }
 

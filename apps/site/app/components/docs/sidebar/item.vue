@@ -3,7 +3,7 @@
         v-if="item.path"
         :to="item.path"
         class="nav-item"
-        :class="{ active: route.path === item.path, folder: !!item.items, command: !!item.flavor, muted: !!item.muted }"
+        :class="{ active: route.path === item.path, folder: !!item.items, file: !!item.icon, command: !!item.flavor, muted: !!item.muted }"
         :style="{ '--depth': depth }"
     >
         <Icon v-if="item.icon" :name="item.icon" class="nav-icon" />
@@ -15,7 +15,7 @@
         </span>
         <span v-else class="nav-title">{{ item.title }}</span>
     </NuxtLink>
-    <span v-else class="nav-item static" :class="{ folder: !!item.items }" :style="{ '--depth': depth }">
+    <span v-else class="nav-item static" :class="{ folder: !!item.items, file: !!item.icon }" :style="{ '--depth': depth }">
         <Icon v-if="item.icon" :name="item.icon" class="nav-icon" />
         <span class="nav-title">{{ item.title }}</span>
     </span>
@@ -43,30 +43,39 @@ const command = computed(() => {
 <style scoped lang="scss">
 $indent: 0.85rem;
 
+// Lit as the side card's own choices are: a tint, and an edge of the brand
 .nav-item {
     display: flex;
     align-items: center;
-    gap: 0.35rem;
-    font-size: 0.82rem;
-    color: $text-secondary;
+    gap: 0.45rem;
+    padding: 0.38rem 0.65rem;
+    padding-left: calc(0.65rem + var(--depth) * #{$indent});
+    font-family: $font-sans;
+    font-size: 0.84rem;
+    color: $ink-dim;
     white-space: nowrap;
-    padding: 0.32rem 0.75rem;
-    padding-left: calc(0.75rem + var(--depth) * #{$indent});
     text-decoration: none;
+    box-shadow: inset 2px 0 0 transparent;
 
     &:hover {
-        color: $text-primary;
-        background: rgba($primary-ink, 0.05);
+        color: $ink;
     }
 
     &.active {
-        color: $primary-ink;
-        background: rgba($primary-ink, 0.08);
+        color: $ink;
+        background: rgba($primary-ink, 0.07);
+        box-shadow: inset 2px 0 0 $primary-ink;
+    }
+
+    // Files, folders and commands are literal: they keep the code face
+    &.file,
+    &.command {
+        font-family: $font-mono;
+        font-size: 0.78rem;
     }
 
     &.folder {
-        font-weight: 600;
-        color: $text-tertiary;
+        color: $ink;
     }
 
     &.muted:not(.active) {
@@ -74,11 +83,11 @@ $indent: 0.85rem;
     }
 
     &.static:hover {
-        background: transparent;
+        color: $ink-dim;
     }
 
     &.command {
-        opacity: 0.8;
+        opacity: 0.85;
 
         &:hover,
         &.active {

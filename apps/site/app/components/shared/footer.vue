@@ -20,7 +20,7 @@ import { GITHUB, navLinks } from "~/config/site"
 
 <style scoped lang="scss">
 .footer {
-    border-top: 1px solid $border-soft;
+    border-top: 1px solid $glass-edge;
 }
 
 .footer-inner {
@@ -32,7 +32,7 @@ import { GITHUB, navLinks } from "~/config/site"
     gap: 1rem 2rem;
     align-items: baseline;
     font-size: 0.75rem;
-    color: $text-tertiary;
+    color: $ink-faint;
 }
 
 .mark {
@@ -45,7 +45,7 @@ import { GITHUB, navLinks } from "~/config/site"
 }
 
 a {
-    color: $text-secondary;
+    color: $ink-dim;
     text-decoration: none;
 
     &:hover {

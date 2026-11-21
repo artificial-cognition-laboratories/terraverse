@@ -62,7 +62,7 @@ function toggle(path: string) {
 .detail {
     display: grid;
     // the side card on the right, as npm and GitHub: the readme leads, reference sits beside it
-    grid-template-columns: minmax(0, 1fr) $registry-side;
+    grid-template-columns: minmax(0, 1fr) $side-width;
     gap: 2.5rem;
     align-items: start;
 }

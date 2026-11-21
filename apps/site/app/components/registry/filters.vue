@@ -31,9 +31,9 @@ function toggle(id: CategoryId) {
 </script>
 
 <template>
-    <registry-side class="filters">
-        <registry-side-nav :items="types" :active="search.type ?? 'all'" @pick="pick" />
-        <registry-side-stats :items="stats" />
+    <shared-side class="filters">
+        <shared-side-nav :items="types" :active="search.type ?? 'all'" @pick="pick" />
+        <shared-side-stats :items="stats" />
 
         <section>
             <h4>Categories</h4>
@@ -55,7 +55,7 @@ function toggle(id: CategoryId) {
                 <span class="track" aria-hidden="true"><span class="knob" /></span>
             </button>
         </section>
-    </registry-side>
+    </shared-side>
 </template>
 
 <style scoped lang="scss">

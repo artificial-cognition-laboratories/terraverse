@@ -1,18 +1,25 @@
 <script setup lang="ts">
+import type { RouteLocationRaw } from "vue-router"
+
 /**
- * A link that looks like the game's buttons: a raised block, lit top-left.
- * `primary` is the deep ocean, for what a section wants done; `ghost` is quiet stone.
+ * The game's button: a raised block, lit top-left. A link with `to`, a button
+ * without (it emits click). `primary` is the deep ocean, for what a page wants
+ * done; `ghost` is quiet stone.
  */
-withDefaults(defineProps<{ to: string; variant?: "primary" | "ghost"; size?: "md" | "lg" }>(), {
-    variant: "ghost",
-    size: "md",
-})
+withDefaults(
+    defineProps<{ to?: RouteLocationRaw; variant?: "primary" | "ghost"; size?: "md" | "lg"; disabled?: boolean; type?: "button" | "submit" }>(),
+    { to: undefined, variant: "ghost", size: "md", disabled: false, type: "button" },
+)
+const emit = defineEmits<{ click: [] }>()
 </script>
 
 <template>
-    <NuxtLink :to="to" class="button" :class="[variant, size]">
+    <NuxtLink v-if="to" :to="to" class="button" :class="[variant, size]">
         <slot />
     </NuxtLink>
+    <button v-else :type="type" class="button" :class="[variant, size]" :disabled="disabled" @click="emit('click')">
+        <slot />
+    </button>
 </template>
 
 <style scoped lang="scss">
@@ -32,9 +39,15 @@ withDefaults(defineProps<{ to: string; variant?: "primary" | "ghost"; size?: "md
     text-decoration: none;
     border: 1px solid $edge;
     box-shadow: $raised;
+    cursor: pointer;
     transition: background 0.1s, color 0.1s;
 
-    &:active {
+    &:disabled {
+        cursor: default;
+        opacity: 0.5;
+    }
+
+    &:active:not(:disabled) {
         box-shadow: $sunk;
         transform: translateY($bevel);
     }
@@ -50,7 +63,7 @@ withDefaults(defineProps<{ to: string; variant?: "primary" | "ghost"; size?: "md
     background: $primary;
     color: #fff;
 
-    &:hover {
+    &:hover:not(:disabled) {
         background: color.adjust($primary, $lightness: 6%);
     }
 }
@@ -59,7 +72,7 @@ withDefaults(defineProps<{ to: string; variant?: "primary" | "ghost"; size?: "md
     background: $night-2;
     color: $ink;
 
-    &:hover {
+    &:hover:not(:disabled) {
         background: $night-3;
     }
 }

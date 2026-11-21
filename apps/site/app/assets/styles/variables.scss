@@ -1,168 +1,15 @@
-@use "sass:color";
-
-// Terminal Theme Colors
-// Background colors
-$bg-primary: #161616;
-$bg-secondary: $bg-primary;
-$bg-tertiary: $bg-primary;
-$bg-header: color.scale($bg-primary, $lightness: 0%);
-
-// The brand: the generator's own deep ocean, and its forest as the second accent.
-//
-// Each comes in roles, never one colour for everything. The deep shade is a
-// FILL (buttons, bars, tiles): white text on it is 7:1. On the dark page it's
-// only 2.3:1, so text, links, kickers and lines use its `-ink` shade, the same
-// hue lifted until it reads (6.9:1 on the page, 6.1:1 on a card).
-//
-//   $primary       fill      #0a4b91  the sea in terragen's relief render
-//   $primary-ink   text/line #63a3e9  6.85:1 on #161616
-//   $primary-lo    pressed, quiet borders
-//   $forest        fill      #2e6b45  forest in the biome render
-//   $forest-ink    text/line #5eba81  7.6:1
-//
-// Blue is the brand and every action. Green means alive: online, healthy, done.
-$primary: #0a4b91;
-$primary-ink: #63a3e9;
-$primary-lo: #0d3259;
-$forest: #2e6b45;
-$forest-ink: #5eba81;
-$forest-lo: #1f472e;
-$terminal-cyan: $primary-ink;
-
-// Text colors
-$text-primary: #c9d1d9;
-$text-secondary: #8b949e;
-// 2.71:1 at #545d68 — captions, counts and metadata all failed AA. This is
-// 5.03:1 against the page and 4.65:1 over the tinted chips it also sits on,
-// while staying the faintest of the three text tokens: the hierarchy against
-// $text-primary (11.9:1) and $text-secondary (6.4:1) is unchanged.
-$text-tertiary: #7e8895;
-$text-muted: #30363d;
-
-// Border colors
-$border-primary: $primary-ink;
-$border-secondary: color.adjust($primary-ink, $lightness: -15%);
-$border-tertiary: color.adjust($primary-ink, $lightness: -10%);
-
-// Terminal button colors
-$terminal-red: #ff5f56;
-$terminal-yellow: #ffbd2e;
-$terminal-button-green: $primary-ink;
-
-// Gradient
-$gradient-primary: linear-gradient(135deg, $primary-ink 0%, $primary-ink 100%);
-
-// Shadows and glows
-$glow-terminal: 0 0 50px $primary-ink;
-$glow-hover: 0 0 30px $primary-ink;
-$glow-button: 0 0 20px $primary-ink;
-
-// Grid pattern overlay
-$grid-pattern:
-    linear-gradient(90deg, rgba(0, 255, 65, 0) 1px, transparent 1px),
-    linear-gradient(rgba(0, 255, 65, 0) 1px, transparent 1px);
-
-// Line separator
-$line-separator: linear-gradient(90deg, transparent, $primary-ink, transparent);
-
-// Transitions
-$transition-standard: all 0.15s;
-$transition-fast: all 0.1s;
-
-// Font
-/**
- * The site's content measure.
- *
- * ONE token because the nav and every page container must agree: they were
- * seven separate `1064px` literals, and widening any one of them made the logo
- * jump horizontally on navigation between sections.
- *
- * Docs are unaffected in the part that matters — `.docs-content` caps prose at
- * 750px inside this container, so a wider site widens the sidebar gutter, not
- * the reading measure.
- */
-$site-width: 1200px;
-
-$font-mono: "JetBrains Mono", monospace;
-/**
- * The text face — prose and display headings.
- *
- * Mono is reserved for things that ARE literal: code, commands, filenames,
- * versions, metric values, small uppercase labels. Body copy set in mono reads
- * as a terminal transcript, which is right for docs and wrong for a page whose
- * job is to persuade.
- */
-$font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-
-// Status colors — the ONE set. Trend arrows, health dots, error text all
-// derive from these; never hardcode a green/red/yellow in a component.
-$status-good: $forest-ink;
-$status-warn: #d29922;
-$status-bad: #f85149;
+// The site's tokens: one palette, the night (lib/sky.ts paints on it), for every
+// page: the landing, the registry and the docs. Components never contain a
+// literal colour or size that one of these names.
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Dashboard design tokens — every raw value a component is allowed to use.
-// Components never contain literal colors, radii, or font sizes: they use
-// these tokens (directly or through the mixins in _mixins.scss).
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Surfaces — the raised-card blacks
-$surface: rgba(0, 0, 0, 0.2); // cards, controls, inputs
-// Opaque card ground. The landing page's ambience layers sit behind the
-// sections, so a translucent card there samples whatever bloom happens to be
-// underneath — every card ends up a slightly different colour.
-//
-// #111111 is measured from the TUI screenshots' own background: the frame
-// padding has to be the same colour as the image it wraps, or there is a
-// visible seam around every screenshot on the page.
-$surface-solid: #111111;
-$surface-deep: rgba(0, 0, 0, 0.3); // tracks, active pills — one step darker
-$surface-tooltip: rgba(0, 0, 0, 0.75);
-
-// Border ladder — primary-tinted alphas, three named steps
-$border-soft: rgba($primary-ink, 0.1); // resting chrome (tracks, dividers)
-$border-mid: rgba($primary-ink, 0.15); // resting interactive (inputs, buttons)
-$border-strong: rgba($primary-ink, 0.35); // hover / focus / active
-
-// Radii
-$radius-sm: 3px; // pills, inner segments
-$radius-md: 4px; // buttons, inputs, tab bars
-$radius-lg: 6px; // cards
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Breakpoints — the ONE responsive scale.
-//
-// Three widths, no more. Components had accumulated sixteen ad-hoc values
-// (480…1024) across 47 files, which meant neighbouring elements collapsed at
-// different widths and layouts broke in the bands between them.
-//
-// Use the mixins in mixins.scss (`@include mobile { … }`), never these
-// variables directly — a bare `@media (max-width: $bp-mobile)` reintroduces
-// the off-by-one overlap the mixins exist to prevent.
-// ─────────────────────────────────────────────────────────────────────────────
-
-$bp-mobile: 640px; // phones — single column, nav collapses to a drawer
-$bp-tablet: 900px; // small tablets / split screens — sidebars fold away
-$bp-desktop: 1200px; // below full desktop — wide grids narrow
-
-// Type scale (all $font-mono)
-$text-micro: 0.6rem; // badges, chip counts, group labels
-$text-label: 0.68rem; // uppercase card/stat labels
-$text-control: 0.65rem; // control text (selects, pills, small buttons)
-$text-body: 0.70rem; // buttons, nav items
-$text-value: 1.5rem; // headline numbers
-// Terraverse: the pixel face for the wordmark and display headings
-$font-display: "Silkscreen", $font-mono;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// The landing and registry: built from the night the landing hangs in (lib/sky.ts).
+// The night
 //
 // Panels are made of the same dark as the sky, a step lifted, so they belong to
-// the scene and still sit plainly in front of it. Docs keep the terminal theme above.
+// the scene and still sit plainly in front of it.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// The sky behind the landing: one flat night (lib/sky.ts draws on it)
-$night-sky: #04070b;
+$night-sky: #04070b; // the page itself
 $night-0: #070b11; // wells: code, inputs, the deepest ground of a panel
 $night-1: #0c121b; // a panel
 $night-2: #111a26; // a raised panel, a hover
@@ -172,15 +19,77 @@ $edge: #04060a;
 $ink: #e7edf4;
 $ink-dim: rgba(231, 237, 244, 0.64);
 $ink-faint: rgba(231, 237, 244, 0.38);
-// The light the scene is lit by: a panel's top edge catches it
-$moonlit: rgba(201, 214, 227, 0.08);
-// Every glass edge on the landing: 1px, the same on all four sides
+// Every glass edge: 1px, the same on all four sides
 $glass-edge: rgba(231, 237, 244, 0.1);
-// The registry's side card (Browse's filters, a mod's reference): one width on every page
-$registry-side: 17rem;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The brand: the generator's own deep ocean, and its forest as the second accent.
+//
+// Each comes in roles, never one colour for everything. The deep shade is a
+// FILL (buttons, bars, tiles): white text on it is 7:1. On the night it's too
+// dark to read, so text, links, kickers and lines use its `-ink` shade, the
+// same hue lifted until it reads.
+//
+//   $primary       fill      #0a4b91  the sea in terragen's relief render
+//   $primary-ink   text/line #63a3e9
+//   $primary-lo    pressed, quiet borders
+//   $forest        fill      #2e6b45  forest in the biome render
+//   $forest-ink    text/line #5eba81
+//
+// Blue is the brand and every action. Green means alive: online, healthy, done.
+// ─────────────────────────────────────────────────────────────────────────────
+
+$primary: #0a4b91;
+$primary-ink: #63a3e9;
+$primary-lo: #0d3259;
+$forest: #2e6b45;
+$forest-ink: #5eba81;
+$forest-lo: #1f472e;
+
+// Status: the ONE set. Never hardcode a green, red or yellow in a component.
+$status-good: $forest-ink;
+$status-warn: #d29922;
+$status-bad: #f85149;
 
 // One light, top-left, as in the game: never a hand-written bevel
 $bevel: 2px;
 $raised: inset $bevel $bevel 0 rgba(255, 255, 255, 0.1), inset (-$bevel) (-$bevel) 0 rgba(0, 0, 0, 0.45);
 $sunk: inset $bevel $bevel 0 rgba(0, 0, 0, 0.45), inset (-$bevel) (-$bevel) 0 rgba(255, 255, 255, 0.04);
 $ledge: 0 $bevel 0 $edge;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Type
+//
+// Sans for reading (prose, headings), mono for anything literal (code,
+// commands, file names, versions, numbers), the pixel face for the wordmark,
+// kickers and small uppercase labels.
+// ─────────────────────────────────────────────────────────────────────────────
+
+$font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+$font-mono: "JetBrains Mono", monospace;
+$font-display: "Silkscreen", $font-mono;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Layout
+// ─────────────────────────────────────────────────────────────────────────────
+
+// The site's measure: the nav and every page container agree, so the logo
+// never jumps between sections
+$site-width: 1200px;
+// The two bars every page hangs under: the topnav, then a section's subnav
+$topnav-height: 52px;
+$subnav-height: 3.25rem;
+// The room between the subnav and a page's first line; a sticky column sticks
+// exactly here, so it never shifts when the page starts to scroll
+$page-top: 2.5rem;
+// The side card (Browse's filters, a mod's reference, the docs' tree): one width on every page
+$side-width: 17rem;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Breakpoints: the ONE responsive scale. Use the mixins in mixins.scss
+// (`@include mobile { … }`), never these directly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+$bp-mobile: 640px; // phones: single column, nav collapses to a drawer
+$bp-tablet: 900px; // small tablets, split screens: sidebars fold away
+$bp-desktop: 1200px; // below full desktop: wide grids narrow

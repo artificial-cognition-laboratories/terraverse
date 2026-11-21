@@ -1,4 +1,4 @@
-@use "./docs.scss";
+@use "./prose.scss";
 
 @font-face {
     font-family: "JetBrains Mono";
@@ -29,8 +29,8 @@ html,
 body {
     margin: 0;
     padding: 0;
-    background: $bg-primary;
-    color: $text-primary;
+    background: $night-sky;
+    color: $ink;
     font-family: $font-mono;
     min-height: 100vh;
     min-height: 100dvh;

@@ -44,6 +44,10 @@ export function Registry(opts: { catalogue: readonly Mod[]; servers: readonly Se
         /** null when there's no such mod: the page says so */
         mod: async (name: string): Promise<Mod | null> => opts.catalogue.find(m => m.name === name) ?? null,
 
+        /** These mods' cards, in the order asked; a name the catalogue doesn't hold is left out */
+        listings: async (names: readonly string[]): Promise<Listing[]> =>
+            names.flatMap(name => listings.filter(l => l.name === name)),
+
         owner: async (scope: string): Promise<Owner | null> => {
             const theirs = listings.filter(l => l.owner === scope.replace(/^@/, "")).sort(ORDER.stars)
             if (!theirs.length) return null

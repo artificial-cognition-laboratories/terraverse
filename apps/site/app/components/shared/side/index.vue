@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * A registry page's side column: one card, its sections divided by hairlines,
+ * A page's side column (the registry's, the docs'): one card, its sections divided by hairlines,
  * nothing inside boxed again. Each section gets the card's padding unless it
  * says `flush` and sets its own (a nav runs closer to the edge).
  */

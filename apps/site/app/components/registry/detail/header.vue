@@ -30,6 +30,7 @@ const address = computed(() => `${props.mod.name}${props.version === props.mod.l
                     <h1>{{ mod.title }}</h1>
                     <span class="badge">v{{ version }}</span>
                     <span v-if="mod.official" class="badge official">Official</span>
+                    <registry-star class="star" :name="mod.name" :stars="mod.stars" />
                 </div>
                 <span class="by">
                     by <NuxtLink :to="`/registry/${owner}`">{{ mod.owner }}</NuxtLink>
@@ -103,6 +104,7 @@ const address = computed(() => `${props.mod.name}${props.version === props.mod.l
 }
 
 .names {
+    flex: 1;
     display: grid;
     gap: 0.35rem;
     min-width: 0;
@@ -114,6 +116,11 @@ const address = computed(() => `${props.mod.name}${props.version === props.mod.l
     flex-wrap: wrap;
     gap: 0.75rem;
     align-items: center;
+}
+
+// The star sits at the far end of the title line, level with the name
+.star {
+    margin-left: auto;
 }
 
 h1 {
