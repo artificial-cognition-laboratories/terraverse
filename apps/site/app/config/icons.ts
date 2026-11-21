@@ -35,8 +35,31 @@ const LANDING_ICONS = {
         rows: [".......O.", "...LLL...", "..LLLLL.G", ".LLLLLLG.", "GGGGGGG..", ".LLLLL...", "..LLL....", "G........", "........."] },
     open: { palette: { G: STEEL, D: SHADE, L: SKY },
         rows: ["...GGG...", "..G...G..", "..G......", "..G......", ".LLLLLLL.", ".LLLDLLL.", ".LLLDLLL.", ".LLLLLLL.", "........."] },
+    // the registry's glyphs
+    all: { palette: { G: STEEL, L: SKY },
+        rows: [".........", ".GGG.LLL.", ".GGG.LLL.", ".GGG.LLL.", ".........", ".LLL.GGG.", ".LLL.GGG.", ".LLL.GGG.", "........."] },
+    mod: { palette: { G: STEEL, D: SHADE, L: SKY },
+        rows: ["....G....", "..GGLGG..", "GGLLLLLGG", "GDGGLGGLG", "GDDDGLLLG", "GDDDGLLLG", "GDDDGLLLG", ".GDDGLLG.", "...GGG..."] },
+    author: { palette: { G: STEEL, L: SKY },
+        rows: ["...GGG...", "..GLLLG..", "..GLLLG..", "...GGG...", ".........", "..GGGGG..", ".GLLLLLG.", ".GLLLLLG.", ".GGGGGGG."] },
+    shaders: { palette: { O: SUN },
+        rows: ["....O....", ".O.....O.", "...OOO...", "..OOOOO..", "O.OOOOO.O", "..OOOOO..", "...OOO...", ".O.....O.", "....O...."] },
+    search: { palette: { G: STEEL },
+        rows: ["..GGG....", ".G...G...", "G.....G..", "G.....G..", "G.....G..", ".G...G...", "..GGG.G..", "......GG.", ".......GG"] },
+    readme: { palette: { G: STEEL, L: SKY },
+        rows: [".........", "GGGG.GGGG", "G..LGL..G", "G.LLGLL.G", "G..LGL..G", "G.LLGLL.G", "G...G...G", "GGGG.GGGG", "........."] },
+    versions: { palette: { G: STEEL, L: SKY },
+        rows: ["GGGGG....", "G...GG...", "G.L..GG..", "G.....GG.", "G......GG", "GG.....G.", ".GG...G..", "..GG.G...", "...GG...."] },
+    dependencies: { palette: { G: STEEL, L: SKY },
+        rows: ["GGG......", "G.G......", "GGG......", ".L.......", ".LLLLLGGG", ".L....G.G", "GGG...GGG", "G.G......", "GGG......"] },
+    source: { palette: { G: STEEL, L: SKY },
+        rows: [".........", "GGG......", "G..GGGGG.", "G.......G", "G.LLLLL.G", "G.......G", "G.LLL...G", "GGGGGGGGG", "........."] },
+    star: { palette: { O: SUN },
+        rows: ["....O....", "....O....", "...OOO...", "OOOOOOOOO", ".OOOOOOO.", "..OOOOO..", "..OO.OO..", ".OO...OO.", ".O.....O."] },
+    download: { palette: { G: STEEL, L: SKY },
+        rows: ["....L....", "....L....", "....L....", "..L.L.L..", "...LLL...", "....L....", ".........", "G.......G", "GGGGGGGGG"] },
 } satisfies Record<string, PixelIcon>
 
-/** Every icon the landing can draw, by name. */
+/** Every icon the site can draw, by name. */
 export const ICONS = { ...CATEGORY_ICONS, ...LANDING_ICONS }
 export type IconId = keyof typeof ICONS

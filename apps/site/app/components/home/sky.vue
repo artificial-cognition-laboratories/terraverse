@@ -4,10 +4,10 @@ import { PX, sky } from "~/lib/sky"
 
 /**
  * The night the landing hangs in, behind every section: one flat dark, two
- * fields of stars, the sun and the moon. Each moves at its own depth as the
+ * fields of stars, and on the landing the sun and the moon (`scene`). Each moves at its own depth as the
  * page scrolls (`speed`: 1 is with the page, 0 is fixed to the window).
  */
-const props = defineProps<{ seed: string }>()
+const props = withDefaults(defineProps<{ seed: string; scene?: "landing" | "stars" }>(), { scene: "landing" })
 
 // Each field is a tile that repeats. The far one is dim enough to repeat unnoticed;
 // the near one, with its glints, is wider than a screen so it never visibly does.
@@ -30,6 +30,10 @@ const drawn = ref(false)
 
 onMounted(() => {
     images.stars = FIELDS.map(f => paint(sky.stars(`${props.seed}:${f.seed}`, f.tile.width, f.tile.height, f.count, f.glints)))
+    if (props.scene === "stars") {
+        drawn.value = true
+        return
+    }
     const sunArt = sky.sun(7)
     const moonArt = sky.moon(`${props.seed}:moon`, 13, [0.75, -0.45, 0.5])
     images.sun = paint(sunArt)

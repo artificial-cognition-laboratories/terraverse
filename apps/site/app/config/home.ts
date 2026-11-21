@@ -1,4 +1,4 @@
-import type { CategoryId, IconId } from "./icons"
+import type { IconId } from "./icons"
 
 /**
  * The landing page as data: every section reads its words and pictures from here.
@@ -19,6 +19,7 @@ export const flags = {
 /** Where the page's buttons go. The registry's web view isn't built yet: its page says so. */
 export const links = {
     registry: "/registry",
+    browse: "/registry/browse",
     docs: "/docs",
     wiki: "/wiki",
     mods: "/docs/mods",
@@ -70,56 +71,7 @@ export const registry = {
     kicker: "The registry",
     title: "Made by everyone.",
     lede: "Mods, whole games, worlds, shaders and texture packs. One click to add them to a world, one command to publish your own.",
-    categories: [
-        { id: "games", label: "Games" },
-        { id: "survival", label: "Survival" },
-        { id: "building", label: "Building" },
-        { id: "machines", label: "Machines" },
-        { id: "matter", label: "Matter" },
-        { id: "world", label: "Worlds" },
-        { id: "textures", label: "Shaders, textures" },
-        { id: "library", label: "Libraries" },
-    ] satisfies { id: CategoryId; label: string }[],
 }
-
-export interface Listing {
-    name: string
-    title: string
-    owner: string
-    description: string
-    stars: number
-    installs: number
-    version: string
-    tags: string[]
-    official: boolean
-}
-
-// TEMP(2026-11-21): sample listings while the design settles; the registry's real
-// front page replaces these before launch (`flags.registry`).
-export const SAMPLE_LISTINGS: Listing[] = [
-    { name: "@terraverse/hunger-games", title: "Hunger Games", owner: "terraverse", description: "Last one standing on a shrinking island. Loot, sealed chests and a border that boils the sea.", stars: 412, installs: 9800, version: "2.6.0", tags: ["Games"], official: true },
-    { name: "@ash/kilns", title: "Kilns", owner: "ash", description: "Fired clay, brick and glass from heat you have to build and feed.", stars: 164, installs: 2200, version: "3.3.0", tags: ["Matter"], official: false },
-    { name: "@terraverse/craft", title: "Craft", owner: "terraverse", description: "Forms × materials: knap, carve, saw and forge at a bench.", stars: 380, installs: 12400, version: "3.2.0", tags: ["Survival"], official: true },
-    { name: "@wren/iron-rails", title: "Iron Rails", owner: "wren", description: "Track, points and wagons on real physics. Hauling ore stops being a crawl.", stars: 301, installs: 5500, version: "2.0.0", tags: ["Machines"], official: false },
-    { name: "@pell/shadowplay", title: "Shadowplay", owner: "pell", description: "Light and sound decide who sees you. Hide-and-seek with real optics.", stars: 140, installs: 1900, version: "3.0.0", tags: ["Games"], official: false },
-]
-
-export interface Server {
-    name: string
-    game: string
-    players: number
-    slots: number
-    region: string
-    mods: number
-}
-
-// TEMP(2026-11-21): sample servers while the design settles (`flags.servers`).
-export const SAMPLE_SERVERS: Server[] = [
-    { name: "Ember Isles", game: "Hunger Games", players: 23, slots: 24, region: "EU", mods: 4 },
-    { name: "Long Haul", game: "Survival", players: 41, slots: 64, region: "US", mods: 12 },
-    { name: "Rally Cross", game: "Rally", players: 9, slots: 16, region: "EU", mods: 3 },
-    { name: "Quiet Valley", game: "Building", players: 6, slots: 20, region: "AU", mods: 7 },
-]
 
 export interface Plan {
     name: string

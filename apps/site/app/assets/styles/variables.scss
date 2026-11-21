@@ -176,6 +176,8 @@ $ink-faint: rgba(231, 237, 244, 0.38);
 $moonlit: rgba(201, 214, 227, 0.08);
 // Every glass edge on the landing: 1px, the same on all four sides
 $glass-edge: rgba(231, 237, 244, 0.1);
+// The registry's side card (Browse's filters, a mod's reference): one width on every page
+$registry-side: 17rem;
 
 // One light, top-left, as in the game: never a hand-written bevel
 $bevel: 2px;
