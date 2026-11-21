@@ -7,23 +7,27 @@ $bg-secondary: $bg-primary;
 $bg-tertiary: $bg-primary;
 $bg-header: color.scale($bg-primary, $lightness: 0%);
 
-// Terminal green (primary accent)
+// The brand: the generator's own deep ocean, and its forest as the second accent.
 //
-// Contrast, not taste. At rgb(0, 110, 157) this scored 2.71:1 against
-// $bg-primary — links, buttons, active tabs, kickers and badges all failed
-// WCAG AA (4.5:1), and the site uses this colour at 10-13px for kickers and
-// labels where legibility matters most. Same hue (~199deg), raised lightness.
+// Each comes in roles, never one colour for everything. The deep shade is a
+// FILL (buttons, bars, tiles): white text on it is 7:1. On the dark page it's
+// only 2.3:1, so text, links, kickers and lines use its `-ink` shade, the same
+// hue lifted until it reads (6.9:1 on the page, 6.1:1 on a card).
 //
-// 5.31:1 against the page. The extra headroom over a bare 4.5 is deliberate:
-// this colour is also used ON faint tints of ITSELF (badges, active nav rows,
-// `rgba($primary, 0.08-0.12)` chips), and the effective background there is
-// lighter than the page — at 4.81:1 those composited cases landed at 4.24 and
-// still failed. Measured against the worst tint in use, this clears 4.63:1.
+//   $primary       fill      #0a4b91  the sea in terragen's relief render
+//   $primary-ink   text/line #63a3e9  6.85:1 on #161616
+//   $primary-lo    pressed, quiet borders
+//   $forest        fill      #2e6b45  forest in the biome render
+//   $forest-ink    text/line #5eba81  7.6:1
 //
-// Every derived token below (borders, glows, gradients) inherits the fix,
-// which is why this is one line and not thirty.
-$primary: rgb(0, 148, 210);
-$terminal-cyan: $primary;
+// Blue is the brand and every action. Green means alive: online, healthy, done.
+$primary: #0a4b91;
+$primary-ink: #63a3e9;
+$primary-lo: #0d3259;
+$forest: #2e6b45;
+$forest-ink: #5eba81;
+$forest-lo: #1f472e;
+$terminal-cyan: $primary-ink;
 
 // Text colors
 $text-primary: #c9d1d9;
@@ -36,22 +40,22 @@ $text-tertiary: #7e8895;
 $text-muted: #30363d;
 
 // Border colors
-$border-primary: $primary;
-$border-secondary: color.adjust($primary, $lightness: -15%);
-$border-tertiary: color.adjust($primary, $lightness: -10%);
+$border-primary: $primary-ink;
+$border-secondary: color.adjust($primary-ink, $lightness: -15%);
+$border-tertiary: color.adjust($primary-ink, $lightness: -10%);
 
 // Terminal button colors
 $terminal-red: #ff5f56;
 $terminal-yellow: #ffbd2e;
-$terminal-button-green: $primary;
+$terminal-button-green: $primary-ink;
 
 // Gradient
-$gradient-primary: linear-gradient(135deg, $primary 0%, $primary 100%);
+$gradient-primary: linear-gradient(135deg, $primary-ink 0%, $primary-ink 100%);
 
 // Shadows and glows
-$glow-terminal: 0 0 50px $primary;
-$glow-hover: 0 0 30px $primary;
-$glow-button: 0 0 20px $primary;
+$glow-terminal: 0 0 50px $primary-ink;
+$glow-hover: 0 0 30px $primary-ink;
+$glow-button: 0 0 20px $primary-ink;
 
 // Grid pattern overlay
 $grid-pattern:
@@ -59,7 +63,7 @@ $grid-pattern:
     linear-gradient(rgba(0, 255, 65, 0) 1px, transparent 1px);
 
 // Line separator
-$line-separator: linear-gradient(90deg, transparent, $primary, transparent);
+$line-separator: linear-gradient(90deg, transparent, $primary-ink, transparent);
 
 // Transitions
 $transition-standard: all 0.15s;
@@ -92,7 +96,7 @@ $font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
 // Status colors — the ONE set. Trend arrows, health dots, error text all
 // derive from these; never hardcode a green/red/yellow in a component.
-$status-good: #4adec5;
+$status-good: $forest-ink;
 $status-warn: #d29922;
 $status-bad: #f85149;
 
@@ -116,9 +120,9 @@ $surface-deep: rgba(0, 0, 0, 0.3); // tracks, active pills — one step darker
 $surface-tooltip: rgba(0, 0, 0, 0.75);
 
 // Border ladder — primary-tinted alphas, three named steps
-$border-soft: rgba($primary, 0.1); // resting chrome (tracks, dividers)
-$border-mid: rgba($primary, 0.15); // resting interactive (inputs, buttons)
-$border-strong: rgba($primary, 0.35); // hover / focus / active
+$border-soft: rgba($primary-ink, 0.1); // resting chrome (tracks, dividers)
+$border-mid: rgba($primary-ink, 0.15); // resting interactive (inputs, buttons)
+$border-strong: rgba($primary-ink, 0.35); // hover / focus / active
 
 // Radii
 $radius-sm: 3px; // pills, inner segments
@@ -149,5 +153,25 @@ $text-body: 0.70rem; // buttons, nav items
 $text-value: 1.5rem; // headline numbers
 // Terraverse: the pixel face for the wordmark and display headings
 $font-display: "Silkscreen", $font-mono;
-// The sky the planet hangs in (planet.js draws the same colour)
-$bg-space: #03060a;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The landing and registry: the game's own menu, on the web. These are the
+// in-game shell's tokens (interface/src/theme.css), so a mod looks the same
+// on this site as it does in the game. Docs keep the terminal theme above.
+// ─────────────────────────────────────────────────────────────────────────────
+
+$stone-0: #0c0e10;
+$stone-1: #15181b;
+$stone-2: #1e2226;
+$stone-3: #2a2f34;
+$stone-4: #3a4148;
+$edge: #07080a;
+$ink: #e8ecef;
+$ink-dim: rgba(232, 236, 239, 0.62);
+$ink-faint: rgba(232, 236, 239, 0.36);
+
+// One light, top-left, as in the game: never a hand-written bevel
+$bevel: 2px;
+$raised: inset $bevel $bevel 0 rgba(255, 255, 255, 0.1), inset (-$bevel) (-$bevel) 0 rgba(0, 0, 0, 0.45);
+$sunk: inset $bevel $bevel 0 rgba(0, 0, 0, 0.45), inset (-$bevel) (-$bevel) 0 rgba(255, 255, 255, 0.04);
+$ledge: 0 $bevel 0 $edge;

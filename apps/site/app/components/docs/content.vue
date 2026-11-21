@@ -47,7 +47,7 @@ const next = computed(() =>
     gap: 1.5rem;
     margin-top: 5rem;
     padding-top: 2.5rem;
-    border-top: 1px solid rgba($primary, 0.15);
+    border-top: 1px solid rgba($primary-ink, 0.15);
 }
 
 .page-nav-link {
@@ -55,12 +55,12 @@ const next = computed(() =>
     flex-direction: column;
     gap: 0.5rem;
     padding: 1.25rem 1.5rem;
-    border: 1px solid rgba($primary, 0.15);
+    border: 1px solid rgba($primary-ink, 0.15);
     text-decoration: none;
 
     &:hover {
-        background: rgba($primary, 0.05);
-        border-color: $primary;
+        background: rgba($primary-ink, 0.05);
+        border-color: $primary-ink;
     }
 
     &.prev {

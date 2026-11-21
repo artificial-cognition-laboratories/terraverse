@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
-# Rebuilds worlds/ from the generator. Run after a generation change: a code's
-# version moves, and the page's codes have to move with it.
+# Rebakes the landing's planet pictures (public/home/) from the real generator,
+# through terragen's render tool. Run after a generation change: a code's
+# version moves, and the page's codes (app/config/home.ts) move with it.
 set -euo pipefail
 here=$(cd "$(dirname "$0")/.." && pwd)
-src=$here/../game/src
+root=$(git -C "$here" rev-parse --show-toplevel)
+tools=$root/apps/game/library/world/terragen/tools
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-g++ -std=c++17 -O2 -I"$src" "$src"/terragen/*.cpp "$here/bake/bake.cpp" -o "$tmp/bake" -lpthread
-out=$here/public/worlds
-rm -f "$out"/*
-list=""
-for pair in terra:dGVycmE nova:bm92YQ ember:ZW1iZXI hearth:aGVhcnRo arclabs:YXJjbGFicw abc:YWJj; do
-	name=${pair%%:*}
-	code=TF20.${pair#*:}
-	stats=$("$tmp/bake" "$code" "$tmp/$name.ppm")
-	magick "$tmp/$name.ppm" -define webp:lossless=true "$out/$name.webp"
-	list+="${list:+,}{\"name\":\"$name\",\"code\":\"$code\",\"stats\":$stats}"
+
+"$tools/tool.sh" "$tmp/render" "$tools/render.cpp"
+
+version=TF24
+# One region of one world, as four layers the landing steps through
+# (app/config/home.ts universe.layers): the same crop of each 1536² map (scale 6).
+code=$version.dGVycmE
+crop=1200x600+150+600
+for mode in plates relief rain biomes; do
+	"$tmp/render" "$code" "$tmp/$mode.png" 6 "$mode" > /dev/null
+	magick "$tmp/$mode.png" -crop "$crop" +repage -quality 90 "$here/public/home/layer-$mode.webp"
+	echo "✓ $mode"
 done
-printf '[%s]\n' "$list" > "$out/worlds.json"

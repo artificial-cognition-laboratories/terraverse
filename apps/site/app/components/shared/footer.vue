@@ -37,7 +37,7 @@ import { GITHUB, navLinks } from "~/config/site"
 
 .mark {
     font-family: $font-display;
-    color: $primary;
+    color: $primary-ink;
 }
 
 .credit {
@@ -49,7 +49,7 @@ a {
     text-decoration: none;
 
     &:hover {
-        color: $primary;
+        color: $primary-ink;
     }
 }
 

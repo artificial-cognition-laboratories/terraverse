@@ -56,12 +56,12 @@ $indent: 0.85rem;
 
     &:hover {
         color: $text-primary;
-        background: rgba($primary, 0.05);
+        background: rgba($primary-ink, 0.05);
     }
 
     &.active {
-        color: $primary;
-        background: rgba($primary, 0.08);
+        color: $primary-ink;
+        background: rgba($primary-ink, 0.08);
     }
 
     &.folder {

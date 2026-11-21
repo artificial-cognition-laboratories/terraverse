@@ -72,8 +72,8 @@ const sides = computed(() => [
     }
 
     &.active {
-        color: $primary;
-        border-bottom-color: $primary;
+        color: $primary-ink;
+        border-bottom-color: $primary-ink;
     }
 }
 

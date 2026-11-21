@@ -70,7 +70,7 @@ watch(() => route.fullPath, () => (open.value = false))
 .mark {
     font-family: $font-display;
     font-size: 1.35rem;
-    color: $primary;
+    color: $primary-ink;
     text-decoration: none;
     white-space: nowrap;
 
@@ -95,13 +95,13 @@ watch(() => route.fullPath, () => (open.value = false))
     }
 
     &.active {
-        color: $primary;
+        color: $primary-ink;
     }
 }
 
 .icon-link {
     display: flex;
-    color: $primary;
+    color: $primary-ink;
     font-size: 1.1rem;
 }
 

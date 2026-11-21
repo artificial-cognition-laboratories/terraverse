@@ -2,6 +2,7 @@
 export const GITHUB = "https://github.com/artificial-cognition-laboratories/terraverse"
 
 export const navLinks = [
+    { label: "registry", to: "/registry" },
     { label: "docs", to: "/docs" },
     { label: "wiki", to: "/wiki" },
 ]

@@ -8,16 +8,21 @@
 </template>
 
 <style scoped lang="scss">
-// 52px clears the fixed topnav
+// The hero runs up under the topnav, so the sky starts at the top of the window
 .landing-shell {
-    min-height: 100vh;
     min-height: 100dvh;
-    padding-top: 52px;
-    background: $bg-space;
+    background: $stone-0;
+    color: $ink;
 
-    // The nav sits on the same sky as the hero, not the docs' grey
     :deep(.topnav) {
-        background: $bg-space;
+        background: rgba($stone-0, 0.72);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba($ink, 0.06);
+    }
+
+    :deep(.footer) {
+        background: $stone-0;
+        border-top: 1px solid $stone-2;
     }
 }
 </style>

@@ -28,7 +28,7 @@ export default defineNuxtConfig({
             htmlAttrs: { lang: "en" },
             meta: [
                 { name: "viewport", content: "width=device-width, initial-scale=1" },
-                { name: "theme-color", content: "#161616" },
+                { name: "theme-color", content: "#0c0e10" },
                 { name: "description", content: DESCRIPTION },
                 { property: "og:type", content: "website" },
                 { property: "og:url", content: SITE },
@@ -39,7 +39,7 @@ export default defineNuxtConfig({
             link: [
                 {
                     rel: "icon",
-                    href: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' shape-rendering='crispEdges'%3E%3Cpath fill='%230094d2' d='M0 1h2v1h1v1h1v2H3v1H2v1H0V6h1V5h1V3H1V2H0zM4 1h2v1h1v1h1v2H7v1H6v1H4V6h1V5h1V3H5V2H4z'/%3E%3C/svg%3E",
+                    href: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' shape-rendering='crispEdges'%3E%3Cpath fill='%2363a3e9' d='M0 1h2v1h1v1h1v2H3v1H2v1H0V6h1V5h1V3H1V2H0zM4 1h2v1h1v1h1v2H7v1H6v1H4V6h1V5h1V3H5V2H4z'/%3E%3C/svg%3E",
                 },
             ],
         },

@@ -79,11 +79,11 @@
 /// The raised card — top-level visual weight (charts, stats, panels).
 @mixin surface-raised {
     background: $surface;
-    border: 1px solid rgba($primary, 0.12);
+    border: 1px solid rgba($primary-ink, 0.12);
     border-radius: $radius-lg;
 
     &:hover {
-        border-color: rgba($primary, 0.25);
+        border-color: rgba($primary-ink, 0.25);
     }
 }
 
@@ -144,10 +144,10 @@ $prose-radius: 16px;
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: $primary;
+    background: $primary-ink;
     box-shadow:
-        -16px 0 0 $primary,
-        -32px 0 0 $primary;
+        -16px 0 0 $primary-ink,
+        -32px 0 0 $primary-ink;
 }
 
 /// The small mono label top-left — a code block's language, a figure's caption.
@@ -157,7 +157,7 @@ $prose-radius: 16px;
     left: 1rem;
     font-family: $font-mono;
     font-size: 0.7rem;
-    color: rgba($primary, 0.6);
+    color: rgba($primary-ink, 0.6);
     letter-spacing: 0.5px;
 }
 
@@ -197,7 +197,7 @@ $prose-radius: 16px;
 
     &:focus,
     &:focus-within {
-        border-color: rgba($primary, 0.4);
+        border-color: rgba($primary-ink, 0.4);
     }
 }
 
@@ -211,7 +211,7 @@ $prose-radius: 16px;
     }
 
     &.active {
-        color: $primary;
+        color: $primary-ink;
     }
 }
 
@@ -219,7 +219,7 @@ $prose-radius: 16px;
 
 /// The small rounded count chip inside tabs/segments/badges.
 @mixin count-chip {
-    background: rgba($primary, 0.08);
+    background: rgba($primary-ink, 0.08);
     border-radius: 8px;
     padding: 0.05rem 0.3rem;
     font-size: $text-micro;
@@ -235,7 +235,7 @@ $prose-radius: 16px;
 /// Loading skeleton shimmer block.
 @mixin skeleton-shimmer {
     border-radius: $radius-sm;
-    background: linear-gradient(90deg, rgba($primary, 0.04) 25%, rgba($primary, 0.1) 50%, rgba($primary, 0.04) 75%);
+    background: linear-gradient(90deg, rgba($primary-ink, 0.04) 25%, rgba($primary-ink, 0.1) 50%, rgba($primary-ink, 0.04) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
 
@@ -253,7 +253,7 @@ $prose-radius: 16px;
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: rgba($primary, 0.55);
+    background: rgba($primary-ink, 0.55);
     animation: reval-pulse 1.5s ease-in-out infinite;
 
     @at-root {
@@ -315,4 +315,13 @@ $prose-radius: 16px;
         min-height: 0;
         width: 100%;
     }
+}
+
+// ── Landing ──────────────────────────────────────────────────────────────────
+
+/// A card or panel on the landing: flat stone, a hairline edge, no shadow.
+/// Bevels belong to buttons; a page of bevelled cards reads as noise.
+@mixin panel($ground: $stone-1) {
+    background: $ground;
+    border: 1px solid $stone-3;
 }

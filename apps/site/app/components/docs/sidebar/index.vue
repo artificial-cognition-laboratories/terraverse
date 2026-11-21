@@ -89,7 +89,7 @@ $docs-sidebar-top: 100px;
     overflow-x: hidden;
     min-height: 0;
     scrollbar-width: thin;
-    scrollbar-color: rgba($primary, 0.2) transparent;
+    scrollbar-color: rgba($primary-ink, 0.2) transparent;
 }
 
 .sidebar-nav {
@@ -126,7 +126,7 @@ $docs-sidebar-top: 100px;
     min-width: 0;
     font-size: 0.75rem;
     color: $text-tertiary;
-    border: 1px solid rgba($primary, 0.2);
+    border: 1px solid rgba($primary-ink, 0.2);
     padding: 0.3rem 0.5rem;
     text-decoration: none;
     line-height: 1;
@@ -135,8 +135,8 @@ $docs-sidebar-top: 100px;
     text-overflow: ellipsis;
 
     &:hover {
-        color: $primary;
-        border-color: rgba($primary, 0.5);
+        color: $primary-ink;
+        border-color: rgba($primary-ink, 0.5);
     }
 
     &--next {
@@ -164,9 +164,9 @@ $docs-sidebar-top: 100px;
     cursor: pointer;
 
     &.active {
-        color: $primary;
+        color: $primary-ink;
         border-color: $border-strong;
-        background: rgba($primary, 0.08);
+        background: rgba($primary-ink, 0.08);
     }
 }
 
