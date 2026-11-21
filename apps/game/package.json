@@ -7,7 +7,7 @@
     "stage": "bash scripts/stage-runtime.sh",
     "components": "bun run --cwd src/client/app/shell/interface gallery",
 
-    "test": "bash tests/run/library.sh all && bash tests/run/engine.sh",
+    "test": "bash tests/run/test.sh",
     "test:hot": "bash tests/run/library.sh hot",
     "test:slow": "bash tests/run/library.sh slow",
     "test:engine": "bash tests/run/engine.sh",

@@ -18,10 +18,12 @@ cmake --build .output/build -j"$(nproc)"
 # terra runs the game's TypeScript mods beside the engine; the boot below needs it, as CI builds it.
 (cd apps/cli && bun install --frozen-lockfile && bun run build)
 bash apps/game/scripts/stage-runtime.sh
-# Every unit module, side by side (apps/game/tests/run/engine.sh), skipping by name what
-# apps/game/tests/run/skip.txt cites a job for, as CI's release run does. Three modules
-# alone let 6 failing tests reach master unseen (2026-11-17).
-BUILT=1 bash apps/game/tests/run/engine.sh
+# The full tier (apps/game/tests/run/test.sh, `bun run test`): every library's tests, hot
+# and slow (terragen's goldens pin what a world code means), then every engine module
+# side by side, skipping by name what apps/game/tests/run/skip.txt cites a job for.
+# Three modules alone let 6 failing tests reach master unseen (2026-11-17); engine.sh
+# alone left terragen's tests out once they moved to their own binary (2026-11-20).
+BUILT=1 bash apps/game/tests/run/test.sh
 (cd apps/game/src/client/app/shell/interface && bun install --frozen-lockfile && bun run typecheck && bun run build)
 
 world=$(mktemp -d)

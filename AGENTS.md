@@ -288,6 +288,10 @@ cd apps/game/ui && bun run typecheck
 bun test:hot [library]   # the pure libraries' quick tests (each library's tests/, as library/world/terragen/tests): their own small binaries, seconds; the loop to keep running
 bun test:slow [library]  # their slow ones: goldens, Earth-sized worlds
 bun check                # before a commit: test:hot, every engine module, the UI's types
+bun check --changed [base]   # the same, only what your uncommitted changes (or everything since base) reach
+bun run test             # (apps/game) the full tier, as the gate runs it: every library's tests hot and slow, every engine module
+bun run test <system|path|Module>...  # what covers far, physics, library/world/terragen, a file; --changed [base] as above
+bun apps/game/tests/run/select/main.ts --changed   # just say what would run and why, and which changed files no suite is built against
 ./.output/bin/luanti --test-module TestFar                                       # one engine test module; --run-unittests for all
 bash apps/game/tests/run/engine.sh [Module...]  # every engine unit test module in parallel, slowest listed first; skips (apps/game/tests/run/skip.txt) cite their job
 
@@ -308,7 +312,7 @@ bun pose-sheet          # the figure's moves as PNGs
 .output/bin/luanti --planetarium TF9.dGVycmE                                     # the planet viewer alone
 
 bun ci:status           # CI now: what's running, what's red on master and at which step, and the CI Scoreboard (--since <date>)
-arc gate terraverse     # build, every unit module (bun run test), UI and a headless world
+arc gate terraverse     # build, the full tier (bun run test), UI and a headless world
 arc deploy terraverse   # package.json version → tag → CI attaches every platform's package
 arc deploy launcher     # apps/launcher, on its own release track (version in tauri.conf.json)
 arc deploy site         # apps/site and install.sh to Cloud Run
