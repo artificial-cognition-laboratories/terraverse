@@ -94,6 +94,7 @@ private:
 		size_t index; // the system's
 		double sea;   // its sea's radius (its own blocks)
 		std::unique_ptr<far::Tiles> tiles; // made when first big enough
+		u32 since = 0; // frames since its tiles were last updated
 	};
 	std::vector<Baked> m_baked;
 	const planet::Atlas m_atlas;

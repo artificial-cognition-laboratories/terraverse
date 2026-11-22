@@ -28,7 +28,9 @@
 namespace far {
 
 // Time an update may spend putting tiles on the GPU (a frame at 60 fps is 16.7).
-static constexpr double INSTALL_MS = 3;
+// ms of a frame to install built tiles in: checked before each, so one large
+// tile (its upload) can still run past it; at 3, installs ran to 10 ms a frame
+static constexpr double INSTALL_MS = 1.5;
 // And recolouring tiles for a new tint.
 static constexpr double PAINT_MS = 3;
 // What the held tiles' meshes may take, all of them: past it the least
@@ -142,6 +144,7 @@ public:
 		m_atlas(atlas), m_body(body), m_horizon(horizon), m_palette(palette), m_tiling(tiling),
 		m_cache(porting::path_cache, horizon, atlas, body)
 	{
+		TF_ZONE("Far view: kept tiles listed"); // (a directory of them: slow on a cold disk)
 		for (const TileKey &key : m_cache.kept())
 			m_kept.insert(id(key));
 	}
@@ -344,8 +347,15 @@ void Tiles::update(const Eye &eye)
 	// and sight: most of the far view's time each frame, standing still too,
 	// to choose what it chose before. Only when the eye's moved, or a tile's
 	// come or gone; otherwise only finished tiles are taken.
-	if (m_changed || !still(eye))
+	// Standing still while tiles come in, every few frames is soon enough to
+	// put them in: each install changed it, and the tree was walked each frame.
+	// Moving, every frame (a turn waiting a frame left holes at the edge).
+	constexpr u32 SETTLING = 4;
+	const bool moved = !still(eye);
+	if (moved || (m_changed && ++m_settling >= SETTLING)) {
+		m_settling = 0;
 		choose(eye);
+	}
 	{
 		TF_ZONE("Far view: install");
 		m_changed |= install();
@@ -658,6 +668,7 @@ bool Tiles::install()
 			buffer->setBoundingBox(packed.boxes[p]); // (found by the worker)
 			buffer->setHardwareMappingHint(scene::EHM_STATIC);
 			if (m_driver) {
+				TF_ZONE("Far view: upload");
 				m_driver->updateHardwareBuffer(buffer->getVertexBuffer());
 				m_driver->updateHardwareBuffer(buffer->getIndexBuffer());
 			}

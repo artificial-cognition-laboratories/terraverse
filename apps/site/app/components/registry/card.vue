@@ -1,21 +1,21 @@
 <script setup lang="ts">
-import type { Listing } from "~/config/home"
+import { CATEGORY_LABELS, type Listing } from "~/registry"
 import { cover } from "~/lib/cover"
 import { format } from "~/lib/format"
 
-/** A registry listing as a card: its picture, monogram, name, owner and numbers. */
-const props = defineProps<{ listing: Listing; to: string }>()
+/** A listing as a card: its picture, monogram, name, owner and numbers. It links to its page. */
+const props = defineProps<{ listing: Listing }>()
 const art = computed(() => cover(props.listing.name, 32))
 </script>
 
 <template>
-    <NuxtLink :to="to" class="card">
+    <NuxtLink :to="`/registry/${listing.name}`" class="card">
         <div class="picture">
             <home-art class="art" :art="art" />
             <span v-if="listing.official" class="badge">Official</span>
         </div>
         <div class="head">
-            <span class="monogram">{{ format.monogram(listing.title) }}</span>
+            <registry-monogram :title="listing.title" />
             <div class="names">
                 <h3>{{ listing.title }}</h3>
                 <span class="owner">{{ listing.owner }}</span>
@@ -25,7 +25,7 @@ const art = computed(() => cover(props.listing.name, 32))
         <div class="meta">
             <span>★ {{ format.count(listing.stars) }}</span>
             <span>↓ {{ format.count(listing.installs) }}</span>
-            <span class="tag">{{ listing.tags[0] }}</span>
+            <span v-if="listing.categories[0]" class="tag">{{ CATEGORY_LABELS[listing.categories[0]] }}</span>
         </div>
     </NuxtLink>
 </template>
@@ -78,17 +78,6 @@ const art = computed(() => cover(props.listing.name, 32))
     position: relative;
 }
 
-.monogram {
-    flex: none;
-    display: grid;
-    place-items: center;
-    width: 2.6rem;
-    height: 2.6rem;
-    font-family: $font-display;
-    font-size: 0.75rem;
-    color: $primary-ink;
-    @include well;
-}
 
 .names {
     display: grid;
@@ -127,6 +116,7 @@ p {
 }
 
 .meta {
+    white-space: nowrap;
     display: flex;
     gap: 0.9rem;
     align-items: center;

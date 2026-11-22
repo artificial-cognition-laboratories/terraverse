@@ -16,8 +16,10 @@
                 <a :href="GITHUB" class="icon-link" aria-label="GitHub">
                     <Icon name="simple-icons:github" />
                 </a>
+                <shared-profile />
             </nav>
 
+            <span class="profile-narrow"><shared-profile /></span>
             <button class="burger" :aria-expanded="open" aria-label="Menu" @click="open = !open">
                 {{ open ? "×" : "≡" }}
             </button>
@@ -54,12 +56,14 @@ watch(() => route.fullPath, () => (open.value = false))
     left: 0;
     right: 0;
     z-index: 1000;
-    background: $bg-primary;
+    background: rgba($night-0, 0.72);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid $glass-edge;
 }
 
 .topnav-inner {
     max-width: $site-width;
-    height: 52px;
+    height: $topnav-height;
     margin: 0 auto;
     padding: 0 2rem;
     display: flex;
@@ -87,11 +91,11 @@ watch(() => route.fullPath, () => (open.value = false))
 
 .link {
     font-size: 0.85rem;
-    color: $text-secondary;
+    color: $ink-dim;
     text-decoration: none;
 
     &:hover {
-        color: $text-primary;
+        color: $ink;
     }
 
     &.active {
@@ -108,8 +112,8 @@ watch(() => route.fullPath, () => (open.value = false))
 .burger {
     display: none;
     background: transparent;
-    border: 1px solid $border-mid;
-    color: $text-primary;
+    border: 1px solid $glass-edge;
+    color: $ink;
     width: 2rem;
     height: 2rem;
     font-size: 1.1rem;
@@ -117,6 +121,11 @@ watch(() => route.fullPath, () => (open.value = false))
 }
 
 .drawer {
+    display: none;
+}
+
+// On a phone the links fold into the drawer; the account stays beside the burger
+.profile-narrow {
     display: none;
 }
 
@@ -133,17 +142,22 @@ watch(() => route.fullPath, () => (open.value = false))
         display: block;
     }
 
+    .profile-narrow {
+        display: flex;
+        margin-left: auto;
+        margin-right: 1rem;
+    }
+
     .drawer.open {
         display: block;
         position: fixed;
-        top: 52px;
+        top: $topnav-height;
         left: 0;
         right: 0;
         bottom: 0;
         overflow-y: auto;
-        background: $bg-primary;
+        background: $night-sky;
         padding: 1rem 1.25rem 2rem;
-        border-top: 1px solid $border-soft;
     }
 
     .drawer-links {
@@ -151,7 +165,7 @@ watch(() => route.fullPath, () => (open.value = false))
         gap: 1.25rem;
         margin-bottom: 1.5rem;
         padding-bottom: 1rem;
-        border-bottom: 1px solid $border-soft;
+        border-bottom: 1px solid $glass-edge;
     }
 }
 </style>

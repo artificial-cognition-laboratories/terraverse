@@ -6,6 +6,7 @@
 #include "src/client/views/game/far/tiles/tiling.h"
 #include "src/client/views/game/far/tiles/tiles.h"
 #include <matrix4.h>
+#include <cmath>
 #include <optional>
 
 namespace planetarium {
@@ -28,10 +29,22 @@ public:
 
 	// the body's sea: blocks from its centre; the farthest it goes over it
 	OrbitCamera(double sea, double farthest);
-	// radians, vertical: narrow enough that the sky, shifted to frame a body
-	// off centre (perspective), isn't stretched toward the far side or warped
-	// as the view turns (1 rad was: a wide screen then saw ~90° across)
-	static constexpr float FOV = 0.7f;
+	// The lens everything's seen through, the sky included (one lens: the
+	// stars and the bodies turn together): this wide across the screen,
+	// radians, whatever its shape, so a wider window sees more sky, not a
+	// bigger one. Wide when the window fills the eye, to feel vast; narrower
+	// when it's small, where a wide lens's stretch toward the edges shows (a
+	// sphere off the axis is an egg). Between, by the window's width in pixels
+	static constexpr float WIDEST = 1.396f, NARROWEST = 1.0f;       // 80°, 57°
+	static constexpr float WIDE_FROM = 1800, NARROW_BELOW = 1000;  // pixels across
+	// and never taller than this (a window on end)
+	static constexpr float TALLEST = 1.4f;
+	// The lens's vertical angle (radians) on a screen this many pixels
+	static float fovFor(float width, float height);
+	// Pixels a unit of tan spans from the middle of a screen `height` high
+	// through a lens `fov` high: what sizes things on screen (a ball of
+	// radius r at distance d is r / d · focal pixels across, from the middle)
+	static float focal(float height, float fov) { return height / (2 * std::tan(fov / 2)); }
 	// pixels a tile's cell may span before it splits: about one block a pixel
 	// or two, as sharp at every height as the land zoomed into (sprint 114;
 	// 6 left a coarse planet till it was zoomed in on). Lowered further only
@@ -62,23 +75,26 @@ public:
 	double longitude() const;
 	// where it is, from the body's centre (blocks)
 	Vec position() const;
-	// what far::Tiles chooses for, on a screen `height` pixels high (eyeAt,
-	// from where it is)
-	far::Eye eye(float height) const { return eyeAt(position(), m_sea, height); }
 	// What far::Tiles chooses for from a point `p` (blocks from a body's
 	// centre, its sea `sea`): the point under it at the sea; out to what it
 	// can see of the body (its horizon); tiles fine enough that a cell is
-	// about two pixels across on a screen `height` pixels high.
-	static far::Eye eyeAt(const Vec &p, double sea, float height);
+	// about `cell` pixels across through a lens of this `focal` (focal()).
+	static far::Eye eyeAt(const Vec &p, double sea, float focal);
 
 	// view and projection, the camera at the origin (camera-relative: a
-	// point p is drawn at (p − position()) · BS)
+	// point p is drawn at (p − position()) · BS). Every projection is a plain,
+	// symmetric perspective: what's off centre on screen is there because the
+	// camera's turned, never because the lens is slid (that skews the sky).
 	core::matrix4 view() const;
-	core::matrix4 projection(float aspect, v2f shift = v2f(), float fov = FOV) const;
-	// A perspective, its middle moved `shift` (the screen's half widths and
-	// heights, +x right, +y up): what's ahead is drawn there, not at the
-	// screen's middle (the free part of a screen half under a panel).
-	static core::matrix4 perspective(float aspect, float near, float far, v2f shift, float fov = FOV);
+	core::matrix4 projection(float aspect, float fov) const;
+	static core::matrix4 perspective(float aspect, float near, float far, float fov);
+	// The turn that draws what's straight ahead of a view at `at` on screen
+	// (−1..1, +x right, +y up) instead of its middle: aimed(at) * view. The
+	// least turn that does it, so the horizon tilts no more than it must.
+	static core::matrix4 aimed(v2f at, float aspect, float fov);
+	// The way through a screen point (−1..1, +y up) in a view's camera space
+	// (left-handed: x right, y up, z ahead), unit.
+	static core::vector3df through(v2f at, float aspect, float fov);
 
 	// A body that spins: a point of its own frame (its ground's) where it
 	// is in space, the body turned by `spin` radians about its axis (y),
@@ -88,9 +104,9 @@ public:
 	// given in its frame turned (turn), then seen by `view`.
 	static core::matrix4 turned(const core::matrix4 &view, double spin);
 
-	// The way from the camera through a pixel (unit, planet frame), on a
-	// screen `width` × `height`, the lens shifted by `shift` (perspective).
-	Vec ray(double x, double y, double width, double height, v2f shift = v2f()) const;
+	// The way from a camera seen by `view` through a pixel of a screen
+	// `width` × `height` (unit, in the frame `view` looks at).
+	static Vec ray(const core::matrix4 &view, double x, double y, double width, double height, float fov);
 
 private:
 	double m_sea, m_farthest; // (not const: a camera is replaced when it goes to another body)

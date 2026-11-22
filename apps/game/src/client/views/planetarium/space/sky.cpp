@@ -1,6 +1,7 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include "src/client/render/gputime/gputime.h"
 #include "library/trace/trace.h"
 #include "src/client/views/planetarium/space/sky.h"
 #include "src/client/views/planetarium/camera.h"
@@ -78,10 +79,17 @@ bool Sky::drawBaked(video::IVideoDriver *driver, size_t index, const terragen::S
 	// the eye in the body's own frame: from its centre, turned back, at its scale
 	const double k = m_system.radius(index) / b->sea;
 	TF_ZONE("Space: a body's land");
-	b->tiles->update(OrbitCamera::eyeAt(OrbitCamera::turn({ -at.x / k, -at.y / k, -at.z / k }, -spin), b->sea, (float)height));
+	// Its land chosen again only every few frames once it's all there: a body
+	// in the sky barely moves on screen, and choosing, asking and installing
+	// its tiles every frame was most of the sky's time. Drawn every frame.
+	constexpr u32 EVERY = 8;
+	if (!b->tiles->based() || ++b->since >= EVERY) {
+		b->since = 0;
+		b->tiles->update(OrbitCamera::eyeAt(OrbitCamera::turn({ -at.x / k, -at.y / k, -at.z / k }, -spin), b->sea, OrbitCamera::focal((float)height, m_eye->fov)));
+	}
 	if (!b->tiles->based())
 		return false; // its ball till its coarse land is there
-	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, v2f(), m_eye->fov));
+	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, near, far, m_eye->fov));
 	driver->setTransform(video::ETS_VIEW, m_eye->view);
 	driver->setMaterial(m_system.lit(index, m_eye->day, v3f((f32)at.x, (f32)at.y, (f32)at.z) * BS, 0, true));
 	core::matrix4 place, turn, scale;
@@ -231,6 +239,7 @@ void Sky::OnRegisterSceneNode()
 void Sky::render()
 {
 	TF_ZONE("Space render"); // Terra Firma: inside Draw3D, timed (the debugger)
+	gpu::Zone gpu("Space");
 	scene::ICameraSceneNode *camera = SceneManager->getActiveCamera();
 	if (!m_eye || !camera || SceneManager->getSceneNodeRenderPass() != scene::ESNRP_SKY_BOX)
 		return;
@@ -240,7 +249,7 @@ void Sky::render()
 	const core::dimension2du screen = driver->getCurrentRenderTargetSize();
 	const float aspect = (float)screen.Width / std::max(1u, screen.Height);
 	// the planet itself is the far view's, drawn next
-	m_system.draw(driver, SystemLayer::Camera{ m_eye->at, m_eye->view, m_eye->fov, aspect, v2f(), screen.Height },
+	m_system.draw(driver, SystemLayer::Camera{ m_eye->at, m_eye->view, m_eye->fov, aspect, screen.Height },
 			m_eye->day, [](float, float) {},
 			[&](size_t index, const terragen::System::Vec &at, double pixels, float near, float far) {
 				return drawBaked(driver, index, at, pixels, near, far, aspect, screen.Height);

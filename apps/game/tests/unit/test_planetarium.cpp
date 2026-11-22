@@ -5,6 +5,7 @@
 
 #include "src/shared/base/constants.h"
 #include "src/client/views/planetarium/camera.h"
+#include "src/client/views/planetarium/framing.h"
 #include "src/client/views/planetarium/overlays/paint.h"
 #include "library/world/terragen/src/code/worlds.h"
 #include "library/world/terragen/src/code/code.h"
@@ -14,6 +15,9 @@
 #include <cmath>
 
 using planetarium::OrbitCamera;
+using planetarium::Framing;
+using planetarium::Shot;
+namespace framing = planetarium::framing;
 
 /*
 	The Planetarium's camera (planetarium/camera.h): in orbit round a body,
@@ -33,6 +37,8 @@ public:
 	void testSpinTurnsTheBody();
 	void testDragOverThePole();
 	void testCentreIsAhead();
+	void testAimDrawsTheCentreThere();
+	void testShotLandsWhereItSays();
 	void testOverlaySharpUpClose();
 	void testOverlaysOnEveryBody();
 	void testOverlayKeepsWater();
@@ -49,6 +55,8 @@ void TestPlanetarium::runTests(IGameDef *gamedef)
 	TEST(testSpinTurnsTheBody);
 	TEST(testDragOverThePole);
 	TEST(testCentreIsAhead);
+	TEST(testAimDrawsTheCentreThere);
+	TEST(testShotLandsWhereItSays);
 	TEST(testOverlaySharpUpClose);
 	TEST(testOverlaysOnEveryBody);
 	TEST(testOverlayKeepsWater);
@@ -70,7 +78,7 @@ void TestPlanetarium::testZoomStaysOverTheBody()
 	UASSERT(std::fabs(c.altitude() - 100) < 1e-9);
 	c.zoom(-1000);
 	UASSERT(c.altitude() <= 6 * SEA + 1e-9 && c.altitude() > 5 * SEA);
-	const far::Eye eye = c.eye(1080);
+	const far::Eye eye = OrbitCamera::eyeAt(c.position(), SEA, OrbitCamera::focal(1080, OrbitCamera::fovFor(1920, 1080)));
 	UASSERT(std::fabs(length(eye.at) - SEA) < 1e-6);
 	const OrbitCamera::Vec p = c.position();
 	const double d = length(p);
@@ -82,9 +90,9 @@ void TestPlanetarium::testZoomStaysOverTheBody()
 	UASSERT(eye.range >= 2 * SEA * std::sin(horizon / 2));
 	// close up it sees less of the body, and tiles split further off (in their spans)
 	c.zoom(1000);
-	const far::Eye low = c.eye(1080);
+	const far::Eye low = OrbitCamera::eyeAt(c.position(), SEA, OrbitCamera::focal(1080, OrbitCamera::fovFor(1920, 1080)));
 	UASSERT(low.range < eye.range / 3);
-	UASSERT(std::fabs(low.split - eye.split) < 1e-6 && c.eye(2160).split > 1.9 * low.split);
+	UASSERT(std::fabs(low.split - eye.split) < 1e-6 && OrbitCamera::eyeAt(c.position(), SEA, OrbitCamera::focal(2160, OrbitCamera::fovFor(1920, 1080))).split > 1.9 * low.split);
 }
 
 // A pixel's drag moves the camera round less the lower it is.
@@ -108,7 +116,7 @@ void TestPlanetarium::testLooksAtTheCentre()
 	OrbitCamera c(SEA, 6 * SEA);
 	c.drag(123, -45);
 	const OrbitCamera::Vec p = c.position();
-	core::matrix4 m = c.projection(16.0f / 9);
+	core::matrix4 m = c.projection(16.0f / 9, OrbitCamera::fovFor(1920, 1080));
 	m *= c.view();
 	const v3f centre = v3f((float)-p.x, (float)-p.y, (float)-p.z) * BS; // the centre, from the camera
 	f32 clip[4] = { centre.X, centre.Y, centre.Z, 1 };
@@ -129,12 +137,12 @@ void TestPlanetarium::testRayThroughTheScreen()
 	const OrbitCamera::Vec p = c.position();
 	const double d = length(p);
 	UASSERT(std::fabs(std::asin(p.y / d) - 0.3) < 1e-9 && std::fabs(std::atan2(p.z, p.x) - 1.1) < 1e-9);
-	const OrbitCamera::Vec mid = c.ray(960, 540, 1920, 1080);
+	const OrbitCamera::Vec mid = OrbitCamera::ray(c.view(), 960, 540, 1920, 1080, OrbitCamera::fovFor(1920, 1080));
 	UASSERT(std::fabs((mid.x * p.x + mid.y * p.y + mid.z * p.z) / d + 1) < 1e-5); // −up
-	const OrbitCamera::Vec right = c.ray(1500, 540, 1920, 1080);
+	const OrbitCamera::Vec right = OrbitCamera::ray(c.view(), 1500, 540, 1920, 1080, OrbitCamera::fovFor(1920, 1080));
 	const OrbitCamera::Vec east{ -std::sin(1.1), 0, std::cos(1.1) };
 	UASSERT(right.x * east.x + right.y * east.y + right.z * east.z > 0.1);
-	const OrbitCamera::Vec top = c.ray(960, 100, 1920, 1080);
+	const OrbitCamera::Vec top = OrbitCamera::ray(c.view(), 960, 100, 1920, 1080, OrbitCamera::fovFor(1920, 1080));
 	const OrbitCamera::Vec north{ -std::sin(0.3) * std::cos(1.1), std::cos(0.3), -std::sin(0.3) * std::sin(1.1) };
 	UASSERT(top.x * north.x + top.y * north.y + top.z * north.z > 0.1);
 }
@@ -189,6 +197,58 @@ void TestPlanetarium::testCentreIsAhead()
 // Across one pixel of the page's 256² painting (what the globe was tinted
 // by), the native overlay keeps changing: as sharp as the tiles it's on.
 // And its cost per vertex, for the tile budget.
+// Where a view sees a point on screen (−1..1, +y up), through the one
+// symmetric lens; the point given from the camera
+static v2f onScreen(const core::matrix4 &view, core::vector3df p, float aspect)
+{
+	p = view.rotateAndScaleVect(p);
+	const float t = std::tan(OrbitCamera::fovFor(1080 * aspect, 1080) / 2);
+	return v2f(p.X / (p.Z * t * aspect), p.Y / (p.Z * t));
+}
+
+// Aimed, what's straight ahead is drawn where it's aimed, not the middle;
+// and the pixel there rays straight back at it.
+void TestPlanetarium::testAimDrawsTheCentreThere()
+{
+	const float aspect = 16.f / 9;
+	for (const v2f at : { v2f(0, 0), v2f(-0.85f, -0.75f), v2f(0.4f, 0.2f), v2f(0.9f, -0.9f) }) {
+		const core::matrix4 aim = OrbitCamera::aimed(at, aspect, OrbitCamera::fovFor(1080 * aspect, 1080));
+		const v2f seen = onScreen(aim, core::vector3df(0, 0, 1), aspect);
+		UASSERT(std::fabs(seen.X - at.X) < 1e-4f && std::fabs(seen.Y - at.Y) < 1e-4f);
+		// a turn, nothing else: lengths kept
+		core::vector3df x(1, 0, 0);
+		x = aim.rotateAndScaleVect(x);
+		UASSERT(std::fabs(x.getLength() - 1) < 1e-5f);
+		const double px = (at.X + 1) / 2 * 1920, py = (1 - at.Y) / 2 * 1080;
+		const OrbitCamera::Vec back = OrbitCamera::ray(aim, px, py, 1920, 1080, OrbitCamera::fovFor(1080 * aspect, 1080));
+		UASSERT(std::fabs(back.z - 1) < 1e-4);
+	}
+}
+
+// A shot composed: the body's centre and the star are drawn where the shot
+// says, on any screen shape (the camera's only placed and turned).
+void TestPlanetarium::testShotLandsWhereItSays()
+{
+	const Shot shot{ "", 0, 3.35, { -0.85f, -0.75f }, { 0.88f, 0.82f }, 1.9, 0.5f };
+	const OrbitCamera::Vec sun = [] { const double l = std::sqrt(0.36 + 0.01 + 0.64); return OrbitCamera::Vec{ 0.6 / l, 0.1 / l, -0.8 / l }; }();
+	for (const float aspect : { 16.f / 9, 4.f / 3, 21.f / 9 }) {
+		const Framing f = framing::of(shot, 1080 * aspect, 1080);
+		const framing::Place at = framing::place(f, sun);
+		OrbitCamera c(SEA, 6 * SEA);
+		c.place(at.up, at.north, f.altitude * SEA);
+		const core::matrix4 view = OrbitCamera::aimed(f.centre, aspect, OrbitCamera::fovFor(1080 * aspect, 1080)) * c.view();
+		const OrbitCamera::Vec p = c.position();
+		const v2f centre = onScreen(view, core::vector3df((f32)-p.x, (f32)-p.y, (f32)-p.z), aspect);
+		const v2f star = onScreen(view, core::vector3df((f32)sun.x, (f32)sun.y, (f32)sun.z), aspect);
+		UASSERT(std::fabs(centre.X - shot.centre.X) < 1e-3f && std::fabs(centre.Y - shot.centre.Y) < 1e-3f);
+		UASSERT(std::fabs(star.X - shot.star.X) < 1e-3f && std::fabs(star.Y - shot.star.Y) < 1e-3f);
+		// and read back, it's the framing it was placed by
+		const Framing back = framing::read(c, sun, SEA, f.centre, f.sky);
+		UASSERT(std::fabs(back.off - f.off) < 1e-6 && std::fabs(std::remainder(back.roll - f.roll, 2 * M_PI)) < 1e-6);
+		UASSERT(std::fabs(std::remainder(back.around - f.around, 2 * M_PI)) < 1e-6);
+	}
+}
+
 void TestPlanetarium::testOverlaySharpUpClose()
 {
 	const auto world = std::make_shared<const terragen::World>(terragen::WorldCode::decode("TF24.dGVycmE"));

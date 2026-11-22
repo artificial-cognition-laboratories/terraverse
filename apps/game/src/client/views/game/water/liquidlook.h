@@ -21,6 +21,32 @@ constexpr float FOAM_FULL = 4.0f;
 constexpr float FOAM_MOST = 0.35f;
 constexpr float CLIFF = 0.25f;      // nodes: a step this big beside it's a ledge or a wall, not a ripple
 
+// A top as it's drawn: the liquid's colour catching the sky, darker and less
+// clear the deeper it is, to a node. The near layer draws it so
+// (liquid_shader's copy of these too), and the far view bakes it, so the two
+// meet in one colour.
+constexpr float ALPHA = 175 / 255.0f;       // a film over its floor
+constexpr float DEEP_ALPHA = 60 / 255.0f;   // and more, a node deep
+constexpr float DEEP_DARK = 0.35f;          // darker by this, a node deep
+constexpr float SHEEN = 0.22f;              // tops catch the sky (clear liquids are still seen)
+constexpr std::array<float, 3> SKY = { 190 / 255.0f, 215 / 255.0f, 235 / 255.0f };
+
+struct Top
+{
+	std::array<float, 3> colour; // 0..1, lit by the sun at full
+	float alpha;
+};
+
+// `own` the liquid's colour (0..1), `deep` how deep, in nodes
+inline Top top(const std::array<float, 3> &own, float deep)
+{
+	deep = std::clamp(deep, 0.f, 1.f);
+	Top t{ {}, ALPHA + DEEP_ALPHA * deep };
+	for (int k = 0; k < 3; k++)
+		t.colour[k] = (own[k] * (1 - SHEEN) + SKY[k] * SHEEN) * (1 - DEEP_DARK * deep);
+	return t;
+}
+
 struct Surface
 {
 	float light = 1, foam = 0;

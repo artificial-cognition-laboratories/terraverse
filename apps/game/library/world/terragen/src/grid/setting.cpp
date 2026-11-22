@@ -8,26 +8,26 @@
 
 namespace terragen {
 
-// (name, province, still, rise, sink, hard, worn)
+// (name, province, still, rise, sink, hard, worn, sea)
 const SettingRow SETTINGS[(int)Setting::Count] = {
-	{ "craton", Province::Shield, ratio(8, 100), 0, 0, ratio(50, 100), ratio(90, 100) },
-	{ "platform", Province::Basin, ratio(15, 100), 0, 0, ratio(130, 100), ratio(90, 100) },
-	{ "sag basin", Province::Basin, ratio(10, 100), 0, ratio(70, 100), ratio(150, 100), ratio(85, 100) },
-	{ "swell", Province::Shield, ratio(30, 100), ratio(18, 100), 0, ratio(70, 100), ratio(70, 100) },
-	{ "flood basalt", Province::Volcanic, ratio(25, 100), ratio(10, 100), 0, ratio(45, 100), ratio(60, 100) },
-	{ "rift", Province::Rift, ONE, 0, 0, ONE, 0 },
-	{ "failed rift", Province::Basin, ratio(20, 100), 0, ratio(70, 100), ratio(130, 100), ratio(60, 100) },
-	{ "margin", Province::Basin, ratio(50, 100), ratio(6, 100), 0, ratio(110, 100), ratio(40, 100) },
-	{ "young belt", Province::Orogen, ONE, 0, 0, ONE, 0 },
-	{ "old belt", Province::Orogen, ratio(35, 100), ratio(4, 100), 0, ratio(55, 100), ratio(50, 100) },
-	{ "foreland", Province::Basin, ratio(15, 100), 0, ratio(50, 100), ratio(160, 100), ratio(60, 100) },
-	{ "suture", Province::Orogen, ratio(35, 100), ratio(2, 100), 0, ratio(60, 100), ratio(50, 100) },
-	{ "arc", Province::Arc, ONE, 0, 0, ratio(90, 100), 0 },
-	{ "volcanic", Province::Volcanic, ONE, 0, 0, ratio(80, 100), 0 },
-	{ "ridge", Province::Rift, ONE, 0, 0, ONE, 0 },
-	{ "ocean floor", Province::OceanFloor, ONE, 0, 0, ONE, 0 },
-	{ "highland", Province::Highland, ONE, 0, 0, ONE, 0 },
-	{ "mare", Province::Mare, ONE, 0, 0, ONE, 0 },
+	{ "craton", Province::Shield, ratio(8, 100), 0, 0, ratio(50, 100), ratio(90, 100), 0 },
+	{ "platform", Province::Basin, ratio(15, 100), 0, 0, ratio(130, 100), ratio(90, 100), ratio(50, 100) },
+	{ "sag basin", Province::Basin, ratio(10, 100), 0, ratio(70, 100), ratio(150, 100), ratio(85, 100), ONE },
+	{ "swell", Province::Shield, ratio(30, 100), ratio(18, 100), 0, ratio(70, 100), ratio(70, 100), 0 },
+	{ "flood basalt", Province::Volcanic, ratio(25, 100), ratio(10, 100), 0, ratio(45, 100), ratio(60, 100), 0 },
+	{ "rift", Province::Rift, ONE, 0, 0, ONE, 0, ONE },
+	{ "failed rift", Province::Basin, ratio(20, 100), 0, ratio(70, 100), ratio(130, 100), ratio(60, 100), ONE },
+	{ "margin", Province::Basin, ratio(50, 100), ratio(6, 100), 0, ratio(110, 100), ratio(40, 100), ONE },
+	{ "young belt", Province::Orogen, ONE, 0, 0, ONE, 0, 0 },
+	{ "old belt", Province::Orogen, ratio(35, 100), ratio(4, 100), 0, ratio(55, 100), ratio(50, 100), 0 },
+	{ "foreland", Province::Basin, ratio(15, 100), 0, ratio(50, 100), ratio(160, 100), ratio(60, 100), ONE },
+	{ "suture", Province::Orogen, ratio(35, 100), ratio(2, 100), 0, ratio(60, 100), ratio(50, 100), 0 },
+	{ "arc", Province::Arc, ONE, 0, 0, ratio(90, 100), 0, 0 },
+	{ "volcanic", Province::Volcanic, ONE, 0, 0, ratio(80, 100), 0, 0 },
+	{ "ridge", Province::Rift, ONE, 0, 0, ONE, 0, 0 },
+	{ "ocean floor", Province::OceanFloor, ONE, 0, 0, ONE, 0, 0 },
+	{ "highland", Province::Highland, ONE, 0, 0, ONE, 0, 0 },
+	{ "mare", Province::Mare, ONE, 0, 0, ONE, 0, 0 },
 };
 
 namespace {

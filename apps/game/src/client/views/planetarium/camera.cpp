@@ -81,20 +81,55 @@ double OrbitCamera::longitude() const
 	return std::atan2(m_up.z, m_up.x);
 }
 
-OrbitCamera::Vec OrbitCamera::ray(double x, double y, double width, double height, v2f shift) const
+float OrbitCamera::fovFor(float width, float height)
 {
-	// the pixel as if the screen's middle were where the view's is
-	x -= shift.X * width / 2;
-	y += shift.Y * height / 2;
-	// in the camera's own axes (left-handed: x right, y up, z ahead), then turned
-	// into the planet's by the view's inverse
-	const double t = std::tan(FOV / 2), aspect = width / std::max(1.0, height);
-	core::vector3df d((float)((2 * x / width - 1) * t * aspect), (float)((1 - 2 * y / height) * t), 1);
+	const float k = std::clamp((width - NARROW_BELOW) / (WIDE_FROM - NARROW_BELOW), 0.f, 1.f);
+	const float across = NARROWEST + (WIDEST - NARROWEST) * k * k * (3 - 2 * k);
+	const float aspect = width / std::max(height, 1.f);
+	return std::min(TALLEST, 2 * std::atan(std::tan(across / 2) / std::max(aspect, 1e-3f)));
+}
+
+OrbitCamera::Vec OrbitCamera::ray(const core::matrix4 &view, double x, double y, double width, double height, float fov)
+{
+	const v2f at((f32)(2 * x / width - 1), (f32)(1 - 2 * y / height));
+	core::vector3df d = through(at, (float)(width / std::max(1.0, height)), fov);
+	// into the looked-at frame by the view's inverse (its turn's transpose)
 	core::matrix4 inverse;
-	view().getInverse(inverse);
+	view.getInverse(inverse);
 	d = inverse.rotateAndScaleVect(d);
 	d.normalize();
 	return { d.X, d.Y, d.Z };
+}
+
+core::vector3df OrbitCamera::through(v2f at, float aspect, float fov)
+{
+	const float t = std::tan(fov / 2);
+	core::vector3df d(at.X * t * aspect, at.Y * t, 1);
+	d.normalize();
+	return d;
+}
+
+core::matrix4 OrbitCamera::aimed(v2f at, float aspect, float fov)
+{
+	// Rodrigues: the turn about ahead × n taking ahead (z) to n
+	const core::vector3df n = through(at, aspect, fov);
+	const double c = n.Z; // cos of the angle
+	const core::vector3df axis(-n.Y, n.X, 0); // z × n, its length the sine
+	const double s = axis.getLength();
+	core::matrix4 m;
+	if (s < 1e-9)
+		return m;
+	const double kx = axis.X / s, ky = axis.Y / s, kz = 0, v = 1 - c;
+	const double r[3][3] = {
+		{ c + kx * kx * v, kx * ky * v - kz * s, kx * kz * v + ky * s },
+		{ ky * kx * v + kz * s, c + ky * ky * v, ky * kz * v - kx * s },
+		{ kz * kx * v - ky * s, kz * ky * v + kx * s, c + kz * kz * v },
+	};
+	// (transformVect: out_i = Σ_j in_j · M[j*4 + i])
+	for (int i = 0; i < 3; i++)
+		for (int j = 0; j < 3; j++)
+			m[j * 4 + i] = (f32)r[i][j];
+	return m;
 }
 
 OrbitCamera::Vec OrbitCamera::position() const
@@ -104,7 +139,7 @@ OrbitCamera::Vec OrbitCamera::position() const
 	return { u.x * d, u.y * d, u.z * d };
 }
 
-far::Eye OrbitCamera::eyeAt(const Vec &p, double sea, float height)
+far::Eye OrbitCamera::eyeAt(const Vec &p, double sea, float focal)
 {
 	const double d = std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
 	const Vec u{ p.x / d, p.y / d, p.z / d };
@@ -116,7 +151,6 @@ far::Eye OrbitCamera::eyeAt(const Vec &p, double sea, float height)
 	const float range = (float)(2 * sea * std::sin(std::min(horizon * 1.15, M_PI) / 2));
 	// a tile of span s, seen from d, splits while d < s · split: its cells
 	// (s / TILE) are wider than `cell` pixels at d
-	const float focal = height / (2 * std::tan(FOV / 2));
 	const float split = focal / (far::TILE * cell);
 	return { { u.x * sea, u.y * sea, u.z * sea }, (float)h, 0, range, split };
 }
@@ -148,23 +182,20 @@ core::matrix4 OrbitCamera::view() const
 	return m;
 }
 
-core::matrix4 OrbitCamera::perspective(float aspect, float near, float far, v2f shift, float fov)
+core::matrix4 OrbitCamera::perspective(float aspect, float near, float far, float fov)
 {
 	core::matrix4 m;
 	m.buildProjectionMatrixPerspectiveFovLH(fov, aspect, near, far);
-	// clip x and y gain shift · w (w is the depth): the drawing moves by shift
-	m[8] += shift.X;
-	m[9] += shift.Y;
 	return m;
 }
 
-core::matrix4 OrbitCamera::projection(float aspect, v2f shift, float fov) const
+core::matrix4 OrbitCamera::projection(float aspect, float fov) const
 {
 	// near: well short of the highest ground under it; far: past the body's
 	// back, and round the far side of an orbit drawn out to five radii
 	const float near = (float)std::max(1.0, m_altitude * 0.2) * BS;
 	const float far = (float)(m_altitude + 6.2 * m_sea) * BS;
-	return perspective(aspect, near, far, shift, fov);
+	return perspective(aspect, near, far, fov);
 }
 
 } // namespace planetarium

@@ -1,6 +1,7 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include "src/client/render/gputime/gputime.h"
 #include "library/trace/trace.h"
 #include "src/client/world/sim/water/liquids.h"
 #include "src/client/render/map/clientmap.h"
@@ -30,19 +31,20 @@
 
 #include "src/client/world/sim/water/shallow.h"
 #include "src/client/views/game/water/liquidlook.h"
+#include "src/shared/map/shapes_down.h"
 
 namespace liquids {
 
 static const float GLIDE = 4;      // per s: how fast a shown level closes on its fill (a quarter-second's ease)
 static const float SETTLED = 0.002; // of its room: close enough to stop gliding
-static const u8 ALPHA = 175;
+static const u8 ALPHA = u8(look::ALPHA * 255 + 0.5f);
 static const float RELIGHT = 2;    // s between drawing again by the day's light
 // a block's half diagonal (nodes)
 static const float BLOCK_REACH = MAP_BLOCKSIZE * 0.8660254f;
 static const int FLAT_PER_FRAME = 6;   // flat blocks drawn again by the day's light in a frame (no hitch)
 // a liquid's surface catches the sky: clear ones (spirit, brine) are still seen
-static const float SHEEN = 0.22f;
-static const video::SColor SKY(255, 190, 215, 235);
+static const float SHEEN = look::SHEEN;
+static const video::SColor SKY(255, u32(look::SKY[0] * 255 + 0.5f), u32(look::SKY[1] * 255 + 0.5f), u32(look::SKY[2] * 255 + 0.5f));
 
 // The grids (sprint 82)
 static const s32 NONE = INT_MIN;      // no ground in reach (a wall to the water), dry, or not the sea
@@ -498,7 +500,6 @@ void Layer::update(const std::unordered_set<v3s16> &changed, const std::unordere
 		const std::vector<Stream> &streams, const std::vector<Mover> &movers, const Rivers &rivers, ClientMap &map,
 		v3s16 offset, v3f camera, std::optional<s16> sea, u32 daynight, float dtime, bool hurrying)
 {
-	const s64 began = micros();
 	m_offset = offset;
 	m_camera = camera;
 	m_range = map.getControl().range_all ? INFINITY : map.getControl().wanted_range;
@@ -581,30 +582,42 @@ void Layer::update(const std::unordered_set<v3s16> &changed, const std::unordere
 		for (Grid *g : { &m_fine, &m_coarse }) {
 			place(*g);
 			const int per = 16 / g->res; // nodes a tile a side
-			for (v3s16 bp : blocks)
-				for (int tz = 0; tz < g->tiles; tz++) {
-					const int z0 = g->origin.Z + tz * per;
-					if (z0 + per <= bp.Z * MAP_BLOCKSIZE || z0 >= (bp.Z + 1) * MAP_BLOCKSIZE)
-						continue;
-					for (int tx = 0; tx < g->tiles; tx++) {
-						const int x0 = g->origin.X + tx * per;
-						if (x0 + per > bp.X * MAP_BLOCKSIZE && x0 < (bp.X + 1) * MAP_BLOCKSIZE) {
-							// a dry tile's ground is only needed when water comes (sprint 85:
-							// ground churned by piles rescanned every dry tile round it)
-							Tile &k = g->tile[tz * g->tiles + tx];
-							const bool dry = !k.wet && !k.sea && !k.awake && k.volume <= 0 && k.target <= 0
-									&& !changed.count(bp);
-							if (dry && k.known)
-								k.stale = true;
-							else
-								k.scanned = false;
-						}
+			// the tiles a block lies over, found, not looked for (every tile for
+			// every block changed was thousands a frame as blocks came in)
+			const auto tilesOver = [&](int from, int origin) {
+				const int lo = std::max(0, (int)std::floor((float)(from - origin) / per));
+				const int hi = std::min(g->tiles, (int)std::ceil((float)(from + MAP_BLOCKSIZE - origin) / per));
+				return std::pair<int, int>(lo, hi);
+			};
+			for (v3s16 bp : blocks) {
+				const auto [z_lo, z_hi] = tilesOver(bp.Z * MAP_BLOCKSIZE, g->origin.Z);
+				const auto [x_lo, x_hi] = tilesOver(bp.X * MAP_BLOCKSIZE, g->origin.X);
+				for (int tz = z_lo; tz < z_hi; tz++) {
+					for (int tx = x_lo; tx < x_hi; tx++) {
+						// a dry tile's ground is only needed when water comes (sprint 85:
+						// ground churned by piles rescanned every dry tile round it)
+						Tile &k = g->tile[tz * g->tiles + tx];
+						const bool dry = !k.wet && !k.sea && !k.awake && k.volume <= 0 && k.target <= 0
+								&& !changed.count(bp);
+						if (dry && k.known)
+							k.stale = true;
+						else
+							k.scanned = false;
 					}
 				}
+			}
+			// so many a frame, and no longer than this (both grids): the rest
+			// wait, nearest first, for the next
+			constexpr s64 SCAN_US = 1000;
 			int scans = 0;
-			for (int t : g->nearest)
-				if (!g->tile[t].scanned && scans++ < g->scans)
+			for (int t : g->nearest) {
+				if (scans >= g->scans || micros() - t0 > SCAN_US)
+					break;
+				if (!g->tile[t].scanned) {
+					scans++;
 					scan(*g, t, map);
+				}
+			}
 		}
 		looked = micros() - t0;
 		const s64 t1 = micros();
@@ -646,7 +659,7 @@ void Layer::update(const std::unordered_set<v3s16> &changed, const std::unordere
 
 	// So much a frame, the rest waiting for the next (at speed a new block's flat
 	// mesh could take 20 ms a frame; a river rising rebuilt 98 blocks in one, 65 ms)
-	constexpr s64 HURRIED_FLAT_US = 2000, FLAT_US = 3000;
+	constexpr s64 HURRIED_FLAT_US = 1000, FLAT_US = 1500; // (3 ms of it a frame took the frame's slack)
 	const s64 flat_budget = hurrying ? HURRIED_FLAT_US : FLAT_US;
 	for (v3s16 bp : rebuild) {
 		if (micros() - grids > flat_budget) {
@@ -861,6 +874,7 @@ void Layer::scan(Grid &g, int t, ClientMap &map)
 			float runs = 0;
 			std::array<float, 2> way{};
 			float surface = 0; // world sixteenths
+			ShapesDown shapes({ /*map*/ map, /*top*/ v3s16(x, hi, z) });
 			for (s16 y = hi; y >= lo; y--) {
 				const v3s16 p(x, y, z);
 				const MapNode n = map.getNode(p);
@@ -870,7 +884,7 @@ void Layer::scan(Grid &g, int t, ClientMap &map)
 					return;
 				}
 				const ContentFeatures &f = m_ndef->get(n);
-				Node node{ Node::OPEN, map.solidShape(p) };
+				Node node{ Node::OPEN, shapes.next() };
 				if (node.shape)
 					node.kind = Node::SHAPED;
 				else if (f.walkable && f.param_type_2 != CPT2_LEVELED)
@@ -1761,6 +1775,7 @@ void Layer::OnRegisterSceneNode()
 void Layer::render()
 {
 	TF_ZONE("Water render"); // Terra Firma: inside Draw3D, timed (the debugger)
+	gpu::Zone gpu("Water");
 	video::IVideoDriver *driver = SceneManager->getVideoDriver();
 	if (SceneManager->getSceneNodeRenderPass() != scene::ESNRP_TRANSPARENT)
 		return;

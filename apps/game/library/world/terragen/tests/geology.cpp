@@ -123,6 +123,38 @@ TEST_CASE("Settings")
 	}
 }
 
+// The landform catalogue's rows each stand somewhere on their own ground,
+// and none covers a world (sprint 120, phase 6): most of them form across
+// the Earth-like worlds, none on more than a sixth of any one's land.
+TEST_CASE("Landforms")
+{
+	bool formed[(int)Landform::Count] = {};
+	for (const char *text : WATER_CODES) {
+		World w(WorldCode::decode(text));
+		const Grid &g = w.grid();
+		const Sphere &sphere = gridSphere();
+		REQUIRE(w.landforms());
+		int land = 0, count[(int)Landform::Count] = {};
+		for (int32_t i = 0; i < g.size(); i++) {
+			if (g.eroded[i] < 0)
+				continue;
+			land++;
+			const Place p(sphere.centre(i));
+			for (int k = 0; k < (int)Landform::Count; k++)
+				count[k] += w.landforms()->strength((Landform)k, { p, g.eroded[i], w.hardness(p.dir()), 0 }) > ONE / 4;
+		}
+		for (int k = 0; k < (int)Landform::Count; k++) {
+			INFO(std::string(text), " ", LANDFORMS[k].name);
+			CHECK(count[k] * 6 <= land);
+			formed[k] = formed[k] || count[k] > 0;
+		}
+	}
+	int kinds = 0;
+	for (bool f : formed)
+		kinds += f;
+	CHECK(kinds >= (int)Landform::Count - 2);
+}
+
 // Rock follows the province: sediment over basement in basins, basalt under
 // the sea floor, granite or gneiss in the shields.
 TEST_CASE("Strata")

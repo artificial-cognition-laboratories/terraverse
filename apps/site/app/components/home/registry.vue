@@ -1,133 +1,32 @@
 <script setup lang="ts">
-import { CATEGORY_ICONS } from "~/config/icons"
-import { flags, links, registry, SAMPLE_LISTINGS, SAMPLE_SERVERS } from "~/config/home"
+import { flags, links, registry } from "~/config/home"
+import { useRegistry } from "~/registry"
 
-const featured = SAMPLE_LISTINGS.filter(l => l.official)
-const trending = SAMPLE_LISTINGS.slice(0, 4)
+const reg = useRegistry()
+const { data } = await useAsyncData("home-registry", async () => ({ front: await reg.front(), servers: await reg.servers() }))
+const trending = computed(() => data.value?.front.shelves.find(s => s.id === "trending")?.listings ?? [])
 </script>
 
 <template>
-    <home-band>
+    <home-band v-if="data">
         <home-heading
             :kicker="registry.kicker"
             :title="registry.title"
             :lede="registry.lede"
-            :link="{ label: 'Browse all', to: links.registry }"
+            :link="{ label: 'Browse all', to: links.browse }"
         />
 
-        <home-featured :listings="featured" :to="links.registry" />
+        <registry-featured :listings="data.front.featured" />
 
-        <h3 class="label">Categories</h3>
-        <div class="categories">
-            <NuxtLink v-for="c in registry.categories" :key="c.id" :to="links.registry" class="category">
-                <home-pixel-icon :icon="CATEGORY_ICONS[c.id]" />
-                <span>{{ c.label }}</span>
-            </NuxtLink>
-        </div>
+        <registry-row-head label="Categories" />
+        <registry-categories :categories="data.front.categories" />
 
-        <div class="row-head">
-            <h3 class="label">Trending</h3>
-            <NuxtLink :to="links.registry" class="more">See all »</NuxtLink>
-        </div>
-        <div class="cards">
-            <home-listing-card v-for="l in trending" :key="l.name" :listing="l" :to="links.registry" />
-        </div>
+        <registry-row-head label="Trending" :link="{ label: 'See all', to: { path: links.browse, query: { sort: 'trending' } } }" />
+        <registry-cards :listings="trending" />
 
         <template v-if="flags.servers">
-            <div class="row-head">
-                <h3 class="label">Live servers</h3>
-                <NuxtLink :to="links.registry" class="more">All servers »</NuxtLink>
-            </div>
-            <home-server-list :servers="SAMPLE_SERVERS" />
+            <registry-row-head label="Live servers" :link="{ label: 'All servers', to: links.registry }" />
+            <registry-servers :servers="data.servers" />
         </template>
     </home-band>
 </template>
-
-<style scoped lang="scss">
-.label {
-    margin: 3rem 0 1rem;
-    padding-bottom: 0.6rem;
-    font-family: $font-display;
-    font-weight: 400;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: $ink;
-    border-bottom: 1px solid $glass-edge;
-}
-
-.row-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    border-bottom: 1px solid $glass-edge;
-    margin: 3rem 0 1rem;
-
-    .label {
-        margin: 0;
-        border: none;
-    }
-}
-
-.more {
-    font-family: $font-display;
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    color: $primary-ink;
-    text-decoration: none;
-
-    &:hover {
-        color: $ink;
-    }
-}
-
-.categories {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.75rem;
-}
-
-.category {
-    display: flex;
-    gap: 0.9rem;
-    align-items: center;
-    min-width: 0;
-    padding: 0.85rem 1rem;
-    font-family: $font-display;
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    color: $ink-dim;
-    @include panel;
-    text-decoration: none;
-    white-space: nowrap;
-
-    span {
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    &:hover {
-        color: $ink;
-        border-color: rgba($primary-ink, 0.55);
-    }
-}
-
-.cards {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 1rem;
-}
-
-@include desktop-down {
-    .categories,
-    .cards {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-@include mobile {
-    .cards {
-        grid-template-columns: minmax(0, 1fr);
-    }
-}
-</style>

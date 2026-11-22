@@ -1,4 +1,4 @@
-# Terra Firma
+# Terraverse
 
 An open-source voxel universe, packaged as a game. Minecraft's insight is that it's a
 universe people make games in; we take that further: real planets, physics and matter
@@ -525,10 +525,11 @@ The standard applies in full to new code. Existing code climbs as it's worked on
 
 ## For agents
 
+- Assume permission to make refactors as you code. Only large refactors need permission if they stray far from defined work.
 - Before answering about code you've read, check it against the failure states. **Raise what you
   find in your response**, leading with it: what's wrong, which rule it breaks, and whether to fix
   it now or carry on. Never bury it at the end, never save it for later.
-- Small things in code you're touching (a name, a loose helper, a dead include) are fixed as you go.
+- Small things in code you're touching (a name, a loose helper, a dead include, file splitting, module movement) are fixed as you go.
   Structural things (a boundary, an orchestrator doing work, a god file growing) are raised.
 - Say "stop, this needs fixing first" when the foundation is unsound for what's about to be built
   on it.

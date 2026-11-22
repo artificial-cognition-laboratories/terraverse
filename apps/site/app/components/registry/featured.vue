@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { Listing } from "~/config/home"
+import type { Listing } from "~/registry"
 import { cover } from "~/lib/cover"
 import { format } from "~/lib/format"
 
 /** The registry's banner: one listing at a time, wide, with dots to step through the rest. */
-const props = defineProps<{ listings: readonly Listing[]; to: string }>()
+const props = defineProps<{ listings: readonly Listing[] }>()
 const at = ref(0)
 const shown = computed(() => props.listings[Math.min(at.value, props.listings.length - 1)])
 const art = computed(() => cover(shown.value?.name ?? "", 96))
@@ -19,15 +19,15 @@ const command = computed(() => `terra install ${shown.value?.name ?? ""}`)
         <div class="text">
             <span class="eyebrow">Featured{{ shown.official ? " · Official" : "" }}</span>
             <div class="name">
-                <span class="monogram">{{ format.monogram(shown.title) }}</span>
+                <registry-monogram :title="shown.title" size="lg" />
                 <div>
                     <h3>{{ shown.title }}</h3>
-                    <span class="by">by {{ shown.owner }} · ★ {{ format.count(shown.stars) }} · ↓ {{ format.count(shown.installs) }} · v{{ shown.version }}</span>
+                    <span class="by">by {{ shown.owner }} · ★ {{ format.count(shown.stars) }} · ↓ {{ format.count(shown.installs) }} · v{{ shown.latestVersion }}</span>
                 </div>
             </div>
             <p>{{ shown.description }}</p>
             <div class="actions">
-                <home-button :to="to" variant="primary">View »</home-button>
+                <home-button :to="`/registry/${shown.name}`" variant="primary">View »</home-button>
                 <button type="button" class="install" @click="install.copy(command)">
                     <span class="prompt">$</span> {{ command }}
                     <span class="state">{{ install.label.value }}</span>
@@ -96,17 +96,6 @@ const command = computed(() => `terra install ${shown.value?.name ?? ""}`)
     }
 }
 
-.monogram {
-    flex: none;
-    display: grid;
-    place-items: center;
-    width: 3.2rem;
-    height: 3.2rem;
-    font-family: $font-display;
-    font-size: 0.9rem;
-    color: $primary-ink;
-    @include well;
-}
 
 h3 {
     margin: 0;

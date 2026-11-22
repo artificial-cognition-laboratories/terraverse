@@ -26,8 +26,6 @@ export interface DocsSection {
     /** Where the tab goes */
     path: string
     groups: DocsGroup[]
-    /** Which end of the subnav the tab sits at: building on Terraverse groups right */
-    side?: "left" | "right"
 }
 
 /**
@@ -173,7 +171,6 @@ export const docsSections: DocsSection[] = [
         id: "deploy",
         label: "Deploy",
         path: "/docs/deploy",
-        side: "right",
         // Managed hosting: the same server folder, run by us. Not built yet; the pages say so
         groups: [
             {
@@ -191,7 +188,6 @@ export const docsSections: DocsSection[] = [
         id: "cli",
         label: "CLI",
         path: "/docs/cli",
-        side: "right",
         groups: [
             {
                 title: "CLI API",

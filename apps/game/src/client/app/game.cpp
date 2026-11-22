@@ -471,6 +471,8 @@ bool Game::startup(volatile std::sig_atomic_t *kill,
 
 	driver = device->getVideoDriver();
 	smgr = m_rendering_engine->get_scene_manager();
+	gpu_clock = std::make_unique<gpu::Clock>(gpu::Clock::Opts{ /*driver*/ *driver });
+	gpu::install(gpu_clock.get());
 
 	driver->setTextureCreationFlag(video::ETCF_CREATE_MIP_MAPS, g_settings->getBool("mip_map"));
 
@@ -6431,6 +6433,7 @@ void Game::drawScene(RunStats *stats)
 	*/
 	TimeTaker tt_draw("Draw scene", nullptr, PRECISION_MICRO);
 	this->driver->beginScene(true, true, sky_color);
+	gpu_clock->begin();
 
 	const LocalPlayer *player = this->client->getEnv().getLocalPlayer();
 	bool draw_wield_tool = (this->m_game_ui->m_flags.show_hud &&
@@ -6482,6 +6485,7 @@ void Game::drawScene(RunStats *stats)
 
 	{
 		TF_ZONE("Present"); // the swap: where waiting on the GPU shows
+		gpu_clock->frame();
 		this->driver->endScene();
 	}
 

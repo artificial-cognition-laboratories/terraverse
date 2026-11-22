@@ -22,8 +22,8 @@ const aspect = computed(() => (props.anchor === "bottom" ? "xMidYMax slice" : "x
 </template>
 
 <style scoped lang="scss">
+// Where it sits is its parent's to say: no position of its own to fight
 .art {
-    position: relative;
     overflow: hidden;
 }
 

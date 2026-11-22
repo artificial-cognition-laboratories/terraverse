@@ -15,14 +15,22 @@
   builtins, clang-cl required) live at the top of apps/game/CMakeLists.txt.
 - Cache keys hash apps/game/vcpkg.json and apps/game/cmake/Modules/CEF.cmake (were stale after the
   move, hashing nothing); vcpkg restore falls back to any older cache of its triplet (ABI-hashed, safe).
+- Official mods: release.yml's `mods` job (beside the builds; `publish` needs it) runs
+  `apps/game/scripts/release/publish-mods.ts`. Per `registry/mods/*`: a version the registry has must
+  match the repo byte for byte (published tarball vs terra's pack list) or it fails "bump"; a version
+  it lacks goes up by `terra publish`. Tag: publishes, signed in by the `TERRA_TOKEN` secret (terra
+  reads it since 556ceb2b; **the secret doesn't exist yet**, so a tag fails only if a mod needs
+  publishing). Dispatch: `--dry-run` (fails as a tag would). Master push: `--dry-run --warn-unbumped`.
+  ~1 s locally, ~40 s as a job. Today both mods are at 0.1.0 on production, identical to the repo.
 - Release scripts (manifest.ts, gate.sh) read engine sources by path: a move breaks them silently,
   only a tag or the gate would notice. A dispatch run exercises manifest.ts (publish's first step).
 - `.github/workflows/launcher.yml`: the launcher (Tauri/Rust). Warm: Linux 3.9 min, Windows 3.3 min.
-- `.github/workflows/macos.yml`: **dispatch only**, the macOS bring-up. macos-15 arm64, vcpkg arm64-osx
-  static (cache ~73 MB), CEF macosarm64, sccache. `apps/game/scripts/release/configure-macos.sh`, build `-k 0`,
-  `apps/game/scripts/release/build-errors.sh` (errors by file and undefined symbols, in the job summary), stage,
-  then the three unit modules. **Green** since run 44412675690. Warm 3.6 min (configure 35 s, build 2 min,
-  tests 41 s); cold 30 min (vcpkg 19 min, engine 11 min).
+- macOS: release.yml's `macos` job (since 2026-11-21; macos.yml deleted), on every push, dispatch and
+  tag, **not published** (`publish` doesn't need it, so a red macOS never holds a release). macos-15
+  arm64, vcpkg arm64-osx static (cache ~73 MB), CEF macosarm64, sccache.
+  `apps/game/scripts/release/configure-macos.sh`, build `-k 0`, `apps/game/scripts/release/build-errors.sh`
+  (errors in the job summary), stage, terra's tests, the three unit modules, smoke boot of the
+  run-in-place build. The repo is public: macOS minutes cost nothing, but count in runner-min/day.
 - `scripts/ci/status.ts` (`bun ci:status [--since date]`): what's running, each workflow's latest
   master run and its failing step, every Scoreboard number. ~20 s, read-only.
 - macOS state of the code: builds and links with vcpkg static; curl and FreeType link through their
@@ -48,37 +56,11 @@ kind's median (the API doesn't say whether caches hit).
 | 2026-11-18 | 9/13 = 69% (since 11-17 21:00; the last 4 release runs green in a row) | 9.6 min (11 pushes) | release linux 10.0, windows 14.6; launcher 3.9 / 3.3; macos 3.6 min | release windows 36.4 min; macos 30 min | 2/2 (v0.1.4, launcher-v0.1.2) | 305 (324 min over 1.1 days, includes tonight's bring-up) |
 
 ## Plan
-0. **(tonight, the developer's direction, before macOS) Official mods publish with each release.**
-   Why: every new world pins the official mods (`registry/mods/*`, today `@terraverse/materials`
-   and `@terraverse/commands`) at the exact versions the game ships, in its own server folder
-   (`shell/bridge/world_server.cpp`, `<world>/server/package.json`). Adding any registry mod to a
-   world runs `terra install`, which resolves those pins **on the registry**. So a released game
-   whose official mod versions aren't published breaks "add a mod" for every new world.
-   Done when: a tag publishes every official mod whose version isn't on the registry yet, before
-   the game's packages go up, and a dispatch run proves it with `--dry-run`.
-   - [ ] `apps/game/scripts/release/publish-mods.ts` (no logic in YAML): for each folder in
-     `registry/mods/`, read its `package.json` name and version; ask the registry
-     (`GET {ARCLABS}/api/terrafirma/registry/packages/<name>`) whether that version exists.
-     Published: skip it (versions are immutable). Not published: `terra publish <folder> --json`.
-     `--dry-run` runs `terra publish --dry-run` instead and publishes nothing. Fails loudly on
-     any refusal: a release must not go out pinning a version the registry doesn't have.
-   - [ ] Same content, same version: a mod whose files changed since its version was published
-     must have its version bumped, or worlds made by different builds would pin one version with
-     two meanings. The script detects it (compare against the published tarball's contents, or
-     record the commit each version was published from: your call, keep it simple) and fails
-     with "bump <name>". The release bot does the bump (its skill says so).
-   - [ ] release.yml: a job that runs it on a tag, after packaging and the smoke boot are green and
-     **before** the game's packages publish. Linux only: the mods are TypeScript, one publish is
-     enough. Dispatch and master pushes run it with `--dry-run` (a master push must never publish).
-   - [ ] Credential. `terra publish` reads a signed-in account from `~/.config/terra/account.json`
-     (`apps/cli/src/terra/registry/account.ts`); it has no token from the environment. Add one
-     (e.g. `TERRA_TOKEN` read by `Account`, taking precedence over the file: the smallest change,
-     in apps/cli, with a test) and use a GitHub secret for it. The account must be a member of the
-     `terraverse` org on ArcLabs (the developer owns it). **Needs the developer:** the secret
-     itself; ask under Questions for the developer, and until it exists, ship everything else with
-     the publish step running `--dry-run` and saying so in the job summary.
-   - [ ] `bun check:registry` already exercises publish against staging (`../arclabs`): reuse its
-     helpers rather than writing a second registry client.
+0. **Official mods publish with each release.** Done 2026-11-21 (the developer's direction):
+   556ceb2b (TERRA_TOKEN in terra), 91e750e4 (publish-mods.ts and the mods job); dispatch proof on
+   branch ci/publish-mods, run 44949973289. Left: the `TERRA_TOKEN` secret (Questions for the
+   developer). `bun check:registry` wasn't reused: the script imports terra's own Registry, Api and
+   Pack from apps/cli/src, so there is still one registry client.
 
 1. **Master green.** Done when: master green rate is 100% over 5 consecutive master runs.
    - [x] 2026-11-17: the Windows launcher test.
@@ -91,8 +73,10 @@ kind's median (the API doesn't say whether caches hit).
    - [x] 2026-11-20: the hierarchy move (2c006128) left terra, the launcher, ops.h's generator and
      both publish steps' update-key.pub on old paths (54519f82); a staged deletion swept into that
      commit broke the UI build, restored in b6d9f331.
-   - [ ] Hold it to 5. Green again from 9c412f43 (2026-11-20 23:05), after 9 red pushes on the move.
-2. **(current, the developer's direction) macOS online.** Done when: release.yml builds, tests,
+   - [x] Held: every finished master run since 451c28bb (2026-11-20 23:22) green, 7 in a row by
+     2026-11-21. One cancel (eb735aac, 2 s in, during my own push/dispatch burst) still counts red.
+   Done 2026-11-21; the number stays on the Scoreboard.
+2. **(current from next session, the developer's direction) macOS online.** Done when: release.yml builds, tests,
    packages and smoke-boots macOS arm64 on master pushes, and a tag publishes a macOS package.
    - [x] Dispatch-only macos.yml (2026-11-18).
    - [x] Compiles (sidecar SOCK_CLOEXEC, st_mtimespec), links (curl/FreeType targets, system OpenAL),
@@ -128,7 +112,7 @@ kind's median (the API doesn't say whether caches hit).
   target is what every setup defines.
 
 ## Proposals
-- (none)
+- (none). Not a proposal but the developer's to do: create the `TERRA_TOKEN` secret (charter question, 2026-11-21).
 
 ## Direction
 

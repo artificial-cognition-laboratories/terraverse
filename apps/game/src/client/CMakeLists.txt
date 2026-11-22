@@ -33,6 +33,7 @@ set(client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/render/core.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/pipeline/factory.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/pipeline/plain.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/gputime/gputime.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/pipeline/stereo/sidebyside.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/pipeline/stereo/stereo.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/pipeline/secondstage.cpp

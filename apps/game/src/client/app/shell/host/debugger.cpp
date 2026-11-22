@@ -464,6 +464,16 @@ struct Debugger::Impl
 		bridge.send(browser, said);
 	}
 
+	// Its page made at the panel's size for this window, hidden until opened.
+	void load(core::dimension2du window)
+	{
+		const core::recti at = panel(window);
+		viewport.width = at.getWidth();
+		viewport.height = at.getHeight();
+		create();
+		browser->GetHost()->WasHidden(true);
+	}
+
 	void hide()
 	{
 		open = false;
@@ -508,17 +518,21 @@ void Debugger::beginFrame()
 		m->browser->GetHost()->SendExternalBeginFrame();
 }
 
-void Debugger::toggle()
+void Debugger::load(core::dimension2du window)
+{
+	if (!m->browser)
+		m->load(window);
+}
+
+void Debugger::toggle(core::dimension2du window)
 {
 	if (m->open) {
 		m->hide();
 		return;
 	}
+	load(window);
 	m->open = true;
-	if (!m->browser)
-		m->create();
-	else
-		m->browser->GetHost()->WasHidden(false);
+	m->browser->GetHost()->WasHidden(false);
 }
 
 core::dimension2du Debugger::screen(core::dimension2du window) const
@@ -552,7 +566,8 @@ void Debugger::draw(core::dimension2du window)
 	m->sendServer();
 	// what its page hasn't painted yet (opening, or growing) is its own ground
 	m->opts.driver->draw2DRectangle(video::SColor(255, 12, 14, 16), panel);
-	m->canvas->draw(panel.UpperLeftCorner);
+	if (m->ready) // (before, what the canvas holds is no page of ours yet)
+		m->canvas->draw(panel.UpperLeftCorner);
 }
 
 bool Debugger::onEvent(const SEvent &event, core::dimension2du window)

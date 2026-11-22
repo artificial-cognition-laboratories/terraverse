@@ -5,6 +5,8 @@
 #include "src/client/render/textures/texturesource.h"
 #include "src/shared/base/exceptions.h"
 #include "src/shared/game/content/nodedef.h"
+#include "src/shared/game/items/itemgroup.h"
+#include "src/client/views/game/water/liquidlook.h"
 #include <algorithm>
 
 namespace far {
@@ -13,6 +15,8 @@ static video::SColorf toColorf(video::SColor c)
 {
 	return video::SColorf(c.getRed() / 255.0f, c.getGreen() / 255.0f, c.getBlue() / 255.0f, 1.0f);
 }
+
+static Palette::Look asDrawn(Palette::Look l, video::SColor colour);
 
 Palette Palette::live(const NodeDefManager *ndef, ITextureSource *tsrc, const std::vector<content_t> &blocks)
 {
@@ -54,9 +58,28 @@ Palette Palette::live(const NodeDefManager *ndef, ITextureSource *tsrc, const st
 		l.clarity = std::clamp(((on_white.r - on_black.r) + (on_white.g - on_black.g) + (on_white.b - on_black.b)) / 3.0f,
 				0.0f, 1.0f);
 		l.over_black = on_black;
+		// a liquid the near layer draws is its colour, not its texture's: seen
+		// as that layer's tops are, a node deep (the far view's least)
+		if (itemgroup_get(f.groups, "liquid_layer"))
+			l = asDrawn(std::move(l), f.color);
 		out.add(id, std::move(l));
 	}
 	return out;
+}
+
+// The look the liquid layer gives a liquid (liquids::look::top): its sides
+// its own colour, its top that over what's under it
+static Palette::Look asDrawn(Palette::Look l, video::SColor colour)
+{
+	const video::SColorf own = toColorf(colour);
+	const liquids::look::Top t = liquids::look::top({ own.r, own.g, own.b }, 1);
+	for (int k = 0; k < 6; k++) {
+		l.face[k] = own;
+		l.tinted[k] = false;
+	}
+	l.over_black = video::SColorf(t.colour[0] * t.alpha, t.colour[1] * t.alpha, t.colour[2] * t.alpha, 1);
+	l.clarity = 1 - t.alpha;
+	return l;
 }
 
 } // namespace far

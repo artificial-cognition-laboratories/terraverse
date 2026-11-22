@@ -1,0 +1,173 @@
+@use "./variables.scss" as *;
+@use "./mixins.scss" as *;
+
+// Markdown as the site sets it: the docs, and a mod's readme. Plain text on the
+// night (no card), a sans face for reading, the code face for anything literal.
+// Code blocks are windows (components/content/ProsePre.vue), not styled here.
+.prose {
+    @include on-sky;
+    max-width: 100%;
+    font-family: $font-sans;
+    font-size: 0.95rem;
+    line-height: 1.75;
+    color: $ink-dim;
+    overflow-wrap: break-word;
+
+    // Nuxt Content's wrappers are grid and flex children: let them shrink, so a
+    // wide code block scrolls in its window instead of widening the page
+    > div,
+    [data-content-id] {
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+        margin: 2.5rem 0 0.75rem;
+        font-weight: 600;
+        line-height: 1.25;
+        letter-spacing: -0.01em;
+        color: $ink;
+        scroll-margin-top: calc(#{$topnav-height} + #{$subnav-height} + 1.5rem);
+
+        // They carry their own anchor: they read as headings, not links
+        a {
+            color: inherit;
+            text-decoration: none;
+            border: none;
+        }
+    }
+
+    h1 {
+        margin-top: 0;
+        font-size: 2.1rem;
+        letter-spacing: -0.02em;
+    }
+
+    h2 {
+        padding-top: 2rem;
+        font-size: 1.35rem;
+        border-top: 1px solid $glass-edge;
+    }
+
+    h3 {
+        font-size: 1.05rem;
+    }
+
+    h4 {
+        font-size: 0.95rem;
+        color: $ink-dim;
+    }
+
+    // The first line under the title is the page's lede
+    h1 + p {
+        font-size: 1.1rem;
+        color: $ink;
+    }
+
+    p {
+        margin: 0 0 1.1rem;
+    }
+
+    a {
+        color: $primary-ink;
+        text-decoration: none;
+        border-bottom: 1px solid rgba($primary-ink, 0.35);
+
+        &:hover {
+            border-bottom-color: $primary-ink;
+        }
+    }
+
+    strong {
+        font-weight: 600;
+        color: $ink;
+    }
+
+    ul,
+    ol {
+        margin: 0 0 1.25rem;
+        padding-left: 1.4rem;
+
+        li {
+            margin: 0.35rem 0;
+            padding-left: 0.25rem;
+        }
+
+        li::marker {
+            color: $primary-ink;
+        }
+    }
+
+    :not(pre) > code {
+        padding: 0.1em 0.35em;
+        font-family: $font-mono;
+        font-size: 0.84em;
+        color: $ink;
+        background: rgba($ink, 0.07);
+    }
+
+    blockquote {
+        margin: 1.5rem 0;
+        padding: 0.1rem 1rem;
+        color: $ink-dim;
+        border-left: 2px solid rgba($primary-ink, 0.55);
+
+        p {
+            margin: 0.5rem 0;
+        }
+    }
+
+    table {
+        width: 100%;
+        margin: 1.5rem 0;
+        font-size: 0.85rem;
+        border-collapse: collapse;
+
+        th {
+            padding: 0.5rem 1rem 0.5rem 0;
+            font-family: $font-display;
+            font-weight: 400;
+            font-size: 0.6rem;
+            text-align: left;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: $ink-faint;
+            border-bottom: 1px solid $glass-edge;
+        }
+
+        td {
+            padding: 0.6rem 1rem 0.6rem 0;
+            vertical-align: top;
+            border-bottom: 1px solid rgba($ink, 0.05);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+    }
+
+    hr {
+        margin: 2.5rem 0;
+        border: none;
+        border-top: 1px solid $glass-edge;
+    }
+
+    img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid $glass-edge;
+    }
+
+    @include tablet {
+        h1 {
+            font-size: 1.7rem;
+        }
+
+        h2 {
+            font-size: 1.2rem;
+        }
+    }
+}

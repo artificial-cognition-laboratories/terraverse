@@ -1,6 +1,7 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include "src/client/render/gputime/gputime.h"
 #include "src/client/app/shell/host/shell.h"
 #include <IEventReceiver.h>
 #include "src/client/app/shell/bridge/account.h"
@@ -407,6 +408,8 @@ void Shell::frameUi()
 	video::IVideoDriver *driver = m->opts.driver;
 	if (driver->getScreenSize() != m->screen)
 		m->window = driver->getScreenSize();
+	if (m->ready)
+		m->debugger->load(m->window);
 	const core::dimension2du screen = m->debugger->screen(m->window);
 	const core::vector2di offset = m->debugger->offset(m->window);
 	if (screen != driver->getScreenSize())
@@ -427,14 +430,18 @@ void Shell::frameUi()
 		m->underlayDraw(m->opts.driver);
 	const Canvas::Painted painted = m->canvas->taken();
 	m->latency.painted(painted.first, painted.paints, painted.area);
-	if (m->canvas->draw({ 0, 0 }))
-		m->latency.shown(trace::now());
+	{
+		gpu::Zone gpu("UI page");
+		if (m->canvas->draw({ 0, 0 }))
+			m->latency.shown(trace::now());
+	}
 	m->latency.report();
 	if (m->check)
 		m->check->step(driver->getScreenSize());
 
 	if (m->debugger->open()) {
 		TF_ZONE("Debugger");
+		gpu::Zone gpu("Debugger");
 		// the whole window for it, then the game's part back for the next frame
 		driver->setScreenOffset({ 0, 0 });
 		driver->OnResize(m->window);
@@ -450,7 +457,7 @@ bool Shell::onEvent(const SEvent &event)
 	if (event.EventType == EET_KEY_INPUT_EVENT &&
 			keySettingHasMatch("keymap_toggle_debug", KeyPress(event.KeyInput))) {
 		if (event.KeyInput.PressedDown)
-			m->debugger->toggle();
+			m->debugger->toggle(m->window);
 		return true;
 	}
 	if (m->debugger->onEvent(event, m->window))

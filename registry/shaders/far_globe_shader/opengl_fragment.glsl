@@ -1,7 +1,6 @@
 uniform lowp vec4 fogColor;
 uniform float fogDistance;
 uniform float farBehind;     // 1: the backdrop pass, whose depth is cleared after it
-uniform float farParts;      // what's drawn: 0 the land, 1 the skirts, 2 both
 uniform float farCut;        // the near world's range from the eye (scene units), for the haze
 // The near world's map block columns in the tile's region (far/mask.h): where
 // it draws, the far land isn't.
@@ -32,7 +31,6 @@ VARYING_ highp vec3 eyeVec;
 VARYING_ highp float varAltitude;
 VARYING_ lowp vec3 varDay;
 VARYING_ highp vec2 varGrid;
-VARYING_ lowp float varSkirt;
 
 const float BS = 10.0;              // scene units per block
 const float CLEAR = 3.0 / 60000.0;  // per m: the air's haze through clear air, at the sea
@@ -55,10 +53,8 @@ void main(void)
 	// has, the far land isn't drawn
 	if (varSeen > farRange)
 		discard;
-	// the land in the main pass; skirts only behind it (the backdrop), where a
-	// crack or a tile not built yet shows: in front, they stood as walls in the gap
-	if ((farParts < 0.5 && varSkirt > 0.5) || (farParts > 0.5 && farParts < 1.5 && varSkirt < 0.5))
-		discard;
+	// (the land in the main pass, skirts only behind it: each pass is given
+	// only its own triangles, far/tiles/sides.h)
 	if (farMask > 0.5) {
 		vec2 column = floor((varGrid + farMaskShift) / 16.0);
 		float bit = floor((varAltitude + farLayer) / 16.0) - farMaskBase;

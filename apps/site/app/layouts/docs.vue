@@ -1,6 +1,14 @@
+<script setup lang="ts">
+import { hero } from "~/config/home"
+
+/** Every docs page: the night with its stars, as the registry, under the docs' subnav; the tree beside the article. */
+const nav = useDocsNav()
+</script>
+
 <template>
     <div class="docs-layout">
         <shared-topnav />
+        <home-sky :seed="hero.code" scene="quiet" />
         <docs-subnav />
 
         <div class="docs-container">
@@ -12,47 +20,38 @@
     </div>
 </template>
 
-<script setup lang="ts">
-const nav = useDocsNav()
-</script>
-
 <style scoped lang="scss">
 .docs-layout {
-    min-height: 100vh;
+    position: relative;
+    isolation: isolate;
     min-height: 100dvh;
-    padding-top: 50px;
-    display: flex;
-    flex-direction: column;
+    padding-top: $topnav-height;
 }
 
 .docs-container {
-    display: flex;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: $side-width minmax(0, 1fr);
+    gap: 3rem;
+    align-items: start;
     max-width: $site-width;
-    width: 100%;
     margin: 0 auto;
-    padding: 15px 2rem;
-    gap: 2rem;
-    flex: 1;
+    padding: $page-top 2rem 6rem;
 }
 
 .docs-main {
-    flex: 1;
     min-width: 0;
 }
 
 @include tablet {
     .docs-container {
-        flex-direction: column;
-        padding: 0 1.25rem;
-        // In a column, flex-start would size the article to its content
-        align-items: stretch;
+        grid-template-columns: minmax(0, 1fr);
+        padding: 0 1.25rem 4rem;
     }
 }
 
 @include mobile {
     .docs-container {
-        padding: 0 1rem;
+        padding: 0 1rem 4rem;
     }
 }
 </style>

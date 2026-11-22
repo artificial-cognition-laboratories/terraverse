@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /**
- * A window on the night: one block of glass with three dots at its top-left and,
- * at its top-right, a label or whatever the `bar` slot holds (tabs).
+ * A window on the night: one block of glass with three dots at one end of its bar
+ * and, at the other, a label or whatever the `bar` slot holds (tabs).
  */
-defineProps<{ label?: string }>()
+withDefaults(defineProps<{ label?: string; dots?: "left" | "right" }>(), { dots: "left" })
 </script>
 
 <template>
-    <figure class="window">
+    <figure class="window" :class="`dots-${dots}`">
         <figcaption class="bar">
             <span class="dots" aria-hidden="true"><i /><i /><i /></span>
             <slot name="bar">
@@ -31,6 +31,7 @@ defineProps<{ label?: string }>()
 
 // The same glass as the body: nothing divides them
 .bar {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -39,6 +40,10 @@ defineProps<{ label?: string }>()
     padding: 0 1rem;
     white-space: nowrap;
     overflow: hidden;
+}
+
+.dots-right .dots {
+    order: 2;
 }
 
 .dots {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Server } from "~/config/home"
+import type { Server } from "~/registry"
 
 /** Servers people are playing on now: name, game, mods, region and how full. */
 defineProps<{ servers: readonly Server[] }>()

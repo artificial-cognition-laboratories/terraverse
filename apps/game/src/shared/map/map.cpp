@@ -15,6 +15,7 @@
 #include "src/shared/platform/system/log.h"
 #include "src/shared/platform/system/profiler.h"
 #include "src/shared/game/content/nodedef.h"
+#include "src/shared/map/shapes_down.h"
 #include "src/shared/base/gamedef.h"
 #include "src/shared/game/environment/rollback_interface.h"
 #include "src/shared/game/environment/environment.h"
@@ -761,20 +762,7 @@ std::optional<ground::Top> Map::groundTopAs(v3s16 p, v3s16 at, MapNode was)
 
 std::optional<shape::Shape> Map::solidShape(v3s16 p)
 {
-	if (const shape::Shape *s = getShape(p))
-		return *s;
-	if (const std::optional<ground::Top> top = groundTop(p))
-		return top->shape(0);
-	const MapNode n = getNode(p);
-	if (n.getContent() == CONTENT_IGNORE || m_nodedef->get(n).walkable)
-		return std::nullopt;
-	// open: unless smoothed ground below rises into it
-	if (const std::optional<ground::Top> below = groundTop(p - v3s16(0, 1, 0))) {
-		shape::Shape high = below->shape(1);
-		if (!high.empty())
-			return high;
-	}
-	return std::nullopt;
+	return ShapesDown({ /*map*/ *this, /*top*/ p }).next();
 }
 
 void Map::settleGround(v3s16 p)

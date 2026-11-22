@@ -1,34 +1,109 @@
 <script setup lang="ts">
-import { links } from "~/config/home"
+import { flags } from "~/config/home"
+import { useRegistry } from "~/registry"
 
 definePageMeta({ layout: "landing" })
 useHead({ title: "Registry" })
+
+const reg = useRegistry()
+const { data } = await useAsyncData("registry-front", async () => ({ front: await reg.front(), servers: await reg.servers() }))
+const publish = useCopy()
 </script>
 
 <template>
-    <home-band>
-        <div class="notice">
+    <registry-shell>
+        <template v-if="data">
             <home-heading
                 kicker="The registry"
-                title="Not on the web yet."
-                lede="The registry's web view is being built. Until it's here, browse mods, worlds and servers from Community in the game, or publish your own from the CLI."
+                title="Made by everyone."
+                :lede="`${data.front.total} mods, games, worlds and packs, made by the community and by us. Add one to a world in a click, or publish your own with one command.`"
+                :link="{ label: 'Browse all', to: '/registry/browse' }"
             />
-            <div class="actions">
-                <home-button to="/#download" variant="primary">Download the game</home-button>
-                <home-button :to="links.mods">Publish a mod »</home-button>
-            </div>
-        </div>
-    </home-band>
+
+            <registry-featured :listings="data.front.featured" />
+
+            <registry-row-head label="Categories" />
+            <registry-categories :categories="data.front.categories" />
+
+            <template v-for="shelf in data.front.shelves" :key="shelf.id">
+                <registry-row-head
+                    :label="shelf.title"
+                    :link="{ label: 'See all', to: { path: '/registry/browse', query: shelf.search.official ? { official: '1', sort: shelf.search.sort } : { sort: shelf.search.sort } } }"
+                />
+                <registry-cards :listings="shelf.listings" />
+            </template>
+
+            <template v-if="flags.servers">
+                <registry-row-head label="Live servers" />
+                <registry-servers :servers="data.servers" />
+            </template>
+
+            <section class="publish">
+                <div>
+                    <h2>Made something?</h2>
+                    <p>Publish it from the folder it's in. It's typed, versioned and one install away for everyone.</p>
+                </div>
+                <button type="button" class="command" @click="publish.copy('terra publish')">
+                    <span class="prompt">$</span> terra publish
+                    <span class="state">{{ publish.label.value }}</span>
+                </button>
+                <home-button to="/docs/mods/publish">How »</home-button>
+            </section>
+        </template>
+    </registry-shell>
 </template>
 
 <style scoped lang="scss">
-.notice {
-    padding: 6rem 0 4rem;
+.publish {
+    @include panel;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-top: 4rem;
+    padding: 1.75rem 2rem;
+
+    > div {
+        flex: 1;
+        min-width: 0;
+    }
+
+    h2 {
+        margin: 0 0 0.4rem;
+        font-family: $font-sans;
+        font-size: 1.2rem;
+        color: $ink;
+    }
+
+    p {
+        margin: 0;
+        font-family: $font-sans;
+        font-size: 0.92rem;
+        color: $ink-dim;
+    }
 }
 
-.actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
+.command {
+    @include well;
+    padding: 0.7rem 1rem;
+    font-family: $font-mono;
+    font-size: 0.85rem;
+    color: $ink;
+    cursor: pointer;
+
+    .prompt {
+        color: $primary-ink;
+    }
+
+    .state {
+        margin-left: 0.8rem;
+        color: $ink-faint;
+    }
+}
+
+@include tablet {
+    .publish {
+        flex-direction: column;
+        align-items: flex-start;
+    }
 }
 </style>

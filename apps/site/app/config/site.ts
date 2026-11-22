@@ -4,5 +4,5 @@ export const GITHUB = "https://github.com/artificial-cognition-laboratories/terr
 export const navLinks = [
     { label: "registry", to: "/registry" },
     { label: "docs", to: "/docs" },
-    { label: "wiki", to: "/wiki" },
+    // TEMP(2026-11-21): the wiki is back in the nav when /wiki is more than "coming soon"
 ]

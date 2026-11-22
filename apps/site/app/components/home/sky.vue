@@ -4,10 +4,20 @@ import { PX, sky } from "~/lib/sky"
 
 /**
  * The night the landing hangs in, behind every section: one flat dark, two
- * fields of stars, the sun and the moon. Each moves at its own depth as the
+ * fields of stars, and on the landing the sun and the moon (`scene`). Each moves at its own depth as the
  * page scrolls (`speed`: 1 is with the page, 0 is fixed to the window).
  */
-const props = defineProps<{ seed: string }>()
+const props = withDefaults(defineProps<{ seed: string; scene?: Scene }>(), { scene: "landing" })
+
+// How much night each page wants: the landing shows off, the registry is a step
+// quieter, and the docs are read, so their sky is nearly black
+type Scene = "landing" | "stars" | "quiet"
+const SCENES: Record<Scene, { bodies: boolean; light: number; glints: boolean }> = {
+    landing: { bodies: true, light: 0.85, glints: true },
+    stars: { bodies: false, light: 0.75, glints: true },
+    quiet: { bodies: false, light: 0.28, glints: false },
+}
+const scene = computed(() => SCENES[props.scene])
 
 // Each field is a tile that repeats. The far one is dim enough to repeat unnoticed;
 // the near one, with its glints, is wider than a screen so it never visibly does.
@@ -29,7 +39,13 @@ const images = reactive<{ stars: string[]; sun: string; moon: string; size: { su
 const drawn = ref(false)
 
 onMounted(() => {
-    images.stars = FIELDS.map(f => paint(sky.stars(`${props.seed}:${f.seed}`, f.tile.width, f.tile.height, f.count, f.glints)))
+    images.stars = FIELDS.map(f =>
+        paint(sky.stars(`${props.seed}:${f.seed}`, f.tile.width, f.tile.height, f.count, scene.value.glints ? f.glints : 0)),
+    )
+    if (!scene.value.bodies) {
+        drawn.value = true
+        return
+    }
     const sunArt = sky.sun(7)
     const moonArt = sky.moon(`${props.seed}:moon`, 13, [0.75, -0.45, 0.5])
     images.sun = paint(sunArt)
@@ -50,11 +66,7 @@ useScrollFrame(scroll => {
 </script>
 
 <template>
-    <div
-        class="sky"
-        :class="{ drawn }"
-        aria-hidden="true"
-    >
+    <div class="sky" :class="{ drawn }" :style="{ '--light': scene.light }" aria-hidden="true">
         <div
             v-for="(f, i) in FIELDS"
             :key="f.id"
@@ -93,7 +105,7 @@ useScrollFrame(scroll => {
     will-change: transform;
 
     .drawn & {
-        opacity: 1;
+        opacity: var(--light);
     }
 }
 

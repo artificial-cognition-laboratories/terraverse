@@ -4,6 +4,7 @@
 #pragma once
 
 #include "library/world/terragen/src/column/amplify.h"
+#include "library/world/terragen/src/column/landform/landform.h"
 #include "library/world/terragen/src/rivers/streams.h"
 #include "library/world/terragen/src/rivers/river_kind.h"
 #include "library/world/terragen/src/rivers/river_line.h"
@@ -212,6 +213,11 @@ public:
 	// Fixed point in 64 bits: past 32 767 blocks round a radius doesn't fit
 	// a fix, and every distance in blocks came out wrong.
 	int64_t radius() const { return m_radius; }
+	// The landform catalogue's builder (column/landform), on a body with water
+	const std::optional<Landforms> &landforms() const { return m_landforms; }
+	// How hard the coast's rock is, 0 (soft or buried in sediment: beaches)
+	// to 1 (a shield, a range's core: cliffs), between the cells (sprint 97)
+	fix hardness(const Dir &d) const;
 	static int64_t radiusOf(const WorldCode &code);
 	// Blocks (fixed, 64 bits) spanned by `unit` radii: a chord or an offset
 	// on the unit sphere, made the planet's size.
@@ -402,6 +408,7 @@ private:
 	int m_detail_octaves;  // from a cell's wavelength down to 16 blocks
 	// the grid's surface smooth between cells, where water wears the land (sprint 116)
 	std::optional<Amplifier> m_amplifier;
+	std::optional<Landforms> m_landforms; // the catalogue's (column/landform), where water wears the land
 	// the land below the grid cut from its streams, where water wears it (sprint 116, phase 6b)
 	std::optional<Streams> m_streams;
 	Craters m_craters;     // impacts: the grid holds the wide ones, a column finds the rest
@@ -421,9 +428,6 @@ private:
 	Biome bareBiome(const Dir &d, bool flooded) const;
 	// Under a young crater's rays (bright ejecta thrown across the dark lava).
 	bool rayed(const Place &at) const;
-	// How hard the coast's rock is, 0 (soft or buried in sediment: beaches)
-	// to 1 (a shield, a range's core: cliffs), between the cells (sprint 97)
-	fix hardness(const Dir &d) const;
 	// Whether the sea is within a cell or so of a place (its cells or theirs)
 	bool bySea(const Dir &d) const;
 	// one age of craters at a place, exactly (blocks, fixed): the grid's wide

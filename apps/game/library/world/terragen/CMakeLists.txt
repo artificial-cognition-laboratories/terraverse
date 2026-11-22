@@ -3,6 +3,8 @@
 # static library, so a change here rebuilds terragen and relinks, never more.
 set(terragen_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/src/column/amplify.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/column/landform/catalogue.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/column/landform/landform.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/out/atlas.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/system/body.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/system/calendar.cpp
@@ -16,8 +18,14 @@ set(terragen_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/grid.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/grid_file.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/history.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/coast.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/crust.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/drift.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/fertility.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/past.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/setting.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/water.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/grid/wear.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/surface/maria.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/surface/lid.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/rivers/streams.cpp

@@ -1,6 +1,7 @@
 // Terra Firma
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include "library/trace/trace.h"
 #include "src/client/views/game/far/tiles/tilecache.h"
 #include <cstdio>
 #include "src/client/views/game/far/land/horizon.h"
@@ -59,6 +60,7 @@ TileCache::TileCache(const std::string &root, const Horizon &horizon, const plan
 	m_base = base.string();
 	m_dir = (base / sources / hex(world)).string();
 	fs::create_directories(m_dir);
+	TF_ZONE("Far view: old builds' tiles removed");
 	// (another build's tiles are another generation's: never read again)
 	for (const fs::directory_entry &e : fs::directory_iterator(base))
 		if (e.path().filename().string() != sources)

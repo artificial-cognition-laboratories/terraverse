@@ -3,6 +3,7 @@
 
 #include "src/client/views/planetarium/run/standalone.h"
 #include "src/client/views/planetarium/planetarium.h"
+#include "src/client/views/planetarium/framing.h"
 #include <chrono>
 #include "src/client/app/input/inputhandler.h"
 #include "src/client/render/renderingengine.h"
@@ -192,7 +193,7 @@ void runStandalone(const std::string &code, std::optional<double> bench, std::op
 		if (taken < pictures.size()) {
 			const Picture &p = pictures[taken];
 			if (p.shot)
-				planet->compose(Planetarium::framingOf(*p.shot, (float)window.Width / window.Height), 0);
+				planet->compose(framing::of(*p.shot, (float)window.Width, (float)window.Height), 0);
 			else
 				planet->focus(p.latitude, p.longitude, p.altitude);
 		}

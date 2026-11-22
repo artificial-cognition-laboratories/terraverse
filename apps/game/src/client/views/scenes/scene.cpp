@@ -298,7 +298,7 @@ void Scene::rebuild()
 			}
 }
 
-v2f Scene::shift() const
+v2f Scene::aim() const
 {
 	// the turning point: the floor's middle, low in what's free
 	return v2f(-m_right / std::max(1, m_rect.getWidth()), -0.5f);
@@ -306,9 +306,11 @@ v2f Scene::shift() const
 
 core::matrix4 Scene::view() const
 {
+	// looking at the turning point, turned so it's drawn where it's aimed
 	core::matrix4 m;
 	m.buildCameraLookAtMatrixLH(eye(), m_target, v3f(0, 1, 0));
-	return m;
+	const float aspect = (float)m_rect.getWidth() / std::max(1, m_rect.getHeight());
+	return planetarium::OrbitCamera::aimed(aim(), aspect, FOV) * m;
 }
 
 v3f Scene::eye() const
@@ -802,7 +804,7 @@ void Scene::draw(video::IVideoDriver *driver)
 	driver->clearBuffers(video::ECBF_DEPTH);
 	const float aspect = (float)m_rect.getWidth() / std::max(1, m_rect.getHeight());
 	const core::matrix4 look = view();
-	driver->setTransform(video::ETS_PROJECTION, planetarium::OrbitCamera::perspective(aspect, 0.1f, 200.f, shift(), FOV));
+	driver->setTransform(video::ETS_PROJECTION, planetarium::OrbitCamera::perspective(aspect, 0.1f, 200.f, FOV));
 	driver->setTransform(video::ETS_VIEW, look);
 	driver->setTransform(video::ETS_WORLD, core::IdentityMatrix);
 
@@ -853,8 +855,8 @@ std::optional<int> Scene::pick() const
 	const Frame &f = *m_frame;
 	// the mouse's ray, stepped through the blocks: a few dozen at most
 	const float t = std::tan(FOV / 2), aspect = (float)m_rect.getWidth() / std::max(1, m_rect.getHeight());
-	const float nx = 2.f * (m_mouse.X - m_rect.UpperLeftCorner.X) / m_rect.getWidth() - 1 - shift().X;
-	const float ny = 1 - 2.f * (m_mouse.Y - m_rect.UpperLeftCorner.Y) / m_rect.getHeight() - shift().Y;
+	const float nx = 2.f * (m_mouse.X - m_rect.UpperLeftCorner.X) / m_rect.getWidth() - 1;
+	const float ny = 1 - 2.f * (m_mouse.Y - m_rect.UpperLeftCorner.Y) / m_rect.getHeight();
 	const core::matrix4 look = view();
 	const v3f right(look[0], look[4], look[8]), up(look[1], look[5], look[9]), ahead(look[2], look[6], look[10]);
 	v3f way = ahead + right * (nx * t * aspect) + up * (ny * t);
