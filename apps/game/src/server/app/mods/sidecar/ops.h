@@ -5,7 +5,7 @@
 
 namespace sidecar {
 
-constexpr u32 PROTOCOL = 2;
+constexpr u32 PROTOCOL = 3;
 constexpr int EXIT_RESTART = 75;
 
 enum class Op : u8 {

@@ -15,6 +15,7 @@
 #include "src/shared/base/exceptions.h"
 #include "src/client/render/fonts/fontengine.h"
 #include "src/client/app/shell/launch/clientlauncher.h"
+#include "src/shared/platform/home/home.h"
 #include "src/shared/base/version.h"
 #include "src/client/render/renderingengine.h"
 #include "src/shared/platform/settings/settings.h"
@@ -174,22 +175,17 @@ bool ClientLauncher::run(const GameParams &game_params, const Settings &cmd_args
 		return false;
 	}
 #if USE_SHELL
-	// A profile is another player on this machine: Chromium locks its cache
-	// to one process, and each player signs in on their own.
-	const std::string profile = cmd_args.exists("profile") ? cmd_args.get("profile") : "";
-	if (!profile.empty() && !string_allowed(profile, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"))
-		throw BaseException("--profile takes letters, digits, _ and -");
 	m_shell = std::make_unique<shell::Shell>(shell::Shell::Opts{
 		m_rendering_engine->get_video_driver(),
 		guienv,
 		m_rendering_engine->get_raw_device()->getCursorControl(),
 		cmd_args.exists("shell-url") ? cmd_args.get("shell-url") : g_settings->get("shell_url"),
 		porting::path_share + DIR_DELIM "ui" DIR_DELIM "dist",
-		porting::path_cache + DIR_DELIM + (profile.empty() ? "shell" : "shell-" + profile),
+		m_home.browserCache(), // one Chromium per process: a second player has its own (home.md)
 		RenderingEngine::getDisplayDensity(),
 		g_settings->getBool("shell_gpu"),
 		cmd_args.exists("arclabs-url") ? cmd_args.get("arclabs-url") : g_settings->get("arclabs_url"),
-		profile.empty() ? porting::path_user : porting::path_user + DIR_DELIM "profiles" DIR_DELIM + profile,
+		m_home,
 		cmd_args.getFlag("ui-check"),
 	});
 	m_wiki = std::make_unique<shell::Wiki>(*m_shell); // answers in the menu and in game alike

@@ -4,12 +4,18 @@ export {}
 declare global {
     // ── content ─────────────────────────────────────────────────────────────
 
+    /** A file in the mod's assets/textures/, or a picture art.texture drew. */
+    type Texture = TextureName | ArtTexture
+
     interface BlockDef {
         /** What it's made of: its weight, strength, grip and whether light passes come from it. Every block digs like stone for now. */
         matter: string
         /** 0–1: how much of the block is matter. Default 1. */
         share?: number
-        texture: TextureName | { top?: TextureName; bottom?: TextureName; sides: TextureName }
+        /** What players see it called. Default: from its name, "kilns:granite_brick" → "Granite brick". */
+        description?: string
+        /** One texture on every face, or the top and bottom apart from the sides. */
+        texture: Texture | { top?: Texture; bottom?: Texture; sides: Texture }
     }
 
     interface BlockType {
@@ -21,12 +27,80 @@ declare global {
         create(name: OwnName, def: BlockDef): BlockType
     }
 
+    interface ItemDef {
+        /** What players see it called. Default: from its name. */
+        description?: string
+        /** Shown in the inventory, and extruded into a thick sprite in the hand: clear pixels are its outline. */
+        icon: Texture
+    }
+
+    interface ItemType {
+        readonly name: BlockName
+    }
+
+    interface Items {
+        /** Declare a hand-sized thing. Load only. It does nothing yet but exist, show and stack. Throws NAME_TAKEN, NAME_NOT_YOURS, ASSET_MISSING, CONTENT_SEALED. */
+        create(name: OwnName, def: ItemDef): ItemType
+    }
+
     interface ContentApi {
         readonly blocks: Blocks
+        readonly items: Items
     }
 
     /** What things are. Declared while mods load, sealed after. */
     const content: ContentApi
+
+    // ── art ─────────────────────────────────────────────────────────────────
+
+    /** #rgb, #rrggbb or #rrggbbaa; or, inside a texture with a palette, one of its letters. */
+    type ArtColor = `#${string}` | string
+
+    /**
+     * One pass of paint, over what's already there. Noise and grain wrap at the edges, so
+     * a block's faces tile; every seed gives the same picture on every machine.
+     */
+    type ArtLayer =
+        /** Every pixel this colour. */
+        | { fill: ArtColor }
+        /** Blotches (stone, dirt): colours darkest first, a blob every `scale` pixels (default 4). */
+        | { noise: readonly ArtColor[]; scale?: number; seed?: number }
+        /** Streaks (wood): along "y" runs them top to bottom (default), "x" side to side. */
+        | { grain: readonly ArtColor[]; along?: "x" | "y"; seed?: number }
+        /** Single pixels scattered: `density` 0–1 of them (default 0.1). */
+        | { speck: ArtColor; density?: number; seed?: number }
+        /** A grid in the palette's letters, one string per row; "." and " " leave what's under. */
+        | { rows: readonly string[] }
+        /** A frame round the edge, `width` pixels (default 1). */
+        | { border: ArtColor; width?: number }
+        /** The light, top-left: edges facing it lightened, edges facing away darkened, by 0–1. Shapes as well as squares. */
+        | { bevel: number }
+        /** A line round whatever's drawn, on the clear pixels beside it: an item's silhouette. */
+        | { outline: ArtColor }
+
+    interface ArtTextureDef {
+        /** 16 (default) or 32 pixels square. */
+        size?: 16 | 32
+        /** One character to a colour. "." and " " are always clear. */
+        palette?: Record<string, ArtColor>
+        /** Painted in order. */
+        layers?: readonly ArtLayer[]
+        /** A last layer of rows, on top: `{ palette, rows }` alone is a whole picture. */
+        rows?: readonly string[]
+    }
+
+    /** A picture art drew, for a block's texture or an item's icon. */
+    interface ArtTexture {
+        readonly size: number
+    }
+
+    interface ArtApi {
+        /** Paint a texture from a definition. Load only. Throws ART_INVALID, saying where. */
+        texture(def: ArtTextureDef): ArtTexture
+    }
+
+    /** Pictures drawn from code: no image files to make. `terra art render` shows them. */
+    const art: ArtApi
 
     // ── game ────────────────────────────────────────────────────────────────
 

@@ -1,12 +1,13 @@
 import type { Component } from "vue"
 import Account from "./Account.vue"
-import Community from "./Community.vue"
+import Contents from "./Contents.vue"
 import Controls from "./Controls.vue"
 import Create from "./Create.vue"
 import Creative from "./Creative.vue"
 import Debugger from "./Debugger.vue"
 import Hud from "./Hud.vue"
 import Inventory from "./Inventory.vue"
+import Library from "./Library.vue"
 import Panels from "./Panels.vue"
 import Screens from "./Screens.vue"
 import World from "./World.vue"
@@ -15,10 +16,11 @@ import World from "./World.vue"
 export const PAGES = [
     { id: "controls", label: "Controls", component: Controls },
     { id: "panels", label: "Panels", component: Panels },
-    { id: "community", label: "Community", component: Community },
+    { id: "library", label: "Library", component: Library },
     { id: "hud", label: "HUD", component: Hud },
     { id: "inventory", label: "Inventory", component: Inventory },
     { id: "creative", label: "Creative", component: Creative },
+    { id: "contents", label: "Contents", component: Contents },
     { id: "world", label: "World", component: World },
     { id: "create", label: "Create", component: Create },
     { id: "account", label: "Account", component: Account },

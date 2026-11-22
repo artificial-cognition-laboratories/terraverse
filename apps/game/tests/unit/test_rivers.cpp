@@ -201,8 +201,8 @@ void TestRivers::testFlowMakesTheWater()
 	const terragen::Sphere &sphere = terragen::gridSphere();
 	terragen::Ground g{};
 	g.kind = terragen::Water::River;
-	g.terrain = 10;
-	g.water = g.river_level = 12; // two blocks deep
+	g.terrain = 9;
+	g.water = g.river_level = 12; // three blocks deep mid-stream, as terragen cuts a channel 8 wide
 	g.river_cell = 3;
 	g.river_width = 8 * terragen::ONE;
 	g.river_dist = 0;
@@ -227,7 +227,7 @@ void TestRivers::testFlowMakesTheWater()
 	const rivers::Flow dry = rivers::flowAt(n, sphere, g, at);
 	infostream << "rivers: mean " << mean.speed << " nodes/s; flood x" << flood.ratio << " +" << flood.rise
 			<< " blocks (" << flood.surge << " unbounded) at " << flood.speed << "; a dry month x" << dry_season.ratio << " " << dry_season.rise << "; a dry year x" << dry.ratio << " " << dry.rise << " at " << dry.speed << std::endl;
-	UASSERT(dry.ratio < 0.5 && dry.rise < -0.5 && dry.rise >= -2 && dry.speed < mean.speed);
+	UASSERT(dry.ratio < 0.5 && dry.rise < -0.5 && dry.rise >= -3 && dry.speed < mean.speed); // (never under its bed)
 	g.kind = terragen::Water::Lake;
 	UASSERT(rivers::flowAt(n, sphere, g, at).rise == 0);
 }

@@ -304,7 +304,6 @@ void set_default_settings()
 	// Terra Firma: water run as columns: sixteenths and quarters, nodes round the camera
 	settings->setDefault("water_fine", "true");
 	settings->setDefault("water_fine_reach", "10");
-	settings->setDefault("water_coarse_reach", "48");
 	settings->setDefault("performance_tradeoffs", "false");
 	settings->setDefault("array_texture_max", "65535");
 	settings->setDefault("lighting_alpha", "0.0");

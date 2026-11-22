@@ -12,6 +12,7 @@ class MyEventReceiver;
 class InputHandler;
 struct GameParams;
 struct GameStartData;
+namespace home { class Home; }
 
 #if USE_SHELL
 #include "src/client/app/shell/host/shell.h"
@@ -23,13 +24,15 @@ struct GameStartData;
 class ClientLauncher
 {
 public:
-	ClientLauncher() = default;
+	// The home is main's: whose things these are, and where they're kept.
+	explicit ClientLauncher(home::Home &home) : m_home(home) {}
 
 	~ClientLauncher();
 
 	bool run(const GameParams &game_params, const Settings &cmd_args);
 
 private:
+	home::Home &m_home;
 	void init_args(GameStartData &start_data, const Settings &cmd_args);
 #if USE_SHELL
 	bool online(GameStartData &start_data, shell::Choice &choice, std::string &error_message);

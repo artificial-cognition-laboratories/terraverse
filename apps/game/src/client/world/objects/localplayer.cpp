@@ -283,17 +283,14 @@ void LocalPlayer::move(f32 dtime, Environment *env,
 		const MapNode n = map->getNode(p);
 		return nodemgr->get(n.getContent()).liquid_move_physics && (n.getParam2() & fill::HELD);
 	};
-	auto river_rise = [&](v3s16 top) {
-		auto r = m_client->rivers().find(getNodeBlockPos(top));
-		return r == m_client->rivers().end() ? 0.0f : r->second.rise / 16.0f;
-	};
+	auto river_rise = [&](v3s16 top) { return std::round(liquids::riseAt(m_client->rivers(), top)) / 16.0f; };
 	auto in_water = [&](v3f at, const ContentFeatures &cf) {
 		const v3s16 p = floatToInt(at, BS);
 		if (cf.liquid_move_physics && is_held(p)) {
 			v3s16 top = p;
 			for (int i = 0; i < MAP_BLOCKSIZE && is_held(top + v3s16(0, 1, 0)); i++)
 				top.Y++;
-			return at.Y / BS < top.Y + 0.5f + river_rise(top);
+			return at.Y / BS < top.Y - 0.5f + fill::partOf(map->getNode(top).getParam2()) / 16.0f + river_rise(top);
 		}
 		if (!cf.liquid_move_physics && is_held(p - v3s16(0, 1, 0))) { // a flood over its top
 			const float rise = river_rise(p - v3s16(0, 1, 0));
@@ -946,17 +943,14 @@ void LocalPlayer::old_move(f32 dtime, Environment *env,
 		const MapNode n = map->getNode(p);
 		return nodemgr->get(n.getContent()).liquid_move_physics && (n.getParam2() & fill::HELD);
 	};
-	auto river_rise = [&](v3s16 top) {
-		auto r = m_client->rivers().find(getNodeBlockPos(top));
-		return r == m_client->rivers().end() ? 0.0f : r->second.rise / 16.0f;
-	};
+	auto river_rise = [&](v3s16 top) { return std::round(liquids::riseAt(m_client->rivers(), top)) / 16.0f; };
 	auto in_water = [&](v3f at, const ContentFeatures &cf) {
 		const v3s16 p = floatToInt(at, BS);
 		if (cf.liquid_move_physics && is_held(p)) {
 			v3s16 top = p;
 			for (int i = 0; i < MAP_BLOCKSIZE && is_held(top + v3s16(0, 1, 0)); i++)
 				top.Y++;
-			return at.Y / BS < top.Y + 0.5f + river_rise(top);
+			return at.Y / BS < top.Y - 0.5f + fill::partOf(map->getNode(top).getParam2()) / 16.0f + river_rise(top);
 		}
 		if (!cf.liquid_move_physics && is_held(p - v3s16(0, 1, 0))) { // a flood over its top
 			const float rise = river_rise(p - v3s16(0, 1, 0));

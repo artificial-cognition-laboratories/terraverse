@@ -12,6 +12,7 @@ set(common_server_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/game/interact.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/game/kinds.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/game/registry.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/game/mods.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/run/rules/lakes.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/state/objects/entity_sao.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/players/player_sao.cpp

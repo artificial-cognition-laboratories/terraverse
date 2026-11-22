@@ -1,4 +1,4 @@
-// The community panel's pixel art: its rail, and one icon per registry category.
+// The library's pixel art: its rail, and one icon per registry category.
 
 const STEEL = "#c9d4dc", SHADE = "#6f7f8a", SKY = "#40b8ec", SUN = "#ffb040", EMBER = "#e0603d", GRASS = "#3c6e46", LEAF = "#4a9b64", EARTH = "#7a5232"
 

@@ -151,6 +151,7 @@ static std::vector<std::string> stringList(const Json::Value &intent, const char
 Menu::Menu(const Opts &opts) :
 	m_shell(opts.shell), m_intents(opts.shell), m_engine(opts.engine), m_worlds(opts.worlds),
 	m_community(opts.worlds, g_settings->get("game_id")),
+	m_local_mods({ /* .dir = */ opts.shell.contentsDir(), /* .session = */ std::to_string(porting::getTimeMs()) }),
 	m_registry({ /* .intents = */ m_intents, /* .api = */ g_settings->get("arclabs_url") }),
 	m_world_server({ .game = porting::path_share + DIR_DELIM "server" }),
 	m_receiver(opts.receiver),
@@ -163,6 +164,12 @@ Menu::Menu(const Opts &opts) :
 	m_planetarium.release(); // a world that was being entered, and wasn't
 	m_planetarium.serve([this](const Json::Value &b) { return body(b); }, universe);
 	m_planetarium.opening();
+	m_intents.onAsync("mods.local", [this](const Json::Value &) {
+		return m_local_mods.list();
+	});
+	m_intents.onAsync("mods.contents", [this](const Json::Value &intent) {
+		return m_local_mods.contents(stringField(intent, "path"));
+	});
 	m_intents.onAsync("community.list", [this](const Json::Value &) {
 		return m_community.list();
 	});

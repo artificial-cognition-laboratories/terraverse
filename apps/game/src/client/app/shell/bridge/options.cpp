@@ -87,7 +87,6 @@ static const Option OPTIONS[] = {
 	{ "far_view", Kind::Flag, 0, 0 },
 	{ "water_fine", Kind::Flag, 0, 0 },
 	{ "water_fine_reach", Kind::Number, 4, 24 },
-	{ "water_coarse_reach", Kind::Number, 24, 96 },
 	{ "ground_detail_near", Kind::Number, 0, 64 },
 	{ "ground_detail_far", Kind::Number, 0, 128 },
 	{ "far_view_detail", Kind::Number, 1, 4 },

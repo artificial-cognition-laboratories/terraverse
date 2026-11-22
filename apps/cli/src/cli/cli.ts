@@ -1,5 +1,6 @@
 import type { RendererHandle } from "@arcforge/arcline"
 import { Terra } from "../terra"
+import { oldPlaces } from "../terra/home"
 import { parseArgs } from "./args"
 import { Boundary } from "./boundary"
 import { Commands } from "./commands"
@@ -28,6 +29,8 @@ export function Cli(opts: CliOpts) {
     /** Run argv: the exit code. */
     function dispatch(argv: readonly string[]): Promise<number> {
         return boundary.run(() => {
+            // what an older terra kept elsewhere, into the home: once, then nothing to move
+            if (!process.env.TERRAVERSE_HOME) terra.home.moveIn(oldPlaces(process.env, process.platform))
             const args = parseArgs(argv)
             presentation.mode.configure(args)
             return commands.find(args)(args)

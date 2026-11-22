@@ -7,6 +7,7 @@ import { LAB_DEMOS } from "./demos.ts"
 import DemosSection from "./DemosSection.vue"
 import FloraSection from "./FloraSection.vue"
 import FluidsSection from "./FluidsSection.vue"
+import LibrarySection from "./LibrarySection.vue"
 import MatterSection from "./MatterSection.vue"
 import MovementSection from "./MovementSection.vue"
 import WorldsSection from "./WorldsSection.vue"
@@ -46,6 +47,8 @@ const RAIL: { id: Section; label: string; shortLabel?: string; rows: string[]; p
         rows: [".....R...", "....RRR..", "...RRRRR.", "..GGRBRG.", ".GGGGBGG.", "GGGGBBGGG", "GGSBBSGGG", "SSBBBSSSS", "BBBBBBBBB"] },
     { id: "flora", label: "Flora", palette: { L: "#4f8a35", D: "#2f6a2a", W: "#6b5a48", G: "#5f7a45" },
         rows: ["...LLL...", "..LLDLL..", ".LLDLLLL.", ".LLLLDLL.", "..LDLLL..", "...LWL...", "....W....", "....W....", ".GGGWGGG."] },
+    { id: "library", label: "Blocks & items", shortLabel: "Blocks", palette: { T: "#c9a46a", L: "#8a5d34", D: "#5e3b1f" },
+        rows: ["....T....", "..TTTTT..", "TTTTTTTTT", "LTTTTTTTD", "LLLTTTDDD", "LLLLLDDDD", "LLLLLDDDD", "..LLLDD..", "....L...."] },
     { id: "movement", label: "Movement", shortLabel: "Move", palette: { S: "#d8a07a", B: "#0094d2", T: "#8a93ad" },
         rows: ["....SS...", "....SS...", "...BBB.B.", "..B.BBB..", ".B..BB...", "....TT...", "...T..T..", "..T...T..", ".T.....T."] },
     { id: "vehicles", label: "Vehicles", shortLabel: "Drive", palette: { B: "#0094d2", W: "#c9d4dc", D: "#3a3f55" },
@@ -74,6 +77,7 @@ const query = wiki.search
                 <WorldsSection v-else-if="wiki.state.section === 'worlds'" />
                 <FloraSection v-else-if="wiki.state.section === 'flora'" />
                 <FluidsSection v-else-if="wiki.state.section === 'fluids'" />
+                <LibrarySection v-else-if="wiki.state.section === 'library'" />
                 <MovementSection v-else-if="wiki.state.section === 'movement' || wiki.state.section === 'vehicles'" :key="wiki.state.section" :kind="wiki.state.section" />
             </div>
             <p v-else class="loading">reading the tables…</p>

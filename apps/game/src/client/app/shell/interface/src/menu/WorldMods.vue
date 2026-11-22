@@ -3,9 +3,9 @@ import { computed, onMounted, ref, shallowRef } from "vue"
 import { BridgeError, type RegistryListing, type WorldMod, type WorldMods } from "../bridge/index.ts"
 import { useBridge } from "../bridge/use.ts"
 import { Button, Monogram, Notice } from "../kit/index.ts"
-import { format } from "./community/format.ts"
-import { useRegistry } from "./community/registry.ts"
-import RegistryPicker from "./community/RegistryPicker.vue"
+import { format } from "./library/format.ts"
+import { useRegistry } from "./library/registry.ts"
+import RegistryPicker from "./library/RegistryPicker.vue"
 
 /**
  * A world's mods, in its settings: each at its pinned version, a newer one offered, and

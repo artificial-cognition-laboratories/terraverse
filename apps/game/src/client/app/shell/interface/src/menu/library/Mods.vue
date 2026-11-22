@@ -1,16 +1,27 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue"
-import type { RegistryFront, RegistryResults, RegistrySearch } from "../../bridge/index.ts"
+import type { LocalMod, RegistryFront, RegistryResults, RegistrySearch } from "../../bridge/index.ts"
 import { AsideColumn, Dropdown, FacetList, FilterChips, ListEmpty, Notice, PageIntro, Pager, SearchBox, Segmented, Spinner, Toggle } from "../../kit/index.ts"
 import ModCard from "./ModCard.vue"
 import { Request } from "./request.ts"
+import { useBridge } from "../../bridge/use.ts"
 import { useRegistry } from "./registry.ts"
 import { KINDS, SORTS, search } from "./search.ts"
 
 /** Browsing the registry: filters on the left, results on the right, the query always shown as chips. */
 const props = defineProps<{ start: Partial<RegistrySearch> }>()
-const emit = defineEmits<{ open: [name: string] }>()
+const emit = defineEmits<{ open: [name: string]; openLocal: [mod: LocalMod] }>()
+/** The registry's mods, or the ones you're making (your profile's mods/). */
+const source = ref<"registry" | "local">("registry")
+const SOURCES = [{ value: "registry", label: "Registry" }, { value: "local", label: "Yours" }] as const
 const registry = useRegistry()
+const bridge = useBridge()
+const local = Request<void, LocalMod[]>(() => bridge.send("mods.local", {}))
+const yours = computed(() => {
+    const q = typed.value.trim().toLowerCase()
+    return (local.data.value ?? []).filter(m => !q || `${m.name} ${m.title ?? ""} ${m.description}`.toLowerCase().includes(q))
+})
+watch(source, (s) => { if (s === "local") void local.run() })
 const front = Request<void, RegistryFront>(() => registry.front())
 const results = Request<RegistrySearch, RegistryResults>((s) => registry.search(s))
 const current = ref<RegistrySearch>(search.from(props.start))
@@ -48,11 +59,31 @@ onMounted(() => { front.run(); results.run(current.value) })
 <template>
     <AsideColumn class="mods">
         <template #aside>
-            <SearchBox v-model="typed" autofocus label="Search the registry" placeholder="Search mods, authors…" />
+            <fieldset><legend>Source</legend><Segmented v-model="source" look="line" size="sm" :options="SOURCES" /></fieldset>
+            <SearchBox v-model="typed" autofocus :label="source === 'local' ? 'Search your mods' : 'Search the registry'" placeholder="Search mods, authors…" />
+            <template v-if="source === 'registry'">
             <fieldset><legend>Type</legend><Segmented v-model="type" look="line" size="sm" :options="KINDS" /></fieldset>
             <FacetList title="Categories" :options="categories" :model-value="current.categories" @update:model-value="(v) => set({ categories: v })" />
             <Toggle label="Installed only" :model-value="current.installed" @update:model-value="(v) => set({ installed: v })" />
+            </template>
         </template>
+        <template v-if="source === 'local'">
+            <PageIntro title="Your mods" note="What you're making: your profile's mods folder, where terra mod init puts them. Open one to see its blocks and items as the game draws them." />
+            <div class="toolbar">
+                <span v-if="local.data.value" class="total">{{ yours.length }} mods</span>
+                <Spinner v-if="local.busy.value" />
+                <Segmented v-model="layout" class="sort" look="line" size="sm" :options="LAYOUTS" />
+            </div>
+            <Notice v-if="local.problem.value" tone="danger">{{ local.problem.value }}</Notice>
+            <ListEmpty v-else-if="local.data.value && !local.data.value.length" title="No mods of your own yet">
+                <p>Make one with <code>terra mod init &lt;name&gt;</code>: it lands in your profile's mods folder, and shows here.</p>
+            </ListEmpty>
+            <ListEmpty v-else-if="local.data.value && !yours.length" title="Nothing matches"><p>Try another word.</p></ListEmpty>
+            <div v-else-if="local.data.value" class="cards" :class="layout">
+                <ModCard v-for="m in yours" :key="m.path" :listing="m" :dense="layout === 'rows'" yours @open="emit('openLocal', m)" />
+            </div>
+        </template>
+        <template v-else>
         <PageIntro title="Mods" note="Rules, machines, matter and whole games, made by the community and by us. Add them to a world or a server." />
         <div class="toolbar">
             <Pager v-model="page" :pages="pages" />
@@ -70,6 +101,7 @@ onMounted(() => { front.run(); results.run(current.value) })
             <ModCard v-for="l in results.data.value.listings" :key="l.name" :listing="l" :dense="layout === 'rows'" @open="emit('open', l.name)" />
         </div>
         <Pager v-if="pages > 1" v-model="page" :pages="pages" class="foot" />
+        </template>
     </AsideColumn>
 </template>
 

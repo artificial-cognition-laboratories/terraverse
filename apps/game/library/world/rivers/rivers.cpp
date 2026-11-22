@@ -245,7 +245,10 @@ Flow flowAt(const Network &net, const terragen::Sphere &sphere, const terragen::
 		f.discharge = net.discharge(c);
 		f.ratio = net.mean(c) > 0 ? net.discharge(c) / net.mean(c) : 1;
 		f.to_sea = net.toSeaTime(c);
-		depth = std::max(1.0, (double)(ground.water - ground.terrain));
+		// the channel's own depth mid-stream, as terragen cuts it for its width
+		// (World::ground), the same all along its run: one column's own depth
+		// (shallower toward a bank) made a step where map blocks read different columns
+		depth = 1 + std::min(3.0, std::floor(toDouble(ground.river_width) / 4 + 0.5));
 	} else {
 		const int32_t c = sphere.cell(at.dir());
 		f.ratio = net.shedding_mean(c) > 0 ? net.shedding(c) / net.shedding_mean(c) : 1;

@@ -53,7 +53,7 @@ impl Launcher {
         let follows = social.clone();
         let account = account::Account::new(
             api.clone(),
-            home.account(&api, account::DEFAULT_API),
+            home.clone(),
             http.clone(),
             app.clone(),
             Arc::new(move |key| follows.signed_in(key)),

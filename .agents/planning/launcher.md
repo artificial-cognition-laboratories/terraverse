@@ -82,19 +82,22 @@ still carry (not yet: the launcher shows nothing for them):
 
 ## On disk
 
-`TERRAVERSE_HOME`: `~/.terraverse` on Linux, `%APPDATA%\Terraverse` on Windows.
+`.agents/planning/home.md` is the layout, shared with the game and terra: the root
+(`~/.terraverse`, or `~/.terraverse-dev` for a debug launcher), `profiles/<name>/` for each
+player's worlds, mods and sign-in, `cache/` for what can be rebuilt. The launcher's own:
 
 ```
-launcher.json          settings: pinned, beta, on launch, keep old
-launcher-versions.json the last versions fetched (verified then), for offline
-versions/<v>/          read-only, complete or absent (unpacked beside, then renamed)
-<the game's own>       worlds, settings, the ArcLabs key: shared by every version
-logs/session-<UTC time>.log   each game session's output; its first line names the version
-crashes/
+launcher.json                   settings: pinned, beta, on launch, keep old
+versions/<v>/                   read-only, complete or absent (unpacked beside, then renamed)
+launcher/  bin/                 the AppImage, and the `terra` shims on PATH
+cache/launcher-versions.json    the last versions fetched (verified then), for offline
+cache/logs/session-<UTC time>.log   each game session's output; its first line names the version
+cache/crashes/
 ```
 
-The launcher and the game share the game's saved ArcLabs key, so signing in
-either place signs in both, and nothing is handed over at launch.
+The launcher and the game share the active profile's ArcLabs key, so signing in either place
+signs in both (and switches both to the account's profile), and nothing is handed over at
+launch.
 
 # Getting it
 

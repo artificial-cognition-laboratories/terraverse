@@ -7,7 +7,7 @@
     "terra": "bin/terra.ts"
   },
   "scripts": {
-    "build": "mkdir -p ../../.output/bin && bun build --compile --minify bin/terra.ts --outfile ../../.output/bin/terra",
+    "build": "mkdir -p ../../.output/bin && bun build --compile --minify --define process.env.TERRAVERSE_RELEASE='\"1\"' bin/terra.ts --outfile ../../.output/bin/terra",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --deny-warnings src tests bin scripts",
     "test": "bun test",

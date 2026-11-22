@@ -5,11 +5,12 @@ import { Card } from "../../kit/index.ts"
 import { format } from "./format.ts"
 
 /** A registry listing as a card. */
-const props = withDefaults(defineProps<{ listing: RegistryListing; dense?: boolean }>(), { dense: false })
+const props = withDefaults(defineProps<{ listing: RegistryListing; dense?: boolean; /** One you're making, from your profile's mods. */ yours?: boolean }>(), { dense: false, yours: false })
 defineEmits<{ open: [] }>()
 const badges = computed(() => [
+    ...(props.yours ? ["Yours"] : []),
     ...(props.listing.official ? ["Official"] : []),
-    ...(props.listing.installed ? ["Installed"] : []),
+    ...(props.listing.installed && !props.yours ? ["Installed"] : []),
     ...(props.listing.type === "textures" ? ["Textures"] : []),
 ])
 </script>

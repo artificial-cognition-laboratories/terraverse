@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
+#include "src/shared/platform/home/home.h"
 #include <map>
 #include "src/shared/base/irrlichttypes_bloated.h"
 #include "src/shared/game/chat/chat_interface.h"
@@ -103,11 +104,11 @@ static void list_worlds(bool print_name, bool print_path);
 static bool setup_log_params(const Settings &cmd_args);
 static bool create_userdata_path();
 static bool use_debugger(int argc, char *argv[]);
-static bool init_common(const Settings &cmd_args, int argc, char *argv[]);
+static bool init_common(const Settings &cmd_args, int argc, char *argv[], const home::Home &home);
 static void uninit_common();
 static void startup_message();
-static bool read_config_file(const Settings &cmd_args);
-static void init_log_streams(const Settings &cmd_args);
+static bool read_config_file(const Settings &cmd_args, const home::Home &home);
+static void init_log_streams(const Settings &cmd_args, const home::Home &home);
 
 static bool game_configure(GameParams *game_params, const Settings &cmd_args);
 static void game_configure_port(GameParams *game_params, const Settings &cmd_args);
@@ -159,12 +160,6 @@ int main(int argc, char *argv[])
 	// their own executables in the app bundle, which isn't wired yet: shell.cpp.)
 	if (int code = shell::runHelper(argc, argv); code >= 0)
 		return code;
-#endif
-#ifdef _WIN32
-	// Terra Firma: Windows has no wrapper script to name the player's data, as
-	// the Linux package's `terraverse` does; run directly, it goes to %APPDATA%.
-	if (const char *appdata = getenv("APPDATA"); appdata && *appdata && !getenv("TERRAVERSE_HOME"))
-		_putenv_s("TERRAVERSE_HOME", (std::string(appdata) + "\\Terraverse").c_str());
 #endif
 	int retval;
 	debug_set_exception_handler();
@@ -221,6 +216,19 @@ int main(int argc, char *argv[])
 
 	porting::signal_handler_init();
 	porting::initializePaths();
+	// Terra Firma: where things are kept, and whose they are (.agents/planning/home.md)
+	std::unique_ptr<home::Home> home;
+	try {
+		home = home::Home::boot({
+			/* .root = */ "",
+			/* .chosen = */ cmd_args.exists("profile") ? cmd_args.get("profile") : "",
+			// a source build kept its player's things in its run-in-place folder
+			/* .legacy = */ (RUN_IN_PLACE && !TERRAVERSE_RELEASE) ? fs::RemoveRelativePathComponents(porting::path_share) : "",
+		});
+	} catch (const home::Error &e) {
+		errorstream << "home: " << e.what() << std::endl;
+		return 1;
+	}
 #if USE_SHELL
 	keepTerrainGrids();
 #endif
@@ -252,7 +260,7 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	if (!init_common(cmd_args, argc, argv))
+	if (!init_common(cmd_args, argc, argv, *home))
 		return 1;
 
 	if (g_settings->getBool("enable_console"))
@@ -357,7 +365,7 @@ int main(int argc, char *argv[])
 		return run_dedicated_server(game_params, cmd_args) ? g_dedicated_exit : 1;
 
 #if CHECK_CLIENT_BUILD()
-	retval = ClientLauncher().run(game_params, cmd_args) ? 0 : 1;
+	retval = ClientLauncher(*home).run(game_params, cmd_args) ? 0 : 1;
 	// Terra Firma: its mods' content changed; whoever started it starts it again
 	if (g_game_restart_for_mods)
 		retval = sidecar::EXIT_RESTART;
@@ -846,7 +854,7 @@ static bool use_debugger(int argc, char *argv[])
 #endif
 }
 
-static bool init_common(const Settings &cmd_args, int argc, char *argv[])
+static bool init_common(const Settings &cmd_args, int argc, char *argv[], const home::Home &home)
 {
 	startup_message();
 
@@ -859,12 +867,12 @@ static bool init_common(const Settings &cmd_args, int argc, char *argv[])
 	// Set cleanup callback(s) to run at process exit
 	atexit(uninit_common);
 
-	if (!read_config_file(cmd_args))
+	if (!read_config_file(cmd_args, home))
 		return false;
 
 	migrate_settings();
 
-	init_log_streams(cmd_args);
+	init_log_streams(cmd_args, home);
 
 	// Initialize random seed
 	u64 seed;
@@ -908,7 +916,7 @@ static void startup_message()
 		<< std::endl;
 }
 
-static bool read_config_file(const Settings &cmd_args)
+static bool read_config_file(const Settings &cmd_args, const home::Home &home)
 {
 	// Path of configuration file in use
 	sanity_check(g_settings_path.empty());	// Sanity check
@@ -922,21 +930,8 @@ static bool read_config_file(const Settings &cmd_args)
 		}
 		g_settings_path = cmd_args.get("config");
 	} else {
-		std::vector<std::string> filenames;
-		filenames.push_back(porting::path_user + DIR_DELIM + CONFIGFILE);
-		// Terra Firma: nothing above TERRAVERSE_HOME is ours to read
-		if (!getenv("TERRAVERSE_HOME")) {
-		// Legacy configuration file location
-		filenames.push_back(porting::path_user +
-				DIR_DELIM + ".." + DIR_DELIM + CONFIGFILE);
-
-#if RUN_IN_PLACE
-		// Try also from a lower level (to aid having the same configuration
-		// for many RUN_IN_PLACE installs)
-		filenames.push_back(porting::path_user +
-				DIR_DELIM + ".." + DIR_DELIM + ".." + DIR_DELIM + CONFIGFILE);
-#endif
-		}
+		// Terra Firma: this machine's settings, in the home's root (every profile shares them)
+		std::vector<std::string> filenames = { home.settingsFile() };
 
 		for (const std::string &filename : filenames) {
 			bool r = g_settings->readConfigFile(filename.c_str());
@@ -958,16 +953,12 @@ static bool read_config_file(const Settings &cmd_args)
 	return true;
 }
 
-static void init_log_streams(const Settings &cmd_args)
+static void init_log_streams(const Settings &cmd_args, const home::Home &home)
 {
-	std::string log_filename = porting::path_user + DIR_DELIM + DEBUGFILE;
-	// Terra Firma: an installed game keeps its logs together
-	if (getenv("TERRAVERSE_HOME")) {
-		const std::string logs = porting::path_user + DIR_DELIM "logs";
-		if (!fs::CreateAllDirs(logs))
-			throw BaseException("could not create " + logs);
-		log_filename = logs + DIR_DELIM + DEBUGFILE;
-	}
+	// Terra Firma: logs are the home's cache's, every profile's together
+	if (!fs::CreateAllDirs(home.logs()))
+		throw BaseException("could not create " + home.logs());
+	std::string log_filename = home.logs() + DIR_DELIM + DEBUGFILE;
 
 	if (cmd_args.exists("logfile"))
 		log_filename = cmd_args.get("logfile");

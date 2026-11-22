@@ -92,6 +92,10 @@ if(WIN32)
 endif()
 set(RUN_IN_PLACE ${DEFAULT_RUN_IN_PLACE} CACHE BOOL
 	"Run directly in source directory structure")
+# Terra Firma: an installed build keeps its things in ~/.terraverse, a source build in
+# ~/.terraverse-dev, so the two never share (.agents/planning/home.md). Release builds set it.
+option(TERRAVERSE_RELEASE "A build players install: its home is ~/.terraverse, not ~/.terraverse-dev" FALSE)
+message(STATUS "TERRAVERSE_RELEASE: " ${TERRAVERSE_RELEASE})
 
 message(STATUS "*** Will build version ${VERSION_STRING} ***")
 message(STATUS "BUILD_CLIENT: " ${BUILD_CLIENT})

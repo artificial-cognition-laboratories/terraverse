@@ -136,7 +136,7 @@ async function create() {
         </template>
         <template #workspace>
             <div class="controls">
-                <GameTab v-if="group === 'start'" :draft="draft" @mods="group = 'mods'" @browse="emit('go', 'community')" />
+                <GameTab v-if="group === 'start'" :draft="draft" @mods="group = 'mods'" @browse="emit('go', 'library')" />
                 <ModsPage v-else-if="group === 'mods'" :draft="draft" />
                 <StarsPage v-else-if="group === 'stars'" :draft="draft" />
                 <LineupPage v-else-if="group === 'lineup'" :draft="draft" @reset="resetSystem" />

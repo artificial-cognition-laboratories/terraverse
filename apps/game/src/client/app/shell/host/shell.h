@@ -12,6 +12,7 @@ struct SEvent;
 namespace video { class IVideoDriver; }
 namespace gui { class IGUIEnvironment; class ICursorControl; }
 namespace Json { class Value; }
+namespace home { class Home; }
 
 namespace shell {
 
@@ -48,7 +49,7 @@ public:
 		float scale;           // device pixels per CSS pixel
 		bool gpu;              // Chromium rasterises on the GPU
 		std::string arclabs;   // the ArcLabs API accounts and friends come from
-		std::string account_dir; // where sign-ins are saved: the user folder, or a profile's
+		home::Home &home;      // whose sign-in: the active profile keeps it, and signing in picks the profile
 		bool ui_check = false;   // held to its budgets, then quit (--ui-check: ui_check.h)
 	};
 
@@ -91,6 +92,8 @@ public:
 
 	// Where item icons are written; served to the page as terra://item/.
 	const std::string &itemDir() const;
+	// Where a local mod's pictures are written for its Contents: served as terra://contents/.
+	const std::string &contentsDir() const;
 	// Window pixels to a page (CSS) pixel: where the page puts something, ×.
 	float scale() const;
 	// The planet under the page (planetarium.h): the window's, as long as it.

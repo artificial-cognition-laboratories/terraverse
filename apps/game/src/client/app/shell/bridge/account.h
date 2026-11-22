@@ -44,6 +44,10 @@ public:
 	void signOut();
 	// Checks the saved key again after the backend couldn't be reached.
 	void retry();
+	// The key's file moved (the player's profile changed): where it's kept from now on.
+	void keyAt(std::string path) { m_key_path = std::move(path); }
+	// The file the key is kept in.
+	const std::string &keyPath() const { return m_key_path; }
 
 	// Once a frame: answers that arrived, and the next poll when it's due.
 	void step();
@@ -60,7 +64,7 @@ private:
 	void forget();
 
 	const std::string m_api;      // the ArcLabs API (setting arclabs_url)
-	const std::string m_key_path; // <user>/account.json
+	std::string m_key_path; // <profile>/account.json: follows the profile
 	const Send m_send;
 	unsigned long long m_caller;
 	// Bumped whenever a flow is abandoned: answers to older requests are dropped.

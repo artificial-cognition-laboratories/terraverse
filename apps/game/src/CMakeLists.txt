@@ -479,6 +479,7 @@ add_custom_command(
 		"${GAME_DIR}/src/client/views/game/far/far_sources.cpp.in"
 		"${CMAKE_SOURCE_DIR}/cmake/Modules/HashGridSources.cmake")
 add_subdirectory(${GAME_DIR}/src/shared/platform/release ${CMAKE_CURRENT_BINARY_DIR}/release)
+add_subdirectory(${GAME_DIR}/src/shared/platform/home ${CMAKE_CURRENT_BINARY_DIR}/home)
 add_subdirectory(${GAME_DIR}/library/world/planet ${CMAKE_CURRENT_BINARY_DIR}/planet)
 add_subdirectory(${GAME_DIR}/src/client/views/game/far ${CMAKE_CURRENT_BINARY_DIR}/far)
 add_subdirectory(${GAME_DIR}/library/space/air ${CMAKE_CURRENT_BINARY_DIR}/air)
@@ -623,6 +624,7 @@ set(common_SRCS
 	${sandbox_SRCS}
 	${online_SRCS}
 	${release_SRCS}
+	${home_SRCS}
 	${server_network_SRCS}
 	${test_SRCS}
 	${unittest_SRCS}

@@ -6,6 +6,7 @@
 
 use crate::events::{self, Message};
 use crate::failure::{refused, Context, Result};
+use crate::home::Home;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -39,7 +40,8 @@ struct State {
 #[derive(Clone)]
 pub struct Account {
     api: String,
-    key_path: PathBuf,
+    /// Whose sign-in: the key is kept in the active profile, and signing in picks the profile.
+    home: Arc<Home>,
     http: reqwest::Client,
     app: tauri::AppHandle,
     state: Arc<Mutex<State>>,
@@ -75,10 +77,10 @@ struct Me {
 }
 
 impl Account {
-    pub fn new(api: String, key_path: PathBuf, http: reqwest::Client, app: tauri::AppHandle, changed: Arc<dyn Fn(Option<String>) + Send + Sync>) -> Account {
+    pub fn new(api: String, home: Arc<Home>, http: reqwest::Client, app: tauri::AppHandle, changed: Arc<dyn Fn(Option<String>) + Send + Sync>) -> Account {
         let account = Account {
             api,
-            key_path,
+            home,
             http,
             app,
             state: Arc::new(Mutex::new(State { view: View::SignedOut { problem: None }, key: None, generation: 0 })),
@@ -102,14 +104,26 @@ impl Account {
         matches!(state.view, View::SignedIn { .. }).then(|| state.key.clone()).flatten()
     }
 
+    /// Where the key is kept: the active profile's, which a sign-in (here or in the game) changes.
+    fn key_path(&self) -> PathBuf {
+        match self.home.account(&self.api, DEFAULT_API) {
+            Ok(path) => path,
+            Err(e) => {
+                eprintln!("launcher: {e}: signed out until the profile can be made");
+                self.home.root().join("profiles").join("local").join("account.json")
+            }
+        }
+    }
+
     /// Reads the saved key again: at start, and after the game has run (it may
     /// have signed in or out meanwhile).
     pub fn reload(&self) {
-        let saved = match std::fs::read_to_string(&self.key_path) {
+        let key_path = self.key_path();
+        let saved = match std::fs::read_to_string(&key_path) {
             Ok(text) => match serde_json::from_str::<Saved>(&text) {
                 Ok(saved) => Some(saved.key),
                 Err(e) => {
-                    eprintln!("launcher: {} is damaged: {e}", self.key_path.display());
+                    eprintln!("launcher: {} is damaged: {e}", key_path.display());
                     None
                 }
             },
@@ -168,9 +182,12 @@ impl Account {
         state.generation += 1;
         state.key = None;
         drop(state);
-        if self.key_path.exists() {
-            std::fs::remove_file(&self.key_path).context(|| format!("deleting {}", self.key_path.display()))?;
+        let key_path = self.key_path();
+        if key_path.exists() {
+            std::fs::remove_file(&key_path).context(|| format!("deleting {}", key_path.display()))?;
         }
+        // back to playing signed out; the account's profile is kept for its next sign-in
+        self.home.signed_out()?;
         self.become_(View::SignedOut { problem: None });
         Ok(())
     }
@@ -205,6 +222,12 @@ impl Account {
                 if matches!(view, View::SignedOut { .. }) {
                     account.forget();
                 }
+                // signed in: the account's own profile is the one running (home.md, "Profiles")
+                if let View::SignedIn { username, .. } = &view {
+                    if let Err(e) = account.home.signed_in(username, &account.key_path()) {
+                        eprintln!("launcher: signed in, but couldn't switch to the account's profile: {e}");
+                    }
+                }
                 account.become_(view);
             }
         });
@@ -231,9 +254,10 @@ impl Account {
 
     fn forget(&self) {
         self.state.lock().unwrap().key = None;
-        if self.key_path.exists() {
-            if let Err(e) = std::fs::remove_file(&self.key_path) {
-                eprintln!("launcher: couldn't delete {}: {e}", self.key_path.display());
+        let key_path = self.key_path();
+        if key_path.exists() {
+            if let Err(e) = std::fs::remove_file(&key_path) {
+                eprintln!("launcher: couldn't delete {}: {e}", key_path.display());
             }
         }
     }
@@ -309,7 +333,8 @@ impl Account {
     fn save(&self, key: &str) -> Result<()> {
         use std::io::Write;
         let text = serde_json::to_string(&Saved { key: key.to_owned() }).context(|| "writing the account".into())?;
-        let partial = self.key_path.with_extension("partial");
+        let key_path = self.key_path();
+        let partial = key_path.with_extension("partial");
         let mut options = std::fs::OpenOptions::new();
         options.write(true).create(true).truncate(true);
         #[cfg(unix)]
@@ -320,6 +345,6 @@ impl Account {
         let mut file = options.open(&partial).context(|| format!("creating {}", partial.display()))?;
         file.write_all(text.as_bytes()).context(|| format!("writing {}", partial.display()))?;
         drop(file);
-        std::fs::rename(&partial, &self.key_path).context(|| format!("saving {}", self.key_path.display()))
+        std::fs::rename(&partial, &key_path).context(|| format!("saving {}", key_path.display()))
     }
 }

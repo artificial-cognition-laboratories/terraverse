@@ -195,6 +195,21 @@ const MAP = {
         description: "A texture is a file in the mod's assets/textures/.",
         source: "runtime", severity: "fatal", expected: true,
     },
+    ART_INVALID: {
+        title: "That art can't be drawn",
+        description: "A texture is a square grid (16 or 32), each row as long as it's tall, every letter in its palette, and colours written #rgb, #rrggbb or #rrggbbaa. The detail says where.",
+        source: "runtime", severity: "fatal", expected: true,
+    },
+    TYPES_FAILED: {
+        title: "The mod doesn't typecheck",
+        description: "TypeScript found mistakes in the mod's code: each is listed with its file and line. The types are the mod API's: .terra/types/server.d.ts says what each verb takes.",
+        source: "runtime", severity: "fatal", expected: true,
+    },
+    BLOCK_UNKNOWN: {
+        title: "No such block in the game",
+        description: "--with names the game's own blocks (stone, dirt, oak_log…), as assets/world/blocks.json declares them. The detail lists them.",
+        source: "runtime", severity: "fatal", expected: true,
+    },
     ARGUMENT_INVALID: {
         title: "An argument isn't what this takes",
         description: "A value passed to the API has the wrong shape or is out of range.",

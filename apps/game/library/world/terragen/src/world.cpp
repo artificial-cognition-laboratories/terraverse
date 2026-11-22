@@ -11,6 +11,7 @@
 #include "library/world/terragen/src/system/sun.h"
 #include "library/world/terragen/src/base/parallel.h"
 #include "library/world/terragen/src/base/progress.h"
+#include "library/world/terragen/src/rivers/water_top.h"
 #include <algorithm>
 #include <cmath>
 #include <future>
@@ -1598,7 +1599,7 @@ Ground World::ground(const Place &at, fix sun) const
 	};
 	int64_t best_gap = INT64_MAX; // blocks, fixed (64 bits: a far segment's gap doesn't fit 32)
 	int64_t next_gap = INT64_MAX; // the next nearest run's: where two meet, the bend's inside is rounded
-	int32_t best_level = 0;
+	int32_t best_level = 0, best_part = 16; // its water's top node, and the sixteenths of it filled
 	int64_t best_half = 0;
 	int64_t best_dist = 0;
 	int64_t best_bar = 0; // how wide the point bar is here (blocks, fixed)
@@ -1708,11 +1709,16 @@ Ground World::ground(const Place &at, fix sun) const
 				h ^= h >> 15;
 				const fix lip = ratio(25, 100) + (fix)(h % (HALF + 1));
 				best_level = std::max<int32_t>(0, within < lip ? profile[j] : profile[j + 1]);
+				best_part = 16;
 				// (the pool: a few blocks past the foot, as deep as a third of the fall)
 				const int64_t past = (int64_t)(within - lip) * piece >> FRAC; // blocks
 				best_pool = within >= lip && past < (int64_t)drop * 2 ? drop / 3 : 0;
 			} else {
-				best_level = std::max<int32_t>(0, floorInt(lerp(toFix(profile[j]), toFix(profile[j + 1]), within)));
+				// a ramp: the surface down it to a sixteenth (a whole block at a time, it
+				// stepped: a staircase of level pools)
+				const WaterTop top = waterTop(std::max<int64_t>(0, lerp(toFix(profile[j]), toFix(profile[j + 1]), within)));
+				best_level = top.node;
+				best_part = top.part;
 				best_pool = 0;
 			}
 			best_flow = flow;
@@ -1761,9 +1767,12 @@ Ground World::ground(const Place &at, fix sun) const
 		} else if (best_dist < best_half) {
 			// the channel: a bed under the water, deepest mid-stream
 			int32_t depth = 1 + (int32_t)std::min<int64_t>(3, (((best_half - best_dist) >> 1) + HALF) >> FRAC);
-			out.terrain = std::min(out.terrain, best_level - depth - best_pool);
+			// (counted down from its surface, not its top node: under a node only part
+			// full, a block lower, so the water's never thinner than its depth)
+			out.terrain = std::min(out.terrain, best_level - depth - best_pool - (best_part < 16));
 			if (out.kind == Water::None || best_level > out.water) {
 				out.water = best_level;
+				out.water_part = best_part;
 				out.kind = Water::River;
 			}
 		} else if (out.terrain < best_level + river::look(best_kind).lip) {
@@ -1790,10 +1799,12 @@ Ground World::ground(const Place &at, fix sun) const
 		if (const Streams::Read *stream = streamsRead(at)) {
 			const bool shown = stream->level >= 0 && (m_streams->spacing(stream->level) << FRAC) >= tile * STREAM_TILES;
 			const bool sinks = stream->width < KARST_STREAM && karst(at, out.column.wet) > HALF;
-			const int32_t level = floorInt((fix)std::clamp<int64_t>(stream->bed, INT32_MIN / 2, INT32_MAX / 2));
+			const WaterTop top = waterTop(std::clamp<int64_t>(stream->bed, INT32_MIN / 2, INT32_MAX / 2));
+			const int32_t level = top.node;
 			if (shown && !sinks && level > 1) {
 				out.water = level;
-				out.terrain = std::min(out.terrain, level - 1);
+				out.water_part = top.part;
+				out.terrain = std::min(out.terrain, level - 1 - (top.part < 16)); // (a block deep at least)
 				out.kind = Water::River;
 			}
 		}

@@ -11,6 +11,8 @@ namespace shell {
 constexpr const char *SCHEME = "terra";
 constexpr const char *UI_HOST = "ui";
 constexpr const char *ITEM_HOST = "item";
+// a local mod's pictures, as terra drew them for its Contents (bridge/local_mods.h)
+constexpr const char *CONTENTS_HOST = "contents";
 
 // Serves a directory as terra://<host>/…: the built UI (ui/dist) as
 // terra://ui/, giving the page a real origin so ES modules load (Chromium

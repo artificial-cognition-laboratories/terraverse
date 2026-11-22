@@ -154,6 +154,10 @@ struct Ground
 	fix stream_cells = 0;
 	int32_t dune = 0; // blocks of wind-blown sand on top (sprint 112)
 	bool bare = false; // too steep for the biome's loose top: its filler shows
+	// a river's: sixteenths of its top node `water` under its surface (1..16;
+	// 16, and anything not a river: full), so a river slopes smoothly down its
+	// run (rivers/water_top.h, sprint 122)
+	int32_t water_part = 16;
 };
 
 /*

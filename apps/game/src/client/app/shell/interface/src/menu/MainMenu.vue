@@ -7,7 +7,7 @@ import { IconTile, Progress } from "../kit/index.ts"
 import Attributions from "./Attributions.vue"
 import CreateWorld from "./create/CreateWorld.vue"
 import Home from "./Home.vue"
-import Community from "./community/Community.vue"
+import Library from "./library/Library.vue"
 import Settings from "./Settings.vue"
 import { SHOT, type Screen } from "./screens.ts"
 import type { Loading, PlanetariumShot, SystemWire, UpdateCheck } from "../bridge/index.ts"
@@ -94,7 +94,7 @@ const CREDITS_ICON = {
             <WorldSelect v-else-if="screen === 'worlds'" :entering="entering" :error="error" @go="go" @dismiss="$emit('dismiss')" />
             <CreateWorld v-else-if="screen === 'create' && home" :initial-code="seedCode" :home="home" @go="go" />
             <Settings v-else-if="screen === 'settings'" @go="go" />
-            <Community v-else-if="screen === 'community'" @go="go" />
+            <Library v-else-if="screen === 'library'" @go="go" />
             <Attributions v-else-if="screen === 'attributions'" @go="go" />
             <WikiScreen v-else-if="screen === 'wiki'" place="menu" @close="screen = 'home'" />
         </Transition>

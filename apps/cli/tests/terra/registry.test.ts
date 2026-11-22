@@ -57,9 +57,9 @@ describe("a README's media", () => {
 })
 
 describe("the account file", () => {
-    test("is account.json for production, named by host for anything else", () => {
-        expect(accountFile("/c", "https://prod", "https://prod")).toBe("/c/account.json")
-        expect(accountFile("/c", "http://localhost:3099", "https://prod")).toBe("/c/account-localhost_3099.json")
+    test("is terra.json for production, named by host for anything else", () => {
+        expect(accountFile("/c", "https://prod", "https://prod")).toBe("/c/terra.json")
+        expect(accountFile("/c", "http://localhost:3099", "https://prod")).toBe("/c/terra-localhost_3099.json")
     })
 })
 
@@ -78,7 +78,7 @@ describe("a key from TERRA_TOKEN", () => {
         } })
         try {
             const file = saved("from-the-file")
-            const account = Account({ base: `http://localhost:${server.port}`, file: file, token: "from-the-env" })
+            const account = Account({ base: `http://localhost:${server.port}`, file: () => file, token: "from-the-env" })
             expect(account.signedIn()).toBe(true)
             expect((await account.whoami()).username).toBe("terraverse-ci")
             expect(sent).toBe("Bearer from-the-env")
@@ -90,12 +90,12 @@ describe("a key from TERRA_TOKEN", () => {
 
     test("signs in with no file at all, and an empty one is no key", () => {
         const missing = join(mkdtempSync(join(tmpdir(), "terra-account-test-")), "account.json")
-        expect(Account({ base: "http://x", file: missing, token: "k" }).signedIn()).toBe(true)
-        expect(Account({ base: "http://x", file: missing, token: "" }).signedIn()).toBe(false)
+        expect(Account({ base: "http://x", file: () => missing, token: "k" }).signedIn()).toBe(true)
+        expect(Account({ base: "http://x", file: () => missing, token: "" }).signedIn()).toBe(false)
     })
 
     test("refuses login and logout while it's set", async () => {
-        const account = Account({ base: "http://x", file: saved("f"), token: "k" })
+        const account = Account({ base: "http://x", file: () => saved("f"), token: "k" })
         expect(() => account.logout()).toThrow("TERRA_TOKEN")
         await expect(account.authorize()).rejects.toThrow("TERRA_TOKEN")
     })

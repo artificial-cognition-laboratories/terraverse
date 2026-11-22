@@ -13,6 +13,8 @@ import { AccountCommand } from "./account"
 import { InfoCommand } from "./info"
 import { InstallCommand } from "./install"
 import { PublishCommand } from "./publish"
+import { ArtCommand } from "./art"
+import { CheckCommand } from "./check"
 
 type Command = (args: Args) => Promise<number>
 
@@ -29,6 +31,8 @@ export function Commands(opts: { terra: TerraT; presentation: PresentationT; ver
     const publish = PublishCommand({ terra: opts.terra, presentation: opts.presentation })
     const install = InstallCommand({ terra: opts.terra, presentation: opts.presentation })
     const info = InfoCommand({ terra: opts.terra, presentation: opts.presentation })
+    const art = ArtCommand({ terra: opts.terra, presentation: opts.presentation })
+    const check = CheckCommand({ terra: opts.terra, presentation: opts.presentation })
 
     const table: Record<string, Command> = {
         server: init.of("server"),
@@ -43,6 +47,8 @@ export function Commands(opts: { terra: TerraT; presentation: PresentationT; ver
         publish: publish.run,
         install: install.run,
         i: install.run,
+        art: art.run,
+        check: check.run,
         info: info.info,
         deprecate: info.deprecate,
         help: help.help,

@@ -6142,7 +6142,7 @@ void Game::updateFrame(RunStats *stats, f32 dtime,
 		sky->setFogColor(space->fog().value_or(video::SColor(0, 0, 0, 0))); // (no alpha: the sky's own)
 	// Terra Firma: liquid lying in the world (sprint 81), drawn on its own
 	if (!liquid_layer)
-		liquid_layer = make_irr<liquids::Layer>(smgr, client->ndef(), shader_src);
+		liquid_layer = make_irr<liquids::Layer>(liquids::Layer::Opts{ /*smgr*/ smgr, /*ndef*/ client->ndef(), /*shaders*/ shader_src });
 	{
 		// what pushes water aside (sprint 82): the player and the objects near
 		std::vector<liquids::Mover> movers;

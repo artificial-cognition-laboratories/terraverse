@@ -71,6 +71,15 @@ set(client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/world/player/body.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/player/figure.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/liquids.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/parts.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/grid.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/scan.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/hold.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/flow.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/drops.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/draw.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/flat.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/faces.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/map/mesh/mapblock_mesh.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/mesh/mesh.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/map/mesh_generator_thread.cpp

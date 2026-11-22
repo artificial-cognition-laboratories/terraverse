@@ -263,3 +263,69 @@ TEST_CASE("LakesAreFlat")
 	}
 	REQUIRE(lakes > 0);
 }
+
+// A river's surface runs down its run smoothly (sprint 122): side by side, two
+// columns of one run stand apart by about what its grade drops over a block,
+// not a whole block at every step (a staircase of level pools, which the water
+// the player sees drained down and over its banks). Only a fall over a hard lip
+// is more; every top node is filled to a sixteenth it can hold; and the water
+// is a block deep at least everywhere, its bed cut down from its surface.
+TEST_CASE("RiversSlopeSmoothly")
+{
+	World w(WorldCode::decode("TF24.dGVycmE"));
+	const auto at = [&](int32_t x, int32_t z) { return w.ground(flat(w, x, z), w.sunlight(flat(w, x, z), std::nullopt)); };
+	const auto top = [](const Ground &g) { return g.water * 16 + g.water_part; }; // sixteenths over the sea
+	// a grid river's water, east along a few parallels
+	int32_t found_x = INT32_MIN, found_z = 0;
+	for (int32_t z : { 0, w.code().size / 16, -w.code().size / 16, w.code().size / 8, -w.code().size / 8 })
+		for (int32_t x = 0; x < w.code().size && found_x == INT32_MIN; x += 3) {
+			const Ground g = at(x, z);
+			if (g.kind == Water::River && g.river_cell >= 0 && g.river_width >= toFix(3) && g.water > 2) {
+				found_x = x;
+				found_z = z;
+			}
+		}
+	REQUIRE(found_x != INT32_MIN);
+	// every side-by-side pair of one run's water in the square round it
+	const int32_t R = 40;
+	std::vector<Ground> square;
+	for (int32_t z = -R; z <= R; z++)
+		for (int32_t x = -R; x <= R; x++)
+			square.push_back(at(found_x + x, found_z + z));
+	const int32_t across = 2 * R + 1;
+	int pairs = 0, differ = 0, steady = 0, whole = 0;
+	int32_t shallowest = INT32_MAX;
+	for (int32_t z = 0; z < across; z++)
+		for (int32_t x = 0; x < across; x++) {
+			const Ground &g = square[(size_t)(z * across + x)];
+			if (g.kind != Water::River)
+				continue;
+			REQUIRE(g.water_part >= 1);
+			REQUIRE(g.water_part <= 16);
+			// as deep as its channel, never a film over its bed (the bed's cut from
+			// the surface down, not from its top node)
+			const int32_t deep = top(g) - (g.terrain + 1) * 16;
+			REQUIRE(deep >= 16);
+			shallowest = std::min(shallowest, deep);
+			for (const auto &[dx, dz] : { std::pair{ 1, 0 }, std::pair{ 0, 1 } }) {
+				if (x + dx >= across || z + dz >= across)
+					continue;
+				const Ground &n = square[(size_t)((z + dz) * across + x + dx)];
+				if (n.kind != Water::River || n.river_cell != g.river_cell)
+					continue;
+				pairs++;
+				const int32_t d = std::abs(top(g) - top(n));
+				const double grade = std::max(g.river_slope, n.river_slope) / (double)ONE;
+				differ += d > 0;
+				steady += d <= 16 * grade * 1.5 + 2; // (a block's drop at its grade, with the run's bends and rounding)
+				whole += d == 16;
+			}
+		}
+	note() << "river at " << found_x << ", " << found_z << ": " << pairs << " pairs of its water side by side, " << differ
+		   << " at different heights, " << steady << " within their grade, " << whole << " a block apart; its shallowest water " << shallowest << " sixteenths" << std::endl;
+	REQUIRE(pairs > 20);
+	REQUIRE(differ > 0);                // it runs downhill
+	REQUIRE(steady * 20 >= pairs * 19); // as steeply as its run, no more
+	REQUIRE(whole * 10 < differ);       // by sixteenths, not whole blocks
+}
+

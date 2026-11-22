@@ -32,6 +32,18 @@ constexpr u8 HELD = 0x80;
 // ... and held water a dammed lake laid over the land (sprint 115, phase 5,
 // with HELD): its ground is under it, and it goes when the lake drains
 constexpr u8 LAKE = 0x40;
+// ... and in its low bits, the sixteenths of its top node under the surface
+// (sprint 122: a river slopes down its run to a sixteenth): 1..15; 0, full
+constexpr u8 PART = 0x0F;
+inline int partOf(u8 param2)
+{
+	const int p = param2 & PART;
+	return p ? p : 16;
+}
+inline u8 withPart(u8 param2, int part)
+{
+	return u8((param2 & ~PART) | (part >= 16 ? 0 : part & PART));
+}
 
 // Liquids by name, numbered as this process first meets them (a map
 // block's fills are saved by name, so the numbers never leave it).

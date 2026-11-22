@@ -51,6 +51,10 @@ struct Column
 	s32 water;      // the water (or lava) surface; == height when dry
 	bool lava;      // the surface liquid is lava
 	bool water_above; // under a sea, lake or river (not lava)
+	// the water table: a cave under it holds water, not air (sprint 122): by a
+	// river, under its water's level, so a cave opening on its channel is full
+	// already. Nothing (INT32_MIN) away from water.
+	s32 table = INT32_MIN;
 	std::optional<terragen::Strata> strata; // not space
 	s32 soil;       // soil depth: rock begins this far under the surface
 	terragen::Soil made_of; // what the column's soil is made of (terragen::World::soil)

@@ -1,0 +1,3 @@
+[test]
+# every test run gets a home of its own: no test reads or moves a real one (.agents/planning/home.md)
+preload = ["./tests/home.ts"]

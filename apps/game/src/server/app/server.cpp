@@ -3116,7 +3116,7 @@ void Server::startSidecar()
 	} catch (const sidecar::Error &e) {
 		throw ServerError(std::string("TypeScript mods: ") + e.what());
 	}
-	actionstream << "mods: " << content.blocks.size() << " blocks from " << m_server_folder << std::endl;
+	actionstream << "mods: " << content.blocks.size() << " blocks and " << content.items.size() << " items from " << m_server_folder << std::endl;
 }
 
 void Server::fillMediaCache()

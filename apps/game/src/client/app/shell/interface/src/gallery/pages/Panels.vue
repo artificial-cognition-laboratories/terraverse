@@ -27,7 +27,7 @@ const groups = [
         </Specimen>
         <Specimen name="WorkbenchPanel" note="shared header, search, rail, list, content, and optional facts" wide>
             <WorkbenchPanel v-model:group="group" v-model:query="query" class="workbench-demo"
-                title="Community" :section="group === 'mods' ? 'Mods' : 'Worlds'"
+                title="Library" :section="group === 'mods' ? 'Mods' : 'Worlds'"
                 :groups="groups" rail-label="Example groups" search-label="Search library">
                 <template #actions><Button size="sm">Back</Button></template>
                 <template #list>

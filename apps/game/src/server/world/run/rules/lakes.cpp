@@ -639,6 +639,13 @@ void terraFlood(Server *server, v3s16 node, double surge)
 	const NodeDefManager *ndef = server->ndef();
 	if (!isRiverWater(map.getNode(node), ndef))
 		return;
+	// TEMP (2026-11-22, sprint 122): no river goes over its banks. A flood is a
+	// flat lake over its pool, which was right on a staircase of level pools; a
+	// river now slopes to a sixteenth, and each map block's pool flooded flat at
+	// its own level stood in boxes down the slope. Held at its brim, a flood
+	// there drains back to its channel. Floods return as the river's own sloped
+	// surface over its floodplain (the plan's phase 6).
+	surge = std::min(surge, BRIM);
 	const v3s16 top = poolTop(map, ndef, node);
 	const s32 level0 = top.Y + 1;
 	const double target = surge > BRIM ? level0 + surge : level0;

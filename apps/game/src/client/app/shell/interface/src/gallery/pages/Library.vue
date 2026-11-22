@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref } from "vue"
 import { Card, CategoryTile, Cover, FacetList, FileTree, FilterChips, Markdown, Monogram, PageHead, Shelf } from "../../kit/index.ts"
-import Community from "../../menu/community/Community.vue"
-import ModPage from "../../menu/community/ModPage.vue"
-import Mods from "../../menu/community/Mods.vue"
-import Servers from "../../menu/community/Servers.vue"
-import { CATEGORY_ICONS } from "../../menu/community/icons.ts"
+import Library from "../../menu/library/Library.vue"
+import ModPage from "../../menu/library/ModPage.vue"
+import Mods from "../../menu/library/Mods.vue"
+import Servers from "../../menu/library/Servers.vue"
+import { CATEGORY_ICONS } from "../../menu/library/icons.ts"
 import Specimen from "../Specimen.vue"
 
 const tab = ref<"overview" | "versions">("overview")
@@ -18,8 +18,8 @@ const README = "## Kilns\n\nFired clay, **brick** and glass from heat you build 
 
 <template>
     <div class="grid">
-        <Specimen name="Community" note="the whole panel against the mock registry" wide>
-            <Community class="whole" />
+        <Specimen name="Library" note="the whole panel against the mock registry" wide>
+            <Library class="whole" />
         </Specimen>
         <Specimen name="ModPage" note="a mod's own page: head on the page, README, facts and source beside it" wide>
             <div class="framed"><ModPage name="@ash/kilns" back="Mods" /></div>

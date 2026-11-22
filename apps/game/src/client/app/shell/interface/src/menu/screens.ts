@@ -1,6 +1,6 @@
 import type { PlanetariumShot } from "../bridge"
 
-export type Screen = "home" | "worlds" | "create" | "settings" | "community" | "wiki" | "attributions"
+export type Screen = "home" | "worlds" | "create" | "settings" | "library" | "wiki" | "attributions"
 
 // The composed view behind each screen (src/planetarium/shot.h). The screens
 // that don't show a planet of their own keep the home shot, so the camera holds
@@ -11,7 +11,7 @@ export const SHOT: Record<Screen, PlanetariumShot | null> = {
     worlds: "play",
     create: "play",
     settings: "home",
-    community: "home",
+    library: "home",
     wiki: "home",
     attributions: "home",
 }

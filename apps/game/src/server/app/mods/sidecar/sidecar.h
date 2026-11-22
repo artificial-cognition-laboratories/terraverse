@@ -7,6 +7,7 @@
 // in order with what it wrote. A sidecar that dies is restarted; the server runs on.
 #pragma once
 
+#include "src/server/app/mods/sidecar/content.h"
 #include "src/shared/base/irrlichttypes.h"
 #include <array>
 #include <chrono>
@@ -22,22 +23,6 @@ namespace mp { class Value; }
 
 struct Error : std::runtime_error {
 	using std::runtime_error::runtime_error;
-};
-
-// What the mods declared while they loaded. Sealed: a restarted sidecar must declare
-// the same, or its new content waits for a restart.
-struct Content {
-	struct Block {
-		std::string name, description;
-		std::array<std::string, 6> tiles;  // top, bottom, right, left, back, front: media names
-		std::string matter;
-		double share;
-	};
-	struct Media {
-		std::string name, path;
-	};
-	std::vector<Block> blocks;
-	std::vector<Media> media;
 };
 
 // What mods can ask of the server. Called inside a window, on the server thread, with

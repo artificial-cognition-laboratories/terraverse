@@ -7,14 +7,14 @@ import { Handlers } from "./handlers"
 import { ModApi } from "./mod"
 import { Refused } from "./refused"
 
-/** Api — what a mod's server half sees: content, game and Refused as globals, and its own `mod`. */
+/** Api — what a mod's server half sees: content, art, game and Refused as globals, and its own `mod`. */
 export function Api(opts: { channel: ChannelT; running: RunningT; mods: readonly ManifestMod[] }) {
     const handlers = Handlers({ running: opts.running })
     const content = Content({ running: opts.running, channel: opts.channel })
     const game = Game({ channel: opts.channel, running: opts.running, handlers: handlers })
     const mod = ModApi({ mods: opts.mods })
 
-    const globals = { content: content.api, game: game.api, Refused: Refused }
+    const globals = { content: content.api, art: content.art, game: game.api, Refused: Refused }
 
     return {
         globals: globals,

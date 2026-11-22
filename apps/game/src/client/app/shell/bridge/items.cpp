@@ -59,10 +59,9 @@ const Json::Value &Items::describe(const std::string &name)
 	} else {
 		std::string file = name;
 		str_replace(file, ':', '.');
-		file += ".png";
-		writeIcon(texture, m_opts.dir + DIR_DELIM + file);
-		info["icon"] = "terra://item/" + file + "?s=" + m_opts.session;
+		info["icon"] = served(texture, file + ".png");
 	}
+	info["faces"] = faces(def);
 	return m_described.emplace(name, info).first->second;
 }
 
@@ -116,6 +115,29 @@ std::string Items::iconTexture(const ItemDefinition &def) const
 		return node.tiledef[0].name;
 	return "[inventorycube{" + cubePart(node.tiledef[0].name) + "{" +
 			cubePart(node.tiledef[5].name) + "{" + cubePart(node.tiledef[2].name);
+}
+
+Json::Value Items::faces(const ItemDefinition &def)
+{
+	if (def.type != ITEM_NODE)
+		return Json::nullValue;
+	const ContentFeatures &node = m_opts.client->ndef()->get(def.name);
+	if (!drawsAsCube(node.drawtype))
+		return Json::nullValue;
+	std::string file = def.name;
+	str_replace(file, ':', '.');
+	// tiledef order: +Y, -Y, +X, -X, +Z, -Z; the side players face first is -Z
+	Json::Value out;
+	out["top"] = served(node.tiledef[0].name, file + ".top.png");
+	out["bottom"] = served(node.tiledef[1].name, file + ".bottom.png");
+	out["side"] = served(node.tiledef[5].name, file + ".side.png");
+	return out;
+}
+
+std::string Items::served(const std::string &texture, const std::string &file) const
+{
+	writeIcon(texture, m_opts.dir + DIR_DELIM + file);
+	return "terra://item/" + file + "?s=" + m_opts.session;
 }
 
 void Items::writeIcon(const std::string &texture, const std::string &path) const

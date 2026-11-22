@@ -11,6 +11,11 @@ using namespace terragen;
 
 namespace terra {
 
+namespace {
+// blocks from a river's edge its water table reaches: a cave that far off is wet under its level
+constexpr int32_t TABLE_REACH = 32;
+} // namespace
+
 Columns::Columns(const World &world, const Blocks &blocks, s16 water_level, const planet::Atlas &atlas, int body) :
 	m_world(world), m_atlas(atlas), m_body(body), m_blocks(blocks), m_water_level(water_level)
 {
@@ -53,6 +58,10 @@ Column Columns::atPlace(const Place &at) const
 	c.water = g.kind == Water::None ? c.height : m_water_level + g.water;
 	c.lava = g.kind == Water::Lava;
 	c.water_above = g.kind != Water::None && !c.lava;
+	// within reach of a river, the ground under its water's level is wet
+	// through: under the river's top node (never over its surface)
+	if (g.river_width > 0 && g.river_dist - g.river_width / 2 <= terragen::toFix(TABLE_REACH))
+		c.table = m_water_level + g.river_level - 1;
 	c.strata = m_world.strata(at, g);
 
 	// the soil: rock begins under it. A layer of plain stone isn't soil:
@@ -112,10 +121,14 @@ MapNode Columns::node(const Column &c, s32 y) const
 		// a frozen sea: the biome's water-top over open water
 		if (y > c.ice_end && y <= m_water_level)
 			return MapNode(b.biomes[(int)c.biome].water_top);
-		// a river's or lake's water is held at its level (the sea's is by being the sea)
+		// a river's or lake's water is held at its level (the sea's is by being the sea);
+		// a river's top node filled to the sixteenth its surface reaches (sprint 122)
 		const terragen::Water kind = c.ground.kind;
 		const bool held = kind == terragen::Water::River || kind == terragen::Water::Lake;
-		return MapNode(b.water, 0, held ? fill::HELD : 0);
+		if (!held)
+			return MapNode(b.water);
+		const int part = kind == terragen::Water::River && y == c.water ? c.ground.water_part : 16;
+		return MapNode(b.water, 0, fill::withPart(fill::HELD, part));
 	}
 	s32 depth = c.height - y;
 	MapNode n(b.stone); // inside the soil: painted below
@@ -123,7 +136,7 @@ MapNode Columns::node(const Column &c, s32 y) const
 		Rock rock = m_world.rock(*c.strata, depth - c.soil, y);
 		Cave cave = m_world.cave(*c.strata, rock, depth, y, c.water_above);
 		if (cave == Cave::Air)
-			return MapNode(CONTENT_AIR);
+			return y <= c.table ? MapNode(b.water, 0, fill::HELD) : MapNode(CONTENT_AIR);
 		if (cave == Cave::Water)
 			return MapNode(b.water);
 		if (cave == Cave::Lava)

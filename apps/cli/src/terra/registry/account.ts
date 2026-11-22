@@ -6,8 +6,12 @@ import { Api, record, type ApiT } from "./api"
 type AccountOpts = {
     /** The ArcLabs API, no trailing slash. */
     base: string
-    /** Where the key is kept: one file per API, so staging and production never mix. */
-    file: string
+    /** Where the key is kept, read each time (it's in the active profile, which a sign-in can change): one file per API, so staging and production never mix. */
+    file: () => string
+    /** Signed in as someone with a handle: the profile is theirs now (Home.signedIn), and the file moves with it. */
+    signedIn?: (handle: string, file: string) => void
+    /** Signed out: back to playing signed out (Home.signedOut). */
+    signedOut?: () => void
     /**
      * A key from the environment (TERRA_TOKEN), for machines that can't sign in by the
      * device flow: CI publishing the official mods. Wins over the file, which is left alone.
@@ -47,23 +51,23 @@ export function Account(opts: AccountOpts) {
     const api: ApiT = Api({ base: opts.base, key: () => key })
 
     function read(): string | null {
-        if (!existsSync(opts.file)) return null
+        if (!existsSync(opts.file())) return null
         let saved: unknown
         try {
-            saved = JSON.parse(readFileSync(opts.file, "utf8"))
+            saved = JSON.parse(readFileSync(opts.file(), "utf8"))
         } catch (e) {
-            throw err("UNEXPECTED", { detail: `${opts.file} isn't the account terra saved: delete it and run terra login`, cause: e })
+            throw err("UNEXPECTED", { detail: `${opts.file()} isn't the account terra saved: delete it and run terra login`, cause: e })
         }
         const value = typeof saved === "object" && saved !== null ? Reflect.get(saved, "key") : undefined
-        if (typeof value !== "string" || !value) throw err("UNEXPECTED", { detail: `${opts.file} has no key: delete it and run terra login` })
+        if (typeof value !== "string" || !value) throw err("UNEXPECTED", { detail: `${opts.file()} has no key: delete it and run terra login` })
         return value
     }
 
     function save(value: string): void {
-        mkdirSync(dirname(opts.file), { recursive: true })
-        writeFileSync(opts.file, JSON.stringify({ key: value }) + "\n", { mode: 0o600 })
+        mkdirSync(dirname(opts.file()), { recursive: true })
+        writeFileSync(opts.file(), JSON.stringify({ key: value }) + "\n", { mode: 0o600 })
         // it's a credential: owner-only even where the file already existed
-        if (process.platform !== "win32") chmodSync(opts.file, 0o600)
+        if (process.platform !== "win32") chmodSync(opts.file(), 0o600)
         key = value
     }
 
@@ -89,7 +93,9 @@ export function Account(opts: AccountOpts) {
             const token = body.access_token
             if (body.status !== "approved" || typeof token !== "string") throw err("REGISTRY_REFUSED", { detail: `the device poll answered ${JSON.stringify(body.status)}` })
             save(token)
-            return whoami()
+            const identity = await whoami()
+            if (identity.username) opts.signedIn?.(identity.username, opts.file())
+            return identity
         }
     }
 
@@ -108,8 +114,9 @@ export function Account(opts: AccountOpts) {
     function logout(): boolean {
         if (token) throw err("USAGE", { detail: "signed in by TERRA_TOKEN: unset it to sign out" })
         const had = key !== null
-        rmSync(opts.file, { force: true })
+        rmSync(opts.file(), { force: true })
         key = null
+        opts.signedOut?.()
         return had
     }
 
@@ -126,9 +133,12 @@ export function Account(opts: AccountOpts) {
 
 export type AccountT = ReturnType<typeof Account>
 
-/** The account file for an API: production's is account.json, any other's is named by its host. */
+/**
+ * terra's key file in a profile, for an API: production's is terra.json, any other's is named
+ * by its host. Not the game's (account.json): terra signs in as its own client, and may publish.
+ */
 export function accountFile(dir: string, base: string, defaultBase: string): string {
-    if (base === defaultBase) return `${dir}/account.json`
+    if (base === defaultBase) return `${dir}/terra.json`
     const host = base.replace(/^[a-z]+:\/\//, "").replace(/[^a-zA-Z0-9.-]/g, "_")
-    return `${dir}/account-${host}.json`
+    return `${dir}/terra-${host}.json`
 }

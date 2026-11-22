@@ -112,5 +112,11 @@ if(BUILD_UNITTESTS)
 			${CMAKE_CURRENT_SOURCE_DIR}/tests/soil.cpp
 			${CMAKE_CURRENT_SOURCE_DIR}/tests/system.cpp
 			${CMAKE_CURRENT_SOURCE_DIR}/tests/water.cpp)
-	target_compile_definitions(terragen_tests PRIVATE TERRAGEN_TEST_GRIDS="${REPO_DIR}/.output/cache/grids")
+	# where a source build of the game keeps them (.agents/planning/home.md): ~/.terraverse-dev/cache/engine/grids
+	if(WIN32)
+		set(TERRAGEN_HOME "$ENV{APPDATA}/Terraverse-dev")
+	else()
+		set(TERRAGEN_HOME "$ENV{HOME}/.terraverse-dev")
+	endif()
+	target_compile_definitions(terragen_tests PRIVATE TERRAGEN_TEST_GRIDS="${TERRAGEN_HOME}/cache/engine/grids")
 endif()

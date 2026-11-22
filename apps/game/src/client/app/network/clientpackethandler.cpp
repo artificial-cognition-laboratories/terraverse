@@ -1875,8 +1875,16 @@ void Client::handleCommand_Rivers(NetworkPacket *pkt)
 			const float turn = (way - 1) / 254.0f * 2 * float(M_PI);
 			r.way = { std::cos(turn), std::sin(turn) };
 		}
+		auto was = m_rivers.find(block);
+		const bool rose = was == m_rivers.end() || was->second.rise != rise;
 		m_rivers[block] = r;
 		liquidsChanged(block);
+		// a river's rise is blended between its blocks (liquids::riseAt): those beside it move too
+		for (s16 dz = -1; dz <= 1 && rose; dz++)
+			for (s16 dx = -1; dx <= 1; dx++)
+				for (s16 dy = -1; dy <= 1; dy++)
+					if ((dx || dz) && m_rivers.count(block + v3s16(dx, dy, dz)))
+						liquidsChanged(block + v3s16(dx, dy, dz));
 	}
 }
 

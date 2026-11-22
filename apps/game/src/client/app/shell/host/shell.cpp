@@ -3,6 +3,7 @@
 
 #include "src/client/render/gputime/gputime.h"
 #include "src/client/app/shell/host/shell.h"
+#include "src/shared/platform/home/home.h"
 #include <IEventReceiver.h>
 #include "src/client/app/shell/bridge/account.h"
 #include "src/client/app/shell/bridge/social.h"
@@ -71,6 +72,7 @@ struct Shell::Impl
 	std::function<bool(const SEvent &)> underlayMouse;
 	Opts opts;
 	std::string item_dir;
+	std::string contents_dir; // local mods' pictures, as terra drew them (bridge/local_mods.h)
 	Viewport viewport;
 	Inbox inbox; // before what posts to it
 	// the page's frames (the GPU's if it can): before Input, which reads it;
@@ -108,6 +110,7 @@ struct Shell::Impl
 	explicit Impl(const Opts &o) :
 		opts(o),
 		item_dir(o.cache_dir + "/items"),
+		contents_dir(o.cache_dir + "/contents"),
 		canvas(makeCanvas(o.driver, o.gpu, "the page")),
 		input(o.cursor, *canvas, viewport),
 		ime(o.guienv),
@@ -193,6 +196,7 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(wired(opts)))
 
 	CefRegisterSchemeHandlerFactory(SCHEME, UI_HOST, new UiScheme(opts.ui_dir));
 	CefRegisterSchemeHandlerFactory(SCHEME, ITEM_HOST, new UiScheme(m->item_dir));
+	CefRegisterSchemeHandlerFactory(SCHEME, CONTENTS_HOST, new UiScheme(m->contents_dir));
 
 	m->bridge.on("ready", [this](const Json::Value &) {
 		m->onReady();
@@ -249,10 +253,13 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(wired(opts)))
 		return Json::Value();
 	});
 	m->social = std::make_unique<Social>(opts.arclabs, [this](const Json::Value &message) { m->send(message); });
-	m->account = std::make_unique<Account>(opts.arclabs, accountPath(opts.account_dir, opts.arclabs),
-			[this](const Json::Value &message) {
-				m->send(message);
+	m->account = std::make_unique<Account>(opts.arclabs, accountPath(opts.home.profileDir(), opts.arclabs),
+			[this, &home = opts.home](const Json::Value &message) {
 				bool in = message["account"]["status"].asString() == "signedIn";
+				// signed in: the account's own profile is the one running (home.md, "Profiles")
+				if (in)
+					m->account->keyAt(home.signedIn(m->account->username(), m->account->keyPath()));
+				m->send(message);
 				m->social->signedIn(in ? m->account->key() : "");
 			});
 	m->bridge.on("account.get", [this](const Json::Value &) {
@@ -266,8 +273,11 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(wired(opts)))
 		m->account->cancel();
 		return Json::Value();
 	});
-	m->bridge.on("account.signOut", [this](const Json::Value &) {
+	m->bridge.on("account.signOut", [this, &home = opts.home, api = opts.arclabs](const Json::Value &) {
 		m->account->signOut();
+		// back to playing signed out; the account's profile is kept for its next sign-in
+		home.signedOut();
+		m->account->keyAt(accountPath(home.profileDir(), api));
 		return Json::Value();
 	});
 	m->bridge.on("account.retry", [this](const Json::Value &) {
@@ -553,6 +563,11 @@ float Shell::scale() const
 const std::string &Shell::itemDir() const
 {
 	return m->item_dir;
+}
+
+const std::string &Shell::contentsDir() const
+{
+	return m->contents_dir;
 }
 
 } // namespace shell

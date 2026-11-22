@@ -90,8 +90,17 @@ export type CommunityCatalog = {
 
 /** How to show an item; icon is null when it has nothing to draw. */
 /** `mass`: kg each, as the game weighs it; null for what it doesn't weigh. */
-export type ItemInfo = { description: string; icon: string | null; mass: number | null }
+/** `faces`: a block drawn as a cube, its faces flat (the library turns them); null for anything else. */
+export type ItemFaces = { top: string; bottom: string; side: string }
+export type ItemInfo = { description: string; icon: string | null; mass: number | null; faces: ItemFaces | null }
 export type CreativeItem = ItemInfo & { item: string; stackMax: number; category: "building" | "nature" | "functional" | "tools" | "items" }
+
+/**
+ * A mod the player is developing: a folder in the active profile's mods/ (bridge/local_mods.h),
+ * shaped as a registry mod so the same cards and page show it. Its dependencies are its
+ * package.json's; it has no versions until it's published.
+ */
+export type LocalMod = RegistryMod & { path: string; dependencies: Record<string, string> }
 
 export type Stack = { item: string; count: number; wear: number }
 
@@ -580,6 +589,10 @@ export type Intents = {
     /** One file of a mod's latest version, as text, for the source view. */
     "registry.file": { request: { name: string; path: string }; response: string }
     "community.list": { request: {}; response: CommunityCatalog }
+    /** The active profile's own mods (src/shell/bridge/local_mods.cpp). */
+    "mods.local": { request: {}; response: LocalMod[] }
+    /** One of them, loaded by terra: its blocks and items as the Library shows them. Refused with terra's reason when it doesn't load. */
+    "mods.contents": { request: { path: string }; response: CreativeItem[] }
     /** User-installed mods are selected per world; built-ins are required by this build. */
     /** A local texture pack is used after restarting Terraverse; empty id restores defaults. */
     "community.texture.set": { request: { id: string }; response: null }

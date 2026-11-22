@@ -1,7 +1,6 @@
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { basename, relative, resolve } from "node:path"
 import { err } from "../../errors"
-import type { PlacesT } from "../places"
 import { freshSystem, names, Packages, templates, type ProjectT, type ProjectsT, type ServerProjectT } from "../project"
 
 /**
@@ -13,7 +12,7 @@ import { freshSystem, names, Packages, templates, type ProjectT, type ProjectsT,
  * Never inside the mod's folder: bun copies a file: dependency whole, and a scratch server's
  * node_modules inside the mod it copies would be copied into itself.
  */
-export function Scratch(opts: { projects: ProjectsT; places: PlacesT }) {
+export function Scratch(opts: { projects: ProjectsT; /** The home's cache: scratch servers live in its dev/. */ cache: () => string }) {
     const packages = Packages({})
 
     async function serverOf(project: ProjectT, e: { in: string | null }): Promise<ServerProjectT> {
@@ -60,7 +59,7 @@ export function Scratch(opts: { projects: ProjectsT; places: PlacesT }) {
 
     /** A scratch server's folder: named for people, made unique by the mod's own folder. */
     function place(mod: ProjectT, name: string): string {
-        return `${opts.places.cache()}/dev/${name}-${Bun.hash(mod.root).toString(16).slice(0, 8)}`
+        return `${opts.cache()}/dev/${name}-${Bun.hash(mod.root).toString(16).slice(0, 8)}`
     }
 
     return { serverOf: serverOf }

@@ -6,7 +6,7 @@ import WorkbenchColumns from "./WorkbenchColumns.vue"
 import { WORKBENCH_SEARCH } from "./workbench.ts"
 
 /**
- * Every workspace screen (wiki, settings, community): one size, a rail of
+ * Every workspace screen (wiki, settings, library): one size, a rail of
  * groups, search at the top of its navigator. A screen fills either the list / content /
  * facts slots, or `workspace` when each group lays out its own columns.
  */

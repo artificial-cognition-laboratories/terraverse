@@ -4,12 +4,12 @@
 // A frame is a u32 (little endian) length, then a MessagePack array [op, id, payload].
 // id is 0 when no answer is wanted.
 
-export const PROTOCOL = 2
+export const PROTOCOL = 3
 
 // What a frame is.
 export const Op = {
     // sidecar → engine, once, after every mod's server half has loaded:
-    // { protocol, blocks: BlockDef[], media: { name, path }[] }
+    // { protocol, blocks: BlockDef[], items: { name, description, icon }[], media: { name, path }[] }
     content: 1,
     // engine → sidecar: open a window. { now, dt, events: Event[] }
     step: 2,

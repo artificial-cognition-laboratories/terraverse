@@ -24,7 +24,7 @@ grep -qF "$version" "$work/version.log" || fail "--version doesn't say $version"
 	--port 30500 >"$work/boot.log" 2>&1 &
 pid=$!
 for _ in $(seq 1 40); do
-	grep -q 'blocks from' "$work/boot.log" "$TERRAVERSE_HOME/logs/debug.txt" 2>/dev/null \
+	grep -q 'items from' "$work/boot.log" "$TERRAVERSE_HOME/cache/logs/debug.txt" 2>/dev/null \
 		&& grep -q 'listening on' "$work/boot.log" && break
 	kill -0 "$pid" 2>/dev/null || break
 	sleep 0.5
@@ -35,7 +35,7 @@ cat "$work/boot.log"
 
 grep -q 'listening on' "$work/boot.log" || fail "the server didn't start"
 ! grep -qF 'ERROR[' "$work/boot.log" || fail "errors booting a world"
-test -f "$TERRAVERSE_HOME/logs/debug.txt" || fail "player data didn't leave the package"
-grep -q 'blocks from' "$work/boot.log" "$TERRAVERSE_HOME/logs/debug.txt" \
+test -f "$TERRAVERSE_HOME/cache/logs/debug.txt" || fail "player data didn't leave the package"
+grep -q 'items from' "$work/boot.log" "$TERRAVERSE_HOME/cache/logs/debug.txt" \
 	|| fail "the game's TypeScript mods didn't load"
 echo "smoke: ok"

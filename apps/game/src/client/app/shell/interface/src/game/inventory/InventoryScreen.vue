@@ -48,7 +48,7 @@ watch(creative, async (on) => {
     if (!on || catalog.value) return
     try {
         catalog.value = await bridge.send("creative.list", {})
-        for (const item of catalog.value) store.items[item.item] = { description: item.description, icon: item.icon, mass: item.mass }
+        for (const item of catalog.value) store.items[item.item] = { description: item.description, icon: item.icon, mass: item.mass, faces: item.faces }
     } catch (err) {
         carry.problem.value = err instanceof Error ? err.message : String(err)
     }

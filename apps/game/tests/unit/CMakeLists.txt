@@ -7,6 +7,7 @@ set(unittest_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/test_activeobject.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_areastore.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_access.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_home.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_ban.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_collision.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_compression.cpp
@@ -29,6 +30,7 @@ set(unittest_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/test_noise.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_fluid.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_rivers.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_water.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_online.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_release.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_air.cpp

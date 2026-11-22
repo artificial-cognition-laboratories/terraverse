@@ -97,7 +97,12 @@ export function Engine(opts: { bin: string }) {
         }
     }
 
-    return { start: start, run: run }
+    return {
+        start: start,
+        run: run,
+        /** The folder the engine's data is in, one up from bin: world/, textures/, matter/. */
+        share: dirname(opts.bin),
+    }
 }
 
 export type EngineT = ReturnType<typeof Engine>

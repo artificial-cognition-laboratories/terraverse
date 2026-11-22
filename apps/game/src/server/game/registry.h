@@ -7,6 +7,8 @@
 
 #include <string>
 
+namespace Json { class Value; }
+
 class Server;
 namespace sidecar { struct Content; }
 
@@ -15,9 +17,14 @@ namespace sidecar { struct Content; }
 // BaseException naming what's wrong in the data.
 void registerContent(Server *server);
 
-// A TypeScript mod's blocks (sidecar::Content): each a block of its substance, drawn as
-// glass where that's see-through. Throws BaseException for one already registered.
+// A TypeScript mod's blocks and items (sidecar::Content), in mods.cpp: each block of its
+// substance, drawn as glass where that's see-through; each item a thing that stacks.
+// Throws BaseException for one already registered.
 void registerModContent(Server *server, const sidecar::Content &content);
+
+// A block from its definition (as defs::block reads it), as a node and its item. Throws
+// BaseException if it can't be read, is already registered, or there's no room.
+void addBlock(Server *server, const std::string &name, const Json::Value &def);
 
 // The text of one of the engine's world data files (<share>/world/<file>).
 std::string worldData(const std::string &file);

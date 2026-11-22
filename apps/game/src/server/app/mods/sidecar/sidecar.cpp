@@ -588,38 +588,11 @@ void Sidecar::start()
 
 		Content content;
 		try {
-			const mp::Value &p = f.payload;
-			if (p.at("protocol").asInt() != PROTOCOL)
-				throw Dead("it speaks protocol " + std::to_string(p.at("protocol").asInt()) +
-						", this engine " + std::to_string(PROTOCOL) + ": the engine and terra are from different builds");
-			for (const mp::Value &b : p.at("blocks").asArray()) {
-				Content::Block block;
-				block.name = b.at("name").asString();
-				block.description = b.at("description").asString();
-				const auto &tiles = b.at("tiles").asArray();
-				if (tiles.size() != 6)
-					throw Dead(block.name + ": a block has six faces");
-				for (size_t i = 0; i < 6; i++)
-					block.tiles[i] = tiles[i].asString();
-				block.matter = b.at("matter").asString();
-				block.share = b.at("share").asNumber();
-				content.blocks.push_back(std::move(block));
-			}
-			for (const mp::Value &m : p.at("media").asArray())
-				content.media.push_back({ m.at("name").asString(), m.at("path").asString() });
-		} catch (const mp::Error &e) {
-			throw Dead(std::string("its content isn't what the engine reads: ") + e.what());
+			content = sidecar::content::read(f.payload);
+		} catch (const Error &e) {
+			throw Dead(e.what());
 		}
-
-		// what a restarted sidecar must match: its declarations, in order
-		std::string fingerprint;
-		for (const auto &b : content.blocks) {
-			fingerprint += b.name + '\n' + b.matter + '\n' + std::to_string(b.share) + '\n';
-			for (const auto &t : b.tiles)
-				fingerprint += t + '\n';
-		}
-		for (const auto &m : content.media)
-			fingerprint += m.name + '\n' + m.path + '\n';
+		const std::string fingerprint = sidecar::content::fingerprint(content);
 
 		if (!m_has_content) {
 			m_content = std::move(content);

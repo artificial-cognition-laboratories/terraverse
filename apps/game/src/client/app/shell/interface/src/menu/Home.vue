@@ -23,7 +23,7 @@ const TITLE = "Terraverse"
             <Button variant="primary" size="lg" @click="$emit('go', 'worlds')">Play</Button>
             <Button size="lg" @click="$emit('go', 'settings')">Settings</Button>
             <div class="pair">
-                <Button size="lg" @click="$emit('go', 'community')">Community</Button>
+                <Button size="lg" @click="$emit('go', 'library')">Library</Button>
                 <Button size="lg" @click="bridge.send('quit', {})">Quit</Button>
             </div>
         </nav>

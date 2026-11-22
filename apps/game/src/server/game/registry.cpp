@@ -45,22 +45,6 @@ Json::Value read(const std::string &file)
 	return root;
 }
 
-void addBlock(Server *server, const std::string &name, const Json::Value &def)
-{
-	defs::Block b;
-	try {
-		b = defs::block(name, def);
-	} catch (const std::invalid_argument &e) {
-		throw BaseException(std::string("blocks: ") + e.what());
-	}
-	if (server->getItemDefManager()->isKnown(name))
-		throw BaseException("blocks: " + name + " is registered twice");
-	server->getWritableItemDefManager()->registerItem(b.item);
-	const content_t id = server->getWritableNodeDefManager()->set(name, std::move(b.node));
-	if (id == CONTENT_IGNORE)
-		throw BaseException("blocks: there's no room for " + name + " (about 32 000 blocks at most)");
-}
-
 void alias(Server *server, const std::string &from, const std::string &to)
 {
 	server->getWritableItemDefManager()->registerAlias(from, to);
@@ -465,6 +449,22 @@ void generated(Server *server)
 
 } // namespace
 
+void addBlock(Server *server, const std::string &name, const Json::Value &def)
+{
+	defs::Block b;
+	try {
+		b = defs::block(name, def);
+	} catch (const std::invalid_argument &e) {
+		throw BaseException(std::string("blocks: ") + e.what());
+	}
+	if (server->getItemDefManager()->isKnown(name))
+		throw BaseException("blocks: " + name + " is registered twice");
+	server->getWritableItemDefManager()->registerItem(b.item);
+	const content_t id = server->getWritableNodeDefManager()->set(name, std::move(b.node));
+	if (id == CONTENT_IGNORE)
+		throw BaseException("blocks: there's no room for " + name + " (about 32 000 blocks at most)");
+}
+
 std::string worldData(const std::string &file)
 {
 	const std::string path = porting::path_share + DIR_DELIM "world" DIR_DELIM + file;
@@ -490,35 +490,4 @@ void registerContent(Server *server)
 	for (const std::string &from : aliases.getMemberNames())
 		alias(server, from, aliases[from].asString());
 	generated(server);
-}
-
-void registerModContent(Server *server, const sidecar::Content &content)
-{
-	const matter::Matter &table = serverMatter(server).table;
-	for (const sidecar::Content::Block &b : content.blocks) {
-		const matter::Substance *substance = nullptr;
-		for (const matter::Substance &s : table.substances())
-			if (s.id == b.matter)
-				substance = &s;
-		Json::Value def;
-		def["description"] = b.description;
-		Json::Value tiles(Json::arrayValue);
-		for (const std::string &t : b.tiles)
-			tiles.append(t);
-		def["tiles"] = tiles;
-		// what you can see through is drawn as glass (a rock, of no one substance, isn't)
-		if (substance && substance->transparent) {
-			def["drawtype"] = "glasslike";
-			def["use_texture_alpha"] = "blend";
-			def["paramtype"] = "light";
-			def["sunlight_propagates"] = true;
-		}
-		// TEMP(2026-11-18): every block digs like stone until its matter decides how
-		def["groups"]["cracky"] = 3;
-		def["_matter"]["matter"] = b.matter;
-		def["_matter"]["share"] = b.share;
-		if (server->getItemDefManager()->isKnown(b.name))
-			throw BaseException("TypeScript mods: " + b.name + " is already a block or item");
-		addBlock(server, b.name, def);
-	}
 }

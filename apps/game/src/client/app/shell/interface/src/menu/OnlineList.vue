@@ -3,7 +3,7 @@ import { computed, onMounted } from "vue"
 import type { PublicServer } from "../bridge/index.ts"
 import { useBridge } from "../bridge/use.ts"
 import { Monogram, Notice } from "../kit/index.ts"
-import { Request } from "./community/request.ts"
+import { Request } from "./library/request.ts"
 
 /** Public servers anyone can join, as rows in the Play list: busiest first, the chosen one picked. */
 const props = defineProps<{ query: string }>()

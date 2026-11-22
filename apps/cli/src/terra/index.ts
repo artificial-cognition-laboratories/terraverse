@@ -1,5 +1,6 @@
 // terra — the work: projects of every kind, preparing them, running the engine on a server.
 export { Terra, type TerraT } from "./terra"
+export type { ArtEntry, Catalogue } from "./art"
 export type { DevEvent, DevOptions } from "./dev"
 export type { Identity, ModPage, PublishStep } from "./registry"
 export {

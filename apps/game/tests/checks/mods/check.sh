@@ -52,7 +52,7 @@ expect() {
 	fi
 }
 expect "mods load in dependency order, sharing exports (hello's code reading hello's settings)"  "\[@check/greeter\] CHECK greeter loaded: Hello, check\."
-expect "blocks are registered"                           "mods: 2 blocks from"
+expect "blocks are registered"                           "mods: 2 blocks and 0 items from"
 expect "a mod reads the server's settings and its defaults" "\[@check/hello\] CHECK settings @check/hello Hello loud=true"
 expect "each mod's mod is its own, wherever it's called from" "\[@check/greeter\] CHECK greeter is @check/greeter"
 expect "timers run in game time"                         "CHECK after 1\.[0-9] ticks=2 players=0"

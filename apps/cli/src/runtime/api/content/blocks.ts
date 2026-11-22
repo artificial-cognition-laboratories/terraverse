@@ -52,13 +52,15 @@ export function Blocks(opts: BlocksOpts) {
         if (typeof share !== "number" || !(share > 0 && share <= 1)) throw err("ARGUMENT_INVALID", { detail: `${name}: share is more than 0, up to 1` })
         if (Reflect.get(def, "sounds") !== undefined) checks.unwired("a block's sounds")
         if (Reflect.get(def, "on") !== undefined) checks.unwired("a block's handlers (on)")
-        return { name: name, description: describe(name), tiles: tiles(mod, texture), matter: matter, share: share }
+        const description: unknown = Reflect.get(def, "description") ?? describe(name)
+        if (typeof description !== "string" || description === "") throw err("ARGUMENT_INVALID", { detail: `${name}: description is what players see it called` })
+        return { name: name, description: description, tiles: tiles(mod, texture), matter: matter, share: share }
     }
 
     function tiles(mod: ManifestMod, texture: unknown): string[] {
-        if (typeof texture === "string") return Array<string>(6).fill(opts.media.texture(mod, texture))
-        if (typeof texture !== "object" || texture === null)
-            throw err("ASSET_MISSING", { detail: "texture is a file, or { top?, bottom?, sides }" })
+        // one texture on every face: a file, or what art drew
+        if (typeof texture !== "object" || texture === null || !("sides" in texture))
+            return Array<string>(6).fill(opts.media.texture(mod, texture))
         const sides = opts.media.texture(mod, Reflect.get(texture, "sides"))
         const top: unknown = Reflect.get(texture, "top")
         const bottom: unknown = Reflect.get(texture, "bottom")
@@ -74,8 +76,8 @@ export function Blocks(opts: BlocksOpts) {
 
 export type BlocksT = ReturnType<typeof Blocks>
 
-/** "kilns:granite_brick" → "Granite brick", until mods can say their own. */
-function describe(name: string): string {
+/** "kilns:granite_brick" → "Granite brick", unless the mod says its own. */
+export function describe(name: string): string {
     const words = name.slice(name.indexOf(":") + 1).replaceAll("_", " ")
     return words.charAt(0).toUpperCase() + words.slice(1)
 }

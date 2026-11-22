@@ -1,3 +1,4 @@
+import { names } from "../names"
 /** What a scaffold needs: the package's name and its title. */
 export type ScaffoldInput = {
     readonly name: string
@@ -47,8 +48,17 @@ export const templates = {
 `,
                 "server/main.ts": `// The server half: runs once as the universe loads, then reacts to what happens.
 // What's available here: https://terraverse.arclabs.it/docs/mods/server
+import * as pictures from "./art"
+
+// A block or an item, drawn by art.ts: \`terra art render\` shows them without the game.
+// content.blocks.create("${names.prefix(input.name)}:example", { matter: "granite", texture: pictures.example })
 
 game.players.on("join", player => player.tell(\`Welcome, \${player.name}.\`))
+`,
+                "server/art.ts": `// This mod's pictures, drawn from code with the \`art\` global: a palette, letter grids and
+// procedural layers. \`terra art render\` draws them all onto a sheet; \`terra check\` checks them.
+
+export const example = art.texture({ layers: [{ noise: ["#999880", "#9c9b85"], scale: 8 }] })
 `,
                 "server/tsconfig.json": json({ extends: "../.terra/types/server.json" }),
                 "client/tsconfig.json": json({ extends: "../.terra/types/client.json" }),

@@ -38,6 +38,11 @@ public:
 
 private:
 	std::string iconTexture(const ItemDefinition &def) const;
+	// A cube's faces flat, for the library's viewer: { top, bottom, side } URLs, or null for
+	// what isn't drawn as a cube.
+	Json::Value faces(const ItemDefinition &def);
+	// A texture rendered to a file in `dir`: its terra://item/ URL.
+	std::string served(const std::string &texture, const std::string &file) const;
 	void writeIcon(const std::string &texture, const std::string &path) const;
 
 	Opts m_opts;

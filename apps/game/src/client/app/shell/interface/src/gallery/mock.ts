@@ -96,7 +96,7 @@ export function MockBridge() {
         enable_waving_plants: false, 
         enable_dig_particles: true, performance_tradeoffs: false,
         occlusion_culler: "bfs", enable_raytraced_culling: true,
-        water_fine: true, water_fine_reach: 10, water_coarse_reach: 48, ground_detail_near: 12, ground_detail_far: 32,
+        water_fine: true, water_fine_reach: 10, ground_detail_near: 12, ground_detail_far: 32,
         far_view: true, far_view_detail: 2, far_view_max: 16000,
         fps_max_unfocused: 10, sound_volume_unfocused: 0.3, 
         enable_bloom: false, enable_fog: true,
@@ -528,12 +528,19 @@ export function MockBridge() {
             return null
         },
         "game.quit": () => null,
+		"mods.local": () => [mockLocal("workshop", "A bench, bricks, a log and the first stone tools."), mockLocal("@you/stone-tools", "")],
+		"mods.contents": (): CreativeItem[] => [
+			{ item: "workshop:stone_brick", description: "Stone brick", icon: swatch("#a2a189", "#86876b"), stackMax: 99, category: "building", mass: null, faces: mockCube(["#86876b", "#a2a189", "#a9a790"], 9) },
+			{ item: "workshop:planks", description: "Planks", icon: swatch("#c0905a", "#a8743f"), stackMax: 99, category: "building", mass: null, faces: mockCube(["#a8743f", "#b5824a", "#c0905a"], 3) },
+			{ item: "workshop:stone_axe", description: "Stone axe", icon: mockTool(), stackMax: 99, category: "items", mass: null, faces: null },
+		],
 		"creative.list": (): CreativeItem[] => [
-			{ item: "core:grass", description: "Grass", icon: swatch("#5fa83a", "#6b4a2b"), stackMax: 64, category: "nature", mass: 1.5 },
-			{ item: "core:dirt", description: "Dirt", icon: swatch("#7a5533", "#6b4a2b"), stackMax: 64, category: "nature", mass: 1.5 },
-			{ item: "core:stone", description: "Stone", icon: swatch("#8a8a8a", "#6e6e6e"), stackMax: 64, category: "building", mass: 1.5 },
-			{ item: "core:sand", description: "Sand", icon: swatch("#e3d39a", "#cdbb7e"), stackMax: 64, category: "nature", mass: 1.5 },
-			{ item: "core:stone_bricks", description: "Stone Bricks", icon: swatch("#7a7a82", "#5d5d64"), stackMax: 64, category: "building", mass: 1.5 },
+			{ item: "core:grass", description: "Grass", icon: swatch("#5fa83a", "#6b4a2b"), stackMax: 64, category: "nature", mass: 1.5, faces: { top: mockFace(["#4f8f2f", "#5fa83a", "#6fb848"], 1), bottom: mockFace(["#5e4128", "#6b4a2b", "#7a5533"], 2), side: mockFace(["#5e4128", "#6b4a2b", "#7a5533"], 3, "#5fa83a") } },
+			{ item: "core:dirt", description: "Dirt", icon: swatch("#7a5533", "#6b4a2b"), stackMax: 64, category: "nature", mass: 1.5, faces: mockCube(["#5e4128", "#6b4a2b", "#7a5533"], 4) },
+			{ item: "core:stone", description: "Stone", icon: swatch("#8a8a8a", "#6e6e6e"), stackMax: 64, category: "building", mass: 1.5, faces: mockCube(["#6e6e6e", "#7c7c7c", "#8a8a8a"], 5) },
+			{ item: "core:sand", description: "Sand", icon: swatch("#e3d39a", "#cdbb7e"), stackMax: 64, category: "nature", mass: 1.5, faces: mockCube(["#cdbb7e", "#d8c78c", "#e3d39a"], 6) },
+			{ item: "core:stone_bricks", description: "Stone Bricks", icon: swatch("#7a7a82", "#5d5d64"), stackMax: 64, category: "building", mass: 1.5, faces: mockCube(["#5d5d64", "#6b6b72", "#7a7a82"], 7) },
+			{ item: "workshop:stone_axe", description: "Stone axe", icon: mockTool(), stackMax: 99, category: "items", mass: null, faces: null },
 		],
         "inventory.move": ({ from, to, count }) => {
             const moving = take(from, count)
@@ -627,6 +634,51 @@ export function swatch(top: string, side: string) {
     g.fillStyle = "rgb(0 0 0 / 0.35)"
     g.fillRect(0, 15, 16, 1)
     g.fillRect(15, 0, 1, 16)
+    return c.toDataURL()
+}
+
+/** A 16 × 16 face of blotched colour, the same for a seed; `band` paints a strip along its top (grass on dirt). */
+export function mockFace(colors: readonly string[], seed: number, band?: string) {
+    const c = document.createElement("canvas")
+    c.width = c.height = 16
+    const g = c.getContext("2d")!
+    let h = seed * 2654435761
+    for (let y = 0; y < 16; y++)
+        for (let x = 0; x < 16; x++) {
+            h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0
+            g.fillStyle = band && y < 3 + (h % 2) ? band : colors[h % colors.length]!
+            g.fillRect(x, y, 1, 1)
+        }
+    return c.toDataURL()
+}
+
+function mockCube(colors: readonly string[], seed: number) {
+    const face = mockFace(colors, seed)
+    return { top: face, bottom: face, side: face }
+}
+
+/** A mod of your own, as the engine describes one (bridge LocalMod). */
+function mockLocal(name: string, description: string) {
+    return {
+        name: name, title: null, description: description, owner: "you", latestVersion: "0.1.0", stars: 0,
+        updatedAt: new Date().toISOString(), type: "mod" as const, categories: [], icon: null, banner: null, installs: null,
+        installed: true, official: false, readme: "", deprecated: null, versions: [], media: null, files: null,
+        dependencies: {}, path: `/home/you/.terraverse/profiles/@you/mods/${name}`,
+    }
+}
+
+/** A stone axe's silhouette, as a mod's art would draw it. */
+function mockTool() {
+    const rows = ["", "        SSs", "       Ssss", "      Sssss", "      Ssssss", "      Sssbbs", "       SSbb", "         bw", "        wW", "       wW", "      wW", "     wW", "    wW", "   wW", "  wW"]
+    const colors: Record<string, string> = { s: "#8f8b84", S: "#5d5a55", b: "#c9b27c", w: "#8a5d34", W: "#5e3b1f" }
+    const c = document.createElement("canvas")
+    c.width = c.height = 16
+    const g = c.getContext("2d")!
+    rows.forEach((row, y) => [...row].forEach((ch, x) => {
+        if (!colors[ch]) return
+        g.fillStyle = colors[ch]!
+        g.fillRect(x, y, 1, 1)
+    }))
     return c.toDataURL()
 }
 

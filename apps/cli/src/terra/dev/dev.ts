@@ -1,14 +1,13 @@
 import type { EngineT } from "../engine"
-import type { PlacesT } from "../places"
 import type { ProjectsT } from "../project"
-import { Scratch } from "./scratch"
+import type { ScratchT } from "./scratch"
 import { Session } from "./session"
 import type { DevEvent, DevOptions } from "./types"
 import { Watch } from "./watch"
 
 /** Dev — `terra dev`: a project run as it's edited, reloading as it's saved. */
-export function Dev(opts: { projects: ProjectsT; engine: EngineT; places: PlacesT }) {
-    const scratch = Scratch({ projects: opts.projects, places: opts.places })
+export function Dev(opts: { projects: ProjectsT; engine: EngineT; scratch: ScratchT }) {
+    const scratch = opts.scratch
 
     /** Run the nearest project at or above `from` until it's closed or Ctrl-C. */
     async function run(from: string, e: { options: DevOptions; report: (event: DevEvent) => void }): Promise<number> {

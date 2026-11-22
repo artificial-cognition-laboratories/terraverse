@@ -2,8 +2,8 @@
 import { computed } from "vue"
 import type { RegistryListing } from "../../bridge/index.ts"
 import { Button, Monogram, PageIntro } from "../../kit/index.ts"
-import { format } from "../community/format.ts"
-import RegistryPicker from "../community/RegistryPicker.vue"
+import { format } from "../library/format.ts"
+import RegistryPicker from "../library/RegistryPicker.vue"
 import type { WorldDraftHandle } from "./draft.ts"
 import { experience } from "./experiences.ts"
 
