@@ -1,3 +1,3 @@
-**Terra Launcher 0.1.5**
+**Terraverse launcher 0.1.5**
 
-- Small internal tidying; nothing changes in how it looks or works.
+- No changes you will notice: internal tidying for its linters.
