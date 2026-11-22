@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue"
 import { BridgeError } from "../bridge/index.ts"
 import { useBridge } from "../bridge/use.ts"
-import { Button, Choice, ListEmpty, ListGroup, ListItem, Notice, PageIntro, Segmented, Slider, Toggle, WorkbenchPanel } from "../kit/index.ts"
+import { Choice, ListEmpty, ListGroup, ListItem, Notice, PageIntro, Screen, SearchBox, Segmented, Slider, Toggle, WorkbenchColumns } from "../kit/index.ts"
 import { CATEGORIES, GRAPHICS_PRESETS, type Page, type Category, type Option, type SettingValue } from "./options.ts"
 import { BINDINGS } from "./bindings.ts"
 import Keybindings from "./Keybindings.vue"
@@ -11,7 +11,8 @@ import { applyWidgetSettings } from "../game/widgets/config.ts"
 
 const bridge = useBridge()
 const APPLIES = { rejoin: "Applies when you next enter a world.", restart: "Applies when you restart the game." }
-defineProps<{ closeLabel?: string }>()
+/** The settings as a full screen (kit/Screen): its categories down the rail, the way back at its foot. */
+withDefaults(defineProps<{ closeLabel?: string }>(), { closeLabel: "Back" })
 const emit = defineEmits<{ close: [] }>()
 const values = ref<Record<string, SettingValue> | null>(null)
 const categoryId = ref("graphics")
@@ -20,7 +21,7 @@ const query = defineModel<string>("query", { required: true })
 const selectedKey = ref<string | null>(null)
 const problem = ref<string | null>(null)
 const busy = ref(false)
-const panel = ref<{ $el: HTMLElement } | null>(null)
+const columns = ref<{ $el: HTMLElement } | null>(null)
 
 const category = computed(() => CATEGORIES.find((c) => c.id === categoryId.value)!)
 const page = computed(() => category.value.pages.find((p) => p.id === pageId.value) ?? category.value.pages[0]!)
@@ -79,7 +80,7 @@ const chosenPreset = computed({
 watch(categoryId, () => { pageId.value = category.value.pages[0]!.id }, { flush: "sync" })
 watch(pageId, () => {
     selectedKey.value = null
-    void nextTick(() => panel.value?.$el.querySelector<HTMLElement>(".workbench-content")?.scrollTo({ top: 0 }))
+    void nextTick(() => columns.value?.$el.querySelector<HTMLElement>(".workbench-content")?.scrollTo({ top: 0 }))
 }, { flush: "sync" })
 
 function numberValue(key: string) {
@@ -144,10 +145,10 @@ onMounted(async () => {
 </script>
 
 <template>
-    <WorkbenchPanel ref="panel" v-model:group="railChoice" v-model:query="query" class="settings"
-        title="Settings" :section="panelSection" :groups="RAIL" rail-label="Settings categories"
-        search-label="Search settings" search-placeholder="Search settings…">
-        <template #actions><Button v-if="closeLabel" size="sm" @click="emit('close')">{{ closeLabel }}</Button></template>
+    <Screen v-model:page="railChoice" class="settings" :pages="RAIL" label="Settings" :section="panelSection" fill
+        :back="closeLabel" @back="emit('close')">
+        <template #search><SearchBox v-model="query" label="Search settings" placeholder="Search settings…" /></template>
+        <WorkbenchColumns ref="columns" :list-width="280" :content-width="760">
         <template #list>
             <template v-if="query.trim()">
                 <template v-for="c in CATEGORIES" :key="c.id">
@@ -193,18 +194,19 @@ onMounted(async () => {
                 </div>
             </div>
         </template>
-    </WorkbenchPanel>
+        </WorkbenchColumns>
+    </Screen>
 </template>
 
 <style scoped>
-.option-note { margin: 0; color: var(--ink-dim); font-size: 11px; line-height: 1.5; }
 .options { display: grid; }
-.option { padding: 12px 10px; border: var(--b) solid transparent; border-bottom-color: var(--stone-3); }
-.option.on { border-color: var(--edge); background: var(--stone-1); box-shadow: var(--sunk); }
+/* a row of the site's settings: a hairline between, the one being changed lit faintly */
+.option { padding: 0.9rem 0.75rem; border: 1px solid transparent; border-bottom-color: var(--glass-edge); }
+.option.on { border-color: var(--glass-edge); background: rgb(99 163 233 / 0.05); }
 .option.unavailable { opacity: 0.45; }
 .option.unavailable :deep(.segmented) { pointer-events: none; }
-.option-label { margin: 0 0 8px; font: 12px var(--font-display); text-transform: uppercase; }
-.option-note { max-width: 68ch; padding-top: 6px; }
-.applies { color: var(--ink-faint); }
-.settings :deep(.workbench-content-inner) { padding-bottom: 48px; }
+.option-label { margin: 0 0 0.6rem; font: 400 0.75rem var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); }
+.option-note { max-width: 68ch; margin: 0; padding-top: 0.4rem; color: var(--ink-faint); font: 0.75rem/1.5 var(--font-sans); }
+.applies { margin-left: 0.35em; color: var(--ink-faint); font-style: italic; }
+.settings :deep(.workbench-content-inner) { padding-bottom: 3rem; }
 </style>

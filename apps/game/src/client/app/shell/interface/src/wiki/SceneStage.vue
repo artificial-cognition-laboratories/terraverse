@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import type { SandboxSpec, SceneRect } from "../bridge/index.ts"
+import { sceneRect } from "./sceneRect.ts"
 import { useBridge } from "../bridge/use.ts"
 import { useStore } from "../game/store.ts"
 import PixelIcon from "../game/PixelIcon.vue"
@@ -23,10 +24,7 @@ const speeds = SPEEDS.map((s) => ({ value: s, label: `×${s}` }))
 const host = ref<HTMLElement | null>(null)
 
 const fail = (what: string) => (err: unknown) => console.error(what, err)
-const rect = (): SceneRect | null => {
-    const r = host.value?.getBoundingClientRect()
-    return r && r.width > 0 ? { x: r.left, y: r.top, width: r.width, height: r.height } : null
-}
+const rect = (): SceneRect | null => sceneRect(host.value)
 // what the facts card covers: the blocks are framed in the rest
 const factsCard = ref<HTMLElement | null>(null)
 const right = () => factsCard.value ? factsCard.value.getBoundingClientRect().width + 24 : 0
@@ -105,9 +103,9 @@ const ICONS = {
 <style scoped>
 /* nothing painted but the floats: the page's empty pixels are the scene's, and its mouse */
 .scene { position: relative; width: 100%; height: 100%; min-height: 0; }
-.scene.empty { background: var(--stone-0); } /* no scene drawn: nothing behind the panel to show through */
+.scene.empty { background: var(--wash); } /* no scene drawn: nothing behind the panel to show through */
 .top, .reading, .player { position: absolute; }
-.float { position: absolute; border: var(--b) solid var(--edge); background: rgb(21 24 27 / 0.92); box-shadow: var(--raised); }
+.float { position: absolute; border: 1px solid var(--glass-edge); background: var(--glass-strong); backdrop-filter: blur(8px); }
 .top { top: 14px; left: 16px; max-width: calc(100% - 340px); }
 .facts { top: 12px; right: 12px; max-height: calc(100% - 72px); width: 280px; display: flex; flex-direction: column; }
 .facts.closed { width: auto; }
@@ -126,10 +124,10 @@ const ICONS = {
 .gap { flex: 1; }
 .speeds { flex: none; width: 200px; }
 .speeds :deep(button) { padding: 0 2px; font-size: 10px; }
-.key { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; border: var(--b) solid var(--edge); background: var(--stone-3); box-shadow: var(--raised); cursor: pointer; }
-.key:hover { background: var(--stone-4); }
-.key.main { background: var(--accent-lo); }
-.key.on { box-shadow: var(--sunk); background: var(--stone-1); }
+.key { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); cursor: pointer; }
+.key:hover { border-color: var(--edge-lit); }
+.key.main { border-color: var(--edge-lit-hi); background: var(--glass-lit); }
+.key.on { border-color: var(--edge-lit-hi); background: var(--glass-lit); }
 .glyph { width: 18px; height: 18px; }
 .time { min-width: 62px; padding: 0 6px; font: 13px var(--font-display); color: var(--ink); }
 .problem { left: 12px; top: 60px; margin: 0; padding: 6px 10px; color: var(--danger); font-size: 12px; }

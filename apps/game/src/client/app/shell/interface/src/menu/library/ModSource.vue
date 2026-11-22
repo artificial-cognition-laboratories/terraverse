@@ -1,39 +1,50 @@
 <script setup lang="ts">
-import { watch } from "vue"
+import { computed, watch } from "vue"
 import type { RegistryMod } from "../../bridge/index.ts"
-import { FileTree, Markdown, Notice, Spinner } from "../../kit/index.ts"
+import { Notice, Spinner } from "../../kit/index.ts"
+import { format } from "./format.ts"
 import { useRegistry } from "./registry.ts"
 import { Request } from "./request.ts"
 
-/** The latest version's files: the tree at the left, the chosen file at the right, as text. */
-const props = defineProps<{ mod: RegistryMod }>()
-const file = defineModel<string | null>({ required: true })
+/**
+ * One file of the latest version, as the website's (registry/detail/source.vue): a window, its path
+ * and size along the bar, its text under it. The file is picked in the side card's tree.
+ */
+const props = defineProps<{ mod: RegistryMod; file: string }>()
 const registry = useRegistry()
 const text = Request<string, string>((path) => registry.file(props.mod.name, path))
 const IMAGE = /\.(png|jpe?g|gif|webp)$/i
-watch(file, (path) => { if (path && !IMAGE.test(path)) text.run(path) }, { immediate: true })
-watch(() => props.mod.files, (files) => { if (!file.value && files?.length) file.value = (files.find((f) => /readme/i.test(f.path)) ?? files[0])?.path ?? null }, { immediate: true })
+const crumbs = computed(() => props.file.split("/"))
+const size = computed(() => props.mod.files?.find((f) => f.path === props.file)?.size ?? null)
+watch(() => props.file, (path) => { if (!IMAGE.test(path)) void text.run(path) }, { immediate: true })
 </script>
 
 <template>
-    <div class="source">
-        <FileTree v-model="file" :files="mod.files ?? []" :root="mod.name" class="tree" />
-        <div class="view">
-            <div v-if="file" class="path">{{ file }}</div>
-            <p v-if="file && IMAGE.test(file)" class="dim">Images show in the README.</p>
-            <Notice v-else-if="text.problem.value" tone="danger">{{ text.problem.value }}</Notice>
-            <div v-else-if="text.busy.value" class="dim"><Spinner /></div>
-            <Markdown v-else-if="file && /\.md$/i.test(file) && text.data.value !== null" :source="text.data.value" />
-            <pre v-else-if="text.data.value !== null"><code>{{ text.data.value }}</code></pre>
-        </div>
-    </div>
+    <figure class="source">
+        <figcaption>
+            <span class="dots" aria-hidden="true"><i /><i /><i /></span>
+            <span class="path">
+                <template v-for="(part, i) in crumbs" :key="i"><span v-if="i" class="slash">/</span><span :class="{ last: i === crumbs.length - 1 }">{{ part }}</span></template>
+            </span>
+            <span v-if="size !== null" class="size">{{ format.size(size) }}</span>
+        </figcaption>
+        <p v-if="IMAGE.test(file)" class="binary">An image: it shows in the README, and in the game.</p>
+        <Notice v-else-if="text.problem.value" tone="danger">{{ text.problem.value }}</Notice>
+        <div v-else-if="text.busy.value" class="binary"><Spinner /></div>
+        <pre v-else-if="text.data.value !== null"><code>{{ text.data.value }}</code></pre>
+    </figure>
 </template>
 
 <style scoped>
-.source { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 18px; align-items: start; }
-.tree { padding: 8px 0; border: var(--b) solid var(--edge); background: var(--stone-1); }
-.view { display: grid; gap: 10px; min-width: 0; }
-.path { color: var(--ink-faint); font-size: 11px; }
-pre { margin: 0; padding: 14px; overflow-x: auto; border: var(--b) solid var(--edge); background: var(--stone-0); box-shadow: var(--sunk); color: var(--ink); font-size: 11px; line-height: 1.55; user-select: text; tab-size: 4; }
-.dim { color: var(--ink-faint); font-size: 12px; }
+.source { display: flex; flex-direction: column; min-width: 0; min-height: 24rem; margin: 0; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); }
+figcaption { display: flex; align-items: center; gap: 1rem; min-height: 2.8rem; padding: 0 1rem; white-space: nowrap; overflow: hidden; }
+.dots { display: flex; flex: none; gap: 0.4rem; }
+.dots i { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--night-4); }
+.path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-faint); font: 0.74rem var(--font); }
+.slash { margin: 0 0.3rem; }
+.last { color: var(--ink); }
+.size { color: var(--ink-faint); font: 0.7rem var(--font); }
+pre { margin: 0; padding: 0 1.25rem 1.1rem; overflow-x: auto; color: var(--ink); font: 0.8rem/1.65 var(--font); tab-size: 4; user-select: text; }
+pre code { font: inherit; }
+.binary { margin: 0; padding: 3rem 1.5rem; color: var(--ink-faint); font-size: 0.85rem; text-align: center; }
 </style>

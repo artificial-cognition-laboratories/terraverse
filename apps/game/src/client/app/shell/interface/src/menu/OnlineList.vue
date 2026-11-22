@@ -52,18 +52,20 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.list-group { margin: 8px 0 14px; }
-.list-group h3 { margin: 0 0 5px; padding: 0 10px; color: var(--ink-faint); font: 10px var(--font-display); text-transform: uppercase; letter-spacing: .07em; }
-.entry { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 9px 10px 9px 9px; border: 0; border-left: 3px solid transparent; background: none; color: var(--ink); text-align: left; cursor: pointer; }
-.entry:hover { background: var(--stone-2); }
-.entry.on { border-left-color: var(--accent); background: var(--stone-2); }
+/* as the Play list's own rows (play/WorldList.vue) */
+.list-group { margin: 0.75rem 0 1rem; }
+.list-group h3 { margin: 0 0 0.4rem; padding: 0 0.65rem; color: var(--ink-faint); font: 400 0.62rem var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; }
+.entry { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 0.75rem; width: 100%; min-width: 0; padding: 0.6rem 0.65rem; border: 0; background: none; box-shadow: inset 2px 0 0 transparent; color: var(--ink); text-align: left; transition: background 0.1s; }
+.entry:hover { background: rgb(231 237 244 / 0.04); }
+.entry.on { background: rgb(99 163 233 / 0.07); box-shadow: inset 2px 0 0 var(--accent-hi); }
+.entry.on strong { color: var(--accent-hi); }
 .entry.old { opacity: .55; }
-.copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 400; }
-.copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-faint); font-size: 10px; }
-.tags { display: flex; gap: 8px; color: var(--ink-dim); font: 9px var(--font-display); text-transform: uppercase; white-space: nowrap; overflow: hidden; }
-.players { align-self: start; color: #6fcf8a; font: 10px var(--font-display); white-space: nowrap; }
+.copy { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.copy strong { overflow: hidden; font: 400 0.75rem var(--font-display); text-transform: uppercase; letter-spacing: 0.04em; text-overflow: ellipsis; white-space: nowrap; }
+.copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-faint); font-size: 0.68rem; }
+.tags { display: flex; gap: 0.5rem; color: var(--ink-dim); font: 0.58rem var(--font-display); text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+.players { align-self: start; color: var(--alive); font: 0.62rem var(--font-display); white-space: nowrap; }
 .players.full { color: var(--ink-faint); }
-.entry.old .players { color: #e0b33d; }
-.list-message { display: grid; gap: 10px; justify-items: start; padding: 10px; color: var(--ink-dim); font-size: 11px; line-height: 1.5; }
+.entry.old .players { color: var(--warn); }
+.list-message { display: grid; gap: 0.6rem; justify-items: start; padding: 1rem 0.65rem; color: var(--ink-dim); font: 0.82rem/1.5 var(--font-sans); }
 </style>

@@ -1,31 +1,42 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue"
+import { computed, onMounted } from "vue"
 import type { PublicServer, RegistryFront, RegistrySearch, ServerDirectory } from "../../bridge/index.ts"
 import { useBridge } from "../../bridge/use.ts"
-import { CategoryTile, ListEmpty, Notice, SearchBox, Shelf, Spinner } from "../../kit/index.ts"
+import { CategoryTile, Copier, ListEmpty, Notice, Shelf, Spinner } from "../../kit/index.ts"
 import Featured from "./Featured.vue"
-import { CATEGORY_ICONS } from "./icons.ts"
+import { CATEGORIES, CATEGORY_ICONS } from "./icons.ts"
+import LiveServers from "./LiveServers.vue"
 import ModCard from "./ModCard.vue"
-import { Request } from "./request.ts"
-import ServerCard from "./ServerCard.vue"
 import { useRegistry } from "./registry.ts"
+import { Request } from "./request.ts"
 
-/** The front page: search, featured, categories, then shelves of mods and live servers. */
+/** The front page, as the website's registry (pages/registry/index.vue), less its claim: featured, categories, shelves of mods, live servers. */
 const emit = defineEmits<{ open: [name: string]; browse: [search: Partial<RegistrySearch>]; servers: [server: PublicServer | null] }>()
 const bridge = useBridge()
 const registry = useRegistry()
 const front = Request<void, RegistryFront>(() => registry.front())
-const servers = Request<void, ServerDirectory>(() => bridge.send("servers.list", {}))
-const query = ref("")
+const directory = Request<void, ServerDirectory>(() => bridge.send("servers.list", {}))
 const icon = (id: string) => CATEGORY_ICONS[id] ?? CATEGORY_ICONS.other
-onMounted(() => { front.run(); servers.run() })
+const labelOf = (id: string | undefined) => front.data.value?.categories.find((c) => c.id === id)?.label ?? null
+// the busiest first, as many as the website's table shows
+const live = computed(() => directory.data.value?.status === "ready"
+    ? [...directory.data.value.servers].sort((a, b) => b.players - a.players).slice(0, 5) : [])
+const liveEmpty = computed(() => directory.problem.value ? `The server list can't be reached: ${directory.problem.value}`
+    : !directory.data.value ? "Asking for the server list…"
+    : directory.data.value.status === "unavailable" ? "The server list can't be reached right now." : "No public servers yet.")
+// the registry's own categories once it keeps them; till then the website's, shown but shut
+const categories = computed(() => {
+    const own = front.data.value?.categories ?? []
+    return own.length ? own.map((c) => ({ ...c, open: true }))
+        : CATEGORIES.map((c) => ({ ...c, count: null, open: false }))
+})
+const publish = Copier()
+const STATE = { idle: "copy", copied: "copied", failed: "can't copy" } as const
+onMounted(() => { front.run(); directory.run() })
 </script>
 
 <template>
     <div class="discover">
-        <form class="search" @submit.prevent="emit('browse', { query: query.trim() })">
-            <SearchBox v-model="query" autofocus label="Search mods and texture packs" placeholder="Search mods, texture packs, authors…" />
-        </form>
         <Notice v-if="front.problem.value" tone="danger">The registry couldn't be reached: {{ front.problem.value }}</Notice>
         <div v-else-if="!front.data.value" class="loading"><Spinner /> Reading the registry…</div>
         <template v-else>
@@ -33,33 +44,41 @@ onMounted(() => { front.run(); servers.run() })
             <ListEmpty v-if="!front.data.value.featured.length && !front.data.value.shelves.length" title="Nothing on the registry yet">
                 <p>Mods published with <code>terra publish</code> appear here.</p>
             </ListEmpty>
-            <section v-if="front.data.value.categories.length" class="categories">
-                <h3>Categories</h3>
-                <div class="grid">
-                    <CategoryTile v-for="c in front.data.value.categories" :key="c.id" :label="c.label" :count="c.count"
-                        :rows="icon(c.id).rows" :palette="icon(c.id).palette" @open="emit('browse', { categories: [c.id] })" />
-                </div>
-            </section>
-            <Shelf v-for="shelf in front.data.value.shelves" :key="shelf.id" :title="shelf.title" more="See all"
-                @more="emit('browse', shelf.search)">
-                <ModCard v-for="l in shelf.listings" :key="l.name" :listing="l" @open="emit('open', l.name)" />
+            <Shelf title="Categories" class="categories">
+                <CategoryTile v-for="c in categories" :key="c.id" :label="c.label" :count="c.count" :disabled="!c.open"
+                    :rows="icon(c.id).rows" :palette="icon(c.id).palette" @open="emit('browse', { categories: [c.id] })" />
+            </Shelf>
+            <p v-if="!front.data.value.categories.length" class="unwired">The registry doesn't sort by category yet.</p>
+            <Shelf v-for="shelf in front.data.value.shelves" :key="shelf.id" :title="shelf.title" more="See all" @more="emit('browse', shelf.search)">
+                <ModCard v-for="l in shelf.listings.slice(0, 4)" :key="l.name" :listing="l" :tag="labelOf(l.categories[0])" @open="emit('open', l.name)" />
             </Shelf>
         </template>
-        <Shelf title="Live servers" more="All servers" :min="240" @more="emit('servers', null)">
-            <template v-if="servers.data.value?.status === 'ready'">
-                <ServerCard v-for="s in servers.data.value.servers.filter((s) => s.players > 0)" :key="s.id" :server="s" @open="emit('servers', s)" />
-            </template>
-            <ListEmpty v-else-if="servers.problem.value || servers.data.value">The server list isn't available right now.</ListEmpty>
+        <Shelf title="Live servers" more="All servers" :cols="null" @more="emit('servers', null)">
+            <LiveServers :servers="live" :empty="liveEmpty" @open="(s) => emit('servers', s)" />
         </Shelf>
+        <section class="publish">
+            <div>
+                <h2>Made something?</h2>
+                <p>Publish it from the folder it's in. It's typed, versioned and one install away for everyone.</p>
+            </div>
+            <button type="button" class="command" @click="publish.copy('terra publish')">
+                <span class="prompt">$</span> terra publish <span class="state">{{ STATE[publish.state.value] }}</span>
+            </button>
+        </section>
     </div>
 </template>
 
 <style scoped>
-.discover { display: grid; align-content: start; gap: 26px; max-width: 904px; margin: 0 auto; padding: 22px 26px 40px; }
-.search :deep(.search-box) { height: 40px; }
-.search :deep(input) { font-size: 12px; }
-.loading { display: flex; gap: 10px; align-items: center; color: var(--ink-dim); font-size: 12px; }
-.categories { display: grid; gap: 10px; }
-h3 { margin: 0; padding-bottom: 6px; border-bottom: 1px solid var(--stone-3); font: 12px var(--font-display); text-transform: uppercase; }
-.categories .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.loading { display: flex; gap: 10px; align-items: center; color: var(--ink-dim); font-size: 0.8rem; }
+.categories :deep(.grid) { gap: 0.75rem; }
+.unwired { margin: 0.75rem 0 0; color: var(--ink-faint); font-size: 0.72rem; }
+/* the website's foot of the registry (pages/registry/index.vue: .publish) */
+.publish { display: flex; align-items: center; gap: 1.5rem; margin-top: 4rem; padding: 1.75rem 2rem; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); }
+.publish > div { flex: 1; min-width: 0; }
+.publish h2 { margin: 0 0 0.4rem; font: 700 1.2rem var(--font-sans); color: var(--ink); }
+.publish p { margin: 0; font: 0.92rem/1.5 var(--font-sans); color: var(--ink-dim); }
+.command { padding: 0.7rem 1rem; border: 1px solid var(--glass-edge); background: rgb(4 7 11 / 0.6); color: var(--ink); font: 0.85rem var(--font); }
+.command:hover { border-color: var(--edge-lit); }
+.command .prompt { color: var(--accent-hi); }
+.command .state { margin-left: 0.8rem; color: var(--ink-faint); }
 </style>

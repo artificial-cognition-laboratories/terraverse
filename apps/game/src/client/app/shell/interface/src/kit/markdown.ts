@@ -9,6 +9,7 @@ export type Block =
     | { kind: "code"; lang: string; text: string }
     | { kind: "quote"; spans: Span[] }
     | { kind: "image"; alt: string; src: string }
+    | { kind: "table"; head: Span[][]; rows: Span[][][] }
     | { kind: "rule" }
 
 /** Blocks from markdown; `resolve` turns an image's path into where it's served. */
@@ -42,6 +43,11 @@ export function parseMarkdown(source: string, resolve: (src: string) => string):
         } else if (image) {
             at++
             blocks.push({ kind: "image", alt: image[1] ?? "", src: resolve(image[2] ?? "") })
+        } else if (ROW.test(line) && DIVIDER.test(lines[at + 1] ?? "")) {
+            const head = cells(line).map((c) => inline(c, resolve))
+            at += 2
+            const rows = take((l) => ROW.test(l)).map((l) => cells(l).map((c) => inline(c, resolve)))
+            blocks.push({ kind: "table", head: head, rows: rows })
         } else if (line.startsWith(">")) {
             const body = take((l) => l.startsWith(">")).map((l) => l.replace(/^>\s?/, ""))
             blocks.push({ kind: "quote", spans: inline(body.join(" "), resolve) })
@@ -52,7 +58,7 @@ export function parseMarkdown(source: string, resolve: (src: string) => string):
         } else {
             // the first line always belongs (so "#tag" can't stall the loop), then until a block starts
             at++
-            const body = [line, ...take((l) => l.trim() !== "" && !/^(#|```|>|\s*([-*+]|\d+[.)])\s)/.test(l))]
+            const body = [line, ...take((l) => l.trim() !== "" && !/^(#|```|>|\||\s*([-*+]|\d+[.)])\s)/.test(l))]
             blocks.push({ kind: "paragraph", spans: inline(body.map((l) => l.trim()).join(" "), resolve) })
         }
     }
@@ -60,6 +66,14 @@ export function parseMarkdown(source: string, resolve: (src: string) => string):
 }
 
 const RULE = /^(-{3,}|\*{3,}|_{3,})\s*$/
+// a table: rows of pipes, the head's divider of dashes (and colons) under its first
+const ROW = /^\s*\|.*\|\s*$/
+const DIVIDER = /^\s*\|(\s*:?-+:?\s*\|)+\s*$/
+
+/** A table row's cells, trimmed, without the outer pipes. */
+function cells(line: string): string[] {
+    return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim())
+}
 const ITEM = /^\s*([-*+]|\d+[.)])\s+/
 const INLINE = /`([^`]+)`|!\[([^\]]*)\]\(([^)\s]+)[^)]*\)|\[([^\]]+)\]\(([^)\s]+)[^)]*\)|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*]+)\*|_([^_]+)_/g
 

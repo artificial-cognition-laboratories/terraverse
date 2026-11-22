@@ -23,7 +23,7 @@ namespace shell {
 // The lean (screen halves): the camera orbits the planet, which holds its
 // place on screen and turns in it; the star and sky, at infinity, pass behind
 // round its axis; less over and under it, which is the more disorienting
-constexpr float LEAN_ACROSS = 0.035f * 0.75f, LEAN_UP = 0.035f * 0.5f;
+constexpr float LEAN_ACROSS = 0.035f * 0.75f * 0.25f, LEAN_UP = 0.035f * 0.5f * 0.25f; // a quarter of what it was: felt, not seen
 constexpr double LEAN_EASE = 1.2;          // seconds to most of the way: slow, never a snap
 constexpr double TURN_SECONDS = 8 * 60;    // one of the planet's days, on the menu
 constexpr double WANDER = 0.35;            // of the lean, with the mouse still
@@ -789,7 +789,15 @@ void Planetarium::draw(video::IVideoDriver *driver)
 		const double w = std::max(1, view.getWidth()), h = std::max(1, view.getHeight());
 		m_current->aim(v2f((f32)((m_insets.left - m_insets.right) * k / w), (f32)(-(m_insets.top - m_insets.bottom) * k / h)));
 	}
-	m_current->draw(driver, view);
+	if (m_scene.shot == Shot::Home)
+		m_pixels.draw(driver, view, [&](core::recti whole, float cell) {
+			m_current->pixelArt(cell);
+			m_current->draw(driver, whole);
+		});
+	else {
+		m_current->pixelArt(0);
+		m_current->draw(driver, view);
+	}
 	m_retiring.reset();
 	tellHover(*m_current);
 	if (const std::optional<std::optional<size_t>> chosen = m_current->takeChosen()) {

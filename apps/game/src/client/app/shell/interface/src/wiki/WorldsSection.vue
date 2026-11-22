@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue"
 import type { ReliefState, SceneRect } from "../bridge/index.ts"
+import { sceneRect } from "./sceneRect.ts"
 import { useBridge } from "../bridge/use.ts"
 import PixelIcon from "../game/PixelIcon.vue"
 import { ListEmpty, ListGroup, ListItem, Segmented, WorkbenchColumns } from "../kit/index.ts"
@@ -28,10 +29,7 @@ const groups = computed(() => {
 })
 const chosen = computed(() => WORLD_ENTRIES.find((e) => e.id === wiki.state.chosen.worlds) ?? WORLD_ENTRIES[0]!)
 const fail = (err: unknown) => { problem.value = err instanceof Error ? err.message : String(err) }
-const rect = (): SceneRect | null => {
-    const r = host.value?.getBoundingClientRect()
-    return r && r.width > 0 ? { x: r.left, y: r.top, width: r.width, height: r.height } : null
-}
+const rect = (): SceneRect | null => sceneRect(host.value)
 const right = () => card.value ? card.value.getBoundingClientRect().width + 24 : 0
 const set = () => bridge.send("relief.set", { lens: chosen.value.lens, speed: speed.value, running: running.value })
 async function show() {
@@ -98,7 +96,7 @@ const ICONS = {
 <style scoped>
 /* nothing painted but the floats: the page's empty pixels are the scene's, and its mouse */
 .scene { position: relative; width: 100%; height: 100%; min-height: 0; }
-.facts { position: absolute; top: 12px; right: 12px; width: 280px; max-height: calc(100% - 72px); overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 14px; border: var(--b) solid var(--edge); background: rgb(21 24 27 / 0.92); box-shadow: var(--raised); }
+.facts { position: absolute; top: 12px; right: 12px; width: 280px; max-height: calc(100% - 72px); overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 14px; border: 1px solid var(--glass-edge); background: var(--glass-strong); backdrop-filter: blur(8px); }
 .facts h4 { margin: 0; font: 400 16px var(--font-display); text-transform: uppercase; }
 .facts h5 { margin: 8px 0 0; font: 11px var(--font-display); text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); }
 .facts p { margin: 0; }
@@ -106,10 +104,10 @@ const ICONS = {
 .gap { flex: 1; }
 .speeds { flex: none; width: 200px; }
 .speeds :deep(button) { padding: 0 2px; font-size: 10px; }
-.key { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; border: var(--b) solid var(--edge); background: var(--stone-3); box-shadow: var(--raised); cursor: pointer; }
-.key:hover { background: var(--stone-4); }
-.key.main { background: var(--accent-lo); }
+.key { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); cursor: pointer; }
+.key:hover { border-color: var(--edge-lit); }
+.key.main { border-color: var(--edge-lit-hi); background: var(--glass-lit); }
 .glyph { width: 18px; height: 18px; }
 .time { padding: 0 6px; font: 13px var(--font-display); color: var(--ink); }
-.problem { position: absolute; left: 12px; top: 12px; margin: 0; padding: 6px 10px; color: var(--danger); font-size: 12px; background: rgb(21 24 27 / 0.92); }
+.problem { position: absolute; left: 12px; top: 12px; margin: 0; padding: 6px 10px; color: var(--danger); font-size: 12px; background: var(--glass-strong); }
 </style>

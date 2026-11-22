@@ -17,8 +17,21 @@ tier=all
 if [[ "${1:-}" == --hot ]]; then tier=hot; shift; fi
 
 if [[ $# -eq 0 ]]; then
-	bash "$run/library.sh" "$tier"
-	exec bash "$run/engine.sh"
+	# Built once (the default target has the libraries' tests too), then run
+	# side by side: the libraries' slow cases are a few long tests whose ends
+	# leave cores idle, which the engine's many short modules fill. Neither
+	# holds a time budget (check:budgets does), so sharing the cores is safe.
+	bash "$root/apps/game/scripts/build.sh" -j"$cpus" > /dev/null
+	log="$(mktemp)"
+	trap 'rm -f "$log"' EXIT
+	bash "$run/library.sh" "$tier" > "$log" 2>&1 & libraries=$!
+	engine=0; BUILT=1 bash "$run/engine.sh" || engine=$?
+	library=0; wait "$libraries" || library=$?
+	echo "== libraries ($tier)"
+	cat "$log"
+	[[ $library -eq 0 ]] || echo "test: the libraries' tests failed (above)"
+	[[ $engine -eq 0 ]] || echo "test: the engine's modules failed (above the libraries')"
+	exit $(( library != 0 || engine != 0 ))
 fi
 
 modules=() names=()

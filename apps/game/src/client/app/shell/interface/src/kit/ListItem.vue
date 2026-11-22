@@ -19,15 +19,16 @@ defineProps<{ on?: boolean; faint?: boolean }>()
 </template>
 
 <style scoped>
-.list-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 8px; width: 100%; margin-bottom: 3px; padding: 6px 8px;
-    border: var(--b) solid transparent; background: none; color: var(--ink-dim); font-size: 12px; text-align: left; }
-.list-item.lead { grid-template-columns: 52px minmax(0, 1fr) auto; }
-.list-item:hover { color: var(--ink); background: var(--stone-1); }
-.list-item.on { border-color: var(--edge); background: var(--accent-lo); color: var(--ink); box-shadow: var(--sunk); }
+/* the website's side nav (shared/side/nav.vue): the chosen one lit along its left edge */
+.list-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 0.5rem; width: 100%; margin-bottom: 0.15rem; padding: 0.5rem 0.65rem;
+    border: 0; background: none; box-shadow: inset 2px 0 0 transparent; color: var(--ink-dim); font-size: 0.78rem; text-align: left; }
+.list-item.lead { grid-template-columns: 3.2rem minmax(0, 1fr) auto; }
+.list-item:hover { color: var(--ink); }
+.list-item.on { color: var(--ink); background: rgb(99 163 233 / 0.07); box-shadow: inset 2px 0 0 var(--accent-hi); }
 .list-item.faint { opacity: 0.45; }
-.lead { font: 12px var(--font-display); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lead { overflow: hidden; color: var(--ink); font: 0.72rem var(--font-display); text-overflow: ellipsis; white-space: nowrap; }
 .text { display: flex; flex-direction: column; min-width: 0; }
 .name, small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-small { color: var(--ink-faint); font-size: 10px; }
-.trail { color: var(--accent-hi); font: 9px var(--font-display); text-transform: uppercase; }
+small { color: var(--ink-faint); font-size: 0.65rem; }
+.trail { color: var(--accent-hi); font: 0.55rem var(--font-display); text-transform: uppercase; }
 </style>

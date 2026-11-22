@@ -19,6 +19,6 @@ const letters = computed(() => {
 </template>
 
 <style scoped>
-.monogram { display: grid; place-items: center; flex: none; width: var(--s); height: var(--s); overflow: hidden; border: var(--b) solid var(--accent-lo); background: var(--stone-0); color: var(--accent-hi); font: calc(var(--s) * 0.32) var(--font-display); }
+.monogram { display: grid; place-items: center; flex: none; width: var(--s); height: var(--s); overflow: hidden; border: 1px solid var(--glass-edge); background: rgb(4 7 11 / 0.85); color: var(--accent-hi); font: calc(var(--s) * 0.27) var(--font-display); }
 img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
 </style>

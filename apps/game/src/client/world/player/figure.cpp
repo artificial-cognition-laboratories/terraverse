@@ -14,7 +14,8 @@ namespace {
 
 constexpr float S = physics::FIGURE_SCALE;
 
-const video::SColor SKIN(255, 216, 160, 122), SHIRT(255, 0, 148, 210), TROUSERS(255, 58, 63, 85);
+video::SColor dyed(physics::BoneColour c) { const physics::Dye d = physics::dye(c); return video::SColor(255, d.r, d.g, d.b); }
+const video::SColor SKIN = dyed(physics::BoneColour::SKIN), SHIRT = dyed(physics::BoneColour::SHIRT), TROUSERS = dyed(physics::BoneColour::TROUSERS);
 
 // A bone hanging `length` from its joint, wide as given
 v3f hangingSize(float length, float wide) { return v3f(wide, length + physics::BONE_OVERLAP, wide); }

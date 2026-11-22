@@ -13,6 +13,9 @@
 **Tiers.** `bun check` before a commit (hot library tests, every engine module, the UI's
 types); `bun check --changed` the same for only what you changed; `bun run test` (from
 `apps/game`) the full tier, which the release gate runs; `bun test:slow` the slow cases alone.
+The full tier builds once, then runs the libraries and the engine's modules side by side (the
+libraries' report prints after the engine's). It's CPU-bound: about half its core time is
+`terragen.soil.slow` reading an Earth-sized planet.
 
 **What a change runs.** `run/select` reads the last build's depfiles: a changed file runs every
 suite compiled against its unit (its library, or its folder). Data, build files and the runners

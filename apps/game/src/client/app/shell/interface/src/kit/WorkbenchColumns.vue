@@ -41,28 +41,30 @@ const searchQuery = computed({
 </template>
 
 <style scoped>
+/* the library's look (kit/Screen, SideCard): the night washed over what's behind, hairline edges */
 .workbench-columns { display: grid; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .workbench-list, .workbench-content, .workbench-facts { min-width: 0; min-height: 0; }
-.workbench-list { display: flex; flex-direction: column; overflow: hidden; border-right: var(--b) solid var(--edge); background: var(--stone-1); }
-.workbench-list-tools { flex: none; padding: 10px; border-bottom: 1px solid var(--stone-4); background: var(--stone-2); }
+.workbench-list { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--glass-edge); background: var(--side); }
+.workbench-list-tools { flex: none; padding: 0.75rem; border-bottom: 1px solid var(--glass-edge); }
 .workbench-list-tools :deep(.search-box) { width: 100%; }
-.workbench-list-scroll { min-height: 0; padding: 14px 10px 18px; overflow-y: auto; }
+.workbench-list-scroll { min-height: 0; padding: 0.75rem 0.5rem 1.25rem; overflow-y: auto; }
 .workbench-content, .workbench-facts { overflow-y: auto; }
-.workbench-content, .workbench-facts { display: flex; flex-direction: column; gap: 12px; padding: 18px 22px; background: var(--stone-0); }
-.workbench-content-inner { display: flex; flex-direction: column; gap: 12px; width: 100%; min-width: 0; min-height: 100%; margin-inline: auto; }
+.workbench-content, .workbench-facts { display: flex; flex-direction: column; gap: 0.75rem; padding: 1.25rem 1.5rem; background: var(--wash); }
+.workbench-content-inner { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; min-width: 0; min-height: 100%; margin-inline: auto; }
 .workbench-content.open { padding: 0; background: none; overflow: hidden; }
 .workbench-content.open > .workbench-content-inner { height: 100%; }
-.workbench-facts { border-left: var(--b) solid var(--edge); }
-.workbench-facts :deep(h4) { margin: 0; font: 400 18px var(--font-display); text-transform: uppercase; overflow-wrap: anywhere; }
-.workbench-facts :deep(h5) { margin: 6px 0 0; font: 11px var(--font-display); text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); }
-.workbench-columns :deep(.dim) { color: var(--ink-faint); font-size: 11px; margin: 0; }
-.workbench-columns :deep(.copy) { margin: 0; color: var(--ink-dim); font-size: 12px; line-height: 1.5; }
-.workbench-facts :deep(dl) { display: grid; gap: 4px; margin: 0; }
-.workbench-facts :deep(dl div) { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; }
-.workbench-facts :deep(dt) { color: var(--ink-dim); }
-.workbench-facts :deep(dd) { margin: 0; font-family: var(--font-display); font-size: 11px; text-align: right; }
-.workbench-columns :deep(.link) { border: 0; background: none; padding: 0; text-align: left; color: var(--accent-hi); font-size: 12px; cursor: pointer; }
-.workbench-facts :deep(.links) { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.workbench-facts { border-left: 1px solid var(--glass-edge); }
+.workbench-facts :deep(h4) { margin: 0; font: 400 1.1rem var(--font-display); text-transform: uppercase; overflow-wrap: anywhere; }
+.workbench-facts :deep(h5) { margin: 0.4rem 0 0; color: var(--ink-faint); font: 0.62rem var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; }
+.workbench-columns :deep(.dim) { margin: 0; color: var(--ink-faint); font-size: 0.72rem; }
+.workbench-columns :deep(.copy) { margin: 0; color: var(--ink-dim); font: 0.85rem/1.55 var(--font-sans); }
+.workbench-facts :deep(dl) { display: grid; gap: 0.45rem; margin: 0; }
+.workbench-facts :deep(dl div) { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.75rem; }
+.workbench-facts :deep(dt) { color: var(--ink-faint); }
+.workbench-facts :deep(dd) { margin: 0; color: var(--ink-dim); text-align: right; }
+.workbench-columns :deep(.link) { padding: 0; border: 0; background: none; color: var(--accent-hi); font-size: 0.78rem; text-align: left; cursor: pointer; }
+.workbench-columns :deep(.link:hover) { color: var(--ink); }
+.workbench-facts :deep(.links) { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; }
 @media (max-width: 900px) {
     .workbench-columns { grid-template-columns: 200px minmax(0, 1fr) !important; }
     .workbench-facts { display: none; }

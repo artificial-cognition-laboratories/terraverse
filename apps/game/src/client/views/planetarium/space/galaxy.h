@@ -32,8 +32,16 @@ class Galaxy
 public:
 	Galaxy(IShaderSource *ssrc, scene::IMeshBuffer *sphere);
 	~Galaxy();
+	struct Frame
+	{
+		float aspect, fov; // the view's: width / height, radians (vertical)
+		u32 height;        // pixels
+		float level;       // how much of the sky shows at all (the page's)
+		float open;        // how adjusted to the dark the eye is (Eye), 1 wide open
+		float art;         // drawn to be pixel art (Pixels): the band alone, its contrast up; 0 not
+	};
 	// The view already set (turned, not moved: the sky's at infinity).
-	void draw(video::IVideoDriver *driver, float aspect, float fov, u32 height, float level);
+	void draw(video::IVideoDriver *driver, const Frame &frame);
 
 private:
 	struct SkyUniforms;

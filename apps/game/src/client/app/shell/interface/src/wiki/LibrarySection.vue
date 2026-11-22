@@ -33,5 +33,5 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.away { display: grid; place-items: center; height: 100%; background: var(--stone-0); }
+.away { display: grid; place-items: center; height: 100%; background: var(--wash); }
 </style>

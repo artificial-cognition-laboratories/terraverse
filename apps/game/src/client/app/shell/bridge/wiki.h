@@ -55,7 +55,6 @@ private:
 	sandbox::Stage &find(const Json::Value &intent);
 	Json::Value view(const sandbox::Stage &s) const;
 	void publish(int id, const sandbox::Stage &s); // what the scene shows next, if it's showing that one
-	core::recti rectOf(const Json::Value &rect) const;
 
 	Shell &m_shell;
 	MatterVerbs m_matter;
@@ -66,6 +65,7 @@ private:
 	const std::vector<sandbox::StageBlock> &blocks();
 	int m_next = 1;
 	Scene m_scene; // the main thread's
+	int m_underlay = 0; // its place under the page (Underlays)
 	std::unique_ptr<Course> m_course; // the main thread's; while one plays no sandbox is shown
 	u64 m_course_at = 0;
 	std::unique_ptr<Relief> m_relief; // the same

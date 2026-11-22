@@ -385,10 +385,18 @@ export function MockBridge() {
             }, 200)
             return null
         },
-        "screen.open": ({ name }) => {
-            queueMicrotask(() => emitAll({ kind: "screen", screen: name }))
+        "screen.open": ({ name, with: opened }) => {
+            queueMicrotask(() => emitAll({ kind: "screen", screen: name, with: opened }))
             return null
         },
+        // a line said comes back from everyone's server as said; a command, its reply
+        "chat.send": ({ text }) => {
+            queueMicrotask(() => emitAll({ kind: "chat", line: text.startsWith("/")
+                ? { from: null, text: `The gallery has no server to run ${text.split(" ")[0]}.`, tone: "server" }
+                : { from: "you", text: text, tone: "said" } }))
+            return null
+        },
+        "chat.players": () => ["wren", "ash"],
         "ui.send": (event) => {
             if (event.name === "map.teleport") return null // the gallery has no world to move in
             if (event.name === "creative.take") {
@@ -490,6 +498,9 @@ export function MockBridge() {
         "sandbox.drop": () => null,
         "moves.list": () => [{ id: "walk", group: "On foot", title: "Walking", keys: "W", note: "Mock: the moves are the engine's." }],
         "moves.show": () => null,
+        "figure.show": () => null,
+        "figure.place": () => null,
+        "figure.hide": () => null,
         "moves.set": () => null,
         "moves.restart": () => null,
         "moves.state": () => ({ time: 0, doing: "stand", pace: 0 }),

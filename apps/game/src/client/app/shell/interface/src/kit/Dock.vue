@@ -1,14 +1,15 @@
 <script setup lang="ts" generic="T extends string">
 import { onBeforeUnmount, onMounted, provide, ref, toRef } from "vue"
 import IconRail from "./IconRail.vue"
-import Panel from "./Panel.vue"
+import RailBack from "./RailBack.vue"
 import SearchBox from "./SearchBox.vue"
 import { WORKBENCH_SEARCH } from "./workbench.ts"
 
 /**
- * A screen over the universe (planning/sprint-36-menu-universe.md): a panel
- * floating down the left (a rail of groups, search, the list or a
- * workspace, a footer action) and a card floating on the right (`content`).
+ * A screen over the universe (planning/sprint-36-menu-universe.md): a sheet of
+ * glass docked down the left, the whole height (a rail of groups, a bar with
+ * where you are and the way out, search, the list or a workspace, a footer
+ * action), as the Library's Screen lays its rail and bar; and a card on the right (`content`).
  * The rest is the planet behind. `covers` says how much of the window's
  * left and right the two take (page pixels), so the planet is framed in
  * what's left (usePlanetarium's `frame`). The same props and slots as
@@ -23,7 +24,10 @@ const props = defineProps<{
     searchPlaceholder?: string
     /** The panel's width (CSS): wider for a workspace of controls. */
     width?: string
+    /** The way out, at the rail's foot as on every full screen: its label (none, no way out there). */
+    back?: string
 }>()
+defineEmits<{ back: [] }>()
 const group = defineModel<T>("group", { required: true })
 const query = defineModel<string>("query", { default: "" })
 const covers = defineModel<{ left: number; right: number }>("covers", { default: () => ({ left: 0, right: 0 }) })
@@ -67,24 +71,23 @@ function cardRef(el: unknown) {
 <template>
     <div class="dock-scene">
         <div ref="dock" class="dock" :style="width ? { width: width } : undefined">
-            <Panel :title="section ? `${title} / ${section}` : title" class="dock-panel">
-                <template #actions>
-                    <slot name="actions" />
-                </template>
-                <div class="dock-frame">
-                    <IconRail v-model="group" :items="groups" :label="railLabel" />
-                    <div class="dock-stage">
-                        <slot v-if="$slots.workspace" name="workspace" />
-                        <template v-else>
-                            <div v-if="searchLabel" class="dock-search">
-                                <SearchBox v-model="query" :label="searchLabel" :placeholder="searchPlaceholder" />
-                            </div>
-                            <div class="dock-list"><slot name="list" /></div>
-                        </template>
+            <IconRail v-model="group" class="dock-rail" :items="groups" :label="railLabel">
+                <template v-if="back" #foot><RailBack :label="back" @back="$emit('back')" /></template>
+            </IconRail>
+            <div class="dock-main">
+                <header class="dock-bar">
+                    <h2><span class="chev">»</span> {{ title }}<template v-if="section">&nbsp;<span class="sep">/</span>&nbsp;<span class="section">{{ section }}</span></template></h2>
+                    <div v-if="$slots.actions" class="actions"><slot name="actions" /></div>
+                </header>
+                <slot v-if="$slots.workspace" name="workspace" />
+                <template v-else>
+                    <div v-if="searchLabel" class="dock-search">
+                        <SearchBox v-model="query" :label="searchLabel" :placeholder="searchPlaceholder" />
                     </div>
-                </div>
-                <template v-if="$slots.footer" #footer><slot name="footer" /></template>
-            </Panel>
+                    <div class="dock-list"><slot name="list" /></div>
+                </template>
+                <footer v-if="$slots.footer" class="dock-foot"><slot name="footer" /></footer>
+            </div>
         </div>
         <aside v-if="$slots.content" :ref="cardRef" class="dock-card"><slot name="content" /></aside>
     </div>
@@ -93,15 +96,22 @@ function cardRef(el: unknown) {
 <style scoped>
 .dock-scene { position: fixed; inset: 0; pointer-events: none; }
 .dock, .dock-card { pointer-events: auto; }
-.dock { position: absolute; top: 16px; bottom: 16px; left: 16px; display: flex; width: min(440px, 40vw); }
-.dock-panel { flex: 1; min-height: 0; }
-.dock-panel :deep(.body) { overflow: hidden; padding: 0; }
-.dock-frame { display: grid; grid-template-columns: 66px minmax(0, 1fr); width: 100%; height: 100%; min-height: 0; }
-.dock-stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--stone-0); }
-.dock-search { padding: 10px; border-bottom: var(--b) solid var(--edge); }
-.dock-list { flex: 1; min-height: 0; overflow-y: auto; }
+/* the page can't blur the planet under it (it's under the page): strong glass instead */
+.dock { position: absolute; top: 0; bottom: 0; left: 0; display: grid; grid-template-columns: 84px minmax(0, 1fr); width: min(460px, 42vw); border-right: 1px solid var(--glass-edge); background: var(--glass-strong); }
+.dock-rail { border-right: 1px solid var(--glass-edge); background: rgb(4 7 11 / 0.5); }
+.dock-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.dock-bar { display: flex; align-items: center; gap: 1rem; flex: none; height: 3.6rem; padding: 0 1rem 0 1.4rem; border-bottom: 1px solid var(--glass-edge); }
+h2 { flex: 1; min-width: 0; margin: 0; overflow: hidden; font: 400 0.8rem var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; text-overflow: ellipsis; white-space: nowrap; }
+.chev { color: var(--accent-hi); }
+.sep { color: var(--ink-faint); }
+.section { color: var(--ink-dim); }
+.actions { display: flex; gap: 0.5rem; }
+.dock-search { flex: none; padding: 1rem 1rem 0.5rem; }
+.dock-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0 0.5rem 1rem; }
+.dock-foot { flex: none; display: flex; gap: 0.5rem; padding: 1rem; border-top: 1px solid var(--glass-edge); }
+.dock-foot > :deep(*) { flex: 1; }
 .dock-card {
-    position: absolute; top: 16px; right: 16px; width: min(380px, 30vw); max-height: calc(100% - 32px); overflow-y: auto;
-    padding: 18px; border: var(--b) solid var(--edge); background: rgb(21 24 27 / 0.9); box-shadow: var(--raised), 8px 8px 0 rgb(0 0 0 / 0.35);
+    position: absolute; top: 0; right: 0; bottom: 0; width: min(380px, 30vw); overflow-y: auto;
+    padding: 1.4rem; border-left: 1px solid var(--glass-edge); background: var(--glass-strong);
 }
 </style>

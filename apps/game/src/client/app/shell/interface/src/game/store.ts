@@ -1,5 +1,5 @@
 import { inject, reactive, type InjectionKey } from "vue"
-import type { Account, BridgeHandle, Social, ItemInfo, Loading, Mode, PlanetariumHover, PlanetariumMessage, ScreenName, StateSections, UiValues } from "../bridge"
+import type { Account, BridgeHandle, ChatLine, LogLevel, World, Social, ItemInfo, Loading, Mode, PlanetariumHover, PlanetariumMessage, ScreenName, StateSections, UiValues } from "../bridge"
 
 type Sections = { [S in keyof StateSections]: StateSections[S] | null }
 type Ui = { [K in keyof UiValues]: UiValues[K] | null }
@@ -11,11 +11,21 @@ type Ui = { [K in keyof UiValues]: UiValues[K] | null }
  */
 export function GameStore(opts: { bridge: BridgeHandle }) {
     const empty = (): Sections => ({ hud: null, player: null, mapPose: null, hotbar: null, tools: null, library: null, inventory: null })
-    const noUi = (): Ui => ({ wiki: null, discovered: null, weather: null, travel: null, body: null, creative: null, map: null, map_position: null })
+    const noUi = (): Ui => ({ commands: null, wiki: null, discovered: null, weather: null, travel: null, body: null, creative: null, map: null, map_position: null })
     const store = reactive({
         mode: null as Mode | null,
         error: null as string | null,
         screen: null as ScreenName | null,
+        /** The list the palette opened on (the key that opened it: "", ":" or ">"), while it's the screen. */
+        palette: "",
+        /** This game's chat, as it came; the last CHAT_KEPT lines. */
+        chat: [] as (ChatLine & { at: number })[],
+        /** What the engine logged for the palette's Developer log (never chat); the last LOG_KEPT. */
+        log: [] as { level: LogLevel; text: string; at: number }[],
+        /** Your worlds, as the menu last listed them: the palette's # in game, where the menu's not there to ask. */
+        worlds: null as World[] | null,
+        /** A world to go to once this one's left (the palette's #): the menu enters it as it opens. */
+        hop: null as string | null,
         /** The ArcLabs account; lives across menu and game. */
         account: null as Account | null,
         /** Friends, presence, invites; null while signed out (and before the engine says). */
@@ -51,6 +61,7 @@ export function GameStore(opts: { bridge: BridgeHandle }) {
                     store.state = empty() // the session is over
                     store.ui = noUi()
                     store.screen = null
+                    store.chat = []
                 }
                 break
             case "error":
@@ -61,6 +72,13 @@ export function GameStore(opts: { bridge: BridgeHandle }) {
                 break
             case "screen":
                 store.screen = message.screen
+                store.palette = message.with?.prefix ?? ""
+                break
+            case "chat":
+                store.chat = [...store.chat.slice(1 - CHAT_KEPT), { ...message.line, at: Date.now() }]
+                break
+            case "log":
+                store.log = [...store.log.slice(1 - LOG_KEPT), { level: message.level, text: message.text, at: Date.now() }]
                 break
             case "scene":
                 store.sceneHover = message.index
@@ -104,6 +122,7 @@ export function GameStore(opts: { bridge: BridgeHandle }) {
                     case "body": store.ui.body = message.value; break
                     case "wiki": store.ui.wiki = message.value; break
                     case "discovered": store.ui.discovered = message.value; break
+                    case "commands": store.ui.commands = message.value; break
                 }
                 break
         }
@@ -111,6 +130,9 @@ export function GameStore(opts: { bridge: BridgeHandle }) {
 
     return store
 }
+
+const CHAT_KEPT = 200
+const LOG_KEPT = 500
 
 export type GameStoreHandle = ReturnType<typeof GameStore>
 

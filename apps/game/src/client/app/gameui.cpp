@@ -8,7 +8,6 @@
 #include "src/client/render/fonts/static_text.h"
 #include "src/shared/platform/system/gettext.h"
 #include "src/client/app/menus/mainmenumanager.h"
-#include "src/client/app/menus/guiChatConsole.h"
 #include "src/client/views/game/hud/statusTextHelper.h"
 #include "src/shared/util/text/enriched_string.h"
 #include "src/shared/game/pointing/pointedthing.h"
@@ -69,7 +68,7 @@ void GameUI::init()
 
 void GameUI::update(const RunStats &stats, Client *client, MapDrawControl *draw_control,
 	const CameraOrientation &cam, const PointedThing &pointed_old,
-	const GUIChatConsole *chat_console, float dtime)
+	float dtime)
 {
 	v2u32 screensize = RenderingEngine::getWindowSize();
 

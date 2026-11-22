@@ -4,6 +4,7 @@
 #pragma once
 
 #include <string>
+#include <json/json.h>
 
 namespace gui { class IGUIEnvironment; }
 
@@ -34,12 +35,13 @@ public:
 
 	// Throws on a screen not in the table. A screen that needs a UI value
 	// (the map, the wiki) stays shut where the server hasn't offered it.
-	void open(const std::string &name);
+	// `with`: what it opens on, passed to the page (the palette's prefix).
+	void open(const std::string &name, const Json::Value &with = Json::Value());
 	void close();
 	bool isOpen() const { return m_overlay != nullptr; }
 
 private:
-	void announce(const std::string &name) const;
+	void announce(const std::string &name, const Json::Value &with = Json::Value()) const;
 	void gone();
 
 	Opts m_opts;

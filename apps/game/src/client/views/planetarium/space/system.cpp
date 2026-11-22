@@ -193,7 +193,13 @@ void SystemLayer::draw(video::IVideoDriver *driver, const Camera &camera, double
 	driver->setTransform(video::ETS_VIEW, camera.view);
 	if (m_galaxy) {
 		TF_ZONE("Space: galaxy");
-		m_galaxy->draw(driver, camera.aspect, camera.fov, camera.height, m_skyLevel);
+		Eye::View seen{ camera.view, camera.fov, camera.aspect, {}, bodies.back().at };
+		for (const Body &b : bodies) {
+			seen.things.push_back({ b.at, b.radius, b.index < 0 });
+			if (b.index == -1)
+				seen.star = b.at;
+		}
+		m_galaxy->draw(driver, { camera.aspect, camera.fov, camera.height, m_skyLevel, m_eye.look(seen), m_pixelArt });
 	}
 	if (m_orbits)
 		orbits(driver, camera, day);

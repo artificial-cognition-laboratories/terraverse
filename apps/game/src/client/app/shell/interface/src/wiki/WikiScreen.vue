@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue"
 import { useBridge } from "../bridge/use.ts"
-import { Button, WorkbenchPanel } from "../kit/index.ts"
+import { onEscape, Screen, SearchBox } from "../kit/index.ts"
 import { AIR_DEMOS } from "./air.ts"
 import { LAB_DEMOS } from "./demos.ts"
 import DemosSection from "./DemosSection.vue"
@@ -16,12 +16,13 @@ import ReactionsSection from "./ReactionsSection.vue"
 
 /**
  * The wiki: what everything is made of and how it behaves, shown rather
- * than told. An icon rail picks the section; each has its list, a live
- * view, and the facts. The same page in the menu and in game (key G, where
- * the world's rules allow it).
+ * than told. The full screen the library is (kit/Screen): the rail picks the section, the bar
+ * says where you are and searches it, and each section lays out its list, a live view and the
+ * facts below. The same page in the menu and in game (key G, where the world's rules allow it).
  */
 const props = defineProps<{ place: "menu" | "game" }>()
-defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: [] }>()
+onEscape(() => emit("close"))
 const bridge = useBridge()
 const wiki = WikiNav({ place: props.place })
 provideWiki(wiki)
@@ -63,32 +64,28 @@ const query = wiki.search
 </script>
 
 <template>
-    <WorkbenchPanel v-model:group="section" v-model:query="query" class="wiki"
-        title="Wiki" :section="sectionLabel" :groups="RAIL" rail-label="Wiki sections"
-        :search-label="`Search ${sectionLabel.toLowerCase()}`"
-        :search-placeholder="`Search ${sectionLabel.toLowerCase()}…`">
-        <template #actions><Button size="sm" @click="$emit('close')">{{ place === "menu" ? "Back" : "Close" }}</Button></template>
-        <template #workspace>
-            <div v-if="wiki.table.value" class="section">
-                <MatterSection v-if="wiki.state.section === 'matter'" />
-                <ReactionsSection v-else-if="wiki.state.section === 'reactions'" />
-                <DemosSection v-else-if="wiki.state.section === 'heat'" key="heat" section="heat" :demos="LAB_DEMOS" />
-                <DemosSection v-else-if="wiki.state.section === 'air'" key="air" section="air" :demos="AIR_DEMOS" />
-                <WorldsSection v-else-if="wiki.state.section === 'worlds'" />
-                <FloraSection v-else-if="wiki.state.section === 'flora'" />
-                <FluidsSection v-else-if="wiki.state.section === 'fluids'" />
-                <LibrarySection v-else-if="wiki.state.section === 'library'" />
-                <MovementSection v-else-if="wiki.state.section === 'movement' || wiki.state.section === 'vehicles'" :key="wiki.state.section" :kind="wiki.state.section" />
-            </div>
-            <p v-else class="loading">reading the tables…</p>
+    <Screen v-model:page="section" :pages="RAIL" label="Wiki" :section="sectionLabel" fill
+        :back="place === 'menu' ? 'Back' : 'Close'" @back="emit('close')">
+        <template #search>
+            <SearchBox v-model="query" :label="`Search ${sectionLabel.toLowerCase()}`" :placeholder="`Search ${sectionLabel.toLowerCase()}…`" />
         </template>
-    </WorkbenchPanel>
+        <div v-if="wiki.table.value" class="section">
+            <MatterSection v-if="wiki.state.section === 'matter'" />
+            <ReactionsSection v-else-if="wiki.state.section === 'reactions'" />
+            <DemosSection v-else-if="wiki.state.section === 'heat'" key="heat" section="heat" :demos="LAB_DEMOS" />
+            <DemosSection v-else-if="wiki.state.section === 'air'" key="air" section="air" :demos="AIR_DEMOS" />
+            <WorldsSection v-else-if="wiki.state.section === 'worlds'" />
+            <FloraSection v-else-if="wiki.state.section === 'flora'" />
+            <FluidsSection v-else-if="wiki.state.section === 'fluids'" />
+            <LibrarySection v-else-if="wiki.state.section === 'library'" />
+            <MovementSection v-else-if="wiki.state.section === 'movement' || wiki.state.section === 'vehicles'" :key="wiki.state.section" :kind="wiki.state.section" />
+        </div>
+        <p v-else class="loading">Reading the tables…</p>
+    </Screen>
 </template>
 
 <style scoped>
-/* the middle is a hole: the scene's drawn natively under the page (src/shell/scene.h). What's left paints its own. */
-.wiki { background: none; }
-.wiki :deep(.body), .wiki :deep(.workbench-stage) { background: none; }
+/* the sections paint their own columns; the scene's hole is theirs to leave (SceneStage) */
 .section { min-width: 0; min-height: 0; height: 100%; }
-.loading { color: var(--ink-faint); }
+.loading { margin: 0; padding: 2rem; background: var(--wash); height: 100%; color: var(--ink-faint); }
 </style>

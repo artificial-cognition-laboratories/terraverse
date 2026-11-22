@@ -21,26 +21,15 @@ const model = defineModel<T | null>({ required: true })
 </template>
 
 <style scoped>
-.choice { display: grid; gap: 6px; }
-
-button {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 10px 12px;
-    border: var(--b) solid var(--edge);
-    background: var(--stone-2);
-    box-shadow: var(--raised);
-    text-align: left;
-}
-
-button:hover:not(:disabled) { background: var(--stone-3); }
-button.on { background: rgb(0 148 210 / 0.16); box-shadow: inset 0 0 0 var(--b) var(--accent), var(--raised); }
-
-.label { font: 13px var(--font-display); text-transform: uppercase; color: var(--ink); }
-.note { font-size: 11px; line-height: 1.35; color: var(--ink-dim); }
-.on .label { color: var(--accent-hi); }
-
+/* the site's glass tiles (Button, CategoryTile): a hairline lit on hover, the ocean when chosen, at once */
+.choice { display: grid; gap: 0.5rem; }
+button { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.8rem 0.9rem; border: 1px solid var(--glass-edge); background: var(--glass); text-align: left; }
+button:hover:not(:disabled) { border-color: var(--edge-lit); }
+button.on { border-color: var(--edge-lit-hi); background: var(--glass-lit); }
+.label { font: 0.75rem var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); }
+button:hover:not(:disabled) .label, .on .label { color: var(--ink); }
+.note { font: 0.75rem/1.45 var(--font-sans); color: var(--ink-faint); }
+.on .note { color: var(--ink-dim); }
 .disabled { opacity: 0.4; }
 button:disabled { cursor: default; }
 </style>

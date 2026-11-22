@@ -1,0 +1,23 @@
+/*
+ * One item cell, wherever items sit: the hotbar, the inventory's grids, the
+ * creative catalogue. The site's glass taken down to a slot (kit/Button): a
+ * faint hairline on a faint lift, its edge lit on hover, the ocean when it's
+ * the one held, all at once. Sized in rem with the HUD's unit (--u: 0.125rem),
+ * so an item's 16 pixels sit centred in its 22.
+ */
+.item-cell {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: 1px solid rgb(231 237 244 / 0.06);
+    background: rgb(231 237 244 / 0.025);
+    color: var(--ink-dim);
+}
+.item-cell.pickable { cursor: pointer; }
+.item-cell.pickable:hover:not(.selected) { border-color: var(--edge-lit); background: rgb(231 237 244 / 0.05); }
+.item-cell.selected { border-color: var(--edge-lit-hi); background: var(--glass-lit); }
+/* a strip of them: the hotbar's own, and the inventory's sections */
+.item-strip { display: flex; gap: 0.25rem; padding: 0.25rem; border: 1px solid var(--glass-edge); background: rgb(4 7 11 / 0.72); }

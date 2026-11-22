@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue"
-import { Card, CategoryTile, Cover, FacetList, FileTree, FilterChips, Markdown, Monogram, PageHead, Shelf } from "../../kit/index.ts"
+import { Card, CategoryTile, Cover, FacetList, FileTree, Markdown, Monogram, PageHead, Shelf } from "../../kit/index.ts"
 import Library from "../../menu/library/Library.vue"
 import ModPage from "../../menu/library/ModPage.vue"
 import Mods from "../../menu/library/Mods.vue"
@@ -10,7 +10,6 @@ import Specimen from "../Specimen.vue"
 
 const tab = ref<"overview" | "versions">("overview")
 const facets = ref<string[]>(["games"])
-const chips = ref([{ id: "q", label: "“rails”" }, { id: "kind", label: "Mods" }, { id: "machines", label: "Machines" }])
 const file = ref<string | null>("server/main.ts")
 const FILES = [{ path: "package.json", size: 412 }, { path: "README.md", size: 2100 }, { path: "server/main.ts", size: 4210 }, { path: "server/rules.ts", size: 2380 }, { path: "assets/icon.png", size: 2048 }]
 const README = "## Kilns\n\nFired clay, **brick** and glass from heat you build and feed.\n\n- Needs `@terraverse/craft`\n- Works on any planet\n\n```sh\nterra add @ash/kilns\n```\n\n> Links show where they go: [docs](https://terraverse.dev)"
@@ -18,17 +17,17 @@ const README = "## Kilns\n\nFired clay, **brick** and glass from heat you build 
 
 <template>
     <div class="grid">
-        <Specimen name="Library" note="the whole panel against the mock registry" wide>
-            <Library class="whole" />
+        <Specimen name="Library" note="the whole screen against the mock registry" wide>
+            <div class="whole"><Library /></div>
         </Specimen>
         <Specimen name="ModPage" note="a mod's own page: head on the page, README, facts and source beside it" wide>
             <div class="framed"><ModPage name="@ash/kilns" back="Mods" /></div>
         </Specimen>
         <Specimen name="Mods" note="browsing: filters, chips, results" wide>
-            <div class="framed tall"><Mods :start="{ categories: ['machines'] }" /></div>
+            <div class="framed tall"><Mods :start="{ categories: ['machines'] }" query="" /></div>
         </Specimen>
         <Specimen name="Servers" note="filters, rows, the chosen one open" wide>
-            <div class="framed tall"><Servers start="iron-valley" /></div>
+            <div class="framed tall"><Servers start="iron-valley" query="" /></div>
         </Specimen>
         <Specimen name="Card" note="cover, mark, name, author, two lines, meta; badges on the cover">
             <Card class="card" title="Iron Rails" seed="@wren/rails" by="wren" description="Track, points and wagons on Jolt. Hauling ore stops being a crawl." :badges="['Official']">
@@ -50,9 +49,8 @@ const README = "## Kilns\n\nFired clay, **brick** and glass from heat you build 
                 <CategoryTile v-for="(icon, id) in CATEGORY_ICONS" :key="id" :label="id" :rows="icon.rows" :palette="icon.palette" :count="12" />
             </div>
         </Specimen>
-        <Specimen name="FacetList · FilterChips" note="pick any; the query in force, removable">
+        <Specimen name="FacetList" note="pick any, in a side card">
             <FacetList v-model="facets" title="Categories" class="facets" :options="[{ id: 'games', label: 'Games', count: 4 }, { id: 'machines', label: 'Machines', count: 6 }, { id: 'matter', label: 'Matter', count: 2 }]" />
-            <FilterChips :chips="chips" @remove="(id) => (chips = chips.filter((c) => c.id !== id))" @clear="chips = []" />
         </Specimen>
         <Specimen name="PageHead" note="on the page, no card: mark, name, version, tabs along its foot" wide>
             <PageHead v-model:tab="tab" class="head" title="@ash/kilns" mark="@ash/kilns" badge="1.4.2" back="Mods"
@@ -65,7 +63,7 @@ const README = "## Kilns\n\nFired clay, **brick** and glass from heat you build 
             <Markdown :source="README" />
         </Specimen>
         <Specimen name="FileTree" note="folders first, the chosen file lit">
-            <FileTree v-model="file" :files="FILES" root="@ash/kilns" class="tree" />
+            <FileTree v-model="file" :files="FILES" class="tree" />
         </Specimen>
     </div>
 </template>
@@ -74,7 +72,7 @@ const README = "## Kilns\n\nFired clay, **brick** and glass from heat you build 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 28px; }
 .framed { width: 100%; max-height: 900px; overflow-y: auto; background: var(--stone-0); }
 .tall { height: 620px; }
-.whole { width: 100%; height: 820px; }
+.whole { position: relative; width: 100%; height: 820px; }
 .card { width: 220px; }
 .cover { width: 160px; height: 90px; }
 .shelf, .head { width: 100%; }

@@ -6,6 +6,7 @@
 #include <future>
 
 #include "src/client/views/planetarium/planetarium.h"
+#include "src/client/views/planetarium/pixels.h"
 #include <json/json.h>
 #include <functional>
 #include <memory>
@@ -126,6 +127,7 @@ private:
 	std::unique_ptr<planetarium::Planetarium> m_current; // on screen
 	std::unique_ptr<planetarium::Planetarium> m_next;    // being made ready to take its place
 	std::unique_ptr<planetarium::Planetarium> m_parked;  // hidden, kept to show again
+	planetarium::Pixels m_pixels; // the home shot, drawn as pixel art
 	std::unique_ptr<planetarium::Planetarium> m_retiring; // replaced, kept till its successor's drawn once
 	bool m_looked = false; // the parked one has been on screen: its camera's the player's now
 	std::optional<std::pair<double, double>> m_over; // where the parked camera's over (idle)

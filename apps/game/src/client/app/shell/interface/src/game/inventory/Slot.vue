@@ -2,6 +2,7 @@
 import { computed } from "vue"
 import type { Stack } from "../../bridge/index.ts"
 import ItemSlot from "../ItemSlot.vue"
+import "../cell.css"
 
 /**
  * One inventory cell you can click. `lifted` is how many of this stack the
@@ -23,27 +24,15 @@ function down(e: MouseEvent) {
 </script>
 
 <template>
-    <button class="slot" :class="{ result: result, lifted: !!lifted }" @mousedown.prevent="down" @contextmenu.prevent
+    <button class="slot item-cell pickable" :class="{ result: result, lifted: !!lifted }" @mousedown.prevent="down" @contextmenu.prevent
         @mouseenter="emit('hover', true)" @mouseleave="emit('hover', false)">
         <ItemSlot :stack="shown" />
     </button>
 </template>
 
 <style scoped>
-.slot {
-    position: relative;
-    display: grid;
-    place-items: center;
-    width: calc(var(--u) * 18);
-    height: calc(var(--u) * 18);
-    padding: 0;
-    border: var(--b) solid var(--edge);
-    background: var(--stone-0);
-    box-shadow: var(--sunk);
-    cursor: default;
-}
-
-.slot:hover { background: #1b2730; box-shadow: inset 0 0 0 var(--b) var(--accent-lo), var(--sunk); }
-.result { width: calc(var(--u) * 24); height: calc(var(--u) * 24); }
+/* the hotbar's cell (cell.css); a craft's result a step bigger, its edge a step brighter */
+.slot { cursor: default; }
+.result { width: 3.25rem; height: 3.25rem; border-color: var(--glass-edge-hi); }
 .lifted :deep(img) { opacity: 0.45; }
 </style>

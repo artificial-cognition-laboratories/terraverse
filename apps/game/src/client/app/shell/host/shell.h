@@ -46,11 +46,12 @@ public:
 		std::string url;       // page to load: terra://ui/index.html, or a dev server
 		std::string ui_dir;    // served as terra://ui/
 		std::string cache_dir; // Chromium profile and log
-		float scale;           // device pixels per CSS pixel
+		float scale;           // the display's density: device pixels per CSS pixel, before the window's fit (ui_scale.h)
 		bool gpu;              // Chromium rasterises on the GPU
 		std::string arclabs;   // the ArcLabs API accounts and friends come from
 		home::Home &home;      // whose sign-in: the active profile keeps it, and signing in picks the profile
 		bool ui_check = false;   // held to its budgets, then quit (--ui-check: ui_check.h)
+		float ui_scale = 1.0f;   // the player's multiplier on the page's size (the `ui_scale` setting)
 	};
 
 	explicit Shell(const Opts &opts);
@@ -78,8 +79,8 @@ public:
 	void on(const std::string &kind, Verb verb);
 	// Slow, thread-safe work answered off the main thread (see Bridge::onAsync).
 	void onAsync(const std::string &kind, Verb verb);
-	// What draws between the planet and the page, and takes the mouse the page leaves (a wiki scene).
-	void underlay(std::function<void(video::IVideoDriver *)> draw, std::function<bool(const SEvent &)> mouse);
+	// What draws between the planet and the page, and takes the mouse the page leaves (a wiki scene, the figure).
+	class Underlays &underlays();
 	void drain(); // until the worker has finished what it was given
 	void off(const std::string &kind);
 	// A one-off message to the page; held until the page is ready.
@@ -94,6 +95,8 @@ public:
 	const std::string &itemDir() const;
 	// Where a local mod's pictures are written for its Contents: served as terra://contents/.
 	const std::string &contentsDir() const;
+	// The player's multiplier on the page's size: it's drawn at it from the next frame.
+	void chooseUiScale(float chosen);
 	// Window pixels to a page (CSS) pixel: where the page puts something, ×.
 	float scale() const;
 	// The planet under the page (planetarium.h): the window's, as long as it.

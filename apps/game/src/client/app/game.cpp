@@ -31,7 +31,6 @@
 #include "src/shared/game/items/itemdef.h"
 #include "src/shared/base/gameparams.h"
 #include "src/shared/platform/system/gettext.h"
-#include "src/client/app/menus/guiChatConsole.h"
 #include "src/client/render/textures/texturesource.h"
 #include "src/client/app/menus/mainmenumanager.h"
 #include "src/client/world/objects/localplayer.h"
@@ -396,13 +395,12 @@ public:
  ****************************************************************************/
 
 Game::Game() :
-	m_chat_log_buf(g_logger),
 	m_game_ui(new GameUI())
 {
 	clearTextureNameCache();
 
 	const char *settings[] = {
-		"chat_log_level", "doubletap_jump", "toggle_sneak_key", "toggle_aux1_key",
+		"doubletap_jump", "toggle_sneak_key", "toggle_aux1_key",
 		"enable_fog", "mouse_sensitivity",
 		"repeat_place_time", "repeat_dig_time", "noclip", "free_move", "fog_start",
 		"cinematic", "cinematic_camera_smoothing", "camera_smoothing", "invert_mouse",
@@ -454,8 +452,7 @@ bool Game::startup(volatile std::sig_atomic_t *kill,
 		InputHandler *input,
 		RenderingEngine *rendering_engine,
 		GameStartData &start_data,
-		GameErrorData &errordata,
-		ChatBackend *chat_backend)
+		GameErrorData &errordata)
 {
 
 	// "cache"
@@ -464,7 +461,6 @@ bool Game::startup(volatile std::sig_atomic_t *kill,
 	this->kill                = kill;
 	this->errordata           = &errordata;
 	this->input               = input;
-	this->chat_backend        = chat_backend;
 	simple_singleplayer_mode  = start_data.isSinglePlayer();
 
 	input->reloadKeybindings();
@@ -508,6 +504,8 @@ bool Game::startup(volatile std::sig_atomic_t *kill,
 	// the Planetarium, while shown, takes the mouse where the page doesn't;
 	// the keyboard only when its key opened it (a screen over it keeps its own)
 	input->capture([this](const SEvent &event) {
+		if (m_shell_session->typed(event))
+			return true;
 		if (!planetariumShown())
 			return false;
 		if (event.EventType == EET_KEY_INPUT_EVENT) {
@@ -761,16 +759,11 @@ void Game::shutdown()
 		liquid_layer->remove(); // the scene manager holds it too
 	liquid_layer.reset();
 
-	gui_chat_console.reset();
-
 	sky.reset();
 
 	// only if the shutdown progress bar isn't shown yet
 	if (m_shutdown_progress == 0.0f)
 		showOverlayMessage(N_("Shutting down..."), 0, 0);
-
-	chat_backend->addMessage(L"", L"# Disconnected.");
-	chat_backend->addMessage(L"", L"");
 
 	if (client) {
 		client->Stop();
@@ -1085,17 +1078,6 @@ bool Game::createClient(const GameStartData &start_data)
 bool Game::initGui()
 {
 	m_game_ui->init();
-
-	// Remove stale "recent" chat messages from previous connections
-	chat_backend->clearRecentChat();
-
-	// Make sure the size of the recent messages buffer is right
-	chat_backend->applySettings();
-
-	// Chat backend and console
-	gui_chat_console = make_irr<GUIChatConsole>(guienv, guienv->getRootGUIElement(),
-			-1, chat_backend, client, &g_menumgr);
-
 	return true;
 }
 
@@ -1525,7 +1507,7 @@ void Game::updateStats(RunStats *stats, const FpsControl &draw_times,
 void Game::processUserInput(f32 dtime)
 {
 	// Reset input if window not active or some menu is active
-	if (!device->isWindowActive() || isMenuActive() || guienv->hasFocus(gui_chat_console.get())) {
+	if (!device->isWindowActive() || isMenuActive()) {
 		if (m_game_focused) {
 			m_game_focused = false;
 			infostream << "Game lost focus" << std::endl;
@@ -1535,12 +1517,6 @@ void Game::processUserInput(f32 dtime)
 		}
 	} else {
 		m_game_focused = true;
-	}
-
-	if (!guienv->hasFocus(gui_chat_console.get()) && gui_chat_console->isOpen()
-		&& !gui_chat_console->isMyDescendant(guienv->getFocus()))
-	{
-		gui_chat_console->closeConsoleAtOnce();
 	}
 
 	// Input handler step() (used by the random input generator)
@@ -1621,6 +1597,8 @@ void Game::processKeyInput()
 #if USE_SHELL
 	} else if (wasKeyDown(KeyType::WIKI)) {
 		m_shell_session->screens().open("wiki");
+	} else if (wasKeyDown(KeyType::LIBRARY)) {
+		m_shell_session->screens().open("library");
 #endif
 	} else if (wasKeyDown(KeyType::PLANETARIUM)) {
 		openPlanetarium();
@@ -1646,15 +1624,11 @@ void Game::processKeyInput()
 #ifdef __ANDROID__
 		m_android_chat_open = false;
 #endif
-		if (!gui_chat_console->isOpenInhibited()) {
-			m_shell_session->screens().open("pause");
-		}
+		m_shell_session->screens().open("pause");
 	} else if (wasKeyDown(KeyType::CHAT)) {
-		openConsole(0.2, L"");
-	} else if (wasKeyDown(KeyType::CMD)) {
-		openConsole(0.2, L"/");
+		openPalette("");
 	} else if (wasKeyDown(KeyType::CONSOLE)) {
-		openConsole(core::clamp(g_settings->getFloat("console_height"), 0.1f, 1.0f));
+		openPalette(">");
 	} else if (wasKeyDown(KeyType::FREEMOVE)) {
 		toggleFreeMove();
 	} else if (wasKeyDown(KeyType::JUMP)) {
@@ -1831,26 +1805,12 @@ void Game::dropSelectedItem(bool single_item)
 	client->inventoryAction(a);
 }
 
-void Game::openConsole(float scale, const wchar_t *line)
+// Chat and commands are the page's palette, open on a list: "" chat, ":" commands, ">" actions
+void Game::openPalette(const char *prefix)
 {
-	assert(scale > 0.0f && scale <= 1.0f);
-
-#ifdef __ANDROID__
-	if (!porting::hasPhysicalKeyboardAndroid()) {
-		porting::showTextInputDialog("", "", 2);
-		m_android_chat_open = true;
-	} else {
-#endif
-	if (gui_chat_console->isOpenInhibited())
-		return;
-	gui_chat_console->openConsole(scale);
-	if (line) {
-		gui_chat_console->setCloseOnEnter(true);
-		gui_chat_console->replaceAndAddToHistory(line);
-	}
-#ifdef __ANDROID__
-	} // else
-#endif
+	Json::Value with;
+	with["prefix"] = prefix;
+	m_shell_session->screens().open("palette", with);
 }
 
 #ifdef __ANDROID__
@@ -2876,37 +2836,6 @@ void Game::processClientEvents(CameraOrientation *cam)
 		const ClientEventHandler& evHandler = clientEventHandler[event->type];
 		(this->*evHandler.handler)(event.get(), cam);
 	}
-}
-
-void Game::updateChat(f32 dtime)
-{
-	auto color_for = [](LogLevel level) -> const char* {
-		switch (level) {
-		case LL_ERROR  : return "\x1b(c@#F00)"; // red
-		case LL_WARNING: return "\x1b(c@#EE0)"; // yellow
-		case LL_INFO   : return "\x1b(c@#BBB)"; // grey
-		case LL_VERBOSE: return "\x1b(c@#888)"; // dark grey
-		case LL_TRACE  : return "\x1b(c@#888)"; // dark grey
-		default        : return "";
-		}
-	};
-
-	// Get new messages from error log buffer
-	std::vector<LogEntry> entries = m_chat_log_buf.take();
-	for (const auto& entry : entries) {
-		std::string line;
-		line.append(color_for(entry.level)).append(entry.combined);
-		chat_backend->addMessage(L"", utf8_to_wide(line));
-	}
-
-	// Get new messages from client
-	std::wstring message;
-	while (client->getChatMessage(message)) {
-		chat_backend->addUnparsedMessage(message);
-	}
-
-	// Remove old messages (the console still shows them: no list over the game)
-	chat_backend->step(dtime);
 }
 
 void Game::updateCamera(f32 dtime)
@@ -6254,12 +6183,6 @@ void Game::updateFrame(RunStats *stats, f32 dtime,
 	}
 
 	/*
-		Get chat messages from client
-	*/
-
-	updateChat(dtime);
-
-	/*
 		Inventory
 	*/
 
@@ -6312,7 +6235,7 @@ void Game::updateFrame(RunStats *stats, f32 dtime,
 	}
 
 	m_game_ui->update(*stats, client, draw_control, cam, runData.pointed_old,
-			gui_chat_console.get(), dtime);
+			dtime);
 
 	/*
 		==================== Drawing begins ====================
@@ -6517,13 +6440,6 @@ void Game::readSettings()
 	if (hud && draw_control)
 		applyView();
 
-	LogLevel chat_log_level = Logger::stringToLevel(g_settings->get("chat_log_level"));
-	if (chat_log_level == LL_MAX) {
-		warningstream << "Supplied unrecognized chat_log_level; showing none." << std::endl;
-		chat_log_level = LL_NONE;
-	}
-	m_chat_log_buf.setLogLevel(chat_log_level);
-
 	m_cache_doubletap_jump               = g_settings->getBool("doubletap_jump");
 	m_cache_toggle_sneak_key             = g_settings->getBool("toggle_sneak_key");
 	m_cache_toggle_aux1_key              = g_settings->getBool("toggle_aux1_key");
@@ -6563,8 +6479,7 @@ void the_game(volatile std::sig_atomic_t *kill,
 		InputHandler *input,
 		RenderingEngine *rendering_engine,
 		GameStartData &start_data,
-		GameErrorData &errordata,
-		ChatBackend &chat_backend)
+		GameErrorData &errordata)
 {
 	Game game;
 	std::string error_message;
@@ -6572,7 +6487,7 @@ void the_game(volatile std::sig_atomic_t *kill,
 	try {
 
 		if (game.startup(kill, input, rendering_engine, start_data,
-				errordata, &chat_backend)) {
+				errordata)) {
 			game.run();
 		}
 

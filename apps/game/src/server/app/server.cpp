@@ -9,7 +9,7 @@
 #include "src/server/world/run/machines/workshop/workshop.h"
 #include "library/space/orbit/field.h"
 #include "library/world/terragen/src/system/planet.h"
-#include "src/server/game/commands.h"
+#include "src/server/game/command_book.h"
 #include "src/server/app/access/access.h"
 #include "src/server/world/state/objects/entity_sao.h"
 #include "src/server/world/run/pile/piles.h"
@@ -315,7 +315,8 @@ Server::Server(
 	m_clients(m_con),
 	m_admin_chat(iface),
 	m_shutdown_errmsg(shutdown_errmsg),
-	m_terra(std::make_unique<ServerTerra>())
+	m_terra(std::make_unique<ServerTerra>()),
+	m_commands(std::make_unique<CommandBook>(CommandBook::Opts{ /* server */ *this }))
 {
 	if (m_path_world.empty())
 		throw ServerError("Supplied empty world path");
@@ -3083,11 +3084,9 @@ void Server::startSidecar()
 		SendChatMessage(PEER_ID_INEXISTENT, ChatMessage(CHATMESSAGE_TYPE_ANNOUNCE, utf8_to_wide(text)));
 	};
 	host.players = [this]() { return m_clients.getPlayerNames(); };
-	// the mods' commands: each line typed under one goes to the next window (Server::command)
+	// the mods' commands: each line typed under one goes to the next window (CommandBook::run)
 	host.commands = [this](const std::vector<sidecar::Host::Command> &commands) {
-		m_mod_commands.clear();
-		for (const sidecar::Host::Command &c : commands)
-			m_mod_commands.push_back({ c.name, c.description, c.params });
+		m_commands->setMods(commands);
 	};
 	// by their roles and grants (server/access): an admin may do anything
 	host.can = [this](const std::string &name, const std::string &permission) { return checkPriv(name, permission); };
@@ -3708,7 +3707,7 @@ std::wstring Server::handleChat(const std::string &name,
 
 	// Terra Firma: a command is the engine's or a mod's (server/commands, sprint 119)
 	if (message[0] == '/')
-		return utf8_to_wide(command(name, player, message.substr(1)));
+		return utf8_to_wide(m_commands->run(name, player, message.substr(1)));
 
 	// Line to send
 	std::wstring line;
@@ -3733,49 +3732,12 @@ std::wstring Server::handleChat(const std::string &name,
 	*/
 	actionstream << "CHAT: " << wide_to_utf8(unescape_enriched(line)) << std::endl;
 
-	ChatMessage chatmsg(line);
+	// who said it, apart from what: the page sets the name itself (client/app/shell/bridge/chat.h)
+	ChatMessage chatmsg(CHATMESSAGE_TYPE_NORMAL, wmessage, utf8_to_wide(name));
 
 	SendChatMessage(PEER_ID_INEXISTENT, chatmsg);
 
 	return L"";
-}
-
-std::string Server::command(const std::string &name, RemotePlayer *player, const std::string &line)
-{
-	// the console (no player) may do anything: it's whoever runs the server
-	const bool console = player == nullptr;
-	const size_t space = line.find(' ');
-	const std::string word = line.substr(0, space);
-	const std::string rest = space == std::string::npos ? "" : trim(line.substr(space + 1));
-	if (word == "help") {
-		std::string out = "Commands:";
-		for (const EngineCommand &c : engineCommands())
-			if (console || !c.permission || checkPriv(name, c.permission))
-				out += std::string("\n  /") + c.name + (*c.params ? " " : "") + c.params + " — " + c.description;
-		for (const ModCommand &c : m_mod_commands)
-			out += "\n  /" + c.name + (c.params.empty() ? "" : " ") + c.params + " — " + c.description;
-		return out;
-	}
-	for (const EngineCommand &c : engineCommands()) {
-		if (word != c.name)
-			continue;
-		if (!console && c.permission && !checkPriv(name, c.permission))
-			return std::string("You may not: /") + c.name + " needs " + c.permission + ".";
-		try {
-			return c.run(this, player, rest);
-		} catch (const std::invalid_argument &e) {
-			return e.what();
-		}
-	}
-	for (const ModCommand &c : m_mod_commands) {
-		if (word != c.name)
-			continue;
-		// the mod answers, in its next window; the console is "" to it
-		if (!sidecarCommand(console ? "" : name, word, rest))
-			return "The mods are off, so nothing can answer /" + word + ".";
-		return "";
-	}
-	return "There's no /" + word + ". /help lists what there is.";
 }
 
 void Server::handleAdminChat(const ChatEventChat *evt)

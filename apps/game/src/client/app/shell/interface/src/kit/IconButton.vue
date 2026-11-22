@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * The game's square icon button, as the pause menu's profile button is
- * drawn: a raised stone square, lit and ringed on hover or when on. Its
+ * The game's square icon button: a square of glass, its edge lit in the accent on
+ * hover, filled with the deep ocean when on. Its
  * label is a tag beside it on hover (`side`); the slot holds the icon and
  * any marks on it (a badge, a size).
  */
@@ -22,19 +22,19 @@ withDefaults(defineProps<{ label: string; on?: boolean; disabled?: boolean; side
 
 <style scoped>
 .icon-button {
-    position: relative; display: grid; place-items: center; width: 48px; height: 48px; padding: 0;
-    color: var(--ink); background: var(--stone-2); border: var(--b) solid var(--edge);
-    box-shadow: var(--raised), var(--ledge);
+    position: relative; display: grid; place-items: center; width: 44px; height: 44px; padding: 0;
+    color: var(--ink-dim); background: var(--glass); backdrop-filter: blur(8px); border: 1px solid var(--glass-edge);
 }
-.icon-button:hover:not(:disabled), .icon-button.on { background: var(--stone-3); outline: var(--b) solid var(--accent); }
-.icon-button:focus-visible { outline: var(--b) solid var(--accent-hi); }
+/* as Button: the edge lit faintly, the icon brighter, the glass unchanged, at once */
+.icon-button:hover:not(:disabled) { color: var(--ink); border-color: var(--edge-lit); }
+.icon-button.on { color: #fff; background: var(--glass-lit); border-color: var(--edge-lit-hi); }
+.icon-button:focus-visible { outline: 1px solid var(--accent-hi); outline-offset: 2px; }
 .icon-button:disabled { opacity: 0.4; cursor: default; }
 
 .tag {
-    position: absolute; top: 50%; padding: 4px 8px; border: var(--b) solid var(--edge); background: var(--stone-0);
-    box-shadow: var(--raised); font: 10px var(--font-display); text-transform: uppercase; color: var(--ink);
-    white-space: nowrap; pointer-events: none; opacity: 0; transform: translateY(-50%);
-    transition: opacity 80ms steps(2); z-index: 2;
+    position: absolute; top: 50%; padding: 4px 8px; border: 1px solid var(--glass-edge); background: var(--glass-strong);
+    font: 9px var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink);
+    white-space: nowrap; pointer-events: none; opacity: 0; transform: translateY(-50%); z-index: 2;
 }
 .right .tag { left: calc(100% + 8px); }
 .left .tag { right: calc(100% + 8px); }

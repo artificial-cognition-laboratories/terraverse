@@ -41,7 +41,6 @@ class SoundMaker;
 class Server;
 class NodeMetadata;
 class EventManager;
-class GUIChatConsole;
 class QuicktuneShortcutter;
 struct GameErrorData;
 
@@ -120,8 +119,7 @@ public:
 			InputHandler *input,
 			RenderingEngine *rendering_engine,
 			GameStartData &game_params,
-			GameErrorData &errordata,
-			ChatBackend *chat_backend);
+			GameErrorData &errordata);
 
 	void run();
 	void shutdown();
@@ -163,7 +161,7 @@ protected:
 	void processItemSelection(u16 *new_playeritem);
 
 	void dropSelectedItem(bool single_item = false);
-	void openConsole(float scale, const wchar_t *line=NULL);
+	void openPalette(const char *prefix);
 	void toggleFreeMove();
 	void toggleFreeMoveAlt();
 	void togglePitchMove();
@@ -309,8 +307,6 @@ private:
 	void handleClientEvent_CloudParams(ClientEvent *event, CameraOrientation *cam);
 	void handleClientEvent_UpdateCamera(ClientEvent *event, CameraOrientation *cam);
 
-	void updateChat(f32 dtime);
-
 	bool nodePlacement(const ItemDefinition &selected_def, const ItemStack &selected_item,
 		const v3s16 &nodepos, const v3s16 &neighborpos, const PointedThing &pointed,
 		const NodeMetadata *meta);
@@ -337,9 +333,6 @@ private:
 	std::unique_ptr<ISoundManager> sound_manager;
 	std::unique_ptr<SoundMaker> soundmaker;
 
-	ChatBackend *chat_backend = nullptr;
-	CaptureLogOutput m_chat_log_buf;
-
 	EventManager *eventmgr = nullptr;
 	QuicktuneShortcutter *quicktune = nullptr;
 
@@ -353,7 +346,6 @@ private:
 	online::Launch::Kind m_online_kind = online::Launch::Kind::Offline;
 	std::string m_online_host_name;
 #endif
-	irr_ptr<GUIChatConsole> gui_chat_console;
 	MapDrawControl *draw_control = nullptr;
 	Camera *camera = nullptr;
 	irr_ptr<Clouds> clouds;

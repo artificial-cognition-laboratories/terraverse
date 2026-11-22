@@ -74,7 +74,8 @@ const pressure = (p: number) => p >= 1e9 ? `${(p / 1e9).toPrecision(3)} GPa` : p
 </script>
 
 <template>
-    <WorkbenchColumns :open="chosen !== 'table' || !!rock">
+    <!-- open always: the table fills the area as a scene does, its own night behind it (TableSection) -->
+    <WorkbenchColumns open>
         <template #list>
             <ListItem :on="chosen === 'table' && !rock" @click="pick('table')">Periodic table</ListItem>
             <ListGroup v-for="g in groups" v-show="g.items.length" :key="g.label" :title="g.label">
@@ -156,16 +157,16 @@ const pressure = (p: number) => p >= 1e9 ? `${(p / 1e9).toPrecision(3)} GPa` : p
 
 <style scoped>
 .model { width: 170px; height: 150px; }
-.here { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; padding: 8px 10px; border: var(--b) solid var(--edge); background: var(--stone-1); box-shadow: var(--sunk); font-size: 11px; }
+.here { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--glass-edge); background: rgb(4 7 11 / 0.6); font-size: 11px; }
 .here strong { font: 14px var(--font-display); text-transform: uppercase; }
 .solid { color: #8fb6e8; } .liquid { color: #40b8ec; } .gas { color: #d9b07a; } .supercritical { color: #c99be0; }
 .diagram { flex: none; height: 210px; }
 summary { cursor: pointer; color: var(--ink-faint); font: 11px var(--font-display); text-transform: uppercase; letter-spacing: 0.12em; }
 details dl { margin-top: 8px !important; }
 .worlds { display: flex; flex-wrap: wrap; gap: 6px; }
-.worlds button { border: var(--b) solid var(--edge); background: var(--stone-2); padding: 3px 7px; font: 10px var(--font-display); text-transform: uppercase; color: var(--ink-dim); }
+.worlds button { border: 1px solid var(--glass-edge); background: var(--glass); padding: 3px 7px; font: 10px var(--font-display); text-transform: uppercase; color: var(--ink-dim); }
 .worlds button:hover { color: var(--ink); }
-.bar { display: flex; height: 18px; border: var(--b) solid var(--edge); overflow: hidden; }
+.bar { display: flex; height: 18px; border: 1px solid var(--glass-edge); overflow: hidden; }
 .bar span { min-width: 2px; }
 .minerals { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .minerals li { display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; font-size: 12px; }

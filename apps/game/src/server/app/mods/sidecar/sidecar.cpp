@@ -774,9 +774,20 @@ void Sidecar::handleCall(u32 id, const mp::Value &message)
 			std::vector<Host::Command> commands;
 			for (const mp::Value &c : arg(0).asArray()) {
 				const auto &parts = c.asArray();
-				if (parts.size() != 3)
-					throw mp::Error("a command is [name, description, params]");
-				commands.push_back({ parts[0].asString(), parts[1].asString(), parts[2].asString() });
+				if (parts.size() != 5)
+					throw mp::Error("a command is [path, description, usage, permission, args]");
+				Host::Command command{ parts[0].asString(), parts[1].asString(), parts[2].asString(),
+						parts[3].asString(), {} };
+				for (const mp::Value &a : parts[4].asArray()) {
+					const auto &fields = a.asArray();
+					if (fields.size() != 4)
+						throw mp::Error("a command's argument is [name, type, optional, options]");
+					Host::Command::Arg made{ fields[0].asString(), fields[1].asString(), fields[2].asBool(), {} };
+					for (const mp::Value &o : fields[3].asArray())
+						made.options.push_back(o.asString());
+					command.args.push_back(std::move(made));
+				}
+				commands.push_back(std::move(command));
 			}
 			m_host.commands(commands);
 			reply(true, [](mp::Writer &w) { w.nil(); });

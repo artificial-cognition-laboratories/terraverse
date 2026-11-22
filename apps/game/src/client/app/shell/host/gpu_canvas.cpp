@@ -24,6 +24,7 @@ static void unreachable() { throw std::logic_error("shell: a GpuCanvas where non
 void GpuCanvas::paint(const void *, u32, u32, const std::vector<CefRect> &) { unreachable(); }
 void GpuCanvas::paint(const CefAcceleratedPaintInfo &, const std::vector<CefRect> &) { unreachable(); }
 bool GpuCanvas::settled() { unreachable(); return false; }
+void GpuCanvas::holdFrame(bool) { unreachable(); }
 bool GpuCanvas::draw(core::position2di) { unreachable(); return false; }
 u8 GpuCanvas::alphaAt(s32, s32) const { unreachable(); return 0; }
 Canvas::Painted GpuCanvas::taken() { unreachable(); return {}; }
@@ -32,8 +33,10 @@ Canvas::Painted GpuCanvas::taken() { unreachable(); return {}; }
 
 #else
 
+#include "src/client/app/shell/host/frame_blur.h"
 #include "src/client/app/shell/host/gpu_egl.h"
 #include "src/client/app/shell/host/gpu_programs.h"
+#include "src/client/app/shell/host/gl_restore.h"
 #include "library/trace/trace.h"
 #include <mt_opengl.h>
 #include <GL/gl.h>
@@ -52,6 +55,7 @@ struct GpuCanvas::Impl
 {
 	std::unique_ptr<GpuEgl> egl;
 	GpuPrograms programs; // shared by both contexts
+	FrameBlur blur{ { programs } }; // the main thread's
 
 	// Chromium's thread's
 	GLuint fbo = 0, vao = 0, mask_texture = 0;
@@ -84,6 +88,7 @@ struct GpuCanvas::Impl
 	};
 	Pending pending;
 	std::vector<u8> mask; // MASK_CELL² cells' alpha, row by row
+	bool glass = false;   // any of it solid enough to frost the frame (gpu_programs.cpp: SHOW)
 	u32 mask_stride = 0, mask_rows = 0;
 	Painted painted;
 
@@ -93,18 +98,6 @@ struct GpuCanvas::Impl
 	void takeIn();
 };
 
-namespace {
-// Binds what it binds, and puts back what was bound: Irrlicht caches GL's
-// state, and only what it set may be there when it next draws.
-struct Restore
-{
-	GLint program, vao, active, texture, viewport[4];
-	GLint src_rgb, dst_rgb, src_alpha, dst_alpha, eq_rgb, eq_alpha;
-	GLboolean blend, depth, cull, scissor, stencil;
-	Restore();
-	~Restore();
-};
-} // namespace
 
 GpuCanvas::Boot GpuCanvas::boot()
 {
@@ -117,7 +110,7 @@ GpuCanvas::Boot GpuCanvas::boot()
 	m.programs = GpuPrograms::compile(m.egl->es(), GL.IsExtensionPresent("GL_OES_EGL_image_external"));
 	if (!m.programs.ready())
 		return { nullptr, m.programs.failed };
-	Restore keep;
+	GlRestore keep;
 	for (Impl::Slot &slot : m.slots) {
 		GL.GenTextures(1, &slot.texture);
 		GL.BindTexture(GL_TEXTURE_2D, slot.texture);
@@ -173,6 +166,9 @@ void GpuCanvas::Impl::takeIn()
 	if (!read)
 		throw std::runtime_error("shell: the page's mask won't map back");
 	mask.assign((const u8 *)read, (const u8 *)read + size);
+	glass = false;
+	for (size_t i = 0; i < size && !glass; i += 4)
+		glass = mask[i] >= 51; // (SHOW's smoothstep starts at 0.2)
 	GL.UnmapBuffer(GL_PIXEL_PACK_BUFFER);
 	GL.BindBuffer(GL_PIXEL_PACK_BUFFER, bound);
 	mask_stride = pending.mask_width;
@@ -279,6 +275,11 @@ void GpuCanvas::paint(const CefAcceleratedPaintInfo &info, const std::vector<Cef
 	m.painted.area += area;
 }
 
+void GpuCanvas::holdFrame(bool held)
+{
+	m->blur.hold(held);
+}
+
 bool GpuCanvas::settled()
 {
 	std::lock_guard<std::mutex> guard(m->lock);
@@ -297,6 +298,7 @@ bool GpuCanvas::draw(core::position2di at)
 	bool fresh;
 	GLuint texture;
 	u32 w, h;
+	bool glass;
 	{
 		std::lock_guard<std::mutex> guard(m.lock);
 		if (m.latest < 0)
@@ -306,22 +308,25 @@ bool GpuCanvas::draw(core::position2di at)
 			m.shown = m.latest;
 		m.fresh = false;
 		texture = m.slots[m.shown].texture;
+		glass = m.glass;
 		w = m.slots[m.shown].width;
 		h = m.slots[m.shown].height;
 	}
 	{
-		Restore keep;
+		GlRestore keep;
 		GL.Disable(GL_DEPTH_TEST);
 		GL.Disable(GL_CULL_FACE);
 		GL.Disable(GL_SCISSOR_TEST);
 		GL.Disable(GL_STENCIL_TEST);
+		GL.Disable(GL_BLEND);
+		GL.BindVertexArray(m.main_vao);
+		const unsigned frame = glass ? m.blur.take(keep.viewport) : 0;
 		GL.Enable(GL_BLEND);
 		GL.BlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
 		GL.BlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // (premultiplied)
-		GL.BindVertexArray(m.main_vao);
 		const float vw = (float)keep.viewport[2], vh = (float)keep.viewport[3];
-		m.programs.show(texture, at.X / vw * 2 - 1, 1 - at.Y / vh * 2,
-				(at.X + w) / vw * 2 - 1, 1 - (at.Y + h) / vh * 2);
+		m.programs.show({ texture, frame, { keep.viewport[0], keep.viewport[1], keep.viewport[2], keep.viewport[3] },
+				at.X / vw * 2 - 1, 1 - at.Y / vh * 2, (at.X + w) / vw * 2 - 1, 1 - (at.Y + h) / vh * 2 });
 	}
 	GLsync drawn = GL.FenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 	GL.Flush(); // (another context waits on it)
@@ -350,44 +355,6 @@ Canvas::Painted GpuCanvas::taken()
 	const Painted out = m->painted;
 	m->painted = {};
 	return out;
-}
-
-Restore::Restore()
-{
-	GL.GetIntegerv(GL_CURRENT_PROGRAM, &program);
-	GL.GetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
-	GL.GetIntegerv(GL_ACTIVE_TEXTURE, &active);
-	GL.ActiveTexture(GL_TEXTURE0);
-	GL.GetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
-	GL.GetIntegerv(GL_VIEWPORT, viewport);
-	GL.GetIntegerv(GL_BLEND_SRC_RGB, &src_rgb);
-	GL.GetIntegerv(GL_BLEND_DST_RGB, &dst_rgb);
-	GL.GetIntegerv(GL_BLEND_SRC_ALPHA, &src_alpha);
-	GL.GetIntegerv(GL_BLEND_DST_ALPHA, &dst_alpha);
-	GL.GetIntegerv(GL_BLEND_EQUATION_RGB, &eq_rgb);
-	GL.GetIntegerv(GL_BLEND_EQUATION_ALPHA, &eq_alpha);
-	blend = GL.IsEnabled(GL_BLEND);
-	depth = GL.IsEnabled(GL_DEPTH_TEST);
-	cull = GL.IsEnabled(GL_CULL_FACE);
-	scissor = GL.IsEnabled(GL_SCISSOR_TEST);
-	stencil = GL.IsEnabled(GL_STENCIL_TEST);
-}
-
-Restore::~Restore()
-{
-	const auto set = [](GLenum cap, GLboolean on) { on ? GL.Enable(cap) : GL.Disable(cap); };
-	set(GL_BLEND, blend);
-	set(GL_DEPTH_TEST, depth);
-	set(GL_CULL_FACE, cull);
-	set(GL_SCISSOR_TEST, scissor);
-	set(GL_STENCIL_TEST, stencil);
-	GL.BlendEquationSeparate(eq_rgb, eq_alpha);
-	GL.BlendFuncSeparate(src_rgb, dst_rgb, src_alpha, dst_alpha);
-	GL.Viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-	GL.BindTexture(GL_TEXTURE_2D, texture);
-	GL.ActiveTexture(active);
-	GL.BindVertexArray(vao);
-	GL.UseProgram(program);
 }
 
 } // namespace shell

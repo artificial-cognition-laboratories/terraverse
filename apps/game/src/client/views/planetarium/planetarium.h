@@ -138,6 +138,8 @@ public:
 	void aim(v2f at) { m_aim = at; }
 	// How bright the galaxy behind it is drawn, 0..1.
 	void skyLevel(float level) { m_system.skyLevel(level); }
+	// Drawn to be made pixel art (Pixels), an art pixel `cell` screen pixels across; 0: not
+	void pixelArt(float cell) { m_system.pixelArt(cell); }
 
 	// An overlay on the land (overlays/tinting.h); none: the land as it is.
 	using Layer = planetarium::Layer;

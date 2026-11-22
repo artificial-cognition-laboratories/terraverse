@@ -7,6 +7,7 @@
 #include "irr_ptr.h"
 #include "src/client/views/planetarium/globe/lit.h"
 #include "src/client/views/planetarium/globe/rim.h"
+#include "src/client/views/planetarium/space/eye.h"
 #include "library/world/terragen/src/system/system.h"
 #include <CMeshBuffer.h>
 #include <functional>
@@ -124,10 +125,12 @@ private:
 	video::ITexture *glareOf(video::IVideoDriver *driver, video::SColor colour);
 	std::map<u32, video::ITexture *> m_glares; // by the star's colour
 	float m_skyLevel = 1;
+	float m_pixelArt = 0; // an art pixel's screen pixels, or 0
 	bool m_orbits; // Opts::orbits, or as orbits(bool) has it now
 public:
 	void orbits(bool shown) { m_orbits = shown; }
 	void skyLevel(float level) { m_skyLevel = level; }
+	void pixelArt(float cell) { m_pixelArt = cell; } // (Planetarium::pixelArt)
 	float skyLevel() const { return m_skyLevel; }
 private:
 
@@ -144,6 +147,7 @@ private:
 	// the sky: soft dots round the unit sphere and the galaxy's band behind
 	// them, made for a screen's height
 	std::unique_ptr<Galaxy> m_galaxy; // the stars behind it all, made with the shaders
+	Eye m_eye; // how much of them shows, by what else is in view
 	std::vector<u16> m_window; // a cut sphere's triangles, this frame
 	irr_ptr<scene::SMeshBuffer> m_sphere; // unit, its normals its points
 	video::ITexture *m_glow = nullptr;

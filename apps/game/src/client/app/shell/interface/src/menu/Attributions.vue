@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from "vue"
 import { useBridge } from "../bridge/use"
-import { Button, WorkbenchPanel } from "../kit"
+import { Button, onEscape, WorkbenchPanel } from "../kit"
 import type { Screen } from "./screens"
 
-defineEmits<{ go: [screen: Screen] }>()
+const emit = defineEmits<{ go: [screen: Screen] }>()
+onEscape(() => emit("go", "home"))
 const bridge = useBridge()
 type Category = "music" | "art" | "fonts" | "technology"
 const category = ref<Category>("music")
@@ -38,6 +39,7 @@ const CREDITS: Record<Category, { intro: string; entries: Credit[] }> = {
         entries: [
             { title: "Silkscreen", by: "Jason Kottke", detail: "Display lettering · SIL Open Font License", source: "https://fonts.google.com/specimen/Silkscreen", sourceLabel: "Font" },
             { title: "JetBrains Mono", by: "JetBrains", detail: "Interface text · SIL Open Font License", source: "https://www.jetbrains.com/lp/mono/", sourceLabel: "Font" },
+            { title: "Inter", by: "Rasmus Andersson", detail: "Reading text · SIL Open Font License", source: "https://rsms.me/inter/", sourceLabel: "Font" },
         ],
     },
     technology: {

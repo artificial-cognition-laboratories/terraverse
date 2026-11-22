@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/render/gputime/gputime.h"
+#include "src/client/app/shell/host/ui_scale.h"
 #include "src/client/app/shell/host/shell.h"
 #include "src/shared/platform/home/home.h"
 #include <IEventReceiver.h>
@@ -22,6 +23,7 @@
 #include "src/client/app/shell/host/latency.h"
 #include "src/client/app/shell/host/ui_check.h"
 #include "src/client/app/shell/host/inbox.h"
+#include "src/client/app/shell/host/underlays.h"
 #include "src/shared/base/exceptions.h"
 #include "src/shared/platform/system/filesys.h"
 #include "src/shared/platform/system/log.h"
@@ -68,12 +70,12 @@ static const char *modeName(Mode mode)
 
 struct Shell::Impl
 {
-	std::function<void(video::IVideoDriver *)> underlayDraw;
-	std::function<bool(const SEvent &)> underlayMouse;
+	Underlays underlays;
 	Opts opts;
 	std::string item_dir;
 	std::string contents_dir; // local mods' pictures, as terra drew them (bridge/local_mods.h)
 	Viewport viewport;
+	UiScale ui_scale;
 	Inbox inbox; // before what posts to it
 	// the page's frames (the GPU's if it can): before Input, which reads it;
 	// let go before Chromium shuts down, after the page closes (~Shell)
@@ -113,13 +115,14 @@ struct Shell::Impl
 		contents_dir(o.cache_dir + "/contents"),
 		canvas(makeCanvas(o.driver, o.gpu, "the page")),
 		input(o.cursor, *canvas, viewport),
+		ui_scale({ /*density*/ o.scale, /*chosen*/ o.ui_scale }),
 		ime(o.guienv),
 		bridge(inbox)
 	{
 		auto size = o.driver->getScreenSize();
 		viewport.width = size.Width;
 		viewport.height = size.Height;
-		viewport.scale = o.scale;
+		viewport.scale = ui_scale.of(size.Width, size.Height);
 		window = screen = size;
 	}
 
@@ -143,6 +146,9 @@ struct Shell::Impl
 	{
 		ready = true;
 		loads++;
+		// The page's scale is its zoom (client.h: Viewport), the engine's alone: Chromium keeps one
+		// per site (Ctrl+wheel set it, before the page took that), so it's set again on every load.
+		browser->GetHost()->SetZoomLevel(UiScale::zoomLevel(viewport.scale));
 		sendMode();
 		for (const auto &message : pending)
 			bridge.send(browser, message);
@@ -430,14 +436,18 @@ void Shell::frameUi()
 	m->offset = offset;
 
 	auto size = driver->getScreenSize();
-	if (size.Width != m->viewport.width || size.Height != m->viewport.height) {
+	const float scale = m->ui_scale.of(size.Width, size.Height);
+	if (size.Width != m->viewport.width || size.Height != m->viewport.height || scale != m->viewport.scale) {
 		m->viewport.width = size.Width;
 		m->viewport.height = size.Height;
+		const bool zoomed = scale != m->viewport.scale;
+		m->viewport.scale = scale;
 		m->browser->GetHost()->WasResized();
+		if (zoomed)
+			m->browser->GetHost()->SetZoomLevel(UiScale::zoomLevel(scale));
 	}
 
-	if (m->underlayDraw)
-		m->underlayDraw(m->opts.driver);
+	m->underlays.draw(m->opts.driver);
 	const Canvas::Painted painted = m->canvas->taken();
 	m->latency.painted(painted.first, painted.paints, painted.area);
 	{
@@ -473,21 +483,26 @@ bool Shell::onEvent(const SEvent &event)
 	if (m->debugger->onEvent(event, m->window))
 		return true;
 
-	const bool took = m->input.handle(event, m->browser->GetHost(), m->keyboard);
+	// In the menu Esc is always the page's: there's no game to hand it to, and its screens close on it
+	const bool escape = event.EventType == EET_KEY_INPUT_EVENT && event.KeyInput.Key == KEY_ESCAPE;
+	const bool keys = m->keyboard || (m->mode == Mode::Menu && escape);
+	const bool took = m->input.handle(event, m->browser->GetHost(), keys);
 	if (took)
 		m->latency.input(trace::now());
-	if (!m->underlayMouse || event.EventType != EET_MOUSE_INPUT_EVENT)
+	if (m->underlays.empty() || event.EventType != EET_MOUSE_INPUT_EVENT)
 		return took;
 	// (a drag carries on over the page's panels)
 	const EMOUSE_INPUT_EVENT what = event.MouseInput.Event;
 	if (took && what != EMIE_MOUSE_MOVED && what != EMIE_LMOUSE_LEFT_UP)
 		return true;
-	return m->underlayMouse(event) || took;
+	return m->underlays.mouse(event) || took;
 }
 
 void Shell::setMode(Mode mode)
 {
 	m->mode = mode;
+	// the world's scene goes as it's saved: its last frame stays behind the page's glass
+	m->canvas->holdFrame(mode == Mode::Leaving);
 	if (mode == Mode::Menu)
 		m->social->leave();
 	if (m->ready)
@@ -504,10 +519,9 @@ void Shell::on(const std::string &kind, Verb verb)
 	m->bridge.on(kind, std::move(verb));
 }
 
-void Shell::underlay(std::function<void(video::IVideoDriver *)> draw, std::function<bool(const SEvent &)> mouse)
+Underlays &Shell::underlays()
 {
-	m->underlayDraw = std::move(draw);
-	m->underlayMouse = std::move(mouse);
+	return m->underlays;
 }
 
 void Shell::drain()
@@ -553,6 +567,11 @@ Entering &Shell::entering()
 void Shell::serverInfo(std::function<Json::Value()> describe)
 {
 	m->debugger->serverInfo(std::move(describe));
+}
+
+void Shell::chooseUiScale(float chosen)
+{
+	m->ui_scale.choose(chosen);
 }
 
 float Shell::scale() const

@@ -144,12 +144,18 @@ bool ready(const Showing &f)
 struct Galaxy::SkyUniforms : public IShaderUniformSetterRC
 {
 	float fade = 0;
+	float open = 1; // the eye's (Eye): how much of the band's light shows
+	float art = 0; // pixel art: the band alone, its contrast up, no specks (Frame::art)
 	float specks = 1; // the specks' texture's repeats a unit of the way's (about a texel a pixel)
 	CachedPixelShaderSetting<float> m_fade{ "galaxyFade" };
+	CachedPixelShaderSetting<float> m_open{ "galaxyOpen" };
+	CachedPixelShaderSetting<float> m_art{ "galaxyArt" };
 	CachedPixelShaderSetting<float> m_specks{ "galaxySpecks" };
 	void onSetUniforms(video::IMaterialRendererServices *s) override
 	{
 		m_fade.set(&fade, s);
+		m_open.set(&open, s);
+		m_art.set(&art, s);
 		m_specks.set(&specks, s);
 	}
 };
@@ -158,12 +164,15 @@ struct Galaxy::StarUniforms : public IShaderUniformSetterRC
 {
 	float pixel[2]{}; // one reference pixel, in clip space
 	float fade = 0;
+	float cut = 0; // the faintest seen, by alpha: more go as the eye closes
 	CachedVertexShaderSetting<float, 2> m_pixel{ "starPixel" };
 	CachedPixelShaderSetting<float> m_fade{ "starFade" };
+	CachedPixelShaderSetting<float> m_cut{ "starCut" };
 	void onSetUniforms(video::IMaterialRendererServices *s) override
 	{
 		m_pixel.set(pixel, s);
 		m_fade.set(&fade, s);
+		m_cut.set(&cut, s);
 	}
 };
 
@@ -304,8 +313,10 @@ Galaxy::~Galaxy()
 {
 }
 
-void Galaxy::draw(video::IVideoDriver *driver, float aspect, float fov, u32 height, float level)
+void Galaxy::draw(video::IVideoDriver *driver, const Frame &frame)
 {
+	const float aspect = frame.aspect, fov = frame.fov, level = frame.level, open = frame.open;
+	const u32 height = frame.height;
 	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, 0.1f, 10.f, fov));
 	driver->setTransform(video::ETS_WORLD, core::IdentityMatrix);
 
@@ -334,6 +345,8 @@ void Galaxy::draw(video::IVideoDriver *driver, float aspect, float fov, u32 heig
 	const double since = std::chrono::duration<double>(std::chrono::steady_clock::now() - m_shared->shownAt).count();
 	const float fade = (float)std::min(1.0, since / FADE_IN);
 	m_skyUniforms->fade = fade * level;
+	m_skyUniforms->open = open;
+	m_skyUniforms->art = frame.art > 0 ? 1.f : 0.f;
 	// a speck of the unresolved stars about a pixel at the middle of the
 	// screen: finer on a bigger screen, never magnified into blots
 	m_skyUniforms->specks = std::max(0.93f, OrbitCamera::focal((float)height, fov) / GRAIN);
@@ -347,7 +360,10 @@ void Galaxy::draw(video::IVideoDriver *driver, float aspect, float fov, u32 heig
 	const f32 pixel = 2.f / std::max(1u, height);
 	m_starUniforms->pixel[0] = pixel / aspect;
 	m_starUniforms->pixel[1] = pixel;
-	m_starUniforms->fade = fade;
+	// the faint ones go as the eye closes; the ones left keep their light
+	m_starUniforms->fade = fade * (frame.art > 0 ? 0.7f : 1.f); // (as pixel art each is a whole art pixel: brighter for it)
+	// (as pixel art too: the pixel pass makes each a dot of its own shade)
+	m_starUniforms->cut = 0.1f + 0.22f * (1 - open);
 	driver->setMaterial(m_starMaterial);
 	for (const irr_ptr<scene::SMeshBuffer> &buffer : m_shared->stars)
 		driver->drawMeshBuffer(buffer.get());

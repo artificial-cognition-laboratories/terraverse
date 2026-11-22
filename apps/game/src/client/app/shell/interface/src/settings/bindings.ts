@@ -25,7 +25,7 @@ export const BINDING_GROUPS = [
         ["keymap_alt", "Alt: add into the world, 1–9 hotbar while building, = mirror, click carries"],
     ] },
     { title: "Screens", bindings: [
-        ["keymap_wiki", "Wiki"], ["keymap_planetarium", "Planetarium"],
+        ["keymap_wiki", "Wiki"], ["keymap_library", "Library"], ["keymap_planetarium", "Planetarium"],
         ["keymap_minimap", "Map"], ["keymap_toggle_hud", "Toggle HUD"],
         ["keymap_camera_mode", "Camera mode"],
     ] },

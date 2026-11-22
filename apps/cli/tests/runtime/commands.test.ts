@@ -31,21 +31,28 @@ function setup() {
 }
 
 describe("Commands", () => {
-    test("the engine is told each command's first word, and again when they change", async () => {
+    test("the engine is told each command by its path, with what it takes and who may, and again when they change", async () => {
         const { commands, step, calls } = setup()
-        commands.api.create("kiln light", { description: "Light it", run() {} })
+        commands.api.create("kiln light", { description: "Light it", permission: "kilns:light", run() {} })
         const off = commands.api.create("kiln count", { description: "How many", run() {} })
         commands.api.create("msg", { description: "Say", args: { to: { type: "player" }, text: { type: "string" } }, run() {} })
+        commands.api.create("heat", { description: "Set", args: { how: { type: "string", options: ["low", "high"], optional: true } }, run() {} })
         await step()
         expect(calls(Call["commands.set"]).at(-1)).toEqual([Call["commands.set"], [
-            ["kiln", "light, count", "<what> …"],
-            ["msg", "Say", "<to> <text>"],
+            ["kiln light", "Light it", "", "kilns:light", []],
+            ["kiln count", "How many", "", "", []],
+            ["msg", "Say", "<to> <text>", "", [["to", "player", false, []], ["text", "string", false, []]]],
+            ["heat", "Set", "[low|high]", "", [["how", "string", true, ["low", "high"]]]],
         ]])
         await step()
         expect(calls(Call["commands.set"]).length).toBe(1)
         off()
         await step()
-        expect(calls(Call["commands.set"]).at(-1)).toEqual([Call["commands.set"], [["kiln", "light", "<what> …"], ["msg", "Say", "<to> <text>"]]])
+        expect(calls(Call["commands.set"]).at(-1)).toEqual([Call["commands.set"], [
+            ["kiln light", "Light it", "", "kilns:light", []],
+            ["msg", "Say", "<to> <text>", "", [["to", "player", false, []], ["text", "string", false, []]]],
+            ["heat", "Set", "[low|high]", "", [["how", "string", true, ["low", "high"]]]],
+        ]])
     })
 
     test("a line is parsed into typed args, the last string taking the rest", async () => {

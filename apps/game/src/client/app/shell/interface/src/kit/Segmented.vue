@@ -14,27 +14,14 @@ const model = defineModel<T | null>({ required: true })
 </template>
 
 <style scoped>
+/* glass, as the site's layout toggle (registry browse: .views): the chosen one tinted with the ocean */
 .segmented { display: flex; min-width: 0; }
-
-button {
-    flex: 1 0 auto;
-    height: 32px;
-    padding: 0 6px;
-    white-space: nowrap;
-    border: var(--b) solid var(--edge);
-    margin-left: calc(var(--b) * -1);
-    background: var(--stone-2);
-    font: 12px var(--font-display);
-    text-transform: uppercase;
-    color: var(--ink-dim);
-    box-shadow: var(--raised);
-}
-
+button { flex: 1 0 auto; height: 2.1rem; margin-left: -1px; padding: 0 0.5rem; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px);
+    color: var(--ink-faint); font: 0.68rem var(--font-display); text-transform: uppercase; white-space: nowrap; }
 button:first-child { margin-left: 0; }
 button:hover { color: var(--ink); }
-button.on { position: relative; background: var(--accent-lo); color: var(--ink); box-shadow: inset 0 calc(var(--b) * -2) 0 var(--accent-hi), var(--sunk); }
-.sm button { height: 26px; font-size: 10px; }
-.line button { border-color: var(--stone-3); background: none; box-shadow: none; color: var(--ink-faint); margin-left: -1px; border-width: 1px; }
-.line button:hover { color: var(--ink); border-color: var(--stone-4); z-index: 1; }
-.line button.on { z-index: 2; border-color: var(--accent); background: none; box-shadow: none; color: var(--accent-hi); }
+button.on { position: relative; z-index: 1; border-color: var(--edge-lit-hi); background: var(--glass-lit); color: var(--ink); }
+.sm button { height: 1.75rem; font-size: 0.6rem; }
+.line button { background: none; backdrop-filter: none; }
+.line button.on { background: none; color: var(--accent-hi); }
 </style>

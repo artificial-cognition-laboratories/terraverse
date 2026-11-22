@@ -8,6 +8,7 @@
 #include "src/shared/platform/system/porting.h"
 #include "src/shared/platform/settings/settings.h"
 #include "src/client/views/planetarium/camera.h"
+#include "src/client/views/figure/figure_mesh.h"
 #include <IVideoDriver.h>
 #include <algorithm>
 #include <cmath>
@@ -755,37 +756,16 @@ void Scene::drawMachine(video::IVideoDriver *driver)
 	driver->setTransform(video::ETS_WORLD, core::IdentityMatrix);
 }
 
-// Its boxes from the game's own table, as they stand this frame; the game colours them the same.
+// Its boxes from the game's own table, as they stand this frame (figure_mesh).
 void Scene::drawFigure(video::IVideoDriver *driver)
 {
 	if (!m_figure)
 		return;
-	std::vector<video::S3DVertex> vertices;
-	std::vector<u16> indices;
 	core::matrix4 root;
 	const float c = std::cos(m_figure->yaw), s = std::sin(m_figure->yaw);
 	root[0] = c; root[2] = s; root[8] = -s; root[10] = c;
 	root.setTranslation(m_figure->at);
-	physics::eachBoneBox(m_figure->bones, [&](const core::matrix4 &bone, v3f size, v3f centre, physics::BoneColour colour) {
-		const video::SColor base = colour == physics::BoneColour::SKIN ? video::SColor(255, 216, 160, 122) :
-				colour == physics::BoneColour::SHIRT ? video::SColor(255, 0, 148, 210) : video::SColor(255, 58, 63, 85);
-		const core::matrix4 m = root * bone;
-		const v3f h = size * 0.5f;
-		for (const Face &f : FACES) {
-			const size_t first = vertices.size();
-			quad(vertices, indices, centre + v3f(f.normal.X * h.X, f.normal.Y * h.Y, f.normal.Z * h.Z),
-					v3f(f.u.X * h.X, f.u.Y * h.Y, f.u.Z * h.Z), v3f(f.v.X * h.X, f.v.Y * h.Y, f.v.Z * h.Z), f.normal, lit(base, f.light), v2f(), v2f(), 1);
-			for (size_t i = first; i < vertices.size(); i++)
-				m.transformVect(vertices[i].Pos);
-		}
-	});
-	video::SMaterial mat;
-	mat.MaterialType = video::EMT_SOLID;
-	mat.FogEnable = false;
-	mat.ColorMask = video::ECP_RGB;
-	driver->setMaterial(mat);
-	driver->drawVertexPrimitiveList(vertices.data(), (u32)vertices.size(), indices.data(), (u32)indices.size() / 3,
-			video::EVT_STANDARD, scene::EPT_TRIANGLES, video::EIT_16BIT);
+	figure_mesh::draw(driver, figure_mesh::build(m_figure->bones, root));
 }
 
 void Scene::draw(video::IVideoDriver *driver)
@@ -798,8 +778,9 @@ void Scene::draw(video::IVideoDriver *driver)
 		m_dirty = false;
 	}
 	const core::dimension2du window = driver->getScreenSize();
-	// its own space: what's behind the panel doesn't show through
-	driver->draw2DRectangle(video::SColor(255, 13, 15, 18), m_rect);
+	// its own space: what's behind the panel doesn't show through. The night the page's panels are
+	// made of (theme.css: --night-0), so the scene sits in the wiki as one of its columns
+	driver->draw2DRectangle(video::SColor(255, 7, 11, 17), m_rect);
 	driver->setViewPort(m_rect);
 	driver->clearBuffers(video::ECBF_DEPTH);
 	const float aspect = (float)m_rect.getWidth() / std::max(1, m_rect.getHeight());

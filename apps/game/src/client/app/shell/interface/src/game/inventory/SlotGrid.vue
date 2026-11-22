@@ -12,6 +12,7 @@ const props = defineProps<{
     start?: number
     end?: number
     held: Held | null
+    selected?: number // the hotbar's held slot, lit as the HUD's is
 }>()
 const emit = defineEmits<{ press: [slot: SlotRef, stack: Stack | null, button: "left" | "right", shift: boolean, event: MouseEvent]; hover: [over: { slot: SlotRef; stack: Stack | null } | null] }>()
 
@@ -30,7 +31,7 @@ function lifted(index: number, stack: Stack | null) {
 
 <template>
     <div class="grid" :style="{ gridTemplateColumns: `repeat(${columns}, auto)` }">
-        <Slot v-for="i in range" :key="i" :stack="stacks[i] ?? null" :lifted="lifted(i, stacks[i] ?? null)"
+        <Slot v-for="i in range" :key="i" :stack="stacks[i] ?? null" :lifted="lifted(i, stacks[i] ?? null)" :class="{ selected: i === selected }"
             :data-list="list" :data-index="i"
             @press="(button, shift, event) => emit('press', { list: list, index: i }, stacks[i] ?? null, button, shift, event)"
             @hover="(inside) => emit('hover', inside ? { slot: { list: list, index: i }, stack: stacks[i] ?? null } : null)" />
@@ -38,5 +39,5 @@ function lifted(index: number, stack: Stack | null) {
 </template>
 
 <style scoped>
-.grid { display: grid; gap: calc(var(--u) * 1); justify-content: start; }
+.grid { display: grid; gap: 0.25rem; justify-content: start; }
 </style>

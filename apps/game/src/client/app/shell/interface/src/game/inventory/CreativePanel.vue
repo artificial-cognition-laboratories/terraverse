@@ -1,15 +1,14 @@
 <script setup lang="ts">
-import { computed } from "vue"
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import type { CreativeItem, SlotRef, Stack } from "../../bridge/index.ts"
 import { useBridge } from "../../bridge/use.ts"
 import { useStore } from "../store.ts"
 import type { CarryHandle } from "./carry.ts"
-import SlotGrid from "./SlotGrid.vue"
+import "../cell.css"
 
 /**
  * The creative catalogue: every item by category, searchable, with the
- * hotbar below to drag into and a bin to throw things away. The search box
- * is always there: typing searches everything. Parts (sprint 77) are in it
+ * search and the bin above, the screen's (InventoryScreen). Typing searches everything. Parts (sprint 77) are in it
  * as items are, in their own tab: the starter parts and the player's
  * library, every world's. One clicked is carried till you click, onto a
  * chassis by the face it hung by (a corner on its spring).
@@ -21,8 +20,6 @@ const emit = defineEmits<{
 }>()
 const store = useStore()
 const bridge = useBridge()
-const row = computed(() => store.state.hotbar?.size ?? 9)
-const main = computed(() => props.carry.lists.value?.main ?? null)
 
 const shown = computed(() => {
     const q = props.query.trim().toLowerCase()
@@ -46,6 +43,31 @@ function take(part: string) {
     void bridge.send("tools.ask", { action: "take", name: part })
 }
 
+// the scrollbar: a hairline in the frame's padding beside the catalogue, not the browser's, which
+// would take a gutter's width; lit while the catalogue moves
+const catalogue = ref<HTMLElement | null>(null)
+const thumb = ref<{ top: number; height: number } | null>(null)
+const moving = ref(false)
+let still: ReturnType<typeof setTimeout> | undefined
+function measure() {
+    const el = catalogue.value
+    if (!el || el.scrollHeight <= el.clientHeight) { thumb.value = null; return }
+    thumb.value = { top: el.scrollTop / el.scrollHeight * 100, height: el.clientHeight / el.scrollHeight * 100 }
+}
+function scrolled() {
+    measure()
+    moving.value = true
+    clearTimeout(still)
+    still = setTimeout(() => { moving.value = false }, 600)
+}
+// another tab or search: back to the top
+watch([shown, parts], () => nextTick(() => {
+    if (catalogue.value) catalogue.value.scrollTop = 0
+    measure()
+}))
+onMounted(measure)
+onBeforeUnmount(() => clearTimeout(still))
+
 function down(item: CreativeItem, e: MouseEvent) {
     if (e.button !== 0 && e.button !== 2) return
     props.carry.catalogue(item, e.button === 2 ? "right" : "left", e.shiftKey, e)
@@ -54,14 +76,14 @@ function down(item: CreativeItem, e: MouseEvent) {
 
 <template>
     <div class="creative">
-        <div class="catalogue" @mousedown.self="carry.held.value && carry.bin()">
-            <button v-for="item in shown" :key="item.item" class="cell" :aria-label="item.description"
+        <div ref="catalogue" class="catalogue" @scroll="scrolled" @mousedown.self="carry.held.value && carry.bin()">
+            <button v-for="item in shown" :key="item.item" class="item-cell pickable" :aria-label="item.description"
                 @mousedown.prevent="down(item, $event)" @contextmenu.prevent
                 @mouseenter="emit('hover', { item: item })" @mouseleave="emit('hover', null)">
                 <img v-if="item.icon" :src="item.icon" :alt="item.description" draggable="false">
                 <span v-else>{{ item.description.slice(0, 2) }}</span>
             </button>
-            <button v-for="p in parts" :key="`part:${p}`" class="cell part" :aria-label="p"
+            <button v-for="p in parts" :key="`part:${p}`" class="item-cell pickable part" :aria-label="p"
                 @mousedown.prevent="$event.button === 0 && take(p)" @contextmenu.prevent
                 @mouseenter="emit('hover', { part: p })" @mouseleave="emit('hover', null)">
                 <svg v-if="wheeled(p)" viewBox="0 0 9 9" shape-rendering="crispEdges" aria-hidden="true">
@@ -73,33 +95,22 @@ function down(item: CreativeItem, e: MouseEvent) {
             </button>
             <p v-if="!shown.length && !parts.length" class="empty">{{ query ? "Nothing matches." : "Nothing here yet." }}</p>
         </div>
-        <div v-if="main" class="bottom">
-            <SlotGrid list="main" :stacks="main.stacks" :columns="row" :start="0" :end="row" :held="carry.held.value"
-                @press="carry.slot" @hover="emit('hover', $event)" />
-            <button class="bin" data-bin title="Destroy what you carry" @mousedown.prevent="carry.bin()">
-                <svg viewBox="0 0 9 9" shape-rendering="crispEdges" aria-hidden="true">
-                    <path fill="currentColor" d="M1 1h7v1h-7zM3 0h3v1h-3zM2 2h5v7h-5zM3 3v5h1v-5zM5 3v5h1v-5z" />
-                </svg>
-            </button>
-        </div>
+        <i v-if="thumb" class="thumb" :class="{ lit: moving }" :style="{ top: `${thumb.top}%`, height: `${thumb.height}%` }" aria-hidden="true" />
     </div>
 </template>
 
 <style scoped>
-.creative { display: flex; flex-direction: column; gap: calc(var(--u) * 3); height: 100%; }
-/* nine across, six down, scrolling, with the scrollbar's room kept in the frame's width: the same size whatever the tab */
-.catalogue { display: grid; grid-template-columns: repeat(9, calc(var(--u) * 18)); grid-auto-rows: calc(var(--u) * 18); gap: var(--u);
-    height: calc(var(--u) * 18 * 6 + var(--u) * 5); overflow-y: auto; overflow-x: hidden; align-content: start; scrollbar-gutter: stable; }
-.cell { display: grid; place-items: center; padding: 0; border: var(--b) solid var(--edge); background: var(--stone-0); box-shadow: var(--sunk); }
-.cell:hover { background: #1b2730; box-shadow: inset 0 0 0 var(--b) var(--accent-lo), var(--sunk); }
-.cell img { width: calc(var(--u) * 16); height: calc(var(--u) * 16); image-rendering: pixelated; }
-.cell span { font: 12px var(--font-display); }
-.cell.part { color: var(--ink-dim); }
-.cell.part svg { width: calc(var(--u) * 12); height: calc(var(--u) * 12); }
-.empty { grid-column: 1 / -1; color: var(--ink-faint); padding: 16px; margin: 0; }
-.bottom { display: flex; align-items: center; gap: calc(var(--u) * 3); }
-.bin { width: calc(var(--u) * 18); height: calc(var(--u) * 18); display: grid; place-items: center; padding: 0;
-    border: var(--b) solid var(--edge); background: var(--stone-1); box-shadow: var(--raised); color: var(--ink-dim); }
-.bin:hover { color: var(--danger); }
-.bin svg { width: calc(var(--u) * 9); height: calc(var(--u) * 9); }
+.creative { position: relative; display: flex; flex-direction: column; height: 100%; }
+/* nine across, six down, scrolling: the same size whatever the tab */
+.catalogue { display: grid; grid-template-columns: repeat(9, 2.75rem); grid-auto-rows: 2.75rem; gap: 0.25rem;
+    height: calc(2.75rem * 6 + 0.25rem * 5); overflow-y: auto; overflow-x: hidden; align-content: start; }
+.catalogue::-webkit-scrollbar { display: none; }
+/* centred in the frame's right padding (InventoryScreen: .content, 0.25rem) */
+.thumb { position: absolute; right: calc(-0.125rem - 1px); width: 2px; background: var(--glass-edge-hi); pointer-events: none;
+    transition: background 120ms; }
+.thumb.lit { background: var(--edge-lit-hi); }
+.item-cell img { width: calc(var(--u) * 16); height: calc(var(--u) * 16); image-rendering: pixelated; }
+.item-cell > span { font: 0.75rem var(--font-display); color: var(--ink); }
+.part svg { width: calc(var(--u) * 12); height: calc(var(--u) * 12); }
+.empty { grid-column: 1 / -1; margin: 0; padding: 1rem; color: var(--ink-faint); font: 0.8rem var(--font-sans); }
 </style>

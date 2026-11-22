@@ -14,7 +14,6 @@
 #endif
 
 class InputHandler;
-class ChatBackend;
 class RenderingEngine;
 struct GameErrorData;
 struct GameStartData;
@@ -45,5 +44,4 @@ void the_game(volatile std::sig_atomic_t *kill,
 		InputHandler *input,
 		RenderingEngine *rendering_engine,
 		GameStartData &start_data,
-		GameErrorData &errordata,
-		ChatBackend &chat_backend);
+		GameErrorData &errordata);

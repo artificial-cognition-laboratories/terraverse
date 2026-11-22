@@ -59,7 +59,6 @@ set(client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/hud/hud.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/hud/drawItemStack.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/app/menus/modalMenu.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/app/menus/guiChatConsole.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/hud/statusTextHelper.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/fonts/CGUITTFont.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/fonts/static_text.cpp

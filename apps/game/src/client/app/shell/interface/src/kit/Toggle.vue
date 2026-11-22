@@ -1,55 +1,22 @@
 <script setup lang="ts">
-/** On/off as a two-state block switch. */
+/** On/off, as the website's switch: the label, then a square track whose knob slides over and lights. */
 defineProps<{ label: string }>()
 const model = defineModel<boolean>({ required: true })
 </script>
 
 <template>
-    <button class="toggle" :class="{ on: model }" role="switch" :aria-checked="model" @click="model = !model">
+    <button class="toggle" :class="{ on: model }" type="button" role="switch" :aria-checked="model" @click="model = !model">
         <span class="label">{{ label }}</span>
-        <span class="track"><span class="knob" /></span>
+        <span class="track" aria-hidden="true"><span class="knob" /></span>
     </button>
 </template>
 
 <style scoped>
-.toggle {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    width: 100%;
-    text-align: left;
-    padding: 0;
-    border: 0;
-    background: none;
-    font-size: 13px;
-    color: var(--ink-dim);
-}
-
-.label { flex: 1; min-width: 0; }
-
-.track {
-    position: relative;
-    flex: none;
-    width: 44px;
-    height: 22px;
-    border: var(--b) solid var(--edge);
-    background: var(--stone-0);
-    box-shadow: var(--sunk);
-}
-
-.knob {
-    position: absolute;
-    top: 1px;
-    left: 1px;
-    width: 16px;
-    height: 16px;
-    background: var(--stone-4);
-    box-shadow: var(--raised);
-    transition: left 90ms steps(3);
-}
-
-.on .track { background: var(--accent-lo); }
-.on .knob { left: 23px; background: var(--accent-hi); }
-.toggle:hover .label { color: var(--ink); }
+.toggle { display: flex; align-items: center; gap: 0.75rem; width: 100%; padding: 0.25rem; border: 0; background: none; text-align: left; }
+.label { flex: 1; min-width: 0; color: var(--ink-dim); font: 0.88rem var(--font-sans); }
+.track { position: relative; flex: none; width: 2.2rem; height: 1.1rem; border: 1px solid var(--night-4); transition: background 0.12s, border-color 0.12s; }
+.knob { position: absolute; top: 2px; left: 2px; width: calc(1.1rem - 6px); height: calc(1.1rem - 6px); background: var(--ink-faint); transition: transform 0.12s, background 0.12s; }
+.toggle:hover .label, .on .label { color: var(--ink); }
+.on .track { background: rgb(10 75 145 / 0.5); border-color: var(--accent-hi); }
+.on .knob { background: #fff; transform: translateX(1.1rem); }
 </style>

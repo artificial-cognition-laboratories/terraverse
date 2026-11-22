@@ -47,9 +47,9 @@ inline constexpr double PLAY_ALTITUDE = 2.67, PLAY_OFF = 2.0944; // radii; 120°
 
 // The main menu's. Tuned by eye: `luanti --planetarium-shot <png>` renders it.
 // Only the camera's place: the lens is the planetarium's own, so the sky is
-// the same sky the planetarium shows. Far enough out that the star, in
-// the corner, lights a crescent of the near side; turned so the dusty rim
-// crosses behind, not the galaxy's core.
-inline constexpr Shot HOME_SHOT{ "TF24.dGVycmE", 0.25, 2.45, { -0.62f, -0.52f }, { 0.88f, 0.82f }, 1.9, 0.5f };
+// the same sky the planetarium shows. The planet pulled back into the lower
+// left corner, most of it in view; the star well into the upper right, so its
+// light crosses the whole picture and lights the planet's near edge.
+inline constexpr Shot HOME_SHOT{ "TF24.dGVycmE", 0.25, 3.6, { -0.78f, -0.72f }, { 0.82f, 0.78f }, 1.9, 0.5f };
 
 } // namespace planetarium

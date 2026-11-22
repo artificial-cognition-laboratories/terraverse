@@ -14,6 +14,8 @@ set(planetarium_client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/globe/lit.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/globe/rim.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/space/galaxy.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/space/eye.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/pixels.cpp
 	${GAME_DIR}/library/space/milkyway/milkyway.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/space/sky.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/planetarium.cpp

@@ -23,6 +23,7 @@ public:
 	bool draw(core::position2di at) override;
 	u8 alphaAt(s32 x, s32 y) const override;
 	Painted taken() override;
+	void holdFrame(bool) override {} // (no glass here: the page's washes are see-through, nothing to hold)
 
 private:
 	Pixels m_pixels;

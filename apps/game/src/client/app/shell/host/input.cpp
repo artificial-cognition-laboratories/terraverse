@@ -43,8 +43,8 @@ bool Input::mouse(const SEvent &event, CefRefPtr<CefBrowserHost> host)
 
 	const auto &in = event.MouseInput;
 	CefMouseEvent out;
-	out.x = (int)(in.X / m_viewport.scale);
-	out.y = (int)(in.Y / m_viewport.scale);
+	out.x = in.X; // (the view is device pixels: the zoom is Chromium's to undo)
+	out.y = in.Y;
 	out.modifiers = (in.Shift ? EVENTFLAG_SHIFT_DOWN : 0) |
 			(in.Control ? EVENTFLAG_CONTROL_DOWN : 0) |
 			(m_held >= 0 ? BUTTON_FLAGS[m_held] : 0);

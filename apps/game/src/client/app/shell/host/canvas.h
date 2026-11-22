@@ -53,6 +53,9 @@ public:
 	// whether the mouse is the page's.
 	virtual u8 alphaAt(s32 x, s32 y) const = 0;
 	virtual Painted taken() = 0;
+	// Keep what the page's glass shows through as it is now: the world as it was
+	// last drawn, while it's torn down under the page (Mode::Leaving)
+	virtual void holdFrame(bool held) = 0;
 };
 
 // The GPU's canvas if `gpu` and it starts here, else the CPU's, saying why.

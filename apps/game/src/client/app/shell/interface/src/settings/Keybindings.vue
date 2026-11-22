@@ -118,15 +118,17 @@ watch([() => props.focusKey, values], async ([key]) => {
 </template>
 
 <style scoped>
-.bindings { display: grid; gap: 18px; max-width: 660px; }
+/* the settings' rows (SettingsPanel): sans labels, hairlines between, the found one lit */
+.bindings { display: grid; gap: 1.25rem; }
 .recorder { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-.hint { max-width: 60ch; margin: 0; color: var(--ink-dim); font-size: 11px; line-height: 1.6; }
+.hint { max-width: 68ch; margin: 0; color: var(--ink-faint); font: 0.75rem/1.5 var(--font-sans); }
 .group { display: grid; }
-h3 { margin: 0; padding: 0 0 8px; border-bottom: 1px solid var(--stone-4); color: var(--ink-faint); font: 11px var(--font-display); text-transform: uppercase; letter-spacing: 0.12em; }
-.binding-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--stone-4); font-size: 12px; }
-.binding-row.focused { color: var(--accent-hi); }
+h3 { margin: 0; padding: 0 0 0.5rem; border-bottom: 1px solid var(--glass-edge); color: var(--ink-faint); font: 400 0.62rem var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; }
+.binding-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.45rem 0.75rem; border-bottom: 1px solid var(--glass-edge); color: var(--ink-dim); font: 0.88rem var(--font-sans); }
+.binding-row:hover { color: var(--ink); }
+.binding-row.focused { color: var(--ink); background: rgb(99 163 233 / 0.05); }
 .binding-row :deep(.btn) { min-width: 132px; }
-.reset, .confirm-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.reset { padding-top: 8px; color: var(--ink-dim); font-size: 11px; }
-.confirm-actions { margin-top: 10px; }
+.reset, .confirm-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.reset { padding-top: 0.5rem; color: var(--ink-dim); font: 0.75rem var(--font-sans); }
+.confirm-actions { margin-top: 0.6rem; }
 </style>

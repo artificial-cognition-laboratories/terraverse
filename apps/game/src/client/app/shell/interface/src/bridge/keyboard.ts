@@ -15,4 +15,12 @@ export function Keyboard(opts: { bridge: BridgeHandle }) {
     }
     document.addEventListener("focusin", sync)
     document.addEventListener("focusout", () => queueMicrotask(sync))
+    // an input taken out of the page while it has focus (the inventory's search, as its tab changes)
+    // fires no focusout: without this the page would keep every key, Esc too, with nothing to type in
+    let queued = false
+    new MutationObserver(() => {
+        if (queued) return
+        queued = true
+        queueMicrotask(() => { queued = false; sync() })
+    }).observe(document.body, { childList: true, subtree: true })
 }

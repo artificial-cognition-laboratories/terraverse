@@ -26,6 +26,9 @@ export const CATEGORIES: Category[] = [
     { key: "vsync", label: "VSync", note: "Match frames to the display to reduce tearing.", kind: "toggle", applies: "restart" },
     { key: "pause_on_lost_focus", label: "Pause when unfocused", note: "Pause a local world when you switch applications.", kind: "toggle" },
   ] },
+  { id: "interface", title: "Interface", group: "Screen", note: "Menus and the HUD grow with the window. Scale them further here, or with Ctrl and the mouse wheel.", options: [
+    { key: "ui_scale", label: "Interface size", note: "On top of the size that suits the window.", kind: "slider", min: 0.5, max: 2, step: 0.05, format: v => `${Math.round(v * 100)}%`, terms: "zoom scale ui" },
+  ] },
   { id: "framerate", title: "Frame rate", group: "Screen", note: "Frame limits and world rendering resolution.", options: [
     { key: "fps_max", label: "Maximum frame rate", note: "The frame rate cap while playing.", kind: "slider", min: 30, max: 360, step: 10, format: v => `${v} fps`, terms: "fps" },
     { key: "fps_max_unfocused", label: "Background frame rate", note: "The cap while Terraverse is out of focus.", kind: "slider", min: 5, max: 60, step: 5, format: v => `${v} fps` },

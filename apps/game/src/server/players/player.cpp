@@ -19,6 +19,7 @@
 	  creative, the map's Go there.
 */
 
+#include "src/server/game/command_book.h"
 #include "src/server/world/terra.h"
 #include "src/server/app/server.h"
 #include "src/server/world/load/emerge.h"
@@ -247,6 +248,7 @@ void terraJoinPlayer(Server *server, PlayerSAO *sao)
 		sao->setArmorGroups(armor);
 	}
 	server->setUi(player, "creative", creative() ? "true" : "false");
+	server->commands().tell(player); // what they may run, for the palette
 
 	// the wiki (key G), where the world's rules allow it (tf_wiki in world.mt, chosen on
 	// the create screen's Rules); a world from before the rule keeps it

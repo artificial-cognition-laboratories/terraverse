@@ -12,7 +12,7 @@ import type { StarId } from "../worldgen/config"
 export type Mode = "menu" | "entering" | "game" | "leaving"
 
 /** In-game screens the engine can open (src/shell/screens.cpp: SCREENS). */
-export type ScreenName = "pause" | "inventory" | "wiki" | "map"
+export type ScreenName = "pause" | "inventory" | "wiki" | "map" | "library" | "palette"
 
 /** A slot in the local player's inventory, or with `at` a node's (a station's worktop). */
 export type NodePos = { x: number; y: number; z: number }
@@ -327,7 +327,8 @@ export type FloraState = {
     grain: number
 }
 
-export type SceneRect = { x: number; y: number; width: number; height: number }
+/** In the page's pixels, with the device pixels per page pixel it was laid out at (wiki/sceneRect.ts). */
+export type SceneRect = { x: number; y: number; width: number; height: number; scale: number }
 
 export type SandboxFrame = {
     size: [number, number, number]
@@ -366,6 +367,8 @@ export type UiValues = {
     body: { id: string; name: string; home: boolean }
     /** The engine (server/planet.cpp): travelling to another body (/travel): the screen while its land is made */
     travel: { body: string; name: string }
+    /** The engine (server/game/command_book.cpp): every command this player may run, sent on joining and when the mods' change */
+    commands: CommandInfo[]
     /** The engine (server/weather.cpp): the weather where the player stands */
     weather: {
         temperature: number // °C
@@ -378,6 +381,21 @@ export type UiValues = {
     }
 }
 
+
+/**
+ * A line of chat: `from` who said it (null: the server's own, a reply or an announcement);
+ * `tone` which (server/app/server.cpp: handleChat).
+ */
+export type ChatLine = { from: string | null; text: string; tone: "said" | "server" | "announce" }
+
+/** An argument a mod's command takes, as it declared it (apps/cli runtime/api/game/commands.ts). */
+export type CommandArg = { name: string; type: "string" | "number" | "integer" | "boolean" | "player" | "position"; optional: boolean; options?: string[] }
+
+/**
+ * A command this player may run (server/game/command_book.cpp): its whole path ("kiln light"),
+ * how chat writes what it takes, and, for a mod's, each argument typed.
+ */
+export type CommandInfo = { name: string; usage: string; description: string; args?: CommandArg[] }
 
 export type UiMessage = {
     [K in keyof UiValues]: { kind: "ui"; key: K; value: UiValues[K] | null }
@@ -552,7 +570,12 @@ export type EngineMessage =
     | { kind: "entering"; loading: Loading | null }
     | { kind: "error"; message: string }
     | { kind: "items"; items: Record<string, ItemInfo> }
-    | { kind: "screen"; screen: ScreenName | null }
+    /** `with`: what it opens on, as the key that opened it gives it (the palette's list: "", ":" or ">"). */
+    | { kind: "screen"; screen: ScreenName | null; with?: { prefix: string } }
+    /** A line the server sent (client/app/shell/bridge/chat.h): one at a time, as they come. */
+    | { kind: "chat"; line: ChatLine }
+    /** What the engine logged at the chat_log_level setting or worse: the palette's Developer log, never chat. */
+    | { kind: "log"; level: LogLevel; text: string }
     | { kind: "account"; account: Account }
     | { kind: "social"; social: Social | null }
     | PlanetariumMessage
@@ -630,6 +653,10 @@ export type Intents = {
     "scene.show": { request: { id: number; rect: SceneRect; right: number; heat: boolean }; response: null }
     "scene.place": { request: { rect: SceneRect; right: number }; response: null }
     "scene.hide": { request: {}; response: null }
+    /** The player's figure, standing natively in the box (FigureView, src/shell/bridge/figure.h); dragging across it turns it */
+    "figure.show": { request: { rect: SceneRect }; response: null }
+    "figure.place": { request: { rect: SceneRect }; response: null }
+    "figure.hide": { request: {}; response: null }
     /** Newton's cannonball on the world's planet (src/shell/wiki.cpp: orbit::Flight); points in planet radii, x east, y up */
     "orbit.coast": {
         request: { altitude: number; speed: number; angle: number; mass: number; drag_area: number; seconds: number }
@@ -689,7 +716,11 @@ export type Intents = {
      */
     "social.join": { request: { id: string; name: string }; response: null }
     /** Opens a screen the page decides on (src/shell/screens.cpp: SCREENS); one that needs a UI value stays shut without it. */
-    "screen.open": { request: { name: ScreenName }; response: null }
+    "screen.open": { request: { name: ScreenName; with?: { prefix: string } }; response: null }
+    /** A line said, or a command (`/…`): the server answers either in chat (client/app/shell/bridge/chat.h). */
+    "chat.send": { request: { text: string }; response: null }
+    /** Who's in this world now, by name: the palette's @. */
+    "chat.players": { request: {}; response: string[] }
     /** Terraverse: a tool picked on the rail (src/client/hand.h). */
     "tools.pick": { request: { tool: ToolId }; response: null }
     "tools.ask": { request: Ask; response: null }

@@ -47,6 +47,7 @@ Session::Session(const Opts &opts) :
 	m_state({ opts.shell, opts.client, m_items, opts.hand }),
 	m_ui({ opts.shell, opts.client }),
 	m_screens({ opts.shell, opts.guienv, m_ui }),
+	m_chat({ .shell = opts.shell, .client = opts.client }),
 	m_actions(opts.client),
 	m_client(opts.client),
 	m_planetarium(opts.shell.planetarium())
@@ -163,11 +164,12 @@ Session::Session(const Opts &opts) :
 		m_ui.send(intent);
 		return Json::Value();
 	});
-	// The page opens a screen itself where it decides when. Only screens in the table, and only where offered.
+	// The page opens a screen itself where it decides when (`with`: what it opens on, as a key gives it).
+	// Only screens in the table, and only where offered.
 	m_shell.on("screen.open", [this](const Json::Value &intent) {
 		if (!intent["name"].isString())
 			throw Refused("screen.open needs a string 'name'");
-		m_screens.open(intent["name"].asString());
+		m_screens.open(intent["name"].asString(), intent["with"]);
 		return Json::Value();
 	});
 	m_shell.on("screen.close", [this](const Json::Value &) {
@@ -184,6 +186,48 @@ Session::Session(const Opts &opts) :
 	});
 }
 
+bool Session::typed(const SEvent &event)
+{
+	// by the character typed, not the key: : @ # > are shifted, and differ by keyboard
+	static const struct { wchar_t typed; const char *prefix; } LISTS[] = {
+		{ L':', ":" }, { L'@', "@" }, { L'#', "#" }, { L'>', ">" },
+	};
+	// The engine's SDL2 gives a key's plain character, Shift or not (SDL2 can't say what Shift
+	// makes of a key on the player's layout without its text input, which takes the game's
+	// keys): Shift's characters for the palette's lists, on the common layouts (US, UK)
+	static const struct { wchar_t plain, shifted; } SHIFTED[] = {
+		{ L';', L':' }, { L'\'', L'@' }, { L'2', L'@' }, { L'3', L'#' }, { L'.', L'>' },
+	};
+	wchar_t typed = 0;
+	if (event.EventType == EET_KEY_INPUT_EVENT && event.KeyInput.PressedDown) {
+		typed = event.KeyInput.Char;
+		if (event.KeyInput.Shift) {
+			wchar_t shifted = 0;
+			for (const auto &key : SHIFTED)
+				if (key.plain == typed)
+					shifted = key.shifted;
+			typed = shifted; // a shifted key not in the table is no list's
+		}
+	}
+	else if (event.EventType == EET_STRING_INPUT_EVENT && event.StringInput.Str && event.StringInput.Str->size() == 1)
+		typed = (*event.StringInput.Str)[0];
+	// Ctrl+Shift+P: the actions, as an editor's command palette
+	if (event.EventType == EET_KEY_INPUT_EVENT && event.KeyInput.PressedDown && event.KeyInput.Control &&
+			event.KeyInput.Shift && event.KeyInput.Key == KEY_KEY_P)
+		typed = L'>';
+	if (typed == 0 || isMenuActive())
+		return false;
+	for (const auto &list : LISTS) {
+		if (typed != list.typed)
+			continue;
+		Json::Value with;
+		with["prefix"] = list.prefix;
+		m_screens.open("palette", with);
+		return true;
+	}
+	return false;
+}
+
 void Session::update(const HudView &view)
 {
 	if (m_shell.pageLoads() != m_page) { // a reloaded page: tell it everything again
@@ -195,6 +239,7 @@ void Session::update(const HudView &view)
 	shown.crosshair = shown.crosshair && !m_planetarium.shown(); // nothing's aimed at in the planetarium
 	m_state.update(shown);
 	m_ui.update();
+	m_chat.update();
 	// the planet made ready as soon as the world's known, so V shows it at once
 	if (!m_prepared && !m_planetarium.shown() && m_client->getAtlas() && m_client->getHorizon()) {
 		m_planetarium.prepare(world(bodyHere()));

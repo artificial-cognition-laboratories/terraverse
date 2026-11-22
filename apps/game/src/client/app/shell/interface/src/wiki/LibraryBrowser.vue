@@ -58,7 +58,7 @@ const picked = computed(() => props.catalog?.find(i => i.item === chosen.value) 
 
 <style scoped>
 /* open columns paint nothing: the stage paints itself, and the viewer takes all of it */
-.stage { position: relative; display: grid; place-items: center; height: 100%; min-height: 0; overflow: hidden; background: var(--stone-0); }
+.stage { position: relative; display: grid; place-items: center; height: 100%; min-height: 0; overflow: hidden; background: var(--wash); }
 .problem { position: absolute; left: 16px; right: 16px; bottom: 56px; white-space: pre-wrap; font-family: var(--font-mono, monospace); }
 .icon { width: 20px; height: 20px; image-rendering: pixelated; }
 </style>

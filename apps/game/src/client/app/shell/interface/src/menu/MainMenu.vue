@@ -23,15 +23,20 @@ const props = withDefaults(defineProps<{ error: string | null; entering?: Loadin
 defineEmits<{ dismiss: [] }>()
 useMenuMusic(props.playMusic)
 
-const screen = ref<Screen>("home")
+const store = useStore()
+const screen = ref<Screen>(store.hop ? "worlds" : "home")
 const seedCode = ref<string | null>(null)
 const bridge = useBridge()
 // the picture behind the menu (src/planetarium/shot.h), the screen's own (SHOT)
 const scene = (shot: PlanetariumShot | null) => bridge.send("planetarium.scene", { shot, seconds: 2.5 })
     .catch((error) => console.error("planetarium.scene", error))
 watch(() => SHOT[screen.value], scene, { immediate: true })
+// a world the game's palette left for (its #): Play shown, entering it at once
+if (store.hop) {
+    void bridge.send("play", { path: store.hop }).catch((error) => console.error("play", error))
+    store.hop = null
+}
 // a world that wasn't entered: the menu's host is new, and has none of what it was told
-const store = useStore()
 watch(() => store.mode, (mode, was) => { if (mode === "menu" && was === "entering") void scene(SHOT[screen.value]) })
 onBeforeUnmount(() => scene(null))
 // null until the engine answers; a failed check still names the running version
@@ -94,7 +99,7 @@ const CREDITS_ICON = {
             <WorldSelect v-else-if="screen === 'worlds'" :entering="entering" :error="error" @go="go" @dismiss="$emit('dismiss')" />
             <CreateWorld v-else-if="screen === 'create' && home" :initial-code="seedCode" :home="home" @go="go" />
             <Settings v-else-if="screen === 'settings'" @go="go" />
-            <Library v-else-if="screen === 'library'" @go="go" />
+            <Library v-else-if="screen === 'library'" @close="go('home')" />
             <Attributions v-else-if="screen === 'attributions'" @go="go" />
             <WikiScreen v-else-if="screen === 'wiki'" place="menu" @close="screen = 'home'" />
         </Transition>
@@ -148,9 +153,9 @@ const CREDITS_ICON = {
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background:
-        radial-gradient(ellipse 27% 48% at 50% 52%, rgb(3 8 15 / 0.68), transparent 100%),
-        linear-gradient(90deg, rgb(3 8 15 / 0.18), transparent 35%, transparent 70%, rgb(3 8 15 / 0.08));
+    /* faint enough to leave the frame sharp: the engine frosts what's under anything ≥ 20% solid
+       (shell/host/gpu_programs.cpp), and the letters clear their own stars (Home's halo) */
+    background: radial-gradient(ellipse 30% 46% at 50% 50%, rgb(3 8 15 / 0.18), transparent 100%);
 }
 .menu > :deep(section), .menu > :deep(.home) { position: relative; z-index: 1; }
 

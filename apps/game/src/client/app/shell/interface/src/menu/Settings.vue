@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref } from "vue"
+import { onEscape } from "../kit/index.ts"
 import SettingsPanel from "../settings/SettingsPanel.vue"
 import type { Screen } from "./screens.ts"
 
-defineEmits<{ go: [screen: Screen] }>()
+const emit = defineEmits<{ go: [screen: Screen] }>()
+onEscape(() => emit("go", "home"))
 const query = ref("")
 </script>
 

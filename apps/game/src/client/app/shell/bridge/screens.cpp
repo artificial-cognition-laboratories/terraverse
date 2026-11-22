@@ -11,6 +11,7 @@
 #include "src/shared/platform/system/log.h"
 #include <IGUIEnvironment.h>
 #include <functional>
+#include <utility>
 #include <json/json.h>
 
 namespace shell {
@@ -31,6 +32,9 @@ static const ScreenKind SCREENS[] = {
 	{ "inventory", false, "keymap_inventory", nullptr },
 	{ "map", true, "keymap_minimap", "map" },
 	{ "wiki", false, "keymap_wiki", "wiki" }, // offered where the world's rules allow it (server/player.cpp)
+	{ "library", false, "keymap_library", nullptr },
+	// chat and commands (the page's palette): Esc is the page's, its input has the keyboard
+	{ "palette", false, nullptr, nullptr },
 };
 
 static const ScreenKind &find(const std::string &name)
@@ -45,7 +49,11 @@ static const ScreenKind &find(const std::string &name)
 /*
 	The engine's stand-in for a page screen: a modal menu that draws nothing.
 	Owned by the GUI environment like any menu; tells Screens when it goes,
-	whichever way it goes (Esc, Screens::close, or game shutdown).
+	whichever way it goes (Esc, Screens::close, or game shutdown). It tells
+	when it quits, not when it's destroyed: the GUI environment holds the
+	element under the mouse, so the full-screen overlay outlives its quitting
+	till the mouse moves, and meanwhile the game plays under a page still
+	showing the screen (and an old overlay's late goodbye would close the next).
 */
 class Overlay : public GUIModalMenu
 {
@@ -57,16 +65,25 @@ public:
 		Environment->setFocus(this);
 	}
 
-	~Overlay() override { m_on_gone(); }
+	~Overlay() override { tell(); }
 
-	bool OnEvent(const SEvent &event) override
+	void quit()
+	{
+		tell();
+		quitMenu();
+	}
+
+	// Before focus, not on it: the menu manager offers every event to the front menu, so Esc
+	// closes this however the GUI's focus has wandered (a click on the page moves it off us).
+	// Keys the page holds (it has an input focused) never get here: the shell takes them first.
+	bool preprocessEvent(const SEvent &event) override
 	{
 		if (event.EventType != EET_KEY_INPUT_EVENT || !event.KeyInput.PressedDown)
-			return false;
+			return GUIModalMenu::preprocessEvent(event);
 		bool closes = event.KeyInput.Key == KEY_ESCAPE ||
 				(m_kind.toggle && keySettingHasMatch(m_kind.toggle, KeyPress(event.KeyInput)));
 		if (closes)
-			quitMenu();
+			quit();
 		return closes;
 	}
 
@@ -79,6 +96,12 @@ protected:
 	std::string getNameByID(s32 id) override { return ""; }
 
 private:
+	void tell()
+	{
+		if (m_on_gone)
+			std::exchange(m_on_gone, nullptr)();
+	}
+
 	const ScreenKind &m_kind;
 	std::function<void()> m_on_gone;
 };
@@ -91,7 +114,7 @@ Screens::~Screens()
 	close();
 }
 
-void Screens::open(const std::string &name)
+void Screens::open(const std::string &name, const Json::Value &with)
 {
 	const ScreenKind &kind = find(name);
 	if (kind.needs && !m_opts.ui.has(kind.needs)) {
@@ -102,13 +125,13 @@ void Screens::open(const std::string &name)
 	m_overlay = new Overlay(m_opts.guienv, kind, [this] { gone(); });
 	m_overlay->drop(); // the GUI environment owns it now, as it does every menu
 	infostream << "shell: screen " << name << " opened" << std::endl;
-	announce(name);
+	announce(name, with);
 }
 
 void Screens::close()
 {
 	if (m_overlay)
-		m_overlay->quitMenu(); // → ~Overlay → gone()
+		m_overlay->quit(); // → gone()
 }
 
 void Screens::gone()
@@ -118,11 +141,13 @@ void Screens::gone()
 		announce("");
 }
 
-void Screens::announce(const std::string &name) const
+void Screens::announce(const std::string &name, const Json::Value &with) const
 {
 	Json::Value message;
 	message["kind"] = "screen";
 	message["screen"] = name.empty() ? Json::Value() : Json::Value(name);
+	if (!with.isNull())
+		message["with"] = with;
 	m_opts.shell.send(message);
 }
 

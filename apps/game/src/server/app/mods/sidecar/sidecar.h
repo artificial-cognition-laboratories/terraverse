@@ -31,8 +31,13 @@ struct Host {
 	std::function<void(const std::string &player, const std::string &text)> tell;
 	std::function<void(const std::string &text)> announce;
 	std::function<std::vector<std::string>()> players;
-	// Every command mods have now, by first word: the whole set, replacing the last.
-	struct Command { std::string name, description, params; };
+	// Every command mods have now, by its whole path ("kiln light"): the whole set, replacing
+	// the last. `usage` as chat shows it ("<to> <text>"); `permission` "" when anyone may.
+	struct Command {
+		struct Arg { std::string name, type; bool optional; std::vector<std::string> options; };
+		std::string path, description, usage, permission;
+		std::vector<Arg> args;
+	};
 	std::function<void(const std::vector<Command> &commands)> commands;
 	// Whether a player holds a permission ("kilns:light").
 	std::function<bool(const std::string &player, const std::string &permission)> can;

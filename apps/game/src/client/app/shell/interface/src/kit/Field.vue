@@ -15,22 +15,11 @@ const model = defineModel<string>({ required: true })
 </template>
 
 <style scoped>
-.field { display: flex; flex-direction: column; gap: 6px; }
-.label { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-dim); }
+.field { display: flex; flex-direction: column; gap: 0.4rem; }
+.label { display: flex; justify-content: space-between; color: var(--ink-dim); font-size: 0.8rem; }
 .box { display: flex; }
-
-input {
-    flex: 1;
-    min-width: 0;
-    height: 38px;
-    padding: 0 12px;
-    border: var(--b) solid var(--edge);
-    background: var(--stone-0);
-    box-shadow: var(--sunk);
-    outline: none;
-}
-
-input:focus { border-color: var(--accent); }
+input { flex: 1; min-width: 0; height: 2.4rem; padding: 0 0.75rem; border: 1px solid var(--glass-edge); background: rgb(4 7 11 / 0.6); outline: none; }
+input:focus { border-color: var(--edge-lit-hi); }
 input::placeholder { color: var(--ink-faint); }
-.mono { font-size: 12px; letter-spacing: 0.02em; }
+.mono { font-size: 0.78rem; letter-spacing: 0.02em; }
 </style>

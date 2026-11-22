@@ -54,6 +54,7 @@ void MyEventReceiver::reloadKeybindings()
 	keybindings[KeyType::DROP] = getKeySetting("keymap_drop");
 	keybindings[KeyType::INVENTORY] = getKeySetting("keymap_inventory");
 	keybindings[KeyType::WIKI] = getKeySetting("keymap_wiki");
+	keybindings[KeyType::LIBRARY] = getKeySetting("keymap_library");
 	keybindings[KeyType::TOOLS] = getKeySetting("keymap_tools");
 	keybindings[KeyType::BRAKE] = getKeySetting("keymap_brake");
 	keybindings[KeyType::TOOL_NEXT] = getKeySetting("keymap_tool_next");
@@ -289,7 +290,9 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 		last_pointer_type = PointerType::Touch;
 
 	bool ret = g_menumgr.runPreprocessEvent(event);
-	if (isMenuActive()) {
+	// Terra Firma: what a menu took is its own, even if taking it closed the menu (Esc on a
+	// page screen's stand-in, shell/bridge/screens.cpp): else the game saw that Esc too, and paused
+	if (ret || isMenuActive()) {
 		// Let the menu handle events, if one is active.
 		return ret;
 	}

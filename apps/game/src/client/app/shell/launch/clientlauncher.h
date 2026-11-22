@@ -18,6 +18,7 @@ namespace home { class Home; }
 #include "src/client/app/shell/host/shell.h"
 #include "src/client/app/shell/bridge/menu.h"
 #include "src/client/app/shell/bridge/wiki.h"
+#include "src/client/app/shell/bridge/figure.h"
 #include <memory>
 #endif
 
@@ -55,5 +56,6 @@ private:
 #if USE_SHELL
 	std::unique_ptr<shell::Shell> m_shell;
 	std::unique_ptr<shell::Wiki> m_wiki; // after m_shell: gone before it (it unregisters its verbs)
+	std::unique_ptr<shell::Figures> m_figures; // the same
 #endif
 };

@@ -45,6 +45,7 @@ public:
 	bool draw(core::position2di at) override;
 	u8 alphaAt(s32 x, s32 y) const override;
 	Painted taken() override;
+	void holdFrame(bool held) override;
 
 	struct Impl;
 

@@ -15,7 +15,10 @@ class Canvas;
 class Inbox;
 
 // The page's size in device pixels, and how many of them make one CSS pixel.
-// Set on the main thread, read on Chromium's (GetViewRect).
+// Set on the main thread, read on Chromium's (GetViewRect). The scale is the
+// page's zoom: Chromium's offscreen GPU paint ignores a device scale factor
+// (it paints the CSS size, unscaled), so the view is device pixels at a factor
+// of 1 and the zoom does the scaling, rendered sharp.
 struct Viewport
 {
 	std::atomic<u32> width{ 0 };

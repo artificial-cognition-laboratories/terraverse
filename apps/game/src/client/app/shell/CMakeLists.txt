@@ -18,6 +18,9 @@ set(shell_SRCS
 	${GAME_DIR}/src/client/world/sim/fine/plume.cpp
 	${GAME_DIR}/src/client/views/scenes/kinds/relief.cpp
 	${GAME_DIR}/src/client/views/scenes/kinds/flora.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/host/frame_blur.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/host/gl_restore.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/host/ui_scale.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/gpu_canvas.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/gpu_egl.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/gpu_programs.cpp
@@ -45,7 +48,13 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/system.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/matter.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/wiki.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/bridge/chat.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/bridge/figure.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/bridge/scene_rect.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/host/underlays.cpp
 	${GAME_DIR}/src/client/views/scenes/scene.cpp
+	${GAME_DIR}/src/client/views/figure/figure_mesh.cpp
+	${GAME_DIR}/src/client/views/figure/figure_view.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/surface.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/worlds.cpp
 )

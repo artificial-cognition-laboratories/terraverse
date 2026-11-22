@@ -77,7 +77,9 @@ static void png(const std::string &path, int w, int h, const std::vector<unsigne
 }
 
 struct Colour { unsigned char r, g, b; };
-static const Colour SKIN{ 216, 160, 122 }, SHIRT{ 0, 148, 210 }, TROUSERS{ 58, 63, 85 }, BLOCK{ 150, 150, 145 }, BACK{ 235, 235, 230 };
+static Colour dyed(BoneColour c) { const Dye d = dye(c); return { d.r, d.g, d.b }; }
+static const Colour SKIN = dyed(BoneColour::SKIN), SHIRT = dyed(BoneColour::SHIRT), TROUSERS = dyed(BoneColour::TROUSERS),
+		BLOCK{ 150, 150, 145 }, BACK{ 235, 235, 230 };
 
 struct Image
 {

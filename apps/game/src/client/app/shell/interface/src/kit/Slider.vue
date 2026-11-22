@@ -19,30 +19,12 @@ const shown = computed(() => (props.format ? props.format(model.value) : String(
 </template>
 
 <style scoped>
-.slider { display: flex; flex-direction: column; gap: 6px; }
-.row { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-dim); }
-.value { color: var(--ink); font-family: var(--font-display); font-size: 12px; }
-
-input {
-    appearance: none;
-    height: 12px;
-    margin: 0;
-    border: var(--b) solid var(--edge);
-    background:
-        linear-gradient(90deg, var(--accent) var(--fill), var(--stone-0) var(--fill));
-    box-shadow: var(--sunk);
-    outline: none;
-}
-
-input::-webkit-slider-thumb {
-    appearance: none;
-    width: 14px;
-    height: 22px;
-    border: var(--b) solid var(--edge);
-    background: var(--stone-4);
-    box-shadow: var(--raised);
-    cursor: pointer;
-}
-
-input:hover::-webkit-slider-thumb { background: #4b545c; }
+.slider { display: flex; flex-direction: column; gap: 0.4rem; }
+.row { display: flex; justify-content: space-between; color: var(--ink-dim); font-size: 0.8rem; }
+.value { color: var(--ink); font: 0.72rem var(--font-display); }
+/* a hairline track, filled with the ocean to the value; the thumb a small block of glass */
+input { appearance: none; height: 0.5rem; margin: 0; border: 1px solid var(--glass-edge); outline: none;
+    background: linear-gradient(90deg, var(--accent-lo) var(--fill), rgb(4 7 11 / 0.6) var(--fill)); }
+input::-webkit-slider-thumb { appearance: none; width: 0.75rem; height: 1.25rem; border: 1px solid var(--edge-lit-hi); background: var(--night-2); cursor: pointer; }
+input:hover::-webkit-slider-thumb { border-color: var(--accent-hi); }
 </style>

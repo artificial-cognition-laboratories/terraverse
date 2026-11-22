@@ -22,11 +22,54 @@ void main()
 	gl_Position = vec4(mix(rect.xy, rect.zw, corner), 0.0, 1.0);
 }
 )";
+// The page, and through its glass the frame blurred (frame_blur.h): `glass` 0 shows the frame
+// sharp everywhere. A page pixel is glass by how solid it is, so faint washes, a glyph's soft
+// edge and the open sky stay sharp, and anything 40% solid or more is frosted, as the site's
+// panels are (theme.css: --glass).
 const char *SHOW = R"(
-uniform sampler2D page;
+uniform sampler2D page, frame;
+uniform vec4 view; // the viewport: x, y, width, height
+uniform float glass;
 in vec2 corner;
 out vec4 colour;
-void main() { colour = texture(page, corner); }
+void main()
+{
+	vec4 p = texture(page, corner);
+	float k = glass * smoothstep(0.2, 0.4, p.a) * (1.0 - p.a);
+	vec3 behind = texture(frame, (gl_FragCoord.xy - view.xy) / view.zw).rgb;
+	colour = vec4(p.rgb + k * behind, p.a + k);
+}
+)";
+// A 4x4 box of the source into each texel: four linear taps between its texels.
+const char *SHRINK = R"(
+uniform sampler2D source;
+uniform vec2 size, texel;
+out vec4 colour;
+void main()
+{
+	vec2 at = gl_FragCoord.xy / size;
+	colour = 0.25 * (texture(source, at + texel * vec2(-1.0, -1.0)) + texture(source, at + texel * vec2(1.0, -1.0)) +
+			texture(source, at + texel * vec2(-1.0, 1.0)) + texture(source, at + texel * vec2(1.0, 1.0)));
+}
+)";
+// One direction of a Gaussian, `sigma` in texels.
+const char *SMEAR = R"(
+uniform sampler2D source;
+uniform vec2 size, direction;
+uniform float sigma;
+out vec4 colour;
+void main()
+{
+	vec2 at = gl_FragCoord.xy / size;
+	vec4 sum = vec4(0.0);
+	float total = 0.0;
+	for (int i = -8; i <= 8; i++) {
+		float w = exp(-float(i * i) / (2.0 * sigma * sigma));
+		sum += w * texture(source, at + direction * float(i) / size);
+		total += w;
+	}
+	colour = sum / total;
+}
 )";
 // (SAMPLER: sampler2D, or samplerExternalOES where the driver's layout needs it)
 const char *COPY = R"(
@@ -114,6 +157,8 @@ GpuPrograms GpuPrograms::compile(bool es, bool external)
 	out.show_program = link(version + precision, SHOW, out.failed);
 	out.copy_2d = link(version + precision + "#define SAMPLER sampler2D\n", COPY, out.failed);
 	out.mask_program = link(version + precision, MASK, out.failed);
+	out.shrink_program = link(version + precision, SHRINK, out.failed);
+	out.smear_program = link(version + precision, SMEAR, out.failed);
 	if (!out.ready()) {
 		out.release();
 		return out;
@@ -129,7 +174,7 @@ GpuPrograms GpuPrograms::compile(bool es, bool external)
 
 void GpuPrograms::release()
 {
-	for (unsigned *p : { &show_program, &copy_2d, &copy_external, &mask_program }) {
+	for (unsigned *p : { &show_program, &copy_2d, &copy_external, &mask_program, &shrink_program, &smear_program }) {
 		if (*p)
 			GL.DeleteProgram(*p);
 		*p = 0;
@@ -159,13 +204,42 @@ void GpuPrograms::mask(unsigned page, u32 width, u32 height, u32 cell) const
 	quad(mask_program, -1, -1, 1, 1);
 }
 
-void GpuPrograms::show(unsigned page, float x0, float y0, float x1, float y1) const
+void GpuPrograms::show(const Show &s) const
 {
-	GL.UseProgram(show_program);
+	const GLuint p = show_program;
+	GL.UseProgram(p);
+	GL.ActiveTexture(GL_TEXTURE1);
+	GL.BindTexture(GL_TEXTURE_2D, s.frame);
 	GL.ActiveTexture(GL_TEXTURE0);
-	GL.BindTexture(GL_TEXTURE_2D, page);
-	GL.Uniform1i(GL.GetUniformLocation(show_program, "page"), 0);
-	quad(show_program, x0, y0, x1, y1);
+	GL.BindTexture(GL_TEXTURE_2D, s.page);
+	GL.Uniform1i(GL.GetUniformLocation(p, "page"), 0);
+	GL.Uniform1i(GL.GetUniformLocation(p, "frame"), 1);
+	GL.Uniform4f(GL.GetUniformLocation(p, "view"), (float)s.view[0], (float)s.view[1], (float)s.view[2], (float)s.view[3]);
+	GL.Uniform1f(GL.GetUniformLocation(p, "glass"), s.frame ? 1.0f : 0.0f);
+	quad(p, s.x0, s.y0, s.x1, s.y1);
+}
+
+void GpuPrograms::shrink(unsigned source, u32 source_w, u32 source_h, u32 w, u32 h) const
+{
+	GL.UseProgram(shrink_program);
+	GL.ActiveTexture(GL_TEXTURE0);
+	GL.BindTexture(GL_TEXTURE_2D, source);
+	GL.Uniform1i(GL.GetUniformLocation(shrink_program, "source"), 0);
+	GL.Uniform2f(GL.GetUniformLocation(shrink_program, "size"), (float)w, (float)h);
+	GL.Uniform2f(GL.GetUniformLocation(shrink_program, "texel"), 1.0f / source_w, 1.0f / source_h);
+	quad(shrink_program, -1, -1, 1, 1);
+}
+
+void GpuPrograms::smear(unsigned source, u32 w, u32 h, float dx, float dy, float sigma) const
+{
+	GL.UseProgram(smear_program);
+	GL.ActiveTexture(GL_TEXTURE0);
+	GL.BindTexture(GL_TEXTURE_2D, source);
+	GL.Uniform1i(GL.GetUniformLocation(smear_program, "source"), 0);
+	GL.Uniform2f(GL.GetUniformLocation(smear_program, "size"), (float)w, (float)h);
+	GL.Uniform2f(GL.GetUniformLocation(smear_program, "direction"), dx, dy);
+	GL.Uniform1f(GL.GetUniformLocation(smear_program, "sigma"), sigma);
+	quad(smear_program, -1, -1, 1, 1);
 }
 
 } // namespace shell

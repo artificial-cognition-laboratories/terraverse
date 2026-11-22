@@ -20,6 +20,7 @@ withDefaults(defineProps<{ label: string; on?: boolean; disabled?: boolean; side
 </template>
 
 <style scoped>
+/* the kit's glass (Button, IconButton): see-through, one hairline, frosted behind */
 .tile {
     position: relative;
     display: grid;
@@ -27,30 +28,31 @@ withDefaults(defineProps<{ label: string; on?: boolean; disabled?: boolean; side
     width: var(--size);
     height: var(--size);
     padding: 0;
-    border: var(--b) solid var(--edge);
-    background: var(--stone-1);
-    box-shadow: var(--raised);
+    border: 1px solid var(--glass-edge);
+    background: var(--glass);
+    backdrop-filter: blur(8px);
+    color: var(--ink-dim);
 }
 
-.tile:hover:not(:disabled) { background: var(--stone-3); }
-.tile.on { background: var(--stone-3); box-shadow: inset 0 0 0 var(--b) var(--accent), var(--raised); }
+.tile:hover:not(:disabled) { border-color: var(--edge-lit); color: var(--ink); }
+.tile.on { background: var(--glass-lit); border-color: var(--edge-lit-hi); color: #fff; }
+.tile:focus-visible { outline: 1px solid var(--accent-hi); outline-offset: 2px; }
 .tile:disabled { opacity: 0.4; cursor: default; }
 
 .tag {
     position: absolute;
     top: 50%;
     padding: 4px 8px;
-    border: var(--b) solid var(--edge);
-    background: var(--stone-0);
-    box-shadow: var(--raised);
-    font: 10px var(--font-display);
+    border: 1px solid var(--glass-edge);
+    background: var(--glass-strong);
+    font: 9px var(--font-display);
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--ink);
     white-space: nowrap;
     pointer-events: none;
     opacity: 0;
     transform: translateY(-50%);
-    transition: opacity 80ms steps(2);
     z-index: 2;
 }
 .right .tag { left: calc(100% + 8px); }

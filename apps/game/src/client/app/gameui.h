@@ -14,7 +14,6 @@
 
 class Client;
 class EnrichedString;
-class GUIChatConsole;
 struct MapDrawControl;
 struct PointedThing;
 
@@ -48,7 +47,7 @@ public:
 	void init();
 	void update(const RunStats &stats, Client *client, MapDrawControl *draw_control,
 			const CameraOrientation &cam, const PointedThing &pointed_old,
-			const GUIChatConsole *chat_console, float dtime);
+			float dtime);
 
 	void initFlags();
 	const Flags &getFlags() const { return m_flags; }

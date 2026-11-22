@@ -4,6 +4,7 @@
 #pragma once
 
 #include "src/client/app/shell/bridge/actions.h"
+#include "src/client/app/shell/bridge/chat.h"
 #include "src/client/app/shell/bridge/items.h"
 #include "src/client/app/shell/bridge/screens.h"
 #include "src/client/app/shell/bridge/state.h"
@@ -14,6 +15,7 @@
 #include <string>
 
 class Client;
+struct SEvent;
 class Hand;
 namespace video { class IVideoDriver; }
 namespace gui { class IGUIEnvironment; }
@@ -45,6 +47,9 @@ public:
 	void update(const HudView &view);
 
 	Screens &screens() { return m_screens; }
+	// A key typed over the game: one of the palette's lists (: @ # >, and / for :) opens the
+	// palette on it, where nothing else is open. Whether it was taken.
+	bool typed(const SEvent &event);
 	// The planet under the page: this world's, when the page or a key shows it.
 	Planetarium &planetarium() { return m_planetarium; }
 	// A body of this world (its atlas index), as the Planetarium shows it.
@@ -69,6 +74,7 @@ private:
 	State m_state;
 	Ui m_ui;
 	Screens m_screens;
+	Chat m_chat;
 	Actions m_actions;
 	Client *m_client;
 	Planetarium &m_planetarium; // the window's (Shell::planetarium), showing this world

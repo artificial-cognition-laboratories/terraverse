@@ -26,17 +26,15 @@ bool Client::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser, CefRefPtr<C
 
 void Client::GetViewRect(CefRefPtr<CefBrowser> browser, CefRect &rect)
 {
-	// In CSS pixels; Chromium multiplies back up by the scale when painting.
-	int w = std::max(1, (int)std::lround(m_viewport.width / m_viewport.scale));
-	int h = std::max(1, (int)std::lround(m_viewport.height / m_viewport.scale));
-	rect = CefRect(0, 0, w, h);
+	// Device pixels: the page's scale is its zoom (Viewport), not a device scale factor
+	rect = CefRect(0, 0, std::max(1, (int)m_viewport.width.load()), std::max(1, (int)m_viewport.height.load()));
 }
 
 bool Client::GetScreenInfo(CefRefPtr<CefBrowser> browser, CefScreenInfo &info)
 {
 	CefRect rect;
 	GetViewRect(browser, rect);
-	info.device_scale_factor = m_viewport.scale;
+	info.device_scale_factor = 1;
 	info.rect = rect;
 	info.available_rect = rect;
 	return true;

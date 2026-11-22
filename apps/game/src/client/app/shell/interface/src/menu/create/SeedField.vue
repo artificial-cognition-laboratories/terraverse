@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue"
 import PixelIcon from "../../game/PixelIcon.vue"
 import { Button, Field } from "../../kit/index.ts"
 import { WorldCodeError, decodeWorldCode, encodeWorldCode, randomSeed, surprise } from "../../worldgen/config.ts"
-import { Copier } from "./copy.ts"
+import { Copier } from "../../kit/copy.ts"
 import type { WorldDraftHandle } from "./draft.ts"
 
 /**

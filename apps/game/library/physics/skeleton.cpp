@@ -489,4 +489,11 @@ void eachBoneBox(const Bones &b, const std::function<void(const core::matrix4 &,
 	}
 }
 
+Dye dye(BoneColour colour)
+{
+	// by BoneColour
+	static constexpr Dye DYES[] = { { 216, 160, 122 }, { 0, 148, 210 }, { 58, 63, 85 } };
+	return DYES[static_cast<int>(colour)];
+}
+
 } // namespace physics

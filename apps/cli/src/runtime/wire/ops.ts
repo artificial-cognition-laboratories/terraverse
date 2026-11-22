@@ -30,7 +30,7 @@ export const Call = {
     "player.tell": 1,       // name, text
     "game.announce": 2,     // text
     "players.list": 3,      // → names
-    "commands.set": 4,      // [[name, description, params], …]: every command's first word, the whole set
+    "commands.set": 4,      // [[path, description, usage, permission, [[arg, type, optional, options], …]], …]: the whole set
     "player.can": 5,        // name, permission → whether they may
     "player.kick": 6,       // name, reason
 } as const

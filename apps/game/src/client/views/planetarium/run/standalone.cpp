@@ -4,6 +4,7 @@
 #include "src/client/views/planetarium/run/standalone.h"
 #include "src/client/views/planetarium/planetarium.h"
 #include "src/client/views/planetarium/framing.h"
+#include "src/client/views/planetarium/pixels.h"
 #include <chrono>
 #include "src/client/app/input/inputhandler.h"
 #include "src/client/render/renderingengine.h"
@@ -145,6 +146,7 @@ void runStandalone(const std::string &code, std::optional<double> bench, std::op
 	infostream << "planetarium: " << code << ", " << atlas.body(planet::Atlas::HOME).code() << std::endl;
 
 	video::IVideoDriver *driver = engine.get_video_driver();
+	Pixels pixels;
 	volatile auto *kill = porting::signal_handler_killstatus(); // a signal ends it, as it ends the game
 	const u64 frame_ms = 1000 / 60; // as the menu: no faster than the screen
 	const u64 began = porting::getTimeMs();
@@ -197,7 +199,14 @@ void runStandalone(const std::string &code, std::optional<double> bench, std::op
 			else
 				planet->focus(p.latitude, p.longitude, p.altitude);
 		}
-		planet->draw(driver, core::recti(0, 0, window.Width, window.Height));
+		// a composed shot is the menu's picture: drawn as it draws it, as pixel art
+		if (taken < pictures.size() && pictures[taken].shot)
+			pixels.draw(driver, core::recti(0, 0, window.Width, window.Height), [&](core::recti small, float cell) {
+				planet->pixelArt(cell);
+				planet->draw(driver, small);
+			});
+		else
+			planet->draw(driver, core::recti(0, 0, window.Width, window.Height));
 		// land built for a few frames running (what a view wants is only known
 		// once it's drawn), and a moment for the air's pictures (made on workers)
 		still = planet->settled() && planet->globed() ? still + 1 : 0;

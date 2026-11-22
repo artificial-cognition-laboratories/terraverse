@@ -3,7 +3,7 @@ import { useBridge } from "../../bridge/use.ts"
 import IconButton from "../../kit/IconButton.vue"
 import { useStore } from "../store.ts"
 
-/** The wiki, by mouse, beside the world controls: only where the world's rules give it (tf_wiki). */
+/** The wiki, by mouse, in the HUD's corner row (Hud): only where the world's rules give it (tf_wiki). */
 const bridge = useBridge()
 const store = useStore()
 </script>
@@ -17,7 +17,3 @@ const store = useStore()
     </IconButton>
 </template>
 
-<style scoped>
-/* left of the world controls and the account */
-.wiki-button { position: fixed; z-index: 6; top: 20px; right: 140px; }
-</style>

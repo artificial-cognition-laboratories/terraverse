@@ -11,6 +11,6 @@ defineProps<{ title: string }>()
 </template>
 
 <style scoped>
-.list-group + .list-group { margin-top: 14px; }
-h3 { margin: 0 0 6px; font: 11px var(--font-display); text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); }
+.list-group + .list-group { margin-top: 1.1rem; }
+h3 { margin: 0 0 0.4rem; padding: 0 0.65rem; color: var(--ink-faint); font: 400 0.6rem var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; }
 </style>

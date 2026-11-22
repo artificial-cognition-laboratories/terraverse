@@ -27,6 +27,7 @@ static const Option OPTIONS[] = {
 	{ "viewing_range", Kind::Number, 20, 1000 },
 	{ "fov", Kind::Number, 45, 160 },
 	{ "fps_max", Kind::Number, 30, 360 },
+	{ "ui_scale", Kind::Number, 0.5, 2 }, // (host/ui_scale.h: MIN_CHOSEN, MAX_CHOSEN)
 	{ "fps_max_unfocused", Kind::Number, 5, 60 },
 	{ "undersampling", Kind::Number, 1, 4 },
 	{ "display_gamma", Kind::Number, 0.33f, 3.0f },

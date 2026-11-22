@@ -23,10 +23,14 @@ const model = defineModel<T>({ required: true })
 </template>
 
 <style scoped>
-.icon-rail { display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; overflow-y: auto; padding: 14px 7px; border-right: var(--b) solid var(--edge); background: var(--stone-2); }
-button { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; padding: 8px 2px; border: var(--b) solid transparent; background: none; color: var(--ink-faint); font: 9px var(--font-display); text-transform: uppercase; }
-button:hover { color: var(--ink); background: var(--stone-3); }
-button.on { border-color: var(--edge); background: var(--accent-lo); color: var(--ink); box-shadow: var(--sunk); }
+.icon-rail { display: flex; flex-direction: column; gap: 4px; min-width: 0; min-height: 0; overflow-y: auto; padding: 12px 8px; border-right: 1px solid var(--glass-edge); background: var(--side); }
+/* a rail too tall for a short window still scrolls, by the wheel: a bar beside its icons would read as a seam */
+.icon-rail::-webkit-scrollbar { display: none; }
+button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; padding: 10px 2px; border: 1px solid transparent; background: none; color: var(--ink-faint); font: 8px var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; transition: background 80ms, color 80ms; }
+button:hover { color: var(--ink); background: rgb(231 237 244 / 0.05); }
+button.on { border-color: transparent; background: rgb(99 163 233 / 0.07); color: var(--ink); }
+/* the chosen page's mark: an accent bar on the rail's outer edge */
+button.on::before { content: ""; position: absolute; left: -9px; top: 6px; bottom: 6px; width: var(--b); background: var(--accent-hi); }
 button svg { flex: none; }
 .push { margin-top: auto; }
 .foot { display: grid; place-items: center; padding-top: 6px; }

@@ -8,7 +8,6 @@
 #include "src/shared/platform/system/filesys.h"
 #include "src/client/app/game.h"
 #include "src/shared/game/objects/player.h"
-#include "src/shared/game/chat/chat.h"
 #include "src/shared/platform/system/gettext.h"
 #include "src/client/app/input/inputhandler.h"
 #include "src/shared/platform/system/profiler.h"
@@ -91,7 +90,8 @@ ClientLauncher::~ClientLauncher()
 	assert(g_menumgr.menuCount() == 0);
 
 #if USE_SHELL
-	// the wiki unregisters its verbs from the shell, so it goes first
+	// the figure and the wiki unregister from the shell, so they go first
+	m_figures.reset();
 	m_wiki.reset();
 	// Its texture and IME element belong to the device about to be deleted.
 	m_shell.reset();
@@ -187,8 +187,13 @@ bool ClientLauncher::run(const GameParams &game_params, const Settings &cmd_args
 		cmd_args.exists("arclabs-url") ? cmd_args.get("arclabs-url") : g_settings->get("arclabs_url"),
 		m_home,
 		cmd_args.getFlag("ui-check"),
+		g_settings->getFloat("ui_scale"),
 	});
+	g_settings->registerChangedCallback("ui_scale", [](const std::string &, void *data) {
+		static_cast<ClientLauncher *>(data)->m_shell->chooseUiScale(g_settings->getFloat("ui_scale"));
+	}, this);
 	m_wiki = std::make_unique<shell::Wiki>(*m_shell); // answers in the menu and in game alike
+	m_figures = std::make_unique<shell::Figures>(shell::Figures::Opts{ /* shell */ *m_shell });
 #endif
 
 	g_menuclouds->setHeight(100.0f);
@@ -200,8 +205,6 @@ bool ClientLauncher::run(const GameParams &game_params, const Settings &cmd_args
 	/*
 		GUI stuff
 	*/
-
-	ChatBackend chat_backend;
 
 	// If an error occurs, this is set to something by menu().
 	// It is then displayed before the menu shows on the next call to menu()
@@ -274,8 +277,7 @@ bool ClientLauncher::run(const GameParams &game_params, const Settings &cmd_args
 				input,
 				m_rendering_engine,
 				start_data,
-				errordata,
-				chat_backend
+				errordata
 			);
 #if USE_SHELL
 			m_shell->entering().end(); // (a game that ended before it was there)

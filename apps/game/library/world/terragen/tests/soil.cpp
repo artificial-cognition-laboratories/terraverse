@@ -204,66 +204,108 @@ TEST_CASE("CraterLakesAndKarst")
 	REQUIRE((karst > 0 && lime * 10 > karst * 7));
 }
 
+// Beds keep the coarse load and floodplains the fines; steep beds are
+// stonier than gentle ones. Read across rivers at Earth's size, where a bed is
+// blocks wide in a cell tens of kilometres across: transects square to each
+// run's own line, read only where a bed or its plain can be
 TEST_CASE("SoilByWater" * doctest::test_suite("slow"))
 {
 	WorldCode code = WorldCode::decode("TF24.dGVycmE");
 	code.size = (int32_t)std::llround(6371000.0 * 2 * M_PI);
 	World w(code);
 	const Grid &g = w.grid();
-	const Sphere &sphere = gridSphere();
-	// round the biggest rivers: a window across each, every few blocks
-	std::vector<int32_t> rivers;
+	constexpr int P = World::PROFILE;
+	// drawn runs on land, and where along each to cross it: the biggest at
+	// their middle (wide and gentle), the steepest at their steepest piece's
+	// (headwaters)
+	struct Cross {
+		int32_t run;
+		fix t;
+	};
+	std::vector<int32_t> runs;
 	for (int32_t i = 0; i < g.size(); i++)
-		if (g.river(i) && g.receiver[i] >= 0 && g.base[g.receiver[i]] >= 0)
-			rivers.push_back(i);
-	std::sort(rivers.begin(), rivers.end(), [&](int32_t a, int32_t b) { return g.drained[a] > g.drained[b]; });
-	// each river's window on its own thread (a ground read is milliseconds at
-	// this size), its sums joined in river order so the totals don't depend
-	// on the machine
+		if (g.river(i) && g.receiver[i] >= 0 && g.base[i] >= 0 && g.base[g.receiver[i]] >= 0 && w.profile(i))
+			runs.push_back(i);
+	const auto steepest = [&](int32_t i) {
+		const int32_t *p = w.profile(i);
+		int j = 0;
+		for (int k = 1; k < P; k++)
+			if (p[k] - p[k + 1] > p[j] - p[j + 1])
+				j = k;
+		return std::pair<int32_t, int>{ p[j] - p[j + 1], j };
+	};
+	std::vector<Cross> crosses;
+	std::sort(runs.begin(), runs.end(), [&](int32_t a, int32_t b) { return g.drained[a] > g.drained[b] || (g.drained[a] == g.drained[b] && a < b); });
+	for (size_t r = 0; r < runs.size() && r < 400; r += 4)
+		crosses.push_back({ runs[r], HALF });
+	std::sort(runs.begin(), runs.end(), [&](int32_t a, int32_t b) { return steepest(a).first > steepest(b).first || (steepest(a).first == steepest(b).first && a < b); });
+	for (size_t r = 0; r < runs.size() && r < 400; r += 4) {
+		const int j = steepest(runs[r]).second;
+		crosses.push_back({ runs[r], ratio(2 * j + 1, 2 * P) });
+	}
 	struct Sums {
 		double bed_fine = 0, plain_fine = 0, steep_stones = 0, gentle_stones = 0;
-		int beds = 0, plains = 0, steep = 0, gentle = 0;
+		int beds = 0, plains = 0, steep = 0, gentle = 0, reads = 0;
 	};
-	std::vector<int32_t> chosen;
-	for (size_t r = 0; r < rivers.size() && r < 400; r += 4)
-		chosen.push_back(rivers[r]);
-	std::vector<Sums> each(chosen.size());
-	parallelFor((int32_t)chosen.size(), [&](int32_t r) {
+	// each run on its own thread, its sums joined in order so the totals
+	// don't depend on the machine. Reads are kept together: at this size a
+	// ground read somewhere new works out the streams below the grid round it
+	// (seconds of a core), and one near it then costs milliseconds
+	const double per_block = PLACE_ONE / (w.radius() / 65536.0); // place units a block
+	std::vector<Sums> each(crosses.size());
+	parallelFor((int32_t)crosses.size(), [&](int32_t r) {
 		Sums &m = each[r];
-		const Place c(sphere.centre(chosen[r]));
-		for (int k = 0; k < 400; k++) {
-			// a 20 km square round the cell's centre, at its own precision
-			const int64_t step = (int64_t)(PLACE_ONE / (w.radius() / 65536.0) * 1000);
-			const Place at = placeOf((int64_t)c.x + (k % 20 - 10) * step, (int64_t)c.y + (k / 20 - 10) * step, c.z);
-			const Ground gr = w.ground(at, w.sunlight(at, std::nullopt));
-			if (gr.kind == Water::Sea || gr.kind == Water::Lake)
-				continue;
-			const Soil s = w.soil(at, gr, w.strata(at, gr));
-			const double fine = (s.silt + s.clay) / 65536.0 * (1 - s.stones / 65536.0), stones = s.stones / 65536.0;
-			if (gr.kind == Water::River && gr.river_width > 0 && gr.river_dist < gr.river_width / 2) {
-				m.bed_fine += fine;
-				m.beds++;
-				if (gr.river_slope > ratio(3, 1000)) { m.steep_stones += stones; m.steep++; }
-				else if (gr.river_slope < ratio(5, 10000)) { m.gentle_stones += stones; m.gentle++; }
-			} else if (gr.kind == Water::None && gr.river_width > 0 && gr.river_dist > gr.river_width * 2 &&
-					gr.river_dist < gr.river_width * 4 && gr.terrain - gr.river_level <= 2) {
-				m.plain_fine += fine;
-				m.plains++;
+		const int32_t run = crosses[r].run;
+		const double width = std::max(2.0, w.runLook(run).width / 65536.0); // blocks
+		const Sphere &sphere = gridSphere();
+		const double length = chord(Place(sphere.centre(run)), Place(sphere.centre(g.receiver[run]))) / per_block; // blocks
+		// five transects a width apart along the line
+		for (int along = -2; along <= 2; along++) {
+			const fix t = crosses[r].t + (fix)std::llround(along * width / length * ONE);
+			// on the line, and square to it (its way there, across the up)
+			const Place on = w.unwarped(w.onRun(run, t));
+			const Place a = w.unwarped(w.onRun(run, t - ratio(1, 512))), b = w.unwarped(w.onRun(run, t + ratio(1, 512)));
+			const double dx = (double)b.x - a.x, dy = (double)b.y - a.y, dz = (double)b.z - a.z;
+			double cx = dy * on.z - dz * on.y, cy = dz * on.x - dx * on.z, cz = dx * on.y - dy * on.x;
+			const double cl = std::sqrt(cx * cx + cy * cy + cz * cz);
+			if (cl == 0)
+				throw std::logic_error("SoilByWater: a run with no way along it");
+			cx *= per_block / cl; cy *= per_block / cl; cz *= per_block / cl;
+			// a quarter of a width apart, where what's read can count: the bed
+			// (within half a width) and the plain each side (2 to 4 out)
+			for (int k : { -15, -14, -13, -12, -11, -10, -9, -1, 0, 1, 9, 10, 11, 12, 13, 14, 15 }) {
+				const double s = k * width / 4;
+				const Place at = placeOf(on.x + std::llround(cx * s), on.y + std::llround(cy * s), on.z + std::llround(cz * s));
+				const Ground gr = w.ground(at, w.sunlight(at, std::nullopt));
+				m.reads++;
+				if (gr.kind == Water::Sea || gr.kind == Water::Lake)
+					continue;
+				const Soil so = w.soil(at, gr, w.strata(at, gr));
+				const double fine = (so.silt + so.clay) / 65536.0 * (1 - so.stones / 65536.0), stones = so.stones / 65536.0;
+				if (gr.kind == Water::River && gr.river_width > 0 && gr.river_dist < gr.river_width / 2) {
+					m.bed_fine += fine;
+					m.beds++;
+					if (gr.river_slope > ratio(3, 1000)) { m.steep_stones += stones; m.steep++; }
+					else if (gr.river_slope < ratio(5, 10000)) { m.gentle_stones += stones; m.gentle++; }
+				} else if (gr.kind == Water::None && gr.river_width > 0 && gr.river_dist > gr.river_width * 2 &&
+						gr.river_dist < gr.river_width * 4 && gr.terrain - gr.river_level <= 2) {
+					m.plain_fine += fine;
+					m.plains++;
+				}
 			}
 		}
 	});
-	double bed_fine = 0, plain_fine = 0, steep_stones = 0, gentle_stones = 0;
-	int beds = 0, plains = 0, steep = 0, gentle = 0;
+	Sums t;
 	for (const Sums &m : each) {
-		bed_fine += m.bed_fine; plain_fine += m.plain_fine;
-		steep_stones += m.steep_stones; gentle_stones += m.gentle_stones;
-		beds += m.beds; plains += m.plains; steep += m.steep; gentle += m.gentle;
+		t.bed_fine += m.bed_fine; t.plain_fine += m.plain_fine;
+		t.steep_stones += m.steep_stones; t.gentle_stones += m.gentle_stones;
+		t.beds += m.beds; t.plains += m.plains; t.steep += m.steep; t.gentle += m.gentle; t.reads += m.reads;
 	}
-	note() << "soil by water: fines in beds " << bed_fine / std::max(beds, 1) << " (" << beds << "), on floodplains "
-			<< plain_fine / std::max(plains, 1) << " (" << plains << "); stones in steep beds " << steep_stones / std::max(steep, 1)
-			<< " (" << steep << "), gentle " << gentle_stones / std::max(gentle, 1) << " (" << gentle << ")" << std::endl;
-	REQUIRE((beds > 20 && plains > 20));
-	REQUIRE(plain_fine / plains > 2 * bed_fine / beds);
-	if (steep > 5 && gentle > 5)
-		REQUIRE(steep_stones / steep > gentle_stones / gentle);
+	note() << "soil by water, " << t.reads << " reads: fines in beds " << t.bed_fine / std::max(t.beds, 1) << " (" << t.beds
+			<< "), on floodplains " << t.plain_fine / std::max(t.plains, 1) << " (" << t.plains << "); stones in steep beds "
+			<< t.steep_stones / std::max(t.steep, 1) << " (" << t.steep << "), gentle " << t.gentle_stones / std::max(t.gentle, 1)
+			<< " (" << t.gentle << ")" << std::endl;
+	REQUIRE((t.beds > 20 && t.plains > 20 && t.steep > 20 && t.gentle > 20));
+	REQUIRE(t.plain_fine / t.plains > 2 * t.bed_fine / t.beds);
+	REQUIRE(t.steep_stones / t.steep > t.gentle_stones / t.gentle);
 }

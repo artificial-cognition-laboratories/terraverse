@@ -120,14 +120,12 @@ export function Commands(opts: { channel: ChannelT; running: RunningT; players: 
         for (const h of happened) if (h.kind === "command") typed(h)
         if (!dirty) return
         dirty = false
-        const first = new Map<string, Entry[]>()
-        for (const e of entries.values()) first.set(e.path[0]!, [...(first.get(e.path[0]!) ?? []), e])
-        opts.channel.tell(Call["commands.set"], [...first].map(([name, es]) => {
-            const alone = es.length === 1 && es[0]!.path.length === 1 ? es[0]! : undefined
-            return alone
-                ? [name, alone.description, usage(alone)]
-                : [name, es.map(e => e.path.slice(1).join(" ") || "(itself)").join(", "), "<what> …"]
-        }))
+        // each by its whole path, with what it takes and who may: the engine routes by the
+        // first word, lists them for /help, and gives each player's palette the ones they may run
+        opts.channel.tell(Call["commands.set"], [...entries.values()].map(e => [
+            e.path.join(" "), e.description, usage(e), e.permission ?? "",
+            e.args.map(([name, a]) => [name, a.type, a.optional ?? false, a.type === "string" ? [...(a.options ?? [])] : []]),
+        ]))
     }
 
     return { api: api, step: step }

@@ -9,6 +9,7 @@
 #include "src/server/world/run/sculpt/sculpt.h"
 #include "src/server/world/run/machines/workshop/motion.h" // Terra Firma: Materials, Grip
 #include "src/shared/base/gamedef.h"
+#include "src/shared/game/chat/chatmessage.h"
 #include "src/shared/base/gameparams.h"
 #include "src/shared/game/items/inventorymanager.h"
 #include "src/shared/base/irrlichttypes.h"
@@ -374,7 +375,8 @@ public:
 	const std::unordered_set<std::string> &getPrivilegeList() const
 	{ return m_privileges; }
 
-	bool getChatMessage(std::wstring &message);
+	// The next line the server sent, if there is one (the page shows it: shell/bridge/chat.h)
+	std::optional<ChatMessage> takeChatMessage();
 	void typeChatMessage(const std::wstring& message);
 
 	u64 getMapSeed() const { return m_map_seed; }

@@ -26,6 +26,6 @@ watch(() => contents.data.value, (items) => { if (items) emit("count", items.len
 </template>
 
 <style scoped>
-.mod-contents { height: 560px; border: var(--b) solid var(--edge); background: var(--stone-0); }
+.mod-contents { height: 560px; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); }
 .loading { display: flex; gap: 8px; align-items: center; justify-content: center; height: 100%; color: var(--ink-faint); font-size: 12px; }
 </style>

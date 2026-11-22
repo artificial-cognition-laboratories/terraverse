@@ -2,7 +2,7 @@
 import { computed, onMounted, provide, ref, watch } from "vue"
 import { BridgeError } from "../../bridge/index.ts"
 import { useBridge } from "../../bridge/use.ts"
-import { Button, Dock } from "../../kit/index.ts"
+import { Button, Dock, onEscape } from "../../kit/index.ts"
 import { body as bodyOf, LIMITS, STAR } from "../../system/model.ts"
 import { lifetime } from "../../system/stars.ts"
 import { SYSTEM_PREVIEW, SystemPreview } from "../../system/preview.ts"
@@ -26,6 +26,7 @@ import Viewer from "./Viewer.vue"
 type Group = "start" | "mods" | "stars" | "lineup" | "body" | "surface" | "rules"
 
 const emit = defineEmits<{ go: [screen: Screen] }>()
+onEscape(() => emit("go", "worlds"))
 const props = defineProps<{ initialCode?: string | null; home: SystemWire }>()
 const bridge = useBridge()
 const draft = WorldDraft({ home: props.home })
@@ -130,10 +131,8 @@ async function create() {
 <template>
     <div class="create">
     <Dock v-model:group="group" v-model:covers="covers" class="create-workbench" title="Create world" :section="title" :groups="RAIL"
-        rail-label="World creator sections" width="min(470px, 42vw)">
-        <template #actions>
-            <Button size="sm" @click="emit('go', 'worlds')">Back</Button>
-        </template>
+        rail-label="World creator sections" width="min(470px, 42vw)"
+        back="Back" @back="emit('go', 'worlds')">
         <template #workspace>
             <div class="controls">
                 <GameTab v-if="group === 'start'" :draft="draft" @mods="group = 'mods'" @browse="emit('go', 'library')" />

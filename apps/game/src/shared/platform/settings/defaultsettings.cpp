@@ -92,6 +92,7 @@ void set_default_settings()
 	settings->setDefault("planet_atlas_debug", "false");
 	settings->setDefault("game_id", "terrafirma");
 	settings->setDefault("shell_gpu", "true");
+	settings->setDefault("ui_scale", "1.0"); // Terra Firma: the player's multiplier on the page's size, over the window's fit (shell/host/ui_scale.h)
 	// Terra Firma: the ArcLabs API accounts sign in to (src/shell/account.cpp);
 	// the approval page it sends players to is on axon.arclabs.it
 	settings->setDefault("arclabs_url", "https://axon-api-t53zrgvpga-ew.a.run.app");
@@ -166,6 +167,7 @@ void set_default_settings()
 	settings->setDefault("keymap_turn_right", "SYSTEM_SCANCODE_48"); // KEY_OEM_6 ]
 	settings->setDefault("keymap_planetarium", "SYSTEM_SCANCODE_64"); // KEY_F7 (Terra Firma: the planet viewer)
 	settings->setDefault("keymap_wiki", "SYSTEM_SCANCODE_10"); // KEY_KEY_G (Terra Firma: the wiki)
+	settings->setDefault("keymap_library", "SYSTEM_SCANCODE_15"); // KEY_KEY_L (Terra Firma: the library)
 	settings->setDefault("keymap_tools", "SYSTEM_SCANCODE_43"); // KEY_TAB (Terra Firma: build mode, sprint 70)
 	settings->setDefault("keymap_brake", "SYSTEM_SCANCODE_5"); // KEY_KEY_B (Terra Firma: flight's brake)
 	settings->setDefault("keymap_tool_next", "SYSTEM_SCANCODE_21"); // KEY_KEY_R (Terra Firma: the next tool)
@@ -326,9 +328,6 @@ void set_default_settings()
 	settings->setDefault("menu_clouds", "true");
 	settings->setDefault("menu_theme", "light");
 	settings->setDefault("translucent_liquids", "true");
-	settings->setDefault("console_height", "0.6");
-	settings->setDefault("console_color", "(0,0,0)");
-	settings->setDefault("console_alpha", "200");
 	settings->setDefault("formspec_fullscreen_bg_color", "(0,0,0)");
 	settings->setDefault("formspec_fullscreen_bg_opacity", "140");
 	settings->setDefault("selectionbox_color", "(0,0,0)");

@@ -37,6 +37,7 @@ namespace sidecar { class Sidecar; }
 #include "src/shared/platform/network/connection.h" // Terra Firma: IConnection::StrayHandler
 
 class BanManager;
+class CommandBook;
 namespace online { class Gate; }
 class Access;
 namespace far { struct Horizon; } // Terra Firma
@@ -457,8 +458,8 @@ public:
 	// Terra Firma: an atlas world's bodies, by the atlas's body index (the home first)
 	const std::vector<terragen::BodyWorld> &bodyWorlds() const { return m_body_worlds; }
 	// Terra Firma: a line typed under a TypeScript mod's command, for the next window.
-	// A line typed after `/`: the engine's command, or a mod's; the reply, if any.
-	std::string command(const std::string &name, RemotePlayer *player, const std::string &line);
+	// Terra Firma: the engine's and the mods' commands (server/game/command_book.h)
+	CommandBook &commands() { return *m_commands; }
 	// False when there's no sidecar to answer (mods are off, or none run).
 	bool sidecarCommand(const std::string &player, const std::string &name, const std::string &text);
 	// Terra Firma: a chunk's wet shore, from the emerge thread (mapgenShore), filled with
@@ -889,9 +890,8 @@ private:
 	std::string m_probe_name;
 	std::unique_ptr<probe::Context> m_probe;
 	std::unique_ptr<sidecar::Sidecar> m_sidecar;
-	// what its mods answer in chat: name, description, params (sidecar::Host::Command)
-	struct ModCommand { std::string name, description, params; };
-	std::vector<ModCommand> m_mod_commands;
+	// every command typed after `/`: the engine's and its mods'
+	std::unique_ptr<CommandBook> m_commands;
 	std::mutex m_shore_mutex;
 	std::vector<v3s16> m_shore; // Terra Firma: queueShore's, till the next step
 	double m_sidecar_now = 0; // game time, as mods see it

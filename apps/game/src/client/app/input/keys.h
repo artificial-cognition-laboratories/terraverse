@@ -33,6 +33,7 @@ public:
 		DROP,
 		INVENTORY,
 		WIKI, // Terra Firma
+		LIBRARY, // Terra Firma: mods and servers, as on the main menu
 		PLANETARIUM, // Terra Firma
 		TOOLS, // Terra Firma: the tools in hand out or away
 		PRONE, // Terra Firma: lie down (sprint 116)

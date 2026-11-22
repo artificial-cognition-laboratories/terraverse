@@ -3,6 +3,7 @@
 
 #include "src/shared/map/map.h"
 #include "src/server/app/server.h"
+#include "src/server/game/command_book.h"
 #include "src/server/game/interact.h"
 #include "src/server/world/run/rules/matter.h"
 #include "src/server/world/terra.h"
@@ -21,7 +22,7 @@ namespace probe {
 void mods(Context &c)
 {
 	const auto typed = [&c](const std::string &param) {
-		const std::string reply = c.server()->command("", nullptr, "check " + param);
+		const std::string reply = c.server()->commands().run("", nullptr, "check " + param);
 		c.say("PROBE /check " + param + " → " + reply);
 	};
 	c.after(1, [typed] {

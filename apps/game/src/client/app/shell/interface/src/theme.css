@@ -1,66 +1,110 @@
 @import "@fontsource/silkscreen/400.css";
 @import "@fontsource/silkscreen/700.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/700.css";
 @import "@fontsource/jetbrains-mono/400.css";
 @import "@fontsource/jetbrains-mono/700.css";
 
 :root {
-    /* Surfaces: dark stone, warmest at the top. */
-    --stone-0: #0c0e10;
-    --stone-1: #15181b;
-    --stone-2: #1e2226;
-    --stone-3: #2a2f34;
-    --stone-4: #3a4148;
-    --edge: #07080a;
-    --bevel-hi: rgb(255 255 255 / 0.1);
-    --bevel-lo: rgb(0 0 0 / 0.45);
+    /*
+     * The night (apps/site/app/assets/styles/variables.scss): the website's palette, so the
+     * game and the site read as one thing. Surfaces are the sky's own dark, a step lifted;
+     * glass is that dark made translucent, with one hairline edge on all four sides.
+     */
+    --night-sky: #04070b;
+    --night-0: #070b11;   /* wells: inputs, code, the deepest ground of a panel */
+    --night-1: #0c121b;   /* a panel */
+    --night-2: #111a26;   /* a raised control, a hover */
+    --night-3: #1c2737;   /* hairlines */
+    --night-4: #2b384a;   /* strong lines, quiet controls */
 
-    --ink: #e8ecef;
-    --ink-dim: rgb(232 236 239 / 0.62);
-    --ink-faint: rgb(232 236 239 / 0.32);
+    /*
+     * Glass is frosted whatever's behind it. Over the page, backdrop-filter does it; over the
+     * engine's frame (the planet, the world), which the page can't see, the shell does: it
+     * blurs the frame under any page pixel 40% solid or more, and fades to sharp by 20%
+     * (shell/host/frame_blur.h). So a wash meant to tint, not frost, stays under 20%.
+     */
+    --glass: rgb(7 11 17 / 0.6);    /* the site's panel: the night lifted a step, see-through */
+    --glass-strong: rgb(5 8 12 / 0.8); /* a pane read at length: a dock, a menu, a tooltip */
+    --glass-lit: rgb(10 75 145 / 0.42); /* glass tinted with the ocean: the chosen, the primary */
+    /* a full screen's night over the scene behind it (kit/Screen): near black, a step off the
+       sides, the scene frosted through it as a shadow, never its colours (a sunlit field showed) */
+    --wash: rgb(4 7 11 / 0.96);
+    /* a full screen's sides (its rail, its bar, a list column): the night, all but solid */
+    --side: rgb(4 7 11 / 0.98);
+    --glass-edge: rgb(231 237 244 / 0.1);
+    --glass-edge-hi: rgb(231 237 244 / 0.16);
+    /* a lit edge: hover and the chosen one, quietly, then plainly (the site's 0.55) */
+    --edge-lit: rgb(99 163 233 / 0.32);
+    --edge-lit-hi: rgb(99 163 233 / 0.55);
+    /* the glass's one highlight: a lit top edge, never a bevel */
+    --sheen: inset 0 1px 0 rgb(231 237 244 / 0.06);
 
-    /* The one accent. */
-    --accent: rgb(0 148 210);
-    --accent-hi: rgb(64 184 236);
-    --accent-lo: rgb(0 96 138);
-    --accent-glow: rgb(0 148 210 / 0.35);
+    /* Older names, kept so every screen follows: stone is the night now. */
+    --stone-0: var(--night-sky);
+    --stone-1: var(--night-0);
+    --stone-2: var(--night-1);
+    --stone-3: var(--night-3);
+    --stone-4: var(--night-4);
+    --edge: #04060a;
 
-    --danger: #e0533d;
-    --danger-lo: #7a2416;
-    --warn-lo: #7a5a12;
+    --ink: #e7edf4;
+    --ink-dim: rgb(231 237 244 / 0.64);
+    --ink-faint: rgb(231 237 244 / 0.38);
+
+    /*
+     * The brand: terragen's deep ocean, in roles. `-lo` is a FILL (white text on it reads);
+     * `-hi` is the same hue lifted for text and lines on the night; `--accent` sits between,
+     * for hover fills and focus rings.
+     */
+    --accent: #1f68b8;
+    --accent-hi: #63a3e9;
+    --accent-lo: #0a4b91;
+    --accent-glow: rgb(99 163 233 / 0.3);
+    /* green means alive: online, healthy, done */
+    --alive: #5eba81;
+    --alive-lo: #2e6b45;
+
+    --danger: #f85149;
+    --danger-lo: #6e1f1b;
+    --warn: #d29922;
+    --warn-lo: #5c4410;
 
     --font-display: "Silkscreen", monospace;
     --font-pixel: "Silkscreen", monospace;
     --font: "JetBrains Mono", ui-monospace, monospace;
+    /* for reading: prose, descriptions, headings that are sentences */
+    --font-sans: "Inter", system-ui, sans-serif;
 
-    /* Hard edges everywhere: a block has no radius. */
+    /* Hard edges everywhere: nothing has a radius. --b is a heavy line (a focus ring, a chosen tab). */
     --b: 2px;
 
     /*
-     * One light, from the top-left, for every surface. Never hand-write a
-     * bevel: a raised block is lit on its top and left and shaded on its
-     * bottom and right; a sunk one is the reverse. Combine with an accent by
-     * listing the accent first: box-shadow: inset 0 -4px 0 var(--accent), var(--raised).
+     * Surfaces are flat glass now, lit by one hairline, never a hand-written bevel. These
+     * three keep their names so older screens follow: raised is the sheen, sunk a well's
+     * inner shadow, and a ledge is gone.
      */
-    --raised:
-        inset var(--b) var(--b) 0 var(--bevel-hi),
-        inset calc(var(--b) * -1) calc(var(--b) * -1) 0 var(--bevel-lo);
-    --sunk:
-        inset var(--b) var(--b) 0 var(--bevel-lo),
-        inset calc(var(--b) * -1) calc(var(--b) * -1) 0 rgb(255 255 255 / 0.04);
-    --ledge: 0 var(--b) 0 var(--edge);
+    --raised: var(--sheen);
+    --sunk: inset 0 1px 2px rgb(0 0 0 / 0.5);
+    --ledge: 0 0 0 transparent;
 }
 
 * { box-sizing: border-box; }
+
+/* a rem is the website's (16px), so what's measured in rem here is the size it is there;
+   running text is a step smaller, as the game's always was */
+html { font-size: 16px; }
 
 html, body {
     margin: 0;
     height: 100%;
     background: transparent;
     color: var(--ink);
-    font: 14px/1.5 var(--font);
     user-select: none;
     -webkit-font-smoothing: antialiased;
 }
+
+body { font: 14px/1.5 var(--font); }
 
 #app { height: 100%; }
 
@@ -69,9 +113,10 @@ button { cursor: pointer; }
 
 ::selection { background: var(--accent); color: #fff; }
 
-/* Scrollbars: a sunk track and a bevelled block, like every other control. */
-::-webkit-scrollbar { width: 12px; height: 12px; }
-::-webkit-scrollbar-track { background: var(--stone-0); box-shadow: var(--sunk); }
-::-webkit-scrollbar-thumb { background: var(--stone-4); border: var(--b) solid var(--edge); box-shadow: var(--raised); }
-::-webkit-scrollbar-thumb:hover { background: var(--accent-lo); }
+/* Scrollbars: thin, a quiet thumb on no track, lit only under the mouse (as the inventory's hairline) */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgb(231 237 244 / 0.07); }
+::-webkit-scrollbar-thumb:hover { background: var(--edge-lit-hi); }
+::-webkit-scrollbar-thumb:active { background: var(--accent-hi); }
 ::-webkit-scrollbar-button, ::-webkit-scrollbar-corner { display: none; background: transparent; }

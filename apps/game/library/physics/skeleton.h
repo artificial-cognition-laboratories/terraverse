@@ -88,6 +88,10 @@ private:
 
 // The boxes it's made of, as client/figure builds them.
 enum class BoneColour { SKIN, SHIRT, TROUSERS };
+// What each is dyed (0..255): one table for every place a figure's drawn (the game's, the wiki's, the
+// inventory's, the pose sheet).
+struct Dye { unsigned char r, g, b; };
+Dye dye(BoneColour colour);
 void eachBoneBox(const Bones &b, const std::function<void(const core::matrix4 &, v3f size, v3f centre, BoneColour)> &box);
 
 } // namespace physics

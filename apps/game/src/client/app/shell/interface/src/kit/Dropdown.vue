@@ -37,14 +37,14 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", outside))
 </template>
 
 <style scoped>
-.dropdown { position: relative; min-width: 140px; }
-.box { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; height: 26px; padding: 0 8px; border: 1px solid var(--stone-3); background: none; color: var(--ink); font-size: 11px; white-space: nowrap; }
-.box:hover, .open .box { border-color: var(--stone-4); }
-.chev { color: var(--ink-faint); font-size: 10px; }
+.dropdown { position: relative; min-width: 9rem; }
+.box { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; width: 100%; height: 2.1rem; padding: 0 0.6rem; border: 1px solid var(--glass-edge); background: var(--glass); color: var(--ink); font-size: 0.75rem; white-space: nowrap; }
+.box:hover, .open .box { border-color: var(--edge-lit); }
+.chev { color: var(--ink-faint); font-size: 0.7rem; }
 .open .chev { transform: rotate(180deg); }
-ul { position: absolute; z-index: 10; top: calc(100% + 2px); left: 0; right: 0; margin: 0; padding: 3px 0; list-style: none; border: 1px solid var(--stone-4); background: var(--stone-1); box-shadow: 4px 4px 0 rgb(0 0 0 / 0.35); }
-ul button { display: flex; justify-content: space-between; width: 100%; padding: 6px 8px; border: 0; background: none; color: var(--ink-dim); font-size: 11px; text-align: left; white-space: nowrap; }
-ul button:hover { background: var(--stone-2); color: var(--ink); }
+ul { position: absolute; z-index: 10; top: calc(100% + 2px); left: 0; right: 0; margin: 0; padding: 0.2rem 0; list-style: none; border: 1px solid var(--glass-edge); background: var(--glass-strong); backdrop-filter: blur(8px); box-shadow: 0 12px 30px rgb(0 0 0 / 0.5); }
+ul button { display: flex; justify-content: space-between; width: 100%; padding: 0.45rem 0.6rem; border: 0; background: none; color: var(--ink-dim); font-size: 0.75rem; text-align: left; white-space: nowrap; }
+ul button:hover { background: rgb(231 237 244 / 0.05); color: var(--ink); }
 ul button.on { color: var(--ink); }
 ul button span { color: var(--accent-hi); }
 </style>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from "vue"
 import type { FloraGene, FloraSite, FloraState, SceneRect } from "../bridge/index.ts"
+import { sceneRect } from "./sceneRect.ts"
 import { useBridge } from "../bridge/use.ts"
 import { Button, Field, ListGroup, ListItem, Segmented, Slider, Toggle, WorkbenchColumns } from "../kit/index.ts"
 import { FLORA_PLACES, LIMITS, STRATEGIES } from "./flora.ts"
@@ -22,10 +23,7 @@ const problem = ref<string | null>(null)
 const host = ref<HTMLElement | null>(null)
 const card = ref<HTMLElement | null>(null)
 const fail = (err: unknown) => { problem.value = err instanceof Error ? err.message : String(err) }
-const rect = (): SceneRect | null => {
-    const r = host.value?.getBoundingClientRect()
-    return r && r.width > 0 ? { x: r.left, y: r.top, width: r.width, height: r.height } : null
-}
+const rect = (): SceneRect | null => sceneRect(host.value)
 const right = () => card.value ? card.value.getBoundingClientRect().width + 24 : 0
 let shown = false
 async function set() {
@@ -163,7 +161,7 @@ const worth = (b: FloraState["blocks"]) => Object.entries(b).filter(([, n]) => n
 <style scoped>
 /* nothing painted but the floats: the page's empty pixels are the scene's, and its mouse */
 .scene { position: relative; width: 100%; height: 100%; min-height: 0; }
-.facts { position: absolute; top: 12px; right: 12px; bottom: 12px; width: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 14px; border: var(--b) solid var(--edge); background: rgb(21 24 27 / 0.92); box-shadow: var(--raised); }
+.facts { position: absolute; top: 12px; right: 12px; bottom: 12px; width: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--glass-edge); background: var(--glass-strong); backdrop-filter: blur(8px); }
 .facts h5 { margin: 8px 0 0; font: 11px var(--font-display); text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); }
 .facts h5:first-child { margin-top: 0; }
 .facts p { margin: 0; font-size: 13px; }
@@ -179,5 +177,5 @@ p.dead { color: var(--danger); }
 .set :deep(.value) { color: var(--accent); }
 .player { position: absolute; left: 16px; bottom: 14px; display: flex; align-items: flex-end; gap: 12px; }
 .world { width: 200px; }
-.problem { position: absolute; left: 12px; top: 12px; margin: 0; padding: 6px 10px; color: var(--danger); font-size: 12px; background: rgb(21 24 27 / 0.92); }
+.problem { position: absolute; left: 12px; top: 12px; margin: 0; padding: 6px 10px; color: var(--danger); font-size: 12px; background: var(--glass-strong); }
 </style>

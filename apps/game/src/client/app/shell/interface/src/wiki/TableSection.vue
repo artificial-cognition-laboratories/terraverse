@@ -25,7 +25,10 @@ function pick(symbol: string) {
 </template>
 
 <style scoped>
-.page { display: flex; flex-direction: column; gap: 12px; height: 100%; padding: 18px 22px; overflow: auto; background: var(--stone-0); }
-.periodic { width: 100%; }
-.note { margin: 0; color: var(--ink-dim); font-size: 12px; }
+/* the whole content area: the table as wide as it is, or as the height lets its square cells be
+   (18 across to some 10 down, and the note), centred */
+.page { display: flex; flex-direction: column; gap: 12px; height: 100%; padding: 1.5rem; overflow: auto; background: var(--wash);
+    container-type: size; }
+.page > * { flex: none; width: min(100%, (100cqh - 4rem) * 1.75); margin: 0 auto; }
+.note { color: var(--ink-dim); font-size: 12px; }
 </style>

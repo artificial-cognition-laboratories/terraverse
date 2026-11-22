@@ -11,7 +11,7 @@ defineProps<{ title?: string }>()
 </template>
 
 <style scoped>
-.list-empty { display: grid; gap: 6px; margin: 8px; color: var(--ink-dim); font-size: 11px; line-height: 1.5; }
-.list-empty strong { color: var(--ink); font: 11px var(--font-display); text-transform: uppercase; }
+.list-empty { display: grid; gap: 0.4rem; margin: 0.5rem 0.65rem; color: var(--ink-dim); font-size: 0.75rem; line-height: 1.5; }
+.list-empty strong { color: var(--ink); font: 0.7rem var(--font-display); text-transform: uppercase; }
 .list-empty :deep(p) { margin: 0; }
 </style>

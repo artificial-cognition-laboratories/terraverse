@@ -3,7 +3,9 @@
 
 #include "src/client/app/shell/bridge/wiki.h"
 #include "src/client/app/shell/bridge/bridge.h"
+#include "src/client/app/shell/bridge/scene_rect.h"
 #include "src/client/app/shell/host/shell.h"
+#include "src/client/app/shell/host/underlays.h"
 #include "src/shared/platform/system/filesys.h"
 #include "src/shared/platform/system/porting.h"
 #include "src/shared/platform/settings/settings.h"
@@ -60,12 +62,12 @@ Wiki::Wiki(Shell &shell) : m_shell(shell)
 		}
 		m_scene.looks(&blocks(), std::move(substances), std::move(water));
 		m_scene.heat(intent["heat"].asBool());
-		m_scene.place(rectOf(intent["rect"]), (float)intent["right"].asDouble() * m_shell.scale());
+		m_scene.place(sceneRect(intent["rect"]), (float)(intent["right"].asDouble() * intent["rect"]["scale"].asDouble()));
 		m_scene.show();
 		return Json::Value();
 	});
 	m_shell.on("scene.place", [this](const Json::Value &intent) {
-		m_scene.place(rectOf(intent["rect"]), (float)intent["right"].asDouble() * m_shell.scale());
+		m_scene.place(sceneRect(intent["rect"]), (float)(intent["right"].asDouble() * intent["rect"]["scale"].asDouble()));
 		return Json::Value();
 	});
 	m_shell.on("scene.hide", [this](const Json::Value &) {
@@ -90,7 +92,7 @@ Wiki::Wiki(Shell &shell) : m_shell(shell)
 		m_scene.heat(false);
 		m_scene.frame(Scene::Frame{ 4, 1, 4, std::vector<sandbox::Stage::Cell>(16) });
 		m_scene.distance(7);
-		m_scene.place(rectOf(intent["rect"]), (float)intent["right"].asDouble() * m_shell.scale());
+		m_scene.place(sceneRect(intent["rect"]), (float)(intent["right"].asDouble() * intent["rect"]["scale"].asDouble()));
 		m_scene.show();
 		m_course_at = porting::getTimeMs();
 		return Json::Value();
@@ -129,7 +131,7 @@ Wiki::Wiki(Shell &shell) : m_shell(shell)
 		m_scene.figure(std::nullopt);
 		m_scene.machine(std::nullopt);
 		m_scene.distance(m_flora->distance());
-		m_scene.place(rectOf(intent["rect"]), (float)intent["right"].asDouble() * m_shell.scale());
+		m_scene.place(sceneRect(intent["rect"]), (float)(intent["right"].asDouble() * intent["rect"]["scale"].asDouble()));
 		m_scene.show();
 		return Json::Value();
 	});
@@ -162,7 +164,7 @@ Wiki::Wiki(Shell &shell) : m_shell(shell)
 			m_scene.distance(move.get("distance", 9).asFloat());
 			m_scene.figure(std::nullopt);
 			m_scene.machine(m_course->looks());
-			m_scene.place(rectOf(intent["rect"]), (float)intent["right"].asDouble() * m_shell.scale());
+			m_scene.place(sceneRect(intent["rect"]), (float)(intent["right"].asDouble() * intent["rect"]["scale"].asDouble()));
 			m_scene.show();
 			m_course_at = porting::getTimeMs();
 			return Json::Value();
@@ -187,7 +189,7 @@ Wiki::Wiki(Shell &shell) : m_shell(shell)
 			throw Refused("no move is playing");
 		return m_course->state();
 	});
-	m_shell.underlay([this](video::IVideoDriver *driver) {
+	m_underlay = m_shell.underlays().add([this](video::IVideoDriver *driver) {
 		if (m_relief) {
 			const u64 now = porting::getTimeMs();
 			m_relief->update(std::min(0.1f, (now - m_course_at) / 1000.f));
@@ -241,7 +243,7 @@ Wiki::Wiki(Shell &shell) : m_shell(shell)
 
 Wiki::~Wiki()
 {
-	m_shell.underlay(nullptr, nullptr);
+	m_shell.underlays().remove(m_underlay);
 	for (const char *verb : VERBS)
 		m_shell.off(verb);
 }
@@ -336,14 +338,6 @@ void Wiki::publish(int id, const sandbox::Stage &s)
 	m_latestId = id;
 }
 
-core::recti Wiki::rectOf(const Json::Value &rect) const
-{
-	if (!rect["x"].isNumeric() || !rect["y"].isNumeric() || !rect["width"].isNumeric() || !rect["height"].isNumeric())
-		throw Refused("a scene's rect is { x, y, width, height }");
-	const float k = m_shell.scale();
-	return core::recti((s32)std::lround(rect["x"].asDouble() * k), (s32)std::lround(rect["y"].asDouble() * k),
-			(s32)std::lround((rect["x"].asDouble() + rect["width"].asDouble()) * k), (s32)std::lround((rect["y"].asDouble() + rect["height"].asDouble()) * k));
-}
 
 /*
 	{ size, time, main[], state[], fill[], temperature[], activity[], vapour[],

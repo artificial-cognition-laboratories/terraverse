@@ -265,8 +265,10 @@ Each file in `shell/` owns one concern.
 **UI rules.**
 - Build every screen from the kit (`ui/src/kit`). New patterns become kit components, with a gallery
   specimen. Everything must render in the gallery against `gallery/mock.ts`.
-- One light, top-left: use `--raised`, `--sunk`, `--ledge`, never a hand-written bevel. Tokens are
-  in `theme.css`. Hard edges, no radius. Accent `rgb(0 148 210)` and `»` are the only brand marks.
+- The website's look (apps/site): the night palette, flat glass (`--glass`, one 1px `--glass-edge`,
+  the `--sheen` top line), never a hand-written bevel. Tokens are in `theme.css`. Hard edges, no radius.
+  The deep ocean (`--accent-lo` fill, `--accent-hi` text) and `»` are the only brand marks. Full
+  screens stand on the kit's `Sky`; the page never animates it.
 - Fonts are bundled (Silkscreen, JetBrains Mono). Labels never wrap in buttons, panels never scroll
   sideways, grid children get `min-width: 0`.
 - The page re-uploads to the GPU on repaint: avoid continuous full-screen animation. Heavy compute
