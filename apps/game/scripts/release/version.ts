@@ -1,6 +1,6 @@
 // The version being released: package.json's, as a tag (v0.2.0).
 export function releaseTag(): string {
-    const pkg: unknown = JSON.parse(require("fs").readFileSync(`${import.meta.dir}/../../../../package.json`, "utf8"))
+    const pkg: unknown = JSON.parse(require("fs").readFileSync(packageJson, "utf8"))
     const version = typeof pkg === "object" && pkg !== null && "version" in pkg ? pkg.version : undefined
     if (typeof version !== "string" || !/^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/.test(version))
         throw new Error(`release: package.json needs a "version" like 0.2.0 (has ${JSON.stringify(version)})`)
@@ -18,10 +18,12 @@ export async function run(argv: string[]): Promise<string> {
 /** Bumps package.json's patch version (0.2.0 → 0.2.1, dropping any prerelease) and returns the new tag. */
 export function bumpPatch(): string {
     const fs = require("fs")
-    const path = `${import.meta.dir}/../../../../package.json`
     const [major, minor, patch] = releaseTag().slice(1).split("-")[0].split(".").map(Number)
     const next = `${major}.${minor}.${patch + 1}`
-    const text: string = fs.readFileSync(path, "utf8")
-    fs.writeFileSync(path, text.replace(/("version"\s*:\s*)"[^"]*"/, `$1"${next}"`))
+    const text: string = fs.readFileSync(packageJson, "utf8")
+    fs.writeFileSync(packageJson, text.replace(/("version"\s*:\s*)"[^"]*"/, `$1"${next}"`))
     return releaseTag()
 }
+
+/** The repo root's package.json, which holds the game's version, as an absolute path (scripts run from apps/game). */
+export const packageJson = require("path").resolve(import.meta.dir, "../../../../package.json")
