@@ -202,7 +202,7 @@ fn game(l: L) -> events::Game {
 async fn launch(l: L<'_>, version: String) -> Result<()> {
     let settings = l.settings.lock().unwrap().clone();
     let launcher = Arc::clone(&l);
-    l.runner.launch(&l.app, &l.home, &version, move |app| {
+    l.runner.launch(&l.app, &l.home, &version, l.account.api(), move |app| {
         // the game may have signed in or out while it ran
         launcher.account.reload();
         if let Some(window) = app.get_webview_window("main") {

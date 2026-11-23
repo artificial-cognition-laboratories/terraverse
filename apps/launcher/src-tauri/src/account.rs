@@ -13,8 +13,11 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri_plugin_opener::OpenerExt;
 
-/// The game's default (defaultsettings.cpp: arclabs_url); TERRAVERSE_ARCLABS_URL for another.
-pub const DEFAULT_API: &str = "https://axon-api-t53zrgvpga-ew.a.run.app";
+/// Production: the game's default (defaultsettings.cpp: arclabs_url), whose key file is account.json.
+pub const PRODUCTION_API: &str = "https://axon-api-t53zrgvpga-ew.a.run.app";
+/// Where the launcher signs in unless TERRAVERSE_ARCLABS_URL says otherwise: production, or in a
+/// debug build (`tauri dev`) local staging (../arclabs: arc u), as the game's `bun dev` does.
+pub const DEFAULT_API: &str = if cfg!(debug_assertions) { "http://localhost:3099" } else { PRODUCTION_API };
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(tag = "status", rename_all = "camelCase")]
@@ -106,7 +109,7 @@ impl Account {
 
     /// Where the key is kept: the active profile's, which a sign-in (here or in the game) changes.
     fn key_path(&self) -> PathBuf {
-        match self.home.account(&self.api, DEFAULT_API) {
+        match self.home.account(&self.api, PRODUCTION_API) {
             Ok(path) => path,
             Err(e) => {
                 eprintln!("launcher: {e}: signed out until the profile can be made");

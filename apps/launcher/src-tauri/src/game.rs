@@ -68,6 +68,7 @@ impl Runner {
         app: &tauri::AppHandle,
         home: &Home,
         id: &str,
+        api: &str,
         exited: impl FnOnce(&tauri::AppHandle) + Send + 'static,
     ) -> Result<()> {
         if let Some(version) = self.running() {
@@ -98,6 +99,10 @@ impl Runner {
                     None => command.env_remove(key),
                 };
             }
+        }
+        // the game signs in where the launcher does, so the key it finds is for that backend
+        if api != crate::account::PRODUCTION_API {
+            command.arg("--arclabs-url").arg(api);
         }
         let mut child = command
             .current_dir(&dir)
