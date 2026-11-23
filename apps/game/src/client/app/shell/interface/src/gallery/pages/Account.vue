@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AccountCard from "../../account/AccountCard.vue"
-import ProfileDropdown from "../../account/ProfileDropdown.vue"
+import Panel from "../../account/panel/Panel.vue"
 import type { Account, Social } from "../../bridge/index.ts"
 import FriendsPanel from "../../social/FriendsPanel.vue"
 import { cannedSocial } from "../mock.ts"
@@ -29,20 +29,20 @@ const FRIENDS: { note: string; social: Social; error?: string; joining?: string 
 
 <template>
     <div class="grid">
-        <Specimen name="ProfileDropdown" note="signed in: activity, friends, account actions">
-            <ProfileDropdown :account="STATES[5]!.account" :social="cannedSocial()" :error="null" :busy="false" :joining="null" />
+        <Specimen name="Panel" note="friends: online, offline, add">
+            <Panel :account="STATES[5]!.account" :social="cannedSocial()" :error="null" :busy="false" :joining="null" />
         </Specimen>
-        <Specimen name="ProfileDropdown" note="inbox: invitations and requests">
-            <ProfileDropdown :account="STATES[5]!.account" :social="cannedSocial()" :error="null" :busy="false" :joining="null" initial-page="activity" />
+        <Specimen name="Panel" note="inbox: invites, requests, sent">
+            <Panel :account="STATES[5]!.account" :social="cannedSocial()" :error="null" :busy="false" :joining="null" initial-tab="inbox" />
         </Specimen>
-        <Specimen name="ProfileDropdown" note="add friend view">
-            <ProfileDropdown :account="STATES[5]!.account" :social="cannedSocial()" :error="null" :busy="false" :joining="null" initial-page="add" />
+        <Specimen name="Panel" note="account">
+            <Panel :account="STATES[5]!.account" :social="cannedSocial()" :error="null" :busy="false" :joining="null" initial-tab="account" />
         </Specimen>
-        <Specimen name="ProfileDropdown" note="account details">
-            <ProfileDropdown :account="STATES[5]!.account" :social="cannedSocial()" :error="null" :busy="false" :joining="null" initial-page="account" />
+        <Specimen name="Panel" note="a refusal, a stale list">
+            <Panel :account="STATES[5]!.account" :social="FRIENDS[3]!.social" error="no ArcLabs account has that username" :busy="false" :joining="null" />
         </Specimen>
-        <Specimen name="ProfileDropdown" note="signed out: sign-in flow">
-            <ProfileDropdown :account="STATES[0]!.account" :social="null" :error="null" :busy="false" :joining="null" />
+        <Specimen v-for="state in STATES.filter((s) => s.account.status !== 'signedIn')" :key="'panel ' + state.note" name="Panel" :note="state.note">
+            <Panel :account="state.account" :social="null" :error="null" :busy="false" :joining="null" />
         </Specimen>
         <Specimen v-for="state in STATES" :key="state.note" name="AccountCard" :note="state.note">
             <AccountCard :account="state.account" />

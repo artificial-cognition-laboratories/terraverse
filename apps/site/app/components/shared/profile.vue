@@ -25,7 +25,7 @@ onMounted(() => document.addEventListener("click", outside))
 onBeforeUnmount(() => document.removeEventListener("click", outside))
 
 function signOut() {
-    account.signOut()
+    void account.signOut()
     open.value = false
 }
 </script>

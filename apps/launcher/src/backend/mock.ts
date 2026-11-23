@@ -203,8 +203,9 @@ export function MockBackend(): Backend {
         },
         async updateLauncher() {
             if (game.state === "running") throw new Refused("Close the game first: the launcher restarts to update.")
+            if (scenario !== "update") throw new Refused("There's no launcher update ready. It's fetched in the background; check again later.")
             await wait(1500)
-            location.reload() // as the real one restarts
+            location.reload() // as the real one restarts into the new launcher
         },
 
         async openDataFolder() { console.info("[mock] open the data folder") },

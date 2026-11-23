@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue"
-import { Button, Progress } from "@game/kit/index.ts"
+import { Button } from "@game/kit/index.ts"
 import type { Version } from "../backend/index.ts"
 import { bytes, since, useStore } from "../use.ts"
 
@@ -25,15 +25,15 @@ onBeforeUnmount(() => clearInterval(clock))
             <span class="dot" aria-hidden="true" />
             <span><strong>Playing {{ running.version }}</strong><small>{{ since(running.since, now) }}</small></span>
         </div>
-        <div v-else-if="standing.state === 'downloading'" class="downloading">
-            <Progress :value="standing.progress.received / standing.progress.total"
-                :label="`Installing · ${bytes(standing.progress.received)} of ${bytes(standing.progress.total)}`" />
-            <Button size="sm" @click="store.cancel(version.id)">Cancel</Button>
+        <!-- installing: the button becomes its own bar, filling with the ocean -->
+        <div v-else-if="standing.state === 'downloading'" class="installing" role="progressbar"
+            :aria-valuenow="Math.round(standing.progress.received / standing.progress.total * 100)" aria-valuemin="0" aria-valuemax="100">
+            <span class="fill" :style="{ width: `${standing.progress.received / standing.progress.total * 100}%` }" />
+            <span class="what"><strong>Installing</strong><small class="pct">{{ Math.floor(standing.progress.received / standing.progress.total * 100) }}%</small><small class="of">{{ bytes(standing.progress.received) }} of {{ bytes(standing.progress.total) }}</small></span>
+            <button class="cancel" aria-label="Cancel the install" title="Cancel" @click="store.cancel(version.id)">✕</button>
         </div>
-        <Button v-else-if="standing.state === 'installed'" variant="primary" size="lg" class="go" @click="store.play(version.id)">
-            Play
-        </Button>
-        <Button v-else variant="primary" size="lg" class="go" @click="store.install(version.id)">
+        <Button v-else-if="standing.state === 'installed'" variant="primary" size="sm" class="go" @click="store.play(version.id)">Play »</Button>
+        <Button v-else variant="primary" size="sm" class="go" @click="store.install(version.id)">
             {{ standing.state === "failed" ? "Retry" : updating ? "Update" : "Install" }}
             <small class="size">{{ bytes(version.size) }}</small>
         </Button>
@@ -41,18 +41,21 @@ onBeforeUnmount(() => clearInterval(clock))
 </template>
 
 <style scoped>
-.play-button { display: flex; align-items: stretch; width: 100%; min-width: 0; height: var(--play-height, 56px); }
-.go { flex: 1; height: 100%; font-size: 20px; }
-.size { font: 10px var(--font); letter-spacing: 0; text-transform: none; opacity: 0.75; }
+/* the game's menu buttons (kit Button, sm): Play is the primary; installing, the same block fills */
+.play-button { container-type: inline-size; display: flex; height: 2.1rem; min-width: 0; }
+.go { flex: 1; }
+.size { font: 0.65rem var(--font); letter-spacing: 0; text-transform: none; opacity: 0.7; }
+
+.installing, .playing { position: relative; border: 1px solid var(--edge-lit-hi); background: var(--glass); backdrop-filter: blur(8px); flex: 1; display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 4px 0 12px; overflow: hidden; }
+.fill { position: absolute; inset: 0 auto 0 0; background: var(--glass-lit); border-right: 1px solid var(--edge-lit-hi); transition: width 0.25s linear; }
+.what, .playing span:last-child { position: relative; flex: 1; display: flex; align-items: baseline; gap: 10px; min-width: 0; overflow: hidden; }
+strong { font: 0.65rem var(--font-display); font-weight: 400; text-transform: uppercase; letter-spacing: 0.08em; color: #fff; white-space: nowrap; }
+small { font: 0.7rem var(--font); color: var(--ink-dim); white-space: nowrap; }
+.cancel { position: relative; width: 26px; height: 26px; border: 1px solid transparent; background: none; color: var(--ink-dim); }
+.cancel:hover { border-color: var(--glass-edge); color: #fff; }
+.dot { width: 8px; height: 8px; flex: none; background: var(--accent-hi); box-shadow: 0 0 0 3px var(--accent-glow); }
+/* the amount where there's room for it (Versions), the share where there isn't (the landing's group) */
+.pct { display: none; }
+@container (max-width: 250px) { .of { display: none; } .pct { display: inline; } }
 @media (max-width: 520px) { .size { display: none; } }
-.downloading { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
-.downloading > :first-child { flex: 1; min-width: 0; }
-.playing {
-    flex: 1; display: flex; align-items: center; gap: 14px; padding: 0 18px;
-    border: var(--b) solid var(--edge); background: var(--stone-1); box-shadow: var(--sunk);
-}
-.playing span:last-child { display: flex; flex-direction: column; }
-.playing strong { font: 13px var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; }
-.playing small { font-size: 11px; color: var(--ink-dim); }
-.dot { width: 10px; height: 10px; background: var(--accent-hi); box-shadow: 0 0 0 3px var(--accent-glow); }
 </style>

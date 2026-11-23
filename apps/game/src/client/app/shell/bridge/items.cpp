@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/app/shell/bridge/items.h"
+#include "src/shared/platform/system/porting.h"
 #include "src/client/world/session/client.h"
 #include "src/client/render/textures/texturesource.h"
 #include "src/shared/base/exceptions.h"
@@ -65,17 +66,40 @@ const Json::Value &Items::describe(const std::string &name)
 	return m_described.emplace(name, info).first->second;
 }
 
-Json::Value Items::catalog()
+const std::vector<std::string> &Items::listed()
 {
+	if (m_listed)
+		return *m_listed;
 	std::set<std::string> names;
 	m_opts.client->idef()->getAll(names);
-	Json::Value result(Json::arrayValue);
+	std::vector<std::string> out;
 	for (const std::string &name : names) {
 		const ItemDefinition &def = m_opts.client->idef()->get(name);
 		if (name.empty() || def.name != name || def.type == ITEM_NONE || def.description.empty() ||
 				name.ends_with("_flowing") ||
 				def.groups.count("not_in_creative_inventory"))
 			continue;
+		out.push_back(name);
+	}
+	return *(m_listed = std::move(out));
+}
+
+void Items::warm(float budget_ms)
+{
+	// nothing to list or draw until the server's items and their pictures are in
+	if (!m_opts.client->itemdefReceived() || !m_opts.client->mediaReceived())
+		return;
+	const std::vector<std::string> &names = listed();
+	const u64 start = porting::getTimeUs();
+	while (m_warmed < names.size() && (porting::getTimeUs() - start) < budget_ms * 1000)
+		describe(names[m_warmed++]);
+}
+
+Json::Value Items::catalog()
+{
+	Json::Value result(Json::arrayValue);
+	for (const std::string &name : listed()) {
+		const ItemDefinition &def = m_opts.client->idef()->get(name);
 		Json::Value item = describe(name);
 		item["item"] = name;
 		item["stackMax"] = def.stack_max;

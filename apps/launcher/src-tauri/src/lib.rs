@@ -254,8 +254,8 @@ async fn launcher_update(l: L<'_>) -> Result<Option<update::Available>> {
     l.updates.check(&l.app).await
 }
 #[tauri::command]
-async fn update_launcher(l: L<'_>) -> Result<()> {
-    l.updates.install(&l.app, l.runner.running().is_some()).await
+fn update_launcher(l: L) -> Result<()> {
+    l.updates.restart(&l.app, l.runner.running().is_some())
 }
 
 #[tauri::command]
@@ -295,6 +295,12 @@ pub fn run() {
             game, launch, collect_report, submit_report, dismiss_crash,
             launcher_update, update_launcher, open_data_folder, open_url,
         ])
-        .run(tauri::generate_context!())
-        .expect("the launcher failed to start");
+        .build(tauri::generate_context!())
+        .expect("the launcher failed to start")
+        // a launcher update downloaded meanwhile goes in as it closes: the next start is the new one
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                app.state::<Arc<Launcher>>().updates.apply();
+            }
+        });
 }

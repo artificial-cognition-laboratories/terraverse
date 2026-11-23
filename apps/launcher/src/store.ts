@@ -120,22 +120,6 @@ export function LauncherStore({ backend }: { backend: Backend }) {
         return newest.value
     })
 
-    /** A newer version than the pinned one, to offer switching to. */
-    const newerThanPinned = computed<Version | null>(() => {
-        const pinned = target.value
-        if (!state.settings?.pinned || !pinned || !newest.value) return null
-        const newer = visible.value.indexOf(newest.value) < visible.value.indexOf(pinned)
-        return newer ? newest.value : null
-    })
-
-    /** While the newest isn't installed yet: the newest installed version older than it, still playable. */
-    const previous = computed<Version | null>(() => {
-        const wanted = target.value
-        if (!wanted || standing(wanted.id).state === "installed") return null
-        const older = visible.value.slice(visible.value.indexOf(wanted) + 1)
-        return older.find(v => standing(v.id).state === "installed") ?? null
-    })
-
     function standing(id: string): Standing {
         const download = state.downloads[id]
         if (download) return { state: "downloading", progress: download }
@@ -167,8 +151,6 @@ export function LauncherStore({ backend }: { backend: Backend }) {
         visible,
         newest,
         target,
-        newerThanPinned,
-        previous,
         used,
         standing,
         load,

@@ -91,9 +91,10 @@ export interface Backend {
     submitReport(session: string, note: string): Promise<void>
     dismissCrash(): Promise<void>
 
-    /** Null when this launcher is the newest, or the check couldn't be made. */
+    /** A newer launcher, answered once it's downloaded (it's installed as the launcher closes);
+     *  null when this is the newest, or it couldn't be checked or fetched. */
     launcherUpdate(): Promise<LauncherUpdate | null>
-    /** Installs it and restarts; refuses while the game runs. */
+    /** Installs the downloaded one and restarts into it now; refuses while the game runs. */
     updateLauncher(): Promise<void>
 
     openDataFolder(): Promise<void>

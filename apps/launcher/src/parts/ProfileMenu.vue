@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from "vue"
-import ProfileDropdown from "@game/account/ProfileDropdown.vue"
+import Panel from "@game/account/panel/Panel.vue"
 import type { Player } from "@game/bridge/types.ts"
 import { IconButton } from "@game/kit/index.ts"
 import { useStore } from "../use.ts"
 import { useDismiss } from "./dismiss.ts"
 
-/** The game's account and friends dropdown, opened from the foot of the rail. */
+/** The game's account and friends panel, opened from the stage's top right corner (App.vue). */
 const store = useStore()
 const { state } = store
 const open = ref(false)
@@ -21,14 +21,12 @@ const waiting = computed(() => {
     return view ? view.incoming.length + view.invites.length : 0
 })
 
-// the rail scrolls, which would clip the dropdown: it's drawn on the body instead,
-// beside the button, its foot level with the button's
-const at = ref({ left: 0, bottom: 0 })
+// drawn on the body, so no page's overflow clips it: under the button, their right edges in line,
+// as the game's corner drops its panel (interface account/Corner.vue)
+const at = ref({ top: 0, right: 0 })
 function toggle() {
-    // the rail's own edge, not the button's: the same gutter beside it as the rail keeps round its icons
-    const rail = root.value?.closest("nav")?.getBoundingClientRect()
     const box = root.value?.getBoundingClientRect()
-    if (rail && box) at.value = { left: rail.right + 14, bottom: Math.max(8, window.innerHeight - box.bottom) }
+    if (box) at.value = { top: box.bottom + 10, right: Math.max(8, window.innerWidth - box.right) }
     open.value = !open.value
 }
 
@@ -49,14 +47,13 @@ async function act(action: () => Promise<unknown>) {
         </IconButton>
 
         <Teleport to="body">
-            <div v-if="open && store.account.value" ref="menu" class="profile-popover" :style="{ left: `${at.left}px`, bottom: `${at.bottom}px` }">
-                <ProfileDropdown :account="store.account.value" :social="store.social.value" :error="state.refusal" :busy="busy" :joining="null"
+            <div v-if="open && store.account.value" ref="menu" class="profile-popover" :style="{ top: `${at.top}px`, right: `${at.right}px` }">
+                <Panel :account="store.account.value" :social="store.social.value" :error="state.refusal" :busy="busy" :joining="null"
                     @sign-in="act(store.signIn)" @cancel="act(store.cancelSignIn)" @retry="act(store.retrySignIn)"
                     @sign-out="act(store.signOut)" @open-url="act(() => store.openUrl($event))"
                     @request="act(() => store.requestFriend($event))" @accept="act(() => store.acceptFriend($event))"
                     @remove="act(() => store.removeFriend($event))"
                     @invite="store.notInLauncher('Inviting')" @dismiss="store.notInLauncher('Dismissing an invite')"
-                    @open-world="store.notInLauncher('Opening your world')"
                     @join="(player: Player) => store.notInLauncher(`Joining ${player.username}`)" />
             </div>
         </Teleport>
@@ -69,6 +66,6 @@ async function act(action: () => Promise<unknown>) {
 .status.online { background: var(--accent-hi); }
 .badge { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 3px; background: var(--accent); border: 1px solid var(--edge); font: 10px/16px var(--font-display); }
 .profile-popover { position: fixed; z-index: 30; }
-/* the dropdown hangs below the game's corner button; here it rises from the rail's foot */
-.profile-popover :deep(.dropdown) { margin-top: 0; max-height: calc(100vh - 16px); }
+/* never taller than the window under it */
+.profile-popover :deep(.panel) { max-height: calc(100vh - 80px); }
 </style>

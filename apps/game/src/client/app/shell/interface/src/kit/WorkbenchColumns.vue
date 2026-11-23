@@ -49,6 +49,8 @@ const searchQuery = computed({
 .workbench-list-tools :deep(.search-box) { width: 100%; }
 .workbench-list-scroll { min-height: 0; padding: 0.75rem 0.5rem 1.25rem; overflow-y: auto; }
 .workbench-content, .workbench-facts { overflow-y: auto; }
+/* room kept for the scrollbar whether it shows or not, so a long page and a short one are the same width */
+.workbench-content:not(.open) { scrollbar-gutter: stable; }
 .workbench-content, .workbench-facts { display: flex; flex-direction: column; gap: 0.75rem; padding: 1.25rem 1.5rem; background: var(--wash); }
 .workbench-content-inner { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; min-width: 0; min-height: 100%; margin-inline: auto; }
 .workbench-content.open { padding: 0; background: none; overflow: hidden; }

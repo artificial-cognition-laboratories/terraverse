@@ -91,6 +91,7 @@ ClientLauncher::~ClientLauncher()
 
 #if USE_SHELL
 	// the figure and the wiki unregister from the shell, so they go first
+	m_library.reset();
 	m_figures.reset();
 	m_wiki.reset();
 	// Its texture and IME element belong to the device about to be deleted.
@@ -194,6 +195,9 @@ bool ClientLauncher::run(const GameParams &game_params, const Settings &cmd_args
 	}, this);
 	m_wiki = std::make_unique<shell::Wiki>(*m_shell); // answers in the menu and in game alike
 	m_figures = std::make_unique<shell::Figures>(shell::Figures::Opts{ /* shell */ *m_shell });
+	// the Library's verbs, in the menu and in a world alike
+	m_library = std::make_unique<shell::Library>(shell::Library::Opts{ .shell = *m_shell, .contents_dir = m_shell->contentsDir(),
+		.api = g_settings->get("arclabs_url"), .session = std::to_string(porting::getTimeMs()) });
 #endif
 
 	g_menuclouds->setHeight(100.0f);

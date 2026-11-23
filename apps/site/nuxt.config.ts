@@ -45,7 +45,16 @@ export default defineNuxtConfig({
         },
     },
 
-    runtimeConfig: { public: { site: SITE } },
+    runtimeConfig: {
+        // The accounts are ArcLabs': production's by default, the local stack's under `arc u` (.env.local,
+        // NUXT_PUBLIC_*). The Supabase key is the publishable one, made to be in a browser.
+        public: {
+            site: SITE,
+            api: "https://axon-api-t53zrgvpga-ew.a.run.app",
+            supabaseUrl: "https://rygdiujydppljkwgajth.supabase.co",
+            supabaseKey: "sb_publishable_ZGJCskKDg3IMVRv06yXWow_t1FuUnJi",
+        },
+    },
 
     // Icons inlined as SVG at build time, so nothing pops in after hydration.
     icon: { serverBundle: "local", mode: "svg" },

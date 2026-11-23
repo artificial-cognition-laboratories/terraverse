@@ -57,6 +57,8 @@ function search(s: RegistrySearch): RegistryResults {
 }
 
 function front(): RegistryFront {
+    // ?registry=empty: a registry with nothing on it yet, as a new local stack's
+    if (new URLSearchParams(location.search).get("registry") === "empty") return { featured: [], categories: [], shelves: [] }
     const shelf = (id: string, title: string, s: Partial<RegistrySearch>) =>
         ({ id: id, title: title, search: s, listings: search({ query: "", sort: "trending", categories: [], type: null, installed: false, page: 1, ...s }).listings.slice(0, 6) })
     return {

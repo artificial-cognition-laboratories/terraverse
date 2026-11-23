@@ -28,7 +28,7 @@ function trail(id: string): string {
 </script>
 
 <template>
-    <WorkbenchColumns :list-width="280">
+    <WorkbenchColumns :list-width="200">
         <template #list>
             <ListEmpty v-if="store.visible.value.length === 0" title="No versions">Nothing's been released for this platform yet.</ListEmpty>
             <template v-for="channel in CHANNELS" :key="channel.id">
@@ -80,7 +80,7 @@ function trail(id: string): string {
 </template>
 
 <style scoped>
-.page { display: flex; flex-direction: column; gap: 24px; padding-top: 18px; }
+.page { display: flex; flex-direction: column; gap: 24px; padding: 18px 0 32px; }
 header { display: flex; gap: 22px; padding-bottom: 22px; border-bottom: 1px solid var(--stone-4); }
 .icon { display: grid; place-items: center; flex: none; width: 104px; height: 104px; background: var(--stone-2); border: var(--b) solid var(--edge); box-shadow: var(--raised); }
 .what { display: flex; flex-direction: column; justify-content: center; gap: 8px; min-width: 0; min-height: 104px; }
@@ -91,12 +91,14 @@ h2 { margin: 0; font: 400 24px var(--font-display); text-transform: uppercase; }
 .tag.beta { background: var(--warn-lo); }
 .tag.pinned { background: var(--stone-4); }
 .meta { margin: 0; color: var(--ink-dim); font-size: 12px; }
-.actions { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
-.play { min-width: min(200px, 100%); --play-height: 34px; }
-.actions > :deep(.btn) { height: 34px; }
-.play :deep(.go) { font-size: 13px; }
+.actions { display: flex; align-items: stretch; gap: 8px; margin-top: 4px; }
+/* one row: Play gives way first, then they stack (narrow, below) */
+.actions > :deep(.btn) { flex: none; }
+/* Play beside Pin and Remove: the same small kit buttons, Play only wider */
+.play { flex: 0 1 220px; min-width: 110px; }
 h3 { margin: 0 0 12px; font: 11px var(--font-display); text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); }
 .dim { margin: 0; color: var(--ink-faint); font-size: 11px; }
 /* narrow: the icon gives its room to the name and the buttons */
 @media (max-width: 720px) { .icon { display: none; } }
+@media (max-width: 560px) { .actions { flex-direction: column; } .play { flex: none; width: 100%; } }
 </style>

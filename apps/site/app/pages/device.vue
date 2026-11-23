@@ -108,7 +108,7 @@ async function approve() {
             <home-button size="lg" class="go" :disabled="busy" @click="outcome = 'cancelled'">It doesn't match</home-button>
         </div>
         <template #fine>
-            Not you? <a href="#" @click.prevent="account.signOut()">Sign in as someone else</a>
+            Not you? <a href="#" @click.prevent="void account.signOut()">Sign in as someone else</a>
         </template>
     </auth-card>
 

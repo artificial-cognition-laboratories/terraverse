@@ -240,6 +240,7 @@ void Session::update(const HudView &view)
 	m_state.update(shown);
 	m_ui.update();
 	m_chat.update();
+	m_items.warm(3.f); // the creative inventory's icons, a few each frame, before it's opened
 	// the planet made ready as soon as the world's known, so V shows it at once
 	if (!m_prepared && !m_planetarium.shown() && m_client->getAtlas() && m_client->getHorizon()) {
 		m_planetarium.prepare(world(bodyHere()));

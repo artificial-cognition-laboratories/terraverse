@@ -11,9 +11,13 @@ import MainMenu from "./menu/MainMenu.vue"
 import InviteToast from "./social/InviteToast.vue"
 import { Spinner } from "./kit/index.ts"
 
-// the wiki brings three.js: loaded when first opened
-const WikiScreen = defineAsyncComponent(() => import("./wiki/WikiScreen.vue"))
-const Library = defineAsyncComponent(() => import("./menu/library/Library.vue"))
+// the wiki brings three.js, so it and the library are their own chunks, kept off the first paint;
+// fetched once the page is idle, so neither waits on its code the first time it's opened
+const loadWiki = () => import("./wiki/WikiScreen.vue")
+const loadLibrary = () => import("./menu/library/Library.vue")
+const WikiScreen = defineAsyncComponent(loadWiki)
+const Library = defineAsyncComponent(loadLibrary)
+requestIdleCallback(() => { void loadWiki(); void loadLibrary() }, { timeout: 5000 })
 const bridge = useBridge()
 const store = useStore()
 </script>

@@ -2,6 +2,11 @@
 // rolling `launcher` release that CI refreshes on each launcher-v* tag
 // (.github/workflows/launcher.yml), signed with the key in tauri.conf.json.
 // Separate from game versions, and rare.
+//
+// Quiet by design: a newer launcher is downloaded in the background as soon as
+// it's found, and installed as the launcher closes, so the next start is the new
+// one. Nobody is asked, and nothing restarts under them. Restarting into it now
+// is offered (Settings), never needed.
 
 use crate::failure::{refused, Context, Result};
 use serde::Serialize;
@@ -16,37 +21,63 @@ pub struct Available {
 
 #[derive(Default)]
 pub struct Updates {
-    found: Mutex<Option<Update>>,
+    // downloaded, verified against the signature, waiting for the launcher to close
+    ready: Mutex<Option<(Update, Vec<u8>)>>,
 }
 
 impl Updates {
-    /// A newer launcher, if there is one. Not reaching the server isn't the
-    /// player's problem: they can still play, so it's logged and answered as none.
+    /// Looks for a newer launcher and downloads it; answers it once it's ready to
+    /// apply. Not reaching the server, or the download failing, isn't the player's
+    /// problem: they can still play, so it's logged and answered as none.
     pub async fn check(&self, app: &tauri::AppHandle) -> Result<Option<Available>> {
+        if let Some((update, _)) = self.ready.lock().unwrap().as_ref() {
+            return Ok(Some(available(update)));
+        }
         let updater = app.updater().context(|| "starting the updater".into())?;
         let update = match updater.check().await {
-            Ok(update) => update,
+            Ok(Some(update)) => update,
+            Ok(None) => return Ok(None),
             Err(e) => {
                 eprintln!("launcher: couldn't check for a newer launcher: {e}");
                 return Ok(None);
             }
         };
-        let available = update.as_ref().map(|u| Available { version: u.version.clone(), notes: u.body.clone().unwrap_or_default() });
-        *self.found.lock().unwrap() = update;
-        Ok(available)
+        let bytes = match update.download(|_, _| {}, || {}).await {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                eprintln!("launcher: couldn't download launcher {}: {e}", update.version);
+                return Ok(None);
+            }
+        };
+        let answer = available(&update);
+        *self.ready.lock().unwrap() = Some((update, bytes));
+        Ok(Some(answer))
     }
 
-    /// Downloads and installs the update found, then restarts into it.
-    pub async fn install(&self, app: &tauri::AppHandle, game_running: bool) -> Result<()> {
+    /// Installs what's downloaded, if anything: called as the launcher exits. A
+    /// failure leaves the old launcher in place, which still works, so it's logged.
+    pub fn apply(&self) {
+        let Some((update, bytes)) = self.ready.lock().unwrap().take() else { return };
+        if let Err(e) = update.install(bytes) {
+            eprintln!("launcher: couldn't install launcher {}: {e}", update.version);
+        }
+    }
+
+    /// Installs what's downloaded and restarts into it now.
+    pub fn restart(&self, app: &tauri::AppHandle, game_running: bool) -> Result<()> {
         if game_running {
             return refused("Close the game first: the launcher restarts to update.");
         }
-        let Some(update) = self.found.lock().unwrap().take() else {
-            return refused("There's no launcher update to install. Check again.");
+        let Some((update, bytes)) = self.ready.lock().unwrap().take() else {
+            return refused("There's no launcher update ready. It's fetched in the background; check again later.");
         };
-        if let Err(e) = update.download_and_install(|_, _| {}, || {}).await {
-            return refused(format!("The launcher update didn't install ({e}). Try again later."));
+        if let Err(e) = update.install(bytes) {
+            return refused(format!("The launcher update didn't install ({e}). It'll try again next time."));
         }
         app.restart()
     }
+}
+
+fn available(update: &Update) -> Available {
+    Available { version: update.version.clone(), notes: update.body.clone().unwrap_or_default() }
 }

@@ -1,13 +1,19 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue"
 
+import { Sky } from "@game/kit/index.ts"
+import { bodies } from "./bodies.ts"
+
 /**
- * A planet rising at the bottom right, drawn once at low resolution and scaled
- * up pixelated: the launcher's stand-in for the planetarium's home shot.
- * Static, so the page never repaints for it.
+ * The landing's night, as the site's hero hangs it: the kit's stars, the sun high on the left,
+ * the moon, and a planet rising at the foot, centred, its top arc only. All drawn once at low
+ * resolution and scaled up pixelated; static, so the page never repaints for it.
  */
 const W = 320, H = 180
 const canvas = ref<HTMLCanvasElement | null>(null)
+const SUN_PX = 4, MOON_PX = 4
+const sun = bodies.sun(7)
+const moon = bodies.moon("terraverse:moon", 13, [0.75, -0.45, 0.5])
 
 // a small, seeded value noise: the same planet every time
 function hash(x: number, y: number) {
@@ -30,7 +36,7 @@ onMounted(() => {
     const context = canvas.value?.getContext("2d")
     if (!context) throw new Error("backdrop: no 2d context")
     const image = context.createImageData(W, H)
-    const cx = 236, cy = 262, r = 190
+    const cx = 160, cy = 330, r = 205
     // light from the top left, as every surface in the kit
     const light = [-0.55, -0.62, 0.56]
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -50,12 +56,10 @@ onMounted(() => {
             const rim = Math.pow(1 - nz, 3) * 0.9 // air seen edge-on
             rgb = base.map((c, k) => Math.min(255, c * shade + ACCENT[k]! * rim * (0.3 + lit)))
         } else {
-            // the air's glow just past the limb, then space
-            const out = Math.sqrt(d2) - 1
-            const glow = Math.max(0, 1 - out * 22) * 0.55
-            const star = hash(x * 0.37, y * 0.71) > 0.996 ? 70 + hash(y, x) * 160 : 0
-            const sky = [6 + y * 0.03, 10 + y * 0.04, 18 + y * 0.06]
-            rgb = sky.map((c, k) => Math.min(255, c + ACCENT[k]! * glow + star))
+            // the air's glow just past the limb, over the sky's stars
+            const glow = Math.max(0, 1 - (Math.sqrt(d2) - 1) * 22) * 0.55
+            image.data[i] = ACCENT[0]!; image.data[i + 1] = ACCENT[1]!; image.data[i + 2] = ACCENT[2]!; image.data[i + 3] = glow * 255
+            continue
         }
         image.data[i] = rgb[0]!; image.data[i + 1] = rgb[1]!; image.data[i + 2] = rgb[2]!; image.data[i + 3] = 255
     }
@@ -64,9 +68,18 @@ onMounted(() => {
 </script>
 
 <template>
-    <canvas ref="canvas" class="backdrop" :width="W" :height="H" aria-hidden="true" />
+    <Sky class="backdrop" aria-hidden="true">
+        <img class="sun" :src="sun" :width="15 * SUN_PX" alt="">
+        <img class="moon" :src="moon" :width="27 * MOON_PX" alt="">
+        <canvas ref="canvas" class="planet" :width="W" :height="H" />
+    </Sky>
 </template>
 
 <style scoped>
-.backdrop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.backdrop { position: absolute; inset: 0; }
+img, .planet { position: absolute; image-rendering: pixelated; pointer-events: none; }
+/* the site's places for them: the sun high on the left, the moon high on the right */
+.sun { top: 16%; left: 12%; }
+.moon { top: 12%; right: 9%; }
+.planet { inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center bottom; }
 </style>

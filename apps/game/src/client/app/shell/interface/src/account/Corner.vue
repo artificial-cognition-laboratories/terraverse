@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue"
 import { BridgeError, type IntentKind, type Intents, type Player } from "../bridge/index.ts"
 import { useBridge } from "../bridge/use.ts"
 import { useStore } from "../game/store.ts"
-import ProfileDropdown from "./ProfileDropdown.vue"
+import Panel from "./panel/Panel.vue"
 import IconButton from "../kit/IconButton.vue"
 
 const bridge = useBridge()
@@ -71,7 +71,7 @@ async function join(player: Player) {
             <span class="status" :class="{ online: store.account.status === 'signedIn' }" />
             <span v-if="waiting" class="badge">{{ waiting }}</span>
         </IconButton>
-        <ProfileDropdown v-if="expanded" id="profile-dropdown" :account="store.account" :social="store.social"
+        <Panel v-if="expanded" id="profile-dropdown" class="drop" :account="store.account" :social="store.social"
             :error="error" :busy="busy" :joining="joining"
             @sign-in="act('account.signIn', {})" @cancel="act('account.cancel', {})"
             @sign-out="act('account.signOut', {})" @retry="act('account.retry', {})"
@@ -81,7 +81,6 @@ async function join(player: Player) {
             @remove="act('social.remove', { id: $event })"
             @invite="act('social.invite', { id: $event })"
             @dismiss="act('social.dismiss', { id: $event })"
-            @open-world="act('social.open', { open: $event })"
             @join="join" />
     </div>
 </template>
@@ -89,6 +88,8 @@ async function join(player: Player) {
 <style scoped>
 .corner { position: fixed; top: 20px; right: 20px; z-index: 3; max-width: calc(100vw - 40px); }
 .profile-trigger { margin-left: auto; }
+/* under the button, its right edge on the button's: out of the corner's row, so nothing beside it moves */
+.drop { position: absolute; top: calc(100% + 10px); right: 0; }
 .status { position: absolute; right: 3px; bottom: 3px; width: 8px; height: 8px; background: var(--stone-4); border: 1px solid var(--edge); }
 .status.online { background: var(--accent-hi); }
 .badge { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 3px; background: var(--accent); border: 1px solid var(--edge); font: 10px/16px var(--font-display); }

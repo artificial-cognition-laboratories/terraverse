@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue"
+import { computed, ref } from "vue"
 import { Button, Notice, Section, Segmented, Toggle } from "@game/kit/index.ts"
 import type { Settings } from "../backend/index.ts"
 import { bytes, since, useStore } from "../use.ts"
@@ -7,6 +7,12 @@ import { bytes, since, useStore } from "../use.ts"
 defineEmits<{ report: [] }>()
 const store = useStore()
 const { state } = store
+const restarting = ref(false)
+// the launcher closes and opens again into the new one; if it can't, the refusal says why
+async function restart() {
+    restarting.value = true
+    try { await store.updateLauncher() } finally { restarting.value = false }
+}
 
 const ON_LAUNCH: { value: Settings["onLaunch"]; label: string }[] = [
     { value: "hide", label: "Hide" }, { value: "close", label: "Close" }, { value: "stay", label: "Stay open" },
@@ -63,8 +69,9 @@ const fetched = computed(() => state.manifest ? since(state.manifest.fetched) : 
 
             <Section title="Launcher">
                 <div class="row">
-                    <span class="dim">{{ state.launcherUpdate ? `${state.launcherUpdate.version} is ready to install.` : "No newer launcher found." }}</span>
-                    <Button v-if="state.launcherUpdate" size="sm" @click="store.updateLauncher()">Restart to update</Button>
+                    <!-- fetched in the background, installed as the launcher closes (src-tauri update.rs) -->
+                    <span class="dim">{{ state.launcherUpdate ? `Launcher ${state.launcherUpdate.version} is downloaded. It's installed when you close the launcher.` : "You have the newest launcher." }}</span>
+                    <Button v-if="state.launcherUpdate" size="sm" :busy="restarting" @click="restart">Restart now</Button>
                 </div>
             </Section>
 

@@ -5,8 +5,6 @@
 
 #include "src/shared/game/content/subgames.h"
 #include "src/client/app/shell/bridge/community.h"
-#include "src/client/app/shell/bridge/local_mods.h"
-#include "src/client/app/shell/bridge/registry.h"
 #include "src/client/app/shell/bridge/world_server.h"
 #include "src/shared/platform/online/join.h"
 #include "src/client/views/scenes/kinds/planetarium.h"
@@ -60,8 +58,6 @@ private:
 	RenderingEngine *m_engine;
 	const Worlds &m_worlds;
 	Community m_community;
-	LocalMods m_local_mods; // the profile's own mods, and what's in them
-	Registry m_registry; // the mod registry, for the community panel
 	WorldServer m_world_server; // a new world's own server folder, its mods
 	MyEventReceiver &m_receiver;
 	// The create screen's planet (the window's: Shell::planetarium) is the

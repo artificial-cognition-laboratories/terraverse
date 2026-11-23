@@ -1,14 +1,18 @@
-// The account: who is using the site, and what they've
-// starred. One door for every page; today it answers from this browser
-// (./mock.ts, ./store.ts), and pointed at ArcLabs no page changes.
+// The account: who is using the site, as ArcLabs knows them, and what they've
+// starred. One door for every page. Signing in is Supabase's (the accounts
+// ArcLabs is built on, shared with the game and axon.arclabs.it); the name and
+// device codes are the backend's (./arclabs.ts). The client plugin wires both.
 
-import { MOCK_LATENCY_MS, MOCK_TAKEN, MOCK_USER } from "./mock"
-import { store, type Saved } from "./store"
+import type { Session, SupabaseClient } from "@supabase/supabase-js"
+import type { ArcLabs, Profile } from "./arclabs"
+import { Refused } from "./refused"
+import { store } from "./store"
 import { username } from "./username"
 import type { Credentials, DeviceClient, User } from "./types"
 
 export type * from "./types"
 export { username } from "./username"
+export { Refused } from "./refused"
 
 /** What makes an email and password worth sending: checked as the page asks and before any request. */
 export const credential = {
@@ -18,9 +22,6 @@ export const credential = {
         return null
     },
 }
-
-/** An expected no, said to the person as it is. */
-export class Refused extends Error {}
 
 /** A device's code as ArcLabs mints it: three, a hyphen, three, from letters and digits that can't be misread. */
 export const DEVICE_CODE = /^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{3}$/
@@ -34,96 +35,96 @@ export function returnTo(next: unknown): string {
 }
 
 export function Account() {
-    // Shared by every page; null until this browser has been read (the prerendered page knows no one)
-    const saved = useState<Saved | null>("account", () => null)
-    const user = computed(() => saved.value?.user ?? null)
+    // Written by the client plugin: undefined until the browser's session is read, null when signed out
+    const session = useState<Session | null | undefined>("session", () => undefined)
+    // null until ArcLabs has said who the session is
+    const profile = useState<Profile | null>("profile", () => null)
+    const stars = useState<string[] | null>("stars", () => null)
 
-    function change(next: Partial<Saved>) {
-        const current = saved.value ?? store.read()
-        saved.value = { ...current, ...next }
-        store.write(saved.value)
+    const ready = computed(() => session.value === null || (session.value !== undefined && profile.value !== null))
+    const user = computed((): User | null => {
+        const s = session.value
+        if (!s || !profile.value) return null
+        const meta = s.user.user_metadata as Record<string, unknown>
+        const named = typeof meta.full_name === "string" ? meta.full_name : null
+        return { id: s.user.id, email: s.user.email ?? "", name: profile.value.name ?? named, username: profile.value.username }
+    })
+
+    function clients(): { supabase: SupabaseClient; arclabs: ArcLabs } {
+        const app = useNuxtApp()
+        return { supabase: app.$supabase as SupabaseClient, arclabs: app.$arclabs as ArcLabs }
     }
 
-    // TEMP(2026-11-21): every verb below pretends to be ArcLabs (./mock.ts), which
-    // the site's accounts are underneath; the person never needs to know it
-
     /** Sign in with an email and password. */
-    async function signIn(credentials: Credentials): Promise<User> {
-        const problem = credential.problem(credentials)
+    async function signIn(c: Credentials): Promise<void> {
+        const problem = credential.problem(c)
         if (problem) throw new Refused(problem)
-        await wait()
-        return enter(credentials.email)
+        const { error } = await clients().supabase.auth.signInWithPassword(c)
+        if (error) throw refusal(error)
     }
 
     /** Make an account with an email and password; the name is chosen next. */
-    async function register(credentials: Credentials): Promise<User> {
-        const problem = credential.problem(credentials)
+    async function register(c: Credentials): Promise<void> {
+        const problem = credential.problem(c)
         if (problem) throw new Refused(problem)
-        await wait()
-        return enter(credentials.email)
+        const { data, error } = await clients().supabase.auth.signUp({ ...c, options: { emailRedirectTo: window.location.href } })
+        if (error) throw refusal(error)
+        // Where emails are confirmed (production), the account waits on the link
+        if (!data.session) throw new Refused(`We've sent a link to ${c.email}: open it to finish.`)
     }
 
-    /** Sign in, or make an account, with Google: the same thing to Google. */
-    async function google(): Promise<User> {
-        await wait()
-        return enter(MOCK_USER.email)
+    /** Sign in, or make an account, with Google: away to Google and back to this page. */
+    async function google(): Promise<void> {
+        const { error } = await clients().supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.href } })
+        if (error) throw refusal(error)
     }
 
-    // In, as this email: with the name this browser saw claimed, if any
-    function enter(email: string): User {
-        const claimed = (saved.value ?? store.read()).claimed
-        const signedIn: User = { ...MOCK_USER, email: email, username: claimed }
-        change({ user: signedIn })
-        return signedIn
-    }
-
-    async function claim(name: string): Promise<User> {
-        const current = user.value
-        if (!current) throw new Refused("Sign in first.")
+    async function claim(name: string): Promise<void> {
+        if (!user.value) throw new Refused("Sign in first.")
         const problem = username.problem(name)
         if (problem) throw new Refused(problem)
-        await wait()
-        if (MOCK_TAKEN.has(name)) throw new Refused(`@${name} is taken.`)
-        const named: User = { ...current, username: name }
-        change({ user: named, claimed: name })
-        return named
+        const claimed = await clients().arclabs.claim(name)
+        profile.value = { ...profile.value!, username: claimed.username }
     }
 
-    function signOut() {
-        change({ user: null })
+    async function signOut(): Promise<void> {
+        const { error } = await clients().supabase.auth.signOut()
+        if (error) throw error
     }
 
     async function approve(code: string, client: DeviceClient): Promise<void> {
         if (!user.value) throw new Refused("Sign in first.")
         if (!DEVICE_CODE.test(code)) throw new Refused(`${code} isn't a device code: it looks like ABC-234.`)
         if (client === "terra-cli" && !user.value.username) throw new Refused("Choose a username first: terra publishes under it.")
-        await wait()
+        await clients().arclabs.approve(code)
     }
 
-    const stars = {
-        has: (name: string) => saved.value?.stars.includes(name) ?? false,
-        list: () => saved.value?.stars ?? [],
+    // TEMP(2026-11-22): stars stay in this browser until the registry they star is ArcLabs' own
+    const starred = {
+        has: (name: string) => stars.value?.includes(name) ?? false,
+        list: () => stars.value ?? [],
         /** Star or unstar; refuses when signed out (the page offers sign-in instead) */
         toggle(name: string) {
             if (!user.value) throw new Refused("Sign in to star.")
-            const all = stars.list()
-            change({ stars: all.includes(name) ? all.filter(s => s !== name) : [...all, name] })
+            const all = starred.list()
+            stars.value = all.includes(name) ? all.filter(s => s !== name) : [...all, name]
+            store.write({ stars: stars.value })
         },
     }
 
     return {
-        /** Whether this browser has been read yet: before it, nobody is known either way */
-        ready: computed(() => saved.value !== null),
+        /** Whether the session and its profile have been read: before it, nobody is known either way */
+        ready: ready,
         user: user,
-        /** Read this browser's account; the client plugin does this once */
-        restore: () => (saved.value = store.read()),
+        /** This browser's stars, read once by the client plugin */
+        restore: () => (stars.value = store.read().stars),
         signIn: signIn,
         register: register,
         google: google,
         claim: claim,
         signOut: signOut,
         device: { approve: approve },
-        stars: stars,
+        stars: starred,
     }
 }
 export type Account = ReturnType<typeof Account>
@@ -132,6 +133,7 @@ export function useAccount(): Account {
     return Account()
 }
 
-function wait(): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, MOCK_LATENCY_MS))
+// Supabase's 4xx are the person's (wrong password, taken email); anything else is ours
+function refusal(error: { message: string; status?: number }): Error {
+    return error.status !== undefined && error.status >= 400 && error.status < 500 ? new Refused(error.message) : error instanceof Error ? error : new Error(error.message)
 }

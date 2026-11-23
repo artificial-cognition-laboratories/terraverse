@@ -35,10 +35,10 @@ watch(() => state.refusal, refusal => {
 
 <template>
     <div v-if="loaded" class="launcher">
-        <IconRail v-model="page" :items="PAGES" label="Launcher">
-            <template #foot><ProfileMenu /></template>
-        </IconRail>
+        <IconRail v-model="page" :items="PAGES" label="Launcher" />
         <main class="stage">
+            <!-- the account, at the top right of every page, as the game keeps it -->
+            <ProfileMenu class="account" />
             <Home v-if="page === 'game'" />
             <Versions v-else-if="page === 'versions'" />
             <Settings v-else @report="reporting = true" />
@@ -56,7 +56,10 @@ watch(() => state.refusal, refusal => {
 
 <style scoped>
 .launcher { position: relative; display: grid; grid-template-columns: 76px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100%; overflow: hidden; background: var(--stone-0); }
-.stage { min-width: 0; min-height: 0; }
+.stage { position: relative; min-width: 0; min-height: 0; }
+.account { position: absolute; top: 14px; right: 14px; z-index: 20; }
+/* small: a size down, as the rail and the landing's tiles go */
+@media (max-width: 700px), (max-height: 420px) { .account { top: 10px; right: 10px; } .account :deep(.icon-button) { width: 36px; height: 36px; } }
 .refusal {
     position: absolute; top: 16px; left: 50%; z-index: 20; transform: translateX(-50%); display: flex; align-items: center; gap: 14px;
     max-width: calc(100% - 32px); padding: 10px 14px; border: var(--b) solid var(--edge); background: var(--danger-lo);
