@@ -28,6 +28,21 @@ const emit = defineEmits<{ activate: [entry: Entry] }>()
                     <small>{{ entry.world.lastOpened ? play.date(entry.world.lastOpened) : "Not played yet" }}<template v-if="play.planetSize(entry.world)"> · {{ play.planetSize(entry.world) }} radius</template></small>
                 </span>
             </template>
+            <template v-else-if="entry.kind === 'server'">
+                <PixelIcon class="thumb" v-bind="planetIcon(entry.server.ref)" />
+                <span class="copy">
+                    <strong>{{ entry.label }}</strong>
+                    <span class="chips">
+                        <span class="chip local">Local</span>
+                        <span v-for="mod in entry.server.mods.slice(0, 2)" :key="mod" class="chip">{{ mod }}</span>
+                    </span>
+                    <small>{{ entry.server.ref }}</small>
+                </span>
+            </template>
+            <template v-else-if="entry.kind === 'address'">
+                <PixelIcon class="thumb" v-bind="planetIcon(entry.ref)" />
+                <span class="copy"><strong>{{ entry.label }}</strong><small>Join this address</small></span>
+            </template>
             <template v-else>
                 <span class="avatar">{{ entry.player.username.slice(0, 1).toUpperCase() }}</span>
                 <span class="copy"><strong>{{ entry.label }}</strong><small>{{ entry.note }}</small></span>
@@ -52,6 +67,7 @@ small { overflow: hidden; color: var(--ink-faint); font-size: 0.68rem; text-over
 .pin { flex: none; width: 11px; height: 11px; }
 .chips { display: flex; flex-wrap: wrap; gap: 0.2rem 0.6rem; min-width: 0; }
 .chip { display: inline-flex; align-items: center; gap: 0.3rem; color: var(--ink-dim); font: 0.58rem var(--font-display); text-transform: uppercase; white-space: nowrap; }
+.chip.local { color: var(--accent-hi); }
 .chip-icon { width: 11px; height: 11px; }
 .avatar { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--glass-edge-hi); background: rgb(10 75 145 / 0.5); font: 1rem var(--font-display); }
 .tag { color: var(--accent-hi); font: 0.58rem var(--font-display); text-transform: uppercase; }

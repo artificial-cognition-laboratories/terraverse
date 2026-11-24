@@ -11,6 +11,7 @@ mod install;
 mod manifest;
 mod report;
 mod settings;
+mod shims;
 mod signature;
 mod social;
 mod update;
@@ -43,6 +44,7 @@ type L<'a> = State<'a, Arc<Launcher>>;
 impl Launcher {
     fn new(app: &tauri::AppHandle) -> Result<Launcher> {
         let home = Arc::new(Home::locate(app)?);
+        shims::refresh(&home)?;
         let http = reqwest::Client::builder()
             .user_agent(concat!("terraverse-launcher/", env!("CARGO_PKG_VERSION")))
             .connect_timeout(std::time::Duration::from_secs(5))

@@ -12,7 +12,7 @@ const major = (version: string) => version.split(".")[0]
  * project you stand in, pinned to exact versions, then installed and checked by prepare.
  * If any of it fails, package.json and bunfig.toml are put back as they were.
  */
-export function InstallCommand(opts: { terra: TerraT; presentation: PresentationT }) {
+export function InstallCommand(opts: { terra: TerraT; presentation: PresentationT; as: string }) {
     const p = opts.presentation
 
     async function run(args: Args): Promise<number> {
@@ -49,7 +49,7 @@ export function InstallCommand(opts: { terra: TerraT; presentation: Presentation
                     ...(a.previous && a.previous !== a.version.version ? { note: `was ${a.previous}` } : {}),
                 })),
                 ms: timer.end(started),
-                ...(project.kind === "server" ? { next: "terra host" } : {}),
+                ...(project.kind === "server" ? { next: `${opts.as} serve` } : {}),
             })
             return 0
         } catch (error) {

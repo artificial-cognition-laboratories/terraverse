@@ -7,6 +7,7 @@
 #include "src/client/app/shell/bridge/community.h"
 #include "src/client/app/shell/bridge/world_server.h"
 #include "src/shared/platform/online/join.h"
+#include "src/client/app/shell/bridge/local_servers.h"
 #include "src/client/views/scenes/kinds/planetarium.h"
 #include "src/client/app/shell/host/shell.h"
 #include "library/world/planet/atlas.h"
@@ -33,6 +34,7 @@ struct Choice
 {
 	std::optional<WorldSpec> world;
 	std::optional<online::JoinPlan> join;
+	std::optional<online::LocalJoin> local; // a server terra runs on this machine
 };
 
 class Menu
@@ -43,6 +45,7 @@ public:
 		RenderingEngine *engine;
 		MyEventReceiver &receiver; // the window's input: the Planetarium takes what the page doesn't
 		const Worlds &worlds;
+		const LocalServers &local_servers;
 	};
 
 	explicit Menu(const Opts &opts);
@@ -57,6 +60,7 @@ private:
 	Intents m_intents; // what the menu answers, removed as it goes
 	RenderingEngine *m_engine;
 	const Worlds &m_worlds;
+	const LocalServers &m_local_servers;
 	Community m_community;
 	WorldServer m_world_server; // a new world's own server folder, its mods
 	MyEventReceiver &m_receiver;

@@ -31,7 +31,7 @@ step "a code save reloads the mods"              await 1 "\[kilns\] CHECK edited
 step "without restarting the universe"           bash -c "! grep -q 'Restarting the universe' '$log'"
 echo 'content.blocks.create("kilns:brick", { matter: "granite", texture: "brick.png" })' >> server/main.ts
 step "a new block restarts the universe"         await 1 "Restarting the universe" 10
-step "which comes back with it"                  await 1 "mods: 1 blocks from" 60
+step "which comes back with it"                  await 1 "mods: 1 blocks and" 60
 echo 'this is not typescript {' >> server/main.ts
 step "a broken save is reported"                 await 1 "BUILD_FAILED" 10
 step "naming the file and line"                  await 1 "server/main.ts:[0-9]+:[0-9]+" 2

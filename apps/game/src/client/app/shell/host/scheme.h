@@ -8,15 +8,16 @@
 
 namespace shell {
 
-constexpr const char *SCHEME = "terra";
+// not shell://: that's the public address of a place (online/ref.h)
+constexpr const char *SCHEME = "shell";
 constexpr const char *UI_HOST = "ui";
 constexpr const char *ITEM_HOST = "item";
 // a local mod's pictures, as terra drew them for its Contents (bridge/local_mods.h)
 constexpr const char *CONTENTS_HOST = "contents";
 
-// Serves a directory as terra://<host>/…: the built UI (ui/dist) as
-// terra://ui/, giving the page a real origin so ES modules load (Chromium
-// refuses them over file://), and rendered item icons as terra://item/.
+// Serves a directory as shell://<host>/…: the built UI (ui/dist) as
+// shell://ui/, giving the page a real origin so ES modules load (Chromium
+// refuses them over file://), and rendered item icons as shell://item/.
 class UiScheme : public CefSchemeHandlerFactory
 {
 public:

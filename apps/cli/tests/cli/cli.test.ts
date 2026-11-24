@@ -6,7 +6,7 @@ import { serverFixture } from "../fixtures"
 /** argv through a Cli writing to a capture. `exec` is this bun, so installs can run; no engine is beside it. */
 const run = async (argv: string[]) => {
     const renderer = Renderer.capture({ columns: 100 })
-    const code = await Cli({ exec: process.execPath, renderer: renderer }).dispatch(argv)
+    const code = await Cli({ exec: process.execPath, as: "terra", renderer: renderer }).dispatch(argv)
     return { code: code, out: renderer.output() }
 }
 
@@ -15,7 +15,7 @@ describe("Cli", () => {
         const { code, out } = await run(["help"])
         expect(code).toBe(0)
         expect(out).toContain("terra prepare [folder]")
-        expect(out).toContain("terra host [folder] [--port n]")
+        expect(out).toContain("terra serve [folder] [--port n]")
     })
 
     test("no command is help", async () => {
@@ -42,7 +42,7 @@ describe("Cli", () => {
     })
 
     test("a bad port is a usage error, before anything runs", async () => {
-        const { code, out } = await run(["host", "--port", "70000"])
+        const { code, out } = await run(["serve", "--port", "70000"])
         expect(code).toBe(1)
         expect(out).toContain("USAGE")
     })
@@ -61,7 +61,7 @@ describe("Cli", () => {
 
     test("host only runs a server", async () => {
         const { root } = serverFixture()
-        const { code, out } = await run(["host", `${root}/mods/hello`])
+        const { code, out } = await run(["serve", `${root}/mods/hello`])
         expect(code).toBe(1)
         expect(out).toContain("PROJECT_WRONG_KIND")
     })

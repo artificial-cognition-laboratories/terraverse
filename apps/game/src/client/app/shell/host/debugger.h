@@ -39,7 +39,7 @@ public:
 		std::function<void(bool)> capture;
 		Inbox &inbox; // the shell's: its page's intents run with the game page's
 		bool gpu;     // Chromium rasterises on the GPU: its frames may come shared
-		std::string ui_dir; // terra://ui/, served to its page as to the game's
+		std::string ui_dir; // shell://ui/, served to its page as to the game's
 	};
 
 	explicit Debugger(const Opts &opts);

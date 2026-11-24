@@ -47,11 +47,11 @@ time you save. **[`publish`](/docs/cli/publish)** puts it on the registry.
 terra server init my_server
 cd my_server
 terra install @terraverse/survival @you/kilns
-terra host              # headless, for whoever's allowed to join
+terra serve             # headless, for whoever's allowed to join
 ```
 
 **[`install`](/docs/cli/install)** adds a mod to the server's rules, checked against its
-worlds. **[`host`](/docs/cli/host)** runs it with no window.
+worlds. **[`serve`](/docs/cli/serve)** runs it with no window.
 
 ## One grammar, two kinds
 
@@ -59,7 +59,7 @@ A server and a mod are both projects, and they take the same verbs:
 
 | | make | run | regenerate types | share |
 |---|---|---|---|---|
-| server | `terra server init` | `terra host` · `terra dev` | `terra prepare` | `terra publish` |
+| server | `terra server init` | `terra serve` · `terra dev` | `terra prepare` | `terra publish` |
 | mod | `terra mod init` | `terra dev` | `terra prepare` | `terra publish` |
 
 Only `init` needs the noun, because there's no folder yet to read. Every other verb works out

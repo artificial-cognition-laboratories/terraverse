@@ -24,7 +24,7 @@ export const links = {
     wiki: "/wiki",
     mods: "/docs/mods",
     server: "/docs/server",
-    host: "/docs/cli/host",
+    host: "/docs/cli/serve",
     cli: "/docs/cli",
     install: "/docs/install",
 }
@@ -49,7 +49,7 @@ export const limits = {
         { icon: "matter", now: "Matter that melts, burns and flows", text: "Substances heat, react and change state. Water boils away on the Moon because of what water is." },
         { icon: "machines", now: "Real physics underneath", text: "Parts, joints and engines on a physics engine. Build the car, then drive it over real terrain." },
         { icon: "library", now: "One typed API, the same as ours", text: "TypeScript end to end. Every official mod is built on it, so anything the game does, yours can." },
-        { icon: "servers", now: "A server in a minute", text: "Hosted by us, or `terra host` on any machine. Friends join from their list, no addresses." },
+        { icon: "servers", now: "A server in a minute", text: "Hosted by us, or `terra serve` on any machine. Friends join from their list, no addresses." },
         { icon: "open", now: "Free and open source", text: "Free to play, forever. The engine is LGPL and the whole thing is built in the open." },
     ] satisfies { icon: IconId; now: string; text: string }[],
 }
@@ -102,7 +102,7 @@ export const hosting = {
     self: {
         title: "Or host it yourself. Free, forever.",
         text: "Any machine, no window. The same folder, the same mods; move it to us or away whenever you like.",
-        command: "terra host",
+        command: "terra serve",
     },
 }
 

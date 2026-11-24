@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
-import { BridgeError, type Friend, type Loading, type Player, type PublicServer, type World } from "../bridge/index.ts"
+import { BridgeError, type Friend, type Loading, type LocalServer, type Player, type World } from "../bridge/index.ts"
 import { useBridge } from "../bridge/use.ts"
 import PixelIcon from "../game/PixelIcon.vue"
 import { useStore } from "../game/store.ts"
 import { Button, Dock, Notice, onEscape } from "../kit/index.ts"
 import { usePlanetarium } from "../planetarium/use.ts"
-import OnlineList from "./OnlineList.vue"
 import { play as about, type Entry, type EntryGroup } from "./play/entries.ts"
 import WorldDetails from "./play/WorldDetails.vue"
 import WorldList from "./play/WorldList.vue"
@@ -15,7 +14,8 @@ import type { Screen } from "./screens.ts"
 import { chipsOf, GEAR, RAIL, type Section } from "./worldIcons.ts"
 
 /**
- * Play: a dock of glass down the left (your worlds, friends' open ones, public servers),
+ * Play: a dock of glass down the left (your worlds; online, servers on this machine and
+ * friends' open worlds, or an address typed into the search),
  * and the chosen one over its planet in the room the dock leaves, with Play.
  */
 // entering: the world chosen on its way (src/shell/entering.h; the menu's locked
@@ -33,7 +33,7 @@ const details = ref(false) // the selected world's own page, in the dock
 onEscape(() => { if (props.entering) return; if (details.value) details.value = false; else emit("go", "home") })
 const busy = ref(false)
 const problem = ref<string | null>(null)
-const server = ref<PublicServer | null>(null) // the chosen public server, under Online
+const running = ref<LocalServer[]>([]) // servers terra runs on this machine (running/), under Online
 
 const orderedWorlds = computed(() => [...(worlds.value ?? [])].sort((a, b) =>
     Number(b.pinned) - Number(a.pinned) || (b.lastOpened ?? 0) - (a.lastOpened ?? 0) || a.name.localeCompare(b.name)))
@@ -63,6 +63,10 @@ const friendGroups = computed<EntryGroup[]>(() => {
         }))
     return [{ label: "Invitations", entries: invites }, { label: "Open worlds", entries: open }]
 })
+const serverEntry = (s: LocalServer): Entry => ({
+    kind: "server", id: `server:${s.ref}`, label: s.title, search: `${s.title} ${s.ref} ${s.mods.join(" ")}`, server: s,
+})
+const typed = computed(() => section.value === "online" ? about.address(query.value) : null)
 const groups = computed<EntryGroup[]>(() => {
     const raw: EntryGroup[] = section.value === "mine"
         ? [
@@ -70,9 +74,13 @@ const groups = computed<EntryGroup[]>(() => {
             { label: "Recent", entries: orderedWorlds.value.filter((w) => !w.pinned && w.lastOpened !== null).map(localEntry) },
             { label: "New worlds", entries: orderedWorlds.value.filter((w) => !w.pinned && w.lastOpened === null).map(localEntry) },
         ]
-        : section.value === "friends" ? friendGroups.value : []
+        : [{ label: "On this machine", entries: running.value.map(serverEntry) }, ...friendGroups.value]
+    // an address typed is offered as it is, above whatever it also matches
+    const address: EntryGroup[] = typed.value
+        ? [{ label: "Address", entries: [{ kind: "address", id: `address:${typed.value}`, label: typed.value, search: "", ref: typed.value }] }]
+        : []
     const term = query.value.trim().toLowerCase()
-    return raw.map((group) => ({ ...group, entries: group.entries.filter((entry) => entry.search.toLowerCase().includes(term)) }))
+    return [...address, ...raw.map((group) => ({ ...group, entries: group.entries.filter((entry) => entry.search.toLowerCase().includes(term)) }))]
         .filter((group) => group.entries.length)
 })
 const entries = computed(() => groups.value.flatMap((group) => group.entries))
@@ -88,8 +96,11 @@ const shown = computed(() => {
             meta: [w.lastOpened ? `Last played ${about.date(w.lastOpened)}` : "Not played yet", size && `${size} block radius`].filter(Boolean).join(" · ") }
     }
     if (friend.value) return { kicker: friend.value.tag === "Invite" ? "Invitation" : "Friend's world", title: friend.value.label, chips: [], meta: friend.value.note }
-    if (section.value === "online" && server.value)
-        return { kicker: "Public server", title: server.value.name, chips: [], meta: `${server.value.players}/${server.value.capacity} playing · ${server.value.region}` }
+    if (current.value?.kind === "server") {
+        const s = current.value.server
+        return { kicker: "On this machine", title: s.title, chips: [], meta: [s.ref, s.mods.length ? s.mods.join(", ") : "No mods"].join(" · ") }
+    }
+    if (current.value?.kind === "address") return { kicker: "Address", title: current.value.ref, chips: [], meta: "Joined as you, if it lets you in" }
     return { kicker: "", title: null, chips: [], meta: null }
 })
 const problems = computed(() => [props.error && `Couldn't play: ${props.error}`, problem.value].filter((p): p is string => !!p))
@@ -129,12 +140,28 @@ async function action(run: () => Promise<unknown>) {
     finally { busy.value = false }
 }
 const play = (world: World) => action(() => bridge.send("play", { path: world.path }))
-const joinServer = (s: PublicServer) => action(() => bridge.send("servers.join", { id: s.id }))
+// servers terra starts or stops show up within a few seconds, while Online is open: a file read
+let polling: ReturnType<typeof setInterval> | null = null
+async function refreshServers() {
+    try { running.value = (await bridge.send("servers.list", {})).local }
+    catch (err) { report(err) }
+}
+watch(section, (now) => {
+    if (polling) clearInterval(polling)
+    polling = null
+    if (now !== "online") return
+    void refreshServers()
+    polling = setInterval(() => void refreshServers(), 3000)
+}, { immediate: true })
+onBeforeUnmount(() => { if (polling) clearInterval(polling) })
+const joinServer = (ref: string) => action(() => bridge.send("servers.join", { ref: ref }))
 const join = (player: Player) => action(() => bridge.send("social.join", { id: player.id, name: player.username }))
 const signIn = () => action(() => bridge.send("account.signIn", {}))
 // a double click is the short way: most visits are pick a world and go
 function activate(entry: Entry) {
     if (entry.kind === "local") void play(entry.world)
+    else if (entry.kind === "server") void joinServer(entry.server.ref)
+    else if (entry.kind === "address") void joinServer(entry.ref)
     else void join(entry.player)
 }
 function dismiss() {
@@ -163,7 +190,8 @@ onBeforeUnmount(() => { void orbits(true) })
     <div class="play-page">
         <Dock v-model:group="section" v-model:query="query" v-model:covers="covers"
             title="Play" :section="details && local ? local.name : ''" :groups="RAIL" rail-label="Places to play"
-            :search-label="details ? undefined : 'Search worlds'" search-placeholder="Search worlds…"
+            :search-label="details ? undefined : section === 'online' ? 'Search, or join an address' : 'Search worlds'"
+            :search-placeholder="section === 'online' ? 'Search, or terra://host:port…' : 'Search worlds…'"
             back="Back" @back="details ? details = false : emit('go', 'home')">
 
             <template v-if="details && local" #workspace>
@@ -171,20 +199,21 @@ onBeforeUnmount(() => { void orbits(true) })
             </template>
 
             <template v-else #list>
-                <OnlineList v-if="section === 'online'" v-model="server" :query="query" @join="joinServer" />
-                <div v-else-if="section === 'mine' && worlds === null" class="list-message">Reading your worlds…</div>
-                <div v-else-if="section === 'friends' && store.account?.status === 'signedIn' && !store.social?.view" class="list-message">Finding friends' worlds…</div>
+                <div v-if="section === 'mine' && worlds === null" class="list-message">Reading your worlds…</div>
                 <WorldList v-else-if="groups.length" v-model="selected" :groups="groups" @activate="activate" />
                 <div v-else class="list-message">
-                    <template v-if="query">No matches.</template>
+                    <template v-if="query">No matches. An address joins as you type it: terra://host:port.</template>
                     <template v-else-if="section === 'mine'">No worlds yet. Make one to start.</template>
-                    <template v-else-if="store.account?.status === 'signedOut'">
+                    <template v-else>Nothing to join yet. A server started with terra serve shows here, as does a world a friend opens or invites you to.</template>
+                </div>
+                <template v-if="section === 'online'">
+                    <div v-if="store.account?.status === 'signedOut'" class="list-message">
                         <p>Connect your ArcLabs account to see invitations and worlds your friends have opened.</p>
                         <Button size="sm" variant="primary" :disabled="busy" @click="signIn()">Connect ArcLabs »</Button>
-                    </template>
-                    <template v-else>When a friend opens a world or invites you, it appears here.</template>
-                </div>
-                <div v-if="section === 'friends' && store.social?.problem" class="list-message"><Notice tone="warn">{{ store.social.problem }}</Notice></div>
+                    </div>
+                    <div v-else-if="store.account?.status === 'signedIn' && !store.social?.view" class="list-message">Finding friends' worlds…</div>
+                    <div v-if="store.social?.problem" class="list-message"><Notice tone="warn">{{ store.social.problem }}</Notice></div>
+                </template>
             </template>
 
             <template v-if="section === 'mine' && !details" #footer>
@@ -201,7 +230,8 @@ onBeforeUnmount(() => { void orbits(true) })
                 </Button>
             </template>
             <Button v-else-if="friend" variant="primary" size="lg" :disabled="busy" :busy="!!entering" @click="join(friend.player)">Join »</Button>
-            <Button v-else-if="section === 'online' && server" variant="primary" size="lg" :disabled="busy || !server.compatible" :busy="!!entering" @click="joinServer(server)">Join »</Button>
+            <Button v-else-if="current?.kind === 'server' || current?.kind === 'address'" variant="primary" size="lg" :disabled="busy" :busy="!!entering"
+                @click="joinServer(current.kind === 'server' ? current.server.ref : current.ref)">Join »</Button>
         </WorldStage>
     </div>
 </template>

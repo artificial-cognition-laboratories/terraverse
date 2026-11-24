@@ -1,7 +1,7 @@
 import type { World } from "../bridge/index.ts"
 
 // The Play page's pixel icons, and what a world's row says with them.
-export type Section = "mine" | "friends" | "online"
+export type Section = "mine" | "online"
 type Icon = { rows: readonly string[]; palette: Record<string, string> }
 export type Chip = Icon & { label: string; text: string }
 
@@ -10,8 +10,6 @@ const STEEL = "#c9d4dc", SKY = "#40b8ec", GRASS = "#5fae5a", SUN = "#f2c14e", EM
 export const RAIL: ({ id: Section; label: string; shortLabel: string } & Icon)[] = [
     { id: "mine", label: "My worlds", shortLabel: "Mine", palette: { S: SKY, G: GRASS, D: "#1f6f9c" },
         rows: ["...SSS...", ".SSGGSSS.", ".SGGGGSS.", "SSSGGSSDS", "SSSSSSGDS", "SGGSSGGDS", ".SGGSSDD.", ".SSSDDDD.", "...DDD..."] },
-    { id: "friends", label: "Friends", shortLabel: "Friends", palette: { A: STEEL, B: SKY },
-        rows: [".........", "..AA..BB.", ".AAAABBBB", ".AAAABBBB", "..AA..BB.", ".........", "AAAAABBBB", "AAAAABBBB", "AAAAABBBB"] },
     { id: "online", label: "Online", shortLabel: "Online", palette: { A: STEEL, B: SKY, G: GRASS },
         rows: ["AAAAAAAAA", "AGAAAAABA", "AAAAAAAAA", ".........", "AAAAAAAAA", "AGAAAAABA", "AAAAAAAAA", "....A....", "..AAAAA.."] },
 ]

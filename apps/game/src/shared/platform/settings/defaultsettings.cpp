@@ -83,7 +83,7 @@ void set_default_settings()
 
 	// Client
 	settings->setDefault("address", "");
-	settings->setDefault("shell_url", "terra://ui/index.html");
+	settings->setDefault("shell_url", "shell://ui/index.html");
 	// Terra Firma: the debugger beside the game (shell/debugger.h); CSS pixels across
 	settings->setDefault("debugger_dock", "right");
 	settings->setDefault("debugger_size", "420");

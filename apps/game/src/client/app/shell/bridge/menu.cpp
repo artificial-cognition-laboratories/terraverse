@@ -149,7 +149,7 @@ static std::vector<std::string> stringList(const Json::Value &intent, const char
 }
 
 Menu::Menu(const Opts &opts) :
-	m_shell(opts.shell), m_intents(opts.shell), m_engine(opts.engine), m_worlds(opts.worlds),
+	m_shell(opts.shell), m_intents(opts.shell), m_engine(opts.engine), m_worlds(opts.worlds), m_local_servers(opts.local_servers),
 	m_community(opts.worlds, g_settings->get("game_id")),
 	m_world_server({ .game = porting::path_share + DIR_DELIM "server" }),
 	m_receiver(opts.receiver),
@@ -239,6 +239,20 @@ Menu::Menu(const Opts &opts) :
 	});
 	m_intents.on("worlds.rename", [this](const Json::Value &intent) {
 		m_worlds.rename(stringField(intent, "path"), stringField(intent, "name"));
+		return Json::Value();
+	});
+	// a ref (online/ref.h): a server terra runs on this machine, for now; the others say so
+	m_intents.on("servers.join", [this](const Json::Value &intent) {
+		const std::string text = stringField(intent, "ref");
+		std::optional<online::ref::Ref> ref = online::ref::parse(text);
+		if (!ref)
+			throw Refused("\"" + text + "\" isn't an address: try terra://localhost:30000.");
+		const auto *address = std::get_if<online::ref::Address>(&*ref);
+		if (!address)
+			throw Refused("Joining " + online::ref::print(*ref) + " isn't built yet: only server addresses.");
+		online::LocalJoin join = m_local_servers.join(*address);
+		m_shell.social().enter(join.title, false);
+		m_choice = Choice{ std::nullopt, std::nullopt, std::move(join) };
 		return Json::Value();
 	});
 	m_intents.on("play", [this](const Json::Value &intent) {

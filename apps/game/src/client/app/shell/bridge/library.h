@@ -7,6 +7,7 @@
 #include "src/client/app/shell/bridge/registry.h"
 #include "src/client/app/shell/host/shell.h"
 #include <string>
+#include "src/client/app/shell/bridge/local_servers.h"
 
 namespace shell {
 
@@ -24,11 +25,13 @@ public:
 		std::string contents_dir; // where local mods' pictures are written (Shell::contentsDir)
 		std::string api;          // the ArcLabs backend (arclabs_url)
 		std::string session;      // cache-buster for those pictures
+		const LocalServers &local_servers;
 	};
 	explicit Library(Opts opts);
 
 private:
 	Intents m_intents; // first: removed last, after the verbs' owners below
+	const LocalServers &m_local_servers;
 	LocalMods m_local_mods;
 	Registry m_registry;
 };

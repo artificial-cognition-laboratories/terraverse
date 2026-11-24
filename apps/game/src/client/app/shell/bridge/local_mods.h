@@ -11,13 +11,13 @@ namespace shell {
 /*
 	The mods the player is developing: the active profile's mods/ folder (home.md). Their
 	contents (blocks and items, and the pictures they draw) come from terra, which loads a
-	mod with no engine; the pictures are written under `dir` and served as terra://contents/.
+	mod with no engine; the pictures are written under `dir` and served as shell://contents/.
 */
 class LocalMods
 {
 public:
 	struct Opts {
-		std::string dir;     // where contents' pictures are written: served as terra://contents/
+		std::string dir;     // where contents' pictures are written: served as shell://contents/
 		std::string session; // cache-buster: a mod's pictures change as it's edited
 	};
 

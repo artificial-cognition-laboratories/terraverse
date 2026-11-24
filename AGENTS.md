@@ -65,7 +65,7 @@ threading these together. Known gaps belong in `TODO.md`.
 
 ```
 apps/game/src/      the Luanti fork, plus our systems in their own folders (below)
-apps/game/ui/       the Vue app: menus, HUD, inventory, wiki
+apps/game/src/client/app/shell/interface/   the Vue app: menus, HUD, inventory, wiki
 apps/game/server/   the game's own server folder: the official TypeScript mods every world runs
 apps/game/game/     the game's baked data: palette.json, moves.json, vehicles.json, ground.json
 apps/cli/           terra: the CLI, and the sidecar that runs TypeScript mods (sprint 119)
@@ -87,7 +87,7 @@ Our folders in `apps/game/src/`:
 
 | Folder | Owns |
 |---|---|
-| `shell/` | The web UI host: embedded Chromium, bridge, screens, state stream, wiki scenes |
+| `client/app/shell/` | The web UI host: embedded Chromium (its own pages on `shell://`), bridge, screens, state stream, wiki scenes |
 | `terragen/` | The world model: a pure, fixed-point function of the world code, no engine deps |
 | `mapgen/mapgen_terra.*`, `mapgen/terra_*` | The `terra` generator: blocks from terragen |
 | `planet/` | The atlas: voxel grids laid round a sphere |
@@ -101,7 +101,7 @@ Our folders in `apps/game/src/`:
 | `piece/`, `workshop/` | Machines: parts and joints, compiled into physics |
 | `orbit/` | Flight under a planet's gravity and air |
 | `fluid/`, `weather/` | Atmosphere layer on a sphere, and live weather |
-| `online/` | STUN, hole punching, UPnP, ticket gate, joining |
+| `shared/platform/online/` | STUN, hole punching, UPnP, the gate (tickets, a run's secret), joining, `terra://` refs |
 | `client/body`, `figure`, `liquids`, `shallow.h` | Our client parts: the player's body and fine water |
 | `sidecar/` | TypeScript mods: spawns `terra runtime`, a window each step, answers its calls |
 | `probe/` | The checks' probes: a headless server driven by `--probe <name>` (`apps/game/tests/checks/*.sh`) |
@@ -131,9 +131,16 @@ off the grid is one of a few native kinds (`server/game/kinds`: a machine, a dro
 block). The weather finds the snow and ice it makes by
 alias (`weather_snow`, `weather_ice`), as the generator finds rock (`mapgen_*`).
 
+**Addresses.** Every place is a `terra://` ref: `terra://localhost:30000` (a server),
+`terra://TF9.dGVycmE` (a code), `terra://@scope/name` (published), `terra://friend/name`. One grammar,
+parsed at the seam by terra (`apps/cli/src/terra/ref`) and the engine (`online/ref.h`), both held to
+`apps/game/assets/misc/refs.json`. A ref never carries a secret.
+
 **Who may do what** is native (`server/access`): no passwords, everyone is their ArcLabs account.
 A world played alone lets its one player in at once (`AUTH_MECHANISM_LOCAL`, 127.0.0.1 only), a
-hosted one admits by ticket, and any other server takes no one. Permissions are `prefix:name`
+hosted one admits by ticket, a server terra runs (`terra serve`, `terra dev`) admits anyone on this
+machine holding its run's secret (`online/local.h`, from the home's `running/<port>.json`, 0600),
+and any other server takes no one. Permissions are `prefix:name`
 (the engine's `core:fly`, a mod's `commands:kick`); roles (`player`, `builder`, `admin`) are sets
 of them, kept in `<world>/access.json`, and the world's owner is always its admin. **Chat** is
 native too (`Server::handleChat`, `server/game/commands`): a line is broadcast, and `/word` goes to the
@@ -251,7 +258,7 @@ terragen's real erosion, baked by `bun palette`.
 One Chromium page lives for the whole session, rendered offscreen and drawn over every frame.
 Each file in `shell/` owns one concern.
 
-**The bridge.** `ui/src/bridge/types.ts` is the source of truth; **change both sides together.**
+**The bridge.** `interface/src/bridge/types.ts` is the source of truth; **change both sides together.**
 - Intents (page → engine) are verbs registered with `shell.on`. An unanswered intent fails
   loudly. Verbs throw `Refused("…")` for an expected no.
 - Slow verbs use `shell.onAsync`: a worker thread, so they must be pure.
@@ -263,7 +270,7 @@ Each file in `shell/` owns one concern.
 - The page gets the keyboard only while an editable element has focus (`bridge/keyboard.ts`).
 
 **UI rules.**
-- Build every screen from the kit (`ui/src/kit`). New patterns become kit components. UI is seen in
+- Build every screen from the kit (`interface/src/kit`). New patterns become kit components. UI is seen in
   the game itself, which hot-reloads the page under `bun dev`.
 - The website's look (apps/site): the night palette, flat glass (`--glass`, one 1px `--glass-edge`,
   the `--sheen` top line), never a hand-written bevel. Tokens are in `theme.css`. Hard edges, no radius.
@@ -284,7 +291,7 @@ bun dev                 # engine, Vite, game against the dev server (hot reload)
 bun run build           # engine + production UI
 bash apps/game/scripts/build.sh -j8              # engine only, waits its turn if another build is running (after cmake -S . -B .output/build -DRUN_IN_PLACE=TRUE)
 bun run stage           # refresh resources in the runtime tree
-cd apps/game/ui && bun run typecheck
+cd apps/game/src/client/app/shell/interface && bun run typecheck
 ./.output/bin/luanti --server --gameid terrafirma --world <tmp dir> --port <n>   # headless boot: catches content and start-up errors
 bun test:hot [library]   # the pure libraries' quick tests (each library's tests/, as library/world/terragen/tests): their own small binaries, seconds; the loop to keep running
 bun test:slow [library]  # their slow ones: goldens, Earth-sized worlds
@@ -304,6 +311,7 @@ bun check:matter        # a real fire on a live server
 bun check:far           # far view against generated chunks
 bun check:mods          # TypeScript mods: terra's unit tests, terra prepare, then the sidecar in a headless server
 bun check:dev           # terra dev on a new mod: reloads, a content restart, a broken save, Ctrl-C
+bun check:serve         # terra server init, terra serve, its running/ record, joining by its secret (needs a display), stopping
 bun check:registry      # terra against the ArcLabs staging backend (../arclabs: arc u): login, publish, refusals, install, a headless boot
 terral <args>           # terra from apps/cli source, against .output/bin's engine; the sidecar runs from source too (TERRA_CLI)
 bun perf:gen            # where making a world spends its time, by step, cold and warm at 50k and 100k (SIZES=, CODE=)
@@ -412,11 +420,11 @@ candidate (its `Ground` is already an `Opts` of dependencies).
 
 ### TypeScript
 
-`apps/game/ui`, `apps/cli`, `registry/mods`, `packages/types`: the arclabs form. Every noun is a
+`apps/game/src/client/app/shell/interface`, `apps/cli`, `registry/mods`, `packages/types`: the arclabs form. Every noun is a
 capitalized factory, `X(opts)` returning a handle, its type `ReturnType<typeof X>`; a module is
 a folder with one `index.ts`; wiring is `key: value`, never shorthand, and every child is built
 above the `return`, which only assigns. Vue components are the UI's leaves, composables its
-nouns (`ui/src/kit` for patterns). The file limit is ~300 lines.
+nouns (`interface/src/kit` for patterns). The file limit is ~300 lines.
 
 ## Licensing
 

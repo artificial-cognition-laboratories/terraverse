@@ -1,5 +1,5 @@
 import { timer } from "@arcforge/arcline"
-import { basename, join, relative } from "node:path"
+import { basename, relative, resolve } from "node:path"
 import { err } from "../../errors"
 import { names, type ProjectKind, type TerraT } from "../../terra"
 import { flags, type Args } from "../args"
@@ -7,12 +7,11 @@ import type { PresentationT } from "../presentation"
 
 /**
  * terra server init <name> · terra mod init <name> [--scope @you] — a new project, made
- * and prepared: installed and typed, ready to run. A bare name makes it in your profile
- * (a mod in its mods/, which the game finds; a server in its servers/); a path (./kilns)
- * makes it there. Ends with the folder it made, and what to run in it. The only command
+ * and prepared: installed and typed, ready to run, in a folder of that name where you
+ * are (or at the path given). Ends with the folder it made, and what to run in it. The only command
  * with a noun: there's no folder yet for it to read.
  */
-export function InitCommand(opts: { terra: TerraT; presentation: PresentationT }) {
+export function InitCommand(opts: { terra: TerraT; presentation: PresentationT; as: string }) {
     /** The command for one kind: `terra <kind> init …`. */
     function of(kind: ProjectKind) {
         return async (args: Args): Promise<number> => {
@@ -21,9 +20,9 @@ export function InitCommand(opts: { terra: TerraT; presentation: PresentationT }
             if (verb !== "init") throw err("USAGE", { detail: `terra ${kind} init <name>` })
             if (!given) throw err("USAGE", { detail: `terra ${kind} init <name>: name the ${kind}` })
             const name = names.package(basename(given), flags.value(args, "scope"))
-            // a path is where it's asked to be; a bare name is the profile's (home.md)
+            // a bare name is a folder where you are, as every other CLI makes one
             const isPath = given.includes("/") || given.includes("\\") || given.startsWith(".")
-            const dir = isPath ? given : join(kind === "mod" ? opts.terra.home.mods() : opts.terra.home.servers(), basename(name))
+            const dir = resolve(isPath ? given : basename(name))
             const started = timer.start()
             const surface = opts.presentation.surfaces.init(kind, name)
             try {
@@ -33,7 +32,7 @@ export function InitCommand(opts: { terra: TerraT; presentation: PresentationT }
                 surface.finish({
                     files: opts.presentation.tree.read(project.root),
                     root: shown(project.root),
-                    next: `cd ${shown(project.root)} && ${kind === "server" ? "terra host" : "terra dev"}`,
+                    next: `cd ${shown(project.root)} && ${opts.as} ${kind === "server" ? "serve" : "dev"}`,
                     ms: timer.end(started),
                 })
                 return 0

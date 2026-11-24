@@ -170,7 +170,7 @@ void Bridge::send(CefRefPtr<CefBrowser> browser, const Json::Value &message)
 {
 	// JSON is a valid JS expression, so the message is passed as a literal.
 	std::string js = "window.__terra.receive(" + fastWriteJson(message) + ")";
-	browser->GetMainFrame()->ExecuteJavaScript(js, "terra://bridge", 0);
+	browser->GetMainFrame()->ExecuteJavaScript(js, "shell://bridge", 0);
 }
 
 } // namespace shell

@@ -23,7 +23,7 @@ struct GameParams
 	std::string server_folder;
 	std::string probe; // Terra Firma: a check's (src/probe)
 	// Terra Firma: the star system to make the world from if it's new, and to check it
-	// against if it isn't (terra host passes server.config.ts's `system`)
+	// against if it isn't (terra serve passes server.config.ts's `system`)
 	std::string world_code;
 };
 

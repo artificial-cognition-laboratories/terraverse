@@ -32,6 +32,7 @@ set(unittest_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/test_rivers.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_water.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_online.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_ref.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_release.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_air.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_orbit.cpp

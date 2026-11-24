@@ -16,8 +16,10 @@ Gate::~Gate()
 	httpfetch_caller_free(m_caller);
 }
 
-void Gate::begin(u16 peer, const std::string &name, const std::string &ticket, const std::string &build)
+void Gate::begin(const Asking &asking)
 {
+	const u16 peer = asking.peer;
+	const std::string &name = asking.name, &ticket = asking.ticket, &build = asking.build;
 	if (build != m_opts.build) {
 		m_ready.push_back({ peer, false, "This world runs Terra Firma build " + m_opts.build +
 				"; you have " + build + ". You both need the same build to play together." });
@@ -27,6 +29,16 @@ void Gate::begin(u16 peer, const std::string &name, const std::string &ticket, c
 		// Only the host's own game knows the secret.
 		bool own = !ticket.empty() && ticket == m_opts.secret;
 		m_ready.push_back({ peer, own, own ? "" : "That's the host's name." });
+		return;
+	}
+	if (!m_opts.local.empty() && asking.loopback && ticket == m_opts.local) {
+		m_ready.push_back({ peer, true, "" });
+		return;
+	}
+	if (m_opts.api.url.empty()) {
+		m_ready.push_back({ peer, false, asking.loopback
+				? "This server's run secret didn't match: join it from the game's Servers list."
+				: "This server only admits players on its own machine." });
 		return;
 	}
 

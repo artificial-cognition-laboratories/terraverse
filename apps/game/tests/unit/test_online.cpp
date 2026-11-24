@@ -5,6 +5,7 @@
 
 #include "src/shared/base/exceptions.h"
 #include "src/shared/platform/online/endpoint.h"
+#include "src/shared/platform/online/gate.h"
 #include "src/shared/platform/online/stun.h"
 
 using namespace online;
@@ -22,6 +23,7 @@ public:
 	void testNotOurs();
 	void testEndpointJson();
 	void testRoute();
+	void testLocalGate();
 };
 
 static TestOnline g_test_instance;
@@ -33,6 +35,7 @@ void TestOnline::runTests(IGameDef *gamedef)
 	TEST(testNotOurs);
 	TEST(testEndpointJson);
 	TEST(testRoute);
+	TEST(testLocalGate);
 }
 
 static TxId tx(const char *hex)
@@ -110,4 +113,22 @@ void TestOnline::testRoute()
 	UASSERTEQ(std::string, str(*route(me, host)), "94.4.137.143:40000");
 	// nobody knows anything: nowhere
 	UASSERT(!route(me, Endpoint()));
+}
+
+// A server terra ran for this machine: its secret from here lets anyone in, under their name;
+// from elsewhere, a wrong secret or another build, no one.
+void TestOnline::testLocalGate()
+{
+	const std::string secret(64, 'a');
+	Gate gate({ Api{}, "cody", "", "b1", secret });
+	gate.begin({ 1, "zeno", secret, "b1", true });
+	gate.begin({ 2, "zeno", secret, "b1", false });
+	gate.begin({ 3, "zeno", "wrong", "b1", true });
+	gate.begin({ 4, "zeno", secret, "b2", true });
+	std::vector<Gate::Decision> d = gate.poll();
+	UASSERTEQ(size_t, d.size(), 4);
+	UASSERT(d[0].peer == 1 && d[0].admit);
+	UASSERT(d[1].peer == 2 && !d[1].admit && d[1].reason.find("own machine") != std::string::npos);
+	UASSERT(d[2].peer == 3 && !d[2].admit);
+	UASSERT(d[3].peer == 4 && !d[3].admit);
 }

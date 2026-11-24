@@ -23,6 +23,7 @@
     "check:far": "bash tests/checks/far.sh",
     "check:mods": "bash tests/checks/mods/check.sh",
     "check:dev": "bash tests/checks/dev.sh",
+    "check:serve": "bash tests/checks/serve.sh",
     "check:registry": "bash tests/checks/registry.sh",
     "check:palette": "bash scripts/bake/palette.sh --check",
     "check:atlas-world": "bash tests/checks/atlas-world.sh",

@@ -1360,7 +1360,7 @@ void Server::handleCommand_Ticket(NetworkPacket *pkt)
 	std::string ticket, build;
 	*pkt >> ticket >> build;
 	client->chosen_mech = AUTH_MECHANISM_TICKET;
-	m_gate->begin(peer_id, client->getName(), ticket, build); // answered in AsyncRunStep
+	m_gate->begin({ peer_id, client->getName(), ticket, build, client->getAddress().isLocalhost() }); // answered in AsyncRunStep
 }
 
 // Terra Firma (sprint 119: was builtin's death_screen.lua): the one who died chose to

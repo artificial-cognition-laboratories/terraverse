@@ -161,7 +161,7 @@ Json::Value Items::faces(const ItemDefinition &def)
 std::string Items::served(const std::string &texture, const std::string &file) const
 {
 	writeIcon(texture, m_opts.dir + DIR_DELIM + file);
-	return "terra://item/" + file + "?s=" + m_opts.session;
+	return "shell://item/" + file + "?s=" + m_opts.session;
 }
 
 void Items::writeIcon(const std::string &texture, const std::string &path) const

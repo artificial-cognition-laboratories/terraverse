@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue"
-import type { Account, Player, Social } from "../../bridge"
+import type { Account, Player, RememberedProfile, Social } from "../../bridge"
 import AccountPage from "./AccountPage.vue"
 import Friends from "./Friends.vue"
 import Inbox from "./Inbox.vue"
@@ -13,9 +13,10 @@ import "./rows.css"
  * (account/Corner.vue): this only says what was asked.
  */
 export type Tab = "friends" | "inbox" | "account"
-const props = defineProps<{ account: Account; social: Social | null; error: string | null; busy: boolean; joining: string | null; initialTab?: Tab }>()
+const props = defineProps<{ account: Account; social: Social | null; error: string | null; busy: boolean; joining: string | null; remembered: RememberedProfile[] | null; initialTab?: Tab }>()
 const emit = defineEmits<{
-    signIn: []; cancel: []; signOut: []; retry: []; openUrl: [url: string]
+    signIn: []; cancel: []; signOut: []; leave: []; retry: []; openUrl: [url: string]
+    use: [name: string]; forget: [name: string]
     request: [username: string]; accept: [id: string]; remove: [id: string]
     invite: [id: string]; dismiss: [id: string]; join: [player: Player]
 }>()
@@ -60,12 +61,13 @@ const shown = computed(() => {
                         @request="emit('request', $event)" @join="emit('join', $event)" @invite="emit('invite', $event)" @remove="emit('remove', $event)" />
                     <Inbox v-else-if="tab === 'inbox'" :social="social" :busy="busy" :joining="joining"
                         @join="emit('join', $event)" @dismiss="emit('dismiss', $event)" @accept="emit('accept', $event)" @remove="emit('remove', $event)" />
-                    <AccountPage v-else :account="account" :busy="busy" @sign-out="emit('signOut')" @open-url="emit('openUrl', $event)" />
+                    <AccountPage v-else :account="account" :busy="busy" @sign-out="emit('signOut')" @leave="emit('leave')" @open-url="emit('openUrl', $event)" />
                 </div>
             </div>
         </template>
-        <SignIn v-else :account="account" @sign-in="emit('signIn')" @cancel="emit('cancel')" @retry="emit('retry')"
-            @sign-out="emit('signOut')" @open-url="emit('openUrl', $event)" />
+        <SignIn v-else :account="account" :remembered="remembered" :error="error" :busy="busy"
+            @sign-in="emit('signIn')" @cancel="emit('cancel')" @retry="emit('retry')"
+            @sign-out="emit('signOut')" @open-url="emit('openUrl', $event)" @use="emit('use', $event)" @forget="emit('forget', $event)" />
     </section>
 </template>
 

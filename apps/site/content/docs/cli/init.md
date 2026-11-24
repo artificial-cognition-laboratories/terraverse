@@ -22,7 +22,7 @@ terra server init my_server
 
 A [server folder](/docs/server/structure): a `package.json`, a `server.config.ts` with a star
 system, one world and you as its admin, and the types in `.terra/`. Run it with
-`terra host`, or play in it with `terra .`.
+`terra serve`, or play in it with `terra .`.
 
 ### From a published server
 

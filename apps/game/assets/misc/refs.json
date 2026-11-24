@@ -1,0 +1,29 @@
+{
+	"about": "terra:// refs: every place you can go, one address. The golden both parsers pass: apps/cli (src/terra/ref) and the engine (shared/platform/online/ref). `ref` is what's typed; `is` what it parses to, or null for a refusal; `printed` its one spelling.",
+	"refs": [
+		{ "ref": "terra://localhost:30000", "is": { "kind": "address", "host": "localhost", "port": 30000 }, "printed": "terra://localhost:30000" },
+		{ "ref": "terra://localhost", "is": { "kind": "address", "host": "localhost", "port": 30000 }, "printed": "terra://localhost:30000" },
+		{ "ref": "localhost:30123", "is": { "kind": "address", "host": "localhost", "port": 30123 }, "printed": "terra://localhost:30123" },
+		{ "ref": "terra://127.0.0.1:30001", "is": { "kind": "address", "host": "127.0.0.1", "port": 30001 }, "printed": "terra://127.0.0.1:30001" },
+		{ "ref": "terra://[::1]:30001", "is": { "kind": "address", "host": "::1", "port": 30001 }, "printed": "terra://[::1]:30001" },
+		{ "ref": "terra://Play.Example.com", "is": { "kind": "address", "host": "play.example.com", "port": 30000 }, "printed": "terra://play.example.com:30000" },
+		{ "ref": "terra://TF9.dGVycmE", "is": { "kind": "code", "code": "TF9.dGVycmE" }, "printed": "terra://TF9.dGVycmE" },
+		{ "ref": "TF9.dGVycmE.Zx-_", "is": { "kind": "code", "code": "TF9.dGVycmE.Zx-_" }, "printed": "terra://TF9.dGVycmE.Zx-_" },
+		{ "ref": "terra://@cody/kilns", "is": { "kind": "published", "scope": "cody", "name": "kilns" }, "printed": "terra://@cody/kilns" },
+		{ "ref": "terra://friend/cody", "is": { "kind": "friend", "player": "cody" }, "printed": "terra://friend/cody" },
+		{ "ref": " terra://localhost:30000/ ", "is": { "kind": "address", "host": "localhost", "port": 30000 }, "printed": "terra://localhost:30000" },
+		{ "ref": "", "is": null },
+		{ "ref": "terra://", "is": null },
+		{ "ref": "http://localhost:30000", "is": null },
+		{ "ref": "terra://localhost:0", "is": null },
+		{ "ref": "terra://localhost:70000", "is": null },
+		{ "ref": "terra://localhost:30x", "is": null },
+		{ "ref": "terra://local host", "is": null },
+		{ "ref": "terra://[::1", "is": null },
+		{ "ref": "terra://@cody", "is": null },
+		{ "ref": "terra://@Cody/kilns", "is": null },
+		{ "ref": "terra://friend/", "is": null },
+		{ "ref": "terra://localhost:30000?secret=x", "is": null },
+		{ "ref": "terra://user@localhost:30000", "is": null }
+	]
+}

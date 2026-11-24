@@ -8,6 +8,7 @@ namespace shell {
 
 Library::Library(Opts opts) :
 	m_intents(opts.shell),
+	m_local_servers(opts.local_servers),
 	m_local_mods({ .dir = opts.contents_dir, .session = opts.session }),
 	m_registry({ .intents = m_intents, .api = opts.api })
 {
@@ -19,14 +20,13 @@ Library::Library(Opts opts) :
 			throw Refused("missing string field 'path'");
 		return m_local_mods.contents(intent["path"].asString());
 	});
-	m_intents.on("servers.list", [](const Json::Value &) {
+	// the public directory isn't wired yet (unavailable); servers on this machine are
+	m_intents.on("servers.list", [this](const Json::Value &) {
 		Json::Value out(Json::objectValue);
 		out["status"] = "unavailable";
 		out["servers"] = Json::Value(Json::arrayValue);
+		out["local"] = m_local_servers.list();
 		return out;
-	});
-	m_intents.on("servers.join", [](const Json::Value &) -> Json::Value {
-		throw Refused("Public server discovery is not connected yet.");
 	});
 	m_intents.on("servers.favorite.set", [](const Json::Value &) -> Json::Value {
 		throw Refused("Public server discovery is not connected yet.");

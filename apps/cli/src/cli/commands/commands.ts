@@ -4,7 +4,7 @@ import type { Args } from "../args"
 import type { PresentationT } from "../presentation"
 import { HelpCommand } from "./help"
 import { DevCommand } from "./dev"
-import { HostCommand } from "./host"
+import { ServeCommand } from "./serve"
 import { InitCommand } from "./init"
 import { PlayCommand } from "./play"
 import { PrepareCommand } from "./prepare"
@@ -19,17 +19,17 @@ import { CheckCommand } from "./check"
 type Command = (args: Args) => Promise<number>
 
 /** Commands — terra's grammar: each command's name, and what runs it. */
-export function Commands(opts: { terra: TerraT; presentation: PresentationT; version: string }) {
+export function Commands(opts: { terra: TerraT; presentation: PresentationT; version: string; as: string }) {
     const help = HelpCommand({ presentation: opts.presentation, version: opts.version })
     const prepare = PrepareCommand({ terra: opts.terra, presentation: opts.presentation })
-    const host = HostCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare })
+    const serve = ServeCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare })
     const runtime = RuntimeCommand({ terra: opts.terra })
-    const init = InitCommand({ terra: opts.terra, presentation: opts.presentation })
+    const init = InitCommand({ terra: opts.terra, presentation: opts.presentation, as: opts.as })
     const dev = DevCommand({ terra: opts.terra, presentation: opts.presentation })
     const play = PlayCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare })
     const account = AccountCommand({ terra: opts.terra, presentation: opts.presentation })
     const publish = PublishCommand({ terra: opts.terra, presentation: opts.presentation })
-    const install = InstallCommand({ terra: opts.terra, presentation: opts.presentation })
+    const install = InstallCommand({ terra: opts.terra, presentation: opts.presentation, as: opts.as })
     const info = InfoCommand({ terra: opts.terra, presentation: opts.presentation })
     const art = ArtCommand({ terra: opts.terra, presentation: opts.presentation })
     const check = CheckCommand({ terra: opts.terra, presentation: opts.presentation })
@@ -39,7 +39,7 @@ export function Commands(opts: { terra: TerraT; presentation: PresentationT; ver
         mod: init.of("mod"),
         prepare: prepare.run,
         dev: dev.run,
-        host: host.run,
+        serve: serve.run,
         runtime: runtime.run,
         login: account.login,
         logout: account.logout,

@@ -45,12 +45,31 @@ export type CommunityTexture = {
 }
 export type CommunityWorld = { name: string; path: string; code: string | null }
 export type PublicServer = {
-    id: string; name: string; description: string; host: string
+    /** Its terra:// address: what servers.join takes. */
+    id: string; ref: string; name: string; description: string; host: string
     region: string; players: number; capacity: number; pingMs: number | null
     version: string; tags: string[]; mods: string[]; featured: boolean
     favorite: boolean; compatible: boolean
 }
-export type ServerDirectory = { status: "ready" | "unavailable"; servers: PublicServer[] }
+/**
+ * A server terra runs on this machine (terra serve, terra dev: the home's running/). What admits
+ * you to it never reaches the page: the engine joins with it.
+ */
+export type LocalServer = {
+    /** Its terra:// address: what servers.join takes. */
+    ref: string
+    title: string; port: number; mods: string[]
+    /** Its admin: the account terra ran it as, or null signed out. */
+    owner: string | null
+    /** The server folder it runs. */
+    folder: string
+    /** Unix seconds. */
+    started: number
+}
+/** An account this machine remembers: its profile (`@handle`) has a saved key for this backend. */
+export type RememberedProfile = { name: string; handle: string; current: boolean }
+/** `status` is the public directory's; `local` is always read. */
+export type ServerDirectory = { status: "ready" | "unavailable"; servers: PublicServer[]; local: LocalServer[] }
 /**
  * The ArcLabs registry (backend: api/terrafirma/registry). A listing is one search row;
  * `type`, `categories`, `icon`, `banner` and `installs` aren't served by the backend yet,
@@ -632,7 +651,8 @@ export type Intents = {
     "worlds.pin": { request: { path: string; pinned: boolean }; response: null }
     "worlds.rename": { request: { path: string; name: string }; response: null }
     "servers.list": { request: {}; response: ServerDirectory }
-    "servers.join": { request: { id: string }; response: null }
+    /** A terra:// ref: the menu leaves for it on its next frame. Refused with why, when it can't. */
+    "servers.join": { request: { ref: string }; response: null }
     "servers.favorite.set": { request: { id: string; favorite: boolean }; response: null }
     "registry.front": { request: {}; response: RegistryFront }
     "registry.search": { request: RegistrySearch; response: RegistryResults }
@@ -724,6 +744,14 @@ export type Intents = {
     "account.cancel": { request: {}; response: null }
     /** Forgets the key on this machine. */
     "account.signOut": { request: {}; response: null }
+    /** Signed out here, the key kept with its profile: it's in profiles.list for next time. */
+    "account.leave": { request: {}; response: null }
+    /** The accounts this machine remembers for this backend (shell/bridge/profiles.cpp). */
+    "profiles.list": { request: {}; response: RememberedProfile[] }
+    /** Run as that profile and sign in with its saved key: no browser. */
+    "profiles.use": { request: { name: string }; response: null }
+    /** Forgets that profile's key; its worlds stay. */
+    "profiles.forget": { request: { name: string }; response: null }
     /** Checks the saved key again after ArcLabs couldn't be reached. */
     "account.retry": { request: {}; response: null }
     /** Friends, presence and invites (src/shell/social.cpp); changes arrive as `social` messages. */

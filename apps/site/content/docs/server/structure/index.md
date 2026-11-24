@@ -22,7 +22,7 @@ my_server/
 └── tsconfig.json
 ```
 
-`terra server init my_server` creates it; `terra host` runs it.
+`terra server init my_server` creates it; `terra serve` runs it.
 
 ## Three kinds of thing
 

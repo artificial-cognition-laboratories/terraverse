@@ -54,7 +54,7 @@ async function act(fn: () => Promise<unknown>) {
         problem.value = err instanceof Error ? err.message : String(err)
     }
 }
-const join = (s: PublicServer) => act(() => bridge.send("servers.join", { id: s.id }))
+const join = (s: PublicServer) => act(() => bridge.send("servers.join", { ref: s.ref }))
 const favorite = (s: PublicServer) => act(async () => { await bridge.send("servers.favorite.set", { id: s.id, favorite: !s.favorite }); await directory.run() })
 onMounted(() => directory.run())
 </script>

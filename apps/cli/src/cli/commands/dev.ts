@@ -1,5 +1,5 @@
 import { devServer, errorReport, status } from "@arcforge/arcline"
-import type { DevEvent, DevOptions, TerraT } from "../../terra"
+import { refs, type DevEvent, type DevOptions, type TerraT } from "../../terra"
 import { flags, type Args } from "../args"
 import type { PresentationT } from "../presentation"
 
@@ -38,7 +38,7 @@ export function DevCommand(opts: { terra: TerraT; presentation: PresentationT })
                             ["Server", event.prepared.title],
                             ["Mods", event.prepared.mods.map(m => m.name).join(", ") || "none"],
                         ],
-                        ...(options.mode === "server" ? { links: [["Join", `localhost:${options.port}`] as [string, string]] } : {}),
+                        ...(options.mode === "server" ? { links: [["Join", refs.print({ kind: "address", host: "localhost", port: options.port })] as [string, string]] } : {}),
                         readyMs: event.ms,
                     }))
                     return

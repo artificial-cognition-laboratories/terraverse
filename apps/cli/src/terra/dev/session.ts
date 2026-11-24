@@ -1,7 +1,7 @@
 import { createWriteStream, mkdirSync, rmSync } from "node:fs"
 import { errOf } from "../../errors"
 import { Exit } from "../../runtime"
-import type { EngineProcess, EngineT } from "../engine"
+import { STOPS, type EngineProcess, type EngineT } from "../engine"
 import type { PreparedServer, ServerProjectT } from "../project"
 import type { DevEvent, DevOptions } from "./types"
 import type { WatchT } from "./watch"
@@ -76,6 +76,7 @@ export function Session(opts: SessionOpts) {
             running?.stop()
         }
         process.on("SIGINT", interrupt)
+        for (const signal of STOPS) process.on(signal, interrupt)
         opts.watch.start()
         try {
             let prepared = await prepare()
@@ -92,6 +93,7 @@ export function Session(opts: SessionOpts) {
         } finally {
             opts.watch.stop()
             process.off("SIGINT", interrupt)
+            for (const signal of STOPS) process.off(signal, interrupt)
         }
     }
 

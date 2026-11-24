@@ -92,6 +92,7 @@ ClientLauncher::~ClientLauncher()
 #if USE_SHELL
 	// the figure and the wiki unregister from the shell, so they go first
 	m_library.reset();
+	m_local_servers.reset();
 	m_figures.reset();
 	m_wiki.reset();
 	// Its texture and IME element belong to the device about to be deleted.
@@ -196,8 +197,10 @@ bool ClientLauncher::run(const GameParams &game_params, const Settings &cmd_args
 	m_wiki = std::make_unique<shell::Wiki>(*m_shell); // answers in the menu and in game alike
 	m_figures = std::make_unique<shell::Figures>(shell::Figures::Opts{ /* shell */ *m_shell });
 	// the Library's verbs, in the menu and in a world alike
+	m_local_servers = std::make_unique<shell::LocalServers>(shell::LocalServers::Opts{ .dir = m_home.root() + DIR_DELIM "running" });
 	m_library = std::make_unique<shell::Library>(shell::Library::Opts{ .shell = *m_shell, .contents_dir = m_shell->contentsDir(),
-		.api = g_settings->get("arclabs_url"), .session = std::to_string(porting::getTimeMs()) });
+		.api = g_settings->get("arclabs_url"), .session = std::to_string(porting::getTimeMs()),
+		.local_servers = *m_local_servers });
 #endif
 
 	g_menuclouds->setHeight(100.0f);
@@ -337,6 +340,22 @@ bool ClientLauncher::online(GameStartData &start_data, shell::Choice &choice, st
 		return false;
 	}
 
+	if (choice.local) {
+		// a server terra runs here: its secret is the ticket (online/local.h). Signed out,
+		// you're the name you've set
+		const std::string name = is_valid_player_name(username) ? username : g_settings->get("name");
+		if (!is_valid_player_name(name)) {
+			error_message = "Sign in to ArcLabs to join " + choice.local->title + ": it needs to know who you are.";
+			return false;
+		}
+		start_data.mode = GameClientData::GM_JOIN;
+		start_data.world_path.clear();
+		start_data.address = choice.local->host;
+		start_data.socket_port = choice.local->port;
+		start_data.name = name;
+		start_data.password = choice.local->secret;
+		return true;
+	}
 	if (choice.join && !api) {
 		error_message = "Signed out of ArcLabs before joining.";
 		return false;
@@ -526,7 +545,7 @@ bool ClientLauncher::launch_game(GameErrorData &errordata, GameStartData &start_
 #if USE_SHELL
 	if (!skip_main_menu) {
 		shell::Worlds worlds(g_settings->get("game_id"));
-		shell::Menu menu({ *m_shell, m_rendering_engine, *receiver, worlds });
+		shell::Menu menu({ *m_shell, m_rendering_engine, *receiver, worlds, *m_local_servers });
 		std::optional<shell::Choice> choice = menu.run(error_message);
 		error_message.clear(); // shown by the page
 

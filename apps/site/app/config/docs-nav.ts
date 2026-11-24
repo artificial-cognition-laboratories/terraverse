@@ -196,7 +196,7 @@ export const docsSections: DocsSection[] = [
                     cli("terra <ref>", "/docs/cli/ref"),
                     cli("terra init", "/docs/cli/init"),
                     cli("terra dev", "/docs/cli/dev"),
-                    cli("terra host", "/docs/cli/host"),
+                    cli("terra serve", "/docs/cli/serve"),
                     cli("terra prepare", "/docs/cli/prepare"),
                     cli("terra install", "/docs/cli/install"),
                     cli("terra uninstall", "/docs/cli/uninstall"),

@@ -42,7 +42,7 @@ terra deploy --pull
 ```
 
 Downloads the save into your folder's `save/`, so the whole universe runs on your machine with
-`terra host` exactly as it did online. Nothing is in a format only we can read: leaving costs one
+`terra serve` exactly as it did online. Nothing is in a format only we can read: leaving costs one
 command.
 
 ## Snapshots and resets

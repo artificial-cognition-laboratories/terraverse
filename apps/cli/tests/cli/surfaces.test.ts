@@ -68,7 +68,7 @@ describe("terra mod init", () => {
         process.env.TERRAVERSE_HOME = join(dir, "home")
         try {
             const capture = Renderer.capture({ columns: 160 })
-            const code = await Cli({ exec: process.execPath, renderer: capture }).dispatch(["mod", "init", given, "--scope", "@you"])
+            const code = await Cli({ exec: process.execPath, as: "terra", renderer: capture }).dispatch(["mod", "init", given, "--scope", "@you"])
             return { code: code, text: capture.output(), dir: dir }
         } finally {
             process.chdir(was)
@@ -77,13 +77,13 @@ describe("terra mod init", () => {
         }
     }
 
-    test("a bare name makes it in the profile's mods, and shows where and what to run", async () => {
+    test("a bare name makes it where you are, and shows where and what to run", async () => {
         const { code, text, dir } = await init("kilns")
         expect(code).toBe(0)
-        for (const shown of ["Creating mod", "Scaffolding", "Installing", "Generating", "./home/profiles/local/mods/kilns", "mod.config.ts", "main.ts", "cd ./home/profiles/local/mods/kilns && terra dev"])
+        for (const shown of ["Creating mod", "Scaffolding", "Installing", "Generating", "mod.config.ts", "main.ts", "cd ./kilns && terra dev"])
             expect(text).toContain(shown)
         expect(text).not.toContain(".gitignore")
-        expect(existsSync(join(dir, "home", "profiles", "local", "mods", "kilns", "server", "art.ts"))).toBe(true)
+        expect(existsSync(join(dir, "kilns", "server", "art.ts"))).toBe(true)
     }, 30_000)
 
     test("a path makes it there", async () => {

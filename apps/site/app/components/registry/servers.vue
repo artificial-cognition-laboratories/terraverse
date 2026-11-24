@@ -24,7 +24,7 @@ defineProps<{ servers: readonly Server[] }>()
             <tr v-if="!servers.length" class="none">
                 <td colspan="5">
                     <span class="dot off" />No public servers right now.
-                    <NuxtLink to="/docs/cli/host">Host one</NuxtLink> from the game, or with <code>terra host</code>.
+                    <NuxtLink to="/docs/cli/serve">Host one</NuxtLink> from the game, or with <code>terra serve</code>.
                 </td>
             </tr>
         </tbody>

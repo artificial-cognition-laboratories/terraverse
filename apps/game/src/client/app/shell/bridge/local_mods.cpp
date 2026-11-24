@@ -68,7 +68,7 @@ Json::Value LocalMods::contents(const std::string &path) const
 		throw Refused("terra said nothing it could show: " + lastLines(ran.output, 4));
 	const Json::Value listed = parse(ran.output.substr(at), "terra art list");
 	static std::atomic<unsigned> drawn{ 0 };
-	const std::string base = "terra://contents/" + id + "/";
+	const std::string base = "shell://contents/" + id + "/";
 	const std::string bust = "?s=" + m_opts.session + "-" + std::to_string(drawn++);
 	Json::Value out(Json::arrayValue);
 	for (const Json::Value &e : listed["entries"]) {

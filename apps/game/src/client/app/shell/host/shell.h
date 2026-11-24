@@ -43,8 +43,8 @@ public:
 		video::IVideoDriver *driver;
 		gui::IGUIEnvironment *guienv;
 		gui::ICursorControl *cursor;
-		std::string url;       // page to load: terra://ui/index.html, or a dev server
-		std::string ui_dir;    // served as terra://ui/
+		std::string url;       // page to load: shell://ui/index.html, or a dev server
+		std::string ui_dir;    // served as shell://ui/
 		std::string cache_dir; // Chromium profile and log
 		float scale;           // the display's density: device pixels per CSS pixel, before the window's fit (ui_scale.h)
 		bool gpu;              // Chromium rasterises on the GPU
@@ -91,9 +91,9 @@ public:
 	// The ArcLabs account (who's signed in).
 	class Account &account();
 
-	// Where item icons are written; served to the page as terra://item/.
+	// Where item icons are written; served to the page as shell://item/.
 	const std::string &itemDir() const;
-	// Where a local mod's pictures are written for its Contents: served as terra://contents/.
+	// Where a local mod's pictures are written for its Contents: served as shell://contents/.
 	const std::string &contentsDir() const;
 	// The player's multiplier on the page's size: it's drawn at it from the next frame.
 	void chooseUiScale(float chosen);

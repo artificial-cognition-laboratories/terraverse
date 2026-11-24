@@ -1,5 +1,6 @@
 #include "src/shared/platform/home/home.h"
 
+#include "src/shared/platform/home/browser.h"
 #include "src/shared/platform/home/moving.h"
 #include "src/shared/base/config.h"
 #include "src/shared/platform/system/filesys.h"
@@ -48,8 +49,9 @@ std::unique_ptr<Home> Home::boot(Opts o)
 	if (!o.chosen.empty() && !validName(o.chosen))
 		throw Error("--profile takes local, @handle, or letters, digits, _ and -: not \"" + o.chosen + "\"");
 	const std::string profile = !o.chosen.empty() ? o.chosen : readActive(o.root);
-	// a process asked for a profile (a second player beside the first) has a Chromium of its own
-	const std::string browser = o.root + DIR_DELIM "cache" DIR_DELIM "shell-" + (o.chosen.empty() ? "main" : o.chosen);
+	// a process asked for a profile (a second player beside the first) has a Chromium of its own,
+	// and so does a second game of the same one (browser.h)
+	const std::string browser = freeBrowserCache(o.root + DIR_DELIM "cache" DIR_DELIM "shell-" + (o.chosen.empty() ? "main" : o.chosen));
 	std::unique_ptr<Home> home(new Home(o.root, profile, browser));
 	home->point();
 	// what this engine starts (terra: its sidecar, a mod's contents) keeps things where it does,

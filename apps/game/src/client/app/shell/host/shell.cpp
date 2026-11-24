@@ -7,6 +7,7 @@
 #include "src/shared/platform/home/home.h"
 #include <IEventReceiver.h>
 #include "src/client/app/shell/bridge/account.h"
+#include "src/client/app/shell/bridge/profiles.h"
 #include "src/client/app/shell/bridge/social.h"
 #include "src/client/app/shell/host/app.h"
 #include "src/client/app/shell/bridge/bridge.h"
@@ -41,22 +42,6 @@ shell::Shell *g_shell = nullptr;
 
 namespace shell {
 
-// One saved sign-in per backend: a key from the local stack means nothing to
-// production, so the two never overwrite each other.
-static std::string accountPath(const std::string &dir, const std::string &api)
-{
-	if (!fs::CreateAllDirs(dir))
-		throw BaseException("shell: could not create " + dir);
-	if (api == Settings::getLayer(SL_DEFAULTS)->get("arclabs_url"))
-		return dir + DIR_DELIM "account.json";
-	std::string host = api.substr(api.find("://") == std::string::npos ? 0 : api.find("://") + 3);
-	for (char &c : host) {
-		if (!std::isalnum(static_cast<unsigned char>(c)) && c != '.' && c != '-')
-			c = '_';
-	}
-	return dir + DIR_DELIM "account-" + host + ".json";
-}
-
 static const char *modeName(Mode mode)
 {
 	switch (mode) {
@@ -89,6 +74,7 @@ struct Shell::Impl
 	// Social first: the account tells it who's signed in.
 	std::unique_ptr<Social> social;
 	std::unique_ptr<Account> account;
+	std::unique_ptr<Profiles> profiles; // the accounts remembered here: switching, signing out
 	CefRefPtr<CefMessageRouterBrowserSide> router;
 	CefRefPtr<Client> client;
 	CefRefPtr<CefBrowser> browser;
@@ -259,7 +245,7 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(wired(opts)))
 		return Json::Value();
 	});
 	m->social = std::make_unique<Social>(opts.arclabs, [this](const Json::Value &message) { m->send(message); });
-	m->account = std::make_unique<Account>(opts.arclabs, accountPath(opts.home.profileDir(), opts.arclabs),
+	m->account = std::make_unique<Account>(opts.arclabs, Profiles::keyPath(opts.home.profileDir(), opts.arclabs),
 			[this, &home = opts.home](const Json::Value &message) {
 				bool in = message["account"]["status"].asString() == "signedIn";
 				// signed in: the account's own profile is the one running (home.md, "Profiles")
@@ -279,11 +265,24 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(wired(opts)))
 		m->account->cancel();
 		return Json::Value();
 	});
-	m->bridge.on("account.signOut", [this, &home = opts.home, api = opts.arclabs](const Json::Value &) {
-		m->account->signOut();
-		// back to playing signed out; the account's profile is kept for its next sign-in
-		home.signedOut();
-		m->account->keyAt(accountPath(home.profileDir(), api));
+	m->profiles = std::make_unique<Profiles>(Profiles::Opts{ .home = opts.home, .account = *m->account, .api = opts.arclabs });
+	m->bridge.on("account.signOut", [this](const Json::Value &) {
+		m->profiles->signOut();
+		return Json::Value();
+	});
+	m->bridge.on("account.leave", [this](const Json::Value &) {
+		m->profiles->leave();
+		return Json::Value();
+	});
+	m->bridge.on("profiles.list", [this](const Json::Value &) {
+		return m->profiles->list();
+	});
+	m->bridge.on("profiles.use", [this](const Json::Value &intent) {
+		m->profiles->use(intent["name"].isString() ? intent["name"].asString() : "");
+		return Json::Value();
+	});
+	m->bridge.on("profiles.forget", [this](const Json::Value &intent) {
+		m->profiles->forget(intent["name"].isString() ? intent["name"].asString() : "");
 		return Json::Value();
 	});
 	m->bridge.on("account.retry", [this](const Json::Value &) {

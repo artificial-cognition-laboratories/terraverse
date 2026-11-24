@@ -40,6 +40,13 @@ Account::Account(std::string api, std::string key_path, Send send) :
 	m_api(std::move(api)), m_key_path(std::move(key_path)), m_send(std::move(send)),
 	m_caller(httpfetch_caller_alloc_secure())
 {
+	resume();
+}
+
+void Account::resume()
+{
+	if (m_status != Status::SignedOut)
+		throw Refused("already signed in, or signing in");
 	std::string saved;
 	if (!fs::PathExists(m_key_path))
 		return;
@@ -108,6 +115,16 @@ void Account::signOut()
 	++m_generation;
 	m_in_flight = false;
 	forget();
+	become(Status::SignedOut);
+}
+
+void Account::leave()
+{
+	if (m_status == Status::SignedOut)
+		throw Refused("not signed in");
+	++m_generation;
+	m_in_flight = false;
+	m_key.clear();
 	become(Status::SignedOut);
 }
 

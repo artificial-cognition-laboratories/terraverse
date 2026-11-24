@@ -361,13 +361,14 @@ void Client::step(float dtime)
 	// (rates in KiB/s, the way the connection counts them; times in seconds)
 	if (m_con) {
 		const float rtt = m_con->getPeerStat(PEER_ID_SERVER, con::AVG_RTT);
+		// no server peer (refused, or gone): nothing to measure, and getLocalStat would abort
 		if (rtt >= 0) {
 			trace::count("Net: RTT [ms]", rtt * 1000, trace::Fold::Last);
 			trace::count("Net: jitter [ms]", m_con->getPeerStat(PEER_ID_SERVER, con::AVG_JITTER) * 1000, trace::Fold::Last);
+			trace::count("Net: receive [KiB/s]", m_con->getLocalStat(con::CUR_INC_RATE), trace::Fold::Last);
+			trace::count("Net: send [KiB/s]", m_con->getLocalStat(con::CUR_DL_RATE), trace::Fold::Last);
+			trace::count("Net: lost [KiB/s]", m_con->getLocalStat(con::CUR_LOSS_RATE), trace::Fold::Last);
 		}
-		trace::count("Net: receive [KiB/s]", m_con->getLocalStat(con::CUR_INC_RATE), trace::Fold::Last);
-		trace::count("Net: send [KiB/s]", m_con->getLocalStat(con::CUR_DL_RATE), trace::Fold::Last);
-		trace::count("Net: lost [KiB/s]", m_con->getLocalStat(con::CUR_LOSS_RATE), trace::Fold::Last);
 	}
 
 	{

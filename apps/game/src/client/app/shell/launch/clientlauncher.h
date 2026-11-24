@@ -58,6 +58,7 @@ private:
 	std::unique_ptr<shell::Shell> m_shell;
 	std::unique_ptr<shell::Wiki> m_wiki; // after m_shell: gone before it (it unregisters its verbs)
 	std::unique_ptr<shell::Figures> m_figures; // the same
+	std::unique_ptr<shell::LocalServers> m_local_servers; // what terra runs here: the Library lists them, the menu joins them
 	std::unique_ptr<shell::Library> m_library; // the same
 #endif
 };

@@ -1,6 +1,6 @@
 // A universe on disk, made from a world code: the game's world folder, and the map
 // settings that make it that star system (sprint 119). Made here for both the main menu's
-// new worlds (shell/worlds.cpp) and a TypeScript server's first boot (terra host).
+// new worlds (shell/worlds.cpp) and a TypeScript server's first boot (terra serve).
 #pragma once
 
 #include <string>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue"
-import { BridgeError, type IntentKind, type Intents, type Player } from "../bridge/index.ts"
+import { computed, onMounted, onUnmounted, ref, watch } from "vue"
+import { BridgeError, type IntentKind, type Intents, type Player, type RememberedProfile } from "../bridge/index.ts"
 import { useBridge } from "../bridge/use.ts"
 import { useStore } from "../game/store.ts"
 import Panel from "./panel/Panel.vue"
@@ -13,6 +13,17 @@ const expanded = ref(false)
 const error = ref<string | null>(null)
 const busy = ref(false)
 const joining = ref<string | null>(null)
+// the accounts remembered here, read whenever the panel opens signed out: switching is one click
+const remembered = ref<RememberedProfile[] | null>(null)
+watch(() => [expanded.value, store.account?.status] as const, async ([open, status]) => {
+    if (!open || status !== "signedOut") return
+    try { remembered.value = await bridge.send("profiles.list", {}) }
+    catch (e) { error.value = e instanceof Error ? e.message : String(e) }
+}, { immediate: true })
+async function forget(name: string) {
+    await act("profiles.forget", { name: name })
+    remembered.value = await bridge.send("profiles.list", {})
+}
 const waiting = computed(() => {
     const view = store.social?.view
     return view ? view.incoming.length + view.invites.length : 0
@@ -72,9 +83,10 @@ async function join(player: Player) {
             <span v-if="waiting" class="badge">{{ waiting }}</span>
         </IconButton>
         <Panel v-if="expanded" id="profile-dropdown" class="drop" :account="store.account" :social="store.social"
-            :error="error" :busy="busy" :joining="joining"
+            :error="error" :busy="busy" :joining="joining" :remembered="remembered"
             @sign-in="act('account.signIn', {})" @cancel="act('account.cancel', {})"
-            @sign-out="act('account.signOut', {})" @retry="act('account.retry', {})"
+            @sign-out="act('account.signOut', {})" @leave="act('account.leave', {})" @retry="act('account.retry', {})"
+            @use="act('profiles.use', { name: $event })" @forget="forget"
             @open-url="act('open', { url: $event })"
             @request="act('social.request', { username: $event })"
             @accept="act('social.accept', { id: $event })"

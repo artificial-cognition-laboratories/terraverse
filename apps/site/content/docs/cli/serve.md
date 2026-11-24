@@ -1,15 +1,15 @@
 ---
-title: terra host
+title: terra serve
 description: Run the server in this folder with no window, for whoever is allowed to join.
 ---
 
-# `terra host`
+# `terra serve`
 
 Run the server you're standing in with no window, for whoever is allowed to join.
 
 ```bash
-terra host
-terra host ./my_server
+terra serve
+terra serve ./my_server
 ```
 
 It [prepares](/docs/server/lifecycle#prepare), boots, opens its worlds and runs until stopped.

@@ -9,4 +9,4 @@
 SCRIPT=$(realpath "$0")
 DIR=$(dirname "$SCRIPT")
 ROOT=$(realpath "$DIR/../../..")
-TERRA_ENGINE="$ROOT/.output/bin" TERRA_CLI="$SCRIPT" exec bun "$DIR/terra.ts" "$@"
+TERRA_ENGINE="$ROOT/.output/bin" TERRA_CLI="$SCRIPT" TERRA_AS=terral exec bun "$DIR/terra.ts" "$@"

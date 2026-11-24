@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { Account } from "../../bridge"
 
-/** Who you're signed in as, where the account is managed, and signing out. */
+/** Who you're signed in as, where the account is managed, switching to another, and signing out. */
 defineProps<{ account: Extract<Account, { status: "signedIn" }>; busy: boolean }>()
-const emit = defineEmits<{ signOut: []; openUrl: [url: string] }>()
+const emit = defineEmits<{ signOut: []; leave: []; openUrl: [url: string] }>()
 // The site the account lives on (apps/site): sign-in, your name, your mods
 const SITE = "https://terraverse.arclabs.it"
 </script>
@@ -21,6 +21,8 @@ const SITE = "https://terraverse.arclabs.it"
             </button></li>
         </ul>
         <div class="foot">
+            <!-- switching keeps this account remembered; signing out forgets it here -->
+            <button class="act" :disabled="busy" @click="emit('leave')">Switch profile</button>
             <button class="act warn" :disabled="busy" @click="emit('signOut')">Sign out</button>
         </div>
     </div>
@@ -33,5 +35,5 @@ dt { color: var(--ink-faint); }
 dd { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
 .out { color: var(--ink-faint); font: 0.8rem var(--font-display); }
 .row:hover .out { color: var(--accent-hi); }
-.foot { display: flex; justify-content: flex-end; margin-top: 0.6rem; padding: 0.6rem 0.6rem 0.2rem; border-top: 1px solid var(--glass-edge); }
+.foot { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.6rem; padding: 0.6rem 0.6rem 0.2rem; border-top: 1px solid var(--glass-edge); }
 </style>

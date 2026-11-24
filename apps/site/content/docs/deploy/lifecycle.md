@@ -33,12 +33,12 @@ so nothing you do locally can overwrite what people have built online.
 
 ## Running
 
-Exactly what `terra host` does: the same engine, the same version, the same mods at the same
+Exactly what `terra serve` does: the same engine, the same version, the same mods at the same
 pins. Players join by its address, or from the public list if you've chosen to be on it. Who may
 join is still `server.config.ts`.
 
 Logs, players online and each world's state are on the dashboard, and commands run from its
-console as they would from `terra host`.
+console as they would from `terra serve`.
 
 ## Asleep
 

@@ -13,7 +13,7 @@ CefMessageRouterConfig routerConfig();
 
 /*
 	Process-level Chromium hooks, shared by the game process and the helpers
-	it spawns: command-line switches, the terra:// scheme, and the renderer
+	it spawns: command-line switches, the shell:// scheme, and the renderer
 	half of the message router.
 */
 class App : public CefApp, public CefRenderProcessHandler

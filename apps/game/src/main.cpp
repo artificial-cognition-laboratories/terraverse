@@ -141,6 +141,7 @@ static OptionList allowed_options;
 #include "library/world/terragen/src/grid/grid.h"
 #include "library/world/terragen/src/base/progress.h"
 #include <filesystem>
+#include "src/shared/platform/online/local.h"
 // Terra Firma: built planet grids kept between runs, named by what they're
 // built from; the river levels and atlas layouts by all terragen's sources
 static void keepTerrainGrids()
@@ -485,7 +486,7 @@ static void set_allowed_options(OptionList *allowed_options)
 	allowed_options->insert(std::make_pair("world", ValueSpec(VALUETYPE_STRING,
 			_("Set world path" LOCAL_GAME))));
 	allowed_options->insert(std::make_pair("server-folder", ValueSpec(VALUETYPE_STRING,
-			_("Run the TypeScript mods of this server folder (terra host passes it)"))));
+			_("Run the TypeScript mods of this server folder (terra serve passes it)"))));
 	allowed_options->insert(std::make_pair("probe", ValueSpec(VALUETYPE_STRING,
 			_("Run a check's probe in the server (src/probe: scripts/*-check.sh pass it)"))));
 	allowed_options->insert(std::make_pair("world-code", ValueSpec(VALUETYPE_STRING,
@@ -1298,6 +1299,11 @@ static bool run_dedicated_server(const GameParams &game_params, const Settings &
 	if (cmd_args.getFlag("recompress"))
 		return recompress_map_database(game_params, cmd_args);
 
+	// Terra Firma: a server terra started for this machine admits by its run's secret
+	const std::optional<online::LocalRun> local = online::LocalRun::fromEnvironment();
+	if (local && !local->owner.empty())
+		g_settings->set("name", local->owner); // its owner, its admin (server.cpp: m_access)
+
 	// Bind address
 	std::string bind_str = g_settings->get("bind_address");
 	Address bind_addr(0, 0, 0, 0, game_params.socket_port);
@@ -1346,6 +1352,8 @@ static bool run_dedicated_server(const GameParams &game_params, const Settings &
 					false, UDPSocket::Create(bind_addr), true, &iface);
 			server.setServerFolder(game_params.server_folder);
 			server.setProbe(game_params.probe);
+			if (local)
+				server.setGate(local->gate(g_version_hash));
 
 			g_term_console.setup(&iface, &kill, admin_nick);
 
@@ -1389,6 +1397,8 @@ static bool run_dedicated_server(const GameParams &game_params, const Settings &
 					UDPSocket::Create(bind_addr), true);
 			server.setServerFolder(game_params.server_folder);
 			server.setProbe(game_params.probe);
+			if (local)
+				server.setGate(local->gate(g_version_hash));
 			server.start();
 
 			// Run server

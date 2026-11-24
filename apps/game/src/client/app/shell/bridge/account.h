@@ -42,10 +42,16 @@ public:
 	void cancel();
 	// Forgets the key on this machine.
 	void signOut();
+	// Signed out here, the key kept with its profile: switching to another profile.
+	void leave();
+	// Signs in with the key saved at keyPath(), if there is one: checked with the backend.
+	void resume();
 	// Checks the saved key again after the backend couldn't be reached.
 	void retry();
 	// The key's file moved (the player's profile changed): where it's kept from now on.
 	void keyAt(std::string path) { m_key_path = std::move(path); }
+	// Neither signed in nor on the way: a profile can be switched to.
+	bool signedOut() const { return m_status == Status::SignedOut; }
 	// The file the key is kept in.
 	const std::string &keyPath() const { return m_key_path; }
 

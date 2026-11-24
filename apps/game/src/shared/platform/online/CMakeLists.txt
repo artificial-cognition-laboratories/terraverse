@@ -5,6 +5,8 @@ set(online_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/endpoint.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/gate.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/http.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/local.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ref.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/stun.cpp
 	PARENT_SCOPE)
 set(online_client_SRCS

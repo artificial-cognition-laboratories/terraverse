@@ -12,7 +12,7 @@ Making a server is writing down what universe it is. Its rules are the mods in
 ```bash
 terra server init my_server
 cd my_server
-terra host
+terra serve
 ```
 
 That's already a server: one star system, one world, no mods, and you're its admin. The rest

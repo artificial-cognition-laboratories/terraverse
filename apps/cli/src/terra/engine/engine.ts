@@ -2,6 +2,7 @@ import { existsSync } from "node:fs"
 import { dirname } from "node:path"
 import { err } from "../../errors"
 import type { PreparedServer } from "../project"
+import type { RunningT } from "../running"
 
 /** How it runs: a dedicated server with no window, or the game, straight into the universe. */
 export type EngineMode = "server" | "game"
@@ -37,6 +38,9 @@ export type EngineProcess = {
     stop(): void
 }
 
+/** The signals that ask terra to stop, other than Ctrl-C: passed on to the engine. */
+export const STOPS = ["SIGTERM", "SIGHUP"] as const
+
 /** What each mode adds to the engine's command line. */
 const MODES: Record<EngineMode, (port: number) => string[]> = {
     server: port => ["--server", "--port", String(port)],
@@ -48,7 +52,11 @@ const MODES: Record<EngineMode, (port: number) => string[]> = {
  * Engine — the game's engine: a dedicated server, or the game itself. `bin` is the folder it's
  * in: beside terra when installed, or a build tree's for terra run from source (terral).
  */
-export function Engine(opts: { bin: string }) {
+export function Engine(opts: {
+    bin: string
+    /** Where a server it starts is recorded, for the game to list and join. */
+    running: RunningT
+}) {
     /**
      * The engine in its folder. An installed version starts it through its `terraverse`
      * wrapper, one folder up, which finds its bundled libraries first; the build tree has
@@ -72,28 +80,46 @@ export function Engine(opts: { bin: string }) {
                 ? ["--world", e.world, "--world-code", e.server.config.system, "--server-folder", e.server.root]
                 : ["--world-code", e.code]),
         ]
+        // a server's run: its secret admits players from this machine (online/local.h); through
+        // the environment, never the command line, which anyone here can read
+        const run = e.mode === "server" && "server" in e ? opts.running.prepare() : null
+        const env = run ? { ...process.env, TERRA_LOCAL_SECRET: run.secret, ...(run.owner ? { TERRA_OWNER: run.owner } : {}) } : process.env
         // SIGTERM, not SIGINT: the game's Chromium takes Ctrl-C for itself and never passes it on
         const output = e.output
-        if (!output) {
-            const proc = Bun.spawn([binary(), ...args], { stdio: ["inherit", "inherit", "inherit"] })
-            return { exited: proc.exited, stop: () => proc.kill("SIGTERM") }
+        const proc = output
+            ? Bun.spawn([binary(), ...args], { env: env, stdin: "ignore", stdout: "pipe", stderr: "pipe" })
+            : Bun.spawn([binary(), ...args], { env: env, stdio: ["inherit", "inherit", "inherit"] })
+        const read = output && proc.stdout instanceof ReadableStream && proc.stderr instanceof ReadableStream
+            ? Promise.all([lines(proc.stdout, output), lines(proc.stderr, output)])
+            : Promise.resolve()
+        const exited = read.then(() => proc.exited)
+        if (run && "server" in e) {
+            const done = opts.running.started({
+                title: e.server.title,
+                mods: e.server.mods.map(m => m.name),
+                port: e.port,
+                server: e.server.root,
+            }, { pid: proc.pid, secret: run.secret, owner: run.owner })
+            void exited.finally(done)
         }
-        const proc = Bun.spawn([binary(), ...args], { stdin: "ignore", stdout: "pipe", stderr: "pipe" })
-        const read = Promise.all([lines(proc.stdout, output), lines(proc.stderr, output)])
-        return { exited: read.then(() => proc.exited), stop: () => proc.kill("SIGTERM") }
+        return { exited: exited, stop: () => proc.kill("SIGTERM") }
     }
 
     /** Run it until it stops, in this terminal. Its exit code. */
     async function run(e: EngineRun): Promise<number> {
         const engine = start(e)
         // Ctrl-C reaches the engine too, in our process group: it saves and exits, and we
-        // wait for that rather than leaving it behind
+        // wait for that rather than leaving it behind. A stop sent to terra alone (Fleet, a
+        // service manager) is passed on, so the engine is never orphaned.
         const ignore = () => {}
+        const pass = () => engine.stop()
         process.on("SIGINT", ignore)
+        for (const signal of STOPS) process.on(signal, pass)
         try {
             return await engine.exited
         } finally {
             process.off("SIGINT", ignore)
+            for (const signal of STOPS) process.off(signal, pass)
         }
     }
 

@@ -12,6 +12,8 @@ type CliOpts = {
     exec: string
     /** The folder the engine is in, when it isn't beside exec: a build tree, for terral. */
     engine?: string
+    /** The name it was typed as: what the commands it suggests start with. */
+    as: string
     /** Where output goes. A test passes arcline's Renderer.capture(). */
     renderer?: RendererHandle
 }
@@ -24,7 +26,7 @@ export function Cli(opts: CliOpts) {
     const terra = Terra({ exec: opts.exec, ...(opts.engine ? { engine: opts.engine } : {}) })
     const presentation = Presentation({ ...(opts.renderer ? { capture: opts.renderer } : {}), registry: terra.registry.where })
     const boundary = Boundary({ presentation: presentation })
-    const commands = Commands({ terra: terra, presentation: presentation, version: pkg.version })
+    const commands = Commands({ terra: terra, presentation: presentation, version: pkg.version, as: opts.as })
 
     /** Run argv: the exit code. */
     function dispatch(argv: readonly string[]): Promise<number> {

@@ -45,7 +45,7 @@ export const Event = {
 /**
  * How the engine's process ends, beyond 0 and 1. `restart`: the mods now declare different
  * content than the universe started with, so it stopped to be started again (terra dev and
- * terra host do), rather than run on with content that doesn't match.
+ * terra serve do), rather than run on with content that doesn't match.
  */
 export const Exit = {
     restart: 75,

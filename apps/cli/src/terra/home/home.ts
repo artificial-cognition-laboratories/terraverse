@@ -59,6 +59,20 @@ export function Home(opts: HomeOpts) {
         return dir
     }
 
+    /** The account the active profile is, or null for one that's no one's (local). */
+    function handle(): string | null {
+        const file = join(profile(), "profile.json")
+        if (!existsSync(file)) return null
+        const saved: unknown = JSON.parse(readFileSync(file, "utf8"))
+        const value = typeof saved === "object" && saved !== null ? Reflect.get(saved, "handle") : undefined
+        return typeof value === "string" && value ? value : null
+    }
+
+    /** Where the servers running on this machine are recorded (running/): the game reads it too. */
+    function running(): string {
+        return join(root, "running")
+    }
+
     /** Run as `name` from now on, here and in the game: it's remembered as the active one. */
     function use(name: string): void {
         profile(name)
@@ -124,6 +138,8 @@ export function Home(opts: HomeOpts) {
         cache: cache,
         active: active,
         profile: profile,
+        handle: handle,
+        running: running,
         use: use,
         signedIn: signedIn,
         signedOut: signedOut,

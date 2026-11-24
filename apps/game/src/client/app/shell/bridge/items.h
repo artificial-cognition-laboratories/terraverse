@@ -18,7 +18,7 @@ namespace shell {
 /*
 	What the page needs to show an item: its label and an icon it can load.
 	Icons are rendered by the engine (blocks are composed cubes, not files),
-	written once per session into `dir`, and served as terra://item/<file>.
+	written once per session into `dir`, and served as shell://item/<file>.
 */
 class Items
 {
@@ -46,7 +46,7 @@ private:
 	// A cube's faces flat, for the library's viewer: { top, bottom, side } URLs, or null for
 	// what isn't drawn as a cube.
 	Json::Value faces(const ItemDefinition &def);
-	// A texture rendered to a file in `dir`: its terra://item/ URL.
+	// A texture rendered to a file in `dir`: its shell://item/ URL.
 	std::string served(const std::string &texture, const std::string &file) const;
 	void writeIcon(const std::string &texture, const std::string &path) const;
 

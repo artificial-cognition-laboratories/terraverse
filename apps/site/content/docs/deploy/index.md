@@ -13,21 +13,21 @@ Your server folder, kept online by us.
 terra deploy
 ```
 
-The same folder you run with `terra host`, running on our machines instead: always on, reachable
+The same folder you run with `terra serve`, running on our machines instead: always on, reachable
 by name, backed up as it plays, and costing next to nothing while nobody's there. Nothing about
 the server changes. The same rules, the same mods, the same save.
 
 ## Free to run anywhere
 
 Everything in Terraverse is free and open: the game, the mod API, the registry, and hosting
-your own server. `terra host` on your PC, a spare machine or any VPS runs exactly what we run.
+your own server. `terra serve` on your PC, a spare machine or any VPS runs exactly what we run.
 
 Managed hosting is for when you'd rather not: a universe that's up when you're asleep, reachable
 without opening ports, backed up without you thinking about it. You pay for the looking-after,
 never for access.
 
 And you can always leave. Your save downloads as an ordinary server folder, which runs anywhere
-`terra host` does.
+`terra serve` does.
 
 ## What you get
 
