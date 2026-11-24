@@ -53,6 +53,7 @@ const TABS = [
     { id: "building", label: "Building blocks", icon: "core:stone_bricks" },
     { id: "nature", label: "Nature", icon: "core:grass" },
     { id: "matter", label: "Matter: every substance", icon: "core:copper" },
+    { id: "tools", label: "Tools", icon: "core:axe" },
     { id: "items", label: "Items", icon: "" },
 ]
 const tabs = computed(() => TABS.flatMap((t) => {
@@ -120,7 +121,9 @@ onBeforeUnmount(() => {
 })
 
 const tooltip = computed(() => {
-    if (carry.busy.value || !over.value) return null
+    if (!over.value) return null
+    // carrying, only notes: what the cursor would do (making/Offers.vue), never the slot under it
+    if (carry.busy.value) return "note" in over.value ? over.value.note : null
     if ("item" in over.value) return over.value.item.description
     if ("part" in over.value) return `${over.value.part} · click to carry it`
     if ("note" in over.value) return over.value.note
@@ -185,7 +188,7 @@ const tooltip = computed(() => {
         <div v-if="carry.carried.value" class="hand" :style="{ left: `${carry.cursor.value.x}px`, top: `${carry.cursor.value.y}px` }">
             <ItemSlot :stack="carry.carried.value" />
         </div>
-        <div v-else-if="tooltip" class="tooltip" :style="{ left: `${carry.cursor.value.x + 16}px`, top: `${carry.cursor.value.y + 16}px` }">
+        <div v-if="tooltip" class="tooltip" :style="{ left: `${carry.cursor.value.x + 16}px`, top: `${carry.cursor.value.y + 16}px` }">
             {{ tooltip }}
         </div>
     </div>

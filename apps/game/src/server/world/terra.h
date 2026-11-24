@@ -4,6 +4,8 @@
 #pragma once
 
 #include "src/client/views/game/far/land/terrain.h"
+#include "src/server/game/cut/cuts.h"
+#include "src/server/game/dig/digs.h"
 #include "src/server/world/generate/place/terra_species.h"
 #include "library/matter/matter/matter.h"
 #include "library/world/terragen/src/system/system.h"
@@ -35,6 +37,9 @@
 */
 struct ServerTerra
 {
+	// cutting (sprint 123): what tools peel off blocks, and each player's chosen cut
+	std::unique_ptr<cut::Cuts> cuts;
+	std::unique_ptr<dig::Digs> digs; // the shovel (sprint 124)
 	std::vector<terra::SpeciesDef> species; // registration order
 	std::optional<std::vector<terra::Species>> resolved; // against the node definitions
 	std::vector<std::unique_ptr<terragen::World>> worlds; // by body

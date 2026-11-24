@@ -10,6 +10,8 @@
 #include <optional>
 #include <vector>
 #include "src/client/views/game/camera.h"
+#include "src/client/world/cut/cutting.h"
+#include "src/client/world/dig/digging.h"
 #include "src/client/world/session/client.h"
 #include "src/client/app/clientevent.h"
 #include "src/client/render/renderingengine.h"
@@ -339,6 +341,8 @@ private:
 	std::unique_ptr<GameUI> m_game_ui;
 #if USE_SHELL
 	std::unique_ptr<shell::Session> m_shell_session;
+	std::unique_ptr<dig::Digging> m_digging; // Terra Firma: the shovel (sprint 124)
+	std::unique_ptr<cut::Cutting> m_cutting; // Terra Firma: F's cut menu, and what a dig would peel off (sprint 123)
 	// Terra Firma: this world hosted for friends (src/online/host.h); null otherwise.
 	// Holds the server's socket handle, so it goes before the server does.
 	std::unique_ptr<online::Host> m_online_host;
@@ -437,6 +441,8 @@ private:
 	void handleTools(const PointedThing &pointed);
 	// one of the page's rail's asks (Hand::Ask), or a key's
 	void handleAsk(const Hand::Ask &ask, const PointedThing &pointed);
+	// Terra Firma: a box seen through, where something would go (sprint 123: a member held)
+	void showSolid(v3s16 node, const aabb3f &box, video::SColor colour, v3s16 camera_offset);
 	void showGhost(const Aim &aim, const sculpt::Stroke &stroke, v3s16 camera_offset);
 	core::line3d<f32> m_pointed_from; // this frame's shootline
 	// a button held off a held object: dragged, it turns it (on the

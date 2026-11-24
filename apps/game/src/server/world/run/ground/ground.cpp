@@ -27,8 +27,10 @@ int corner(const std::array<Column, 4> &around, size_t own)
 	// than a block above its cluster's lowest
 	std::array<int, 4> tops;
 	size_t n = 0;
+	// loose ground never climbs what's solid (a block placed on it, a trunk, rock): only
+	// a solid at or below its level joins the average; one above just keeps its face hidden
 	for (const Column &c : around)
-		if (c.kind != Kind::None)
+		if (c.kind == Kind::Loose || (c.kind == Kind::Solid && c.top <= mine))
 			tops[n++] = c.top;
 	std::sort(tops.begin(), tops.begin() + n);
 	int sum = 0, count = 0;

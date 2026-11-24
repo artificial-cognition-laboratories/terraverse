@@ -65,7 +65,7 @@ threading these together. Known gaps belong in `TODO.md`.
 
 ```
 apps/game/src/      the Luanti fork, plus our systems in their own folders (below)
-apps/game/ui/       the Vue app: menus, HUD, inventory, wiki, gallery
+apps/game/ui/       the Vue app: menus, HUD, inventory, wiki
 apps/game/server/   the game's own server folder: the official TypeScript mods every world runs
 apps/game/game/     the game's baked data: palette.json, moves.json, vehicles.json, ground.json
 apps/cli/           terra: the CLI, and the sidecar that runs TypeScript mods (sprint 119)
@@ -263,8 +263,8 @@ Each file in `shell/` owns one concern.
 - The page gets the keyboard only while an editable element has focus (`bridge/keyboard.ts`).
 
 **UI rules.**
-- Build every screen from the kit (`ui/src/kit`). New patterns become kit components, with a gallery
-  specimen. Everything must render in the gallery against `gallery/mock.ts`.
+- Build every screen from the kit (`ui/src/kit`). New patterns become kit components. UI is seen in
+  the game itself, which hot-reloads the page under `bun dev`.
 - The website's look (apps/site): the night palette, flat glass (`--glass`, one 1px `--glass-edge`,
   the `--sheen` top line), never a hand-written bevel. Tokens are in `theme.css`. Hard edges, no radius.
   The deep ocean (`--accent-lo` fill, `--accent-hi` text) and `»` are the only brand marks. Full
@@ -281,7 +281,6 @@ else below is the game's, run from `apps/game` (`cd apps/game && bun check:wiki`
 
 ```bash
 bun dev                 # engine, Vite, game against the dev server (hot reload); --go enters a world; --profile two adds a second player
-bun components          # the component gallery in a browser, mock engine, no game
 bun run build           # engine + production UI
 bash apps/game/scripts/build.sh -j8              # engine only, waits its turn if another build is running (after cmake -S . -B .output/build -DRUN_IN_PLACE=TRUE)
 bun run stage           # refresh resources in the runtime tree
@@ -326,7 +325,7 @@ To tune by eye, render a code's grid to a PNG:
 (`<code>@<body>` draws another body.)
 
 **How agents verify:** build the engine, typecheck and build the UI, boot headless for start-up errors,
-run the check for what changed, and use the gallery for UI. Agents may run the engine, the game
+run the check for what changed, and see UI in the game (`bun dev` hot-reloads it). Agents may run the engine, the game
 client and the render tools to see their work or capture images from it. Say
 plainly what was and wasn't run. Commit only when asked.
 

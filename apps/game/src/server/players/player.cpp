@@ -249,6 +249,8 @@ void terraJoinPlayer(Server *server, PlayerSAO *sao)
 	}
 	server->setUi(player, "creative", creative() ? "true" : "false");
 	server->commands().tell(player); // what they may run, for the palette
+	server->terra().cuts->tell(server, player); // what their tools cut, and their chosen cut
+	server->terra().digs->tell(server, player); // what a shovel does, and their chosen operation
 
 	// the wiki (key G), where the world's rules allow it (tf_wiki in world.mt, chosen on
 	// the create screen's Rules); a world from before the rule keeps it
@@ -346,6 +348,30 @@ bool terraUiEvent(Server *server, PlayerSAO *sao, const std::string &name, const
 			main->changeItem(slot, stack);
 		}
 		server->SendInventory(player, false);
+		return true;
+	}
+	if (name == "cut.choose") {
+		server->terra().cuts->choose(server, player, payload);
+		return true;
+	}
+	if (name == "cut.take") {
+		server->terra().cuts->take(server, sao, payload);
+		return true;
+	}
+	if (name == "cut.lift") {
+		server->terra().cuts->lift(server, sao, payload);
+		return true;
+	}
+	if (name == "dig.choose") {
+		server->terra().digs->choose(server, player, payload);
+		return true;
+	}
+	if (name == "dig.take") {
+		server->terra().digs->take(server, sao, payload);
+		return true;
+	}
+	if (name == "cut.place") {
+		server->terra().cuts->place(server, sao, payload);
 		return true;
 	}
 	if (name == "map.teleport") {

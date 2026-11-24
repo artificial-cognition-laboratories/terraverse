@@ -318,6 +318,42 @@ bool Hud::hasElementOfType(HudElementType type)
 
 // Terra Firma: the kit's colours (ui/src/theme.css): stone, its lit and
 // shaded edges, the accent, the ink
+void Hud::drawSolids(video::IVideoDriver *driver)
+{
+	// glass, seen through, hidden where the world's in front; then its edges, in its colour
+	static const video::SColor GLASS(40, 190, 215, 235);
+	video::SMaterial m = m_selection_material;
+	m.BackfaceCulling = false;
+	m.ZWriteEnable = video::EZW_OFF;
+	m.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
+	driver->setMaterial(m);
+	driver->setTransform(video::ETS_WORLD, core::IdentityMatrix);
+	static const u16 FACES[6][4] = { { 0, 2, 6, 4 }, { 1, 3, 7, 5 }, { 0, 1, 5, 4 }, { 2, 3, 7, 6 }, { 0, 1, 3, 2 }, { 4, 5, 7, 6 } };
+	static const u16 INDICES[] = { 0, 1, 2, 0, 2, 3 };
+	for (const Solid &s : m_solids) {
+		// its colour's alpha fades the whole of it (a bore's further cells: sprint 124)
+		video::SColor glass = GLASS;
+		glass.setAlpha(GLASS.getAlpha() * s.colour.getAlpha() / 255);
+		for (const auto &f : FACES) {
+			const v3f n(0, 1, 0);
+			const video::S3DVertex v[4] = { { s.corners[f[0]], n, glass, v2f() }, { s.corners[f[1]], n, glass, v2f() },
+				{ s.corners[f[2]], n, glass, v2f() }, { s.corners[f[3]], n, glass, v2f() } };
+			driver->drawIndexedTriangleList(v, 4, INDICES, 2);
+		}
+	}
+	video::SMaterial lines = m_selection_material;
+	lines.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
+	driver->setMaterial(lines);
+	for (const Solid &s : m_solids) {
+		// faint, as the menus' edges are
+		const video::SColor edge(110 * s.colour.getAlpha() / 255, s.colour.getRed(), s.colour.getGreen(), s.colour.getBlue());
+		for (int i = 0; i < 8; i++)
+			for (int bit : { 1, 2, 4 })
+				if (!(i & bit))
+					driver->draw3DLine(s.corners[i], s.corners[i | bit], edge);
+	}
+}
+
 void Hud::drawTiles(video::IVideoDriver *driver)
 {
 	static const video::SColor STONE(240, 38, 43, 48), LIGHT(255, 92, 100, 108), DARK(255, 12, 14, 16),
@@ -943,6 +979,8 @@ void Hud::drawSelectionMesh()
 		return;
 	if (!m_tiles.empty()) // Terra Firma
 		drawTiles(driver);
+	if (!m_solids.empty()) // Terra Firma
+		drawSolids(driver);
 	if (!m_grid.empty()) { // Terra Firma
 		video::SMaterial faded = m_selection_material;
 		faded.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;

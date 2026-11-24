@@ -105,6 +105,31 @@ static void ignore(Args &&...)
 {
 }
 
+// Who sent a quit, on stderr (async-signal-safe: digits by hand), so a game that
+// ends unasked says what ended it: a pid, which `ps` or the journal names.
+static void say_sender(int sig, pid_t from)
+{
+	char text[96] = "INFO: signal_handler(): ";
+	size_t n = strlen(text);
+	const char *name = sig == SIGINT ? "SIGINT" : sig == SIGTERM ? "SIGTERM" : sig == SIGHUP ? "SIGHUP" : "a signal";
+	for (const char *c = name; *c; c++)
+		text[n++] = *c;
+	const char *mid = " from pid ";
+	for (const char *c = mid; *c; c++)
+		text[n++] = *c;
+	char digits[16];
+	int d = 0;
+	unsigned long v = from > 0 ? (unsigned long)from : 0;
+	do {
+		digits[d++] = char('0' + v % 10);
+		v /= 10;
+	} while (v && d < 16);
+	while (d)
+		text[n++] = digits[--d];
+	text[n++] = '\n';
+	ignore(write(STDERR_FILENO, text, n));
+}
+
 static void signal_handler(int sig)
 {
 	if (!g_killed) {
@@ -128,8 +153,17 @@ static void signal_handler(int sig)
 
 void signal_handler_init()
 {
-	(void)signal(SIGINT, signal_handler);
-	(void)signal(SIGTERM, signal_handler);
+	struct sigaction quit = {};
+	quit.sa_sigaction = [](int sig, siginfo_t *info, void *) {
+		if (!g_killed)
+			say_sender(sig, info ? info->si_pid : 0);
+		signal_handler(sig);
+	};
+	quit.sa_flags = SA_SIGINFO;
+	sigemptyset(&quit.sa_mask);
+	sigaction(SIGINT, &quit, nullptr);
+	sigaction(SIGTERM, &quit, nullptr);
+	sigaction(SIGHUP, &quit, nullptr);
 
 	/*
 	 * Writing to a closed pipe or socket must not kill the entire process.

@@ -1104,8 +1104,9 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 
 		/* Actually dig node */
 
-		if (is_valid_dig && n.getContent() != CONTENT_IGNORE)
-			interact::dig(this, playersao, p_under); // Terra Firma (sprint 119: was builtin's item.lua)
+		// Terra Firma: timber dug gives back offcuts (sprint 123); else dug (sprint 119: was builtin's item.lua)
+		if (is_valid_dig && n.getContent() != CONTENT_IGNORE && !terra().cuts->dig(this, playersao, p_under))
+			interact::dig(this, playersao, p_under);
 		// Terra Firma: liquids and heaps beside it run into the hole, and the loose ground
 		// round it keeps its shape (sprint 85; sprint 119: were tf_matter's and tf_world's)
 		if (is_valid_dig && m_env->getMap().getNode(p_under).getContent() != n.getContent()) {

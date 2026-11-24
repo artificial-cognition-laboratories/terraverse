@@ -70,6 +70,12 @@
 #include "src/shared/platform/online/players.h"
 #endif
 
+// Terra Firma: a held member's ghost's edges, where it fits and where it doesn't (sprint 123)
+static const video::SColor GHOST_FITS(255, 90, 220, 150), GHOST_BLOCKED(255, 240, 80, 70);
+// a bore's next cells, the very next brightest (sprint 124)
+static const video::SColor BORE_NEXT[] = { { 255, 255, 230, 140 }, { 140, 255, 230, 140 }, { 60, 255, 230, 140 }, { 18, 255, 230, 140 } };
+
+
 #if USE_SOUND
 	#include "src/client/app/output/sound/sound_openal.h"
 #endif
@@ -501,6 +507,8 @@ bool Game::startup(volatile std::sig_atomic_t *kill,
 	sanity_check(g_shell);
 	m_shell_session = std::make_unique<shell::Session>(shell::Session::Opts{
 		*g_shell, client, driver, guienv, m_hand });
+	m_cutting = std::make_unique<cut::Cutting>(cut::Cutting::Opts{ client, m_shell_session->ui() });
+	m_digging = std::make_unique<dig::Digging>(dig::Digging::Opts{ client, m_shell_session->ui() });
 	// the Planetarium, while shown, takes the mouse where the page doesn't;
 	// the keyboard only when its key opened it (a screen over it keeps its own)
 	input->capture([this](const SEvent &event) {
@@ -1602,6 +1610,9 @@ void Game::processKeyInput()
 #endif
 	} else if (wasKeyDown(KeyType::PLANETARIUM)) {
 		openPlanetarium();
+	} else if (!m_hand.out() && wasKeyDown(KeyType::TOOL_NEXT) && m_cutting &&
+			(isKeyDown(KeyType::AUX1) ? m_cutting->tip() : m_cutting->turn())) {
+		// Terra Firma: a member held turned round the up (R), or tipped end over end (Shift+R) (sprint 123)
 	} else if (m_hand.out() && wasKeyDown(KeyType::TOOL_NEXT)) {
 		m_hand.nextBrush();
 		showTool();
@@ -1610,7 +1621,13 @@ void Game::processKeyInput()
 	} else if (wasKeyDown(KeyType::UNDO)) {
 		m_hand.ask(Hand::ACTIONS[size_t(Hand::Verb::Undo)].id, "");
 	} else if (!m_driving && wasKeyDown(KeyType::FOCUS)) { // (driving, F gets up)
-		m_hand.ask(Hand::ACTIONS[size_t(Hand::Verb::Focus)].id, "");
+		// a cutting tool on a block it cuts: what to cut (sprint 123); else the focus view
+		if (m_cutting && m_cutting->menu(runData.pointed_old))
+			m_shell_session->screens().open("cut");
+		else if (m_digging && m_digging->menu()) // a shovel held: dig or flatten (sprint 124)
+			m_shell_session->screens().open("dig");
+		else
+			m_hand.ask(Hand::ACTIONS[size_t(Hand::Verb::Focus)].id, "");
 	} else if (m_menu && input->cancelPressed()) {
 		closeMenu();
 	} else if (m_naming && input->cancelPressed()) {
@@ -2994,11 +3011,20 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 	}
 
 	m_pointed_from = shootline; // Terra Firma: pieces are pointed at again in their own grid
+	if (m_cutting) // Terra Firma: where a member held would snap to (sprint 123); Ctrl: freely; Shift: onto a stack
+		m_cutting->look(shootline, isKeyDown(KeyType::SNEAK) ? cut::Cutting::Mode::Free :
+				isKeyDown(KeyType::AUX1) ? cut::Cutting::Mode::Stack : cut::Cutting::Mode::Snap);
+	if (m_digging) // Terra Firma: where a shovel's form goes (sprint 124); Ctrl: freely; Shift: a level where aimed
+		m_digging->look(isKeyDown(KeyType::SNEAK) ? earthwork::Mode::Free :
+				isKeyDown(KeyType::AUX1) ? earthwork::Mode::Aimed : earthwork::Mode::Snap,
+				isKeyDown(KeyType::DIG) ? dig::Digging::Button::Down : dig::Digging::Button::Up, shootline);
 	PointedThing pointed = updatePointedThing(shootline,
 			selected_def.liquids_pointable,
 			selected_def.pointabilities,
 			!runData.btn_down_for_dig,
 			camera_offset);
+	if (m_digging) // Terra Firma: a shovel held down bores a cell at a time, evenly (sprint 124)
+		m_digging->swing(dtime);
 
 	// Terra Firma: machines are pointed at by what they're built of, not by
 	// a box round them (sprint 69): through the box's empty corners, what's
@@ -3234,6 +3260,7 @@ PointedThing Game::updatePointedThing(
 {
 	std::vector<aabb3f> *selectionboxes = hud->getSelectionBoxes();
 	selectionboxes->clear();
+	hud->getSolids()->clear(); // Terra Firma
 	hud->getSelectionLines()->clear();
 	hud->setSelectedFaceNormal(v3f());
 	static thread_local const bool show_entity_selectionbox = g_settings->getBool(
@@ -3286,6 +3313,26 @@ PointedThing Game::updatePointedThing(
 				n.getNeighbors(result.node_undersurface, &map));
 		}
 
+		// Terra Firma: a cut chosen, the member a dig would peel off instead (sprint 123)
+		if (m_cutting) {
+			if (const std::optional<cut::Cutting::Ghost> g = m_cutting->ghost(result)) {
+				// a member held: where it would go, seen through, green where it fits
+				boxes.clear();
+				showSolid(g->node, g->box, g->fits ? GHOST_FITS : GHOST_BLOCKED, camera_offset);
+			} else if (const std::optional<aabb3f> member = m_cutting->preview(result)) {
+				boxes = { *member }; // what a dig would take
+			}
+		}
+		// Terra Firma: what a shovel would take (sprint 124): a bore's ring on the face and its next cells lit
+		std::optional<dig::Digging::Bore> bore = m_digging ? m_digging->bore(result) : std::nullopt;
+		if (bore) {
+			boxes.clear();
+			for (size_t i = 0; i < bore->next.size(); i++)
+				showSolid(bore->node, bore->next[i], BORE_NEXT[std::min(i, std::size(BORE_NEXT) - 1)], camera_offset);
+		} else if (m_digging) {
+			if (std::vector<aabb3f> dug = m_digging->preview(result); !dug.empty())
+				boxes = std::move(dug);
+		}
 		f32 d = 0.002f * BS;
 		for (aabb3f box : boxes) {
 			box.MinEdge -= v3f(d, d, d);
@@ -3300,6 +3347,25 @@ PointedThing Game::updatePointedThing(
 		if (AtlasView *view = map.atlasView())
 			if (auto lines = view->outline(result.node_undersurface, *selectionboxes))
 				*hud->getSelectionLines() = std::move(*lines);
+		if (bore) { // the ring, as lines: in nodes from its node, placed as that's drawn
+			std::vector<std::pair<v3f, v3f>> *lines = hud->getSelectionLines();
+			lines->clear();
+			std::vector<std::pair<v3f, v3f>> rel;
+			for (const auto &[p, q] : bore->ring)
+				rel.emplace_back(p / BS, q / BS);
+			if (AtlasView *view = map.atlasView()) {
+				if (auto placed = view->place(bore->node, rel))
+					*lines = std::move(*placed);
+			} else {
+				const v3f at = intToFloat(bore->node - camera_offset, BS);
+				for (const auto &[p, q] : rel)
+					lines->emplace_back(at + p * BS, at + q * BS);
+			}
+		}
+	} else if (m_cutting) {
+		// Terra Firma: a member held, aimed at the air: where it would go, out there (sprint 123)
+		if (const std::optional<cut::Cutting::Ghost> g = m_cutting->ghost(result))
+			showSolid(g->node, g->box, g->fits ? GHOST_FITS : GHOST_BLOCKED, camera_offset);
 	}
 
 	// Terra Firma: the tools: a ghost of what a dig would take, its own
@@ -3367,6 +3433,9 @@ void Game::handlePointingAtNothing(const ItemStack &playerItem)
 	infostream << "Attempted to place item while pointing at nothing" << std::endl;
 	PointedThing fauxPointed;
 	fauxPointed.type = POINTEDTHING_NOTHING;
+	// Terra Firma: a member held is placed out in the air (sprint 123)
+	if (m_cutting && m_cutting->place(fauxPointed))
+		return;
 	client->interact(INTERACT_ACTIVATE, fauxPointed);
 }
 
@@ -3421,8 +3490,10 @@ void Game::handlePointingAtNode(const PointedThing &pointed,
 		// And also set the sound and send the interact
 		// But first check for meta formspec and rightclickable
 		auto &def = selected_item.getDefinition(itemdef_manager);
-		nodePlacement(def, selected_item, nodepos, neighborpos,
-			pointed, meta);
+		// Terra Firma: a member held is placed where they aim, as timber (sprint 123)
+		if (!(m_cutting && m_cutting->place(pointed)))
+			nodePlacement(def, selected_item, nodepos, neighborpos,
+				pointed, meta);
 	}
 }
 
@@ -5459,6 +5530,28 @@ void Game::handleAsk(const Hand::Ask &ask, const PointedThing &pointed)
 	throw BaseException("Game::handleAsk: no such verb");
 }
 
+void Game::showSolid(v3s16 node, const aabb3f &box, video::SColor colour, v3s16 camera_offset)
+{
+	// its corners from the node's centre (nodes), into the scene as the node's block is drawn
+	std::vector<std::pair<v3f, v3f>> corners;
+	for (int i = 0; i < 8; i++) {
+		const v3f p(i & 1 ? box.MaxEdge.X : box.MinEdge.X, i & 2 ? box.MaxEdge.Y : box.MinEdge.Y, i & 4 ? box.MaxEdge.Z : box.MinEdge.Z);
+		corners.emplace_back(p / BS, p / BS);
+	}
+	Hud::Solid solid{ {}, colour };
+	if (AtlasView *view = client->getEnv().getClientMap().atlasView()) {
+		const auto placed = view->place(node, corners);
+		if (!placed)
+			return;
+		for (int i = 0; i < 8; i++)
+			solid.corners[i] = (*placed)[i].first;
+	} else {
+		for (int i = 0; i < 8; i++)
+			solid.corners[i] = intToFloat(node - camera_offset, BS) + corners[i].first * BS;
+	}
+	hud->getSolids()->push_back(solid);
+}
+
 void Game::showGhost(const Aim &aim, const sculpt::Stroke &stroke, v3s16 camera_offset)
 {
 	if (!(m_ghost_of == stroke)) {
@@ -5982,17 +6075,22 @@ void Game::handleDigging(const PointedThing &pointed, const v3s16 &nodepos,
 		runData.nodig_delay_timer = std::max(runData.nodig_delay_timer,
 				m_repeat_dig_time - runData.dig_time_complete);
 
-		if (features.node_dig_prediction == "air") {
-			client->removeNode(nodepos);
-		} else if (!features.node_dig_prediction.empty()) {
-			content_t id;
-			bool found = nodedef_manager->getId(features.node_dig_prediction, id);
-			if (found)
-				client->addNode(nodepos, id, true);
-		}
-		// implicit else: no prediction
+		// Terra Firma: a cut chosen, the cut's asked for where they aim, nothing predicted (sprint 123)
+		if (m_cutting && m_cutting->take(pointed)) {
+		} else if (m_digging && m_digging->take(pointed)) { // Terra Firma: a scoop, with a shovel (sprint 124)
+		} else {
+			if (features.node_dig_prediction == "air") {
+				client->removeNode(nodepos);
+			} else if (!features.node_dig_prediction.empty()) {
+				content_t id;
+				bool found = nodedef_manager->getId(features.node_dig_prediction, id);
+				if (found)
+					client->addNode(nodepos, id, true);
+			}
+			// implicit else: no prediction
 
-		client->interact(INTERACT_DIGGING_COMPLETED, pointed);
+			client->interact(INTERACT_DIGGING_COMPLETED, pointed);
+		}
 
 		if (g_settings->getBool("enable_dig_particles")) {
 			client->getParticleManager()->addDiggingParticles(player, nodepos, n);

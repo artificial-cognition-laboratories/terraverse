@@ -4,19 +4,18 @@ import type { SlotRef, Stack } from "../../bridge/index.ts"
 import { useStore } from "../store.ts"
 import type { CarryHandle } from "./carry.ts"
 import FigureWell from "../figure/FigureWell.vue"
-import Slot from "./Slot.vue"
+import Offers from "../making/Offers.vue"
 import SlotGrid from "./SlotGrid.vue"
 
 /**
- * The player's own inventory: what they wear beside their figure (drawn by the engine: FigureWell), the 2×2 crafting grid and its
- * result, and storage (the hotbar is the HUD's: InventoryScreen).
+ * The player's own inventory: what they wear beside their figure (drawn by the engine: FigureWell), the 2×2 crafting grid and
+ * what its things could become worked by what's on the cursor (making/Offers.vue), and storage (the hotbar is the HUD's: InventoryScreen).
  */
 const props = defineProps<{ carry: CarryHandle }>()
 const emit = defineEmits<{ hover: [over: { slot: SlotRef; stack: Stack | null } | { note: string } | null] }>()
 const store = useStore()
 const lists = computed(() => props.carry.lists.value)
 const row = computed(() => store.state.hotbar?.size ?? 9)
-const preview = computed(() => lists.value?.craftpreview?.stacks[0] ?? null)
 // TEMP: 2026-11-22: what's worn has no list in the engine yet (server/players/player.cpp gives
 // main and craft only): the four slots are drawn, empty, and say so rather than take anything
 const BODY = [
@@ -45,9 +44,8 @@ const unworn = (label: string) => `${label} · wearing things isn't built yet`
                     <svg class="arrow" viewBox="0 0 11 7" shape-rendering="crispEdges" aria-hidden="true">
                         <path fill="currentColor" d="M0 3h7v-3h1v1h1v1h1v1h1v1h-1v1h-1v1h-1v1h-1v-3h-7z" />
                     </svg>
-                    <Slot result :stack="preview" data-list="craftpreview" data-index="0"
-                        @press="(b, s, e) => carry.slot({ list: 'craftpreview', index: 0 }, preview, b, s, e)"
-                        @hover="(inside) => emit('hover', inside ? { slot: { list: 'craftpreview', index: 0 }, stack: preview } : null)" />
+                    <Offers :grid="lists.craft.stacks" :carried="carry.carried.value" @hover="emit('hover', $event)"
+                        @pick="carry.problem.value = 'Making isn\'t wired to the engine yet: nothing was made.'" />
                 </div>
             </div>
         </section>

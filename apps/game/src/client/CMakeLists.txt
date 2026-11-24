@@ -67,6 +67,9 @@ set(client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/render/items/item_visuals_manager.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/app/input/keycode.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/objects/localplayer.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/cut/cutting.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/cut/placing.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/dig/digging.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/player/body.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/player/figure.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/liquids.cpp

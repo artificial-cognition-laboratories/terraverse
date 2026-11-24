@@ -72,6 +72,8 @@ set(unittest_client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/mesh_compare.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_far_palette.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_ground.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_peel.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_scoop.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_shape.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_sculpt.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_piece.cpp

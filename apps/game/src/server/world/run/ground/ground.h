@@ -23,7 +23,9 @@
 	The field is at column corners, where four columns meet. A corner's
 	height, for one column, is the average of the surfaces of the columns
 	there that are within a block of each other (its cluster): a step of
-	one block is a ramp, a drop of two a cliff. It's never lowered under
+	one block is a ramp, a drop of two a cliff. Ground never climbs a solid
+	(a block built on it, a trunk, rock): only solids at or below its own
+	level join the average. It's never lowered under
 	the column's own surface where a column there is higher, or solid at
 	the same height: a face hidden against a full block stays hidden. A
 	function of the four columns alone, so every column at a corner, in

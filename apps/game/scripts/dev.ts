@@ -87,7 +87,10 @@ try {
     await waitFor(devUrl, 15_000)
     console.log(`dev: UI server ready in ${((performance.now() - uiStarted) / 1000).toFixed(2)}s`)
     game = await launchGame(process.argv.slice(2))
-    process.exitCode = await game.exited
+    const code = await game.exited
+    // how it ended, so a game that goes away unasked says so: a signal (and which) or an exit code
+    console.log(`dev: the engine ended: ${game.signalCode ? `killed by ${game.signalCode}` : `exit code ${code}`}`)
+    process.exitCode = code
 } finally {
     stop()
 }

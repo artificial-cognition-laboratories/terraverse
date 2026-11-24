@@ -1,0 +1,80 @@
+{
+	"note": "Digging by hand (sprint 124: the shovel, .agents/planning/sprint-124-shovel.md): what moves loose ground. A tool works the world in its own cells (`cell`, sixteenths). `shape: bore`: a ring `across` wide is cast onto what they look at, the next few cells lit, and held, it takes the tool's cells along their look, out to `along`, the nearest still there first, one at a time, `rate` a second, the next few lit: what's between them and the face, then the face chip by chip, so held it opens a round hole they can walk into. `shape: cell` is the cell of the tool's grid (`along`, every way) aimed into, outlined, and held, each swing digs one, a sweep digging what it passes. A form's box is outlined whole where it's aimed, and held, each swing takes `bite` sixteenths of it, the highest first, till it's gone. `tools`: each digging tool's item definition (as hand.json's), the groups of blocks it moves, and its `bite`. `operations`: the forms F offers with one held, each in sizes (sixteenths: `along` the way they face, `across` it, `deep` down), the first what's done before any's chosen. Its `shape`: `cell`, as above; `box`, the whole box under the ground's top where aimed; `round`, a pit, the round the box bounds; `level`, everything over a level (their feet; Shift: the ground aimed at) up to `deep` above it. None adds ground. `scoop`: what the inventory holds dug ground as, one item for every soil (which, in its metadata), each 16 × 16 × 4 sixteenths of it, four to a block. TEMP(2026-11-23): drawn as flat colour until the asset tools draw them.",
+	"tools": {
+		"core:shovel": {
+			"moves": [
+				"loose"
+			],
+			"item": {
+				"type": "tool",
+				"description": "Shovel",
+				"groups": {
+					"shovel": 1
+				},
+				"inventory_image": "[fill:16x16:0,0:#00000000^[fill:2x10:7,1:#7a5530^[fill:6x5:5,10:#9aa0a8^[fill:2x2:7,14:#9aa0a8",
+				"wield_image": "[fill:16x16:0,0:#00000000^[fill:2x10:7,1:#7a5530^[fill:6x5:5,10:#9aa0a8^[fill:2x2:7,14:#9aa0a8",
+				"tool_capabilities": {
+					"full_punch_interval": 0.5,
+					"groupcaps": {
+						"crumbly": {
+							"times": {
+								"1": 0.05,
+								"2": 0.04,
+								"3": 0.03
+							},
+							"uses": 0
+						}
+					},
+					"max_drop_level": 1,
+					"damage_groups": {
+						"fleshy": 2
+					}
+				}
+			},
+			"bite": 256,
+			"cell": 4,
+			"rate": 40
+		}
+	},
+	"scoop": {
+		"name": "core:scoop",
+		"item": {
+			"description": "Scoop of soil",
+			"groups": {
+				"scoop": 1,
+				"not_in_creative_inventory": 1
+			},
+			"inventory_image": "[fill:16x16:0,0:#00000000^[fill:12x6:2,8:#7a5a3a^[fill:8x2:4,6:#8a6a48"
+		}
+	},
+	"operations": [
+		{
+			"id": "dig",
+			"name": "Dig",
+			"shape": "bore",
+			"sizes": [
+				{
+					"id": "bore",
+					"name": "Dig",
+					"along": 80,
+					"across": 16,
+					"deep": 16
+				}
+			]
+		},
+		{
+			"id": "flatten",
+			"name": "Flatten",
+			"shape": "level",
+			"sizes": [
+				{
+					"id": "two",
+					"name": "Flatten",
+					"along": 32,
+					"across": 32,
+					"deep": 32
+				}
+			]
+		}
+	]
+}

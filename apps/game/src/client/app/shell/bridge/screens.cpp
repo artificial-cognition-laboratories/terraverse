@@ -35,6 +35,10 @@ static const ScreenKind SCREENS[] = {
 	{ "library", false, "keymap_library", nullptr },
 	// chat and commands (the page's palette): Esc is the page's, its input has the keyboard
 	{ "palette", false, nullptr, nullptr },
+	// what a cutting tool cuts (sprint 123): F on a block it cuts opens it, and closes it
+	{ "cut", false, "keymap_focus", "cut" },
+	// what a shovel does (sprint 124): F on ground it moves opens it, and closes it
+	{ "dig", false, "keymap_focus", "dig" },
 };
 
 static const ScreenKind &find(const std::string &name)

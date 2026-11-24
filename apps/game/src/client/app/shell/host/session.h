@@ -47,6 +47,8 @@ public:
 	void update(const HudView &view);
 
 	Screens &screens() { return m_screens; }
+	// What the server has told the page (core's UI values), as it last told it.
+	const Ui &ui() const { return m_ui; }
 	// A key typed over the game: one of the palette's lists (: @ # >, and / for :) opens the
 	// palette on it, where nothing else is open. Whether it was taken.
 	bool typed(const SEvent &event);

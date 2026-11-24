@@ -11,7 +11,7 @@ type Ui = { [K in keyof UiValues]: UiValues[K] | null }
  */
 export function GameStore(opts: { bridge: BridgeHandle }) {
     const empty = (): Sections => ({ hud: null, player: null, mapPose: null, hotbar: null, tools: null, library: null, inventory: null })
-    const noUi = (): Ui => ({ commands: null, wiki: null, discovered: null, weather: null, travel: null, body: null, creative: null, map: null, map_position: null })
+    const noUi = (): Ui => ({ cut: null, dig: null, commands: null, wiki: null, discovered: null, weather: null, travel: null, body: null, creative: null, map: null, map_position: null })
     const store = reactive({
         mode: null as Mode | null,
         error: null as string | null,
@@ -123,6 +123,8 @@ export function GameStore(opts: { bridge: BridgeHandle }) {
                     case "wiki": store.ui.wiki = message.value; break
                     case "discovered": store.ui.discovered = message.value; break
                     case "commands": store.ui.commands = message.value; break
+                    case "cut": store.ui.cut = message.value; break
+                    case "dig": store.ui.dig = message.value; break
                 }
                 break
         }

@@ -6,6 +6,8 @@ import InventoryScreen from "./game/inventory/InventoryScreen.vue"
 import PauseScreen from "./game/PauseScreen.vue"
 import MapScreen from "./game/map/MapScreen.vue"
 import PaletteScreen from "./game/palette/PaletteScreen.vue"
+import CutScreen from "./game/cut/CutScreen.vue"
+import DigScreen from "./game/dig/DigScreen.vue"
 import { useStore } from "./game/store.ts"
 import MainMenu from "./menu/MainMenu.vue"
 import InviteToast from "./social/InviteToast.vue"
@@ -32,6 +34,8 @@ const store = useStore()
         <MapScreen v-else-if="store.screen === 'map'" />
         <InventoryScreen v-else-if="store.screen === 'inventory'" />
         <PaletteScreen v-else-if="store.screen === 'palette'" />
+        <CutScreen v-else-if="store.screen === 'cut'" />
+        <DigScreen v-else-if="store.screen === 'dig'" />
         <div v-else-if="store.screen === 'wiki'" class="whole"><WikiScreen place="game" @close="bridge.send('screen.close', {})" /></div>
         <!-- over the world, frosted as the menu's scene is; the search waits to be clicked, so L closes it again -->
         <div v-else-if="store.screen === 'library'" class="whole"><Library :autofocus="false" @close="bridge.send('screen.close', {})" /></div>

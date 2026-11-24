@@ -271,8 +271,11 @@ void Piles::press(u64 who, v3f at, float radius, float kpa)
 void Piles::changed(v3s16 at, MapNode was)
 {
 	const v3s16 up(0, 1, 0);
-	// as each neighbour was smoothed just before: kept so (a whole one too)
-	for (s16 dz = -1; dz <= 1; dz++)
+	// dug (or a scoop off it): each neighbour as it was smoothed just before, kept so (a whole one
+	// too), so a hole doesn't ramp what's round it. Built where it was open, nothing round it
+	// changes (ground never climbs a solid).
+	const bool built = !m_ndef.get(was).walkable && m_ndef.get(m_map.getNode(at)).walkable;
+	for (s16 dz = built ? 2 : -1; dz <= 1; dz++)
 		for (s16 dx = -1; dx <= 1; dx++)
 			for (s16 dy = -ground::REACH; dy <= ground::REACH; dy++) {
 				const v3s16 q = at + v3s16(dx, dy, dz);

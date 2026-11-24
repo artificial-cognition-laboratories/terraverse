@@ -1,0 +1,53 @@
+{
+	"note": "Cutting (sprint 123): what a tool peels off a block. `tools`: each cutting tool's item definition (as hand.json's) and the groups of blocks it cuts. `woods`: each block that's cut, as the wood its members are; placed, a member is that wood's timber (core:timber_<wood>, drawn with `tiles`), cut at sixteenths, to be cut again. `forms`: what can be cut, each in standard sizes, a box of sixteenths: along the grain (up to 64: a member longer than a block is cut from a log of several), across it, in from the face; every size divides a block, so nothing's left between them. `offcut`: what's left when no member fits, an item per wood (core:offcut_<wood>), one for each `cells` sixteenths of it. Every form × size × wood is an item: core:<form>_<size>_<wood>. TEMP(2026-11-23): faces drawn as flat colour until the asset tools draw them.",
+	"tools": {
+		"core:axe": {
+			"cuts": ["tree", "timber"],
+			"item": {
+				"type": "tool",
+				"description": "Axe",
+				"inventory_image": "[fill:16x16:0,0:#00000000^[fill:2x13:7,3:#7a5530^[fill:7x5:3,1:#9aa0a8^[fill:2x3:3,2:#cfd3d8",
+				"wield_image": "[fill:16x16:0,0:#00000000^[fill:2x13:7,3:#7a5530^[fill:7x5:3,1:#9aa0a8^[fill:2x3:3,2:#cfd3d8",
+				"tool_capabilities": {
+					"full_punch_interval": 0.6,
+					"groupcaps": {
+						"choppy": { "times": { "1": 0.6, "2": 0.4, "3": 0.25 }, "uses": 0 },
+						"snappy": { "times": { "3": 0.2 }, "uses": 0 }
+					},
+					"max_drop_level": 1,
+					"damage_groups": { "fleshy": 4 }
+				}
+			}
+		}
+	},
+	"woods": {
+		"core:log": { "id": "oak", "tiles": ["tf_goodvibes_oak_log_top.png", "tf_goodvibes_oak_log_top.png", "tf_goodvibes_oak_log.png"], "name": "Oak", "colour": "#a0743f" },
+		"core:birch_log": { "id": "birch", "tiles": ["tf_goodvibes_birch_log_top.png", "tf_goodvibes_birch_log_top.png", "tf_goodvibes_birch_log.png"], "name": "Birch", "colour": "#e2d6b4" },
+		"core:spruce_log": { "id": "spruce", "tiles": ["tf_goodvibes_spruce_log_top.png", "tf_goodvibes_spruce_log_top.png", "tf_goodvibes_spruce_log.png"], "name": "Spruce", "colour": "#b0814f" },
+		"core:jungle_log": { "id": "jungle", "tiles": ["tf_goodvibes_jungle_log_top.png", "tf_goodvibes_jungle_log_top.png", "tf_goodvibes_jungle_log.png"], "name": "Jungle wood", "colour": "#8c5a3a" },
+		"core:acacia_log": { "id": "acacia", "tiles": ["tf_goodvibes_acacia_log_top.png", "tf_goodvibes_acacia_log_top.png", "tf_goodvibes_acacia_log.png"], "name": "Acacia", "colour": "#b8653a" },
+		"core:palm_log": { "id": "palm", "tiles": ["tf_goodvibes_palm_log_top.png", "tf_goodvibes_palm_log_top.png", "tf_goodvibes_palm_log.png"], "name": "Palm", "colour": "#a98d62" },
+		"core:willow_log": { "id": "willow", "tiles": ["tf_goodvibes_willow_log_top.png", "tf_goodvibes_willow_log_top.png", "tf_goodvibes_willow_log.png"], "name": "Willow", "colour": "#9d8a5c" }
+	},
+	"offcut": { "name": "offcuts", "cells": 256 },
+	"forms": [
+		{ "id": "plank", "name": "Plank", "sizes": [
+			{ "id": "1m", "name": "1 m", "along": 16, "across": 4, "in": 1 },
+			{ "id": "2m", "name": "2 m", "along": 32, "across": 4, "in": 1 },
+			{ "id": "4m", "name": "4 m", "along": 64, "across": 4, "in": 1 }
+		] },
+		{ "id": "beam", "name": "Beam", "sizes": [
+			{ "id": "1m", "name": "1 m", "along": 16, "across": 8, "in": 4 },
+			{ "id": "2m", "name": "2 m", "along": 32, "across": 8, "in": 4 },
+			{ "id": "4m", "name": "4 m", "along": 64, "across": 8, "in": 4 }
+		] },
+		{ "id": "post", "name": "Post", "sizes": [
+			{ "id": "1m", "name": "1 m", "along": 16, "across": 4, "in": 4 },
+			{ "id": "2m", "name": "2 m", "along": 32, "across": 4, "in": 4 },
+			{ "id": "4m", "name": "4 m", "along": 64, "across": 4, "in": 4 }
+		] },
+		{ "id": "firewood", "name": "Firewood", "sizes": [
+			{ "id": "split", "name": "Split", "along": 4, "across": 4, "in": 4 }
+		] }
+	]
+}

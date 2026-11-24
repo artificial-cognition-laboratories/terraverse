@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <array>
+
 #include <vector>
 #include <IGUIFont.h>
 #include <SMaterial.h>
@@ -105,6 +107,15 @@ public:
 		std::vector<std::pair<v2f, v2f>> strokes; // in its halves, -1..1
 	};
 	std::vector<Tile> *getTiles() { return &m_tiles; }
+	// Terra Firma: a box seen through, where something would go (sprint 123:
+	// a member held): its corners in the scene (BS, the camera offset taken
+	// off; bit 0 x, bit 1 y, bit 2 z: max), its colour (its alpha the fill's).
+	struct Solid
+	{
+		std::array<v3f, 8> corners;
+		video::SColor colour;
+	};
+	std::vector<Solid> *getSolids() { return &m_solids; }
 
 	void setSelectionPos(const v3f &pos, const v3s16 &camera_offset);
 
@@ -174,6 +185,8 @@ private:
 	std::vector<Guide> m_grid;   // Terra Firma
 	std::vector<Label> m_labels; // Terra Firma
 	std::vector<Tile> m_tiles; // Terra Firma
+	std::vector<Solid> m_solids; // Terra Firma
+	void drawSolids(video::IVideoDriver *driver); // Terra Firma
 	void drawTiles(video::IVideoDriver *driver); // Terra Firma
 	void drawLabels(const v3s16 &camera_offset); // Terra Firma
 	std::vector<aabb3f> m_halo_boxes;

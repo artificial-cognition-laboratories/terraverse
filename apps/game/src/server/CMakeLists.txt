@@ -9,6 +9,9 @@ set(common_server_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/app/network/clientiface.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/game/commands.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/game/command_book.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/game/cut/cuts.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/game/cut/placing.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/game/dig/digs.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/game/defs.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/game/interact.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/game/kinds.cpp

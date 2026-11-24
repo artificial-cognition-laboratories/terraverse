@@ -551,6 +551,11 @@ set(independent_SRCS
 	shared/game/content/texture_override.cpp
 	shared/game/content/tileanimation.cpp
 	shared/game/items/tool.cpp
+	shared/game/cut/peel.cpp
+	shared/game/cut/record.cpp
+	shared/game/cut/snap.cpp
+	shared/game/cut/stack.cpp
+	shared/game/dig/earthwork.cpp
 	${PROJECT_BINARY_DIR}/far_sources.cpp
 	${common_network_SRCS}
 	${content_SRCS}

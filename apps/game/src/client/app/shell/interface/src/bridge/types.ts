@@ -12,7 +12,7 @@ import type { StarId } from "../worldgen/config"
 export type Mode = "menu" | "entering" | "game" | "leaving"
 
 /** In-game screens the engine can open (src/shell/screens.cpp: SCREENS). */
-export type ScreenName = "pause" | "inventory" | "wiki" | "map" | "library" | "palette"
+export type ScreenName = "pause" | "inventory" | "wiki" | "map" | "library" | "palette" | "cut" | "dig"
 
 /** A slot in the local player's inventory, or with `at` a node's (a station's worktop). */
 export type NodePos = { x: number; y: number; z: number }
@@ -348,6 +348,30 @@ export type SandboxFrame = {
  * the latest per key; null clears it. Each key's owner is noted.
  */
 export type UiValues = {
+    /**
+     * The engine (server/game/cut): what cutting tools cut (each tool's group of blocks), the forms and
+     * standard sizes members are cut in (sixteenths: along the grain, across, in from the face), and
+     * this player's chosen cut (null: none, a tool digs whole blocks). Sprint 123.
+     */
+    cut: {
+        tools: Record<string, string[]>
+        /** Each member item's box, to show where a placed one goes */
+        members: Record<string, { along: number; across: number; in: number }>
+        forms: { id: string; name: string; sizes: { id: string; name: string; along: number; across: number; in: number }[] }[]
+        chosen: { form: string; size: string } | null
+    }
+    /**
+     * The engine (server/game/dig): what digging tools move (each tool's groups of blocks), the forms
+     * F offers with one (bore: the tool's cells along where they look, nearest first, across wide, out to along; cell: the tool's cell of its grid aimed into, along³; box: a hole or trench; round: a pit; level: all over a level, cleared deep
+     * above it), each in sizes (sixteenths along × across × deep), and this player's chosen one
+     * (null: the first). Sprint 124.
+     */
+    dig: {
+        /** Each digging tool: the groups of blocks it moves, its cell (sixteenths) that it bores in, and how many a second. */
+        tools: Record<string, { moves: string[]; cell: number; rate: number }>
+        operations: { id: string; name: string; shape: "bore" | "cell" | "box" | "round" | "level"; sizes: { id: string; name: string; along: number; across: number; deep: number }[] }[]
+        chosen: { operation: string; size: string } | null
+    }
 	/** The engine (server/player.cpp): the server permits this player to use the creative catalogue. */
 	creative: boolean
     /**
@@ -408,6 +432,10 @@ export type UiEvents = {
 	/** Replace one hotbar slot from the catalogue; the engine (server/player.cpp) validates it. */
 	"creative.take": { item: string; slot: number; count: number }
 	"creative.clear": { slot: number }
+	/** The cut a cutting tool makes (server/game/cut); null: none, it digs whole blocks. */
+	"cut.choose": { form: string; size: string } | null
+	/** The operation a shovel does (server/game/dig); null: the first. */
+	"dig.choose": { operation: string; size: string } | null
 }
 
 export type UiEvent = { [E in keyof UiEvents]: { name: E; payload: UiEvents[E] } }[keyof UiEvents]

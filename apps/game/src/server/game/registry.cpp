@@ -482,6 +482,18 @@ void registerContent(Server *server)
 	} catch (const std::invalid_argument &e) {
 		throw BaseException(std::string("world: hand.json: ") + e.what());
 	}
+	// cutting: its tools, and every member they cut, as items (sprint 123)
+	try {
+		server->terra().cuts = cut::Cuts::boot(server, read("cuts.json"));
+	} catch (const std::invalid_argument &e) {
+		throw BaseException(std::string("world: cuts.json: ") + e.what());
+	}
+	// digging by hand: the shovel, and the scoops it moves (sprint 124)
+	try {
+		server->terra().digs = dig::Digs::boot(server, read("digs.json"));
+	} catch (const std::invalid_argument &e) {
+		throw BaseException(std::string("world: digs.json: ") + e.what());
+	}
 	worldBlocks(server);
 	soils(server);
 	matterBlocks(server);

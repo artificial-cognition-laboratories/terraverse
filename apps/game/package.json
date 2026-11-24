@@ -5,7 +5,6 @@
     "dev": "bun scripts/dev.ts",
     "build": "cmake -S . -B ../../.output/build -DRUN_IN_PLACE=TRUE && bash scripts/build.sh -j && bun run stage && bun run --cwd src/client/app/shell/interface build",
     "stage": "bash scripts/stage-runtime.sh",
-    "components": "bun run --cwd src/client/app/shell/interface gallery",
 
     "test": "bash tests/run/test.sh",
     "test:hot": "bash tests/run/library.sh hot",
