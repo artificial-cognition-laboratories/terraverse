@@ -34,6 +34,13 @@ onBeforeUnmount(() => {
     document.removeEventListener("keydown", escape)
 })
 
+// The way back is added on the click, never in the link: a prerendered page's
+// link is crawled, and /signin's own would lead to ?next=/signin?next=… forever
+function signIn() {
+    const back = ["/signin", "/register"].includes(route.path) ? undefined : route.fullPath
+    void navigateTo({ path: "/signin", query: back ? { next: back } : {} })
+}
+
 function signOut() {
     void account.signOut()
     open.value = false
@@ -42,7 +49,7 @@ function signOut() {
 
 <template>
     <div ref="root" class="profile">
-        <NuxtLink v-if="!user" :to="{ path: '/signin', query: { next: route.fullPath } }" class="me" aria-label="Sign in" title="Sign in">
+        <NuxtLink v-if="!user" to="/signin" class="me" @click.prevent="signIn" aria-label="Sign in" title="Sign in">
             <svg viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true">
                 <path fill="currentColor" d="M3 1h2v1h1v2H5v1H3V4H2V2h1zM1 6h6v2H1z" />
             </svg>
