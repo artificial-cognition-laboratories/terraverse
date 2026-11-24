@@ -46,7 +46,8 @@ export default defineNuxtConfig({
     },
 
     runtimeConfig: {
-        // The accounts are ArcLabs': production's by default, the local stack's under `arc u` (.env.local,
+        // The accounts are ArcLabs': production's by default, the local stack's under `arc u` (.env.stack, never
+        // .env.local: bun loads that into every `bun run`, the production build included;
         // NUXT_PUBLIC_*). The Supabase key is the publishable one, made to be in a browser.
         public: {
             site: SITE,

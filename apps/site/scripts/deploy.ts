@@ -15,6 +15,11 @@ const release = join(here, "../game/scripts/release")
 
 await $`bun run build`.cwd(here)
 
+// A build pointed at a dev stack (an env file bun loaded, a shell's NUXT_PUBLIC_*) would have every
+// visitor's browser call their own machine; refuse it rather than ship it
+const local = (await $`grep -rlE "https?://(localhost|127\.0\.0\.1)[:/]" ${join(here, ".output/public")} --include=_payload.json --include=index.html`.nothrow().quiet()).stdout.toString().trim()
+if (local) throw new Error(`deploy: the build points at a local stack (NUXT_PUBLIC_* from the environment?):\n${local.split("\n").slice(0, 5).join("\n")}`)
+
 const stage = await mkdtemp(join(tmpdir(), "terraverse-site-"))
 try {
     const site = join(stage, "site")
