@@ -62,6 +62,9 @@ public:
 	// it starts thrusting here.
 	bool moves(LocalPlayer &p);
 	bool thrusting() const { return m_thrusting; }
+	// The pull on something held still at `at` (nodes), nodes/s²: what an IMU there feels
+	// (sprint 126). None till the world's bodies are known.
+	std::optional<v3f> gravityAt(const v3d &at) const { return m_pull ? std::optional<v3f>(here(at, v3f(0)).gravity) : std::nullopt; }
 	// A line for the debug text: what the body's doing and how fast (world controls, View).
 	std::string readout() const;
 	// Flying well above the land: in the open sky, whatever the blocks here say of their light.

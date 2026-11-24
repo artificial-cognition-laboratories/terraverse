@@ -58,7 +58,7 @@ void State::update(const HudView &view)
 			send("mapPose", *pose);
 	}
 	send("hotbar", hotbar(*player));
-	if (!m_inventory || *m_inventory != player->inventory) {
+	if ((!m_inventory || *m_inventory != player->inventory) && itemsReady(*player)) {
 		TF_ZONE("UI: state: inventory");
 		Json::Value inv = inventory(*player);
 		sendNewItems(); // before the inventory that references them
@@ -136,6 +136,19 @@ Json::Value State::hotbar(LocalPlayer &player) const
 	out["size"] = player.getMaxHotbarItemcount();
 	out["selected"] = player.getWieldIndex();
 	return out;
+}
+
+// Every item the inventory holds described, a few ms of it a frame: till
+// they are, it isn't sent (the page shows none rather than stacks it can't draw)
+bool State::itemsReady(LocalPlayer &player)
+{
+	TF_ZONE("UI: state: item icons");
+	std::vector<std::string> names;
+	for (const InventoryList *list : player.inventory.getLists())
+		for (u32 i = 0; i < list->getSize(); i++)
+			if (!list->getItem(i).empty())
+				names.push_back(list->getItem(i).name);
+	return m_opts.items.ready(names, ICONS_MS);
 }
 
 Json::Value State::inventory(LocalPlayer &player)

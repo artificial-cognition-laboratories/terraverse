@@ -40,6 +40,7 @@ set(client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/render/pipeline/pipeline.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/objects/activeobjectmgr.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/camera.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/views/game/view/world_view.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/session/client.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/session/clientenvironment.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/app/shell/launch/clientlauncher.cpp
@@ -64,6 +65,13 @@ set(client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/render/fonts/static_text.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/textures/imagefilters.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/app/input/inputhandler.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/app/headless/eye.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/app/headless/headless.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/shaders/world_uniforms.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/app/headless/link.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/app/headless/motor.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/app/headless/rig.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/app/headless/senses.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/items/item_visuals_manager.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/app/input/keycode.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/objects/localplayer.cpp

@@ -123,6 +123,8 @@ public:
 private:
 	// Gets or generates an image for a texture string
 	// Caller needs to drop the returned image
+	video::IImage *getImage(const std::string &name) override;
+
 	video::IImage *getOrGenerateImage(const std::string &name,
 		std::set<std::string> &source_image_names);
 
@@ -224,6 +226,13 @@ TextureSource::~TextureSource()
 
 	infostream << "~TextureSource() before cleanup: " << textures_before
 			<< " after: " << driver->getTextureCount() << std::endl;
+}
+
+video::IImage *TextureSource::getImage(const std::string &name)
+{
+	sanity_check(std::this_thread::get_id() == m_main_thread);
+	std::set<std::string> sources;
+	return getOrGenerateImage(name, sources);
 }
 
 video::IImage *TextureSource::getOrGenerateImage(const std::string &name,

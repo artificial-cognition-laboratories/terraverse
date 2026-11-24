@@ -2,6 +2,7 @@
 export { Terra, type TerraT } from "./terra"
 export { DEFAULT_PORT, refs, SCHEME, type Ref } from "./ref"
 export { Running, type RunningRecord, type RunningT } from "./running"
+export { WorldContract, type WorldContractT } from "./world"
 export type { ArtEntry, Catalogue } from "./art"
 export type { DevEvent, DevOptions } from "./dev"
 export type { Identity, ModPage, PublishStep } from "./registry"
@@ -10,3 +11,5 @@ export {
     type ManifestData, type ManifestMod, type Mod, type PrepareInput, type PrepareStep, type Prepared, type PreparedMod, type PreparedServer,
     type ProjectKind, type ProjectT, type ServerConfigData, type ServerProjectT,
 } from "./project"
+export { Worlds, type SavedWorld, type WorldsT } from "./worlds"
+export type { EngineUniverse } from "./engine"

@@ -19,5 +19,7 @@ set(far_client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/bake/palette_live.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/tiles/tilecache.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/tiles/tiles.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/tiles/workers.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/tiles/budget.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/view.cpp
 	PARENT_SCOPE)

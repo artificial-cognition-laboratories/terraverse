@@ -176,8 +176,8 @@ struct Galaxy::StarUniforms : public IShaderUniformSetterRC
 	}
 };
 
-Galaxy::Galaxy(IShaderSource *ssrc, scene::IMeshBuffer *sphere) :
-	m_skyUniforms(make_irr<SkyUniforms>()), m_starUniforms(make_irr<StarUniforms>()), m_sphere(sphere)
+Galaxy::Galaxy(IShaderSource *ssrc) :
+	m_skyUniforms(make_irr<SkyUniforms>()), m_starUniforms(make_irr<StarUniforms>())
 {
 	pictures(); // set going now: it's seconds of work the first frames shouldn't wait on
 
@@ -313,6 +313,17 @@ Galaxy::~Galaxy()
 {
 }
 
+std::weak_ptr<Galaxy::Shared> &Galaxy::alive()
+{
+	static std::weak_ptr<Shared> shared;
+	return shared;
+}
+
+std::shared_ptr<const void> Galaxy::held()
+{
+	return alive().lock();
+}
+
 void Galaxy::draw(video::IVideoDriver *driver, const Frame &frame)
 {
 	const float aspect = frame.aspect, fov = frame.fov, level = frame.level, open = frame.open;
@@ -320,9 +331,8 @@ void Galaxy::draw(video::IVideoDriver *driver, const Frame &frame)
 	driver->setTransform(video::ETS_PROJECTION, OrbitCamera::perspective(aspect, 0.1f, 10.f, fov));
 	driver->setTransform(video::ETS_WORLD, core::IdentityMatrix);
 
-	static std::weak_ptr<Shared> alive;
 	if (!m_shared)
-		m_shared = alive.lock();
+		m_shared = alive().lock();
 	const Pictures &made = pictures();
 	if (!m_shared && ready(made.quick)) {
 		const std::shared_ptr<const Shown> sky = made.quick.get();
@@ -334,7 +344,7 @@ void Galaxy::draw(video::IVideoDriver *driver, const Frame &frame)
 		shared->makeStars(*sky->sky, m_starMaterial);
 		shared->shownAt = std::chrono::steady_clock::now();
 		m_shared = shared;
-		alive = shared;
+		alive() = shared;
 	}
 	if (m_shared && !m_shared->sharp && ready(made.full)) {
 		m_shared->picture(*made.full.get()); // the stars stay: only the glow sharpens
@@ -353,7 +363,7 @@ void Galaxy::draw(video::IVideoDriver *driver, const Frame &frame)
 	m_skyMaterial.TextureLayers[0].Texture = m_shared->texture;
 	m_skyMaterial.TextureLayers[1].Texture = m_shared->grain;
 	driver->setMaterial(m_skyMaterial);
-	driver->drawMeshBuffer(m_sphere);
+	driver->drawMeshBuffer(frame.sphere);
 
 	// the screen's own pixels: a bigger or finer screen shows the same stars
 	// sharper, never bigger

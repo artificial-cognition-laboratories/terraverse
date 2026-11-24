@@ -5,6 +5,7 @@
 #include "src/shared/platform/release/release.h" // Terra Firma
 #include "src/shared/base/version.h" // Terra Firma
 #include "src/server/app/server.h"
+#include "src/server/app/world_lock.h"
 #include "library/trace/marks.h"
 #include "src/server/world/run/machines/workshop/workshop.h"
 #include "library/space/orbit/field.h"
@@ -500,6 +501,8 @@ void Server::init()
 		infostream << std::endl;
 	infostream << "- world:  " << m_path_world << std::endl;
 	infostream << "- game:   " << m_gamespec.path << std::endl;
+	// Terra Firma: one engine to a world, held from here, where it's opened (world_lock.h)
+	m_world_lock = std::make_unique<WorldLock>(WorldLock::Opts{ /* world */ m_path_world });
 
 	m_game_settings = Settings::createLayer(SL_GAME);
 

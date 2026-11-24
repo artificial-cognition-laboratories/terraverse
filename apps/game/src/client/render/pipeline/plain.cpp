@@ -3,6 +3,7 @@
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2017 numzero, Lobachevskiy Vitaliy <numzer0@yandex.ru>
 
+#include "src/client/render/fonts/fontengine.h"
 #include "src/client/render/pipeline/plain.h"
 #include "src/client/render/pipeline/secondstage.h"
 #include "src/shared/platform/settings/settings.h"
@@ -40,6 +41,9 @@ void DrawWield::run(PipelineContext &context)
 
 void DrawHUD::run(PipelineContext &context)
 {
+	// Terra Firma: a body's eye (client/app/headless) sees the world, not a HUD, and has no fonts
+	if (!g_fontengine)
+		return;
 	if (context.show_hud) {
 		if (context.shadow_renderer)
 			context.shadow_renderer->drawDebug();

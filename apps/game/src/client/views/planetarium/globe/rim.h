@@ -29,7 +29,23 @@ class Rim
 public:
 	static constexpr double SHARE = 0.03; // of the radius
 
-	Rim(IShaderSource *ssrc, const terragen::System &system);
+	// The shader, compiled once and shared by every Rim over it (a new one
+	// a view, the driver compiling it at its first draw, was a hitch each time
+	// the menu showed another world)
+	class Program
+	{
+	public:
+		explicit Program(IShaderSource *ssrc);
+		~Program();
+
+	private:
+		friend class Rim;
+		video::SMaterial m_material;
+		struct Uniforms;
+		irr_ptr<Uniforms> m_uniforms;
+	};
+
+	Rim(Program &program, const terragen::System &system);
 	~Rim();
 
 	// Over a body already drawn, the camera at the origin: `at` its centre (BS), `ground`
@@ -43,11 +59,9 @@ private:
 		video::ITexture *texture = nullptr;
 		bool none = false;
 	};
+	Program &m_program;
 	const terragen::System &m_system;
 	std::map<size_t, Part> m_parts;
-	video::SMaterial m_material;
-	struct Uniforms;
-	irr_ptr<Uniforms> m_uniforms;
 	video::IVideoDriver *m_driver = nullptr;
 };
 

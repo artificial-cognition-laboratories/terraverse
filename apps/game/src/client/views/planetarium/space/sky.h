@@ -65,6 +65,9 @@ public:
 
 private:
 	SystemLayer m_system;
+	// a frame's time for every other body's tiles together (each its own,
+	// three bodies coming into view were three budgets a frame, after joining)
+	far::Budget m_budget;
 	const int32_t m_year; // the world's year, in its days
 	const int m_body;     // the atlas's body it's over
 	aabb3f m_box{ -1e7f, -1e7f, -1e7f, 1e7f, 1e7f, 1e7f };

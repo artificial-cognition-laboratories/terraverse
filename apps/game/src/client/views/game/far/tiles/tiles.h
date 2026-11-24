@@ -5,6 +5,7 @@
 
 #include "src/client/views/game/far/land/mesh.h"
 #include "src/client/views/game/far/tiles/tiling.h"
+#include "src/client/views/game/far/tiles/budget.h"
 #include "src/client/views/game/far/land/terrain.h"
 #include "irr_ptr.h"
 #include "library/world/planet/atlas.h"
@@ -25,6 +26,7 @@ namespace far {
 
 class Palette;
 class Workers;
+struct Packed;
 
 /*
 	What tiles are chosen for: a point of view on the planet. Anything that
@@ -67,8 +69,10 @@ public:
 	// `driver` (none: a tile goes to the GPU when it's first drawn) takes each
 	// tile as it's installed, within install's budget: drawn first, a body
 	// coming into view sent all its tiles in one frame, 170 ms.
+	// `budget`: a frame's time shared with the other Tiles drawn in it, its
+	// owner starting each frame (none: one of its own, a frame an update).
 	Tiles(const planet::Atlas &atlas, int body, const Horizon &horizon, const Palette &palette, unsigned threads,
-			video::IVideoDriver *driver = nullptr);
+			video::IVideoDriver *driver = nullptr, Budget *budget = nullptr);
 
 	// Blocks: how far a tile's land can stand off the sea (its peaks, its
 	// trees): whether any of it is past the near world's range, and how far
@@ -174,10 +178,13 @@ private:
 	// coarser than STAND_IN times what the eye would draw there
 	bool fits(s32 span, const Key &hole, const Eye &eye) const;
 	bool install(); // whether it took any
+	void take(const TileKey &key, Packed &packed, bool sketch); // one built: its buffers, painted, on the GPU
 	// Whether the eye's as it was when the tiles were last chosen (choosing
 	// again would choose the same): to within a centimetre, looking the same way
 	bool still(const Eye &eye) const;
+	void quarters();                               // the stand-ins' buffers, in a budget
 	void paint(const Key &key, Entry &e) const; // its colours, tinted or its own
+	void upload(TileBuffer &buffer) const;       // to the GPU, if there's a driver
 	void repaint(); // tiles still in another tint's colours, within the budget
 	bool evict(); // whether it let any go
 	void choose(const Eye &eye); // the tiles to draw and to build, for the eye
@@ -198,6 +205,8 @@ private:
 	std::unique_ptr<terragen::Step> m_coarse; // the roots as they're built, till the coarse planet's all there (terragen/progress.h)
 	u32 m_settling = 0; // frames changed but still, since last chosen (update)
 	video::IVideoDriver *m_driver; // none: tiles go to the GPU as they're drawn
+	std::unique_ptr<Budget> m_own; // when none's shared
+	Budget &m_budget;
 	std::shared_ptr<const Tint> m_tint;
 	u32 m_tints = 0; // tints set so far: a tile painted by this one is up to date
 	u32 m_swept = 0; // the tint every held tile's been painted by, once repaint() finds none left

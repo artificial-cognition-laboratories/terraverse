@@ -30,7 +30,7 @@ namespace planetarium {
 class Galaxy
 {
 public:
-	Galaxy(IShaderSource *ssrc, scene::IMeshBuffer *sphere);
+	explicit Galaxy(IShaderSource *ssrc);
 	~Galaxy();
 	struct Frame
 	{
@@ -39,20 +39,27 @@ public:
 		float level;       // how much of the sky shows at all (the page's)
 		float open;        // how adjusted to the dark the eye is (Eye), 1 wide open
 		float art;         // drawn to be pixel art (Pixels): the band alone, its contrast up; 0 not
+		scene::IMeshBuffer *sphere; // unit: the sky's drawn on it
 	};
 	// The view already set (turned, not moved: the sky's at infinity).
 	void draw(video::IVideoDriver *driver, const Frame &frame);
+
+	// What's on the GPU now, kept there while this is held, whether a Galaxy
+	// is alive or not (none: nothing's been drawn yet). Held over a change of
+	// scene (the menu's views gone before the game's sky draws): made again,
+	// it was a quarter of a second on the game's first frame.
+	static std::shared_ptr<const void> held();
 
 private:
 	struct SkyUniforms;
 	struct StarUniforms;
 	irr_ptr<SkyUniforms> m_skyUniforms;
 	irr_ptr<StarUniforms> m_starUniforms;
-	scene::IMeshBuffer *m_sphere;
 	video::SMaterial m_skyMaterial, m_starMaterial;
 	// On the GPU, shared by every Galaxy alive: a new world's view (each edit
 	// on the create screen) shouldn't stall a frame uploading the same sky.
 	struct Shared;
+	static std::weak_ptr<Shared> &alive(); // every Galaxy's, while one's alive or it's held
 	std::shared_ptr<Shared> m_shared;
 };
 

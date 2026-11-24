@@ -17,7 +17,7 @@ static constexpr double EXPOSURE = 14;
 // How much of the air's depth the rim shows: past this the real air's all but gone.
 static constexpr double REACH = 0.5;
 
-struct Rim::Uniforms : public IShaderUniformSetterRC
+struct Rim::Program::Uniforms : public IShaderUniformSetterRC
 {
 	float centre[3]{}, sun[3]{}, ground = 1, share = (float)SHARE;
 	CachedPixelShaderSetting<float, 3> m_centre{"rimCentre"}, m_sun{"rimSun"};
@@ -32,7 +32,7 @@ struct Rim::Uniforms : public IShaderUniformSetterRC
 	}
 };
 
-Rim::Rim(IShaderSource *ssrc, const terragen::System &system) : m_system(system), m_uniforms(make_irr<Uniforms>())
+Rim::Program::Program(IShaderSource *ssrc) : m_uniforms(make_irr<Uniforms>())
 {
 	const u32 shader = ssrc->getShader("air_rim_shader", ShaderConstants{}, video::EMT_TRANSPARENT_ALPHA_CHANNEL, m_uniforms.get());
 	m_material.MaterialType = ssrc->getShaderInfo(shader).material;
@@ -46,6 +46,10 @@ Rim::Rim(IShaderSource *ssrc, const terragen::System &system) : m_system(system)
 	m_material.TextureLayers[0].MagFilter = video::ETMAGF_LINEAR;
 	m_material.UseMipMaps = false;
 }
+
+Rim::Program::~Program() = default;
+
+Rim::Rim(Program &program, const terragen::System &system) : m_program(program), m_system(system) {}
 
 Rim::~Rim()
 {
@@ -98,14 +102,14 @@ void Rim::draw(video::IVideoDriver *driver, size_t body, const v3f &at, float gr
 	const float shell = ground * (float)(1 + SHARE);
 	if (!part.texture || at.getLength() <= shell)
 		return; // from inside the shell, the sky's the air
-	Uniforms &u = *m_uniforms;
+	Program::Uniforms &u = *m_program.m_uniforms;
 	for (int c = 0; c < 3; c++) {
 		u.centre[c] = c == 0 ? at.X : c == 1 ? at.Y : at.Z;
 		u.sun[c] = c == 0 ? sun.X : c == 1 ? sun.Y : sun.Z;
 	}
 	u.ground = ground;
-	m_material.TextureLayers[0].Texture = part.texture;
-	driver->setMaterial(m_material);
+	m_program.m_material.TextureLayers[0].Texture = part.texture;
+	driver->setMaterial(m_program.m_material);
 	core::matrix4 world;
 	world.setScale(shell);
 	world.setTranslation(at);

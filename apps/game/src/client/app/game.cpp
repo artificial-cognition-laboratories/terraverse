@@ -48,6 +48,8 @@
 #include "src/server/app/server.h"
 #include "src/shared/platform/settings/settings.h"
 #include "src/client/render/shaders/shader.h"
+#include "src/client/render/shaders/world_uniforms.h"
+#include "src/client/views/game/view/world_view.h"
 #include "src/client/app/output/sound/sound_maker.h"
 #include "src/shared/platform/threading/lambda.h"
 #include "src/shared/platform/system/translation.h"
@@ -82,320 +84,6 @@ static const video::SColor BORE_NEXT[] = { { 255, 255, 230, 140 }, { 140, 255, 2
 
 typedef s32 SamplerLayer_t;
 
-
-class GameGlobalShaderUniformSetter : public IShaderUniformSetter
-{
-	Sky *m_sky;
-	Client *m_client;
-
-	CachedVertexShaderSetting<float> m_animation_timer_vertex{"animationTimer"};
-	CachedPixelShaderSetting<float> m_animation_timer_pixel{"animationTimer"};
-	CachedVertexShaderSetting<float>
-		m_animation_timer_delta_vertex{"animationTimerDelta"};
-	CachedPixelShaderSetting<float>
-		m_animation_timer_delta_pixel{"animationTimerDelta"};
-	int m_crack_animation_length_i;
-	CachedPixelShaderSetting<float> m_crack_animation_length{"crackAnimationLength"};
-	int m_crack_level_i = -1;
-	CachedPixelShaderSetting<float> m_crack_level{"crackLevel"};
-	int m_crack_texture_scale_i = 0;
-	CachedPixelShaderSetting<float> m_crack_texture_scale{"crackTextureScale"};
-	CachedPixelShaderSetting<float, 3> m_day_light{"dayLight"};
-	CachedPixelShaderSetting<float, 3> m_minimap_yaw{"yawVec"};
-	CachedPixelShaderSetting<float, 3> m_camera_offset_pixel{"cameraOffset"};
-	CachedVertexShaderSetting<float, 3> m_camera_offset_vertex{"cameraOffset"};
-	CachedPixelShaderSetting<float, 3> m_camera_position_pixel{"cameraPosition"};
-	CachedVertexShaderSetting<float, 3> m_camera_position_vertex{"cameraPosition"};
-	CachedVertexShaderSetting<float, 2> m_texel_size0_vertex{"texelSize0"};
-	CachedPixelShaderSetting<float, 2> m_texel_size0_pixel{"texelSize0"};
-	v2f m_texel_size0;
-
-	CachedStructPixelShaderSetting<float, 7> m_exposure_params_pixel{
-		"exposureParams",
-		std::array<const char*, 7> {
-			"luminanceMin", "luminanceMax", "exposureCorrection",
-			"speedDarkBright", "speedBrightDark", "centerWeightPower",
-			"compensationFactor"
-		}};
-	float m_user_exposure_compensation;
-	bool m_bloom_enabled;
-	CachedPixelShaderSetting<float> m_bloom_intensity_pixel{"bloomIntensity"};
-	CachedPixelShaderSetting<float> m_bloom_strength_pixel{"bloomStrength"};
-	CachedPixelShaderSetting<float> m_bloom_radius_pixel{"bloomRadius"};
-	CachedPixelShaderSetting<float> m_saturation_pixel{"saturation"};
-	bool m_volumetric_light_enabled;
-	CachedPixelShaderSetting<float, 3>
-		m_sun_position_pixel{"sunPositionScreen"};
-	CachedPixelShaderSetting<float> m_sun_brightness_pixel{"sunBrightness"};
-	CachedPixelShaderSetting<float, 3>
-		m_moon_position_pixel{"moonPositionScreen"};
-	CachedPixelShaderSetting<float> m_moon_brightness_pixel{"moonBrightness"};
-	CachedPixelShaderSetting<float>
-		m_volumetric_light_strength_pixel{"volumetricLightStrength"};
-
-	static constexpr std::array<const char*, 1> SETTING_CALLBACKS = {
-		"exposure_compensation",
-	};
-
-public:
-	void onSettingsChange(const std::string &name)
-	{
-		if (name == "exposure_compensation")
-			m_user_exposure_compensation = g_settings->getFloat("exposure_compensation", -1.0f, 1.0f);
-	}
-
-	static void settingsCallback(const std::string &name, void *userdata)
-	{
-		reinterpret_cast<GameGlobalShaderUniformSetter*>(userdata)->onSettingsChange(name);
-	}
-
-	void setSky(Sky *sky) { m_sky = sky; }
-
-	GameGlobalShaderUniformSetter(Sky *sky, Game *game) :
-		m_sky(sky),
-		m_client(game->getClient())
-	{
-		for (auto &name : SETTING_CALLBACKS)
-			g_settings->registerChangedCallback(name, settingsCallback, this);
-
-		m_user_exposure_compensation = g_settings->getFloat("exposure_compensation", -1.0f, 1.0f);
-		m_bloom_enabled = g_settings->getBool("enable_bloom");
-		m_volumetric_light_enabled = g_settings->getBool("enable_volumetric_lighting") && m_bloom_enabled;
-		m_crack_animation_length_i = game->crack_animation_length;
-	}
-
-	~GameGlobalShaderUniformSetter()
-	{
-		g_settings->deregisterAllChangedCallbacks(this);
-	}
-
-	void onSetUniforms(video::IMaterialRendererServices *services) override
-	{
-		u32 daynight_ratio = (float)m_client->getEnv().getDayNightRatio();
-		video::SColorf sunlight;
-		get_sunlight_color(&sunlight, daynight_ratio);
-		// Terra Firma: daylight through this world's air
-		sunlight.r *= solar::tint().r;
-		sunlight.g *= solar::tint().g;
-		sunlight.b *= solar::tint().b;
-		m_day_light.set(sunlight, services);
-
-		u32 animation_timer = m_client->getEnv().getFrameTime() % 1000000;
-		float animation_timer_f = (float)animation_timer / 100000.f;
-		m_animation_timer_vertex.set(&animation_timer_f, services);
-		m_animation_timer_pixel.set(&animation_timer_f, services);
-
-		float animation_timer_delta_f = (float)m_client->getEnv().getFrameTimeDelta() / 100000.f;
-		m_animation_timer_delta_vertex.set(&animation_timer_delta_f, services);
-		m_animation_timer_delta_pixel.set(&animation_timer_delta_f, services);
-
-		if (m_client->getMinimap()) {
-			v3f minimap_yaw = m_client->getMinimap()->getYawVec();
-			m_minimap_yaw.set(minimap_yaw, services);
-		}
-
-		v3f offset = intToFloat(m_client->getCamera()->getOffset(), BS);
-		m_camera_offset_pixel.set(offset, services);
-		m_camera_offset_vertex.set(offset, services);
-
-		v3f camera_position = m_client->getCamera()->getPosition();
-		m_camera_position_pixel.set(camera_position, services);
-		m_camera_position_vertex.set(camera_position, services);
-
-		m_texel_size0_vertex.set(m_texel_size0, services);
-		m_texel_size0_pixel.set(m_texel_size0, services);
-
-		{
-			float tmp = m_crack_animation_length_i;
-			m_crack_animation_length.set(&tmp, services);
-			tmp = m_crack_level_i;
-			m_crack_level.set(&tmp, services);
-			tmp = m_crack_texture_scale_i;
-			m_crack_texture_scale.set(&tmp, services);
-		}
-
-		const auto &lighting = m_client->getEnv().getLocalPlayer()->getLighting();
-
-		const AutoExposure &exposure_params = lighting.exposure;
-		std::array<float, 7> exposure_buffer = {
-			std::pow(2.0f, exposure_params.luminance_min),
-			std::pow(2.0f, exposure_params.luminance_max),
-			exposure_params.exposure_correction,
-			exposure_params.speed_dark_bright,
-			exposure_params.speed_bright_dark,
-			exposure_params.center_weight_power,
-			powf(2.f, m_user_exposure_compensation)
-		};
-		m_exposure_params_pixel.set(exposure_buffer.data(), services);
-
-		if (m_bloom_enabled) {
-			float intensity = std::max(lighting.bloom_intensity, 0.0f);
-			m_bloom_intensity_pixel.set(&intensity, services);
-			float strength_factor = std::max(lighting.bloom_strength_factor, 0.0f);
-			m_bloom_strength_pixel.set(&strength_factor, services);
-			float radius = std::max(lighting.bloom_radius, 0.0f);
-			m_bloom_radius_pixel.set(&radius, services);
-		}
-
-		float saturation = lighting.saturation;
-		m_saturation_pixel.set(&saturation, services);
-
-		if (m_volumetric_light_enabled) {
-			// Map directional light to screen space
-			auto camera_node = m_client->getCamera()->getCameraNode();
-			core::matrix4 transform = camera_node->getProjectionMatrix();
-			transform *= camera_node->getViewMatrix();
-
-			if (m_sky->getSunVisible()) {
-				v3f sun_position = camera_node->getAbsolutePosition() +
-						10000.f * m_sky->getSunDirection();
-				transform.transformVect(sun_position);
-				sun_position.normalize();
-
-				m_sun_position_pixel.set(sun_position, services);
-
-				float sun_brightness = core::clamp(107.143f * m_sky->getSunDirection().Y, 0.f, 1.f);
-				m_sun_brightness_pixel.set(&sun_brightness, services);
-			} else {
-				m_sun_position_pixel.set(v3f(0.f, 0.f, -1.f), services);
-
-				float sun_brightness = 0.f;
-				m_sun_brightness_pixel.set(&sun_brightness, services);
-			}
-
-			if (m_sky->getMoonVisible()) {
-				v3f moon_position = camera_node->getAbsolutePosition() +
-						10000.f * m_sky->getMoonDirection();
-				transform.transformVect(moon_position);
-				moon_position.normalize();
-
-				m_moon_position_pixel.set(moon_position, services);
-
-				float moon_brightness = core::clamp(107.143f * m_sky->getMoonDirection().Y, 0.f, 1.f);
-				m_moon_brightness_pixel.set(&moon_brightness, services);
-			} else {
-				m_moon_position_pixel.set(v3f(0.f, 0.f, -1.f), services);
-
-				float moon_brightness = 0.f;
-				m_moon_brightness_pixel.set(&moon_brightness, services);
-			}
-
-			float volumetric_light_strength = lighting.volumetric_light_strength;
-			m_volumetric_light_strength_pixel.set(&volumetric_light_strength, services);
-		}
-	}
-
-	void onSetMaterial(const video::SMaterial &material) override
-	{
-		// This is set only for node materials which have a crack, see mapblock_mesh.cpp.
-		auto pair = MapBlockMesh::unpackCrackMaterialParam(material.MaterialTypeParam);
-		m_crack_level_i = pair.first;
-		m_crack_texture_scale_i = pair.second;
-
-		video::ITexture *texture = material.getTexture(0);
-		if (texture) {
-			core::dimension2du size = texture->getSize();
-			m_texel_size0 = v2f(1.f / size.Width, 1.f / size.Height);
-		} else {
-			m_texel_size0 = v2f();
-		}
-	}
-};
-
-
-class GameGlobalShaderUniformSetterFactory : public IShaderUniformSetterFactory
-{
-	Sky *m_sky = nullptr;
-	Game *m_game;
-	std::vector<GameGlobalShaderUniformSetter*> created_nosky;
-public:
-	GameGlobalShaderUniformSetterFactory(Game *game) :
-		m_game(game)
-	{}
-
-	void setSky(Sky *sky)
-	{
-		m_sky = sky;
-		for (GameGlobalShaderUniformSetter *ggscs : created_nosky) {
-			ggscs->setSky(m_sky);
-		}
-		created_nosky.clear();
-	}
-
-	virtual IShaderUniformSetter* create(const std::string &name)
-	{
-		if (str_starts_with(name, "shadow/"))
-			return nullptr;
-		auto *scs = new GameGlobalShaderUniformSetter(m_sky, m_game);
-		if (!m_sky)
-			created_nosky.push_back(scs);
-		return scs;
-	}
-};
-
-class NodeShaderConstantSetter : public IShaderConstantSetter
-{
-public:
-	NodeShaderConstantSetter() = default;
-	~NodeShaderConstantSetter() = default;
-
-	void onGenerate(const std::string &name, ShaderConstants &constants) override
-	{
-		if (constants.find("MATERIAL_TYPE") == constants.end())
-			return; // not a node shader
-		[[maybe_unused]] const auto material_type =
-			static_cast<MaterialType>(std::get<int>(constants["MATERIAL_TYPE"]));
-
-#define PROVIDE(constant) constants[ #constant ] = (int)constant
-
-		PROVIDE(TILE_MATERIAL_BASIC);
-		PROVIDE(TILE_MATERIAL_ALPHA);
-		PROVIDE(TILE_MATERIAL_LIQUID_TRANSPARENT);
-		PROVIDE(TILE_MATERIAL_LIQUID_OPAQUE);
-		PROVIDE(TILE_MATERIAL_WAVING_LEAVES);
-		PROVIDE(TILE_MATERIAL_WAVING_PLANTS);
-		PROVIDE(TILE_MATERIAL_OPAQUE);
-		PROVIDE(TILE_MATERIAL_WAVING_LIQUID_BASIC);
-		PROVIDE(TILE_MATERIAL_WAVING_LIQUID_TRANSPARENT);
-		PROVIDE(TILE_MATERIAL_WAVING_LIQUID_OPAQUE);
-		PROVIDE(TILE_MATERIAL_PLAIN);
-		PROVIDE(TILE_MATERIAL_PLAIN_ALPHA);
-
-#undef PROVIDE
-
-		bool enable_waving_water = g_settings->getBool("enable_waving_water");
-		constants["ENABLE_WAVING_WATER"] = enable_waving_water ? 1 : 0;
-		if (enable_waving_water) {
-			constants["WATER_WAVE_HEIGHT"] = g_settings->getFloat("water_wave_height");
-			constants["WATER_WAVE_LENGTH"] = g_settings->getFloat("water_wave_length");
-			constants["WATER_WAVE_SPEED"] = g_settings->getFloat("water_wave_speed");
-		}
-		switch (material_type) {
-			case TILE_MATERIAL_WAVING_LIQUID_TRANSPARENT:
-			case TILE_MATERIAL_WAVING_LIQUID_OPAQUE:
-			case TILE_MATERIAL_WAVING_LIQUID_BASIC:
-				constants["MATERIAL_WAVING_LIQUID"] = 1;
-				break;
-			default:
-				constants["MATERIAL_WAVING_LIQUID"] = 0;
-				break;
-		}
-		switch (material_type) {
-			case TILE_MATERIAL_WAVING_LIQUID_TRANSPARENT:
-			case TILE_MATERIAL_WAVING_LIQUID_OPAQUE:
-			case TILE_MATERIAL_WAVING_LIQUID_BASIC:
-			case TILE_MATERIAL_LIQUID_TRANSPARENT:
-				constants["MATERIAL_WATER_REFLECTIONS"] = 1;
-				break;
-			default:
-				constants["MATERIAL_WATER_REFLECTIONS"] = 0;
-				break;
-		}
-
-		constants["ENABLE_WAVING_LEAVES"] = g_settings->getBool("enable_waving_leaves") ? 1 : 0;
-		constants["ENABLE_WAVING_PLANTS"] = g_settings->getBool("enable_waving_plants") ? 1 : 0;
-	}
-};
 
 /****************************************************************************
  ****************************************************************************/
@@ -756,18 +444,7 @@ void Game::shutdown()
 		cur_control->setRelativeMode(false);
 	}
 
-	clouds.reset();
-	if (space)
-		space->remove(); // the scene manager holds it too
-	space.reset();
-	if (far_view)
-		far_view->remove(); // the scene manager holds it too
-	far_view.reset();
-	if (liquid_layer)
-		liquid_layer->remove(); // the scene manager holds it too
-	liquid_layer.reset();
-
-	sky.reset();
+	m_world_view.reset();
 
 	// only if the shutdown progress bar isn't shown yet
 	if (m_shutdown_progress == 0.0f)
@@ -1028,9 +705,9 @@ bool Game::createClient(const GameStartData &start_data)
 	}
 
 	shader_src->addShaderConstantSetter(
-		std::make_unique<NodeShaderConstantSetter>());
+		createNodeShaderConstantSetter());
 
-	auto scsf_up = std::make_unique<GameGlobalShaderUniformSetterFactory>(this);
+	auto scsf_up = std::make_unique<GameGlobalShaderUniformSetterFactory>(client, crack_animation_length);
 	auto* scsf = scsf_up.get();
 	shader_src->addShaderUniformSetterFactory(std::move(scsf_up));
 
@@ -1047,14 +724,11 @@ bool Game::createClient(const GameStartData &start_data)
 	camera = new Camera(*draw_control, client, m_rendering_engine);
 	client->setCamera(camera);
 
-	/* Clouds
+	/* The world as it's seen: the sky, clouds, the far view (views/game/view/world_view.h)
 	 */
-	clouds = make_irr<Clouds>(smgr, shader_src, -1, myrand());
-
-	/* Skybox
-	 */
-	sky = make_irr<Sky>(-1, m_rendering_engine, texture_src, shader_src);
-	scsf->setSky(sky.get());
+	m_world_view = std::make_unique<WorldView>(WorldView::Opts{ /* client */ *client, /* camera */ *camera,
+		/* engine */ *m_rendering_engine, /* shaders */ *shader_src, /* textures */ *texture_src, /* draw */ *draw_control });
+	scsf->setSky(&m_world_view->sky());
 
 	if (!initGui())
 		return false;
@@ -2043,7 +1717,7 @@ void Game::toggleFog()
 {
 	bool flag = !g_settings->getBool("enable_fog");
 	g_settings->setBool("enable_fog", flag);
-	bool allowed = sky->getFogDistance() < 0 || client->checkPrivilege("core:debug");
+	bool allowed = m_world_view->sky().getFogDistance() < 0 || client->checkPrivilege("core:debug");
 	if (!allowed)
 		m_game_ui->showTranslatedStatusText("Fog enabled by game or mod");
 	else if (flag)
@@ -2133,7 +1807,7 @@ void Game::increaseViewRange()
 {
 	s16 range = g_settings->getS16("viewing_range");
 	s16 range_new = range + 10;
-	s16 server_limit = sky->getFogDistance();
+	s16 server_limit = m_world_view->sky().getFogDistance();
 
 	if (range_new >= 4000) {
 		range_new = 4000;
@@ -2155,7 +1829,7 @@ void Game::decreaseViewRange()
 {
 	s16 range = g_settings->getS16("viewing_range");
 	s16 range_new = range - 10;
-	s16 server_limit = sky->getFogDistance();
+	s16 server_limit = m_world_view->sky().getFogDistance();
 
 	if (range_new <= 20) {
 		range_new = 20;
@@ -2177,7 +1851,7 @@ void Game::toggleFullViewRange()
 {
 	draw_control->range_all = !draw_control->range_all;
 	if (draw_control->range_all) {
-		if (sky->getFogDistance() >= 0) {
+		if (m_world_view->sky().getFogDistance() >= 0) {
 			m_game_ui->showTranslatedStatusText("Unlimited viewing range enabled, but forbidden by game or mod");
 		} else {
 			m_game_ui->showTranslatedStatusText("Unlimited viewing range enabled");
@@ -2715,127 +2389,33 @@ void Game::handleClientEvent_HudChange(ClientEvent *event, CameraOrientation *ca
 
 void Game::handleClientEvent_SetSky(ClientEvent *event, CameraOrientation *cam)
 {
-	sky->setVisible(false);
-	// Whether clouds are visible in front of a custom skybox.
-	sky->setCloudsEnabled(event->set_sky->clouds);
-
-	// Clear the old textures out in case we switch rendering type.
-	sky->clearSkyboxTextures();
-	// Handle according to type
-	if (event->set_sky->type == "regular") {
-		// Shows the mesh skybox
-		sky->setVisible(true);
-		// Update mesh based skybox colours if applicable.
-		sky->setSkyColors(event->set_sky->sky_color);
-		sky->setHorizonTint(
-			event->set_sky->fog_sun_tint,
-			event->set_sky->fog_moon_tint,
-			event->set_sky->fog_tint_type
-		);
-	} else if (event->set_sky->type == "skybox" &&
-			event->set_sky->textures.size() == 6) {
-		// Disable the dynamic mesh skybox:
-		sky->setVisible(false);
-		// Set fog colors:
-		sky->setFallbackBgColor(event->set_sky->bgcolor);
-		// Set sunrise and sunset fog tinting:
-		sky->setHorizonTint(
-			event->set_sky->fog_sun_tint,
-			event->set_sky->fog_moon_tint,
-			event->set_sky->fog_tint_type
-		);
-		// Add textures to skybox.
-		for (int i = 0; i < 6; i++)
-			sky->addTextureToSkybox(event->set_sky->textures[i], i, texture_src);
-	} else {
-		// Handle everything else as plain color.
-		if (event->set_sky->type != "plain")
-			infostream << "Unknown sky type: "
-				<< (event->set_sky->type) << std::endl;
-		sky->setVisible(false);
-		sky->setFallbackBgColor(event->set_sky->bgcolor);
-		// Disable directional sun/moon tinting on plain or invalid skyboxes.
-		sky->setHorizonTint(
-			event->set_sky->bgcolor,
-			event->set_sky->bgcolor,
-			"custom"
-		);
-	}
-
-	// Orbit Tilt:
-	sky->setBodyOrbitTilt(event->set_sky->body_orbit_tilt);
-	// Terra Firma: the real sun, for the sky and the light
-	sky->setSolar(event->set_sky->solar);
-	client->getEnv().setSolar(event->set_sky->solar);
-
-	// fog
-	// do not override a potentially smaller client setting.
-	sky->setFogDistance(event->set_sky->fog_distance);
-
-	// if the fog distance is reset, switch back to the client's viewing_range
-	if (event->set_sky->fog_distance < 0)
-		draw_control->wanted_range = g_settings->getS16("viewing_range");
-
-	if (event->set_sky->fog_start >= 0)
-		sky->setFogStart(rangelim(event->set_sky->fog_start, 0.0f, 0.99f));
-	else
-		sky->setFogStart(rangelim(g_settings->getFloat("fog_start"), 0.0f, 0.99f));
-
-	sky->setFogColor(event->set_sky->fog_color);
-
-	sky->setAutoCaveBrightness(event->set_sky->auto_dim_skybox);
-
-	delete event->set_sky;
+	m_world_view->heard(*event);
 }
 
 void Game::handleClientEvent_SetSun(ClientEvent *event, CameraOrientation *cam)
 {
-	sky->setSunVisible(event->sun_params->visible);
-	sky->setSunTexture(event->sun_params->texture,
-		event->sun_params->tonemap, texture_src);
-	sky->setSunScale(event->sun_params->scale);
-	sky->setSunriseVisible(event->sun_params->sunrise_visible);
-	sky->setSunriseTexture(event->sun_params->sunrise, texture_src);
-	delete event->sun_params;
+	m_world_view->heard(*event);
 }
 
 void Game::handleClientEvent_SetMoon(ClientEvent *event, CameraOrientation *cam)
 {
-	sky->setMoonVisible(event->moon_params->visible);
-	sky->setMoonTexture(event->moon_params->texture,
-		event->moon_params->tonemap, texture_src);
-	sky->setMoonScale(event->moon_params->scale);
-	delete event->moon_params;
+	m_world_view->heard(*event);
 }
 
 void Game::handleClientEvent_SetStars(ClientEvent *event, CameraOrientation *cam)
 {
-	sky->setStarsVisible(event->star_params->visible);
-	sky->setStarCount(event->star_params->count);
-	sky->setStarColor(event->star_params->starcolor);
-	sky->setStarScale(event->star_params->scale);
-	sky->setStarDayOpacity(event->star_params->day_opacity);
-	sky->setStarSeed(event->star_params->star_seed);
-	delete event->star_params;
+	m_world_view->heard(*event);
 }
 
 void Game::handleClientEvent_OverrideDayNightRatio(ClientEvent *event,
 		CameraOrientation *cam)
 {
-	client->getEnv().setDayNightRatioOverride(
-		event->override_day_night_ratio.do_override,
-		event->override_day_night_ratio.ratio_f * 1000.0f);
+	m_world_view->heard(*event);
 }
 
 void Game::handleClientEvent_CloudParams(ClientEvent *event, CameraOrientation *cam)
 {
-	clouds->setDensity(event->cloud_params.density);
-	clouds->setColorBright(video::SColor(event->cloud_params.color_bright));
-	clouds->setColorAmbient(video::SColor(event->cloud_params.color_ambient));
-	clouds->setColorShadow(video::SColor(event->cloud_params.color_shadow));
-	clouds->setHeight(event->cloud_params.height);
-	clouds->setThickness(event->cloud_params.thickness);
-	clouds->setSpeed(v2f(event->cloud_params.speed_x, event->cloud_params.speed_y));
+	m_world_view->heard(*event);
 }
 
 void Game::handleClientEvent_UpdateCamera(ClientEvent *event, CameraOrientation *cam)
@@ -2928,7 +2508,7 @@ void Game::updateCameraOffset()
 			env.getLocalPlayer()->light_color);
 
 		env.updateCameraOffset(camera_offset);
-		clouds->updateCameraOffset(camera_offset);
+		m_world_view->offsetMoved(camera_offset);
 	}
 }
 
@@ -6124,143 +5704,12 @@ void Game::updateFrame(RunStats *stats, f32 dtime,
 	client->getEnv().updateFrameTime(m_is_paused);
 
 	/*
-		Fog range
+		The world as it's seen: its sky, far view, water, light, clouds and particles
+		(views/game/view/world_view.h)
 	*/
-
-	if (sky->getFogDistance() >= 0) {
-		draw_control->wanted_range = MYMIN(draw_control->wanted_range, sky->getFogDistance());
-	}
-	if (draw_control->range_all && sky->getFogDistance() < 0) {
-		runData.fog_range = FOG_RANGE_ALL;
-	} else {
-		runData.fog_range = draw_control->wanted_range * BS;
-	}
-
-	// Terra Firma: the far view, once the server says this is a terra world.
-	// Created after the sky, so it draws right after it. The fog moves out to
-	// what it reaches (from high up, the planet's horizon).
-	// The planet comes before the horizon (Server::SendPlanet). On an atlas
-	// world it's the body the player stands on: made again when that's
-	// another (kept while they're in seam, between tiles).
-	if (client->getHorizon() && client->getAtlas()) {
-		const v3f feet = player->getPosition() / BS;
-		const std::optional<int> on = client->getAtlas()->bodyAt(planet::Atlas::moverNode(feet.X, feet.Y, feet.Z));
-		if (far_view && on && *on != far_body) {
-			warningstream << "sky: the eye changed body, " << far_body << " to " << *on << std::endl;
-			space->remove(); // the scene manager holds them too
-			space.reset();
-			far_view->remove();
-			far_view.reset();
-		}
-		if (!far_view && on) {
-			// the sky first: the pass draws them in the order they're made
-			space = make_irr<planetarium::Sky>(smgr, shader_src, *client->getAtlas(), *client->getHorizon(), *on);
-			far_view = make_irr<far::View>(smgr, shader_src, texture_src, client->ndef(), *client->getHorizon(),
-					*client->getAtlas(), *on);
-			space->palette(far_view->palette());
-			far_body = *on;
-		}
-	}
-	if (space)
-		space->update(*camera, client->getEnv().getClientMap(),
-				client->getEnv().getDayCount() + client->getEnv().getTimeOfDayF());
-	// Terra Firma: land fades into the air's own horizon
-	if (space)
-		sky->setFogColor(space->fog().value_or(video::SColor(0, 0, 0, 0))); // (no alpha: the sky's own)
-	// Terra Firma: liquid lying in the world (sprint 81), drawn on its own
-	if (!liquid_layer)
-		liquid_layer = make_irr<liquids::Layer>(liquids::Layer::Opts{ /*smgr*/ smgr, /*ndef*/ client->ndef(), /*shaders*/ shader_src });
-	{
-		// what pushes water aside (sprint 82): the player and the objects near
-		std::vector<liquids::Mover> movers;
-		LocalPlayer *me = client->getEnv().getLocalPlayer();
-		movers.push_back({ 0, me->getPosition() / BS, 0.35f, 1.7f });
-		std::vector<DistanceSortedActiveObject> near;
-		client->getEnv().getActiveObjects(me->getPosition(), 32 * BS, near);
-		for (const DistanceSortedActiveObject &o : near) {
-			aabb3f box{ v3f(0) };
-			if (o.obj->isLocalPlayer() || !o.obj->getSelectionBox(&box))
-				continue;
-			const v3f at = o.obj->getPosition() / BS;
-			movers.push_back({ u32(o.obj->getId()) + 1, at + v3f(0, box.MinEdge.Y / BS, 0),
-					std::max(box.getExtent().X, box.getExtent().Z) / (2 * BS), box.getExtent().Y / BS });
-		}
-		ScopeProfiler water_timed(g_profiler, "Water all [us]", SPT_GRAPH_ADD, PRECISION_MICRO);
-		liquid_layer->update(client->takeLiquidsChanged(), client->takeLiquidGround(), client->takeStreams(), movers, client->rivers(),
-				client->getEnv().getClientMap(), camera->getOffset(), camera->getPosition() / BS,
-				client->getHorizon() ? std::optional<s16>(client->getHorizon()->water_level) : std::nullopt,
-				client->getEnv().getDayNightRatio(), dtime, player->getSpeed().getLength() / BS > 30);
-	}
-	if (far_view) {
-		std::optional<float> fog_limit;
-		if (sky->getFogDistance() >= 0)
-			fog_limit = sky->getFogDistance();
-		far_view->update(*camera, client->getEnv().getClientMap(), draw_control->wanted_range,
-				draw_control->range_all, fog_limit, player->getSpeed() / BS);
-		if (far_view->showing())
-			runData.fog_range = far_view->reach();
-	}
-
-	/*
-		Calculate general brightness
-	*/
-	u32 daynight_ratio = client->getEnv().getDayNightRatio();
-	float time_brightness = decode_light_f((float)daynight_ratio / 1000.0f);
-	float direct_brightness;
-	bool sunlight_seen;
-
-	// When in noclip mode force same sky brightness as above ground so you
-	// can see properly
-	bool noclip_fly = draw_control->allow_noclip &&
-			m_cache_enable_free_move &&
+	const bool see_through = draw_control->allow_noclip && m_cache_enable_free_move &&
 			client->checkPrivilege("core:fly");
-	if (!sky->getAutoCaveBrightness() || noclip_fly) {
-		direct_brightness = time_brightness;
-		sunlight_seen = true;
-	} else {
-		float old_brightness = sky->getBrightness();
-		direct_brightness = client->getEnv().getClientMap()
-				.getBackgroundBrightness(MYMIN(runData.fog_range * 1.2, 60 * BS),
-						daynight_ratio, (int)(old_brightness * 255.5), &sunlight_seen)
-				/ 255.0;
-	}
-
-	float time_of_day_smooth = runData.time_of_day_smooth;
-	float time_of_day = client->getEnv().getTimeOfDayF();
-
-	static const float maxsm = 0.05f;
-	static const float todsm = 0.05f;
-
-	if (std::fabs(time_of_day - time_of_day_smooth) > maxsm &&
-			std::fabs(time_of_day - time_of_day_smooth + 1.0) > maxsm &&
-			std::fabs(time_of_day - time_of_day_smooth - 1.0) > maxsm)
-		time_of_day_smooth = time_of_day;
-
-	if (time_of_day_smooth > 0.8 && time_of_day < 0.2)
-		time_of_day_smooth = time_of_day_smooth * (1.0 - todsm)
-				+ (time_of_day + 1.0) * todsm;
-	else
-		time_of_day_smooth = time_of_day_smooth * (1.0 - todsm)
-				+ time_of_day * todsm;
-
-	runData.time_of_day_smooth = time_of_day_smooth;
-
-	// Terra Firma: the date the smoothed time belongs to, which lags across midnight
-	const float smooth_lag = time_of_day_smooth - time_of_day;
-	sky->setDay(client->getEnv().getDayCount() + (smooth_lag > 0.5f ? -1 : smooth_lag < -0.5f ? 1 : 0));
-	sky->update(time_of_day_smooth, time_brightness, direct_brightness,
-			sunlight_seen, camera->getCameraMode(), player->getYaw(),
-			player->getPitch());
-
-	/*
-		Update clouds
-	*/
-	updateClouds(dtime);
-
-	/*
-		Update particles
-	*/
-	client->getParticleManager()->step(dtime);
+	m_world_view->step(dtime, { /* see_through */ see_through, /* offset_moved */ m_camera_offset_changed });
 
 	/*
 		Damage camera tilt
@@ -6296,42 +5745,6 @@ void Game::updateFrame(RunStats *stats, f32 dtime,
 		camera->wield(tool_item, !skip_anim);
 	}
 
-	/*
-		Terra Firma: the block draw list is made again when what it shows
-		changes: the camera into another block (ClientMap::updateCamera),
-		turned much, or the offset moved at once; meshes come or gone soon
-		after (at most every MESHES_DELTA: flying, they come every frame);
-		and every second whatever happens. It was every 200 ms besides, a
-		spike each time over every block loaded.
-	*/
-	runData.update_draw_list_timer += dtime;
-	runData.touch_blocks_timer += dtime;
-
-	constexpr float update_draw_list_delta = 1.0f;
-	constexpr float meshes_delta = 0.25f;
-	constexpr float touch_mapblock_delta = 4.0f;
-
-	v3f camera_direction = camera->getDirection();
-
-	auto &client_map = client->getEnv().getClientMap();
-
-	// call only one of updateDrawList, touchMapBlocks, or updateShadow per frame
-	// (the else-ifs below are intentional)
-	if (runData.update_draw_list_timer >= update_draw_list_delta
-			|| runData.update_draw_list_last_cam_dir.getDistanceFrom(camera_direction) > 0.2f
-			|| m_camera_offset_changed
-			|| client_map.needsUpdateDrawList()
-			|| (client_map.haveMeshesChanged() && runData.update_draw_list_timer >= meshes_delta)) {
-		client_map.updateDrawList();
-		runData.update_draw_list_timer = 0;
-		runData.update_draw_list_last_cam_dir = camera_direction;
-	} else if (runData.touch_blocks_timer > touch_mapblock_delta) {
-		client_map.touchMapBlocks();
-		runData.touch_blocks_timer = 0;
-	} else if (RenderingEngine::get_shadow_renderer()) {
-		updateShadows();
-	}
-
 	m_game_ui->update(*stats, client, draw_control, cam, runData.pointed_old,
 			dtime);
 
@@ -6353,108 +5766,22 @@ void Game::updateFrame(RunStats *stats, f32 dtime,
 	g_profiler->avg("Game::updateFrame(): update frame [ms]", tt_update.stop(true));
 }
 
-void Game::updateClouds(float dtime)
-{
-	if (this->sky->getCloudsVisible()) {
-		this->clouds->setVisible(true);
-		this->clouds->step(dtime);
-		// this->camera->getPosition is not enough for third-person camera.
-		v3f camera_node_position = this->camera->getCameraNode()->getPosition();
-		v3s16 camera_offset      = this->camera->getOffset();
-		camera_node_position.X   = camera_node_position.X + camera_offset.X * BS;
-		camera_node_position.Y   = camera_node_position.Y + camera_offset.Y * BS;
-		camera_node_position.Z   = camera_node_position.Z + camera_offset.Z * BS;
-		this->clouds->update(camera_node_position, this->sky->getCloudColor());
-		if (this->clouds->isCameraInsideCloud() && this->fogEnabled()) {
-			// If camera is inside cloud and fog is enabled, use cloud's colors as sky colors.
-			video::SColor clouds_dark = this->clouds->getColor().getInterpolated(
-					video::SColor(255, 0, 0, 0), 0.9);
-			this->sky->overrideColors(clouds_dark, this->clouds->getColor());
-			this->sky->setInClouds(true);
-			this->runData.fog_range = std::fmin(this->runData.fog_range * 0.5f, 32.0f * BS);
-			// Clouds are not drawn in this case.
-			this->clouds->setVisible(false);
-		}
-	} else {
-		this->clouds->setVisible(false);
-	}
-}
-
-/****************************************************************************
- * Shadows
- *****************************************************************************/
-void Game::updateShadows()
-{
-	ShadowRenderer *shadow = RenderingEngine::get_shadow_renderer();
-	if (!shadow)
-		return;
-
-	const auto &lighting = client->getEnv().getLocalPlayer()->getLighting();
-	shadow->setShadowTint(lighting.shadow_tint);
-
-	const float offset_constant = 10000.0f;
-
-	v3f light;
-	if (const std::optional<planetarium::Sky::Light> real = space ? space->light() : std::nullopt) {
-		// Terra Firma: the stock sun's hidden on a planet; the real star casts them
-		shadow->setShadowIntensity(real->strength);
-		light = real->way;
-	} else if (lighting.shadow_direction.getLengthSQ() > 0.0f) {
-		// Custom shadow direction: bypass sun/moon visibility check
-		shadow->setShadowIntensity(lighting.shadow_intensity);
-		light = lighting.shadow_direction;
-	} else {
-		bool is_day = sky->getSunDirection().Y > 0.0f;
-		bool is_shadow_visible = is_day ? sky->getSunVisible() : sky->getMoonVisible();
-		shadow->setShadowIntensity(is_shadow_visible ? lighting.shadow_intensity : 0.0f);
-		light = is_day ? sky->getSunDirection() : sky->getMoonDirection();
-	}
-
-	v3f sun_pos = light * offset_constant;
-	shadow->getDirectionalLight().setDirection(sun_pos);
-	shadow->setTimeOfDay(std::fmod(sky->getLightTimeOfDay(), 1.0f));
-
-	shadow->getDirectionalLight().updateFrustum(camera, client);
-}
-
 void Game::drawScene(RunStats *stats)
 {
 	ZoneScoped;
 
-	const video::SColor fog_color = this->sky->getFogColor();
-	const video::SColor sky_color = this->sky->getSkyColor();
-
-	/*
-		Fog
-	*/
-	if (this->fogEnabled()) {
-		this->driver->setFog(
-				fog_color,
-				video::EFT_FOG_LINEAR,
-				this->runData.fog_range * this->sky->getFogStart(),
-				this->runData.fog_range * 1.0f,
-				0.f, // unused
-				false, // pixel fog
-				true // range fog
-		);
-	} else {
-		this->driver->setFog(
-				fog_color,
-				video::EFT_FOG_LINEAR,
-				FOG_RANGE_ALL,
-				FOG_RANGE_ALL + 100 * BS,
-				0.f, // unused
-				false, // pixel fog
-				false // range fog
-		);
-	}
+	const video::SColor sky_color = m_world_view->skyColor();
+	m_world_view->fog();
 
 	/*
 		Drawing
 	*/
 	TimeTaker tt_draw("Draw scene", nullptr, PRECISION_MICRO);
-	this->driver->beginScene(true, true, sky_color);
-	gpu_clock->begin();
+	{
+		TF_ZONE("Begin scene");
+		this->driver->beginScene(true, true, sky_color);
+		gpu_clock->begin();
+	}
 
 	const LocalPlayer *player = this->client->getEnv().getLocalPlayer();
 	bool draw_wield_tool = (this->m_game_ui->m_flags.show_hud &&
@@ -6465,9 +5792,13 @@ void Game::drawScene(RunStats *stats)
 			(this->camera->getCameraMode() != CAMERA_MODE_THIRD_FRONT));
 
 #if USE_SHELL
-	m_shell_session->update({ this->m_game_ui->m_flags.show_hud, draw_crosshair && !m_cursor,
-		m_hold.has_value(), m_cursor, m_naming.has_value() });
+	{
+		TF_ZONE("Session update");
+		m_shell_session->update({ this->m_game_ui->m_flags.show_hud, draw_crosshair && !m_cursor,
+			m_hold.has_value(), m_cursor, m_naming.has_value() });
+	}
 	if (m_online_host) {
+		TF_ZONE("Online host");
 		m_online_host->step();
 		if (std::optional<online::Endpoint> endpoint = m_online_host->changed())
 			g_shell->social().hosting(online::toJson(*endpoint));
@@ -6481,8 +5812,11 @@ void Game::drawScene(RunStats *stats)
 		m_shell_session->planetarium().draw(this->driver); // Terra Firma: over the whole window
 	else
 #endif
+	{
+		TF_ZONE("Draw world");
 		this->m_rendering_engine->draw_scene(sky_color, this->m_game_ui->m_flags.show_hud,
 				draw_wield_tool, draw_crosshair);
+	}
 
 	v2u32 screensize = this->driver->getScreenSize();
 
@@ -6497,8 +5831,10 @@ void Game::drawScene(RunStats *stats)
 	}
 
 #if USE_SHELL
-	if (g_shell)
+	if (g_shell) {
+		TF_ZONE("Shell frame");
 		g_shell->frame();
+	}
 #endif
 
 	// Must be called immediately before endScene() to capture the rendered frame
@@ -6541,7 +5877,6 @@ void Game::readSettings()
 	m_cache_doubletap_jump               = g_settings->getBool("doubletap_jump");
 	m_cache_toggle_sneak_key             = g_settings->getBool("toggle_sneak_key");
 	m_cache_toggle_aux1_key              = g_settings->getBool("toggle_aux1_key");
-	m_cache_enable_fog                   = g_settings->getBool("enable_fog");
 	m_cache_mouse_sensitivity            = g_settings->getFloat("mouse_sensitivity", 0.001f, 10.0f);
 	m_repeat_place_time                  = g_settings->getFloat("repeat_place_time", 0.16f, 2.0f);
 	m_repeat_dig_time                    = g_settings->getFloat("repeat_dig_time", 0.0f, 2.0f);

@@ -6,6 +6,7 @@ import { Engine } from "./engine"
 import { Home } from "./home"
 import { Projects } from "./project"
 import { Running } from "./running"
+import { Worlds } from "./worlds"
 import { Account, DEFAULT_ARCLABS, Registry, accountFile } from "./registry"
 
 type TerraOpts = {
@@ -29,6 +30,7 @@ export function Terra(opts: TerraOpts) {
     const home = Home({ env: process.env, platform: process.platform, release: process.env.TERRAVERSE_RELEASE === "1" })
     const running = Running({ dir: home.running(), owner: home.handle })
     const engine = Engine({ bin: opts.engine ?? dirname(opts.exec), running: running })
+    const worlds = Worlds({ dir: home.worlds })
     const scratch = Scratch({ projects: projects, cache: home.cache })
     const dev = Dev({ projects: projects, engine: engine, scratch: scratch })
     const art = Art({ projects: projects, scratch: scratch, share: engine.share })
@@ -47,6 +49,7 @@ export function Terra(opts: TerraOpts) {
         projects: projects,
         engine: engine,
         running: running,
+        worlds: worlds,
         home: home,
         dev: dev,
         art: art,

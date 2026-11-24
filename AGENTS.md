@@ -104,6 +104,7 @@ Our folders in `apps/game/src/`:
 | `shared/platform/online/` | STUN, hole punching, UPnP, the gate (tickets, a run's secret), joining, `terra://` refs |
 | `client/body`, `figure`, `liquids`, `shallow.h` | Our client parts: the player's body and fine water |
 | `sidecar/` | TypeScript mods: spawns `terra runtime`, a window each step, answers its calls |
+| `client/app/headless/` | A body for a mind (sprint 126): the client with no window, `luanti --body`, joined by the run secret and driven by terra over a JSON-line pipe |
 | `probe/` | The checks' probes: a headless server driven by `--probe <name>` (`apps/game/tests/checks/*.sh`) |
 
 Mods are TypeScript, and only TypeScript: there's no Lua in the engine (sprint 119,
@@ -140,7 +141,9 @@ parsed at the seam by terra (`apps/cli/src/terra/ref`) and the engine (`online/r
 A world played alone lets its one player in at once (`AUTH_MECHANISM_LOCAL`, 127.0.0.1 only), a
 hosted one admits by ticket, a server terra runs (`terra serve`, `terra dev`) admits anyone on this
 machine holding its run's secret (`online/local.h`, from the home's `running/<port>.json`, 0600),
-and any other server takes no one. Permissions are `prefix:name`
+and any other server takes no one. One engine opens a world at a time: a server holds its `world.lock` (`server/app/world_lock.h`).
+Axon's daemon runs one of the player's worlds (`terra worlds`) as `terra serve --world <name> --world-contract`
+(`apps/cli/src/terra/world`): the world contract, `axon.world/0`, on terra's own pipes (sprint 126). Permissions are `prefix:name`
 (the engine's `core:fly`, a mod's `commands:kick`); roles (`player`, `builder`, `admin`) are sets
 of them, kept in `<world>/access.json`, and the world's owner is always its admin. **Chat** is
 native too (`Server::handleChat`, `server/game/commands`): a line is broadcast, and `/word` goes to the

@@ -54,6 +54,9 @@ public:
 		// the atlas's body drawn from its tiles (the home: the system's
 		// playable body); the rest of the system round it
 		int body = planet::Atlas::HOME;
+		// tiles go to the GPU as they're installed, in its budget (none: as
+		// they're first drawn, all of a frame's new ones in its draw)
+		video::IVideoDriver *driver = nullptr;
 	};
 
 	explicit Planetarium(Opts opts);
@@ -195,9 +198,20 @@ public:
 	const OrbitCamera &camera() const { return m_camera; }
 
 private:
-	// made at the first frame: there's a window by then
-	std::unique_ptr<IWritableShaderSource> m_shaders;
+	// made at the first frame (there's a window by then), or taken over
+	// from the view this one replaces (keep): compiled once, not a view each
+	struct Shaders
+	{
+		explicit Shaders(IWritableShaderSource *made);
+		~Shaders();
+		std::unique_ptr<IWritableShaderSource> source; // (before what's made from it)
+		Programs programs;
+	};
+	std::shared_ptr<Shaders> m_shaders;
+	bool m_shaded = false; // m_system given them
 	const far::Palette m_palette; // before the tiles that read it
+	// a frame's time for every body's tiles together, this body's first (draw)
+	far::Budget m_budget;
 	const terragen::Atlas m_atlas;
 	const double m_sea;
 	far::Tiles m_tiles;

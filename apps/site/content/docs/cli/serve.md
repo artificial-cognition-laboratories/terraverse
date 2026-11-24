@@ -31,7 +31,9 @@ friends list. Who may join is in [server.config.ts](/docs/server/setup#who-may-j
 | Flag | Default | Description |
 |---|---|---|
 | `--port <n>` | `30000` | Where to listen |
+| `--world <name>` | | Serve one of your worlds, from the game's Play list, instead of a server folder. `terra worlds` lists them |
 | `--json` | | Log as JSON lines to stdout, for a supervisor or a log pipeline |
+| `--world-contract` | | Run for Axon: stdout speaks its world contract (`axon.world/0`), a JSON line each way, and the server's own output goes to stderr. Axon's daemon starts servers this way |
 
 Hosting on a machine you don't sit at, and running a server for good, are covered in
 [Deploy](/docs/deploy).

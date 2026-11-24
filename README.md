@@ -1,18 +1,7 @@
 # Terraverse
 
-<img src="./assets/readme/planet-detail-create-world.png" />
-<img src="./assets/readme/system-view-create-world.png" />
 
-## Overview
-
-<describe game, base features and concept here>
-
-## Install
-
-**Linux**
-```bash
-curl -fsSL https://terraverse.arclabs.it/install.sh | sh
-```
+<img src="./apps/game/assets/readme/planet-detail-create-world.png" />
 
 ## Engine Mechanics
 
@@ -59,3 +48,7 @@ Proper physics applies to all players, machines and vehicle. Orbital mechanics, 
 ### Engineering
 
 Terraverse aims to make vehicles, tools and machines things that are engineerd by the player. Craft parts using specialised benches. Then assemble those parts however you like. How you build, and what you build out of will effect how the piece behaves in the world.
+
+### Agents
+
+Terraverse surfaces built especially for headless agent interaction. Axon agents only for now.

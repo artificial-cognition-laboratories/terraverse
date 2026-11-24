@@ -596,6 +596,7 @@ set(common_SRCS
 	shared/game/objects/remoteplayer.cpp
 	shared/game/environment/rollback_interface.cpp
 	server/app/server.cpp
+	server/app/world_lock.cpp
 	server/world/state/environment/serverenvironment.cpp
 	server/world/state/servermap.cpp
 	shared/platform/system/translation.cpp

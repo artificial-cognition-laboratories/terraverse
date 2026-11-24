@@ -5,8 +5,7 @@
 
 #include "src/shared/base/irrlichttypes_bloated.h"
 #include "irr_ptr.h"
-#include "src/client/views/planetarium/globe/lit.h"
-#include "src/client/views/planetarium/globe/rim.h"
+#include "src/client/views/planetarium/space/programs.h"
 #include "src/client/views/planetarium/space/eye.h"
 #include "library/world/terragen/src/system/system.h"
 #include <CMeshBuffer.h>
@@ -66,7 +65,8 @@ public:
 	// it is from the camera and how wide it is drawn, pixels, in the depth
 	// range given), saying whether it did: if not, it's a sphere in its colour.
 	// What bodies are lit and edged with. Before the first draw; a window's needed.
-	void shaders(IShaderSource *ssrc);
+	// Shared: a view of another world hands them on (Programs)
+	void shaders(std::shared_ptr<Programs> programs);
 	// The material for a body's land: `centre` where it's put (BS), `turn` how far the frame
 	// it's drawn in has turned from the scene's (the tiled body's spin; else 0). Its star
 	// and second star, and what of its neighbours could eclipse it, in that frame.
@@ -138,15 +138,14 @@ private:
 	terragen::System::Vec scene(const terragen::System::Vec &km) const;
 
 	const Opts m_opts;
-	std::unique_ptr<Lit> m_lit;
-	std::unique_ptr<Rim> m_rim;
+	std::shared_ptr<Programs> m_programs;
+	std::unique_ptr<Rim> m_rim; // this system's, over the shared program
 	double m_tilt; // radians: the focused body's
 	double m_extent = 0;
 	std::optional<size_t> m_cutaway;
 	std::optional<size_t> m_highlight;
 	// the sky: soft dots round the unit sphere and the galaxy's band behind
 	// them, made for a screen's height
-	std::unique_ptr<Galaxy> m_galaxy; // the stars behind it all, made with the shaders
 	Eye m_eye; // how much of them shows, by what else is in view
 	std::vector<u16> m_window; // a cut sphere's triangles, this frame
 	irr_ptr<scene::SMeshBuffer> m_sphere; // unit, its normals its points

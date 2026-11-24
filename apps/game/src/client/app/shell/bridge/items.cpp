@@ -13,7 +13,6 @@
 #include "src/shared/util/text/string.h"
 #include <IImage.h>
 #include <IVideoDriver.h>
-#include <cstring>
 
 namespace shell {
 
@@ -95,6 +94,19 @@ void Items::warm(float budget_ms)
 		describe(names[m_warmed++]);
 }
 
+bool Items::ready(const std::vector<std::string> &names, float budget_ms)
+{
+	const u64 start = porting::getTimeUs();
+	for (const std::string &name : names) {
+		if (known(name))
+			continue;
+		if (porting::getTimeUs() - start >= budget_ms * 1000)
+			return false; // (the rest next frame)
+		describe(name);
+	}
+	return true;
+}
+
 Json::Value Items::catalog()
 {
 	Json::Value result(Json::arrayValue);
@@ -166,23 +178,11 @@ std::string Items::served(const std::string &texture, const std::string &file) c
 
 void Items::writeIcon(const std::string &texture, const std::string &path) const
 {
-	video::ITexture *tex = m_opts.client->tsrc()->getTexture(texture);
-	if (!tex)
+	// its picture as made on the CPU: read back from its texture, each waited
+	// on all the GPU had queued (after joining, a world's tiles: 100 ms an icon)
+	video::IImage *image = m_opts.client->tsrc()->getImage(texture);
+	if (!image)
 		throw BaseException("shell: could not generate icon texture \"" + texture + "\"");
-
-	core::dimension2du size = tex->getSize();
-	video::IImage *image = m_opts.driver->createImage(tex->getColorFormat(), size);
-	const u8 *src = static_cast<const u8 *>(tex->lock(video::ETLM_READ_ONLY, 0, 0, video::ETLF_NONE));
-	if (!src) {
-		image->drop();
-		throw BaseException("shell: could not read back icon texture \"" + texture + "\"");
-	}
-	u8 *dst = static_cast<u8 *>(image->getData());
-	u32 row = std::min(image->getPitch(), tex->getPitch());
-	for (u32 y = 0; y < size.Height; y++)
-		std::memcpy(dst + y * image->getPitch(), src + y * tex->getPitch(), row);
-	tex->unlock();
-
 	fs::CreateAllDirs(fs::RemoveLastPathComponent(path));
 	bool written = m_opts.driver->writeImageToFile(image, path.c_str());
 	image->drop();

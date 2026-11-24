@@ -40,6 +40,10 @@ public:
 	// Main thread, each frame: describe the catalog's items ahead of being asked, for about
 	// `budget_ms`, so opening the creative inventory renders no icons of its own.
 	void warm(float budget_ms);
+	// Main thread: these described, for about `budget_ms` at most this frame;
+	// whether they all are now. (Each is an icon drawn and written to disk:
+	// a new inventory's all at once, its first send, was 150 ms of a frame.)
+	bool ready(const std::vector<std::string> &names, float budget_ms);
 
 private:
 	std::string iconTexture(const ItemDefinition &def) const;

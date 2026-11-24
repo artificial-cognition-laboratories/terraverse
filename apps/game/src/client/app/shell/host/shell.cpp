@@ -326,7 +326,7 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(wired(opts)))
 		m->social->dismiss(idOf(intent));
 		return Json::Value();
 	});
-	m->planetarium = std::make_unique<Planetarium>(Planetarium::Opts{ *this });
+	m->planetarium = std::make_unique<Planetarium>(Planetarium::Opts{ *this, opts.driver });
 	m->entering = std::make_unique<Entering>(Entering::Opts{ *this, opts.driver, opts.cursor });
 	m->debugger = std::make_unique<Debugger>(Debugger::Opts{ opts.driver, opts.cursor, opts.url, opts.scale,
 			[this](bool on) { m->ime.capture(on); }, m->inbox, opts.gpu, opts.ui_dir });
@@ -399,14 +399,20 @@ void Shell::beginFrame()
 
 void Shell::frame()
 {
-	beginFrame(); // (a loop that drew without pumping the window)
+	{
+		TF_ZONE("UI: begin frame");
+		beginFrame(); // (a loop that drew without pumping the window)
+	}
 	m->begun = false;
 	{
 		TF_ZONE("UI");
 		frameUi();
 	}
 	// every screen's frame ends here: menu, loading and game alike
-	trace::frame();
+	{
+		TF_ZONE("Trace: frame");
+		trace::frame();
+	}
 }
 
 void Shell::frameUi()

@@ -146,6 +146,8 @@ void Planetarium::release()
 
 void Planetarium::clear()
 {
+	if (std::shared_ptr<const void> galaxy = planetarium::Galaxy::held())
+		m_galaxy = std::move(galaxy);
 	if (m_making.valid())
 		m_making.wait(); // its work may use what the last server owns
 	m_making = {};
@@ -243,6 +245,7 @@ void Planetarium::show(View::Opts body)
 		m_makingCode = body.horizon.code;
 		m_makingSince = terragen::clock();
 	}
+	body.driver = m_opts.driver;
 	auto next = std::make_unique<View>(std::move(body));
 	if (const View *was = m_current ? m_current.get() : m_next.get())
 		next->keep(*was); // the same view of the new body
@@ -520,6 +523,7 @@ void Planetarium::prepare(View::Opts body)
 {
 	if (shown() || m_parked)
 		return;
+	body.driver = m_opts.driver;
 	m_parked = std::make_unique<View>(std::move(body));
 	apply(*m_parked);
 }

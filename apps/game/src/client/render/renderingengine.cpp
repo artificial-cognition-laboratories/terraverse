@@ -304,6 +304,9 @@ void RenderingEngine::draw_load_screen(const std::wstring &text,
 		gui::IGUIEnvironment *guienv, ITextureSource *tsrc, float dtime,
 		int percent, float *indef_pos, const std::wstring &bottom_text)
 {
+	// Terra Firma: a body (client/app/headless) has no loading screen to show, and no fonts
+	if (!g_fontengine)
+		return;
 #if USE_SHELL
 	// Terra Firma: the page shows how far a world's got (shell/entering.h),
 	// over the planet chosen; otherwise (shutting down) the page alone

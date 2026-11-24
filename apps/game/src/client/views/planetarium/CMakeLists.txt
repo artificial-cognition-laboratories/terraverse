@@ -9,6 +9,8 @@ set(planetarium_client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/overlays/tinting.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/overlays/markers.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/space/system.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/space/glare.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/space/programs.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/globe/air.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/globe/globe.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/globe/lit.cpp

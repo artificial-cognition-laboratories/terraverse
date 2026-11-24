@@ -804,7 +804,7 @@ std::string Body::readout() const
 	std::ostringstream os;
 	os << "body: " << STANCES[(size_t)stance()];
 	if (m_mover) {
-		const v3f v = m_world->velocity(m_mover->id());
+		const v3f v = m_world->character(m_mover->id()).velocity; // a character, not an assembly
 		os << " | speed: " << std::hypot(v.X, v.Z) << " nodes/s | rising: " << v.Y << " nodes/s";
 	}
 	os << " | stagger: " << stagger() << " | flight tier: " << m_tier << ", " << m_above_land << " over the land";

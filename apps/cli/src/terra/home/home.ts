@@ -146,6 +146,8 @@ export function Home(opts: HomeOpts) {
         moveIn: moveIn,
         /** Mods the active profile is developing: found by default, shown in the game. */
         mods: () => join(profile(), "mods"),
+        /** The worlds the active profile plays: the game's Play list. */
+        worlds: () => join(profile(), "worlds"),
         /** Server folders the active profile hosts. */
         servers: () => join(profile(), "servers"),
     }

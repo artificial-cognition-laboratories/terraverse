@@ -50,6 +50,7 @@ public:
 	struct Opts
 	{
 		shell::Shell &shell;
+		video::IVideoDriver *driver; // the bodies' tiles uploaded with
 	};
 
 	explicit Planetarium(Opts opts); // registers the contract's verbs
@@ -127,6 +128,9 @@ private:
 	std::unique_ptr<planetarium::Planetarium> m_current; // on screen
 	std::unique_ptr<planetarium::Planetarium> m_next;    // being made ready to take its place
 	std::unique_ptr<planetarium::Planetarium> m_parked;  // hidden, kept to show again
+	// the sky on the GPU, kept for the session over views coming and going
+	// (the menu's gone before the game's sky draws: made again, 250 ms)
+	std::shared_ptr<const void> m_galaxy;
 	planetarium::Pixels m_pixels; // the home shot, drawn as pixel art
 	std::unique_ptr<planetarium::Planetarium> m_retiring; // replaced, kept till its successor's drawn once
 	bool m_looked = false; // the parked one has been on screen: its camera's the player's now

@@ -41,7 +41,7 @@ Sky::Sky(scene::ISceneManager *smgr, IShaderSource *ssrc, const planet::Atlas &a
 	m_horizon(horizon),
 	m_air(ssrc, m_system.system(), m_system.focus())
 {
-	m_system.shaders(ssrc);
+	m_system.shaders(std::make_shared<Programs>(ssrc));
 	setAutomaticCulling(scene::EAC_OFF); // all round the camera
 	const std::vector<terragen::BodyWorld> worlds = terragen::bodyWorlds(
 			terragen::WorldCode::decode(horizon.code), atlas.body(planet::Atlas::HOME).params());
@@ -71,7 +71,7 @@ bool Sky::drawBaked(video::IVideoDriver *driver, size_t index, const terragen::S
 		return false;
 	if (!b->tiles) {
 		TF_ZONE("Space: a body's land made");
-		b->tiles = std::make_unique<far::Tiles>(m_atlas, b->body, m_horizon, *m_palette, 1, driver);
+		b->tiles = std::make_unique<far::Tiles>(m_atlas, b->body, m_horizon, *m_palette, 1, driver, &m_budget);
 	}
 	const terragen::System &s = m_system.system();
 	const double time = m_eye->worldDays - std::floor(m_eye->worldDays);
@@ -244,6 +244,7 @@ void Sky::render()
 	if (!m_eye || !camera || SceneManager->getSceneNodeRenderPass() != scene::ESNRP_SKY_BOX)
 		return;
 	video::IVideoDriver *driver = SceneManager->getVideoDriver();
+	m_budget.frame();
 	const core::matrix4 projection = driver->getTransform(video::ETS_PROJECTION);
 	const core::matrix4 view = driver->getTransform(video::ETS_VIEW);
 	const core::dimension2du screen = driver->getCurrentRenderTargetSize();

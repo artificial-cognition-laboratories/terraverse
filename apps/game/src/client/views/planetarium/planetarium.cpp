@@ -4,6 +4,7 @@
 #include "library/world/terragen/src/code/worlds.h"
 #include "src/client/views/planetarium/planetarium.h"
 #include "src/client/views/planetarium/framing.h"
+#include "library/trace/trace.h"
 #include "src/client/render/shaders/shader.h"
 #include "src/client/views/planetarium/overlays/ribbon.h"
 #include "src/shared/base/constants.h"
@@ -73,7 +74,7 @@ Planetarium::Planetarium(Opts opts) :
 	m_palette(std::move(opts.palette)),
 	m_atlas(opts.atlas.body(opts.body)),
 	m_sea(seaOf(opts)),
-	m_tiles(opts.atlas, opts.body, opts.horizon, m_palette, buildThreads()),
+	m_tiles(opts.atlas, opts.body, opts.horizon, m_palette, buildThreads(), opts.driver, &m_budget),
 	m_camera(m_sea, farthest(opts)),
 	m_seams(opts.atlas.body(opts.body).params(), m_sea),
 	m_markers(m_sea),
@@ -120,7 +121,8 @@ void Planetarium::tint(int body)
 {
 	far::Tiles *tiles = &m_tiles;
 	if (body != m_body) {
-		auto b = std::find_if(m_baked.begin(), m_baked.end(), [&](const Baked &x) { return x.body == body; });
+		TF_ZONE("Planetarium: other bodies");
+	auto b = std::find_if(m_baked.begin(), m_baked.end(), [&](const Baked &x) { return x.body == body; });
 		if (b == m_baked.end() || !b->tiles)
 			return;
 		tiles = b->tiles.get();
@@ -151,11 +153,12 @@ static constexpr double BAKED_PIXELS = 6;
 bool Planetarium::drawBaked(video::IVideoDriver *driver, const core::matrix4 &look, float aspect, size_t index,
 		const terragen::System::Vec &at, double pixels, float near, float far)
 {
+	TF_ZONE("Planetarium: other bodies");
 	auto b = std::find_if(m_baked.begin(), m_baked.end(), [&](const Baked &x) { return x.index == index; });
 	if (b == m_baked.end() || pixels < BAKED_PIXELS)
 		return false;
 	if (!b->tiles) {
-		b->tiles = std::make_unique<far::Tiles>(m_world, b->body, m_horizon, m_palette, 1, driver);
+		b->tiles = std::make_unique<far::Tiles>(m_world, b->body, m_horizon, m_palette, 1, driver, &m_budget);
 		tint(b->body);
 	}
 	// the camera in the body's own frame: from its centre, turned back, at its scale
@@ -215,11 +218,16 @@ bool Planetarium::warm(video::IVideoDriver *driver, double ms)
 	return true;
 }
 
+Planetarium::Shaders::Shaders(IWritableShaderSource *made) : source(made), programs(made) {}
+Planetarium::Shaders::~Shaders() = default;
+
 void Planetarium::keep(const Planetarium &was)
 {
 	m_day = was.m_day;
 	m_spin = was.m_spin;
 	m_aim = was.m_aim; // (a camera taken over turned as it was: framed in the same place)
+	if (!m_shaders)
+		m_shaders = was.m_shaders;
 	if (was.heading() > star())
 		return;
 	// where it was round its body, in that body's radii: a body made bigger or
@@ -512,6 +520,7 @@ bool Planetarium::handle(const SEvent &event)
 
 void Planetarium::update(v2u32 screen)
 {
+	m_budget.frame(); // (once a frame: drawn, or made ready to be)
 	m_screen = screen;
 	m_fov = OrbitCamera::fovFor((float)screen.X, (float)screen.Y);
 	// bodies whose world model has been built since the layer was asked for
@@ -578,9 +587,12 @@ void Planetarium::drawPath(video::IVideoDriver *driver, const OrbitCamera::Vec &
 
 void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 {
-	if (!m_shaders) {
-		m_shaders.reset(createShaderSource());
-		m_system.shaders(m_shaders.get());
+	if (!m_shaded) {
+		TF_ZONE("Planetarium: shaders");
+		if (!m_shaders)
+			m_shaders = std::make_shared<Shaders>(createShaderSource());
+		m_system.shaders(std::shared_ptr<Programs>(m_shaders, &m_shaders->programs));
+		m_shaded = true;
 	}
 	const auto frameFrom = std::chrono::steady_clock::now();
 	struct Timed // the frame's time, kept as the worst in the log's window, however it ends
@@ -623,6 +635,7 @@ void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 		const double root = (double)(1 << m_tiles.tiling().roots().front().level) * focal / std::max(up, 1.0); // its cells' pixels
 		m_globed = !m_tinting.layer() && m_globe && m_globe->ready() && root < OrbitCamera::cell * (m_globed ? GLOBE_LEAVE : 1.0);
 		if (m_globed) {
+			TF_ZONE("Planetarium: globe");
 			core::matrix4 world;
 			world.setScale((f32)(m_sea * BS));
 			world.setTranslation(v3f((float)-ground.x, (float)-ground.y, (float)-ground.z) * BS);
@@ -650,6 +663,7 @@ void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 		// stand-ins and the skirts: both only fill gaps (drawn in front, a skirt
 		// showed as a dark line wherever the land beside it didn't quite meet)
 		if (!m_globed) {
+			TF_ZONE("Planetarium: land");
 			m_system.parts(0);
 			driver->setMaterial(lit);
 			draw(m_tiles.drawn());
@@ -663,6 +677,7 @@ void Planetarium::draw(video::IVideoDriver *driver, core::recti view)
 			m_system.standIns(false);
 			m_system.parts(2);
 		}
+		TF_ZONE("Planetarium: marks");
 		if (m_seamsShown)
 			m_seams.draw(driver, ground);
 		m_markers.draw(driver, ground, m_camera.altitude());

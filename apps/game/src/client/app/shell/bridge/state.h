@@ -62,6 +62,8 @@ private:
 	Json::Value hud(LocalPlayer &player, const HudView &view) const;
 	Json::Value hotbar(LocalPlayer &player) const;
 	Json::Value inventory(LocalPlayer &player);
+	bool itemsReady(LocalPlayer &player);
+	static constexpr float ICONS_MS = 3; // a frame's drawing of the inventory's new icons
 	void sendNewItems();
 	void send(const char *section, const Json::Value &value);
 

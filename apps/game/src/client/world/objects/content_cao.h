@@ -122,6 +122,10 @@ private:
 	v3f m_rotation;
 	std::unique_ptr<piece::Machine> m_machine; // Terra Firma
 	std::unique_ptr<Figure> m_figure; // Terra Firma: visual "body" (sprint 58)
+public:
+	// Terra Firma: its figure, posed, when its visual is a body; null otherwise
+	const Figure *figure() const { return m_figure.get(); }
+private:
 	v3f m_figure_was;    // where it was last frame (BS): how fast it moves
 	v3f m_figure_moving; // nodes/s, smoothed
 	float groundUnder(v3f at) const;

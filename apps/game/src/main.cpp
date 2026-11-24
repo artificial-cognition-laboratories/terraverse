@@ -45,6 +45,7 @@
 #endif
 #if CHECK_CLIENT_BUILD()
 #include "src/client/app/shell/launch/clientlauncher.h"
+#include "src/client/app/headless/headless.h"
 #include "src/client/app/game.h" // Terra Firma: g_game_restart_for_mods
 #if USE_SHELL
 #include "src/client/app/shell/host/shell.h"
@@ -334,6 +335,19 @@ int main(int argc, char *argv[])
 	}
 #endif
 
+#if CHECK_CLIENT_BUILD()
+	// Terra Firma: a body, joining a server terra runs (sprint 126; client/app/headless)
+	if (cmd_args.getFlag("body")) {
+		try {
+			return headless::runBody(cmd_args.get("address"), cmd_args.getU16("port"), cmd_args.get("name"),
+					cmd_args.exists("vision") ? cmd_args.get("vision") : "");
+		} catch (const BaseException &e) {
+			errorstream << e.what() << std::endl;
+			return 1;
+		}
+	}
+#endif
+
 	GameParams game_params;
 #if !CHECK_CLIENT_BUILD()
 	porting::attachOrCreateConsole();
@@ -529,6 +543,10 @@ static void set_allowed_options(OptionList *allowed_options)
 			_("Enable random user input (for testing)"))));
 	allowed_options->insert(std::make_pair("server", ValueSpec(VALUETYPE_FLAG,
 			_("Behave as dedicated server"))));
+	allowed_options->insert(std::make_pair("vision", ValueSpec(VALUETYPE_STRING,
+			_("A body's eye, WxH pixels: it sees (--body)"))));
+	allowed_options->insert(std::make_pair("body", ValueSpec(VALUETYPE_FLAG,
+			_("A body for a mind: the client with no window, joining --address --port as --name; terra starts it"))));
 	allowed_options->insert(std::make_pair("name", ValueSpec(VALUETYPE_STRING,
 			_("Set player name"))));
 	allowed_options->insert(std::make_pair("password", ValueSpec(VALUETYPE_STRING,

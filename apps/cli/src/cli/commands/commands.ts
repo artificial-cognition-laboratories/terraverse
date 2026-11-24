@@ -15,6 +15,7 @@ import { InstallCommand } from "./install"
 import { PublishCommand } from "./publish"
 import { ArtCommand } from "./art"
 import { CheckCommand } from "./check"
+import { WorldsCommand } from "./worlds"
 
 type Command = (args: Args) => Promise<number>
 
@@ -22,7 +23,7 @@ type Command = (args: Args) => Promise<number>
 export function Commands(opts: { terra: TerraT; presentation: PresentationT; version: string; as: string }) {
     const help = HelpCommand({ presentation: opts.presentation, version: opts.version })
     const prepare = PrepareCommand({ terra: opts.terra, presentation: opts.presentation })
-    const serve = ServeCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare })
+    const serve = ServeCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare, version: opts.version })
     const runtime = RuntimeCommand({ terra: opts.terra })
     const init = InitCommand({ terra: opts.terra, presentation: opts.presentation, as: opts.as })
     const dev = DevCommand({ terra: opts.terra, presentation: opts.presentation })
@@ -33,6 +34,7 @@ export function Commands(opts: { terra: TerraT; presentation: PresentationT; ver
     const info = InfoCommand({ terra: opts.terra, presentation: opts.presentation })
     const art = ArtCommand({ terra: opts.terra, presentation: opts.presentation })
     const check = CheckCommand({ terra: opts.terra, presentation: opts.presentation })
+    const worlds = WorldsCommand({ terra: opts.terra, presentation: opts.presentation })
 
     const table: Record<string, Command> = {
         server: init.of("server"),
@@ -40,6 +42,7 @@ export function Commands(opts: { terra: TerraT; presentation: PresentationT; ver
         prepare: prepare.run,
         dev: dev.run,
         serve: serve.run,
+        worlds: worlds.run,
         runtime: runtime.run,
         login: account.login,
         logout: account.logout,

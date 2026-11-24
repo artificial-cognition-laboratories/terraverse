@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue"
+import { drawn } from "./pixelPaths.ts"
 
 /**
  * Pixel art from a character map: each row is a string, each character a
@@ -7,20 +8,12 @@ import { computed } from "vue"
  */
 const props = defineProps<{ rows: readonly string[]; palette: Record<string, string> }>()
 
-const width = computed(() => Math.max(...props.rows.map((r) => r.length)))
-const pixels = computed(() =>
-    props.rows.flatMap((row, y) =>
-        [...row].flatMap((key, x) => {
-            const fill = props.palette[key]
-            return key === "." || !fill ? [] : [{ x: x, y: y, fill: fill }]
-        }),
-    ),
-)
+const art = computed(() => drawn(props.rows, props.palette))
 </script>
 
 <template>
-    <svg :viewBox="`0 0 ${width} ${rows.length}`" :width="`calc(var(--u) * ${width})`"
+    <svg :viewBox="`0 0 ${art.width} ${rows.length}`" :width="`calc(var(--u) * ${art.width})`"
         :height="`calc(var(--u) * ${rows.length})`" shape-rendering="crispEdges">
-        <rect v-for="p in pixels" :key="`${p.x},${p.y}`" :x="p.x" :y="p.y" width="1" height="1" :fill="p.fill" />
+        <path v-for="p in art.paths" :key="p.fill" :d="p.d" :fill="p.fill" />
     </svg>
 </template>

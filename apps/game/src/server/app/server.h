@@ -906,6 +906,7 @@ private:
 	std::unique_ptr<orbit::Flight> m_flight; // Terra Firma: core.orbit's
 	std::unique_ptr<online::Gate> m_gate; // Terra Firma: null unless hosted for friends
 	std::unique_ptr<Access> m_access; // Terra Firma: who may do what (server/access)
+	std::unique_ptr<class WorldLock> m_world_lock; // Terra Firma: one engine to a world (world_lock.h)
 
 	// Inventory manager
 	std::unique_ptr<ServerInventoryManager> m_inventory_mgr;

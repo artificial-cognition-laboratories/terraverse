@@ -24,6 +24,7 @@
 #include "src/client/world/player/hand.h"
 #include "src/server/world/run/sculpt/sculpt.h"
 #include "irr_ptr.h"
+class WorldView;
 #include "src/shared/base/irrlichttypes_bloated.h"
 #include "src/shared/platform/system/log_internal.h"
 #include "src/client/views/game/sky/sky.h"
@@ -235,21 +236,12 @@ protected:
 			const ItemStack &selected_item, const ItemStack &hand_item, f32 dtime);
 	void updateFrame(RunStats *stats, f32 dtime,
 			const CameraOrientation &cam);
-	void updateClouds(float dtime);
-	void updateShadows();
 	void drawScene(RunStats *stats);
 
 	// Misc
 	void showOverlayMessage(const char *msg, float dtime, int percent,
 			float *indef_pos = nullptr);
 
-	inline bool fogEnabled()
-	{
-		// Client setting only takes effect if fog distance unlimited or debug priv
-		if (sky->getFogDistance() < 0 || client->checkPrivilege("core:debug"))
-			return m_cache_enable_fog;
-		return true;
-	}
 
 	static void settingChangedCallback(const std::string &setting_name, void *data);
 	void readSettings();
@@ -352,13 +344,8 @@ private:
 #endif
 	MapDrawControl *draw_control = nullptr;
 	Camera *camera = nullptr;
-	irr_ptr<Clouds> clouds;
-	irr_ptr<Sky> sky;
-	irr_ptr<planetarium::Sky> space; // Terra Firma: the system round the planet, behind far_view
-	irr_ptr<far::View> far_view; // Terra Firma: the horizon, on a terra world
+	std::unique_ptr<WorldView> m_world_view; // Terra Firma: the world as it's seen (sprint 126)
 	std::unique_ptr<gpu::Clock> gpu_clock; // Terra Firma: the GPU's time by part of the frame (the debugger)
-	irr_ptr<liquids::Layer> liquid_layer; // Terra Firma: liquid in the world's open space (sprint 81)
-	int far_body = 0;            // Terra Firma: the atlas body far_view draws
 	// Terra Firma: the planet viewer, while it's open (it takes the input)
 	bool m_planetarium_alone = false;   // opened by its key (no screen over it): its key and Esc close it
 	bool m_planetarium_closing = false; // asked from the input callback: closed next frame
@@ -683,7 +670,6 @@ private:
 	bool m_cache_doubletap_jump;
 	bool m_cache_toggle_sneak_key;
 	bool m_cache_toggle_aux1_key;
-	bool m_cache_enable_fog;
 	bool m_cache_enable_noclip;
 	bool m_cache_enable_free_move;
 	f32  m_cache_mouse_sensitivity;

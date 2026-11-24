@@ -48,6 +48,8 @@ public:
 	void light(video::SColor colour);
 	// Seen from inside its own head: no head, the rest as it is, so you see your hands and feet.
 	void hideHead(bool hide);
+	// Its bones as it was posed last (physics::eachBone reads them).
+	const physics::Bones &bones() const { return m_posing.last(); }
 	// Where the head is, in the scene.
 	v3f headAt() const;
 	// A punch or kick that landed this pose: which, with which side, and where (the figure's frame, nodes). What

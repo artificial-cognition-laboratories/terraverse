@@ -3,8 +3,7 @@
 
 #include "src/client/views/game/far/tiles/tiles.h"
 #include "src/client/views/game/far/land/mesh.h"
-#include "src/client/views/game/far/tiles/tilecache.h"
-#include "src/shared/platform/system/porting.h"
+#include "src/client/views/game/far/tiles/workers.h"
 #include "src/shared/base/constants.h"
 #include "src/shared/base/exceptions.h"
 #include "src/shared/platform/system/log.h"
@@ -12,27 +11,17 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <condition_variable>
-#include <deque>
 #include <functional>
-#include <mutex>
 #include <optional>
 #include <set>
 #include <string>
 #include <thread>
-#include "src/shared/platform/system/profiler.h"
 #include "library/trace/trace.h"
 #include <IVideoDriver.h>
 #include "library/world/terragen/src/base/parallel.h"
 
 namespace far {
 
-// Time an update may spend putting tiles on the GPU (a frame at 60 fps is 16.7).
-// ms of a frame to install built tiles in: checked before each, so one large
-// tile (its upload) can still run past it; at 3, installs ran to 10 ms a frame
-static constexpr double INSTALL_MS = 1.5;
-// And recolouring tiles for a new tint.
-static constexpr double PAINT_MS = 3;
 // What the held tiles' meshes may take, all of them: past it the least
 // recently wanted go. (Dropped after ten seconds unwanted, a spot panned away
 // from and back to was built again, coarse meanwhile; sprint 114)
@@ -49,279 +38,6 @@ static constexpr s32 FINER_DEPTH = 3;
 // a moment, till its own tile is.
 static constexpr float STAND_IN = 4;
 
-/*
-	A tile's mesh as it's installed: one buffer if it fits 16-bit indices,
-	the quarters' ranges in it (four a tile, a fine view was thousands of
-	draws a frame, and the driver looks over every buffer it holds each
-	frame: sprint 114), else its parts as they are; and each buffer's own
-	colours, kept for a tint. Packed by the worker that built it: done in
-	install(), it was most of the far view's spikes on the frame's thread.
-*/
-namespace {
-
-struct Packed
-{
-	struct Range
-	{
-		u32 v0 = 0, v1 = 0, i0 = 0, i1 = 0;
-	};
-	bool merged = false;
-	std::vector<Mesh::Part> parts; // merged: one, its quarter unused
-	std::array<Range, 4> ranges;   // merged: each quarter's in it
-	std::vector<std::vector<video::SColor>> own; // each part's
-	std::vector<aabb3f> boxes; // each part's bounds
-};
-
-Packed pack(Mesh mesh)
-{
-	Packed out;
-	size_t all = 0;
-	for (const Mesh::Part &part : mesh.parts)
-		all += part.vertices.size();
-	if (all <= 65536) {
-		Mesh::Part one;
-		one.vertices.reserve(all);
-		for (u8 q = 0; q < 4; q++) {
-			Packed::Range &range = out.ranges[q];
-			range.v0 = (u32)one.vertices.size();
-			range.i0 = (u32)one.indices.size();
-			for (const Mesh::Part &part : mesh.parts) {
-				if (part.quarter != q)
-					continue;
-				const u16 base = (u16)one.vertices.size();
-				one.vertices.insert(one.vertices.end(), part.vertices.begin(), part.vertices.end());
-				for (u16 i : part.indices)
-					one.indices.push_back((u16)(base + i));
-			}
-			range.v1 = (u32)one.vertices.size();
-			range.i1 = (u32)one.indices.size();
-		}
-		out.merged = true;
-		out.parts.push_back(std::move(one));
-	} else {
-		out.parts = std::move(mesh.parts);
-	}
-	for (const Mesh::Part &part : out.parts) {
-		std::vector<video::SColor> own;
-		own.reserve(part.vertices.size());
-		for (const Vertex &v : part.vertices)
-			own.push_back(v.Color);
-		out.own.push_back(std::move(own));
-		aabb3f box(part.vertices.empty() ? v3f() : part.vertices.front().Pos);
-		for (const Vertex &v : part.vertices)
-			box.addInternalPoint(v.Pos);
-		out.boxes.push_back(box);
-	}
-	return out;
-}
-
-} // namespace
-
-/*
-	What the workers share: copies of what they build from, the queue, the
-	results. Held by each worker thread as well as by Workers, so a world
-	dropped while its model is still being built isn't waited for: its
-	workers finish what they're on, see the stop, and go, the last one
-	freeing this.
-*/
-class Crew
-{
-public:
-	// a tile to build, or only to sketch (Generator::sketch)
-	struct Job
-	{
-		TileKey key;
-		bool sketch = false;
-	};
-	struct Result
-	{
-		TileKey key;
-		Packed mesh;
-		bool sketch = false; // a stand-in: the tile itself is still to build
-	};
-
-	Crew(const planet::Atlas &atlas, int body, const Horizon &horizon, const Palette &palette, const Tiling &tiling) :
-		m_atlas(atlas), m_body(body), m_horizon(horizon), m_palette(palette), m_tiling(tiling),
-		m_cache(porting::path_cache, horizon, atlas, body)
-	{
-		TF_ZONE("Far view: kept tiles listed"); // (a directory of them: slow on a cold disk)
-		for (const TileKey &key : m_cache.kept())
-			m_kept.insert(id(key));
-	}
-
-	void stop()
-	{
-		{
-			std::lock_guard lock(m_mutex);
-			m_stop = true;
-		}
-		m_wake.notify_all();
-	}
-
-	// the tiles wanted, nearest first; replaces what was asked before
-	void want(const std::vector<Job> &jobs)
-	{
-		{
-			std::lock_guard lock(m_mutex);
-			m_queue.clear();
-			// what's kept on disk first, nearest first: it's read in a
-			// fraction of a build, and behind the builds a spot seen before
-			// stayed coarse as long as one coming into view
-			for (int pass = 0; pass < 2; pass++)
-				for (const Job &job : jobs)
-					if (!m_busy.count(id(job.key)) && (m_kept.count(id(job.key)) > 0) == (pass == 0))
-						m_queue.push_back(job);
-		}
-		m_wake.notify_all();
-	}
-
-	std::optional<Result> take()
-	{
-		std::lock_guard lock(m_mutex);
-		if (!m_error.empty())
-			throw BaseException("far view: " + m_error);
-		if (m_results.empty())
-			return std::nullopt;
-		Result r = std::move(m_results.front());
-		m_results.pop_front();
-		m_busy.erase(id(r.key));
-		return r;
-	}
-
-private:
-	static std::tuple<s32, s32, s32, s32> id(const TileKey &k) { return { k.level, k.x, k.z, k.face }; }
-
-public:
-	void run()
-	{
-		std::unique_lock lock(m_mutex);
-		while (true) {
-			m_wake.wait(lock, [this] { return m_stop || !m_error.empty() || !m_queue.empty(); });
-			if (!m_error.empty())
-				return; // take() reports it
-			if (m_stop)
-				return;
-			const Job job = m_queue.front();
-			m_queue.pop_front();
-			m_busy.insert(id(job.key));
-			lock.unlock();
-
-			Result r{ job.key, {} };
-			try {
-				const ScopeProfiler timed(g_profiler, "Far view: tile built [ms]", SPT_AVG);
-				// kept from before if it can be: the world model's only made
-				// once a tile isn't
-				std::optional<Tile> tile = m_cache.load(job.key);
-				if (!tile && job.sketch) {
-					// never kept: only the tile itself is
-					tile = generator().sketch(job.key);
-					r.sketch = true;
-				} else if (!tile) {
-					tile = generator().build(job.key);
-					m_cache.save(*tile);
-					std::lock_guard kept(m_mutex);
-					m_kept.insert(id(job.key));
-				}
-				r.mesh = pack(onPlanet(*tile));
-			} catch (const std::exception &e) {
-				lock.lock();
-				m_error = e.what();
-				m_wake.notify_all();
-				return;
-			}
-
-			lock.lock();
-			m_results.push_back(std::move(r));
-		}
-	}
-
-private:
-	// The tile's mesh put on the planet (Tiling::place); its height over
-	// the sea (blocks) in the first texture coordinate, for the haze (and the
-	// Planetarium's contours), and its place in the tile's grid in the second.
-	Mesh onPlanet(const Tile &tile) const
-	{
-		Mesh m = far::mesh(tile, m_palette);
-		for (Mesh::Part &part : m.parts)
-			for (Vertex &v : part.vertices) {
-				v.TCoords = v2f(v.Pos.Y / BS + 0.5f - (m_horizon.water_level + 1), 0);
-				v.TCoords2 = v2f(v.Pos.X / BS, v.Pos.Z / BS); // (far/mesh.h: which column it's in)
-			}
-		m_tiling.place(m, tile.key);
-		return m;
-	}
-
-	const planet::Atlas m_atlas; // copies: the crew can outlive the tiles
-	const int m_body;
-	const Horizon m_horizon;
-	const Palette m_palette;
-	const Tiling m_tiling;
-	const TileCache m_cache;
-	// the world model, made by the first worker a tile isn't kept for (the
-	// others missing one wait for it); none made if every tile was kept
-	std::once_flag m_made;
-	std::unique_ptr<Generator> m_generator;
-
-	const Generator &generator()
-	{
-		std::call_once(m_made, [&] {
-			try {
-				m_generator = std::make_unique<Generator>(m_horizon, m_atlas, m_body);
-			} catch (const std::exception &e) {
-				throw BaseException(std::string("the world can't be built from the server's data: ") + e.what());
-			}
-		});
-		return *m_generator;
-	}
-
-	std::mutex m_mutex;
-	std::condition_variable m_wake;
-	bool m_stop = false;
-	std::deque<Job> m_queue;
-	std::set<std::tuple<s32, s32, s32, s32>> m_busy; // being built, or built and not yet taken
-	std::set<std::tuple<s32, s32, s32, s32>> m_kept; // on disk (TileCache: some may be swept since)
-	std::deque<Result> m_results;
-	std::string m_error;
-};
-
-/*
-	The workers: build tiles and their meshes off the main thread, nearest
-	first. Each update says which tiles are wanted (want()); keys being
-	built or waiting to be taken aren't asked for twice. Let go of, they're
-	stopped and joined: each finishes at most the tile it's on. Detached, one
-	could still be running as the process exited, and crash it.
-*/
-class Workers
-{
-public:
-	using Job = Crew::Job;
-	using Result = Crew::Result;
-
-	Workers(const planet::Atlas &atlas, int body, const Horizon &horizon, const Palette &palette, const Tiling &tiling,
-			unsigned threads) :
-		m_crew(std::make_shared<Crew>(atlas, body, horizon, palette, tiling))
-	{
-		if (threads == 0)
-			throw BaseException("far tiles: no threads to build with");
-		for (unsigned i = 0; i < threads; i++)
-			m_threads.emplace_back([crew = m_crew] { terragen::background(); crew->run(); });
-	}
-
-	~Workers()
-	{
-		m_crew->stop();
-		for (std::thread &t : m_threads)
-			t.join();
-	}
-
-	void want(const std::vector<Job> &jobs) { m_crew->want(jobs); }
-	std::optional<Result> take() { return m_crew->take(); }
-
-private:
-	std::shared_ptr<Crew> m_crew;
-	std::vector<std::thread> m_threads;
-};
-
 unsigned Tiles::threadsFor(float share)
 {
 	const unsigned cores = std::max(1u, std::thread::hardware_concurrency());
@@ -329,13 +45,15 @@ unsigned Tiles::threadsFor(float share)
 }
 
 Tiles::Tiles(const planet::Atlas &atlas, int body, const Horizon &horizon, const Palette &palette, unsigned threads,
-		video::IVideoDriver *driver) :
+		video::IVideoDriver *driver, Budget *budget) :
 	m_atlas(atlas),
 	m_horizon(horizon),
 	m_tiling(atlas.body(body)),
 	m_workers(std::make_unique<Workers>(m_atlas, body, m_horizon, palette, m_tiling, threads)),
 	m_coarse(std::make_unique<terragen::Step>(horizon.code, "coarse planet", (int64_t)m_tiling.roots().size())),
-	m_driver(driver)
+	m_driver(driver),
+	m_own(budget ? nullptr : std::make_unique<Budget>()),
+	m_budget(budget ? *budget : *m_own)
 {
 }
 
@@ -343,6 +61,8 @@ Tiles::~Tiles() = default;
 
 void Tiles::update(const Eye &eye)
 {
+	if (m_own)
+		m_own->frame();
 	// Choosing walks the tree from every root, each tile weighed for distance
 	// and sight: most of the far view's time each frame, standing still too,
 	// to choose what it chose before. Only when the eye's moved, or a tile's
@@ -363,6 +83,10 @@ void Tiles::update(const Eye &eye)
 	if (m_coarse && based()) {
 		m_coarse.reset();
 		actionstream << "far: " << m_horizon.code << " coarse planet there; " << terragen::breakdown(terragen::making(m_horizon.code)) << std::endl;
+	}
+	{
+		TF_ZONE("Far view: quarter");
+		quarters();
 	}
 	{
 		TF_ZONE("Far view: repaint");
@@ -415,11 +139,6 @@ void Tiles::choose(const Eye &eye)
 		m_workers->want(jobs);
 	}
 
-	{
-		TF_ZONE("Far view: quarter");
-		for (const auto &[key, child] : m_behind)
-			quarter(m_tiles.at(key), child);
-	}
 	m_chosen_for = eye;
 	m_changed = false;
 	if (m_frame % 60 == 0) {
@@ -642,56 +361,72 @@ bool Tiles::fits(s32 span, const Key &hole, const Eye &eye) const
 bool Tiles::install()
 {
 	bool took = false;
-	const auto start = std::chrono::steady_clock::now();
-	while (std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count() < INSTALL_MS) {
+	while (m_budget.room(Budget::Work::Install)) {
 		std::optional<Workers::Result> result = m_workers->take();
 		if (!result)
 			return took;
 		took = true;
-		Entry &e = m_tiles[Key(result->key)];
-		m_bytes -= e.bytes;
-		e.bytes = 0;
-		e.parts.clear();
-		for (auto &q : e.quarters)
-			q.clear();
-		Packed &packed = result->mesh;
-		e.merged = packed.merged;
-		e.own = std::move(packed.own);
-		for (u8 q = 0; q < 4; q++)
-			e.ranges[q] = { packed.ranges[q].v0, packed.ranges[q].v1, packed.ranges[q].i0, packed.ranges[q].i1 };
-		for (size_t p = 0; p < packed.parts.size(); p++) {
-			Mesh::Part &part = packed.parts[p];
-			auto buffer = make_irr<TileBuffer>();
-			e.bytes += part.vertices.size() * sizeof(Vertex) + part.indices.size() * sizeof(u16);
-			buffer->Vertices->Data = std::move(part.vertices);
-			buffer->Indices->Data = std::move(part.indices);
-			buffer->setBoundingBox(packed.boxes[p]); // (found by the worker)
-			buffer->setHardwareMappingHint(scene::EHM_STATIC);
-			if (m_driver) {
-				TF_ZONE("Far view: upload");
-				m_driver->updateHardwareBuffer(buffer->getVertexBuffer());
-				m_driver->updateHardwareBuffer(buffer->getIndexBuffer());
-			}
-			if (!e.merged)
-				e.quarters[part.quarter].push_back(buffer);
-			e.parts.push_back(std::move(buffer));
-		}
-		m_bytes += e.bytes;
-		if (m_tint)
-			paint(Key(result->key), e);
-		e.painted = m_tints;
-		if (m_coarse && !e.ready && result->key.level == m_tiling.roots().front().level)
-			m_coarse->advance();
-		e.ready = true;
-		e.sketch = result->sketch;
+		m_budget.run(Budget::Work::Install, [&] { take(result->key, result->mesh, result->sketch); });
 	}
 	return took;
 }
 
+void Tiles::take(const TileKey &key, Packed &packed, bool sketch)
+{
+	Entry &e = m_tiles[Key(key)];
+	m_bytes -= e.bytes;
+	e.bytes = 0;
+	e.parts.clear();
+	for (auto &q : e.quarters)
+		q.clear();
+	e.merged = packed.merged;
+	e.own = std::move(packed.own);
+	for (u8 q = 0; q < 4; q++)
+		e.ranges[q] = { packed.ranges[q].v0, packed.ranges[q].v1, packed.ranges[q].i0, packed.ranges[q].i1 };
+	for (size_t p = 0; p < packed.parts.size(); p++) {
+		Mesh::Part &part = packed.parts[p];
+		auto buffer = make_irr<TileBuffer>();
+		e.bytes += part.vertices.size() * sizeof(Vertex) + part.indices.size() * sizeof(u16);
+		buffer->Vertices->Data = std::move(part.vertices);
+		buffer->Indices->Data = std::move(part.indices);
+		buffer->setBoundingBox(packed.boxes[p]); // (found by the worker)
+		buffer->setHardwareMappingHint(scene::EHM_STATIC);
+		if (!e.merged)
+			e.quarters[part.quarter].push_back(buffer);
+		e.parts.push_back(std::move(buffer));
+	}
+	m_bytes += e.bytes;
+	if (m_tint)
+		paint(Key(key), e);
+	e.painted = m_tints;
+	// on the GPU now, in the install's time, painted: not as it's first
+	// drawn, where a burst of new tiles was tens of ms in one frame's draw
+	for (const auto &part : e.parts)
+		upload(*part);
+	if (m_coarse && !e.ready && key.level == m_tiling.roots().front().level)
+		m_coarse->advance();
+	e.ready = true;
+	e.sketch = sketch;
+}
+
+// The stand-ins behind finer tiles cut from their tiles, as many as the frame
+// has time for: one missing a frame or two leaves a gap it would only have
+// stood behind (a tint's repaint unmade them all at once: 16 ms of copying
+// and uploading in one frame)
+void Tiles::quarters()
+{
+	for (const auto &[key, child] : m_behind) {
+		Entry &e = m_tiles.at(key);
+		if (!e.merged || !e.quarters[child].empty())
+			continue;
+		if (!m_budget.room(Budget::Work::Quarter))
+			return; // (the rest next frame)
+		m_budget.run(Budget::Work::Quarter, [&] { quarter(e, child); });
+	}
+}
+
 void Tiles::quarter(Entry &e, s32 child)
 {
-	if (!e.merged || !e.quarters[child].empty())
-		return;
 	const Entry::Range &r = e.ranges[child];
 	if (r.v1 == r.v0)
 		return; // nothing of it there
@@ -702,11 +437,14 @@ void Tiles::quarter(Entry &e, s32 child)
 		buffer->Indices->Data.push_back((u16)(all.Indices->Data[i] - r.v0));
 	buffer->recalculateBoundingBox();
 	buffer->setHardwareMappingHint(scene::EHM_STATIC);
+	upload(*buffer);
 	e.quarters[child].push_back(std::move(buffer));
 }
 
 void Tiles::tint(std::shared_ptr<const Tint> tint)
 {
+	if (!tint && !m_tint)
+		return; // their own colours still: nothing to repaint (each screen the menu went to set none again, every tile repainted and sent to the GPU again)
 	m_tint = std::move(tint);
 	m_tints++; // every tile out of date: update() sweeps over them
 }
@@ -715,26 +453,26 @@ void Tiles::repaint()
 {
 	if (m_swept == m_tints)
 		return; // (looking over every tile and the clock each, each frame, cost the Planetarium's frames)
-	const auto start = std::chrono::steady_clock::now();
-	const auto spent = [&] { return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count(); };
+	const auto again = [&](const Key &key, Entry &e) {
+		if (!e.ready || e.painted == m_tints)
+			return true;
+		if (!m_budget.room(Budget::Work::Paint))
+			return false;
+		m_budget.run(Budget::Work::Paint, [&] {
+			paint(key, e);
+			for (const auto &part : e.parts)
+				upload(*part);
+		});
+		e.painted = m_tints;
+		return true;
+	};
 	// the drawn first: what's on screen changes first
-	for (const Key &key : m_draw) {
-		if (spent() >= PAINT_MS)
+	for (const Key &key : m_draw)
+		if (!again(key, m_tiles.at(key)))
 			return;
-		Entry &e = m_tiles.at(key);
-		if (e.ready && e.painted != m_tints) {
-			paint(key, e);
-			e.painted = m_tints;
-		}
-	}
-	for (auto &[key, e] : m_tiles) {
-		if (e.ready && e.painted != m_tints) {
-			if (spent() >= PAINT_MS)
-				return;
-			paint(key, e);
-			e.painted = m_tints;
-		}
-	}
+	for (auto &[key, e] : m_tiles)
+		if (!again(key, e))
+			return;
 	m_swept = m_tints; // (a tile installed since is painted as it's installed)
 }
 
@@ -768,6 +506,15 @@ void Tiles::paint(const Key &key, Entry &e) const
 	if (e.merged)
 		for (auto &q : e.quarters)
 			q.clear(); // (made again from the repainted buffer when they're wanted)
+}
+
+void Tiles::upload(TileBuffer &buffer) const
+{
+	if (!m_driver)
+		return; // (it goes to the GPU when it's first drawn)
+	TF_ZONE("Far view: upload");
+	m_driver->updateHardwareBuffer(buffer.getVertexBuffer());
+	m_driver->updateHardwareBuffer(buffer.getIndexBuffer());
 }
 
 bool Tiles::evict()

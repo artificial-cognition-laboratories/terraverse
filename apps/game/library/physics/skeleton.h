@@ -65,6 +65,8 @@ public:
 	float headShake() const { return m_strides.headShake(); } // Strides::headShake
 	// A punch or kick that landed this pose (Contacts::strike threw it): where its fist or foot was.
 	const std::optional<Hit> &hit() const { return m_hit; }
+	// How it was posed last (what the figure shows, and a body reports of itself).
+	const Bones &last() const { return m_last; }
 	// Which feet are down and carrying it, as it's posed now.
 	bool planted(int side) const { return m_planted[side]; }
 	Bones pose(float dtime, v3f velocity, float pitch, bool airborne, Stance stance, float turned, std::optional<float> face,
@@ -88,6 +90,20 @@ private:
 
 // The boxes it's made of, as client/figure builds them.
 enum class BoneColour { SKIN, SHIRT, TROUSERS };
+// One bone of a figure: what it's called, the bone it hangs from (null for `lower`, which hangs
+// from the figure's own frame: feet at 0, +z ahead), where it is on that bone now, and its box:
+// size and centre in its own frame (nodes). The one table the figure's boxes and a body's
+// skeleton (client/app/headless) are both read from.
+struct Bone
+{
+	const char *name;
+	const char *parent;
+	BonePlace place;
+	v3f size, centre;
+	BoneColour colour;
+	bool boxed; // `lower` only places the rest: it has no box of its own
+};
+void eachBone(const Bones &b, const std::function<void(const Bone &)> &bone);
 // What each is dyed (0..255): one table for every place a figure's drawn (the game's, the wiki's, the
 // inventory's, the pose sheet).
 struct Dye { unsigned char r, g, b; };

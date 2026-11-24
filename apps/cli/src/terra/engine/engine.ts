@@ -2,7 +2,9 @@ import { existsSync } from "node:fs"
 import { dirname } from "node:path"
 import { err } from "../../errors"
 import type { PreparedServer } from "../project"
+import type { SavedWorld } from "../worlds"
 import type { RunningT } from "../running"
+import { lines } from "./lines"
 
 /** How it runs: a dedicated server with no window, or the game, straight into the universe. */
 export type EngineMode = "server" | "game"
@@ -29,6 +31,12 @@ export type EngineUniverse =
         /** A world code alone: its universe, with no mods, kept with the game's others. */
         code: string
     }
+    | {
+        /** A world the player has (the game's Play list): it keeps its own code. */
+        saved: SavedWorld
+        /** Its own server folder, prepared; null runs the game's, as the game does. */
+        server: PreparedServer | null
+    }
 
 /** One running engine. */
 export type EngineProcess = {
@@ -36,7 +44,23 @@ export type EngineProcess = {
     readonly exited: Promise<number>
     /** Ask it to stop: it saves, stops its sidecar and exits. */
     stop(): void
+    /** A server's run secret, which admits whoever holds it from this machine (its bodies); null for the game. */
+    readonly secret: string | null
 }
+
+/** A body joining a server on this machine (sprint 126): the game with no window. */
+export type EngineBody = {
+    port: number
+    /** Its player's name. */
+    name: string
+    /** The server's run secret, by the environment: what admits it. */
+    secret: string
+    /** Its eye's picture, px; none for a blind body. */
+    vision: { width: number; height: number } | null
+}
+
+/** A body's process: its wire is its stdin and stdout, a JSON line each way; stderr is its log. */
+export type BodyProcess = Bun.Subprocess<"pipe", "pipe", "pipe">
 
 /** The signals that ask terra to stop, other than Ctrl-C: passed on to the engine. */
 export const STOPS = ["SIGTERM", "SIGHUP"] as const
@@ -76,13 +100,11 @@ export function Engine(opts: {
             ...MODES[e.mode](e.port),
             ...(e.profile ? ["--profile", e.profile] : []),
             "--gameid", "terrafirma",
-            ...("server" in e
-                ? ["--world", e.world, "--world-code", e.server.config.system, "--server-folder", e.server.root]
-                : ["--world-code", e.code]),
+            ...universe(e),
         ]
         // a server's run: its secret admits players from this machine (online/local.h); through
         // the environment, never the command line, which anyone here can read
-        const run = e.mode === "server" && "server" in e ? opts.running.prepare() : null
+        const run = e.mode === "server" && !("code" in e) ? opts.running.prepare() : null
         const env = run ? { ...process.env, TERRA_LOCAL_SECRET: run.secret, ...(run.owner ? { TERRA_OWNER: run.owner } : {}) } : process.env
         // SIGTERM, not SIGINT: the game's Chromium takes Ctrl-C for itself and never passes it on
         const output = e.output
@@ -93,16 +115,25 @@ export function Engine(opts: {
             ? Promise.all([lines(proc.stdout, output), lines(proc.stderr, output)])
             : Promise.resolve()
         const exited = read.then(() => proc.exited)
-        if (run && "server" in e) {
+        if (run && !("code" in e)) {
             const done = opts.running.started({
-                title: e.server.title,
-                mods: e.server.mods.map(m => m.name),
+                ...recorded(e),
                 port: e.port,
-                server: e.server.root,
             }, { pid: proc.pid, secret: run.secret, owner: run.owner })
             void exited.finally(done)
         }
-        return { exited: exited, stop: () => proc.kill("SIGTERM") }
+        return { exited: exited, stop: () => proc.kill("SIGTERM"), secret: run ? run.secret : null }
+    }
+
+    /** A body, joining the server at `port` on this machine (client/app/headless). */
+    function body(b: EngineBody): BodyProcess {
+        const eye = b.vision ? ["--vision", `${b.vision.width}x${b.vision.height}`] : []
+        return Bun.spawn([binary(), "--body", "--address", "127.0.0.1", "--port", String(b.port), "--name", b.name, ...eye], {
+            env: { ...process.env, TERRA_LOCAL_SECRET: b.secret },
+            stdin: "pipe",
+            stdout: "pipe",
+            stderr: "pipe",
+        })
     }
 
     /** Run it until it stops, in this terminal. Its exit code. */
@@ -126,6 +157,7 @@ export function Engine(opts: {
     return {
         start: start,
         run: run,
+        body: body,
         /** The folder the engine's data is in, one up from bin: world/, textures/, matter/. */
         share: dirname(opts.bin),
     }
@@ -133,15 +165,15 @@ export function Engine(opts: {
 
 export type EngineT = ReturnType<typeof Engine>
 
-/** A stream, a line at a time. */
-async function lines(stream: ReadableStream<Uint8Array>, each: (line: string) => void): Promise<void> {
-    const decoder = new TextDecoder()
-    let rest = ""
-    for await (const chunk of stream) {
-        rest += decoder.decode(chunk, { stream: true })
-        const parts = rest.split("\n")
-        rest = parts.pop() ?? ""
-        for (const line of parts) each(line)
-    }
-    if (rest) each(rest)
+/** What each universe adds to the engine's command line. */
+function universe(e: EngineUniverse): string[] {
+    if ("code" in e) return ["--world-code", e.code]
+    if ("saved" in e) return ["--world", e.saved.path, ...(e.server ? ["--server-folder", e.server.root] : [])]
+    return ["--world", e.world, "--world-code", e.server.config.system, "--server-folder", e.server.root]
+}
+
+/** A server's running/ record: what the game lists it as. */
+function recorded(e: Exclude<EngineUniverse, { code: string }>): { title: string; mods: string[]; server: string } {
+    if ("saved" in e) return { title: e.saved.title, mods: e.server ? e.server.mods.map(m => m.name) : [], server: e.saved.path }
+    return { title: e.server.title, mods: e.server.mods.map(m => m.name), server: e.server.root }
 }

@@ -240,9 +240,13 @@ void Session::update(const HudView &view)
 	m_state.update(shown);
 	m_ui.update();
 	m_chat.update();
-	m_items.warm(3.f); // the creative inventory's icons, a few each frame, before it's opened
+	{
+		TF_ZONE("UI: item icons warmed");
+		m_items.warm(3.f); // the creative inventory's icons, a few each frame, before it's opened
+	}
 	// the planet made ready as soon as the world's known, so V shows it at once
 	if (!m_prepared && !m_planetarium.shown() && m_client->getAtlas() && m_client->getHorizon()) {
+		TF_ZONE("Planetarium: prepared");
 		m_planetarium.prepare(world(bodyHere()));
 		m_prepared = true;
 	}
@@ -251,7 +255,10 @@ void Session::update(const HudView &view)
 		if (LocalPlayer *player = m_client->getEnv().getLocalPlayer())
 			if (const std::optional<Json::Value> pose = m_state.mapPose(*player))
 				over = { (0.5 - (*pose)["v"].asDouble()) * M_PI, ((*pose)["u"].asDouble() - 0.5) * 2 * M_PI };
-	m_planetarium.idle(over);
+	{
+		TF_ZONE("Planetarium: idle");
+		m_planetarium.idle(over);
+	}
 	// the system as the world's date has it (its year's share of the orbit)
 	if (m_planetarium.shown() && m_year > 0)
 		m_planetarium.dayIn(m_client->getEnv().getDayCount() + m_client->getEnv().getTimeOfDayF(), m_year);

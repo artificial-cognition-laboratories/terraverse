@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "library/physics/skeleton.h"
+#include <map>
+#include <string>
 
 
 #include <algorithm>
@@ -469,24 +471,38 @@ Bones Posing::pose(float dtime, v3f velocity, float pitch, bool airborne, Stance
 	return b;
 }
 
-void eachBoneBox(const Bones &b, const std::function<void(const core::matrix4 &, v3f, v3f, BoneColour)> &box)
+void eachBone(const Bones &b, const std::function<void(const Bone &)> &bone)
 {
 	constexpr float S = FIGURE_SCALE;
-	const auto hanging = [&](const core::matrix4 &m, float length, float wide, BoneColour c) {
-		box(m, v3f(wide, length + BONE_OVERLAP, wide) * S, v3f(0, (BONE_OVERLAP - length) / 2, 0) * S, c);
+	const auto hanging = [&](const char *name, const char *parent, const BonePlace &place, float length, float wide, BoneColour c) {
+		bone({ name, parent, place, v3f(wide, length + BONE_OVERLAP, wide) * S, v3f(0, (BONE_OVERLAP - length) / 2, 0) * S, c, true });
 	};
-	const core::matrix4 lower = b.lower.matrix(), hips = lower * b.hips.matrix(), chest = hips * b.chest.matrix();
-	box(hips, v3f(0.48f, HIPS_TALL, 0.23f) * S, v3f(0, HIPS_TALL / 2, 0) * S, BoneColour::TROUSERS);
-	box(chest, v3f(0.5f, CHEST_TALL + 0.02f, BONE_WIDE) * S, v3f(0, CHEST_TALL / 2, 0) * S, BoneColour::SHIRT);
-	box(chest * b.head.matrix(), v3f(HEAD_SIZE) * S, v3f(0, HEAD_SIZE / 2, 0) * S, BoneColour::SKIN);
+	bone({ "lower", nullptr, b.lower, v3f(0), v3f(0), BoneColour::TROUSERS, false });
+	bone({ "hips", "lower", b.hips, v3f(0.48f, HIPS_TALL, 0.23f) * S, v3f(0, HIPS_TALL / 2, 0) * S, BoneColour::TROUSERS, true });
+	bone({ "chest", "hips", b.chest, v3f(0.5f, CHEST_TALL + 0.02f, BONE_WIDE) * S, v3f(0, CHEST_TALL / 2, 0) * S, BoneColour::SHIRT, true });
+	bone({ "head", "chest", b.head, v3f(HEAD_SIZE) * S, v3f(0, HEAD_SIZE / 2, 0) * S, BoneColour::SKIN, true });
+	// side 0 is the right (+x), side 1 the left
+	static const char *const THIGHS[] = { "thigh.r", "thigh.l" }, *const SHINS[] = { "shin.r", "shin.l" },
+		*const UPPERS[] = { "upper_arm.r", "upper_arm.l" }, *const FORES[] = { "forearm.r", "forearm.l" }, *const HANDS[] = { "hand.r", "hand.l" };
 	for (int side : { 0, 1 }) {
-		const core::matrix4 thigh = lower * b.thigh[side].matrix(), upper = chest * b.upper[side].matrix(), fore = upper * b.fore[side].matrix();
-		hanging(thigh, THIGH, BONE_WIDE, BoneColour::TROUSERS);
-		hanging(thigh * b.shin[side].matrix(), SHIN, BONE_NARROW, BoneColour::TROUSERS);
-		hanging(upper, UPPER_ARM, BONE_WIDE, BoneColour::SHIRT);
-		hanging(fore, FOREARM, BONE_NARROW, BoneColour::SHIRT);
-		box(fore * b.hand[side].matrix(), v3f(BONE_WIDE, HAND_LONG, BONE_WIDE) * S, v3f(0, -HAND_LONG / 2, 0) * S, BoneColour::SKIN);
+		hanging(THIGHS[side], "lower", b.thigh[side], THIGH, BONE_WIDE, BoneColour::TROUSERS);
+		hanging(SHINS[side], THIGHS[side], b.shin[side], SHIN, BONE_NARROW, BoneColour::TROUSERS);
+		hanging(UPPERS[side], "chest", b.upper[side], UPPER_ARM, BONE_WIDE, BoneColour::SHIRT);
+		hanging(FORES[side], UPPERS[side], b.fore[side], FOREARM, BONE_NARROW, BoneColour::SHIRT);
+		bone({ HANDS[side], FORES[side], b.hand[side], v3f(BONE_WIDE, HAND_LONG, BONE_WIDE) * S, v3f(0, -HAND_LONG / 2, 0) * S, BoneColour::SKIN, true });
 	}
+}
+
+void eachBoneBox(const Bones &b, const std::function<void(const core::matrix4 &, v3f, v3f, BoneColour)> &box)
+{
+	// each bone placed on the one it hangs from, which the table always gives first
+	std::map<std::string, core::matrix4> placed;
+	eachBone(b, [&](const Bone &bone) {
+		const core::matrix4 m = bone.parent ? placed.at(bone.parent) * bone.place.matrix() : bone.place.matrix();
+		placed[bone.name] = m;
+		if (bone.boxed)
+			box(m, bone.size, bone.centre, bone.colour);
+	});
 }
 
 Dye dye(BoneColour colour)

@@ -4,6 +4,7 @@
 // Copyright (C) 2013 Kahrl <kahrl@gmx.net>
 
 #include "src/client/render/shaders/shader.h"
+#include "library/trace/trace.h"
 #include "irr_ptr.h"
 #include "src/shared/platform/system/debug.h"
 #include "src/shared/platform/system/filesys.h"
@@ -580,7 +581,10 @@ u32 ShaderSource::getShaderIdDirect(const std::string &name,
 	info.base_material = base_mat;
 	info.setter_cb.grab(setter_cb);
 
-	generateShader(info);
+	{
+		TF_ZONE("Shader made"); // (the driver may compile it later still: at its first draw)
+		generateShader(info);
+	}
 
 	/*
 		Add shader to caches

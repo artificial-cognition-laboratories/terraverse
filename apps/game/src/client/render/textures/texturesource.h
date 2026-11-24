@@ -60,6 +60,11 @@ public:
 	/// @brief Returns existing texture by ID
 	virtual video::ITexture *getTexture(u32 id)=0;
 
+	/// The picture a texture string makes, on the CPU (grabbed: the caller
+	/// drops it), or null. Terra Firma: read from a texture, a picture waited
+	/// on everything the GPU was doing (the shell's item icons).
+	virtual video::IImage *getImage(const std::string &name)=0;
+
 	/// @brief Generates texture string(s) into an array texture
 	/// @note Unlike the other getters this will always add a *new* texture.
 	/// @return its ID
