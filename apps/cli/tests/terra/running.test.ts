@@ -20,8 +20,11 @@ describe("running/", () => {
         const stop = running.started(server, { pid: process.pid, secret: run.secret, owner: run.owner })
         const [record] = running.list()
         expect(record).toMatchObject({ ref: "terra://localhost:30123", title: "Hello", port: 30123, pid: process.pid, owner: "cody" })
-        expect(statSync(join(running.dir, "30123.json")).mode & 0o777).toBe(0o600)
-        expect(statSync(running.dir).mode & 0o777).toBe(0o700)
+        // Windows has no POSIX modes (stat reports 0o666): there the user's profile ACL guards the home
+        if (process.platform !== "win32") {
+            expect(statSync(join(running.dir, "30123.json")).mode & 0o777).toBe(0o600)
+            expect(statSync(running.dir).mode & 0o777).toBe(0o700)
+        }
         stop()
         expect(running.list()).toEqual([])
     })

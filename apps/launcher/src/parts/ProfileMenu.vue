@@ -48,7 +48,7 @@ async function act(action: () => Promise<unknown>) {
 
         <Teleport to="body">
             <div v-if="open && store.account.value" ref="menu" class="profile-popover" :style="{ top: `${at.top}px`, right: `${at.right}px` }">
-                <Panel :account="store.account.value" :social="store.social.value" :error="state.refusal" :busy="busy" :joining="null"
+                <Panel :account="store.account.value" :social="store.social.value" :error="state.refusal" :busy="busy" :joining="null" :remembered="null"
                     @sign-in="act(store.signIn)" @cancel="act(store.cancelSignIn)" @retry="act(store.retrySignIn)"
                     @sign-out="act(store.signOut)" @open-url="act(() => store.openUrl($event))"
                     @request="act(() => store.requestFriend($event))" @accept="act(() => store.acceptFriend($event))"
