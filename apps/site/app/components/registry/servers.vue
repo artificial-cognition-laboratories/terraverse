@@ -21,6 +21,12 @@ defineProps<{ servers: readonly Server[] }>()
                     {{ s.players }}/{{ s.slots }}
                 </td>
             </tr>
+            <tr v-if="!servers.length" class="none">
+                <td colspan="5">
+                    <span class="dot off" />No public servers right now.
+                    <NuxtLink to="/docs/cli/host">Host one</NuxtLink> from the game, or with <code>terra host</code>.
+                </td>
+            </tr>
         </tbody>
     </table>
 </template>
@@ -54,6 +60,23 @@ defineProps<{ servers: readonly Server[] }>()
         border-bottom: none;
     }
 
+    .none td {
+        padding: 1.6rem 1rem;
+        font-family: $font-sans;
+        font-size: 0.85rem;
+        color: $ink-faint;
+        white-space: normal;
+
+        a {
+            color: $primary-ink;
+        }
+
+        code {
+            font-family: $font-mono;
+            color: $ink-dim;
+        }
+    }
+
     .right {
         text-align: right;
     }
@@ -71,6 +94,10 @@ defineProps<{ servers: readonly Server[] }>()
     height: 0.45rem;
     margin-right: 0.7rem;
     background: $forest-ink;
+
+    &.off {
+        background: $ink-faint;
+    }
 }
 
 .fill {

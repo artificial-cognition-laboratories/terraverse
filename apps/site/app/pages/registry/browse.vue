@@ -9,10 +9,9 @@ useHead({ title: "Browse the registry" })
 const route = useRoute()
 const reg = useRegistry()
 const state = computed(() => query.read(route.query))
-const { data } = await useAsyncData(
-    () => `registry-browse:${JSON.stringify(state.value.search)}`,
+const { data } = await useLive(
+    () => `registry:browse:${JSON.stringify(state.value.search)}`,
     async () => ({ results: await reg.search(state.value.search), categories: await reg.categories(), totals: await reg.totals() }),
-    { watch: [state] },
 )
 const pages = computed(() => (data.value ? Math.ceil(data.value.results.total / data.value.results.pageSize) : 1))
 

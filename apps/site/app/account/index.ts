@@ -40,6 +40,8 @@ export function Account() {
     // null until ArcLabs has said who the session is
     const profile = useState<Profile | null>("profile", () => null)
     const stars = useState<string[] | null>("stars", () => null)
+    // Who was signed in here last (./store): only for drawing, until the session is read
+    const last = useState<User | null>("last-user", () => null)
 
     const ready = computed(() => session.value === null || (session.value !== undefined && profile.value !== null))
     const user = computed((): User | null => {
@@ -49,6 +51,9 @@ export function Account() {
         const named = typeof meta.full_name === "string" ? meta.full_name : null
         return { id: s.user.id, email: s.user.email ?? "", name: profile.value.name ?? named, username: profile.value.username }
     })
+
+    /** Who to draw as signed in: the session's user once it's read, who was here last until then */
+    const seen = computed((): User | null => (ready.value ? user.value : last.value))
 
     function clients(): { supabase: SupabaseClient; arclabs: ArcLabs } {
         const app = useNuxtApp()
@@ -116,8 +121,15 @@ export function Account() {
         /** Whether the session and its profile have been read: before it, nobody is known either way */
         ready: ready,
         user: user,
-        /** This browser's stars, read once by the client plugin */
-        restore: () => (stars.value = store.read().stars),
+        seen: seen,
+        /** This browser's stars and last user, read once the page is up (the prerendered page never knows them) */
+        restore() {
+            const saved = store.read()
+            stars.value = saved.stars
+            last.value = saved.user
+        },
+        /** Remembers who is signed in now, for the next visit's first frame */
+        remember: (now: User | null) => store.write({ user: now }),
         signIn: signIn,
         register: register,
         google: google,

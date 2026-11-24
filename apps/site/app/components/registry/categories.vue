@@ -13,6 +13,7 @@ defineProps<{ categories: readonly Category[] }>()
             :key="c.id"
             :to="{ path: '/registry/browse', query: { category: c.id } }"
             class="category"
+            :class="{ none: !c.count }"
         >
             <home-pixel-icon :icon="ICONS[c.id]" />
             <span class="name">{{ c.label }}</span>
@@ -57,6 +58,18 @@ defineProps<{ categories: readonly Category[] }>()
     text-overflow: ellipsis;
     white-space: nowrap;
     color: $ink-dim;
+}
+
+.none {
+    .name,
+    .count {
+        color: $ink-faint;
+    }
+
+    :deep(svg),
+    :deep(img) {
+        opacity: 0.45;
+    }
 }
 
 .count {

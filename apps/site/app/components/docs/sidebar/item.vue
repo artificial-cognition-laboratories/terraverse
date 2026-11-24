@@ -48,6 +48,7 @@ $indent: 0.85rem;
     display: flex;
     align-items: center;
     gap: 0.45rem;
+    margin-right: 0.5rem; // clear of the tree's scrollbar
     padding: 0.38rem 0.65rem;
     padding-left: calc(0.65rem + var(--depth) * #{$indent});
     font-family: $font-sans;

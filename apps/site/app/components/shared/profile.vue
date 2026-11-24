@@ -3,26 +3,36 @@ import { useAccount } from "~/account"
 import { format } from "~/lib/format"
 
 /**
- * The account, top-right of the topnav: "sign in" when nobody is, and when
- * someone is, their mark, opening onto their page, their stars and signing out.
- * Nothing until this browser has been read, so the prerendered page never
- * flashes the wrong one.
+ * The account, top-right of the topnav: always a circle. Signed out, a figure
+ * leading to sign-in; signed in, their mark, opening onto their page, their
+ * stars and signing out. Drawn from who was here last until the session is
+ * read, so it's right on the first frame and never shifts the topnav.
  */
 const route = useRoute()
 const account = useAccount()
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
 
-const user = account.user
+const user = account.seen
 const handle = computed(() => (user.value?.username ? `@${user.value.username}` : (user.value?.name ?? user.value?.email ?? "")))
+const mark = computed(() => (user.value ? format.monogram(user.value.username ?? user.value.name ?? user.value.email) : ""))
 
 watch(() => route.fullPath, () => (open.value = false))
 
 function outside(event: MouseEvent) {
     if (open.value && root.value && event.target instanceof Node && !root.value.contains(event.target)) open.value = false
 }
-onMounted(() => document.addEventListener("click", outside))
-onBeforeUnmount(() => document.removeEventListener("click", outside))
+function escape(event: KeyboardEvent) {
+    if (event.key === "Escape") open.value = false
+}
+onMounted(() => {
+    document.addEventListener("click", outside)
+    document.addEventListener("keydown", escape)
+})
+onBeforeUnmount(() => {
+    document.removeEventListener("click", outside)
+    document.removeEventListener("keydown", escape)
+})
 
 function signOut() {
     void account.signOut()
@@ -31,21 +41,29 @@ function signOut() {
 </script>
 
 <template>
-    <div v-if="account.ready.value" ref="root" class="profile">
-        <NuxtLink v-if="!user" :to="{ path: '/signin', query: { next: route.fullPath } }" class="signin">sign in</NuxtLink>
+    <div ref="root" class="profile">
+        <NuxtLink v-if="!user" :to="{ path: '/signin', query: { next: route.fullPath } }" class="me" aria-label="Sign in" title="Sign in">
+            <svg viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true">
+                <path fill="currentColor" d="M3 1h2v1h1v2H5v1H3V4H2V2h1zM1 6h6v2H1z" />
+            </svg>
+        </NuxtLink>
         <template v-else>
-            <button type="button" class="me" :aria-expanded="open" aria-label="Your account" @click="open = !open">
-                {{ format.monogram(user.username ?? user.name ?? user.email) }}
+            <button type="button" class="me signed" :aria-expanded="open" aria-label="Your account" @click="open = !open">
+                {{ mark }}
             </button>
             <div v-if="open" class="menu" role="menu">
                 <div class="who">
                     <strong>{{ handle }}</strong>
                     <span>{{ user.email }}</span>
                 </div>
-                <NuxtLink v-if="user.username" :to="`/registry/@${user.username}`" role="menuitem">Your page</NuxtLink>
-                <NuxtLink v-else to="/register" role="menuitem">Choose your name</NuxtLink>
-                <NuxtLink to="/registry/starred" role="menuitem">Starred</NuxtLink>
-                <button type="button" role="menuitem" @click="signOut">Sign out</button>
+                <div class="group">
+                    <NuxtLink v-if="user.username" :to="`/registry/@${user.username}`" role="menuitem">Your page</NuxtLink>
+                    <NuxtLink v-else to="/register" role="menuitem">Choose your name</NuxtLink>
+                    <NuxtLink to="/registry/starred" role="menuitem">Starred</NuxtLink>
+                </div>
+                <div class="group">
+                    <button type="button" role="menuitem" @click="signOut">Sign out</button>
+                </div>
             </div>
         </template>
     </div>
@@ -58,49 +76,53 @@ function signOut() {
     align-items: center;
 }
 
-.signin {
-    font-size: 0.85rem;
-    color: $ink-dim;
-    text-decoration: none;
-
-    &:hover {
-        color: $ink;
-    }
-}
-
 .me {
     @include well;
     display: grid;
     place-items: center;
     width: 1.9rem;
     height: 1.9rem;
+    padding: 0;
     font-family: $font-display;
     font-size: 0.6rem;
-    color: $primary-ink;
+    color: $ink-dim;
+    text-decoration: none;
     cursor: pointer;
+
+    svg {
+        width: 0.85rem;
+        height: 0.85rem;
+    }
+
+    &.signed {
+        color: $primary-ink;
+    }
 
     &:hover,
     &[aria-expanded="true"] {
+        color: $ink;
         border-color: rgba($primary-ink, 0.55);
     }
 }
 
 .menu {
     position: absolute;
-    top: calc(100% + 0.6rem);
+    // Hung from the topnav's bottom line, its top edge on that line, so the two never cross
+    top: calc(100% + (#{$topnav-height} - 1.9rem) / 2);
     right: 0;
-    display: grid;
-    min-width: 13rem;
-    padding: 0.35rem;
-    background: rgba($night-0, 0.96);
+    z-index: 20;
+    width: 15rem;
+    background: rgba($night-0, 0.97);
     backdrop-filter: blur(10px);
     border: 1px solid $glass-edge;
 
     a,
     button {
-        padding: 0.55rem 0.7rem;
+        display: block;
+        width: 100%;
+        padding: 0.5rem 1rem;
         font-family: $font-sans;
-        font-size: 0.85rem;
+        font-size: 0.82rem;
         text-align: left;
         color: $ink-dim;
         text-decoration: none;
@@ -113,30 +135,41 @@ function signOut() {
             background: rgba($primary-ink, 0.07);
         }
     }
-
-    button {
-        border-top: 1px solid $glass-edge;
-    }
 }
 
 .who {
     display: grid;
-    gap: 0.15rem;
-    padding: 0.55rem 0.7rem 0.7rem;
-    margin-bottom: 0.25rem;
+    gap: 0.2rem;
+    min-width: 0;
+    padding: 0.9rem 1rem;
     border-bottom: 1px solid $glass-edge;
+
+    strong,
+    span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 
     strong {
         font-family: $font-mono;
         font-weight: 400;
-        font-size: 0.85rem;
+        font-size: 0.82rem;
         color: $ink;
     }
 
     span {
         font-family: $font-sans;
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         color: $ink-faint;
+    }
+}
+
+.group {
+    padding: 0.35rem 0;
+
+    & + & {
+        border-top: 1px solid $glass-edge;
     }
 }
 </style>

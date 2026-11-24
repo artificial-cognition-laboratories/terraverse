@@ -9,6 +9,8 @@ const at = ref(0)
 const shown = computed(() => props.listings[Math.min(at.value, props.listings.length - 1)])
 const art = computed(() => cover(shown.value?.name ?? "", 96))
 const install = useCopy()
+const publish = useCopy()
+const empty = cover("@terraverse/registry", 96)
 const command = computed(() => `terra install ${shown.value?.name ?? ""}`)
 </script>
 
@@ -44,6 +46,22 @@ const command = computed(() => `terra install ${shown.value?.name ?? ""}`)
                 @click="at = i"
             />
         </nav>
+    </section>
+    <section v-else class="featured">
+        <home-art class="art" :art="empty" />
+        <div class="shade" />
+        <div class="text">
+            <span class="eyebrow">Featured</span>
+            <h3>Nothing here yet</h3>
+            <p>The first mods, games and worlds land here. Make something and it could be one of them.</p>
+            <div class="actions">
+                <home-button to="/docs/mods/publish" variant="primary">Publish »</home-button>
+                <button type="button" class="install" @click="publish.copy('terra publish')">
+                    <span class="prompt">$</span> terra publish
+                    <span class="state">{{ publish.label.value }}</span>
+                </button>
+            </div>
+        </div>
     </section>
 </template>
 

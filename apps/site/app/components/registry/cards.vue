@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import type { Listing } from "~/registry"
 
-/** Listings as a grid of cards, four across on a desktop. */
-defineProps<{ listings: readonly Listing[] }>()
+/** Listings as a grid of cards, four across on a desktop. `fill` tops a short row up with open slots. */
+const props = defineProps<{ listings: readonly Listing[]; fill?: number }>()
+const open = computed(() => Math.max(0, (props.fill ?? 0) - props.listings.length))
 </script>
 
 <template>
     <div class="cards">
         <registry-card v-for="l in listings" :key="l.name" :listing="l" />
+        <registry-card-open v-for="i in open" :key="`open-${i}`" :first="listings.length === 0 && i === 1" />
     </div>
 </template>
 

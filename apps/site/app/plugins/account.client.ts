@@ -7,7 +7,7 @@ import { ArcLabs, type Profile } from "~/account/arclabs"
  * in, and coming back from Google or an email link), and each session is asked
  * of ArcLabs for its profile. useAccount() reads the state written here.
  */
-export default defineNuxtPlugin(async () => {
+export default defineNuxtPlugin(nuxt => {
     const config = useRuntimeConfig().public
     const supabase = createClient(config.supabaseUrl, config.supabaseKey, {
         auth: { flowType: "implicit", autoRefreshToken: true, detectSessionInUrl: true, persistSession: true },
@@ -24,12 +24,21 @@ export default defineNuxtPlugin(async () => {
         else if (!same) profile.value = await arclabs.profile()
     }
 
-    const { data, error } = await supabase.auth.getSession()
-    if (error) throw error
-    await become(data.session)
-    // Supabase's callback must not await Supabase: the work is queued behind it
-    supabase.auth.onAuthStateChange((_event, next) => void setTimeout(() => void become(next)))
+    // Nothing here holds the page up: it's drawn with who was here last, and corrected when the session is read
+    const account = useAccount()
+    nuxt.hook("app:mounted", () => {
+        account.restore()
+        void supabase.auth.getSession().then(({ data, error }) => {
+            if (error) throw error
+            return become(data.session)
+        })
+        // Supabase's callback must not await Supabase: the work is queued behind it
+        supabase.auth.onAuthStateChange((_event, next) => void setTimeout(() => void become(next)))
+    })
+    // Once the session is read, whoever it is (nobody too) is who's remembered
+    watch([account.ready, account.user], ([ready, now]) => {
+        if (ready) account.remember(now)
+    })
 
-    useAccount().restore()
     return { provide: { supabase: supabase, arclabs: arclabs } }
 })

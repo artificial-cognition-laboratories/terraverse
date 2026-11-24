@@ -6,36 +6,37 @@ definePageMeta({ layout: "landing" })
 useHead({ title: "Registry" })
 
 const reg = useRegistry()
-const { data } = await useAsyncData("registry-front", async () => ({ front: await reg.front(), servers: await reg.servers() }))
+const { data: front } = await useLive("registry:front", () => reg.front())
+const { data: servers } = await useLive("registry:servers", () => reg.servers(), { every: 30_000 })
 const publish = useCopy()
 </script>
 
 <template>
     <registry-shell>
-        <template v-if="data">
+        <template v-if="front">
             <home-heading
                 kicker="The registry"
                 title="Made by everyone."
-                :lede="`${data.front.total} mods, games, worlds and packs, made by the community and by us. Add one to a world in a click, or publish your own with one command.`"
+                :lede="front.total ? `${front.total} mods, games, worlds and packs, made by the community and by us. Add one to a world in a click, or publish your own with one command.` : 'Mods, games, worlds and packs, made by the community and by us. It\'s just opening: publish the first with one command.'"
                 :link="{ label: 'Browse all', to: '/registry/browse' }"
             />
 
-            <registry-featured :listings="data.front.featured" />
+            <registry-featured :listings="front.featured" />
 
             <registry-row-head label="Categories" />
-            <registry-categories :categories="data.front.categories" />
+            <registry-categories :categories="front.categories" />
 
-            <template v-for="shelf in data.front.shelves" :key="shelf.id">
+            <template v-for="shelf in front.shelves" :key="shelf.id">
                 <registry-row-head
                     :label="shelf.title"
                     :link="{ label: 'See all', to: { path: '/registry/browse', query: shelf.search.official ? { official: '1', sort: shelf.search.sort } : { sort: shelf.search.sort } } }"
                 />
-                <registry-cards :listings="shelf.listings" />
+                <registry-cards :listings="shelf.listings" :fill="4" />
             </template>
 
-            <template v-if="flags.servers">
+            <template v-if="flags.servers && servers">
                 <registry-row-head label="Live servers" />
-                <registry-servers :servers="data.servers" />
+                <registry-servers :servers="servers" />
             </template>
 
             <section class="publish">

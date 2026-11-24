@@ -35,23 +35,26 @@ const nav = useDocsNav()
     align-items: start;
     max-width: $site-width;
     margin: 0 auto;
-    padding: $page-top 2rem 6rem;
+    padding: $page-top 2rem 0;
 }
 
+// The room under the article is the article's, not the container's: the sticky tree sticks
+// until the container's content ends, so padding there pushed it up off its place at the bottom
 .docs-main {
     min-width: 0;
+    padding-bottom: 6rem;
 }
 
 @include tablet {
     .docs-container {
         grid-template-columns: minmax(0, 1fr);
-        padding: 0 1.25rem 4rem;
+        padding: 0 1.25rem;
     }
 }
 
 @include mobile {
     .docs-container {
-        padding: 0 1rem 4rem;
+        padding: 0 1rem;
     }
 }
 </style>

@@ -9,7 +9,7 @@ useHead({ title: "Starred", meta: [{ name: "robots", content: "noindex" }] })
 const account = useAccount()
 const reg = useRegistry()
 const names = computed(() => account.stars.list())
-const { data: listings } = await useAsyncData("starred", () => reg.listings(names.value), { server: false, watch: [names] })
+const { data: listings } = await useLive(() => `registry:starred:${names.value.join(",")}`, () => reg.listings(names.value))
 </script>
 
 <template>
