@@ -14,7 +14,11 @@ declare global {
         title?: string
         /** What a server may choose: `mod.settings` in the mod, checked before it runs. */
         settings?: Record<string, SettingDeclaration>
+        /** What it's for on the registry: one to three, from a fixed list, so Browse's filters mean one thing. Needed to publish. */
+        categories?: readonly ModCategory[]
     }
+    /** The registry's categories (ArcLabs: platform/terrafirma/categories.ts holds the same list). */
+    type ModCategory = "games" | "survival" | "building" | "machines" | "matter" | "world" | "textures" | "library"
     function defineMod<C extends ModConfig>(config: C): C
 
     interface ServerConfig {

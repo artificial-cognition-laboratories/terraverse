@@ -81,7 +81,7 @@ export function Registry(opts: { api: ApiT }) {
     const configs = Configs({})
 
     /** The mod at `root`, checked and listed for publishing. Nothing leaves the machine. */
-    async function check(root: string): Promise<Contents & { name: string; version: string; api: number; title: string; settings: Record<string, unknown> }> {
+    async function check(root: string): Promise<Contents & { name: string; version: string; api: number; title: string; settings: Record<string, unknown>; categories: string[] }> {
         const pkg: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8"))
         if (typeof pkg !== "object" || pkg === null) throw err("PACKAGE_INVALID", { detail: `${root}/package.json isn't an object` })
         const name = Reflect.get(pkg, "name"), version = Reflect.get(pkg, "version")
@@ -97,13 +97,14 @@ export function Registry(opts: { api: ApiT }) {
         const restated = IDENTITY_FIELDS.filter(field => Reflect.has(config, field))
         if (restated.length > 0) throw err("PUBLISH_INVALID", { detail: `mod.config.ts sets ${restated.join(", ")}: that's package.json's to say, and only package.json's. Remove it from mod.config.ts` })
         const read = await configs.read("mod", root, name)
+        const categories = categoriesOf(Reflect.get(config, "categories"))
 
         const apiFile = join(root, ".terra", "types", "api.json")
         if (!existsSync(apiFile)) throw err("PUBLISH_INVALID", { detail: `${apiFile} is missing: run terra prepare` })
         const api: unknown = Reflect.get(Object(JSON.parse(readFileSync(apiFile, "utf8"))), "api")
         if (typeof api !== "number") throw err("PUBLISH_INVALID", { detail: `${apiFile} has no api version: run terra prepare` })
 
-        return { ...Pack({ root: root }).contents(), name: name, version: version, api: api, title: read.title, settings: read.settings }
+        return { ...Pack({ root: root }).contents(), name: name, version: version, api: api, title: read.title, settings: read.settings, categories: categories }
     }
 
     /** Publish the mod at `root`: checked, packed, uploaded, each step reported as it starts. */
@@ -115,7 +116,7 @@ export function Registry(opts: { api: ApiT }) {
         const form = new FormData()
         form.append("source", new Blob([new Uint8Array(packed.source)]), "source.tar.gz")
         form.append("api", String(checked.api))
-        form.append("mod", JSON.stringify({ title: checked.title, settings: checked.settings }))
+        form.append("mod", JSON.stringify({ title: checked.title, settings: checked.settings, categories: checked.categories }))
         if (packed.readme !== null) form.append("readme", packed.readme)
         if (packed.assets) form.append("assets", new Blob([new Uint8Array(packed.assets)]), "assets.tar.gz")
 
@@ -214,3 +215,18 @@ export function Registry(opts: { api: ApiT }) {
 }
 
 export type RegistryT = ReturnType<typeof Registry>
+
+/** The registry's categories: the same closed list ArcLabs checks (platform/terrafirma/categories.ts). */
+const CATEGORIES = ["games", "survival", "building", "machines", "matter", "world", "textures", "library"]
+const MAX_CATEGORIES = 3
+
+// mod.config.ts's categories, checked here as the registry will, so a publish isn't refused after packing
+function categoriesOf(value: unknown): string[] {
+    const listed = CATEGORIES.join(", ")
+    if (!Array.isArray(value) || value.length === 0) throw err("PUBLISH_INVALID", { detail: `mod.config.ts must set categories: what the mod is for, one to ${MAX_CATEGORIES} of ${listed}` })
+    if (value.length > MAX_CATEGORIES) throw err("PUBLISH_INVALID", { detail: `mod.config.ts sets ${value.length} categories: at most ${MAX_CATEGORIES}` })
+    const unknown = value.filter(c => typeof c !== "string" || !CATEGORIES.includes(c))
+    if (unknown.length > 0) throw err("PUBLISH_INVALID", { detail: `mod.config.ts categories ${unknown.map(c => JSON.stringify(c)).join(", ")} aren't ${listed}` })
+    if (new Set(value).size !== value.length) throw err("PUBLISH_INVALID", { detail: "mod.config.ts lists a category twice" })
+    return value as string[]
+}
