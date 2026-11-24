@@ -17,9 +17,10 @@ Entry points (`apps/game/package.json`; root `bun check`, `bun test:hot`, `bun t
 - **Selection** (`tests/run/select/`, TS, 0.3 s): reads depfiles of every `<target>.dir` in
   `.output/build` (luanti, `<lib>_tests`; stale layouts skipped by missing source, newest wins).
   Unit = a pure library whole (folder under `apps/game/library` with its own CMakeLists), else
-  the file's folder; test files are their own unit. Effects table in `select/index.ts`: data
-  (`assets/`, `game/`, `registry/shaders|textures`) and `tests/run/*.sh` → every engine module;
-  `library.sh` → libraries; a CMakeLists → suites under its folder, or none if its changed lines
+  the file's folder; test files are their own unit. Effects table in `select/index.ts`: `tests/run/*.sh` → every engine module;
+  `library.sh` → libraries; a data file (`assets/`, `game/`, shaders, textures) → the suites
+  reaching units whose code names its basename in a string literal, else its folder's name
+  (`select/loaders.ts`), else every engine module; a CMakeLists → suites under its folder, or none if its changed lines
   only list sources; root/cmake build files → everything; non-code/md/other apps → none.
   `test.sh` builds before selecting unless `BUILT=1`. Prints why each suite runs and "no suite is
   built against X" for changed code with no suite.
@@ -49,6 +50,7 @@ Scoreboard (charter definitions). "Suites" = unit suites: 81 engine + 13 library
 | 2026-11-19 | none defined (all modules 227 s) | gate ≈ build + 227 s + UI | no selection | not audited | 0 |
 | 2026-11-20 | `bun check` ≈ 55 s + typecheck | `bun run test` ≈ 160 s | no selection: all | not audited | 0 |
 | 2026-11-21 | `bun check` not re-timed; `--changed` seconds–80 s | 222 s loaded (game running), ≈ 160 s idle est. | **median 0 of 94** over last 20 (13 touch no code); **6 of 94** over the 7 that touch code | not audited (27 folders of uncompiled-against code listed) | 0 |
+| 2026-11-24 | not re-timed (game running) | not re-timed | **median 0 of 99** over last 100; **86 of 99** over the 34 touching code or data (`--measure` prints both now) | not audited | 0 |
 
 Own numbers:
 
@@ -65,11 +67,11 @@ data (palette.json in most visual commits), `src/shared` and the runners run eve
 ## Plan
 
 1. ~~Unit tests one way in, ≤ 120 s.~~ Met 2026-11-20.
-2. ~~Selection by system~~ (milestone 3, done 2026-11-21: median 0 of 94 < 47). Next refinement,
-   as a step of 3 below: **data by loader**. A data file runs the suites reaching the units whose
-   code names it in a string literal (`"palette.json"` in far/bake/baked.cpp, bridge/wiki.cpp,
-   sandbox/stage); a folder loaded by scanning (assets/matter) stays wide. Done when code-touching
-   commits' median over the last 100 is < 40 of 94 with recall still 56/56.
+2. ~~Selection by system~~ (done 2026-11-21). ~~Data by loader~~ landed 2026-11-24 (cuts.json
+   86 → 1 suite, palette.json 86 → 5, textures 86 → 8) but the code-touching median stayed 86:
+   what's wide is `src/shared/base` (gameparams.h, porting.cpp reach 79/44 suites, honestly)
+   and pre-re-sort paths that no longer exist (unknown → wide). The < 40 target was the wrong
+   lever; dropped. Re-measure over 100 once ~60 post-re-sort commits exist.
 3. **(current) Full tier ≤ 120 s.** Done when `bun run test` is ≤ 120 s wall on an idle machine.
    Steps: re-time idle; ranges.slow (19 s); soil.slow is core-bound (465 s CPU): fewer `ground`
    reads that don't land in a bed or floodplain, or a cheaper read.
@@ -88,6 +90,8 @@ data (palette.json in most visual commits), `src/shared` and the runners run eve
 - Selection by include *closure* (folder graph or unit graph over all depfiles): every test
   reaches all 138 folders / 781 units; the engine's include graph is one tangle. Selection uses
   one level (the unit of each file a test compiles against) instead.
+- Data by loader (2026-11-24): naming a file's folder too (`"world"`, `"matter"`) matches far too
+  much; folder names are only a fallback when nothing names the file.
 - Recall script lives in /tmp only (it needs the rename map from the two re-sort commits:
   `git show --name-status -M e7c5d319a 2c0061283`, chained). Rebuild it if recall needs
   re-measuring; worth committing as `select/main.ts --recall` if used again.
@@ -98,6 +102,9 @@ data (palette.json in most visual commits), `src/shared` and the runners run eve
 
 ## Log
 
+- 2026-11-24: data files select by the code naming them (`select/loaders.ts`); `--measure`
+  reports the code-or-data median. Typical-change median unchanged (86 of 99 over code-touching
+  commits): shared/ headers dominate. Game running: no timings, no engine build.
 - 2026-11-21: selection landed (`bun run test <system>`, `--changed`, `bun check --changed`):
   median 0 of 94 suites over the last 20 commits, 6 of 94 over code-touching ones, recall 56/56.
   The gate ran engine.sh only, so terragen's tests and goldens hadn't been gated since

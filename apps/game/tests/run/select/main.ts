@@ -9,6 +9,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { type Change, Selection, type Picked } from "./index";
+import { Loaders } from "./loaders";
 import { Suites } from "./suites";
 import { Units } from "./units";
 
@@ -18,7 +19,8 @@ const git = (...args: string[]) =>
 
 const units = Units({ root: root });
 const suites = Suites({ root: root, build: join(root, ".output/build"), units: units });
-const selection = Selection({ suites: suites, units: units });
+const loaders = Loaders({ root: root });
+const selection = Selection({ suites: suites, units: units, loaders: loaders });
 
 const [verb, ...rest] = process.argv.slice(2);
 if (verb === undefined) throw new Error("select: give --changed [base], --commit <rev>, --measure [n] or a system or path");
@@ -79,15 +81,21 @@ function report(picked: Picked) {
 // its ctest entries, an engine module counts one.
 function measure(n: number) {
 	const total = selection.all.reduce((sum, s) => sum + s.runs.length, 0);
-	const counts = git("log", `-${n}`, "--format=%h %s").map((line) => {
+	const picks = git("log", `-${n}`, "--format=%h %s").map((line) => {
 		const [sha] = line.split(" ");
-		const runs = selection.pick(commit(sha)).suites.reduce((sum, s) => sum + s.runs.length, 0);
-		console.log(`${String(runs).padStart(4)}  ${line.slice(0, 90)}`);
-		return runs;
+		const picked = selection.pick(commit(sha));
+		const runs = picked.suites.reduce((sum, s) => sum + s.runs.length, 0);
+		console.log(`${String(runs).padStart(4)}${picked.reaches ? " " : "-"} ${line.slice(0, 90)}`);
+		return { runs: runs, reaches: picked.reaches };
 	});
+	const touching = picks.filter((p) => p.reaches);
+	console.log(`median ${median(picks.map((p) => p.runs))} of ${total} suites over ${picks.length} commits`);
+	console.log(`median ${median(touching.map((p) => p.runs))} of ${total} over the ${touching.length} that touch code or data (others marked -)`);
+}
+
+function median(counts: number[]) {
 	const sorted = [...counts].sort((a, b) => a - b);
 	const at = (i: number) => sorted[i] ?? Number.NaN;
 	const mid = Math.floor(sorted.length / 2);
-	const median = sorted.length % 2 === 1 ? at(mid) : (at(mid - 1) + at(mid)) / 2;
-	console.log(`median ${median} of ${total} suites over ${counts.length} commits`);
+	return sorted.length % 2 === 1 ? at(mid) : (at(mid - 1) + at(mid)) / 2;
 }

@@ -8,6 +8,7 @@
 // the fast loop's trade (`--changed`); the full tier and the release gate run
 // every suite.
 import type { Suite, Suites } from "./suites";
+import type { Loaders } from "./loaders";
 import type { Units } from "./units";
 
 export type Picked = {
@@ -18,17 +19,20 @@ export type Picked = {
 	uncovered: string[];
 	// one changed path per picked suite, to say why it runs
 	why: Map<string, string>;
+	// some change could reach a unit suite (code, data, build files, the runners)
+	reaches: boolean;
 };
 
 // A changed path, and for a build file the lines that changed (null when the
 // change is a whole system or folder asked for by name).
 export type Change = { path: string; lines: string[] | null };
 
-type Effect = "none" | "ui" | "engine" | "everything" | "libraries" | "build" | "code" | "other";
+type Effect = "none" | "ui" | "data" | "engine" | "everything" | "libraries" | "build" | "code" | "other";
 
 // The first row a path matches decides what it can break. Order matters.
 const rules: { test: RegExp; effect: Effect }[] = [
 	{ test: /^registry\/worlds\//, effect: "none" },
+	{ test: /\.md$/, effect: "none" },
 	{ test: /^apps\/game\/src\/client\/app\/shell\/interface\//, effect: "ui" },
 	// the runners: what they run changes, so everything they run
 	{ test: /^apps\/game\/tests\/run\/select\//, effect: "none" },
@@ -38,9 +42,8 @@ const rules: { test: RegExp; effect: Effect }[] = [
 	// a folder's build file sets how everything beneath it compiles
 	{ test: /^apps\/game\/.+\/CMakeLists\.txt$/, effect: "build" },
 	// read by the engine's tests at run time from the staged share directory
-	{ test: /^(apps\/game\/)?(assets|game)\/|^registry\/(shaders|textures)\//, effect: "engine" },
+	{ test: /^(apps\/game\/)?(assets|game)\/|^registry\/(shaders|textures)\//, effect: "data" },
 	{ test: /^apps\/game\/(src|library|tests)\/.*\.(h|hpp|hh|cpp|cc|c|inl|ipp)$/, effect: "code" },
-	{ test: /\.md$/, effect: "none" },
 	// the check:* harnesses and benchmarks aren't unit suites
 	{ test: /^apps\/game\/tests\/(checks|benchmark)\//, effect: "none" },
 	{ test: /^apps\/game\/(src|library|tests)\//, effect: "other" },
@@ -48,7 +51,7 @@ const rules: { test: RegExp; effect: Effect }[] = [
 	{ test: /./, effect: "none" },
 ];
 
-export function Selection(opts: { suites: Suites; units: Units }) {
+export function Selection(opts: { suites: Suites; units: Units; loaders: Loaders }) {
 	const { all, objects } = opts.suites.read();
 	const engine = all.filter((suite) => suite.kind === "engine");
 	const built = new Set<string>();
@@ -61,6 +64,13 @@ export function Selection(opts: { suites: Suites; units: Units }) {
 		none: () => [],
 		ui: () => [],
 		engine: () => engine,
+		// what's built against the code that names it; nothing naming it runs wide
+		data: (path) => {
+			const loaders = opts.loaders.of(path);
+			if (loaders.length === 0) return engine;
+			const reached = new Set(loaders.map((file) => opts.units.key(file)));
+			return all.filter((suite) => [...reached].some((unit) => suite.reach.has(unit)));
+		},
 		everything: () => all,
 		libraries: () => all.filter((suite) => suite.kind === "library"),
 		build: (path, lines) => {
@@ -78,14 +88,16 @@ export function Selection(opts: { suites: Suites; units: Units }) {
 		const why = new Map<string, string>();
 		const uncovered: string[] = [];
 		let ui = false;
+		let reaches = false;
 		for (const { path, lines } of changes) {
 			const effect = rules.find((rule) => rule.test.test(path))!.effect;
 			const suites = effects[effect](path, lines);
 			if (effect === "ui") ui = true;
-			if (effect === "code" && suites.length === 0) uncovered.push(path);
+			if (effect !== "ui" && effect !== "none") reaches = true;
+			if ((effect === "code" || effect === "data") && suites.length === 0) uncovered.push(path);
 			for (const suite of suites) if (!why.has(suite.name)) why.set(suite.name, path);
 		}
-		return { suites: all.filter((suite) => why.has(suite.name)), ui: ui, uncovered: uncovered, why: why };
+		return { suites: all.filter((suite) => why.has(suite.name)), ui: ui, uncovered: uncovered, why: why, reaches: reaches };
 	};
 	return { all: all, pick: pick };
 }

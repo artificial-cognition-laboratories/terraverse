@@ -18,8 +18,9 @@ libraries' report prints after the engine's). It's CPU-bound: about half its cor
 `terragen.soil.slow` reading an Earth-sized planet.
 
 **What a change runs.** `run/select` reads the last build's depfiles: a changed file runs every
-suite compiled against its unit (its library, or its folder). Data, build files and the runners
-run wide. `bun run/select/main.ts --changed` says what would run and why, and lists changed code
+suite compiled against its unit (its library, or its folder). A data file (`assets/`, shaders,
+textures) runs the suites built against the code naming it in a string (`"palette.json"`), else
+naming its folder; nothing naming it runs every engine module. Build files and the runners run wide. `bun run/select/main.ts --changed` says what would run and why, and lists changed code
 that no suite is built against.
 
 **Adding a test.**
