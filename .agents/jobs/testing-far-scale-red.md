@@ -1,4 +1,4 @@
-# TestFar and TestScale fail on master (not in CI's modules, so CI is green over them)
+# TestScale fails on master (TestFar's part is fixed) (not in CI's modules, so CI is green over them)
 
 Found by the CI owner, 2026-11-18, running the whole unit suite (`bun run test`, 86 modules) at
 5eb0a8b2 and again with tonight's test.sh: the same two fail with either script, so they predate it.
@@ -37,3 +37,9 @@ suite; the fixes stay open here.
   placed separately. Raising SKIRT from 2 to 4 didn't close it. Next: dump which tiles own those
   two triangles (`t.place` per key), and check whether the edge vertices of neighbouring tiles at a
   level change are placed from the same heights.
+
+## Agent notes (2026-11-24, jobs bot)
+
+TestFar.testNoHolesFromAbove passes at 1850d26d2 (8/8, run twice); its skip line is removed, so that
+half is closed. TestScale.testEverySize still fails, now already at the smallest planet:
+`radius=2607 ... steepest=46` (steep < 40). Still generation's, so still with sprint 116's TF25 bump.

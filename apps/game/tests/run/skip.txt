@@ -2,5 +2,4 @@
 # skipped: they're held only by `bun check:budgets`, see apps/game/tests/run/serial.txt.)
 # One per line: Module.test  job  (what fails). Remove the line when the job is fixed.
 TestAtlasRender.testViewsMatchThePlanet  .agents/jobs/atlas-seam-crack.md             (a crack along a seam)
-TestFar.testNoHolesFromAbove       .agents/jobs/testing-far-scale-red.md          (a slit at a steep tile corner, 1 ray of 40000)
 TestScale.testEverySize            .agents/jobs/testing-far-scale-red.md          (block-wide gorges at radius 1M, sprint 116)
