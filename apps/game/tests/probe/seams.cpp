@@ -11,6 +11,7 @@
 #include "src/shared/map/map.h"
 #include "src/server/app/server.h"
 #include "src/server/game/kinds.h"
+#include "src/server/world/run/rules/matter.h"
 #include "src/server/world/state/objects/entity_sao.h"
 #include "src/server/world/state/environment/serverenvironment.h"
 #include <cmath>
@@ -111,7 +112,7 @@ void atlasSeams(Context &c)
 	auto t = std::make_shared<Tally>();
 	registerProbeKind(WALKER, [&c, t] { return std::make_unique<Walker>(c, t); });
 	const double R = c.atlas().body(planet::Atlas::HOME).params().radius;
-	const std::string STONE = "core:stone", SAND = "core:sand", WATER = "core:water_source", FLOWING = "core:water_flowing";
+	const std::string STONE = "core:stone", SAND = "core:sand", WATER = "core:water_source", PUDDLE = "core:water_puddle";
 	// the server's steps: how long, and how many
 	struct Steps { long n = 0; float longest = 0; };
 	auto steps = std::make_shared<Steps>();
@@ -216,19 +217,31 @@ void atlasSeams(Context &c)
 		});
 	};
 
-	const auto pour = [&c, t, courses, WATER, FLOWING](std::function<void()> done) {
+	const auto pour = [&c, t, courses, WATER, PUDDLE](std::function<void()> done) {
 		for (Course &k : *courses) {
 			const auto [la, lo] = k.path(-1.5, 0);
 			k.spring = *c.atlasNode(la, lo, FLOOR + 1);
 			const auto [lb, lob] = k.path(1.5, 0);
 			k.beyond = *c.atlasNode(lb, lob, FLOOR + 1);
 			t->check(c, c.node(k.beyond) == "air", k.name + ": past the seam isn't dry to start");
-			c.set(k.spring, WATER);
 		}
-		c.after(8, [&c, t, courses, done, WATER, FLOWING] { // into a cap's grid at 45° is three flows
+		// a spring, kept pouring: one block of water spreads to a film too thin to keep
+		auto again = std::make_shared<std::function<void(int)>>();
+		*again = [&c, courses, WATER, self = std::weak_ptr(again)](int left) {
 			for (const Course &k : *courses) {
+				c.set(k.spring, WATER);
+				terraMatterDisturb(c.server(), k.spring); // as a player's placing does: water moves only once woken
+			}
+			if (const auto next = self.lock(); next && left > 0)
+				c.after(0.5f, [next, left] { (*next)(left - 1); });
+		};
+		(*again)(12);
+		c.after(8, [&c, t, courses, done, WATER, PUDDLE] { // into a cap's grid at 45° is three flows
+			for (const Course &k : *courses) {
+				// water lies in a node's open space as a fill (sprint 81): the node stays air
 				const std::string n = c.node(k.beyond);
-				t->check(c, n == FLOWING || n == WATER, k.name + ": past the seam is " + n + ", not water");
+				const fill::Fill *f = c.env().getMap().getFill(k.beyond);
+				t->check(c, n == PUDDLE || n == WATER || (f && f->amount > 0), k.name + ": past the seam is " + n + " with no water in it");
 			}
 			done();
 		});
