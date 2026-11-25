@@ -35,11 +35,13 @@ set(unittest_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/test_ref.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_release.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_air.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_milkyway.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_orbit.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_moves.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_structure.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_physics.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_pose.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_figure.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_sandbox.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_pile.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_matter.cpp
