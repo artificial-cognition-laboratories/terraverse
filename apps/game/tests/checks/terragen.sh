@@ -3,7 +3,7 @@
 # (headless), probe a grid of columns, and check each against terragen built
 # standalone. Every surface height and top block must agree, and so must what
 # core.terra (calendar, sun, climate) says at each column. Then the unit
-# tests. Builds the engine first (bin/luanti).
+# tests. Builds the engine first (bin/terraverse).
 set -euo pipefail
 
 root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
@@ -24,7 +24,7 @@ printf 'mg_name = terra\nmgterra_code = %s\nseed = 1\nchunksize = 1\nplanet_atla
 
 port=$((30200 + RANDOM % 500))
 # no settings but the world's: a check can't depend on the minetest.conf of whoever runs it
-timeout 180 "$root/.output/bin/luanti" --server --config /dev/null --world "$world" --probe terragen --port "$port" 2>&1 | tee "$work/server.txt" | grep -oE '(MAP|PROBE|TERRA|WEATHER|ACT) .*' > "$work/log.txt" || true
+timeout 180 "$root/.output/bin/terraverse" --server --config /dev/null --world "$world" --probe terragen --port "$port" 2>&1 | tee "$work/server.txt" | grep -oE '(MAP|PROBE|TERRA|WEATHER|ACT) .*' > "$work/log.txt" || true
 grep '^PROBE' "$work/log.txt" > "$work/probed.txt" || true
 # predicted for the places the probed nodes actually are
 "$work/predict" --columns "$code" "$work/log.txt" > "$work/predicted.txt"

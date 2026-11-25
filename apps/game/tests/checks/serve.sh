@@ -2,12 +2,12 @@
 # Local servers (sprint 125): terra server init, terra host, the running/ record the game
 # lists, admission by its secret, and nothing left behind. Joining opens the game's window:
 # with no display it's skipped, and says so.
-# Needs .output/bin/luanti and .output/bin/terra (bun check:mods builds terra).
+# Needs .output/bin/terraverse and .output/bin/terra (bun check:mods builds terra).
 set -euo pipefail
 
 root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 terra="$root/.output/bin/terra"
-engine="$root/.output/bin/luanti"
+engine="$root/.output/bin/terraverse"
 work="$(mktemp -d)"
 export TERRAVERSE_HOME="$work/home" # a home of its own: never the real one's running/
 failed=0

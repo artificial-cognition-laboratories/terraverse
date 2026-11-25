@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The game's baked palette (apps/game/assets/game/palette.json, far/baked.h): what
 # the generator places and how it looks from afar, exported from the game's
-# own content and textures (luanti --export-palette: a scratch world's mods
+# own content and textures (terraverse --export-palette: a scratch world's mods
 # loaded, textures on the NULL video driver, no window). `--check` exports
 # afresh and fails if the committed file differs: a block, a texture or a
 # species changed without the palette being made again (bun palette).
@@ -19,7 +19,7 @@ printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$
 atlas="atlas-v2 radius=2607.5945876176133 segments=24 capLatitude=85 core=651.8986469044033 rounding=0.95 height=256"
 printf 'mg_name = terra\nmgterra_code = TF24.dGVycmE\nseed = 1\nchunksize = 1\nplanet_atlas = %s\n[end_of_params]\n' "$atlas" > "$world/map_meta.txt"
 
-env -u DISPLAY -u WAYLAND_DISPLAY timeout 120 "$root/.output/bin/luanti" --config /dev/null --world "$world" \
+env -u DISPLAY -u WAYLAND_DISPLAY timeout 120 "$root/.output/bin/terraverse" --config /dev/null --world "$world" \
 	--gameid terrafirma --export-palette "$work/palette.json" > "$work/log.txt" 2>&1 || {
 	echo "palette: the export failed:"
 	grep -E "ERROR|rror" "$work/log.txt" | head -20

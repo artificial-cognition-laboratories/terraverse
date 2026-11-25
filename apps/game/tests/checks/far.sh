@@ -18,7 +18,7 @@ printf 'mg_name = terra\nmgterra_code = %s\nseed = 1\nchunksize = 1\nplanet_atla
 
 port=$((30700 + 10 * checks + RANDOM % 10)) # (each check its own: they run together)
 # no settings but the world's: a check can't depend on the minetest.conf of whoever runs it
-FAR_BODY="${3:-}" timeout 300 "$root/.output/bin/luanti" --server --config /dev/null --world "$world" --probe far --port "$port" 2>&1 | grep -oE '(FAR|ERROR).*' > "$work/log.txt" || true
+FAR_BODY="${3:-}" timeout 300 "$root/.output/bin/terraverse" --server --config /dev/null --world "$world" --probe far --port "$port" 2>&1 | grep -oE '(FAR|ERROR).*' > "$work/log.txt" || true
 cat "$work/log.txt"
 
 python3 -I - "$work/log.txt" <<'PY'

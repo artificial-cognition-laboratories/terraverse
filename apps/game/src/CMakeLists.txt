@@ -771,6 +771,9 @@ if(BUILD_CLIENT)
 		add_library(${PROJECT_NAME} SHARED)
 	else()
 		add_executable(${PROJECT_NAME})
+		# The engine's binary is terraverse; PROJECT_NAME (luanti) still names its gettext
+		# domain and share paths, which installed users' files depend on.
+		set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME terraverse)
 	endif()
 
 
@@ -1216,9 +1219,6 @@ if(BUILD_CLIENT AND NOT ANDROID)
 		ARCHIVE DESTINATION ${BINDIR}
 		BUNDLE DESTINATION .
 	)
-	if(UNIX)
-		CreateLegacyAlias(minetest_alias "${EXECUTABLE_OUTPUT_PATH}/minetest" ${PROJECT_NAME})
-	endif()
 
 	if(APPLE)
 		install(CODE "

@@ -90,7 +90,7 @@ export function Engine(opts: {
         const bin = opts.bin
         const wrapper = `${dirname(bin)}/terraverse`
         if (process.platform !== "win32" && existsSync(wrapper)) return wrapper
-        const path = `${bin}/${process.platform === "win32" ? "luanti.exe" : "luanti"}`
+        const path = `${bin}/${process.platform === "win32" ? "terraverse.exe" : "terraverse"}`
         if (!existsSync(path)) throw err("ENGINE_MISSING", { detail: `nothing at ${path}` })
         return path
     }

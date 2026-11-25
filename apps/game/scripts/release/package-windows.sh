@@ -19,7 +19,7 @@ out=${2:-"$root/.output/releases"}
 name="terraverse-${version}-windows-x86_64"
 stage="$out/$name"
 
-[ -f "$root/.output/bin/luanti.exe" ] || { echo "package: no .output/bin/luanti.exe — build first" >&2; exit 1; }
+[ -f "$root/.output/bin/terraverse.exe" ] || { echo "package: no .output/bin/terraverse.exe — build first" >&2; exit 1; }
 [ -f "$root/.output/ui/dist/index.html" ] || { echo "package: no .output/ui/dist — cd apps/game/src/client/app/shell/interface && bun run build" >&2; exit 1; }
 [ -n "${VCToolsRedistDir:-}" ] || { echo "package: VCToolsRedistDir is unset — run inside Visual Studio's environment" >&2; exit 1; }
 
@@ -32,7 +32,7 @@ mkdir -p "$stage/bin" "$stage/games" "$stage/ui" "$stage/licenses"
 for f in "$root"/.output/bin/*; do
 	case "$(basename "$f")" in
 		*.pdb|*.lib|*.exp|*.ilk|extensions) continue ;;
-		luanti.exe) cp "$f" "$stage/bin/terraverse.exe" ;; # the launcher runs bin\terraverse.exe (game.rs)
+		terraverse.exe) cp "$f" "$stage/bin/terraverse.exe" ;; # the launcher runs bin\terraverse.exe (game.rs)
 		*) cp -a "$f" "$stage/bin/" ;;
 	esac
 done

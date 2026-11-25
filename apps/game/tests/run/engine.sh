@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The engine's unit tests, every module in its own process, side by side:
-# the same tests as `luanti --run-unittests`, in a fraction of the time.
+# the same tests as `terraverse --run-unittests`, in a fraction of the time.
 #   bun run test [Module...]   build once, run the named modules (default all)
 # Prints each module's time, slowest first, and for each failure its log and
 # the command that reproduces it. Modules in apps/game/tests/run/serial.txt time
@@ -15,7 +15,7 @@ usecs() {
 }
 export -f usecs
 root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
-bin="$root/.output/bin/luanti"
+bin="$root/.output/bin/terraverse"
 [[ -n "${BUILT:-}" ]] || bash "$root/apps/game/scripts/build.sh" -j"$cpus" > /dev/null
 
 skips="$(bash "$root/apps/game/tests/run/skips.sh")"

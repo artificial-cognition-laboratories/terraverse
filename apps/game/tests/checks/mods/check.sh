@@ -5,7 +5,7 @@
 # take a command typed from the console (a Lua probe), and crash the sidecar once; each
 # is checked in the server's log. The game's own mods (registry/mods) are prepared and
 # type-checked too.
-# Runs terra's unit tests and builds it (apps/cli); needs .output/bin/luanti.
+# Runs terra's unit tests and builds it (apps/cli); needs .output/bin/terraverse.
 set -euo pipefail
 
 root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
@@ -39,7 +39,7 @@ printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$
 printf 'mg_name = singlenode\n[end_of_params]\n' > "$world/map_meta.txt"
 port=$((31200 + RANDOM % 500))
 # no settings but the world's: a check can't depend on the minetest.conf of whoever runs it
-timeout -s INT 8 "$root/.output/bin/luanti" --server --config /dev/null --world "$world" --probe mods \
+timeout -s INT 8 "$root/.output/bin/terraverse" --server --config /dev/null --world "$world" --probe mods \
 	--server-folder "$work" --port "$port" > "$work/log.txt" 2>&1 || true
 
 failed=0

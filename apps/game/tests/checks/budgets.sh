@@ -7,7 +7,7 @@
 #   bun check:budgets
 set -euo pipefail
 root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
-bin="$root/.output/bin/luanti"
+bin="$root/.output/bin/terraverse"
 bash "$root/apps/game/scripts/build.sh" -j"$(nproc)" > /dev/null
 echo "budgets: load average $(cut -d' ' -f1-3 /proc/loadavg) on $(nproc) cores"
 failed=0

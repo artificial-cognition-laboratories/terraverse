@@ -17,7 +17,7 @@
     "check:oracle": "bash tests/checks/oracle.sh",
     "check:wiki": "bash tests/checks/wiki/check.sh",
     "check:budgets": "bash tests/checks/budgets.sh",
-    "check:moves": "bun run stage && ../../.output/bin/luanti --test-module TestMoves",
+    "check:moves": "bun run stage && ../../.output/bin/terraverse --test-module TestMoves",
     "check:matter": "bash tests/checks/matter.sh",
     "check:interact": "bash tests/checks/interact.sh",
     "check:far": "bash tests/checks/far.sh",

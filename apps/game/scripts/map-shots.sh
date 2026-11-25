@@ -12,7 +12,7 @@ rm -rf "$out" && mkdir -p "$out/game" "$out/ref-big" "$out/ref"
 render() { # <dir> <w> <h> [cell]
 	local conf="$out/$(basename "$1").conf"
 	printf 'screen_w = %s\nscreen_h = %s\nfullscreen = false\n' "$2" "$3" > "$conf"
-	./.output/bin/luanti --config "$conf" --planetarium-ladder "$1" ${4:+--planetarium-cell "$4"} >/dev/null
+	./.output/bin/terraverse --config "$conf" --planetarium-ladder "$1" ${4:+--planetarium-cell "$4"} >/dev/null
 }
 
 render "$out/game" "$W" "$H"

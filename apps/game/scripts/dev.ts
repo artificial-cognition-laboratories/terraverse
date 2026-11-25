@@ -1,5 +1,5 @@
 // The dev loop: rebuild the engine, serve the UI with hot reload, and run the
-// game against the dev server. Extra arguments go to luanti (e.g. --go).
+// game against the dev server. Extra arguments go to the engine (e.g. --go).
 // A second game alongside the first, as another player:
 //     bun dev --profile two
 // It shares the first one's UI server, and signs in on its own.
@@ -33,10 +33,10 @@ async function waitFor(url: string, timeoutMs: number) {
 
 async function launchGame(args: string[]) {
     const deadline = Date.now() + 120_000
-    const binary = `${root}/.output/bin/luanti`
+    const binary = `${root}/.output/bin/terraverse`
     while (true) {
         try {
-            return Bun.spawn(["./.output/bin/luanti", "--shell-url", devUrl, "--arclabs-url", arclabsUrl, ...args], {
+            return Bun.spawn(["./.output/bin/terraverse", "--shell-url", devUrl, "--arclabs-url", arclabsUrl, ...args], {
                 cwd: root,
                 stdio: ["inherit", "inherit", "inherit"],
             })

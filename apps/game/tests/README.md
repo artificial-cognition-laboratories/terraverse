@@ -7,7 +7,7 @@
 | `library/` | the kit every pure library's tests share (doctest, `library_test()`) | `run/library.sh` |
 | `../library/<area>/<lib>/tests/` | a pure library's own tests, its own small binary | `run/library.sh` |
 | `checks/` | `check:*` harnesses: a headless server, the engine sandbox, a real world | `bun check:<name>` |
-| `probe/` | the probes those harnesses drive (`luanti --probe <name>`) | `checks/*.sh` |
+| `probe/` | the probes those harnesses drive (`terraverse --probe <name>`) | `checks/*.sh` |
 | `run/` | the runners, the skip list, and `select/`: which suites a change reaches | |
 
 **Tiers.** `bun check` before a commit (hot library tests, every engine module, the UI's

@@ -2,7 +2,7 @@
 # terra dev, headless (sprint 119): a new mod, run as it's edited. A code save reloads the
 # mods without restarting; a new block restarts the universe; a broken save is reported and
 # the last build keeps running; fixing it reloads; Ctrl-C leaves nothing running.
-# Needs .output/bin/luanti and .output/bin/terra (bun check:mods builds terra).
+# Needs .output/bin/terraverse and .output/bin/terra (bun check:mods builds terra).
 set -euo pipefail
 
 root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"

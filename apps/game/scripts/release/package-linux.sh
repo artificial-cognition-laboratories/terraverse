@@ -18,7 +18,7 @@ out=${2:-"$root/.output/releases"}
 name="terraverse-${version}-linux-x86_64"
 stage="$out/$name"
 
-[ -x "$root/.output/bin/luanti" ] || { echo "package: no .output/bin/luanti — build first" >&2; exit 1; }
+[ -x "$root/.output/bin/terraverse" ] || { echo "package: no .output/bin/terraverse — build first" >&2; exit 1; }
 [ -x "$root/.output/bin/terra" ] || { echo "package: no .output/bin/terra — cd apps/cli && bun run build" >&2; exit 1; }
 [ -f "$root/.output/ui/dist/index.html" ] || { echo "package: no .output/ui/dist — cd apps/game/src/client/app/shell/interface && bun run build" >&2; exit 1; }
 
@@ -33,7 +33,7 @@ for f in "$root"/.output/bin/*; do
 	esac
 	cp -a "$f" "$stage/bin/"
 done
-strip --strip-unneeded "$stage/bin/luanti"
+strip --strip-unneeded "$stage/bin/terraverse"
 # never strip terra: a compiled Bun program keeps its code past the end of the ELF
 
 for d in client fonts locale matter textures misc server world; do
@@ -62,7 +62,7 @@ system+='|libnss3|libnssutil3|libnspr4|libsmime3|libplc4|libplds4|libatk-1\.0|li
 system+='|libgnutls|libp11-kit|libtasn1'
 system+='|libcairo|libpango-1\.0|libharfbuzz|libfribidi|libthai|libdatrie|libpixman-1|libgraphite2|libpng16'
 system+='|libkrb5|libk5crypto|libgssapi_krb5|libcom_err|libkrb5support|libkeyutils)\.so'
-LD_LIBRARY_PATH="$root/.output/bin" ldd "$root/.output/bin/luanti" | while read -r lib _ path _; do
+LD_LIBRARY_PATH="$root/.output/bin" ldd "$root/.output/bin/terraverse" | while read -r lib _ path _; do
 	[ -n "$path" ] && [ -f "$path" ] || continue
 	lib=$(basename "$lib") # the loader is listed by its full path
 	[[ "$lib" =~ $system ]] && continue
@@ -75,7 +75,7 @@ cat > "$stage/terraverse" <<'LAUNCH'
 # Terra Firma: run the engine with its own libraries found first.
 here=$(dirname "$(readlink -f "$0")")
 export TERRAVERSE_HOME="${TERRAVERSE_HOME:-${HOME:?HOME is not set}/.terraverse}"
-LD_LIBRARY_PATH="$here/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" exec "$here/bin/luanti" "$@"
+LD_LIBRARY_PATH="$here/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" exec "$here/bin/terraverse" "$@"
 LAUNCH
 chmod +x "$stage/terraverse"
 printf '%s\n' "$version" > "$stage/VERSION"

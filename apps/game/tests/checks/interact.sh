@@ -13,7 +13,7 @@ printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$
 printf 'mg_name = singlenode\nseed = 1\n[end_of_params]\n' > "$world/map_meta.txt"
 port=$((30700 + RANDOM % 500))
 # no settings but the world's: a check can't depend on the minetest.conf of whoever runs it
-timeout 120 "$root/.output/bin/luanti" --server --config /dev/null --world "$world" --probe interact --port "$port" 2>&1 \
+timeout 120 "$root/.output/bin/terraverse" --server --config /dev/null --world "$world" --probe interact --port "$port" 2>&1 \
 	| tee "$work/server.txt" | grep -oE 'INTERACT .*' | tee "$work/log.txt" || true
 line="$(grep -E '^INTERACT pass' "$work/log.txt" || true)"
 if [ -z "$line" ]; then

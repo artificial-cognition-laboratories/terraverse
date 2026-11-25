@@ -25,7 +25,7 @@ trap 'rm -rf "$work"' EXIT
 export TERRAVERSE_HOME="$work/home"
 
 # The client, until it stops or 60 s pass (no `timeout` on macOS).
-"$bin/luanti" --ui-check >"$work/client.log" 2>&1 &
+"$bin/terraverse" --ui-check >"$work/client.log" 2>&1 &
 pid=$!
 for _ in $(seq 1 120); do
 	kill -0 "$pid" 2>/dev/null || break

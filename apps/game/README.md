@@ -23,7 +23,7 @@ scripts/         the dev loop, build, staging, bakes (bake/), releases (release/
 bun run build                 # engine and production UI, into .output/
 bun dev                       # engine, Vite and the game, hot-reloading the UI (from the root)
 bun run stage                 # refresh resources in the runtime tree
-../../.output/bin/luanti --server --gameid terrafirma --world <tmp dir> --port <n>   # headless boot
+../../.output/bin/terraverse --server --gameid terrafirma --world <tmp dir> --port <n>   # headless boot
 ```
 
 ## Checking

@@ -18,7 +18,7 @@ atlas="atlas-v2 radius=2607.5945876176133 segments=24 capLatitude=85 core=651.89
 printf 'mg_name = terra\nmgterra_code = TF24.dGVycmE\nseed = 1\nchunksize = 1\nplanet_atlas = %s\n[end_of_params]\n' "$atlas" > "$world/map_meta.txt"
 
 port=$((30700 + RANDOM % 500))
-timeout 300 "$root/.output/bin/luanti" --server --config /dev/null --world "$world" --probe atlas-world --port "$port" 2>&1 \
+timeout 300 "$root/.output/bin/terraverse" --server --config /dev/null --world "$world" --probe atlas-world --port "$port" 2>&1 \
 	| tee "$work/server.txt" | grep -oE 'ATLAS .*' | tee "$work/log.txt" || true
 
 line="$(grep -E '^ATLAS pass' "$work/log.txt" || true)"

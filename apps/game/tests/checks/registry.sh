@@ -7,7 +7,7 @@
 # headless with the mod loaded. Deprecation, a missing mod and the README media are checked
 # on the way.
 #
-# Needs the staging daemon (in ../arclabs: `arc u`) and .output/bin/luanti. terra runs from
+# Needs the staging daemon (in ../arclabs: `arc u`) and .output/bin/terraverse. terra runs from
 # source. Every run publishes a new @testuser/kilns<n> to staging: versions are never deleted.
 set -euo pipefail
 
@@ -17,7 +17,7 @@ export ARCLABS_URL="${ARCLABS_URL:-http://localhost:3099}"
 approver="${REGISTRY_CHECK_KEY:-axon_test_key_0000000000000000000000000000001}"
 
 curl -sf "$ARCLABS_URL/api/health" > /dev/null || { echo "registry check: nothing answering at $ARCLABS_URL. Start staging in ../arclabs with: arc u"; exit 1; }
-[ -x "$root/.output/bin/luanti" ] || { echo "registry check: build the engine first (bun run build)"; exit 1; }
+[ -x "$root/.output/bin/terraverse" ] || { echo "registry check: build the engine first (bun run build)"; exit 1; }
 
 work="$(mktemp -d)"
 failed=0
@@ -107,7 +107,7 @@ mkdir -p "$save"
 printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$save/world.mt"
 printf 'mg_name = singlenode\n[end_of_params]\n' > "$save/map_meta.txt"
 port=$((32200 + RANDOM % 500))
-timeout -s INT 8 "$root/.output/bin/luanti" --server --config /dev/null --world "$save" \
+timeout -s INT 8 "$root/.output/bin/terraverse" --server --config /dev/null --world "$save" \
 	--server-folder "$work/world" --port "$port" > "$work/log.txt" 2>&1 || true
 step "the engine loads the installed mod"     0 "\[$mod\] CHECK $name loaded from the registry" -- cat "$work/log.txt"
 step "with its block"                         0 "mods: 1 blocks from"                -- cat "$work/log.txt"

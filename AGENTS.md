@@ -104,7 +104,7 @@ Our folders in `apps/game/src/`:
 | `shared/platform/online/` | STUN, hole punching, UPnP, the gate (tickets, a run's secret), joining, `terra://` refs |
 | `client/body`, `figure`, `liquids`, `shallow.h` | Our client parts: the player's body and fine water |
 | `sidecar/` | TypeScript mods: spawns `terra runtime`, a window each step, answers its calls |
-| `client/app/headless/` | A body for a mind (sprint 126): the client with no window, `luanti --body`, joined by the run secret and driven by terra over a JSON-line pipe |
+| `client/app/headless/` | A body for a mind (sprint 126): the client with no window, `terraverse --body`, joined by the run secret and driven by terra over a JSON-line pipe |
 | `probe/` | The checks' probes: a headless server driven by `--probe <name>` (`apps/game/tests/checks/*.sh`) |
 
 Mods are TypeScript, and only TypeScript: there's no Lua in the engine (sprint 119,
@@ -295,7 +295,7 @@ bun run build           # engine + production UI
 bash apps/game/scripts/build.sh -j8              # engine only, waits its turn if another build is running (after cmake -S . -B .output/build -DRUN_IN_PLACE=TRUE)
 bun run stage           # refresh resources in the runtime tree
 cd apps/game/src/client/app/shell/interface && bun run typecheck
-./.output/bin/luanti --server --gameid terrafirma --world <tmp dir> --port <n>   # headless boot: catches content and start-up errors
+./.output/bin/terraverse --server --gameid terrafirma --world <tmp dir> --port <n>   # headless boot: catches content and start-up errors
 bun test:hot [library]   # the pure libraries' quick tests (each library's tests/, as library/world/terragen/tests): their own small binaries, seconds; the loop to keep running
 bun test:slow [library]  # their slow ones: goldens, Earth-sized worlds
 bun check                # before a commit: test:hot, every engine module, the UI's types
@@ -303,7 +303,7 @@ bun check --changed [base]   # the same, only what your uncommitted changes (or 
 bun run test             # (apps/game) the full tier, as the gate runs it: every library's tests hot and slow, every engine module
 bun run test <system|path|Module>...  # what covers far, physics, library/world/terragen, a file; --changed [base] as above
 bun apps/game/tests/run/select/main.ts --changed   # just say what would run and why, and which changed files no suite is built against
-./.output/bin/luanti --test-module TestFar                                       # one engine test module; --run-unittests for all
+./.output/bin/terraverse --test-module TestFar                                       # one engine test module; --run-unittests for all
 bash apps/game/tests/run/engine.sh [Module...]  # every engine unit test module in parallel, slowest listed first; skips (apps/game/tests/run/skip.txt) cite their job
 
 bun check:land          # after a generation change: check:terragen, its unit tests and check:far side by side (~1 min); --quick: probe and default world only (~25 s)
@@ -321,7 +321,7 @@ bun perf:gen            # where making a world spends its time, by step, cold an
 bun palette             # re-bake palette.json after changing blocks, textures or species
 bun check:palette       # fails if palette.json is stale
 bun pose-sheet          # the figure's moves as PNGs
-.output/bin/luanti --planetarium TF9.dGVycmE                                     # the planet viewer alone
+.output/bin/terraverse --planetarium TF9.dGVycmE                                     # the planet viewer alone
 
 bun ci:status           # CI now: what's running, what's red on master and at which step, and the CI Scoreboard (--since <date>)
 arc gate terraverse     # build, the full tier (bun run test), UI and a headless world
