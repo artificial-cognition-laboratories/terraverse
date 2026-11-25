@@ -3,7 +3,7 @@
 // CMakeLists) is one unit, since its callers see it whole; elsewhere a unit is
 // one folder, so a change to walk.cpp reaches a test that includes mover.h
 // beside it. A test's own files are units alone: every module includes test.h,
-// and a change to one test runs that one.
+// and a change to one test runs that one. A library's tools/ go with it.
 import { execFileSync } from "node:child_process";
 import { dirname } from "node:path";
 
@@ -19,7 +19,8 @@ export function Units(opts: { root: string }) {
 	const key = (path: string) => {
 		if (path.startsWith("apps/game/tests/")) return stem(path);
 		const library = libraries.find((dir) => path.startsWith(dir));
-		return library ?? `${dirname(path)}/`;
+		// a library's tools/ (render.cpp, built by hand against it) are its own
+		return library ?? `${dirname(path)}/`.replace(/^(apps\/game\/library\/.+\/)tools\/$/, "$1");
 	};
 	return { key: key, libraries: libraries };
 }
