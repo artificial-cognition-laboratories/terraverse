@@ -853,10 +853,10 @@ if(BUILD_CLIENT)
 			SKIP_PRECOMPILE_HEADERS ON)
 		target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE "${CEF_ROOT}")
 		if(APPLE)
-			# On macOS the wrapper loads the framework at run time (CefScopedLibraryLoader),
-			# from an app bundle with its helper apps. Neither is wired yet: this build
-			# compiles and links, and its shell won't start.
-			message(WARNING "macOS: the app bundle and CEF's loader aren't wired yet; the shell won't start")
+			# On macOS the wrapper loads the framework at run time (client/app/shell/host/framework.h),
+			# from Frameworks/ with its helper apps beside it.
+			add_cef_runtime_macos("${EXECUTABLE_OUTPUT_PATH}")
+			add_dependencies(${PROJECT_NAME} cef_runtime)
 			target_link_libraries(${PROJECT_NAME} libcef_dll_wrapper)
 		else()
 			target_link_libraries(${PROJECT_NAME} libcef_dll_wrapper "${CEF_LIB_RELEASE}")

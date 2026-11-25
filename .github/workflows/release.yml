@@ -348,6 +348,10 @@ jobs:
       - name: Smoke boot
         run: apps/game/scripts/release/smoke-server.sh .output/bin/luanti "$VERSION"
 
+      # The client as far as the shell goes on macOS: Chromium's framework and helpers.
+      - name: Shell
+        run: apps/game/scripts/release/check-macos-shell.sh .output/bin
+
   # The official mods (registry/mods), which every world this release makes pins: a tag
   # publishes any version the registry doesn't have, before the game's packages go up, and
   # fails on a mod changed under a version already published. Anything else only checks:

@@ -22,6 +22,7 @@ set(shell_SRCS
 	${GAME_DIR}/src/client/views/scenes/kinds/relief.cpp
 	${GAME_DIR}/src/client/views/scenes/kinds/flora.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/frame_blur.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/host/framework.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/gl_restore.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/ui_scale.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/gpu_canvas.cpp
@@ -62,6 +63,54 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/worlds.cpp
 )
 set(shell_SRCS ${shell_SRCS} PARENT_SCOPE)
+
+# macOS: Chromium's framework and its helper apps in Frameworks/ beside the
+# executable's folder (.output/Frameworks in place; Contents/Frameworks in an app),
+# where CefScopedLibraryLoader looks (host/framework.h). A helper is its own small
+# executable, copied into each variant Chromium asks for by name.
+function(add_cef_runtime_macos dir)
+	get_filename_component(frameworks "${dir}/../Frameworks" ABSOLUTE)
+	set(framework "Chromium Embedded Framework.framework")
+	set(stamp "${CMAKE_CURRENT_BINARY_DIR}/cef_framework.stamp")
+	add_custom_command(
+		OUTPUT "${stamp}"
+		COMMAND ${CMAKE_COMMAND} -E rm -rf "${frameworks}/${framework}"
+		COMMAND ${CMAKE_COMMAND} -E make_directory "${frameworks}"
+		COMMAND cp -R "${CEF_BINARY_DIR_RELEASE}/${framework}" "${frameworks}/"
+		COMMAND ${CMAKE_COMMAND} -E touch "${stamp}"
+		DEPENDS "${CEF_BINARY_DIR_RELEASE}/${framework}/Chromium Embedded Framework"
+		COMMENT "Copying Chromium's framework into ${frameworks}"
+		VERBATIM)
+	set(cef_runtime_outputs "${stamp}")
+
+	set(shell_dir "${CMAKE_CURRENT_FUNCTION_LIST_DIR}")
+	add_executable(shell_helper "${shell_dir}/host/helper_mac.cpp" "${shell_dir}/host/app.cpp")
+	target_compile_features(shell_helper PRIVATE cxx_std_20)
+	target_include_directories(shell_helper PRIVATE "${GAME_DIR}")
+	target_include_directories(shell_helper SYSTEM PRIVATE "${CEF_ROOT}")
+	target_link_libraries(shell_helper libcef_dll_wrapper)
+	set_target_properties(shell_helper PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/shell_helper")
+
+	# "<name suffix>:<target suffix>:<plist suffix>", CEF's list of the variants
+	foreach(spec IN LISTS CEF_HELPER_APP_SUFFIXES)
+		string(REGEX MATCH "^([^:]*):([^:]*):(.*)$" _ "${spec}")
+		set(HELPER_NAME "Terraverse Helper${CMAKE_MATCH_1}")
+		set(HELPER_ID "net.terraverse.helper${CMAKE_MATCH_3}")
+		set(plist "${CMAKE_CURRENT_BINARY_DIR}/helper${CMAKE_MATCH_3}.plist")
+		configure_file("${shell_dir}/host/helper-Info.plist.in" "${plist}")
+		set(app "${frameworks}/${HELPER_NAME}.app/Contents")
+		add_custom_command(
+			OUTPUT "${app}/MacOS/${HELPER_NAME}" "${app}/Info.plist"
+			COMMAND ${CMAKE_COMMAND} -E make_directory "${app}/MacOS"
+			COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:shell_helper>" "${app}/MacOS/${HELPER_NAME}"
+			COMMAND ${CMAKE_COMMAND} -E copy "${plist}" "${app}/Info.plist"
+			DEPENDS shell_helper "${plist}"
+			VERBATIM)
+		list(APPEND cef_runtime_outputs "${app}/MacOS/${HELPER_NAME}")
+	endforeach()
+
+	add_custom_target(cef_runtime DEPENDS ${cef_runtime_outputs})
+endfunction()
 
 # Chromium's runtime files next to the executable. libcef.so ships with debug
 # info (~1.5 GB); the copy is stripped. libcef.dll keeps its symbols apart.

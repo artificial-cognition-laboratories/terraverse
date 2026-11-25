@@ -10,6 +10,7 @@
 #include "src/client/app/shell/bridge/profiles.h"
 #include "src/client/app/shell/bridge/social.h"
 #include "src/client/app/shell/host/app.h"
+#include "src/client/app/shell/host/framework.h"
 #include "src/client/app/shell/bridge/bridge.h"
 #include "src/client/app/shell/host/client.h"
 #include "src/client/app/shell/host/debugger.h"
@@ -55,6 +56,8 @@ static const char *modeName(Mode mode)
 
 struct Shell::Impl
 {
+	// first in, last out: on macOS no CEF call works without it
+	Framework framework;
 	Underlays underlays;
 	Opts opts;
 	std::string item_dir;
@@ -154,18 +157,7 @@ struct Shell::Impl
 	}
 };
 
-// On macOS, CEF's functions exist only once its framework is loaded from the app bundle
-// (CefScopedLibraryLoader), and the bundle isn't built yet: any CEF call would crash, so
-// the shell refuses before making one. The engine runs without it (tests, --server).
-static const Shell::Opts &wired(const Shell::Opts &opts)
-{
-#ifdef __APPLE__
-	throw BaseException("shell: not wired on macOS yet (it needs the app bundle and CEF's loader)");
-#endif
-	return opts;
-}
-
-Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(wired(opts)))
+Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(opts))
 {
 	CefSettings settings;
 	settings.windowless_rendering_enabled = true;
@@ -176,6 +168,12 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(wired(opts)))
 	settings.log_severity = LOGSEVERITY_WARNING;
 	CefString(&settings.root_cache_path) = opts.cache_dir;
 	CefString(&settings.log_file) = opts.cache_dir + "/chromium.log";
+	m->framework.place(settings);
+#ifdef __APPLE__
+	// The framework is loaded; Chromium's own thread for its loop is Windows and Linux only,
+	// so macOS needs the loop pumped from the engine's frames (external_message_pump).
+	throw BaseException("shell: not wired on macOS yet (Chromium's message loop)");
+#endif
 
 	CefRefPtr<App> app = new App(opts.gpu);
 	if (!CefInitialize(mainArgs(), settings, app, nullptr))
