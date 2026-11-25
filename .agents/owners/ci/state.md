@@ -35,8 +35,8 @@
   master run and its failing step, every Scoreboard number. ~20 s, read-only.
 - macOS state of the code: builds and links with vcpkg static; curl and FreeType link through their
   targets (`CURL_LINK`, `FREETYPE_LINK` in apps/game/src/CMakeLists.txt), OpenAL is the system framework
-  (configure-macos.sh). The shell is **not wired**: `Shell` throws "not wired on macOS yet", `main`
-  skips `runHelper` on Apple. So: tests and `--server` can run, the client can't.
+  (configure-macos.sh). The shell loads the framework, then throws "not wired on macOS yet (Chromium's message loop)";
+  `main` skips `runHelper` on Apple (helpers are their own executable). So: tests and `--server` can run, the client can't.
   Still non-portable: `apps/game/tests/run/engine.sh` with no module args uses `mapfile` (bash 4; macOS has 3.2);
   vcpkg's openal-soft is still built on osx though unused (drop it with `"platform": "!osx"` the next
   time vcpkg.json changes anyway: changing it now makes Windows rebuild vcpkg cold, ~36 min);
@@ -49,6 +49,7 @@ kind's median (the API doesn't say whether caches hit).
 
 | Date | Master green rate | Time to signal (median) | Warm build (job) | Cold build | Release reliability | Runner min/day |
 |---|---|---|---|---|---|---|
+| 2026-11-25 | 6/10 = 60% (11-24 21:02 to 11-25 19:31; the red: v0.1.12's Windows `interface` macro, fixed upstream in d539b696; master green since) | 9.3 min (9 pushes) | release linux 7.4, windows 11.8, macos 3.2; launcher 3.3 / 3.6 | none in window | 2/3 (v0.1.12 failed Windows; v0.1.13, launcher-v0.1.7 ok) | 225 |
 | 2026-11-24 | 7/14 = 50% (11-21 21:32 to 11-24 19:23; red from launcher Panel prop and terra's running/ test on Windows) | 10.6 min (9 pushes) | release linux 6.1, windows 11.3, macos 4.0; launcher 3.5 / 3.2 | none in window | 3/3 (v0.1.11, launcher-v0.1.5, v0.1.6) | 103 |
 | 2026-11-21 | 7/8 = 88% (11-20 23:06 to 11-21 19:34; every finished run green since 451c28bb; the one red is a 2 s cancel during my own burst) | 11.0 min (7 pushes) | release linux 6.9, windows 11.0, macos 5.8 (branch); launcher 3.6 / 3.5 | none in window | 2/2 (v0.1.10, launcher-v0.1.4) | 190 (15 runs over 1.0 day) |
 | 2026-11-20 | 5/15 = 33% before tonight (the hierarchy move: 2c006128 onward red until 9c412f43) | 10.6 min (12 pushes) | release linux 10.2, windows 12.7; launcher 2.7 / 3.4 | release windows 60 min (vcpkg cold after the move) | 3/5 (v0.1.7, v0.1.8 failed on Windows) | 235 (398 min over 1.7 days) |
@@ -87,11 +88,19 @@ kind's median (the API doesn't say whether caches hit).
      green, 22 min: a world boots headless on macOS).
    - [x] 2026-11-21: macOS is a non-publishing job in release.yml on every push and tag (38b395f5);
      macos.yml deleted. Branch run 44950944032: macOS 5.8 min warm.
-   - [ ] **Next:** the `.app` (below), since the shell is what stands between macOS and a playable client.
+   - [x] 2026-11-25: Chromium's framework loads in the client; 5 helper apps built; CI checks both
+     (branch run 45701234394).
+   - [ ] **Next:** Chromium's message loop on macOS: `multi_threaded_message_loop` is Windows/Linux
+     only. Set `external_message_pump` on Apple, `App::OnScheduleMessagePumpWork` (browser-process
+     handler) plus `CefDoMessageLoopWork` from the engine's frame; the UI thread becomes the main
+     thread, and `onChromium` (inbox.cpp) already runs inline there. Also SDL's NSApplication must
+     implement CefAppProtocol (`isHandlingSendEvent`/`setHandlingSendEvent:`), added to SDL's
+     class by an ObjC category or class_addMethod in a `.mm`. Then drop the Apple throw and make
+     check-macos-shell.sh expect the UI check's verdict line (`UICHECK`) and take a `screencapture`.
    - [ ] vcpkg overlay triplet: arm64-osx with VCPKG_OSX_DEPLOYMENT_TARGET 13.0 (cold vcpkg once).
-   - [ ] The app: `.app` bundle with CEF's framework and its helper apps (`<name> Helper.app`,
-     GPU/Renderer/Plugin variants), `CefScopedLibraryLoader` LoadInMain in main and LoadInHelper in a
-     helper executable, then drop the Shell guard. Verify by a client start on the runner (screenshot).
+   - [ ] The `.app` for packaging: `Contents/MacOS/luanti`, `Contents/Frameworks` (the same layout
+     as `.output/Frameworks`), the share dir in `Contents/Resources` (porting's Apple setSystemPaths
+     already reads the bundle's Resources when not RUN_IN_PLACE).
    - [ ] `apps/game/scripts/release/package-macos.sh` (ad-hoc signed; Developer ID + notarisation waits on the
      developer's answer in the charter), smoke test, publish in release.yml: release-path change, needs
      the charter's dispatch proof.
@@ -122,6 +131,7 @@ kind's median (the API doesn't say whether caches hit).
 Over the next few sessions we want to get everything setup properly to allow macos. So choose chunks of work to do. getting the repo itself in line and setting up the appropriate ci. you are tasked with the full thing. within a few sessions we should have macos online. permission to make the changes you need to get this working and online. keep track of this work and your plan until the job is complete.
 
 ## Log
+- 2026-11-25: Master green on arrival (v0.1.12's Windows red was fixed upstream). macOS milestone: Chromium's framework now loads in the client from `Frameworks/`, with 5 helper apps; the shell refuses one step later, at the message loop. The macOS job checks it (new "Shell" step). Branch run 45701234394. Green rate 50% → 60%.
 - 2026-11-24: Master red on both workflows from outside CI: the launcher's ProfileMenu missed Panel's new `remembered` prop (UI typecheck), terra's running/ test asserted POSIX modes on Windows. Fixed in 5cc38760 (launcher run 45487045883 green); that release run then showed a third break, terragen's tests on Windows (7f04a5ae put $ENV{APPDATA}'s backslashes into a C string), fixed in a CMake string(REPLACE); release run 45490107989 green on every job. Lesson: read a run's job list before writing it down as green. No macOS progress tonight (short session). Green rate 88% → 50% over the window.
 - 2026-11-21: Official mods publish with each release (milestone 0, the developer's direction): terra reads TERRA_TOKEN (556ceb2b), publish-mods.ts and the mods job, which publish needs (91e750e4); a changed, unbumped mod fails a tag. macOS moved into release.yml, non-publishing (38b395f5), macos.yml gone. ci:status miscounted superseded cancels (a07919e6). Branch runs 44949973289 and 44950944032 green on every platform, packages within 2 KB of master's. Milestone 1 held (green streak 7). Green rate 33% to 88%.
 - 2026-11-20: The hierarchy move broke master in 8 places (terra, launcher, ops.h gen, two publish key paths, terragen on gcc-12 and clang-cl, winresource.rc, the deleted official-mods server folder, manifest.ts, gate.sh); fixed one CI round at a time, green at 9c412f43. Smoke boot is one script for all platforms (2d28a08f). Cache keys fixed (stale since the move) with an ABI-safe vcpkg fallback; macOS boots a world headless in CI (milestone 2 step 3). My first commit swept in a staged deletion (restored b6d9f331). Green rate 60% → 33% over the window (all red from the move), now green.
