@@ -25,3 +25,14 @@ may not show it, since the lattice's coarse levels are what's dear at Earth's sc
 
 Not asked: changing the test's planet size (it tests Earth's scale on purpose) or its sampling,
 which is already one place per river.
+
+## Notes (2026-11-25, testing owner)
+
+Still the full tier's critical path: idle, `bun run test` is 133 s wall, and soil.slow alone is
+88 s wall (638 CPU-s); the first read of each of its 200 places is 400 CPU-s of that. It's not only
+the slow test: **TestBodies.testABodysLandIsItsKind is 31 of TestBodies' 32 s**, all in 400 scattered
+`ground(at, 0)` reads on the home body at 628 320 round (land-sized check, `test_bodies.cpp:307`),
+~75 ms each, single-threaded; the other eight bodies take milliseconds. The likely cost inside is
+`Streams::area` (`streams_grow.cpp:273`): each new node sums its whole upstream basin at every
+level, recursively, before its cache is warm. Cutting the cold cost would take the full tier under
+120 s (the testing owner's milestone 3) without changing any test.
