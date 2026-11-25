@@ -14,7 +14,7 @@ struct Output
 {
 	const char *name;
 	const char *unit;
-	const char *interface;
+	const char *control; // the interface: "interface" is a macro in Windows headers
 	float low, high;
 };
 
@@ -55,7 +55,7 @@ float clamped(const Output &o, float v)
 {
 	if (!std::isfinite(v))
 		return 0;
-	if (std::string(o.interface) == "switch")
+	if (std::string(o.control) == "switch")
 		return v >= 0.5f ? 1 : 0;
 	return std::clamp(v, o.low, o.high);
 }
@@ -79,7 +79,7 @@ Json::Value Motor::declared()
 			Json::Value item;
 			item["name"] = o.name;
 			item["unit"] = o.unit;
-			item["interface"] = o.interface;
+			item["interface"] = o.control;
 			item["range"].append(o.low);
 			item["range"].append(o.high);
 			if (i < c.joints.size() && c.joints[i])
