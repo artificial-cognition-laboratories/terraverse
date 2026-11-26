@@ -49,6 +49,7 @@ kind's median (the API doesn't say whether caches hit).
 
 | Date | Master green rate | Time to signal (median) | Warm build (job) | Cold build | Release reliability | Runner min/day |
 |---|---|---|---|---|---|---|
+| 2026-11-26 | 4/5 = 80% (11-25 21:15 to 11-26 20:58; 3 superseded cancels excluded) | 11.9 min (5 pushes) | release linux 9.8, windows 11.2, macos 5.2; launcher 3.1 / 3.8 | none in window | 1/1 (v0.1.14) | 222 |
 | 2026-11-25 | 6/10 = 60% (11-24 21:02 to 11-25 19:31; the red: v0.1.12's Windows `interface` macro, fixed upstream in d539b696; master green since) | 9.3 min (9 pushes) | release linux 7.4, windows 11.8, macos 3.2; launcher 3.3 / 3.6 | none in window | 2/3 (v0.1.12 failed Windows; v0.1.13, launcher-v0.1.7 ok) | 225 |
 | 2026-11-24 | 7/14 = 50% (11-21 21:32 to 11-24 19:23; red from launcher Panel prop and terra's running/ test on Windows) | 10.6 min (9 pushes) | release linux 6.1, windows 11.3, macos 4.0; launcher 3.5 / 3.2 | none in window | 3/3 (v0.1.11, launcher-v0.1.5, v0.1.6) | 103 |
 | 2026-11-21 | 7/8 = 88% (11-20 23:06 to 11-21 19:34; every finished run green since 451c28bb; the one red is a 2 s cancel during my own burst) | 11.0 min (7 pushes) | release linux 6.9, windows 11.0, macos 5.8 (branch); launcher 3.6 / 3.5 | none in window | 2/2 (v0.1.10, launcher-v0.1.4) | 190 (15 runs over 1.0 day) |
@@ -90,7 +91,13 @@ kind's median (the API doesn't say whether caches hit).
      macos.yml deleted. Branch run 44950944032: macOS 5.8 min warm.
    - [x] 2026-11-25: Chromium's framework loads in the client; 5 helper apps built; CI checks both
      (branch run 45701234394).
-   - [ ] **Next:** Chromium's message loop on macOS: `multi_threaded_message_loop` is Windows/Linux
+   - [x] 2026-11-26: Chromium's loop pumped on macOS; the client runs and renders the menu
+     (branch ci/macos-pump, runs 45898615442, 45901096474, 45901680693).
+   - [ ] **Next:** the page paints on macOS and the UI check passes. Leads: only 10 engine frames in
+     25 s (something blocks the main thread: CefDoMessageLoopWork running long? log its time per
+     call); whether OnPaint arrives at all (CPU canvas); SendExternalBeginFrame needing work done
+     right after. Then the Shell step requires "UICHECK pass".
+   - [x] (was the plan for the step above, kept for reference) Chromium's message loop on macOS: `multi_threaded_message_loop` is Windows/Linux
      only. Set `external_message_pump` on Apple, `App::OnScheduleMessagePumpWork` (browser-process
      handler) plus `CefDoMessageLoopWork` from the engine's frame; the UI thread becomes the main
      thread, and `onChromium` (inbox.cpp) already runs inline there. Also SDL's NSApplication must
@@ -131,6 +138,7 @@ kind's median (the API doesn't say whether caches hit).
 Over the next few sessions we want to get everything setup properly to allow macos. So choose chunks of work to do. getting the repo itself in line and setting up the appropriate ci. you are tasked with the full thing. within a few sessions we should have macos online. permission to make the changes you need to get this working and online. keep track of this work and your plan until the job is complete.
 
 ## Log
+- 2026-11-26: Master green on arrival (4/5 = 80%). macOS: Chromium's loop now pumped from the engine's frames, CefAppProtocol on SDL's NSApplication, bundle id for the helpers' rendezvous; the client runs on macOS and renders the menu (first screenshot). The page doesn't paint yet. Green rate 60% → 80%.
 - 2026-11-25: Master green on arrival (v0.1.12's Windows red was fixed upstream). macOS milestone: Chromium's framework now loads in the client from `Frameworks/`, with 5 helper apps; the shell refuses one step later, at the message loop. The macOS job checks it (new "Shell" step). Branch run 45701234394. Green rate 50% → 60%.
 - 2026-11-24: Master red on both workflows from outside CI: the launcher's ProfileMenu missed Panel's new `remembered` prop (UI typecheck), terra's running/ test asserted POSIX modes on Windows. Fixed in 5cc38760 (launcher run 45487045883 green); that release run then showed a third break, terragen's tests on Windows (7f04a5ae put $ENV{APPDATA}'s backslashes into a C string), fixed in a CMake string(REPLACE); release run 45490107989 green on every job. Lesson: read a run's job list before writing it down as green. No macOS progress tonight (short session). Green rate 88% → 50% over the window.
 - 2026-11-21: Official mods publish with each release (milestone 0, the developer's direction): terra reads TERRA_TOKEN (556ceb2b), publish-mods.ts and the mods job, which publish needs (91e750e4); a changed, unbumped mod fails a tag. macOS moved into release.yml, non-publishing (38b395f5), macos.yml gone. ci:status miscounted superseded cancels (a07919e6). Branch runs 44949973289 and 44950944032 green on every platform, packages within 2 KB of master's. Milestone 1 held (green streak 7). Green rate 33% to 88%.
