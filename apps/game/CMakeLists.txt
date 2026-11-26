@@ -5,6 +5,10 @@ endif()
 
 # This can be read from ${PROJECT_NAME} after project() is called
 project(terraverse)
+if(APPLE)
+	# the shell's shim onto SDL's NSApplication (client/app/shell/host/app_protocol.mm)
+	enable_language(OBJCXX)
+endif()
 
 # The monorepo's root: .output and registry live there, not under apps/game
 get_filename_component(REPO_DIR "${CMAKE_SOURCE_DIR}/../.." ABSOLUTE)

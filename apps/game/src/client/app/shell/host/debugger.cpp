@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/app/shell/host/debugger.h"
+#include "src/client/app/shell/host/pump.h"
 #include "src/client/app/shell/host/app.h"
 #include "src/client/app/shell/bridge/bridge.h"
 #include "src/client/app/shell/host/inbox.h"
@@ -513,8 +514,10 @@ Debugger::~Debugger()
 	if (!m->browser)
 		return;
 	m->browser->GetHost()->CloseBrowser(true);
-	while (!m->client->closed())
+	while (!m->client->closed()) {
+		m->opts.pump.work();
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
 	m->browser = nullptr;
 	onChromium([&] { m->router->RemoveHandler(&m->bridge); });
 	m->router = nullptr;

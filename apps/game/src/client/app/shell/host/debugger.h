@@ -18,6 +18,7 @@ namespace gui { class ICursorControl; }
 namespace shell {
 
 class Inbox;
+class Pump;
 class Inspectors;
 
 /*
@@ -39,6 +40,7 @@ public:
 		// Text input on or off (the IME), for whichever page holds the keyboard.
 		std::function<void(bool)> capture;
 		Inbox &inbox; // the shell's: its page's intents run with the game page's
+		Pump &pump;   // the shell's: Chromium's loop, run while its page closes (macOS)
 		bool gpu;     // Chromium rasterises on the GPU: its frames may come shared
 		std::string ui_dir; // shell://ui/, served to its page as to the game's
 	};

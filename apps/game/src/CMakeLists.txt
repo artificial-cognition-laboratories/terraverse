@@ -867,7 +867,13 @@ if(BUILD_CLIENT)
 			# from Frameworks/ with its helper apps beside it.
 			add_cef_runtime_macos("${EXECUTABLE_OUTPUT_PATH}")
 			add_dependencies(${PROJECT_NAME} cef_runtime)
-			target_link_libraries(${PROJECT_NAME} libcef_dll_wrapper)
+			target_link_libraries(${PROJECT_NAME} libcef_dll_wrapper "-framework Cocoa")
+			# TEMP(2026-11-26): the helpers' base id, until the engine runs from an .app whose own
+			# id (net.terraverse) the helpers find as their outer bundle (CI state, macOS milestone).
+			set(MAIN_ID "net.terraverse.helper")
+			set(main_plist "${CMAKE_CURRENT_BINARY_DIR}/main-Info.plist")
+			configure_file("${CMAKE_CURRENT_SOURCE_DIR}/client/app/shell/host/main-Info.plist.in" "${main_plist}")
+			target_link_options(${PROJECT_NAME} PRIVATE "LINKER:-sectcreate,__TEXT,__info_plist,${main_plist}")
 		else()
 			target_link_libraries(${PROJECT_NAME} libcef_dll_wrapper "${CEF_LIB_RELEASE}")
 			# libcef and its resources sit next to the executable.

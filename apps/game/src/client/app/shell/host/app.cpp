@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/app/shell/host/app.h"
+#include "src/client/app/shell/host/pump.h"
 #include "src/client/app/shell/host/scheme.h"
 #include "src/client/app/shell/host/shell.h"
 
@@ -53,6 +54,12 @@ void App::OnBeforeCommandLineProcessing(const CefString &process_type,
 	// The page is the game's own UI, not a website: its menu music starts on
 	// boot, not after the first click Chromium's autoplay policy waits for.
 	command_line->AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required");
+}
+
+void App::OnScheduleMessagePumpWork(int64_t delay_ms)
+{
+	if (m_pump)
+		m_pump->schedule(delay_ms);
 }
 
 void App::OnRegisterCustomSchemes(CefRawPtr<CefSchemeRegistrar> registrar)

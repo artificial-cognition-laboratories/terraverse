@@ -6,6 +6,8 @@
 #include <include/cef_app.h>
 #include <include/wrapper/cef_message_router.h>
 
+namespace shell { class Pump; }
+
 namespace shell {
 
 // The page's JS entry points: window.terraQuery / window.terraQueryCancel.
@@ -16,18 +18,22 @@ CefMessageRouterConfig routerConfig();
 	it spawns: command-line switches, the shell:// scheme, and the renderer
 	half of the message router.
 */
-class App : public CefApp, public CefRenderProcessHandler
+class App : public CefApp, public CefBrowserProcessHandler, public CefRenderProcessHandler
 {
 public:
 	// gpu: let Chromium rasterise on the GPU (the shell_gpu setting). Helper
 	// processes take their switches from the browser process, so only the
 	// game process's App decides.
-	explicit App(bool gpu = true) : m_gpu(gpu) {}
+	// pump: where Chromium asks for its loop's work on macOS (pump.h); null in helpers.
+	explicit App(bool gpu = true, Pump *pump = nullptr) : m_gpu(gpu), m_pump(pump) {}
 
 	void OnBeforeCommandLineProcessing(const CefString &process_type,
 			CefRefPtr<CefCommandLine> command_line) override;
 	void OnRegisterCustomSchemes(CefRawPtr<CefSchemeRegistrar> registrar) override;
+	CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override { return this; }
 	CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() override { return this; }
+
+	void OnScheduleMessagePumpWork(int64_t delay_ms) override;
 
 	void OnWebKitInitialized() override;
 	void OnContextCreated(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
@@ -39,6 +45,7 @@ public:
 
 private:
 	bool m_gpu;
+	Pump *m_pump;
 	CefRefPtr<CefMessageRouterRendererSide> m_router;
 
 	IMPLEMENT_REFCOUNTING(App);

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The run-in-place engine's own bundle identity on macOS, linked into its __TEXT,__info_plist
+     (src/CMakeLists.txt). Chromium names the browser's Mach rendezvous service after it, and a
+     helper outside an .app looks it up by its own base id: so the two must match. -->
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>${MAIN_ID}</string>
+	<key>CFBundleName</key>
+	<string>Terraverse</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+</dict>
+</plist>

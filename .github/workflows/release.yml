@@ -348,9 +348,17 @@ jobs:
       - name: Smoke boot
         run: apps/game/scripts/release/smoke-server.sh .output/bin/terraverse "$VERSION"
 
-      # The client as far as the shell goes on macOS: Chromium's framework and helpers.
+      # The client on macOS: Chromium's framework, its helpers, and the page running.
       - name: Shell
-        run: apps/game/scripts/release/check-macos-shell.sh .output/bin
+        run: apps/game/scripts/release/check-macos-shell.sh .output/bin shell-shot
+
+      - name: Keep the screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-shell
+          path: shell-shot/
+          if-no-files-found: ignore
 
   # The official mods (registry/mods), which every world this release makes pins: a tag
   # publishes any version the registry doesn't have, before the game's packages go up, and

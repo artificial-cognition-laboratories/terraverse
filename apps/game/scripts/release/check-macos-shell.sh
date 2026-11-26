@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # macOS: Chromium's framework and helper apps are laid out where the shell looks
-# (client/app/shell/host/framework.h), and a client start gets as far as the shell
-# allows. Today that's the framework loaded and the refusal at Chromium's message loop,
-# which isn't wired on macOS; when it is, this expects the UI check to pass instead.
-#   apps/game/scripts/release/check-macos-shell.sh <bin dir>
+# (client/app/shell/host/framework.h), and the client runs with Chromium: its loop, pumped
+# from the engine's frames on macOS (host/pump.h), takes the UI check to its verdict.
+# The page doesn't paint on macOS yet, so the verdict is fail; this demands it be reached
+# (no refusal, crash or hang) and says which. Next: require "UICHECK pass".
+# A screenshot of the screen lands in <out dir> if given.
+#   apps/game/scripts/release/check-macos-shell.sh <bin dir> [out dir]
 # CI runs it on the macOS runner; bash 3.2.
 set -euo pipefail
 
@@ -27,15 +29,21 @@ export TERRAVERSE_HOME="$work/home"
 # The client, until it stops or 60 s pass (no `timeout` on macOS).
 "$bin/terraverse" --ui-check >"$work/client.log" 2>&1 &
 pid=$!
-for _ in $(seq 1 120); do
+shot=0
+for i in $(seq 1 120); do
 	kill -0 "$pid" 2>/dev/null || break
+	if [[ $i == 20 && -n "${2:-}" ]]; then
+		mkdir -p "$2"
+		screencapture -x "$2/macos-shell.png" && shot=1 || true
+	fi
 	sleep 0.5
 done
 kill "$pid" 2>/dev/null || true
 wait "$pid" 2>/dev/null || true
 cat "$work/client.log"
 
-# The framework loaded, or the shell would have refused before this.
-grep -qF "shell: not wired on macOS yet (Chromium's message loop)" "$work/client.log" \
-	|| fail "the client didn't reach Chromium's message loop (log above)"
-echo "check-macos-shell: Chromium's framework loads in the client"
+[[ $shot == 1 ]] && echo "check-macos-shell: screenshot in $2/macos-shell.png"
+# A verdict means the page loaded and answered: Chromium's loop runs.
+verdict="$(grep -oE "UICHECK (pass|fail)" "$work/client.log" | tail -1 || true)"
+[[ -n "$verdict" ]] || fail "the UI check reached no verdict: the client and Chromium didn't run together (log above)"
+echo "check-macos-shell: the client runs with Chromium; the UI check's verdict: ${verdict#UICHECK }"

@@ -10,6 +10,8 @@
 #include "src/client/app/shell/bridge/profiles.h"
 #include "src/client/app/shell/bridge/social.h"
 #include "src/client/app/shell/host/app.h"
+#include "src/client/app/shell/host/app_protocol.h"
+#include "src/client/app/shell/host/pump.h"
 #include "src/client/app/shell/host/framework.h"
 #include "src/client/app/shell/bridge/bridge.h"
 #include "src/client/app/shell/host/client.h"
@@ -58,6 +60,7 @@ struct Shell::Impl
 {
 	// first in, last out: on macOS no CEF call works without it
 	Framework framework;
+	Pump pump; // Chromium's loop, where the engine runs it (macOS)
 	Underlays underlays;
 	Opts opts;
 	std::string item_dir;
@@ -164,18 +167,16 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(opts))
 	settings.no_sandbox = true; // the suid chrome-sandbox helper is not installed
 	// Chromium on a thread of its own: however long its work, a frame never
 	// waits on it (what reaches the engine comes through the Inbox)
-	settings.multi_threaded_message_loop = true;
+	// (macOS has no such mode: its loop is pumped from the frames, pump.h)
+	settings.multi_threaded_message_loop = !Pump::EXTERNAL;
+	settings.external_message_pump = Pump::EXTERNAL;
 	settings.log_severity = LOGSEVERITY_WARNING;
 	CefString(&settings.root_cache_path) = opts.cache_dir;
 	CefString(&settings.log_file) = opts.cache_dir + "/chromium.log";
 	m->framework.place(settings);
-#ifdef __APPLE__
-	// The framework is loaded; Chromium's own thread for its loop is Windows and Linux only,
-	// so macOS needs the loop pumped from the engine's frames (external_message_pump).
-	throw BaseException("shell: not wired on macOS yet (Chromium's message loop)");
-#endif
+	adoptAppProtocol();
 
-	CefRefPtr<App> app = new App(opts.gpu);
+	CefRefPtr<App> app = new App(opts.gpu, &m->pump);
 	if (!CefInitialize(mainArgs(), settings, app, nullptr))
 		throw BaseException("shell: Chromium failed to initialize (see " +
 				opts.cache_dir + "/chromium.log)");
@@ -327,7 +328,7 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(opts))
 	m->planetarium = std::make_unique<Planetarium>(Planetarium::Opts{ *this, opts.driver });
 	m->entering = std::make_unique<Entering>(Entering::Opts{ *this, opts.driver, opts.cursor });
 	m->debugger = std::make_unique<Debugger>(Debugger::Opts{ opts.driver, opts.cursor, opts.url, opts.scale,
-			[this](bool on) { m->ime.capture(on); }, m->inbox, opts.gpu, opts.ui_dir });
+			[this](bool on) { m->ime.capture(on); }, m->inbox, m->pump, opts.gpu, opts.ui_dir });
 	m->router = CefMessageRouterBrowserSide::Create(routerConfig());
 	m->client = new Client(*m->canvas, m->viewport, m->inbox, m->router, [this] { m->onNavigate(); });
 
@@ -364,8 +365,10 @@ Shell::~Shell()
 	m->debugger.reset(); // its page closes while Chromium is still up
 
 	m->browser->GetHost()->CloseBrowser(true);
-	while (!m->client->closed())
+	while (!m->client->closed()) {
+		m->pump.work();
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
 	m->browser = nullptr;
 
 	onChromium([&] { m->router->RemoveHandler(&m->bridge); });
@@ -415,6 +418,10 @@ void Shell::frame()
 
 void Shell::frameUi()
 {
+	{
+		TF_ZONE("UI: Chromium"); // its own work, where it runs on this thread (macOS)
+		m->pump.work();
+	}
 	{
 		TF_ZONE("UI: inbox"); // the page's intents, run by the engine
 		m->inbox.run();
