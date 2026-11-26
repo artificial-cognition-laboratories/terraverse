@@ -133,9 +133,12 @@ impl Social {
             return refused("Sign in to ArcLabs first.");
         };
         let mut request = self.http.request(method, format!("{}{path}", self.api)).bearer_auth(key);
-        if let Some(body) = body {
-            request = request.json(&body);
-        }
+        // A request with no body still says so: Cloud Run's front end refuses a POST with no
+        // Content-Length (411), and accepting a friend is one
+        request = match body {
+            Some(body) => request.json(&body),
+            None => request.header(reqwest::header::CONTENT_LENGTH, 0),
+        };
         let Ok(answer) = request.send().await else {
             return refused("Couldn't reach ArcLabs. Check your connection.");
         };
