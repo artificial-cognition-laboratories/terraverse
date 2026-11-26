@@ -4,7 +4,7 @@
 // A frame is a u32 (little endian) length, then a MessagePack array [op, id, payload].
 // id is 0 when no answer is wanted.
 
-export const PROTOCOL = 3
+export const PROTOCOL = 5
 
 // What a frame is.
 export const Op = {
@@ -30,9 +30,12 @@ export const Call = {
     "player.tell": 1,       // name, text
     "game.announce": 2,     // text
     "players.list": 3,      // → names
-    "commands.set": 4,      // [[path, description, usage, permission, [[arg, type, optional, options], …]], …]: the whole set
+    "commands.set": 4,      // [[path, description, usage, permission, [[arg, type, optional, options, description, [[value, description], …]], …]], …]: the whole set
     "player.can": 5,        // name, permission → whether they may
     "player.kick": 6,       // name, reason
+    "player.position": 7,   // name → [x, y, z] in blocks, or nil before they're placed
+    "time.skip": 8,         // seconds of game time: the universe's clock forward, the sky's with it
+    "world.time": 9,        // x, y, z → [body, year, day, hour, daylight, season, day seconds], or nil on seam or off a planet
 } as const
 
 // What happened since the last window.

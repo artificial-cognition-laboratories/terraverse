@@ -5,7 +5,7 @@
 
 namespace sidecar {
 
-constexpr u32 PROTOCOL = 3;
+constexpr u32 PROTOCOL = 5;
 constexpr int EXIT_RESTART = 75;
 
 enum class Op : u8 {
@@ -25,6 +25,9 @@ enum class Call : u8 {
 	CommandsSet = 4,
 	PlayerCan = 5,
 	PlayerKick = 6,
+	PlayerPosition = 7,
+	TimeSkip = 8,
+	WorldTime = 9,
 };
 
 enum class Event : u8 {

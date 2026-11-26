@@ -1,4 +1,4 @@
-import type { CommandArg, CommandInfo } from "../../bridge/index.ts"
+import type { CommandArg, CommandChoice, CommandInfo } from "../../bridge/index.ts"
 
 /**
  * A `:` line read against the commands this player may run (store.ui.commands): which one it
@@ -24,12 +24,18 @@ export const commandLine = {
         return { command: named, rest: rest, typing: text === named.name ? null : words[index]!, arg: arg, index: index }
     },
 
-    /** What could fill the argument being typed: its options, the players here, yes or no. */
-    choices(arg: CommandArg, players: readonly string[]): string[] {
-        if (arg.options?.length) return arg.options
-        if (arg.type === "player") return [...players]
-        if (arg.type === "boolean") return ["true", "false"]
-        return []
+    /** What could fill the argument being typed: its options, the players here, yes or no, or what it suggests. */
+    choices(arg: CommandArg, players: readonly string[]): CommandChoice[] {
+        const meant = (value: string) => arg.suggest?.find((s) => s.value === value)?.description
+        if (arg.options?.length) return arg.options.map((o) => ({ value: o, description: meant(o) }))
+        if (arg.type === "player") return players.map((p) => ({ value: p, description: "here" }))
+        if (arg.type === "boolean") return [{ value: "true" }, { value: "false" }]
+        return arg.suggest ?? []
+    },
+
+    /** The command as the palette lists it: its name, then what it takes (`:time [<time>]`). */
+    shown(command: CommandInfo): string {
+        return `:${command.name}${command.usage ? ` ${command.usage}` : ""}`
     },
 
     /** The line with its last word replaced by `word`, ready for the next. */

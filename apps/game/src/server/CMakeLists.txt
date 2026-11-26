@@ -26,6 +26,7 @@ set(common_server_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/app/serverlist.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/run/rules/sky.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/terra.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/clock.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/run/rules/gravity.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/run/rules/planet.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/run/rules/weather.cpp

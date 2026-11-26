@@ -5,6 +5,7 @@
     "type": "module",
     "dependencies": {
         "@terraverse/commands": "file:../../../registry/mods/commands",
-        "@terraverse/materials": "file:../../../registry/mods/materials"
+        "@terraverse/materials": "file:../../../registry/mods/materials",
+        "@terraverse/time": "file:../../../registry/mods/time"
     }
 }

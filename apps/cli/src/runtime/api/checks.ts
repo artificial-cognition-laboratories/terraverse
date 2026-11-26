@@ -27,6 +27,13 @@ export const checks = {
         return name
     },
 
+    /** A position: three finite numbers, in blocks. */
+    vec3(pos: unknown): readonly [number, number, number] {
+        if (!Array.isArray(pos) || pos.length !== 3 || !pos.every(n => typeof n === "number" && Number.isFinite(n)))
+            throw err("ARGUMENT_INVALID", { detail: `a position is [x, y, z], not ${JSON.stringify(pos)}` })
+        return [pos[0], pos[1], pos[2]]
+    },
+
     unwired(what: string): never {
         throw err("NOT_WIRED", { detail: `${what} isn't wired yet` })
     },

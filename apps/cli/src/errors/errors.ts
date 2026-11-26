@@ -220,6 +220,16 @@ const MAP = {
         description: "A Player outlives their connection. Check `player.connected` after an await.",
         source: "runtime", severity: "fatal", expected: true,
     },
+    NOT_PLACED: {
+        title: "Not anywhere yet",
+        description: "A player who has just joined has no body in the world until they're placed, and a position on a seam between the planet's tiles is on no world. Try again in a moment.",
+        source: "runtime", severity: "fatal", expected: true,
+    },
+    WRONG_WORLD: {
+        title: "That's on another world",
+        description: "A world's calendar reads places on that world. Use the calendar of the world the position is on: `player.world`.",
+        source: "runtime", severity: "fatal", expected: true,
+    },
     // ── your account and the registry ──────────────────────────────────────
     SIGNED_OUT: {
         title: "You're not signed in",

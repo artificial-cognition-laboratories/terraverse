@@ -3,17 +3,20 @@ import type { ChannelT, Step } from "../../channel"
 import { Call } from "../../wire"
 import { checks } from "../checks"
 import type { Disposer, HandlersT } from "../handlers"
+import type { Vec3, World, WorldsT } from "./worlds"
 
 export type Player = {
     readonly name: string
     readonly connected: boolean
+    readonly position: Vec3
+    readonly world: World
     tell(message: string): void
     can(permission: string): boolean
     kick(reason: string): void
 }
 
 /** Players — who's in the game: the `game.players` global, kept by each window's joins and leaves. */
-export function Players(opts: { channel: ChannelT; handlers: HandlersT }) {
+export function Players(opts: { channel: ChannelT; handlers: HandlersT; worlds: WorldsT }) {
     const present = new Map<string, PlayerHandle>()
     const joins = opts.handlers.set<[Player]>()
     const leaves = opts.handlers.set<[Player]>()
@@ -37,11 +40,11 @@ export function Players(opts: { channel: ChannelT; handlers: HandlersT }) {
             seeded = true
             const names = opts.channel.ask(Call["players.list"])
             if (!Array.isArray(names)) throw err("PROTOCOL", { detail: "players.list didn't answer a list" })
-            for (const name of names) present.set(String(name), PlayerOf({ name: String(name), channel: opts.channel }))
+            for (const name of names) present.set(String(name), PlayerOf({ name: String(name), channel: opts.channel, worlds: opts.worlds }))
         }
         for (const happening of step.happened) {
             if (happening.kind === "join") {
-                const handle = present.get(happening.player) ?? PlayerOf({ name: happening.player, channel: opts.channel })
+                const handle = present.get(happening.player) ?? PlayerOf({ name: happening.player, channel: opts.channel, worlds: opts.worlds })
                 present.set(happening.player, handle)
                 joins.run(handle.player)
             } else if (happening.kind === "leave") {
@@ -61,7 +64,7 @@ export type PlayersT = ReturnType<typeof Players>
 type PlayerHandle = ReturnType<typeof PlayerOf>
 
 /** One player, as mods hold them: still there to read after they've left, and saying so. */
-function PlayerOf(opts: { name: string; channel: ChannelT }) {
+function PlayerOf(opts: { name: string; channel: ChannelT; worlds: WorldsT }) {
     let connected = true
 
     function here(): void {
@@ -71,6 +74,18 @@ function PlayerOf(opts: { name: string; channel: ChannelT }) {
     const player: Player = Object.freeze({
         name: opts.name,
         get connected() { return connected },
+        get position(): Vec3 {
+            here()
+            const at = opts.channel.ask(Call["player.position"], opts.name)
+            if (at === null || at === undefined) throw err("NOT_PLACED", { detail: `${opts.name} isn't in the world yet` })
+            const [x, y, z] = Array.isArray(at) && at.length === 3 ? at : []
+            if (typeof x !== "number" || typeof y !== "number" || typeof z !== "number")
+                throw err("PROTOCOL", { detail: "player.position didn't answer [x, y, z]" })
+            return Object.freeze([x, y, z] as const)
+        },
+        get world(): World {
+            return opts.worlds.where(player.position).world
+        },
         tell(message: string) {
             here()
             opts.channel.tell(Call["player.tell"], opts.name, String(message))

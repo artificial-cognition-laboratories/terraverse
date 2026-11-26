@@ -22,3 +22,13 @@ game.commands.create("check", {
         reply(`CHECK command from ${player?.name ?? "console"}: ${args.n + 1} ${args.text}`)
     },
 })
+
+// The universe skipped forward, from the console: game time jumps by it, and the skip settles
+game.commands.create("check_skip", {
+    description: "The check's skip",
+    async run({ reply }) {
+        const before = game.time.now
+        await game.time.skip({ hours: 1 })
+        reply(`CHECK skipped ${Math.round(game.time.now - before)}`)
+    },
+})

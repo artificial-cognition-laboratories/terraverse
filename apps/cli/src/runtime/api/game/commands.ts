@@ -7,11 +7,16 @@ import type { Disposer } from "../handlers"
 import { Refused } from "../refused"
 import type { Player } from "./players"
 
+/** A value offered while it's typed, and what it means. Offered, not required. */
+type Suggestion = string | { readonly value: string; readonly description?: string }
+/** What every argument may say of itself, for the palette. */
+type ArgShown = { readonly optional?: boolean; readonly description?: string; readonly suggest?: readonly Suggestion[] }
+
 type ArgDef =
-    | { readonly type: "string"; readonly optional?: boolean; readonly options?: readonly string[] }
-    | { readonly type: "number" | "integer"; readonly optional?: boolean; readonly min?: number; readonly max?: number }
-    | { readonly type: "boolean"; readonly optional?: boolean }
-    | { readonly type: "player" | "position"; readonly optional?: boolean }
+    | ({ readonly type: "string"; readonly options?: readonly string[] } & ArgShown)
+    | ({ readonly type: "number" | "integer"; readonly min?: number; readonly max?: number } & ArgShown)
+    | ({ readonly type: "boolean" } & ArgShown)
+    | ({ readonly type: "player" | "position" } & ArgShown)
 
 type Run = (e: { player?: Player; args: Record<string, unknown>; reply(text: string): void }) => unknown
 
@@ -124,7 +129,8 @@ export function Commands(opts: { channel: ChannelT; running: RunningT; players: 
         // first word, lists them for /help, and gives each player's palette the ones they may run
         opts.channel.tell(Call["commands.set"], [...entries.values()].map(e => [
             e.path.join(" "), e.description, usage(e), e.permission ?? "",
-            e.args.map(([name, a]) => [name, a.type, a.optional ?? false, a.type === "string" ? [...(a.options ?? [])] : []]),
+            e.args.map(([name, a]) => [name, a.type, a.optional ?? false, a.type === "string" ? [...(a.options ?? [])] : [],
+                a.description ?? "", (a.suggest ?? []).map(s => typeof s === "string" ? [s, ""] : [s.value, s.description ?? ""])]),
         ]))
     }
 
@@ -169,11 +175,26 @@ const parse = {
             if (typeof type !== "string" || !TYPES.includes(type))
                 throw err("ARGUMENT_INVALID", { detail: `/${path}'s ${name} is { type: ${TYPES.join(" | ")}, … }` })
             const def: ArgDef = a
+            parse.shown(def, `/${path}'s ${name}`)
             if (optional && !def.optional) throw err("ARGUMENT_INVALID", { detail: `/${path}: ${name} comes after an optional argument, so it must be optional too` })
             optional ||= def.optional === true
             out.push([name, def])
         }
         return out
+    },
+
+    /** An argument's description and suggestions: words for the palette, checked as everything a mod passes is. */
+    shown(a: ArgShown, what: string): void {
+        if (a.description !== undefined && (typeof a.description !== "string" || a.description.trim() === ""))
+            throw err("ARGUMENT_INVALID", { detail: `${what}'s description is text` })
+        if (a.suggest === undefined) return
+        if (!Array.isArray(a.suggest)) throw err("ARGUMENT_INVALID", { detail: `${what}'s suggest is a list` })
+        for (const s of a.suggest) {
+            const value: unknown = typeof s === "string" ? s : typeof s === "object" && s !== null ? Reflect.get(s, "value") : undefined
+            const description: unknown = typeof s === "object" && s !== null ? Reflect.get(s, "description") : undefined
+            if (typeof value !== "string" || !/^\S+$/.test(value) || (description !== undefined && typeof description !== "string"))
+                throw err("ARGUMENT_INVALID", { detail: `${what}'s suggestions are words, or { value, description }, not ${JSON.stringify(s)}` })
+        }
     },
 
     /** The words after a command's path, as its args. Throws Refused for what's typed wrong. */

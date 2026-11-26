@@ -3098,6 +3098,20 @@ void Server::startSidecar()
 		if (player && player->getPeerId() != PEER_ID_INEXISTENT)
 			DenyAccess(player->getPeerId(), SERVER_ACCESSDENIED_CUSTOM_STRING, reason);
 	};
+	host.position = [this](const std::string &name) -> std::optional<v3f> {
+		RemotePlayer *player = m_env->getPlayer(name);
+		PlayerSAO *sao = player ? player->getPlayerSAO() : nullptr;
+		if (!sao)
+			return std::nullopt;
+		return sao->getBasePosition() / BS;
+	};
+	// the universe's clock (server/world/clock.h); a skip moves the mods' game time with it
+	auto clock = std::make_shared<WorldClock>(WorldClock::Opts{ *this });
+	host.time = [clock](const v3f &nodes) { return clock->at(nodes); };
+	host.skip = [this, clock](u32 seconds) {
+		clock->skip(seconds);
+		m_sidecar_now += seconds;
+	};
 
 	try {
 		m_sidecar = std::make_unique<sidecar::Sidecar>(terra, m_server_folder, std::move(host));

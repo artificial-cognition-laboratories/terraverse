@@ -8,11 +8,14 @@
 #pragma once
 
 #include "src/server/app/mods/sidecar/content.h"
+#include "src/server/world/clock.h"
+#include "src/shared/base/irr_v3d.h"
 #include "src/shared/base/irrlichttypes.h"
 #include <array>
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -34,7 +37,14 @@ struct Host {
 	// Every command mods have now, by its whole path ("kiln light"): the whole set, replacing
 	// the last. `usage` as chat shows it ("<to> <text>"); `permission` "" when anyone may.
 	struct Command {
-		struct Arg { std::string name, type; bool optional; std::vector<std::string> options; };
+		// `options` restrict what's typed; `suggest` only offers, each [value, what it means]
+		struct Arg {
+			std::string name, type;
+			bool optional;
+			std::vector<std::string> options;
+			std::string description;
+			std::vector<std::pair<std::string, std::string>> suggest;
+		};
 		std::string path, description, usage, permission;
 		std::vector<Arg> args;
 	};
@@ -42,7 +52,14 @@ struct Host {
 	// Whether a player holds a permission ("kilns:light").
 	std::function<bool(const std::string &player, const std::string &permission)> can;
 	std::function<void(const std::string &player, const std::string &reason)> kick;
+	// Where a player is, in blocks; none before they're placed.
+	std::function<std::optional<v3f>(const std::string &player)> position;
+	// The universe's clock (server/world/clock.h): a place's time, and skipping forward.
+	std::function<std::optional<WorldClock::Reading>(const v3f &nodes)> time;
+	std::function<void(u32 seconds)> skip;
 };
+
+class Calls;
 
 class Sidecar {
 public:
@@ -84,6 +101,7 @@ private:
 
 	std::string m_terra, m_folder;
 	Host m_host;
+	std::unique_ptr<Calls> m_calls;  // answers mod calls from m_host
 	std::unique_ptr<Process> m_process;
 	Content m_content;
 	std::string m_content_bytes;  // as first sent: what a restart must match

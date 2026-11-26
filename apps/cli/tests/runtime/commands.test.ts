@@ -3,6 +3,7 @@ import { Channel, type Happening } from "../../src/runtime/channel"
 import { Running } from "../../src/runtime/running"
 import { Call, Level, MemoryWire, Op } from "../../src/runtime/wire"
 import { Handlers } from "../../src/runtime/api/handlers"
+import { Worlds } from "../../src/runtime/api/game/worlds"
 import { Players } from "../../src/runtime/api/game/players"
 import { Commands } from "../../src/runtime/api/game/commands"
 import { Refused } from "../../src/runtime/api/refused"
@@ -18,7 +19,7 @@ function setup() {
     })
     const channel = Channel({ wire: memory.wire })
     const running = Running({ channel: channel })
-    const players = Players({ channel: channel, handlers: Handlers({ running: running }) })
+    const players = Players({ channel: channel, handlers: Handlers({ running: running }), worlds: Worlds({ channel: channel }) })
     const commands = Commands({ channel: channel, running: running, players: players.api })
     const step = (happened: Happening[] = []) => channel.window(() => {
         players.step({ now: 0, dt: 0, happened: happened })
@@ -41,8 +42,8 @@ describe("Commands", () => {
         expect(calls(Call["commands.set"]).at(-1)).toEqual([Call["commands.set"], [
             ["kiln light", "Light it", "", "kilns:light", []],
             ["kiln count", "How many", "", "", []],
-            ["msg", "Say", "<to> <text>", "", [["to", "player", false, []], ["text", "string", false, []]]],
-            ["heat", "Set", "[low|high]", "", [["how", "string", true, ["low", "high"]]]],
+            ["msg", "Say", "<to> <text>", "", [["to", "player", false, [], "", []], ["text", "string", false, [], "", []]]],
+            ["heat", "Set", "[low|high]", "", [["how", "string", true, ["low", "high"], "", []]]],
         ]])
         await step()
         expect(calls(Call["commands.set"]).length).toBe(1)
@@ -50,9 +51,31 @@ describe("Commands", () => {
         await step()
         expect(calls(Call["commands.set"]).at(-1)).toEqual([Call["commands.set"], [
             ["kiln light", "Light it", "", "kilns:light", []],
-            ["msg", "Say", "<to> <text>", "", [["to", "player", false, []], ["text", "string", false, []]]],
-            ["heat", "Set", "[low|high]", "", [["how", "string", true, ["low", "high"]]]],
+            ["msg", "Say", "<to> <text>", "", [["to", "player", false, [], "", []], ["text", "string", false, [], "", []]]],
+            ["heat", "Set", "[low|high]", "", [["how", "string", true, ["low", "high"], "", []]]],
         ]])
+    })
+
+    test("an argument's description and suggestions reach the engine, for the palette", async () => {
+        const { commands, step, calls } = setup()
+        commands.api.create("time", {
+            description: "The time",
+            args: { time: { type: "string", optional: true, description: "When", suggest: ["dawn", { value: "noon", description: "12:00" }] } },
+            run() {},
+        })
+        await step()
+        expect(calls(Call["commands.set"]).at(-1)).toEqual([Call["commands.set"], [
+            ["time", "The time", "[<time>]", "", [["time", "string", true, [], "When", [["dawn", ""], ["noon", "12:00"]]]]],
+        ]])
+    })
+
+    test("suggestions are words: one with a space in it is refused", () => {
+        const { commands } = setup()
+        expect(() => commands.api.create("time", {
+            description: "The time",
+            args: { time: { type: "string", suggest: ["high noon"] } },
+            run() {},
+        })).toThrow(expect.objectContaining({ code: "ARGUMENT_INVALID" }))
     })
 
     test("a line is parsed into typed args, the last string taking the rest", async () => {

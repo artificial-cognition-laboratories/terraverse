@@ -80,6 +80,11 @@ in its turn, and setting it would tear it out of its orbit and away from every o
 is the honest version: the whole universe moves forward together, settled, so a night skipped is a
 night that passed. The crops grew through it.
 
+A skip moves at most 24 hours of game time at once, and resolves in the first window past it. To
+skip to a moment, ask the [calendar](/docs/mods/api/game/worlds#calendar) how long until it, at a
+place. Today the sky, the weather and the rivers follow a skip, and timers come due; blocks near
+players don't yet live through the time skipped.
+
 ### Pause, step and rate
 
 For an experiment, or an admin. A paused game holds everything still: no physics, no matter, no

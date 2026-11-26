@@ -31,6 +31,18 @@ Json::Value argsJson(const std::vector<sidecar::Host::Command::Arg> &args)
 			for (const std::string &o : a.options)
 				arg["options"].append(o);
 		}
+		if (!a.description.empty())
+			arg["description"] = a.description;
+		if (!a.suggest.empty()) {
+			arg["suggest"] = Json::Value(Json::arrayValue);
+			for (const auto &[value, description] : a.suggest) {
+				Json::Value s;
+				s["value"] = value;
+				if (!description.empty())
+					s["description"] = description;
+				arg["suggest"].append(s);
+			}
+		}
 		out.append(arg);
 	}
 	return out;

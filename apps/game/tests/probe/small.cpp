@@ -18,7 +18,8 @@
 namespace probe {
 
 // apps/game/tests/checks/mods/check.sh: the fixture's /check typed at the console, once before the
-// sidecar is crashed and once after it restarts: its commands must answer both times.
+// sidecar is crashed and once after it restarts: its commands must answer both times. Then
+// /check_skip, which moves the universe on an hour.
 void mods(Context &c)
 {
 	const auto typed = [&c](const std::string &param) {
@@ -30,6 +31,10 @@ void mods(Context &c)
 		typed("x y");
 	});
 	c.after(5, [typed] { typed("1 again"); });
+	c.after(6, [&c] {
+		const std::string reply = c.server()->commands().run("", nullptr, "check_skip");
+		c.say("PROBE /check_skip → " + reply);
+	});
 }
 
 // apps/game/tests/checks/matter.sh: a fire pit, built and lit on a live server, run for simulated

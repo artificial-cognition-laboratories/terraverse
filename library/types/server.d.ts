@@ -109,6 +109,10 @@ declare global {
         readonly name: AccountName
         /** False once they've left; then everything else throws PLAYER_GONE. */
         readonly connected: boolean
+        /** Where they are, in blocks. Throws NOT_PLACED before they're in the world. */
+        readonly position: Vec3
+        /** The world they're on. Throws NOT_PLACED before they're in the world. */
+        readonly world: World
         /** A line in their chat, from the server. */
         tell(message: string): void
         /** Whether they hold a permission. Admins (the engine's `server` privilege) hold every one; roles don't grant any yet. */
@@ -132,13 +136,64 @@ declare global {
         after(d: Duration, fn: () => void | Promise<void>): Disposer
         every(d: Duration, fn: () => void | Promise<void>): Disposer
         wait(d: Duration): Promise<void>
+        /**
+         * Move the whole universe forward, every world together: the sky, the weather and the
+         * rivers follow, and timers come due. At most 24 hours of game time at once. Resolves in
+         * the first window past it. Blocks near players don't yet live through the time skipped.
+         */
+        skip(d: Duration): Promise<void>
+    }
+
+    type Season = "spring" | "summer" | "autumn" | "winter"
+    /** dawn and dusk are when the sun crosses the horizon there, today. */
+    type Moment = "dawn" | "noon" | "dusk" | "midnight"
+
+    /** A place's time on its world, as it was when read. */
+    interface CalendarReading {
+        /** This world's own years and days, from 1: its year is one orbit. */
+        readonly year: number
+        readonly day: number
+        /** 0–24, local: it's noon on one side of a world and midnight on the other. */
+        readonly hour: number
+        /** Here: the south's are the north's, half a year on. */
+        readonly season: Season
+        /** 0–1: the share of today the sun is up here. */
+        readonly daylight: number
+        /** Game seconds in one of this world's days; null where the sun never moves. */
+        readonly dayLength: number | null
+        /** Game seconds until the next moment, or hour (0–24), here; null if it won't come. Now counts as a day away. */
+        until(when: Moment | number): number | null
+    }
+
+    interface Calendar {
+        /** The time at a place on this world. Throws WRONG_WORLD for a place on another. */
+        at(pos: Vec3): CalendarReading
+    }
+
+    /** A planet of the game. Only its name and calendar are wired so far. */
+    interface World {
+        /** The body's id in the system: "home", "moon". */
+        readonly name: string
+        readonly calendar: Calendar
+    }
+
+    /** A value the palette offers while an argument's typed: a word, or a word and what it means. */
+    type CommandSuggestion = string | { value: string; description?: string }
+
+    /** What any argument may say of itself, for the palette. */
+    interface CommandArgShown {
+        optional?: boolean
+        /** What it is, shown while it's typed: "0600 style, or a time of day by name". */
+        description?: string
+        /** Values to offer as it's typed. Offered, not required: `options` is what restricts. */
+        suggest?: readonly CommandSuggestion[]
     }
 
     type CommandArg =
-        | { type: "string"; optional?: boolean; options?: readonly string[] }
-        | { type: "number" | "integer"; optional?: boolean; min?: number; max?: number }
-        | { type: "boolean"; optional?: boolean }
-        | { type: "player" | "position"; optional?: boolean }
+        | ({ type: "string"; options?: readonly string[] } & CommandArgShown)
+        | ({ type: "number" | "integer"; min?: number; max?: number } & CommandArgShown)
+        | ({ type: "boolean" } & CommandArgShown)
+        | ({ type: "player" | "position" } & CommandArgShown)
 
     type CommandArgs = Record<string, CommandArg>
 

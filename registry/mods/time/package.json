@@ -1,0 +1,9 @@
+{
+    "name": "@terraverse/time",
+    "version": "0.1.2",
+    "description": "The time where you stand with /time, and an admin's /time 0600, /time noon or /time skip 6h: the whole universe forward.",
+    "type": "module",
+    "exports": {
+        ".": "./server/main.ts"
+    }
+}

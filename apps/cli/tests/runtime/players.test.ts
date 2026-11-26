@@ -3,13 +3,14 @@ import { Channel } from "../../src/runtime/channel"
 import { Running } from "../../src/runtime/running"
 import { Call, MemoryWire, Op } from "../../src/runtime/wire"
 import { Handlers } from "../../src/runtime/api/handlers"
+import { Worlds } from "../../src/runtime/api/game/worlds"
 import { Players, type Player } from "../../src/runtime/api/game/players"
 
 function setup(here: string[] = []) {
     const memory = MemoryWire({ answer: call => (call === Call["players.list"] ? here : null) })
     const channel = Channel({ wire: memory.wire })
     const running = Running({ channel: channel })
-    const players = Players({ channel: channel, handlers: Handlers({ running: running }) })
+    const players = Players({ channel: channel, handlers: Handlers({ running: running }), worlds: Worlds({ channel: channel }) })
     const step = (happened: { kind: "join" | "leave"; player: string }[]) =>
         channel.window(() => players.step({ now: 0, dt: 0, happened: happened }))
     return { memory: memory, players: players, step: step }

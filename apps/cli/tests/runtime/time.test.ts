@@ -1,15 +1,15 @@
 import { describe, expect, test } from "bun:test"
 import { Channel } from "../../src/runtime/channel"
 import { Running } from "../../src/runtime/running"
-import { Level, MemoryWire, Op } from "../../src/runtime/wire"
+import { Call, Level, MemoryWire, Op } from "../../src/runtime/wire"
 import { Time } from "../../src/runtime/api/game/time"
 
 function setup() {
     const memory = MemoryWire()
     const channel = Channel({ wire: memory.wire })
     const running = Running({ channel: channel })
-    const time = Time({ running: running })
-    return { memory: memory, running: running, time: time }
+    const time = Time({ running: running, channel: channel })
+    return { memory: memory, channel: channel, running: running, time: time }
 }
 
 describe("Time", () => {
@@ -78,5 +78,30 @@ describe("Time", () => {
         expect(() => time.api.after({ seconds: -1 }, () => {})).toThrow(expect.objectContaining({ code: "ARGUMENT_INVALID" }))
         expect(() => time.api.every({ seconds: 0 }, () => {})).toThrow(expect.objectContaining({ code: "ARGUMENT_INVALID" }))
         expect(() => time.api.after({ seconds: 1 }, "soon" as never)).toThrow(expect.objectContaining({ code: "ARGUMENT_INVALID" }))
+    })
+
+    test("skip tells the engine, and settles when a window's clock is past it", async () => {
+        const { memory, channel, time } = setup()
+        time.step(100)
+        let skipped: Promise<void> | undefined
+        await channel.window(() => { skipped = time.api.skip({ hours: 8 }) })
+        const told = memory.written().find(f => f.op === Op.call && Array.isArray(f.payload) && f.payload[0] === Call["time.skip"])
+        expect(told?.payload).toEqual([Call["time.skip"], 8 * 3600])
+        let done = false
+        void skipped!.then(() => { done = true })
+        time.step(101)
+        await Promise.resolve()
+        expect(done).toBe(false)
+        time.step(100 + 8 * 3600)
+        await skipped
+        expect(done).toBe(true)
+    })
+
+    test("a skip is at least a second and at most a day", async () => {
+        const { channel, time } = setup()
+        await channel.window(() => {
+            expect(() => time.api.skip({ seconds: 0 })).toThrow(expect.objectContaining({ code: "ARGUMENT_INVALID" }))
+            expect(() => time.api.skip({ hours: 25 })).toThrow(expect.objectContaining({ code: "ARGUMENT_INVALID" }))
+        })
     })
 })

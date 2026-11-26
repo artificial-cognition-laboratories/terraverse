@@ -71,7 +71,7 @@ function commands(ctx: Context, text: string): View {
     // a name still being typed lists every command it could be, the exact one first (:river, :rivers)
     if (!read || read.typing === null) {
         const of = (c: CommandInfo, group: string, marks: readonly number[] = []): Entry => ({
-            item: { id: `cmd:${group}:${c.name}`, label: `:${c.name}`, marks: marks.map((i) => i + 1), detail: c.description, group: group },
+            item: { id: `cmd:${group}:${c.name}`, label: commandLine.shown(c), marks: marks.map((i) => i + 1), detail: c.description, group: group },
             take: (how) => (how === "tab" || !commandLine.bare(c) ? ctx.go(`:${c.name} `) : ctx.run(c.name)),
         })
         const recent: Entry[] = text.trim() === "" ? ctx.recent.value.map((line) => ({
@@ -79,24 +79,39 @@ function commands(ctx: Context, text: string): View {
             take: (how) => (how === "tab" ? ctx.go(`:${line}`) : ctx.run(line)),
         })) : []
         const found = ranked(all, (c) => c.name, text).map((r) => of(r.t, "commands", r.m.marks))
-        return { ...view, entries: [...recent, ...found],
+        return { ...view, entries: [...recent, ...found, ...(read ? suggested(ctx, read.command) : [])],
             note: all.length === 0 ? "This world gives you no commands." : `There's no :${text.split(" ")[0]}.` }
     }
     const { command, arg, typing } = read
     const run: Entry = {
-        item: { id: "run", label: `:${text.trim()}`, detail: command.description, group: "run" },
+        // while an argument's typed, what it is; else what the command does
+        item: { id: "run", label: `:${text.trim()}`, detail: (typing !== null && arg?.description) || command.description, group: "run" },
         // named alone, one that needs more is given a space to type it in
         take: (how) => (typing === null && !commandLine.bare(command) ? ctx.go(`:${command.name} `) : how === "tab" ? undefined : ctx.run(text.trim())),
     }
     if (!arg || typing === null) return { ...view, entries: [run] }
     const word = typing.replace(/^@/, "")
-    const fills = ranked(commandLine.choices(arg, ctx.players.value), (c) => c, word)
-        .filter((r) => r.t !== word)
+    const fills = ranked(commandLine.choices(arg, ctx.players.value), (c) => c.value, word)
+        .filter((r) => r.t.value !== word)
         .map((r): Entry => ({
-            item: { id: `fill:${r.t}`, label: r.t, marks: r.m.marks, detail: arg.type === "player" ? "here" : undefined, group: `<${arg.name}>` },
-            take: () => ctx.go(`:${commandLine.complete(text, r.t)}`),
+            item: { id: `fill:${r.t.value}`, label: r.t.value, marks: r.m.marks, detail: r.t.description, group: `<${arg.name}>` },
+            take: () => ctx.go(`:${commandLine.complete(text, r.t.value)}`),
         }))
     return { ...view, entries: [run, ...fills] }
+}
+
+// a command named whole, its first argument's suggestions as lines of their own (:time night),
+// each run as it's taken; a player's name or a yes/no isn't a line worth listing
+function suggested(ctx: Context, command: CommandInfo): Entry[] {
+    const first = command.args?.[0]
+    if (!first || first.type === "player" || first.type === "boolean") return []
+    return commandLine.choices(first, []).map((c) => {
+        const line = `${command.name} ${c.value}`
+        return {
+            item: { id: `suggest:${line}`, label: `:${line}`, detail: c.description, group: `:${command.name}` },
+            take: (how) => (how === "tab" ? ctx.go(`:${line}`) : ctx.run(line)),
+        }
+    })
 }
 
 function people(ctx: Context, text: string): View {

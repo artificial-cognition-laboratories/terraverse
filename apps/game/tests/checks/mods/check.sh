@@ -67,6 +67,7 @@ expect "it carries on after"                             "CHECK alive after rest
 expect "a command typed reaches its mod, its args parsed" "\[@check/hello\] CHECK command from console: 42 words after it"
 expect "a command typed wrong is answered with its usage"  "\[@check/hello\] n is a whole number, not x\. Usage: /check <n> <text>"
 expect "commands answer after a restart"                  "\[@check/hello\] CHECK command from console: 2 again"
+expect "a skip moves game time on, and settles"            "\[@check/hello\] CHECK skipped 36[0-9][0-9]"
 if grep -q "their content changed" "$work/log.txt"; then echo "  FAIL  a restart declared different content"; failed=1; fi
 if pgrep -f "terra runtime $work" > /dev/null; then echo "  FAIL  the sidecar outlived the server"; failed=1; fi
 

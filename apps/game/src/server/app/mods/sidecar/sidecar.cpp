@@ -1,4 +1,5 @@
 #include "src/server/app/mods/sidecar/sidecar.h"
+#include "src/server/app/mods/sidecar/calls.h"
 
 #include "src/shared/platform/system/log.h"
 #include "src/server/app/mods/sidecar/msgpack.h"
@@ -499,7 +500,8 @@ struct Sidecar::Process {
 };
 
 Sidecar::Sidecar(std::string terra, std::string folder, Host host) :
-	m_terra(std::move(terra)), m_folder(std::move(folder)), m_host(std::move(host))
+	m_terra(std::move(terra)), m_folder(std::move(folder)), m_host(std::move(host)),
+	m_calls(std::make_unique<Calls>(Calls::Opts{ m_host }))
 {
 	m_manifest_time = manifestTime();
 	try {
@@ -752,67 +754,7 @@ void Sidecar::handleCall(u32 id, const mp::Value &message)
 	};
 
 	try {
-		const auto &args = message.asArray();
-		if (args.empty())
-			throw mp::Error("a call names what it calls");
-		const s64 call = args[0].asInt();
-		auto arg = [&](size_t i) -> const mp::Value & {
-			if (i + 1 >= args.size())
-				throw mp::Error("call " + std::to_string(call) + " needs argument " + std::to_string(i));
-			return args[i + 1];
-		};
-		switch ((Call)call) {
-		case Call::PlayerTell:
-			m_host.tell(arg(0).asString(), arg(1).asString());
-			reply(true, [](mp::Writer &w) { w.nil(); });
-			return;
-		case Call::GameAnnounce:
-			m_host.announce(arg(0).asString());
-			reply(true, [](mp::Writer &w) { w.nil(); });
-			return;
-		case Call::CommandsSet: {
-			std::vector<Host::Command> commands;
-			for (const mp::Value &c : arg(0).asArray()) {
-				const auto &parts = c.asArray();
-				if (parts.size() != 5)
-					throw mp::Error("a command is [path, description, usage, permission, args]");
-				Host::Command command{ parts[0].asString(), parts[1].asString(), parts[2].asString(),
-						parts[3].asString(), {} };
-				for (const mp::Value &a : parts[4].asArray()) {
-					const auto &fields = a.asArray();
-					if (fields.size() != 4)
-						throw mp::Error("a command's argument is [name, type, optional, options]");
-					Host::Command::Arg made{ fields[0].asString(), fields[1].asString(), fields[2].asBool(), {} };
-					for (const mp::Value &o : fields[3].asArray())
-						made.options.push_back(o.asString());
-					command.args.push_back(std::move(made));
-				}
-				commands.push_back(std::move(command));
-			}
-			m_host.commands(commands);
-			reply(true, [](mp::Writer &w) { w.nil(); });
-			return;
-		}
-		case Call::PlayerCan: {
-			const bool may = m_host.can(arg(0).asString(), arg(1).asString());
-			reply(true, [&](mp::Writer &w) { w.boolean(may); });
-			return;
-		}
-		case Call::PlayerKick:
-			m_host.kick(arg(0).asString(), arg(1).asString());
-			reply(true, [](mp::Writer &w) { w.nil(); });
-			return;
-		case Call::PlayersList: {
-			const std::vector<std::string> names = m_host.players();
-			reply(true, [&](mp::Writer &w) {
-				w.array((u32)names.size());
-				for (const std::string &n : names)
-					w.string(n);
-			});
-			return;
-		}
-		}
-		throw mp::Error("no call " + std::to_string(call));
+		reply(true, m_calls->answer(message));
 	} catch (const mp::Error &e) {
 		// the protocol is generated for both sides: a malformed call is a bug in terra
 		throw Dead(std::string("it made a call the engine can't read: ") + e.what());

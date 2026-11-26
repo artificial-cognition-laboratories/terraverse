@@ -6,6 +6,7 @@ import type { HandlersT } from "../handlers"
 import { Commands } from "./commands"
 import { Players } from "./players"
 import { Time } from "./time"
+import { Worlds } from "./worlds"
 
 type GameOpts = {
     channel: ChannelT
@@ -15,8 +16,9 @@ type GameOpts = {
 
 /** Game — what's being played: the `game` global, its players and its clock. */
 export function Game(opts: GameOpts) {
-    const players = Players({ channel: opts.channel, handlers: opts.handlers })
-    const time = Time({ running: opts.running })
+    const worlds = Worlds({ channel: opts.channel })
+    const players = Players({ channel: opts.channel, handlers: opts.handlers, worlds: worlds })
+    const time = Time({ running: opts.running, channel: opts.channel })
     const commands = Commands({ channel: opts.channel, running: opts.running, players: players.api })
 
     const api = Object.freeze({

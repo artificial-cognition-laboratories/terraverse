@@ -255,18 +255,39 @@ into a camera drone, by changing body. Creatures, when they come, will be bodies
 
 ```ts
 interface Calendar {
-    readonly day: number            // whole days since the world began
-    readonly year: number
-    readonly season: "spring" | "summer" | "autumn" | "winter"
+    // The time at a place on this world. Throws WRONG_WORLD for a place on another.
+    at(pos: Vec3): CalendarReading
+    on(moment: Moment, fn: (e: { world: World }) => void): Disposer   // not wired yet
+}
 
-    hour(pos: Vec3): number         // 0–24, local: it's noon on one side and midnight on the other
-    on(moment: "dawn" | "dusk" | "noon" | "midnight", fn: (e: { world: World }) => void): Disposer
+type Moment = "dawn" | "noon" | "dusk" | "midnight"
+
+interface CalendarReading {
+    readonly year: number           // this world's own, from 1: one orbit
+    readonly day: number            // of the year, from 1
+    readonly hour: number           // 0–24, local
+    readonly season: "spring" | "summer" | "autumn" | "winter"   // here: the south's are the north's, half a year on
+    readonly daylight: number       // 0–1: the share of today the sun is up here
+    readonly dayLength: number | null   // game seconds in one of this world's days; null where the sun never moves
+
+    // Game seconds until the next moment, or hour, here. null if it won't come (no dawn in a
+    // polar summer). Now counts as a day away.
+    until(when: Moment | number): number | null
 }
 ```
 
 Days and years are this planet's own: its day is one turn, its year one orbit. Two worlds in one
 universe can have days of different lengths, which is why days live here and not on
 `game.time`.
+
+Everything about the time of day is a place's, not a world's: it's noon on one side and midnight
+on the other, and summer in the north is winter in the south. So the calendar is read *at* a
+place, and the reading is what was true there when it was read.
+
+```ts
+const now = player.world.calendar.at(player.position)
+await game.time.skip({ seconds: now.until("dawn") ?? 0 })   // their dawn: night where they stand
+```
 
 ## Events
 

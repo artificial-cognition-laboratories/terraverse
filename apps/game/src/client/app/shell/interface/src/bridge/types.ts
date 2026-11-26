@@ -432,7 +432,20 @@ export type UiValues = {
 export type ChatLine = { from: string | null; text: string; tone: "said" | "server" | "announce" }
 
 /** An argument a mod's command takes, as it declared it (apps/cli runtime/api/game/commands.ts). */
-export type CommandArg = { name: string; type: "string" | "number" | "integer" | "boolean" | "player" | "position"; optional: boolean; options?: string[] }
+export type CommandArg = {
+    name: string
+    type: "string" | "number" | "integer" | "boolean" | "player" | "position"
+    optional: boolean
+    /** What may be typed: nothing else is accepted. */
+    options?: string[]
+    /** What it is, shown while it's typed. */
+    description?: string
+    /** Values offered while it's typed; others are accepted too. */
+    suggest?: CommandChoice[]
+}
+
+/** A value the palette offers for an argument, and what it means. */
+export type CommandChoice = { value: string; description?: string }
 
 /**
  * A command this player may run (server/game/command_book.cpp): its whole path ("kiln light"),
