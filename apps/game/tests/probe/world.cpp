@@ -308,15 +308,22 @@ void bodies(Context &c)
 	auto marks = std::make_shared<std::map<int, Mark>>();
 
 	// a column of a body made, layers −40 to 120
-	const auto emergeColumn = [&c](double lat, double lon, int body, std::function<void()> then) {
-		const v3s16 low = *c.atlasNode(lat, lon, -40, body), high = *c.atlasNode(lat, lon, 120, body);
+	// a column's window: from 40 layers under the generator's ground to 120 over it, since a body
+	// without a sea has no reason to keep its land near layer 0 (the moon's lies hundreds below)
+	const auto floorOf = [&c](double lat, double lon, int body) {
+		return terraSurface(c.server(), *c.atlasNode(lat, lon, 0, body)).ground - 40;
+	};
+	const auto emergeColumn = [&c, floorOf](double lat, double lon, int body, std::function<void()> then) {
+		const int floor = floorOf(lat, lon, body);
+		const v3s16 low = *c.atlasNode(lat, lon, floor, body), high = *c.atlasNode(lat, lon, floor + 160, body);
 		const v3s16 a(std::min(low.X, high.X), low.Y, std::min(low.Z, high.Z));
 		const v3s16 b(std::max(low.X, high.X), high.Y, std::max(low.Z, high.Z));
 		c.emerge(a - v3s16(16, 16, 16), b + v3s16(16, 16, 16), then);
 	};
 	// the first air over walkable ground in a made column; none over the sea
-	const auto groundAt = [&c](double lat, double lon, int body) -> std::optional<v3s16> {
-		for (int layer = -40; layer <= 119; layer++) {
+	const auto groundAt = [&c, floorOf](double lat, double lon, int body) -> std::optional<v3s16> {
+		const int floor = floorOf(lat, lon, body);
+		for (int layer = floor; layer < floor + 160; layer++) {
 			const v3s16 here = *c.atlasNode(lat, lon, layer, body), above = *c.atlasNode(lat, lon, layer + 1, body);
 			if (c.node(above) == "air" && c.def(c.node(here)).walkable)
 				return above;

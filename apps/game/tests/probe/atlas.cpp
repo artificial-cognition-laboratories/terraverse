@@ -62,6 +62,27 @@ std::optional<int> spawnLevel(Context &c, s16 x, s16 z)
 	return level;
 }
 
+// A node on the equator at a coast: the first step east from land into water, narrowed by
+// halving to within a block, since the box round it is only 32 across.
+v3s16 coast(Context &c, const std::function<v3s16(double, double, s64)> &at)
+{
+	const auto land = [&](double lon) {
+		const v3s16 p = at(0, lon, 0);
+		return spawnLevel(c, p.X, p.Z).has_value();
+	};
+	for (int lon = 0; lon < 360; lon++) {
+		if (!land(lon) || land(lon + 1))
+			continue;
+		double dry = lon, wet = lon + 1;
+		for (int i = 0; i < 40; i++) {
+			const double mid = (dry + wet) / 2;
+			(land(mid) ? dry : wet) = mid;
+		}
+		return at(0, dry, 0);
+	}
+	throw BaseException("atlas world probe: no coast on the equator");
+}
+
 // Each box emerged, inspected, then `done`.
 void emergeAll(Context &c, const std::vector<Box> &boxes, std::function<void(const Box &)> inspect,
 		std::function<void(double)> done)
@@ -162,9 +183,9 @@ void atlasWorld(Context &c)
 	if (!inner || !edge)
 		throw BaseException("atlas world probe: no core, or no segment");
 	const double capLat = 90 - 5; // the cap's edge at the default 85°: a box straddling it
-	// on the equator at a coast of TF24.dGVycmE's (129° east), so ground and air both meet
-	// the box at sea level
-	const v3s16 equator = at(0, 129, 0);
+	// on the equator at a coast, found rather than named (a fixed longitude goes to sea whenever
+	// the land changes), so ground and air both meet the box at sea level
+	const v3s16 equator = coast(c, at);
 	Box first{ "the equator, its surface and below", v3s16(equator.X - 16, -24, equator.Z - 16),
 		v3s16(equator.X + 15, 24, equator.Z + 15), true };
 	const std::vector<Box> boxes = {
