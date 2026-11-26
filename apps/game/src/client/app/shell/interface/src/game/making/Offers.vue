@@ -50,7 +50,7 @@ function note(o: Offer) {
 .offers { display: flex; flex-direction: column; gap: 0.25rem; max-height: calc(2.75rem * 3 + 0.25rem * 2); overflow-y: auto; scrollbar-width: none; }
 .offers::-webkit-scrollbar { display: none; }
 .offers > * { flex: none; }
-.offers.empty { border: 1px dashed rgb(231 237 244 / 0.06); width: 2.75rem; height: 2.75rem; }
+.offers.empty { border: 1px dashed rgb(231 237 244 / 0.06); border-radius: var(--radius); width: 2.75rem; height: 2.75rem; }
 .dim :deep(.form-icon) { opacity: 0.3; }
 .badge { position: absolute; right: 0.1rem; bottom: 0.1rem; --u: 0.06rem; }
 .badge :deep(.form-icon) { opacity: 1; }

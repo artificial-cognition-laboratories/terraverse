@@ -137,7 +137,7 @@ s32 held::levelAt(ClientMap &map, const NodeDefManager &ndef, const Rivers &rive
 		const v3s16 q = p + v3s16(0, dy, 0);
 		if (!isHeld(q) || isHeld(q + v3s16(0, 1, 0)))
 			continue;
-		return q.Y * 16 + fill::partOf(map.getNode(q).getParam2()) + s32(std::lround(riseAt(rivers, q)));
+		return q.Y * 16 + fill::surface::of(map.getNode(q).getParam2(), riseAt(rivers, q));
 	}
 	return NONE;
 }

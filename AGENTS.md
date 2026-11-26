@@ -276,7 +276,7 @@ Each file in `shell/` owns one concern.
 - Build every screen from the kit (`interface/src/kit`). New patterns become kit components. UI is seen in
   the game itself, which hot-reloads the page under `bun dev`.
 - The website's look (apps/site): the night palette, flat glass (`--glass`, one 1px `--glass-edge`,
-  the `--sheen` top line), never a hand-written bevel. Tokens are in `theme.css`. Hard edges, no radius.
+  the `--sheen` top line), never a hand-written bevel. Tokens are in `theme.css`. Corners are `--radius` (2px in the game, 1px in the launcher, 3px as the site's `$radius`), on everything bordered.
   The deep ocean (`--accent-lo` fill, `--accent-hi` text) and `»` are the only brand marks. Full
   screens stand on the kit's `Sky`; the page never animates it.
 - Fonts are bundled (Silkscreen, JetBrains Mono). Labels never wrap in buttons, panels never scroll

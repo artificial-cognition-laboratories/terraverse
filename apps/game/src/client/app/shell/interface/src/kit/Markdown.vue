@@ -68,13 +68,13 @@ td { padding: 0.6rem 1rem 0.6rem 0; border-bottom: 1px solid rgb(231 237 244 / 0
 tr:last-child td { border-bottom: 0; }
 hr { margin: 2.5rem 0; border: 0; border-top: 1px solid var(--glass-edge); }
 .image { margin: 0 0 1.1rem; }
-.image img { max-width: 100%; height: auto; border: 1px solid var(--glass-edge); image-rendering: auto; }
+.image img { max-width: 100%; height: auto; border: 1px solid var(--glass-edge); border-radius: var(--radius); image-rendering: auto; }
 .image figcaption { color: var(--ink-faint); font-size: 0.75rem; }
 :deep(.inline-image) { height: 1.4em; vertical-align: middle; }
 
 /* a code block: the website's window (home/window.vue, content/ProsePre.vue): its language on the
    left, dots on the right that give way to "copy" when it's pointed at */
-.window { margin: 1.75rem 0; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); }
+.window { margin: 1.75rem 0; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(8px); }
 .window figcaption { position: relative; display: flex; align-items: center; gap: 1rem; min-height: 2.8rem; padding: 0 1rem; }
 .lang { flex: 1; color: var(--ink-faint); font: 0.72rem var(--font); }
 .dots { display: flex; gap: 0.4rem; }

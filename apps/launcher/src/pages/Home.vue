@@ -83,7 +83,7 @@ h1 { margin: 0; font: 400 clamp(1.4rem, min(6.3cqw, 9.8cqh), 4.5rem) / 0.9 var(-
 .foot { display: grid; grid-template-columns: auto 190px; max-width: 100%; box-shadow: 0 10px 30px rgb(0 0 0 / 0.45); }
 .foot > :first-child :deep(.current) { border-right: 0; background: var(--glass-strong); }
 .none { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-left: 14px; height: 3.1rem;
-    border: 1px solid var(--glass-edge); background: var(--glass); font: 0.75rem var(--font-sans); color: var(--ink-dim); }
+    border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); font: 0.75rem var(--font-sans); color: var(--ink-dim); }
 
 .tools { position: absolute; right: 20px; bottom: 20px; display: flex; gap: 10px; }
 

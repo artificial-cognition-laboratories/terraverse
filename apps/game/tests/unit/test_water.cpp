@@ -7,10 +7,13 @@
 #include "library/world/planet/atlas.h"
 #include "library/world/terragen/src/world.h"
 #include "src/server/world/generate/land/terra_column.h"
+#include "src/client/world/sim/water/base.h"
+#include "src/client/world/sim/water/flow.h"
 #include "src/client/world/sim/water/grid.h"
 #include "src/client/world/sim/water/parts.h"
 #include <cmath>
 #include <optional>
+#include <random>
 
 /*
 	The water a world is generated with (planning/sprint-122-water.md): a
@@ -30,8 +33,11 @@ public:
 	void testHeldCornersMeet();
 	void testFallStaysAStep();
 	void testGridRampsBySixteenths();
-	void testWaterMovesWithItsLevel();
-	void testRiverAtRestKeepsToItsBanks();
+	void testLevelEasesUnderItsDisturbance();
+	void testWakeNeverClimbsABank();
+	void testDisturbanceDiesAndSleeps();
+	void testCalmRiverStaysStill();
+	void testNoiseOnlyShrinks();
 	void testRiseBlendsBetweenBlocks();
 };
 
@@ -44,8 +50,11 @@ void TestWater::runTests(IGameDef *gamedef)
 	TEST(testHeldCornersMeet);
 	TEST(testFallStaysAStep);
 	TEST(testGridRampsBySixteenths);
-	TEST(testWaterMovesWithItsLevel);
-	TEST(testRiverAtRestKeepsToItsBanks);
+	TEST(testLevelEasesUnderItsDisturbance);
+	TEST(testWakeNeverClimbsABank);
+	TEST(testDisturbanceDiesAndSleeps);
+	TEST(testCalmRiverStaysStill);
+	TEST(testNoiseOnlyShrinks);
 	TEST(testRiseBlendsBetweenBlocks);
 }
 
@@ -212,85 +221,156 @@ void TestWater::testFallStaysAStep()
 		UASSERT(c == 300);
 }
 
+namespace {
+// A grid over a river, its bed at 700: each node's target `level(nx, nz)` (NONE: dry
+// ground), running at `flow` (nodes/s), first seen
+template <typename Level>
+liquids::Grid riverGrid(Level level, std::array<float, 2> flow = {})
+{
+	liquids::Grid g({ /*res*/ 16, /*nodes*/ 8, /*follow*/ 4, /*scans*/ 4 });
+	g.place(v3f(0, 0, 0));
+	for (int nz = 0; nz < g.nodes; nz++)
+		for (int nx = 0; nx < g.nodes; nx++) {
+			const s32 l = level(nx, nz);
+			g.targets[nz * g.nodes + nx] = l;
+			g.kinds[nz * g.nodes + nx] = l == liquids::NONE ? liquids::Kind::None : liquids::Kind::River;
+			g.flows[nz * g.nodes + nx] = flow;
+		}
+	for (int c = 0; c < g.cols * g.cols; c++) {
+		g.floor[c] = 700;
+		g.level[c] = 700;
+	}
+	for (liquids::Tile &t : g.tile) {
+		t.known = true;
+		t.snap = true;
+		t.retarget = true;
+	}
+	liquids::Base({ /*grid*/ g }).retarget();
+	return g;
+}
+
+void wakeAll(liquids::Grid &g)
+{
+	for (int t = 0; t < int(g.tile.size()); t++)
+		g.wake(t);
+}
+} // namespace
+
 // The grid's columns across a sloped river: each stands within a sixteenth
 // of the one beside it (a ramp, as the ground's sand), and none past its
 // nodes' levels (it's the river's own surface, not a guess beyond it)
 void TestWater::testGridRampsBySixteenths()
 {
-	liquids::Grid g({ /*res*/ 16, /*nodes*/ 8, /*follow*/ 4, /*scans*/ 4 });
-	g.place(v3f(0, 0, 0));
-	for (liquids::Tile &t : g.tile)
-		t.known = true;
-	// every node a river falling 5 sixteenths a node along x, its bed two blocks under
-	for (int nz = 0; nz < g.nodes; nz++)
-		for (int nx = 0; nx < g.nodes; nx++)
-			g.levels[nz * g.nodes + nx] = 800 - 5 * nx;
-	for (int c = 0; c < g.cols * g.cols; c++)
-		g.floor[c] = 700;
-	for (int t = 0; t < g.tiles * g.tiles; t++)
-		g.relevel(t);
+	liquids::Grid g = riverGrid([](int nx, int) { return 800 - 5 * nx; });
 	int steepest = 0;
 	for (int z = 0; z < g.cols; z++)
 		for (int x = 0; x + 1 < g.cols; x++) {
 			const int c = z * g.cols + x;
-			UASSERT(g.held(c) && g.held(c + 1));
-			steepest = std::max(steepest, std::abs(g.sea[c + 1] - g.sea[c]));
-			UASSERT(g.sea[c] <= 800 && g.sea[c] >= 800 - 5 * g.nodes);
-			// its water first found stands at that level
-			UASSERT(std::fabs(g.surface(c) - g.sea[c] / 16.0f) < 1e-4f);
+			UASSERT(g.wet(c) && g.wet(c + 1));
+			steepest = std::max(steepest, std::abs(g.target[c + 1] - g.target[c]));
+			UASSERT(g.target[c] <= 800 && g.target[c] >= 800 - 5 * g.nodes);
+			// first seen, it stands at its target
+			UASSERT(std::fabs(g.level[c] - g.target[c]) < 1e-4f);
 		}
 	UASSERTEQ(int, steepest, 1);
 }
 
-namespace {
-// A grid over a flat river: every node held at `level`, its bed at 700
-liquids::Grid riverGrid(s32 level)
+// A target moved (a river risen, a level found again as neighbours come in) is
+// eased to over frames, never jumped to in one (seen as the level jumping
+// about), and the disturbance on it rides along untouched
+void TestWater::testLevelEasesUnderItsDisturbance()
 {
-	liquids::Grid g({ /*res*/ 16, /*nodes*/ 8, /*follow*/ 4, /*scans*/ 4 });
-	g.place(v3f(0, 0, 0));
-	for (liquids::Tile &t : g.tile)
-		t.known = true;
-	for (s32 &l : g.levels)
-		l = level;
-	for (s32 &f : g.floor)
-		f = 700;
-	for (int t = 0; t < g.tiles * g.tiles; t++)
-		g.relevel(t);
-	return g;
-}
-} // namespace
-
-// A level found again (its neighbours scanned, its river risen) moves the
-// water with it, keeping what's disturbed of it: never left standing off its
-// level to settle (seen as slabs that stood till something stirred them)
-void TestWater::testWaterMovesWithItsLevel()
-{
-	liquids::Grid g = riverGrid(800);
+	liquids::Grid g = riverGrid([](int, int) { return 800; });
+	liquids::Base base({ /*grid*/ g });
 	const int c = 5 * g.cols + 5;
-	UASSERT(std::fabs(g.off(c)) < 1e-4f);
-	g.depth[c] += 0.25f; // a wake a quarter of a node high
-	for (s32 &l : g.levels)
+	g.eta[c] = 0.25f;
+	for (s32 &l : g.targets)
 		l = 790;
-	for (int t = 0; t < g.tiles * g.tiles; t++)
-		g.relevel(t);
-	UASSERT(std::fabs(g.surface(c) - (790 / 16.0f + 0.25f)) < 1e-4f);
-	UASSERT(std::fabs(g.off(c) - 0.25f) < 1e-4f);
-	UASSERT(std::fabs(g.off(c + 1)) < 1e-4f);
+	for (liquids::Tile &t : g.tile)
+		t.retarget = true;
+	base.retarget();
+	base.ease(1 / 60.0f);
+	UASSERT(g.target[c] == 790);
+	UASSERT(g.level[c] < 800 && g.level[c] > 799); // a frame on: barely moved
+	for (int i = 0; i < 600; i++)
+		base.ease(1 / 60.0f);
+	UASSERT(std::fabs(g.level[c] - 790) < 1e-4f);
+	UASSERT(std::fabs(g.eta[c] - 0.25f) < 1e-6f);
+	UASSERT(!g.tile[g.tileOf(c)].easing);
 }
 
-// Held water beside a bank lower than it: at rest nothing drives it over (the
-// river's level is its own, not a head); only what's over its level runs off
-void TestWater::testRiverAtRestKeepsToItsBanks()
+// A wake beside a bank lower than the river's surface runs along the water,
+// never over the bank: the bank isn't wet, so there's no pipe to it
+void TestWater::testWakeNeverClimbsABank()
 {
-	liquids::Grid g = riverGrid(800);
-	const int c = 5 * g.cols + 5, bank = c + 1;
-	g.sea[bank] = liquids::NONE; // not the river's: ground a block under its surface, dry
-	g.floor[bank] = 784;
-	g.depth[bank] = 0;
-	UASSERT(g.held(c) && !g.held(bank));
-	UASSERT(g.higher(c, bank) <= 0);
-	g.depth[c] += 0.125f;
-	UASSERT(std::fabs(g.higher(c, bank) - 0.125f) < 1e-4f);
+	liquids::Grid g = riverGrid([](int nx, int) { return nx == 5 ? liquids::NONE : 800; });
+	liquids::Flow flow({ /*grid*/ g });
+	const int bank = 4 * g.cols + 5 * g.res, c = bank - 1;
+	g.floor[bank] = 784; // a block under the river's surface, dry
+	g.level[bank] = 784;
+	UASSERT(!g.wet(bank) && g.wet(c));
+	g.eta[c] = 0.25f;
+	g.wake(g.tileOf(c));
+	for (int i = 0; i < 100; i++)
+		flow.step(flow.dt(), v3f(0, 0, 0));
+	UASSERT(!g.wet(bank) && g.eta[bank] == 0 && g.depth(bank) == 0);
+}
+
+// A splash spreads and dies back to its level, and its tiles fall asleep at rest
+void TestWater::testDisturbanceDiesAndSleeps()
+{
+	liquids::Grid g = riverGrid([](int, int) { return 800; });
+	liquids::Flow flow({ /*grid*/ g });
+	const int c = 20 * g.cols + 20;
+	g.eta[c] = 0.5f;
+	g.wake(g.tileOf(c));
+	for (int i = 0; i < 1500; i++) // 15 s
+		flow.step(flow.dt(), v3f(0, 0, 0));
+	for (int k = 0; k < g.cols * g.cols; k++)
+		UASSERT(g.eta[k] == 0);
+	for (const liquids::Tile &t : g.tile)
+		UASSERT(!t.awake);
+}
+
+// A river sloping and running, nothing touching it: it stays exactly as it is
+// (its slope at rest drives nothing; there's nothing for the current to carry)
+void TestWater::testCalmRiverStaysStill()
+{
+	liquids::Grid g = riverGrid([](int nx, int) { return 800 - 5 * nx; }, { 0.8f, 0.1f });
+	liquids::Flow flow({ /*grid*/ g });
+	const std::vector<float> was = g.level;
+	wakeAll(g);
+	for (int i = 0; i < 300; i++)
+		flow.step(flow.dt(), v3f(0, 0, 0));
+	for (int k = 0; k < g.cols * g.cols; k++) {
+		UASSERT(g.eta[k] == 0);
+		UASSERT(g.level[k] == was[k]);
+	}
+}
+
+// Noise on every column of a running, sloped river, a sixteenth high at
+// most: run on, it only ever shrinks (it was seen to grow, spiking a column
+// at a time, while the water was held to the server's in several ways at once)
+void TestWater::testNoiseOnlyShrinks()
+{
+	liquids::Grid g = riverGrid([](int nx, int nz) { return 800 - 3 * nx - (nz % 3); }, { 1.2f, -0.4f });
+	liquids::Flow flow({ /*grid*/ g });
+	std::mt19937 random(122);
+	std::uniform_real_distribution<float> noise(-1 / 16.0f, 1 / 16.0f);
+	for (float &e : g.eta)
+		e = noise(random);
+	wakeAll(g);
+	float most = 1 / 16.0f;
+	for (int second = 0; second < 10; second++) {
+		for (int i = 0; i < 100; i++)
+			flow.step(flow.dt(), v3f(0, 0, 0));
+		float now = 0;
+		for (float e : g.eta)
+			now = std::max(now, std::fabs(e));
+		UASSERT(now <= most + 1e-6f);
+		most = now;
+	}
+	UASSERT(most < 1 / 256.0f);
 }
 
 // A river's rise blended between its map blocks' middles: at a block's middle

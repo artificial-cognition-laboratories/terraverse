@@ -119,7 +119,7 @@ onMounted(upload)
 </template>
 
 <style scoped>
-.map { position: relative; border: var(--b) solid var(--edge); background: var(--stone-0); }
+.map { position: relative; border: var(--b) solid var(--edge); border-radius: var(--radius); background: var(--stone-0); }
 canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; cursor: crosshair; }
 .hud {
     position: absolute;

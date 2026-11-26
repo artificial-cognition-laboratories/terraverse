@@ -90,10 +90,12 @@ public:
 		// gets), from the weather (sprint 111): a porous block's pores hold
 		// that share of what they can. Unset: dry
 		std::function<double(Pos)> wetness;
-		// whether a block of liquid is a river's or a lake's, kept full by the
-		// network it's part of (sprint 115: fill::HELD): what runs out of it is
-		// made up, as a reach's discharge would. Unset: none is
-		std::function<bool(Pos)> held;
+		// how full a block of liquid is held by the network it's part of, 0..1
+		// (sprint 115: fill::HELD, a river's or a lake's): kept at that, made
+		// up as a reach's discharge would and drained to it, so a river's top
+		// holds only what's under its surface (sprint 122: it stood a block
+		// high and spilled over its banks). Nothing, or unset: not held
+		std::function<std::optional<double>(Pos)> held;
 	};
 	// The air of a world's body: its pressure at the ground and its gases.
 	struct Air
@@ -222,7 +224,7 @@ private:
 		// and slides); a liquid's outflow through each side (+x −x +z −z), m³/s,
 		// kept between steps (Mei's virtual pipes: it has momentum)
 		bool loose = false;
-		bool held = false; // a river's or lake's water, kept full (Ground::held)
+		bool held = false; // a river's or lake's water, kept at its surface (Ground::held)
 		double flux[4] = { 0, 0, 0, 0 };
 		double liquid = 0, solid = 0; // m³, worked out once a flow step
 		double open = 0;              // m³ of room for liquid and what's poured (its open space)

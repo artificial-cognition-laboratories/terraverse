@@ -27,7 +27,7 @@ function flip(id: string) {
 .facets { display: grid; gap: 0.15rem; min-width: 0; }
 h4 { margin: 0 0 0.6rem; color: var(--ink-faint); font: 400 0.62rem var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; }
 button { display: flex; gap: 0.7rem; align-items: center; width: 100%; padding: 0.45rem 0.25rem; border: 0; background: none; text-align: left; }
-.box { flex: none; width: 0.8rem; height: 0.8rem; border: 1px solid var(--night-4); }
+.box { flex: none; width: 0.8rem; height: 0.8rem; border: 1px solid var(--night-4); border-radius: var(--radius); }
 .label { flex: 1; min-width: 0; overflow: hidden; color: var(--ink-dim); font: 0.88rem var(--font-sans); text-overflow: ellipsis; white-space: nowrap; }
 .count { color: var(--ink-faint); font-size: 0.7rem; }
 button:hover .label, .on .label { color: var(--ink); }

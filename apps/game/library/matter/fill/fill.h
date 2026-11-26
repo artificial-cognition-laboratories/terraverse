@@ -5,7 +5,10 @@
 
 #include "src/shared/base/irr_v3d.h"
 #include "src/shared/base/irrlichttypes.h"
+#include <algorithm>
+#include <cmath>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -44,6 +47,45 @@ inline u8 withPart(u8 param2, int part)
 {
 	return u8((param2 & ~PART) | (part >= 16 ? 0 : part & PART));
 }
+
+// A river's surface (sprint 122, R2): one function, read by the server's matter, the
+// client's water, its flat drawing and swimming alike, so none of them disagree
+namespace surface {
+// Held water's top node's surface over the node's floor, sixteenths: its part, risen
+// or fallen by its river's rise, kept within the node (past its top is a flood, and
+// under its floor low water through the whole channel: neither yet, sprint 122 R6)
+inline int of(u8 param2, float rise)
+{
+	return std::clamp(partOf(param2) + int(std::lround(rise)), 0, 16);
+}
+// A river's rise at node p, sixteenths: its map blocks' rises blended between
+// their middles, so neighbours rise alike and a river doesn't step at a block's
+// edge. `riseOf(block)`: a block's rise, or nothing (no river of its own; a river
+// crossing a block's floor or roof is the block under's or over's). None: 0.
+template <typename RiseOf>
+float riseAt(const RiseOf &riseOf, v3s16 p)
+{
+	constexpr int B = 16; // MAP_BLOCKSIZE (mapblock.h's, not included here)
+	const float fx = (p.X - (B - 1) * 0.5f) / B, fz = (p.Z - (B - 1) * 0.5f) / B;
+	const int bx = int(std::floor(fx)), bz = int(std::floor(fz));
+	const float tx = fx - bx, tz = fz - bz;
+	const s16 by = s16(std::floor(p.Y / float(B)));
+	float sum = 0, weight = 0;
+	for (int k = 0; k < 4; k++) {
+		const int dx = k & 1, dz = k >> 1;
+		const float w = (dx ? tx : 1 - tx) * (dz ? tz : 1 - tz);
+		for (s16 dy : { 0, -1, 1 }) {
+			const std::optional<float> rise = riseOf(v3s16(s16(bx + dx), s16(by + dy), s16(bz + dz)));
+			if (!rise)
+				continue;
+			sum += w * *rise;
+			weight += w;
+			break;
+		}
+	}
+	return weight > 1e-6f ? sum / weight : 0;
+}
+} // namespace surface
 
 // Liquids by name, numbered as this process first meets them (a map
 // block's fills are saved by name, so the numbers never leave it).

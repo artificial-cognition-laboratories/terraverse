@@ -98,6 +98,6 @@ dl { display: grid; gap: 0.4rem; width: 100%; margin: 0; }
 dl div { display: flex; justify-content: space-between; gap: 1rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgb(231 237 244 / 0.05); font-size: 0.78rem; }
 dt { color: var(--ink-dim); }
 dd { margin: 0; text-align: right; font: 0.7rem var(--font-display); text-transform: uppercase; }
-.world-code { max-width: 100%; overflow-wrap: anywhere; padding: 0.6rem 0.75rem; border: 1px solid var(--glass-edge); background: rgb(4 7 11 / 0.6); color: var(--accent-hi); font-size: 0.78rem; user-select: text; }
+.world-code { max-width: 100%; overflow-wrap: anywhere; padding: 0.6rem 0.75rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: rgb(4 7 11 / 0.6); color: var(--accent-hi); font-size: 0.78rem; user-select: text; }
 .danger p:not(.dim) { margin: 0; color: var(--danger); font-size: 0.82rem; }
 </style>

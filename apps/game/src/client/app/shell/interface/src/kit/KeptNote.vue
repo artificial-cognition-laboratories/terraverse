@@ -17,6 +17,6 @@ const age = computed(() => {
 </template>
 
 <style scoped>
-.kept { display: flex; gap: 0.6rem; align-items: baseline; margin: 0; padding: 0.45rem 0.7rem; border: 1px solid var(--glass-edge); background: var(--glass); color: var(--ink-dim); font-size: 0.72rem; }
+.kept { display: flex; gap: 0.6rem; align-items: baseline; margin: 0; padding: 0.45rem 0.7rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); color: var(--ink-dim); font-size: 0.72rem; }
 .tag { color: #d9a441; font: 0.55rem var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; }
 </style>

@@ -254,7 +254,7 @@ WorldMatter::Cell *WorldMatter::wake(Pos at, double temperature)
 	c.sky = (uint32_t)air;
 	c.mix.temperature = warmed;
 	c.loose = kept ? held->second.loose : k.loose;
-	c.held = m_ground.held && k.state == State::Liquid && !k.air && m_ground.held(at);
+	c.held = m_ground.held && k.state == State::Liquid && !k.air && m_ground.held(at).has_value();
 	if (held != m_held.end())
 		m_held.erase(held); // taken, or stale (the block was dug or built over while it slept)
 	m_pending.erase(key(at));
@@ -443,8 +443,8 @@ void WorldMatter::exchange(Cell &c, double k, double dt)
 // by how full they are, at least a sixty-fourth so a drop can be seen.
 void WorldMatter::reshape(Cell &c, bool exactly)
 {
-	if (m_kinds[c.kind].vessel)
-		return; // a crucible of molten tin is still the crucible
+	if (m_kinds[c.kind].vessel || c.held)
+		return; // a crucible of molten tin is still the crucible; a river's block, its river's (its surface is its part, sprint 122)
 	if (melting(c, exactly))
 		return;
 	Physics::Main m = sky(c).physics.main(c.mix);
@@ -828,16 +828,10 @@ void WorldMatter::step(double seconds)
 			auto it = m_cells.find(id);
 			if (it == m_cells.end())
 				continue;
-			// a river's water is made up to full: the reach runs on whatever's taken
-			if (it->second.held) {
-				Cell &c = it->second;
-				const matter::Mixture full = asleep(c.pos, m_kinds[c.kind], c.mix.temperature);
-				for (size_t s = 0; s < full.amounts.size(); s++) {
-					const double short_by = full.in(s, State::Liquid) - c.mix.in(s, State::Liquid);
-					if (short_by > 0)
-						c.mix.add(s, State::Liquid, short_by);
-				}
-			}
+			// a river's water is held at its surface: made up to it (the reach runs on
+			// whatever's taken) and drained to it (what's over it is the reach's, run on)
+			if (Cell &c = it->second; c.held)
+				c.mix.level(asleep(c.pos, m_kinds[c.kind], c.mix.temperature), m_ground.held(c.pos).value_or(1));
 			if (it->second.liquid > 0)
 				evaporate(it->second, dt);
 			if (it->second.moved > 0)

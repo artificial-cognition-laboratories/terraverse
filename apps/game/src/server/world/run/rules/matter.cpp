@@ -20,6 +20,7 @@
 #include "src/shared/game/objects/remoteplayer.h"
 #include "src/server/players/player_sao.h"
 #include "src/server/world/terra.h"
+#include "src/server/world/run/rules/river_surface.h"
 #include <json/json.h>
 #include <algorithm>
 #include <cstdio>
@@ -171,8 +172,11 @@ ServerMatter &serverMatter(Server *server)
 		return it != sm->wetness.end() ? it->second : 0.0;
 	};
 	// a river's or lake's water as generated, kept full (sprint 115)
-	ground.held = [sm](Pos p) {
-		return (sm->server->getEnv().getMap().getNode(v3s16(p.x, p.y, p.z)).getParam2() & fill::HELD) != 0;
+	// held at its surface (sprint 122), never emptied: a held block gone empty would go from the map
+	// for good, and low water through the whole channel is R6's
+	ground.held = [sm](Pos p) -> std::optional<double> {
+		const std::optional<int> surface = terraHeldSurface(sm->server, v3s16(p.x, p.y, p.z));
+		return surface ? std::optional<double>(std::max(1, *surface) / 16.0) : std::nullopt;
 	};
 	// each body's own air, from its card (sprint 96): a fire on the Moon starves
 	ground.carve = [sm](Pos p, int cells, unsigned exposed, bool melting) {

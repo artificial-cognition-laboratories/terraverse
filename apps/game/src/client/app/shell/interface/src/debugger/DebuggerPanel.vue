@@ -9,6 +9,8 @@ import NetworkTab from "./net/NetworkTab.vue"
 import type { NetStoreHandle } from "./net/store.ts"
 import ServerTab from "./server/ServerTab.vue"
 import type { ServerStoreHandle } from "./server/store.ts"
+import WorldTab from "./world/WorldTab.vue"
+import type { WorldStoreHandle } from "./world/store.ts"
 import Menu, { type MenuItem } from "./Menu.vue"
 import { TABS, type TabId } from "./tabs.ts"
 
@@ -18,7 +20,7 @@ import { TABS, type TabId } from "./tabs.ts"
  * a dark rail of labelled tabs, those that don't fit folded behind », and its
  * own buttons at the end.
  */
-const props = defineProps<{ side: DockSide; log: TableFeedHandle<LogLine>; perf: PerfStoreHandle; net: NetStoreHandle; server: ServerStoreHandle; exportTrace: () => Promise<string> }>()
+const props = defineProps<{ side: DockSide; log: TableFeedHandle<LogLine>; perf: PerfStoreHandle; net: NetStoreHandle; server: ServerStoreHandle; world: WorldStoreHandle; exportTrace: () => Promise<string> }>()
 const emit = defineEmits<{ dock: [side: DockSide]; grab: []; close: [] }>()
 const tab = ref<TabId>(TABS[0].id)
 const shown = computed(() => TABS.find((t) => t.id === tab.value) ?? TABS[0])
@@ -138,6 +140,7 @@ function pickFolded(id: TabId) {
                 <PerfTab v-else-if="tab === 'perf'" :perf="perf" :export-trace="exportTrace" />
                 <NetworkTab v-else-if="tab === 'net'" :perf="perf" :net="net" />
                 <ServerTab v-else-if="tab === 'server'" :frames="perf.frames.value" :server="server" />
+                <WorldTab v-else-if="tab === 'world'" :world="world" />
                 <div v-else class="empty">
                     <svg viewBox="0 0 16 16" aria-hidden="true"><path :d="shown.icon" /></svg>
                     <h2>{{ shown.label }}</h2>

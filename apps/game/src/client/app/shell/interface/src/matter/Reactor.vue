@@ -211,18 +211,18 @@ const clock = (s: number) => s < 120 ? `${s.toFixed(1)} s` : s < 7200 ? `${(s / 
 .reactor { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 0 22px; height: 100%; min-height: 0; }
 .vessel { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; padding-right: 6px; }
 .presets { display: flex; flex-wrap: wrap; gap: 6px; }
-.presets button { border: var(--b) solid var(--edge); background: var(--stone-2); padding: 4px 8px; font: 10px var(--font-display); text-transform: uppercase; color: var(--ink-dim); }
+.presets button { border: var(--b) solid var(--edge); border-radius: var(--radius); background: var(--stone-2); padding: 4px 8px; font: 10px var(--font-display); text-transform: uppercase; color: var(--ink-dim); }
 .presets button.on { background: var(--accent-lo); color: var(--ink); box-shadow: var(--sunk); }
 .hint { margin: 0; font-size: 12px; color: var(--ink-dim); }
 
-.readout { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 8px 12px; border: var(--b) solid var(--edge); background: var(--stone-1); box-shadow: var(--sunk); }
+.readout { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 8px 12px; border: var(--b) solid var(--edge); border-radius: var(--radius); background: var(--stone-1); box-shadow: var(--sunk); }
 .temp { display: grid; gap: 2px; }
 .label { font: 10px var(--font-display); text-transform: uppercase; color: var(--ink-faint); }
 .temp strong { font: 14px var(--font-display); }
 .spark-line { width: 100%; height: 40px; }
 .spark-line polyline { fill: none; stroke: #ff9a4a; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 
-.bar { display: flex; height: 18px; border: var(--b) solid var(--edge); overflow: hidden; }
+.bar { display: flex; height: 18px; border: var(--b) solid var(--edge); border-radius: var(--radius); overflow: hidden; }
 .bar span { min-width: 1px; transition: flex-grow 200ms; }
 .contents { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
 .contents li { display: grid; grid-template-columns: 10px 64px 1fr 90px 72px 26px 16px; gap: 8px; align-items: center; font-size: 12px; }
@@ -231,18 +231,18 @@ const clock = (s: number) => s < 120 ? `${s.toFixed(1)} s` : s < 7200 ? `${(s / 
 .name { color: var(--ink-dim); }
 .state { font: 10px var(--font-display); text-transform: uppercase; }
 .solid { color: #8fb6e8; } .liquid { color: #40b8ec; } .gas { color: #d9b07a; } .supercritical { color: #c99be0; }
-.contents input { width: 100%; padding: 2px 4px; border: var(--b) solid var(--edge); background: var(--stone-0); color: var(--ink); font: 11px var(--font-display); }
+.contents input { width: 100%; padding: 2px 4px; border: var(--b) solid var(--edge); border-radius: var(--radius); background: var(--stone-0); color: var(--ink); font: 11px var(--font-display); }
 .unit { color: var(--ink-faint); font-size: 10px; }
 .x { border: 0; background: none; padding: 0; color: var(--ink-faint); }
 .add { display: flex; gap: 8px; }
-.add select { flex: 1; padding: 4px; border: var(--b) solid var(--edge); background: var(--stone-1); color: var(--ink); font-size: 12px; }
+.add select { flex: 1; padding: 4px; border: var(--b) solid var(--edge); border-radius: var(--radius); background: var(--stone-1); color: var(--ink); font-size: 12px; }
 .conditions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
 .run { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .speed { width: 220px; margin-left: auto; }
 
 .reactions { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; padding-left: 22px; border-left: var(--b) solid var(--edge); }
 h3 { margin: 0; font: 11px var(--font-display); text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); }
-.reaction { padding: 8px 10px; border: var(--b) solid var(--edge); background: var(--stone-1); opacity: 0.6; }
+.reaction { padding: 8px 10px; border: var(--b) solid var(--edge); border-radius: var(--radius); background: var(--stone-1); opacity: 0.6; }
 .reaction.live { opacity: 1; border-color: var(--accent); box-shadow: inset 2px 0 0 var(--accent-hi); }
 .reaction header { display: flex; justify-content: space-between; gap: 8px; }
 .reaction strong { font: 12px var(--font-display); text-transform: uppercase; }

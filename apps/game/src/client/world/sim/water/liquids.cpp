@@ -27,11 +27,12 @@ Layer::Layer(Opts o) :
 	m_grid(fineGrid()),
 	m_flat({ /*ndef*/ *o.ndef, /*grid*/ m_grid }),
 	m_scan({ /*ndef*/ *o.ndef, /*grid*/ m_grid }),
-	m_hold({ /*grid*/ m_grid }),
+	m_base({ /*grid*/ m_grid }),
 	m_flow({ /*grid*/ m_grid }),
 	m_drops({ /*ndef*/ *o.ndef, /*grid*/ m_grid, /*grid_runs*/ m_gpu }),
 	m_draw(m_gpu ? std::make_unique<Draw>(Draw::Opts{ /*smgr*/ o.smgr, /*shaders*/ o.shaders, /*ndef*/ *o.ndef,
-			/*grid*/ m_grid, /*material*/ m_material }) : nullptr)
+			/*grid*/ m_grid, /*material*/ m_material, /*look*/ m_look }) : nullptr),
+	m_inspect({ /*grid*/ m_grid, /*look*/ m_look, /*base*/ m_base, /*flat*/ m_flat })
 {}
 
 void Layer::update(const std::unordered_set<v3s16> &changed, const std::unordered_set<v3s16> &ground,
@@ -39,9 +40,12 @@ void Layer::update(const std::unordered_set<v3s16> &changed, const std::unordere
 		v3s16 offset, v3f camera, std::optional<s16> sea, u32 daynight, float dtime, bool hurrying)
 {
 	m_offset = offset;
-	const Frame frame{ offset, camera, sea, &rivers, daynight };
-	m_grid.sea_level = sea ? (*sea + 1) * 16 : INT32_MIN;
-	const bool relight = m_flat.begin(changed, ground, map, rivers, camera, daynight, dtime);
+	// (the debugger can have rivers drawn at the level they were generated at)
+	static const Rivers unrisen;
+	const Rivers &shown = m_look.rise ? rivers : unrisen;
+	m_inspect.frame(riseAt(rivers, v3s16(std::lround(camera.X), std::lround(camera.Y), std::lround(camera.Z))));
+	const Frame frame{ offset, camera, sea, &shown, daynight };
+	const bool relight = m_flat.begin(changed, ground, map, shown, camera, daynight, dtime);
 
 	std::unordered_set<v3s16> blocks(changed);
 	blocks.insert(ground.begin(), ground.end());
@@ -60,14 +64,16 @@ void Layer::update(const std::unordered_set<v3s16> &changed, const std::unordere
 		looked = micros() - t0;
 
 		const s64 t1 = micros();
+		m_base.retarget();
 		m_drops.pour(streams);
-		m_flow.push(movers, dtime);
-		m_hold.frame(dtime);
-		const float dt = m_flow.dt();
-		m_owed = std::min(m_owed + dtime, dt * m_flow.mostSteps());
-		for (; m_owed >= dt; m_owed -= dt) {
-			m_flow.step(dt, camera);
-			m_hold.carry(dt);
+		// (frozen by the debugger: held where it is, to be looked at)
+		if (!m_look.frozen) {
+			m_base.ease(dtime);
+			m_flow.push(movers, dtime);
+			const float dt = m_flow.dt();
+			m_owed = std::min(m_owed + dtime, dt * m_flow.mostSteps());
+			for (; m_owed >= dt; m_owed -= dt)
+				m_flow.step(dt, camera);
 		}
 		ran = micros() - t1;
 	}
@@ -101,8 +107,9 @@ void Layer::render()
 	if (SceneManager->getSceneNodeRenderPass() != scene::ESNRP_TRANSPARENT)
 		return;
 	driver->setMaterial(m_material);
-	m_flat.render(driver, m_offset);
-	if (m_draw) {
+	if (m_look.flat)
+		m_flat.render(driver, m_offset);
+	if (m_draw && m_look.grid) {
 		m_draw->render(driver, m_offset);
 		driver->setMaterial(m_material);
 	}

@@ -62,7 +62,7 @@ watch(() => state.refusal, refusal => {
 @media (max-width: 700px), (max-height: 420px) { .account { top: 10px; right: 10px; } .account :deep(.icon-button) { width: 36px; height: 36px; } }
 .refusal {
     position: absolute; top: 16px; left: 50%; z-index: 20; transform: translateX(-50%); display: flex; align-items: center; gap: 14px;
-    max-width: calc(100% - 32px); padding: 10px 14px; border: var(--b) solid var(--edge); background: var(--danger-lo);
+    max-width: calc(100% - 32px); padding: 10px 14px; border: var(--b) solid var(--edge); border-radius: var(--radius); background: var(--danger-lo);
     box-shadow: var(--raised), 6px 6px 0 rgb(0 0 0 / 0.35); font-size: 13px;
 }
 .refusal button { padding: 0 4px; border: 0; background: none; }

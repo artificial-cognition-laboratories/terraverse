@@ -228,7 +228,7 @@ watch(() => [pose.value?.u, pose.value?.v, map.value?.size], ([u, v, size]) => {
 .view-tools, .overlays { position: absolute; z-index: 2; top: 64px; display: grid; gap: 6px; }
 .view-tools { left: 14px; }
 .overlays { right: 14px; }
-.picked { position: absolute; z-index: 2; left: 14px; bottom: 14px; display: flex; gap: 12px; align-items: center; padding: 8px 10px; border: var(--b) solid var(--edge); background: rgb(12 18 24 / .9); color: var(--ink-dim); font: 10px var(--font-body); box-shadow: var(--raised); }
+.picked { position: absolute; z-index: 2; left: 14px; bottom: 14px; display: flex; gap: 12px; align-items: center; padding: 8px 10px; border: var(--b) solid var(--edge); border-radius: var(--radius); background: rgb(12 18 24 / .9); color: var(--ink-dim); font: 10px var(--font-body); box-shadow: var(--raised); }
 .pending { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-dim); font: 13px var(--font-display); }
 .problem { position: absolute; z-index: 2; left: 14px; bottom: 56px; }
 </style>

@@ -145,6 +145,26 @@ They're built on this base once it's sound.
   The rise is the run's (`flowAt`); `TestRivers` updated for a channel 8 wide being 3 deep.
 - **Phase 5, first cut.** Held water runs by its offset from its level; carried across node
   boundaries; a river's relaxes at 0.8/s.
+- **Phase 5, done (2026-11-26).** Seen in the game: the level jumping about, blocks of flat water
+  standing a node high in mid-river, and a vibration that grew to spikes a column at a time. The
+  first cut still ran absolute depth, pulled back to the server's in four ways at once (pools,
+  the sea's and rivers' relaxation, the current's carry, levels snapped when found again), and
+  they fought. Now the module is what "the one idea" says:
+  - **Each column is a level plus η** (`grid`). The level is the server's (`base`: a node's
+    target through `held::corners`, eased at 1.5/s, never snapped; first seen, put there). η is
+    the client's alone; nothing from the server touches it. `Hold` (pools, credit, the coast's
+    sums, currents by distance to a step) is gone whole.
+  - **η runs by pipes between wet columns only** (`flow`), so a wake never climbs a bank; is
+    carried semi-Lagrangian by the server's current, blended between node middles; dies at a
+    rate by kind (river 0.5/s, sea 1.2/s); a tile quiet a second sleeps with η zeroed. A calm
+    river has nothing awake. A drop lands as η.
+  - **A tile's read whole or not at all** (`scan`): a block not here yet under water is its
+    bottom, not a reason to leave the tile half-owned (the flat water drew the rest a block high).
+  - **The debugger's World tab** (`shell/host/inspectors.h`): any system can register stats and
+    controls. Water's: draw as disturbance, kinds or what's running; grid or flat water alone;
+    freeze; splash; calm; stirred and easing nodes, the most off its level, levels found again/s.
+  - `TestWater`: a level eases under its disturbance, a wake never climbs a bank, a splash dies
+    and sleeps, a calm sloped river stays exactly still, noise on a running river only shrinks.
 - **Not run:** the game client. None of the drawing, the disturbance or the flat river has been
   seen. Worlds made before this keep their staircases where they're already generated.
 - **Seen in the game, then fixed** (the user's look): shallow slabs and sand through steady water.
@@ -174,6 +194,34 @@ They're built on this base once it's sound.
   river each map block's flooded flat at its own level, boxes of water down the slope (seen in the
   game). Rivers stay at their brim till floods are the river's own surface over its floodplain
   (phase 6).
+- **Seen with the World tab (2026-11-26), and the plan from it.** The Kinds view showed a river
+  drawn as still water (no way known) and patches of fills: the matter's world made a held cell up
+  to a *full* block (`sandbox/world.cpp`), never reading the part its top node holds, so every
+  river's top stood a block of head over its surface and spilled over its banks as fills, made
+  up again each step. And the rise was a drawing's alone (up to +15/16 over a part: in the air).
+  A river is one surface with one owner, and the land is cut to the water that runs through it:
+  - **R1. The matter's river is a boundary.** A held cell is held *at its surface* (its part,
+    with its river's rise): made up to it and drained to it. It never stands a block high, never
+    spills; a ditch dug from it fills from it, and what's poured in is taken.
+  - **R2. One surface, one function.** A river's top: its top node's part plus its rise, kept
+    within that node (`fill::surfaceOf`), the rise blended between blocks alike on both sides.
+    The server's matter, the grid, the flat drawing and swimming all read it. A rise past the
+    top node (a flood) or under it (low water through the whole channel) waits for R6.
+  - **R3. Every river block says which way it runs**, so its water's carried (cyan, not green).
+  - **R4. One base mesher.** The base surface at sixteenths per map block, near and far; the grid
+    adds only the disturbance. No river drawn at whole blocks.
+  - **R5. Channels cut to their discharge** (hydraulic geometry: width ~ Q^0.5, depth ~ Q^0.4 of
+    the mean): a river at its mean flow is at its brim. A generation change: the bump's the
+    developer's call.
+  - **R1–R3 done (2026-11-26).** R1: a held cell's levelled to its share (`Mixture::level`) and
+    never reshaped (it was: a river block's water dipping under full became air and a fill, the
+    river losing that block for good and the fill drawn orange). `TestSandbox`'s
+    `testRiverHeldAtItsSurface`: a river 6/16 full fills its ditch to 6/16, no higher. R2:
+    `fill::surface` (`of`, `riseAt`), read by the server's matter (`run/rules/river_surface`), the
+    grid, the flat drawing's tops and swimming. R3: a block's way from its highest held node (not a
+    cave under it) and down its surface's slope as generated, so streams run too.
+  - **R6. The surface through the whole channel, then floods** (the map's held nodes over the
+    surface read as air; over the brim, the floodplain: phase 6), then local solves (phase 7).
 - **Left:** the far view's edge seam; the flat drawing's cost (spikes to ~5 ms); currents from
   each map block's way interpolated, not stepped per block; the water table by the sea and lakes;
   phases 6–7.

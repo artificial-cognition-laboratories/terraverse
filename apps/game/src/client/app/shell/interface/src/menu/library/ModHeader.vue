@@ -56,10 +56,10 @@ const STATE = { idle: "copy", copied: "copied", failed: "can't copy" } as const
 
 <style scoped>
 .header { display: grid; gap: 1.25rem; }
-.banner { position: relative; height: 9rem; border: 1px solid var(--glass-edge); }
+.banner { position: relative; height: 9rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); }
 .art { position: absolute; inset: 0; }
 /* the address, copied as an install line: quiet until it's wanted */
-.address { position: absolute; top: 0.75rem; right: 0.75rem; display: flex; gap: 0.6rem; align-items: center; padding: 0.35rem 0.6rem; border: 1px solid var(--glass-edge); background: rgb(4 7 11 / 0.55); backdrop-filter: blur(6px); color: var(--ink-dim); font: 0.72rem var(--font); }
+.address { position: absolute; top: 0.75rem; right: 0.75rem; display: flex; gap: 0.6rem; align-items: center; padding: 0.35rem 0.6rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: rgb(4 7 11 / 0.55); backdrop-filter: blur(6px); color: var(--ink-dim); font: 0.72rem var(--font); }
 .address code { font: inherit; }
 .address .state { display: none; color: var(--ink-faint); }
 .address:hover { color: var(--ink); border-color: var(--edge-lit-hi); }
@@ -68,16 +68,16 @@ const STATE = { idle: "copy", copied: "copied", failed: "can't copy" } as const
 .names { flex: 1; display: grid; gap: 0.35rem; min-width: 0; padding-top: 2.5rem; }
 .line { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
 h1 { margin: 0; color: var(--ink); font: 400 clamp(1.4rem, 3vw, 2rem) var(--font-display); text-transform: uppercase; }
-.badge { padding: 0.2rem 0.45rem; border: 1px solid var(--glass-edge); color: var(--ink-dim); font: 0.68rem var(--font); }
+.badge { padding: 0.2rem 0.45rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); color: var(--ink-dim); font: 0.68rem var(--font); }
 .badge.official { border-color: var(--edge-lit-hi); color: var(--accent-hi); font: 0.55rem var(--font-display); text-transform: uppercase; }
 /* the star sits at the far end of the title line, level with the name */
 .end { display: flex; gap: 0.6rem; align-items: center; margin-left: auto; }
-.star { display: inline-flex; align-items: center; gap: 0.55rem; height: 2.1rem; padding: 0 0.75rem; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); color: var(--ink-dim); font: 0.62rem var(--font-display); text-transform: uppercase; }
+.star { display: inline-flex; align-items: center; gap: 0.55rem; height: 2.1rem; padding: 0 0.75rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(8px); color: var(--ink-dim); font: 0.62rem var(--font-display); text-transform: uppercase; }
 .star:disabled { cursor: default; }
 .star svg { filter: grayscale(1) brightness(0.8); }
 .star .count { padding-left: 0.55rem; border-left: 1px solid var(--glass-edge); color: var(--ink-faint); font: 0.72rem var(--font); }
 .by { color: var(--ink-faint); font-size: 0.78rem; }
 .by b { font-weight: 400; color: var(--accent-hi); }
 .description { max-width: 44rem; margin: 0; color: var(--ink-dim); font: 1.05rem/1.6 var(--font-sans); }
-.deprecated { margin: 0; padding: 0.75rem 1rem; border: 1px solid rgb(210 153 34 / 0.5); color: var(--warn); font-size: 0.85rem; }
+.deprecated { margin: 0; padding: 0.75rem 1rem; border: 1px solid rgb(210 153 34 / 0.5); border-radius: var(--radius); color: var(--warn); font-size: 0.85rem; }
 </style>

@@ -18,6 +18,7 @@ namespace shell {
 
 class Planetarium;
 class Entering;
+class Inspectors;
 
 /*
 	Chromium re-launches this executable for its renderer and GPU processes.
@@ -105,6 +106,8 @@ public:
 	Entering &entering();
 	// What the debugger's Server tab shows of the server, while in a world (shell/serverinfo.h); null when leaving it.
 	void serverInfo(std::function<Json::Value()> describe);
+	// What the debugger's World tab shows of the game's systems (inspectors.h)
+	Inspectors &inspectors();
 
 private:
 	void frameUi();

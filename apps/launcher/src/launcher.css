@@ -1,2 +1,7 @@
 /* The launcher is a window of its own: unlike the game's overlay, it paints its ground. */
 html, body { background: var(--stone-0); }
+
+/* The launcher's corners under the game's: the game's page is drawn at one device pixel to a CSS
+   pixel, while the launcher's webview follows the desktop's scale, so the same --radius came out
+   rounder here */
+:root { --radius: 1px; }

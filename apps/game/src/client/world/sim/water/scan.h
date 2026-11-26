@@ -3,7 +3,9 @@
 
 #pragma once
 
+#include "src/client/world/sim/water/grid.h"
 #include "src/client/world/sim/water/parts.h"
+#include <optional>
 #include <unordered_set>
 #include <vector>
 
@@ -41,8 +43,20 @@ public:
 			const Frame &f, s64 since);
 
 private:
+	// What a node's column holds, as looked at
+	struct Found
+	{
+		std::optional<v3s16> top; // its liquid's highest node
+		s32 target = NONE;        // where its water stands, world sixteenths
+		Kind kind = Kind::None;
+		std::array<float, 2> flow{}; // its river's current, nodes/s
+		std::array<s32, 256> floor;  // its columns' ground (res × res of them), world sixteenths
+		bool coloured = false;
+		u8 r = 0, g = 0, b = 0;
+	};
 	void tile(int t, ClientMap &map, const Frame &f, Handover &handover);
-	void besideSea(int t, bool sea);
+	// Nothing: a block not here yet, before anything was found
+	std::optional<Found> node(v3s16 at, s16 hi, s16 lo, ClientMap &map, const Frame &f) const;
 
 	const NodeDefManager &m_ndef;
 	Grid &m_grid;

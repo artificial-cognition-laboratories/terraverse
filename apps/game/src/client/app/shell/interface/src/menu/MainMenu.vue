@@ -162,7 +162,7 @@ const CREDITS_ICON = {
     gap: 16px;
     align-items: center;
     padding: 10px 14px;
-    border: var(--b) solid var(--edge);
+    border: var(--b) solid var(--edge); border-radius: var(--radius);
     background: var(--danger-lo);
     box-shadow: var(--raised), 6px 6px 0 rgb(0 0 0 / 0.35);
 }

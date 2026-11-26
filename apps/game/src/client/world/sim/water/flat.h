@@ -50,6 +50,8 @@ public:
 	// next): how many there were
 	size_t rebuild(ClientMap &map, u32 daynight, bool hurrying);
 	void render(video::IVideoDriver *driver, v3s16 offset);
+	// Map blocks it has liquid of
+	size_t blocks() const { return m_blocks.size(); }
 
 private:
 	struct Block

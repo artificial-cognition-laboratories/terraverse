@@ -63,10 +63,10 @@ const scroll = (way: number) => row.value?.scrollBy({ left: way * 216 })
 <style scoped>
 .strip { display: flex; align-items: stretch; gap: 8px; min-width: 0; padding: 5px 0; }
 .bodies { display: flex; align-items: start; gap: 5px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-.arrow { flex: none; width: 24px; border: var(--b) solid var(--edge); background: var(--stone-2); color: var(--ink); font: 14px var(--font-display); cursor: pointer; }
+.arrow { flex: none; width: 24px; border: var(--b) solid var(--edge); border-radius: var(--radius); background: var(--stone-2); color: var(--ink); font: 14px var(--font-display); cursor: pointer; }
 .arrow:hover { background: var(--stone-3); }
 .body-block { flex: none; width: 72px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.body-button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; min-width: 0; padding: 2px; border: var(--b) solid transparent; background: none; color: var(--ink-dim); cursor: pointer; }
+.body-button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; min-width: 0; padding: 2px; border: var(--b) solid transparent; border-radius: var(--radius); background: none; color: var(--ink-dim); cursor: pointer; }
 .body-button { min-height: 53px; }
 .body-button:hover, .moon-row button:hover { background: var(--stone-2); color: var(--ink); }
 .body-button.on, .moon-row button.on { border-color: var(--edge); background: var(--accent-lo); box-shadow: var(--sunk); color: var(--ink); }
@@ -74,7 +74,7 @@ const scroll = (way: number) => row.value?.scrollBy({ left: way * 216 })
 .body-button small { color: var(--accent-hi); font: 7px var(--font-display); text-transform: uppercase; }
 .body-button :deep(.icon) { width: 24px; height: 24px; }
 .moon-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 1px; max-width: 72px; }
-.moon-row button { position: relative; display: grid; place-items: center; flex: none; width: 16px; height: 16px; padding: 0; border: 1px solid transparent; background: none; cursor: pointer; }
+.moon-row button { position: relative; display: grid; place-items: center; flex: none; width: 16px; height: 16px; padding: 0; border: 1px solid transparent; border-radius: var(--radius); background: none; cursor: pointer; }
 .moon-row button.tagged::after { content: ""; position: absolute; right: 1px; top: 1px; width: 4px; height: 4px; background: var(--accent-hi); }
 .moon-row button :deep(.icon) { width: 14px; height: 14px; }
 </style>

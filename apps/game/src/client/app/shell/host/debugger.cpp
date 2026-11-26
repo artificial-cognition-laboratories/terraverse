@@ -7,6 +7,7 @@
 #include "src/client/app/shell/host/inbox.h"
 #include "src/client/app/shell/host/client.h"
 #include "src/client/app/shell/host/console.h"
+#include "src/client/app/shell/host/inspectors.h"
 #include "src/client/app/shell/host/process.h"
 #include "library/trace/marks.h"
 #include "src/client/app/shell/host/input.h"
@@ -202,6 +203,8 @@ struct Debugger::Impl
 	u64 server_at = 0; // when the server was last described
 	Process process;
 	std::function<Json::Value()> describeServer;
+	Inspectors inspectors;
+	u64 inspect_at = 0; // when the inspected were last described
 	u64 perf_at = 0; // when frames were last sent
 	CefRefPtr<CefMessageRouterBrowserSide> router;
 	CefRefPtr<Client> client;
@@ -303,6 +306,11 @@ struct Debugger::Impl
 			dock = dockNamed(intent["side"].asString());
 			save();
 			sendDock();
+			return Json::Value();
+		});
+		bridge.on("inspect.act", [this](const Json::Value &intent) {
+			inspectors.act(intent);
+			inspect_at = 0; // (what it changed, shown at once)
 			return Json::Value();
 		});
 		bridge.on("debugger.drag", [this](const Json::Value &) {
@@ -432,6 +440,19 @@ struct Debugger::Impl
 		}
 	}
 
+	// A few times a second: what the World tab inspects
+	void sendInspectors()
+	{
+		const u64 at = trace::now();
+		if (!ready || (inspect_at && at - inspect_at < 250'000'000))
+			return;
+		inspect_at = at;
+		Json::Value message;
+		message["kind"] = "inspect.state";
+		message["inspectors"] = inspectors.describe();
+		bridge.send(browser, message);
+	}
+
 	// Once a second: the server (local, or what's known of a remote one), the
 	// process, and any startup marks the page hasn't had.
 	void sendServer()
@@ -507,6 +528,11 @@ void Debugger::serverInfo(std::function<Json::Value()> describe)
 	m->describeServer = std::move(describe);
 }
 
+Inspectors &Debugger::inspectors()
+{
+	return m->inspectors;
+}
+
 bool Debugger::open() const
 {
 	return m->open;
@@ -564,6 +590,7 @@ void Debugger::draw(core::dimension2du window)
 	m->sendLog();
 	m->sendPerf();
 	m->sendServer();
+	m->sendInspectors();
 	// what its page hasn't painted yet (opening, or growing) is its own ground
 	m->opts.driver->draw2DRectangle(video::SColor(255, 12, 14, 16), panel);
 	if (m->ready) // (before, what the canvas holds is no page of ours yet)

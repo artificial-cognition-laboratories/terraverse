@@ -95,7 +95,7 @@ scene::SMeshBuffer *wholeShape()
 } // namespace
 
 Draw::Draw(Opts o) :
-	m_smgr(o.smgr), m_ndef(o.ndef), m_grid(o.grid), m_material(o.material),
+	m_smgr(o.smgr), m_ndef(o.ndef), m_grid(o.grid), m_look(o.look), m_material(o.material),
 	m_draw(std::make_shared<WaterDraw>()), m_uniforms(make_irr<WaterUniforms>(m_draw))
 {
 	video::IVideoDriver *driver = m_smgr->getVideoDriver();
@@ -129,6 +129,7 @@ Draw::~Draw()
 
 void Draw::moved()
 {
+	m_kinds.assign(m_grid.tile.size(), Kind::None); // (sized as the grid is: it has no tiles till it's first placed)
 	std::fill(m_texels.begin(), m_texels.end(), NONE_TEXEL);
 	m_upload = true;
 }
@@ -142,7 +143,7 @@ void Draw::texels(ClientMap &map, u32 daynight, bool relight)
 			continue; // (looked at again after a climb, it's still drawn as it was meanwhile)
 		if (relight)
 			k.drawn = false;
-		if (k.awake && settle(t))
+		if ((k.awake || k.easing) && settle(t))
 			k.drawn = false;
 		if (k.awake && k.drawn)
 			surfaceTexels(t); // (rippling under its sixteenths, moving or not)
@@ -180,7 +181,7 @@ bool Draw::settle(int t)
 				moved = moved || was != NONE;
 				continue;
 			}
-			shown = shallow::topShown(shown, g.floor[c], g.depth[c], NONE);
+			shown = shallow::topShown(shown, g.floor[c], g.depth(c), NONE);
 			moved = moved || shown != was;
 		}
 	return moved;
@@ -191,15 +192,16 @@ void Draw::surfaceTexels(int t)
 {
 	Grid &g = m_grid;
 	const int first = g.firstOf(t);
-	const auto top = [&](int c) { return g.floor[c] == NONE || g.depth[c] <= 0 ? -1e9f : g.floor[c] / 16.0f + g.depth[c]; };
+	const auto top = [&](int c) { return g.depth(c) <= 0 ? -1e9f : g.surface(c); };
 	for (int cz = 0; cz < 16; cz++)
 		for (int cx = 0; cx < 16; cx++) {
 			const int c = first + cz * g.cols + cx, gx = c % g.cols, gz = c / g.cols;
 			const std::array<float, 4> beside = { gx + 1 < g.cols ? top(c + 1) : -1e9f, gx > 0 ? top(c - 1) : -1e9f,
 				gz + 1 < g.cols ? top(c + g.cols) : -1e9f, gz > 0 ? top(c - g.cols) : -1e9f };
-			const look::Surface s = look::surface(top(c), beside, 1.0f / g.res, g.out[c], g.depth[c]);
-			m_texels[c * 4 + 2] = s.light;
-			m_texels[c * 4 + 3] = s.foam;
+			const look::Surface s = look::surface(top(c), beside, 1.0f / g.res, g.out[c], g.depth(c));
+			const bool stirred = m_look.view == View::Disturbance;
+			m_texels[c * 4 + 2] = stirred ? 1 : s.light;
+			m_texels[c * 4 + 3] = stirred ? std::min(1.0f, std::fabs(g.eta[c]) * 16) : s.foam;
 		}
 	m_upload = true;
 }
@@ -225,6 +227,8 @@ void Draw::tileTexels(int t, ClientMap &map, u32 daynight)
 			m_texels[c * 4 + 1] = floor == NONE ? NONE_TEXEL : float(floor - base);
 			level = level && shown == one && shown != NONE && shown - floor >= 16; // deep: shaded alike either way
 			if (shown != NONE) {
+				if (!wet)
+					m_kinds[t] = g.kind[c];
 				mean += shown - base;
 				wet++;
 				high = std::max(high, float(shown - base));
@@ -291,12 +295,34 @@ void Draw::render(video::IVideoDriver *driver, v3s16 offset)
 		m_draw->tile[1] = tz * 16;
 		m_draw->tile[2] = tile.mean;
 		m_draw->tile[3] = tile.shade;
-		m_draw->colour[0] = tile.r / 255.0f;
-		m_draw->colour[1] = tile.g / 255.0f;
-		m_draw->colour[2] = tile.b / 255.0f;
+		const std::array<float, 3> colour = colourOf(t);
+		m_draw->colour[0] = colour[0];
+		m_draw->colour[1] = colour[1];
+		m_draw->colour[2] = colour[2];
 		driver->setMaterial(m_material);
 		driver->drawMeshBuffer(whole ? m_whole : m_shape);
 	}
+}
+
+// A tile's colour as it's drawn: its liquid's, or what the debugger's view shows of it
+std::array<float, 3> Draw::colourOf(int t) const
+{
+	// by Kind: none, the sea, a river, a lake, a fill
+	static constexpr std::array<float, 3> KINDS[] = {
+		{ 0.5f, 0.5f, 0.5f }, { 0.1f, 0.15f, 0.55f }, { 0.1f, 0.85f, 0.95f }, { 0.2f, 0.8f, 0.3f }, { 1.0f, 0.55f, 0.1f } };
+	const Tile &k = m_grid.tile[t];
+	switch (m_look.view) {
+	case View::Water:
+		return { k.r / 255.0f, k.g / 255.0f, k.b / 255.0f };
+	case View::Disturbance:
+		return { 0.08f, 0.1f, 0.18f };
+	case View::Kinds:
+		return KINDS[int(m_kinds[t])];
+	case View::Running:
+		return k.awake ? std::array<float, 3>{ 0.95f, 0.2f, 0.2f }
+				: k.easing ? std::array<float, 3>{ 0.95f, 0.85f, 0.15f } : std::array<float, 3>{ 0.15f, 0.3f, 0.9f };
+	}
+	throw BaseException("liquids: a view with no colour");
 }
 
 } // namespace liquids

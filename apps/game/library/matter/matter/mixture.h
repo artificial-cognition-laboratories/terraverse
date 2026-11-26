@@ -69,6 +69,9 @@ public:
 	// filled through `amounts` learns them on its first run.
 	void add(size_t substance, State state, double moles);
 	void take(size_t substance, State state, double moles);
+	// Its liquid brought to `share` of `full`'s, each substance made up or
+	// taken (a river held at its surface, sprint 122: it's the reach's to give and take)
+	void level(const Mixture &full, double share);
 	// Joules per kelvin: everything in it, plus the vessel.
 	double heatCapacity() const;
 	// Whether its last run had nothing to do (sprint 79): see m_ran_at.

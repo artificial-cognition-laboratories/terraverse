@@ -69,6 +69,6 @@ small { overflow: hidden; color: var(--ink-faint); font-size: 0.68rem; text-over
 .chip { display: inline-flex; align-items: center; gap: 0.3rem; color: var(--ink-dim); font: 0.58rem var(--font-display); text-transform: uppercase; white-space: nowrap; }
 .chip.local { color: var(--accent-hi); }
 .chip-icon { width: 11px; height: 11px; }
-.avatar { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--glass-edge-hi); background: rgb(10 75 145 / 0.5); font: 1rem var(--font-display); }
+.avatar { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--glass-edge-hi); border-radius: var(--radius); background: rgb(10 75 145 / 0.5); font: 1rem var(--font-display); }
 .tag { color: var(--accent-hi); font: 0.58rem var(--font-display); text-transform: uppercase; }
 </style>

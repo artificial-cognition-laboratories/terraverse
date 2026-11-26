@@ -20,7 +20,7 @@ defineProps<{ title?: string }>()
     display: flex;
     flex-direction: column;
     max-height: 100%;
-    border: 1px solid var(--glass-edge);
+    border: 1px solid var(--glass-edge); border-radius: var(--radius);
     background: var(--glass-strong);
     backdrop-filter: blur(8px); /* blurs the page behind it; the game's frame is under the page, so not that */
     box-shadow: var(--sheen), 0 24px 60px rgb(0 0 0 / 0.45);

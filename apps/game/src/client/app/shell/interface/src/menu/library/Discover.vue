@@ -85,11 +85,11 @@ onActivated(() => { void front.run({}); void directory.run({}) })
 .categories :deep(.grid) { gap: 0.75rem; }
 .unwired { margin: 0.75rem 0 0; color: var(--ink-faint); font-size: 0.72rem; }
 /* the website's foot of the registry (pages/registry/index.vue: .publish) */
-.publish { display: flex; align-items: center; gap: 1.5rem; margin-top: 4rem; padding: 1.75rem 2rem; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); }
+.publish { display: flex; align-items: center; gap: 1.5rem; margin-top: 4rem; padding: 1.75rem 2rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(8px); }
 .publish > div { flex: 1; min-width: 0; }
 .publish h2 { margin: 0 0 0.4rem; font: 700 1.2rem var(--font-sans); color: var(--ink); }
 .publish p { margin: 0; font: 0.92rem/1.5 var(--font-sans); color: var(--ink-dim); }
-.command { padding: 0.7rem 1rem; border: 1px solid var(--glass-edge); background: rgb(4 7 11 / 0.6); color: var(--ink); font: 0.85rem var(--font); }
+.command { padding: 0.7rem 1rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: rgb(4 7 11 / 0.6); color: var(--ink); font: 0.85rem var(--font); }
 .command:hover { border-color: var(--edge-lit); }
 .command .prompt { color: var(--accent-hi); }
 .command .state { margin-left: 0.8rem; color: var(--ink-faint); }

@@ -194,16 +194,16 @@ const kindNote = computed(() => chosenCard.value ? `${chosenCard.value.kind} · 
 .overlays { position: absolute; top: 0; right: 0; max-height: calc(100% - 140px); overflow-y: auto; }
 .pending { color: var(--ink-faint); font: 12px var(--font-display); }
 /* over the date, as wide: clear of the system's bodies along the top. The old world stays drawn till the new one's ready */
-.making { position: absolute; left: 0; bottom: 96px; display: grid; gap: 8px; width: min(420px, 45%); padding: 8px 10px; border: var(--b) solid var(--edge); background: rgb(12 14 16 / 0.85); }
+.making { position: absolute; left: 0; bottom: 96px; display: grid; gap: 8px; width: min(420px, 45%); padding: 8px 10px; border: var(--b) solid var(--edge); border-radius: var(--radius); background: rgb(12 14 16 / 0.85); }
 .making-head { display: flex; gap: 10px; align-items: center; min-width: 0; }
 .making-bar { flex: 1; min-width: 0; }
 .spinner { flex: none; width: 12px; height: 12px; background: var(--accent); animation: turn 0.8s steps(4) infinite; }
 @keyframes turn { to { transform: rotate(360deg); } }
 .notes { position: absolute; right: 0; bottom: 64px; display: grid; gap: 6px; justify-items: end; }
-.concept-note { max-width: 240px; padding: 6px 8px; border: var(--b) solid var(--edge); background: rgb(12 14 16 / 0.85); color: var(--ink-dim); font-size: 10px; }
+.concept-note { max-width: 240px; padding: 6px 8px; border: var(--b) solid var(--edge); border-radius: var(--radius); background: rgb(12 14 16 / 0.85); color: var(--ink-dim); font-size: 10px; }
 .foot { position: absolute; left: 0; bottom: 0; display: grid; gap: 8px; width: min(420px, 45%); }
 .date { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: end; gap: 10px; }
-.clock { width: 34px; height: 34px; border: var(--b) solid var(--edge); background: var(--stone-2); color: var(--ink); font: 12px var(--font-display); cursor: pointer; }
+.clock { width: 34px; height: 34px; border: var(--b) solid var(--edge); border-radius: var(--radius); background: var(--stone-2); color: var(--ink); font: 12px var(--font-display); cursor: pointer; }
 .clock:hover { background: var(--stone-3); }
 .spawn { display: flex; gap: 12px; align-items: center; margin: 0; font-size: 12px; color: var(--ink-dim); white-space: nowrap; }
 .spawn strong { font: 400 12px var(--font-display); color: var(--ink); }

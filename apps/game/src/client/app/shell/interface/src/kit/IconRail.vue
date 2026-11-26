@@ -26,7 +26,7 @@ const model = defineModel<T>({ required: true })
 .icon-rail { display: flex; flex-direction: column; gap: 4px; min-width: 0; min-height: 0; overflow-y: auto; padding: 12px 8px; border-right: 1px solid var(--glass-edge); background: var(--side); }
 /* a rail too tall for a short window still scrolls, by the wheel: a bar beside its icons would read as a seam */
 .icon-rail::-webkit-scrollbar { display: none; }
-button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; padding: 10px 2px; border: 1px solid transparent; background: none; color: var(--ink-faint); font: 8px var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; transition: background 80ms, color 80ms; }
+button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; padding: 10px 2px; border: 1px solid transparent; border-radius: var(--radius); background: none; color: var(--ink-faint); font: 8px var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; transition: background 80ms, color 80ms; }
 button:hover { color: var(--ink); background: rgb(231 237 244 / 0.05); }
 button.on { border-color: transparent; background: rgb(99 163 233 / 0.07); color: var(--ink); }
 /* the chosen page's mark: an accent bar on the rail's outer edge */

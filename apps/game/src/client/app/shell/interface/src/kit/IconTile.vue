@@ -28,7 +28,7 @@ withDefaults(defineProps<{ label: string; on?: boolean; disabled?: boolean; side
     width: var(--size);
     height: var(--size);
     padding: 0;
-    border: 1px solid var(--glass-edge);
+    border: 1px solid var(--glass-edge); border-radius: var(--radius);
     background: var(--glass);
     backdrop-filter: blur(8px);
     color: var(--ink-dim);
@@ -43,7 +43,7 @@ withDefaults(defineProps<{ label: string; on?: boolean; disabled?: boolean; side
     position: absolute;
     top: 50%;
     padding: 4px 8px;
-    border: 1px solid var(--glass-edge);
+    border: 1px solid var(--glass-edge); border-radius: var(--radius);
     background: var(--glass-strong);
     font: 9px var(--font-display);
     letter-spacing: 0.06em;

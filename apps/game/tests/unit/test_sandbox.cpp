@@ -44,6 +44,7 @@ public:
 	void testPitOverflows();
 	void testSoilHoldsWater();
 	void testRiverKeepsFull();
+	void testRiverHeldAtItsSurface();
 	void testViscosity();
 	void testThickPour();
 	void testPlumeRises();
@@ -96,6 +97,7 @@ void TestSandbox::runTests(IGameDef *gamedef)
 	TEST(testPuddleSpreads);
 	TEST(testDitchLevels);
 	TEST(testRiverKeepsFull);
+	TEST(testRiverHeldAtItsSurface);
 	TEST(testPowderHeaps);
 	TEST(testVapourLeaves);
 	TEST(testSpiritBurns);
@@ -233,7 +235,7 @@ struct Plot
 	}
 	double ambient = 293.15;
 	double wet = 0; // how wet the ground is (sprint 111)
-	std::set<std::tuple<int, int, int>> river; // held water: kept full (sprint 115)
+	std::map<std::tuple<int, int, int>, double> river; // held water: kept at this share of a block (sprint 115, 122)
 	std::unique_ptr<WorldMatter> matter;
 	std::map<std::string, int32_t> kinds;
 
@@ -276,7 +278,10 @@ struct Plot
 			},
 		};
 		g.wetness = [this](Pos) { return wet; };
-		g.held = [this](Pos p) { return river.count({ p.x, p.y, p.z }) > 0; };
+		g.held = [this](Pos p) -> std::optional<double> {
+			auto it = river.find({ p.x, p.y, p.z });
+			return it == river.end() ? std::nullopt : std::optional<double>(it->second);
+		};
 		matter = std::make_unique<WorldMatter>(WorldMatter::Opts{ table(), airs, g });
 		using matter::State;
 		for (auto [node, id, share, state, form] : std::vector<std::tuple<const char *, const char *, double, State, bool>>{
@@ -580,7 +585,7 @@ void TestSandbox::testRiverKeepsFull()
 				m.nodes[{ x, 0, z }] = "granite";
 		}
 	m.nodes[{ 0, 0, 0 }] = "sea";
-	m.river.insert({ 0, 0, 0 });
+	m.river[{ 0, 0, 0 }] = 1;
 	m.matter->disturb({ 0, 0, 0 });
 	for (int k = 0; k < 120; k++)
 		m.matter->step(1);
@@ -593,6 +598,37 @@ void TestSandbox::testRiverKeepsFull()
 			<< " to " << deep(9) << " deep" << std::endl;
 	UASSERT(m.at(0, 0, 0) == "sea"); // the river's still a full block
 	UASSERT(deep(9) > 0.5);           // and the ditch filled from it
+}
+
+// A river's top block only part full (its surface 6 sixteenths up it) is held
+// at its surface, not a full block: the ditch beside fills to its level and no
+// higher (sprint 122: made up to full, it stood a block of head over its
+// surface and spilled over its banks)
+void TestSandbox::testRiverHeldAtItsSurface()
+{
+	Plot m;
+	for (int x = -1; x <= 4; x++)
+		for (int z = -1; z <= 1; z++) {
+			m.nodes[{ x, -1, z }] = "granite";
+			if (z != 0 || x < 0 || x > 3)
+				m.nodes[{ x, 0, z }] = "granite";
+		}
+	m.nodes[{ 0, 0, 0 }] = "sea";
+	m.river[{ 0, 0, 0 }] = 6 / 16.0;
+	m.matter->disturb({ 0, 0, 0 });
+	for (int k = 0; k < 240; k++)
+		m.matter->step(1);
+	const size_t water = table().index("water");
+	auto deep = [&](int x) {
+		auto mix = m.matter->mixture({ x, 0, 0 });
+		return mix ? mix->in(water, matter::State::Liquid) / WATER_PER_M3 : 0.0;
+	};
+	infostream << "world: a river 6/16 full beside a ditch: the river " << m.at(0, 0, 0) << " " << deep(0) << ", the ditch " << m.at(1, 0, 0) << " " << deep(1) << " to "
+			<< deep(3) << std::endl;
+	UASSERT(std::fabs(deep(0) - 6 / 16.0) < 0.02); // at its surface
+	for (int x = 1; x <= 3; x++)
+		UASSERT(deep(x) < 6 / 16.0 + 0.02); // never over it
+	UASSERT(deep(3) > 0.2);                 // but filled from it
 }
 
 // Salt poured in one place heaps: it slides until its sides are no steeper

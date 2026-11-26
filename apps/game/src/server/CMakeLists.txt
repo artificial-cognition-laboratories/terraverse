@@ -32,6 +32,7 @@ set(common_server_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/world/run/rules/weather.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/players/player.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/run/rules/matter.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/run/rules/river_surface.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/state/objects/unit_sao.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/load/universe.cpp
 	PARENT_SCOPE)

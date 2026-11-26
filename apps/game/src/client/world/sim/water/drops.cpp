@@ -89,13 +89,13 @@ int Drops::land(Drop &d, std::vector<Drop> &thrown)
 	const int c = g.columnAt(d.pos.X, d.pos.Z);
 	if (c < 0 || g.floor[c] == NONE)
 		return -1;
-	const float surface = g.floor[c] / 16.0f - 0.5f + g.depth[c];
+	const float surface = (g.wet(c) ? g.surface(c) : g.floor[c] / 16.0f) - 0.5f;
 	if (d.pos.Y > surface)
 		return 0;
 	std::uniform_real_distribution<float> jitter(-1, 1);
 	const float speed = d.vel.getLength();
 	float kept = d.cups;
-	if (!d.splash && g.depth[c] > 0 && speed > 3.5f && thrown.size() + m_drops.size() < MOST_DROPS) {
+	if (!d.splash && g.wet(c) && speed > 3.5f && thrown.size() + m_drops.size() < MOST_DROPS) {
 		for (int k = 0; k < 2; k++) {
 			Drop s = d;
 			s.splash = true;
@@ -108,10 +108,12 @@ int Drops::land(Drop &d, std::vector<Drop> &thrown)
 		}
 		kept = d.cups * 0.5f;
 	}
-	g.depth[c] += kept / 4096 * g.res * g.res; // a cup is a sixteenth-cube
 	const int t = g.tileOf(c);
 	Tile &tile = g.tile[t];
-	tile.credit += kept / 4096;
+	if (!g.wet(c))
+		return 1; // on dry ground: the server's fill shows it, when it comes
+	// a bump on the water, which spreads and dies: the server's level rises to hold what landed
+	g.eta[c] += kept / 4096 * g.res * g.res; // a cup is a sixteenth-cube
 	if (!tile.coloured) {
 		tile.r = d.r, tile.g = d.g, tile.b = d.b;
 		tile.coloured = true;

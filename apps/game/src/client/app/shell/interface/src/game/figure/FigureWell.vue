@@ -42,6 +42,6 @@ onBeforeUnmount(() => {
 
 <style scoped>
 /* a hairline round it, as round the crafting; inside, the engine's own night and the figure */
-.figure-well { display: flex; padding: 1px; border: 1px solid rgb(231 237 244 / 0.06); }
+.figure-well { display: flex; padding: 1px; border: 1px solid rgb(231 237 244 / 0.06); border-radius: var(--radius); }
 .view { flex: 1; min-width: 0; }
 </style>

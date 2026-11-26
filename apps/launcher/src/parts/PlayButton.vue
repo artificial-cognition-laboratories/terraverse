@@ -46,12 +46,12 @@ onBeforeUnmount(() => clearInterval(clock))
 .go { flex: 1; }
 .size { font: 0.65rem var(--font); letter-spacing: 0; text-transform: none; opacity: 0.7; }
 
-.installing, .playing { position: relative; border: 1px solid var(--edge-lit-hi); background: var(--glass); backdrop-filter: blur(8px); flex: 1; display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 4px 0 12px; overflow: hidden; }
+.installing, .playing { position: relative; border: 1px solid var(--edge-lit-hi); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(8px); flex: 1; display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 4px 0 12px; overflow: hidden; }
 .fill { position: absolute; inset: 0 auto 0 0; background: var(--glass-lit); border-right: 1px solid var(--edge-lit-hi); transition: width 0.25s linear; }
 .what, .playing span:last-child { position: relative; flex: 1; display: flex; align-items: baseline; gap: 10px; min-width: 0; overflow: hidden; }
 strong { font: 0.65rem var(--font-display); font-weight: 400; text-transform: uppercase; letter-spacing: 0.08em; color: #fff; white-space: nowrap; }
 small { font: 0.7rem var(--font); color: var(--ink-dim); white-space: nowrap; }
-.cancel { position: relative; width: 26px; height: 26px; border: 1px solid transparent; background: none; color: var(--ink-dim); }
+.cancel { position: relative; width: 26px; height: 26px; border: 1px solid transparent; border-radius: var(--radius); background: none; color: var(--ink-dim); }
 .cancel:hover { border-color: var(--glass-edge); color: #fff; }
 .dot { width: 8px; height: 8px; flex: none; background: var(--accent-hi); box-shadow: 0 0 0 3px var(--accent-glow); }
 /* the amount where there's room for it (Versions), the share where there isn't (the landing's group) */

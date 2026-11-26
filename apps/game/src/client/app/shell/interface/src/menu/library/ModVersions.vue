@@ -30,13 +30,13 @@ defineProps<{ versions: readonly RegistryVersion[] }>()
 </template>
 
 <style scoped>
-.versions { overflow-x: auto; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); }
+.versions { overflow-x: auto; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(8px); }
 table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
 th { padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--glass-edge); color: var(--ink-faint); font: 400 0.6rem var(--font-display); text-align: left; text-transform: uppercase; }
 td { padding: 0.85rem 1.1rem; border-bottom: 1px solid rgb(231 237 244 / 0.05); color: var(--ink-dim); white-space: nowrap; }
 tr:last-child td { border-bottom: 0; }
 tr.on td { background: rgb(10 75 145 / 0.15); }
 .version { color: var(--ink); font-family: var(--font); }
-.latest, .withheld { margin-left: 0.5rem; padding: 0.1rem 0.35rem; border: 1px solid rgb(94 186 129 / 0.5); color: var(--alive); font-size: 0.62rem; }
+.latest, .withheld { margin-left: 0.5rem; padding: 0.1rem 0.35rem; border: 1px solid rgb(94 186 129 / 0.5); border-radius: var(--radius); color: var(--alive); font-size: 0.62rem; }
 .withheld { border-color: rgb(210 153 34 / 0.5); color: var(--warn); }
 </style>

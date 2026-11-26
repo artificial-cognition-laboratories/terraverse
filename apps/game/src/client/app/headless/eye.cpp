@@ -53,7 +53,7 @@ Eye::Eye(Opts o) :
 	m_size(o.size),
 	m_hud(std::make_unique<Hud>(&o.client, o.client.getEnv().getLocalPlayer(), &o.client.getEnv().getLocalPlayer()->inventory)),
 	m_view(std::make_unique<WorldView>(WorldView::Opts{ /* client */ o.client, /* camera */ o.camera, /* engine */ o.engine,
-		/* shaders */ o.shaders, /* textures */ o.textures, /* draw */ o.draw }))
+		/* shaders */ o.shaders, /* textures */ o.textures, /* draw */ o.draw, /* inspectors */ nullptr }))
 {
 	o.uniforms.setSky(&m_view->sky());
 	m_engine.initialize(&m_client, m_hud.get());

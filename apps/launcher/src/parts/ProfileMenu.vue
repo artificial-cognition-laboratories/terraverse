@@ -62,9 +62,9 @@ async function act(action: () => Promise<unknown>) {
 
 <style scoped>
 .profile { position: relative; }
-.status { position: absolute; right: 3px; bottom: 3px; width: 8px; height: 8px; background: var(--stone-4); border: 1px solid var(--edge); }
+.status { position: absolute; right: 3px; bottom: 3px; width: 8px; height: 8px; background: var(--stone-4); border: 1px solid var(--edge); border-radius: var(--radius); }
 .status.online { background: var(--accent-hi); }
-.badge { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 3px; background: var(--accent); border: 1px solid var(--edge); font: 10px/16px var(--font-display); }
+.badge { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 3px; background: var(--accent); border: 1px solid var(--edge); border-radius: var(--radius); font: 10px/16px var(--font-display); }
 .profile-popover { position: fixed; z-index: 30; }
 /* never taller than the window under it */
 .profile-popover :deep(.panel) { max-height: calc(100vh - 80px); }

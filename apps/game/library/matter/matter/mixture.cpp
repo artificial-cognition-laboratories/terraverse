@@ -93,6 +93,17 @@ void Mixture::take(size_t i, State s, double moles)
 	m_lagging[i] = std::min(m_lagging[i], amounts[i]);
 }
 
+void Mixture::level(const Mixture &full, double share)
+{
+	for (size_t i = 0; i < full.amounts.size(); i++) {
+		const double off = full.in(i, State::Liquid) * share - in(i, State::Liquid);
+		if (off > 0)
+			add(i, State::Liquid, off);
+		else if (off < 0)
+			take(i, State::Liquid, -off);
+	}
+}
+
 // The temperature where a substance passes between two states at a pressure.
 static double boundary(const Substance &s, State a, State b, double p)
 {

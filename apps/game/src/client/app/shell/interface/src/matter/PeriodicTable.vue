@@ -32,7 +32,7 @@ const CATEGORY: Record<MatterElement["category"], string> = {
     position: relative;
     aspect-ratio: 1;
     padding: 0;
-    border: var(--b) solid var(--edge);
+    border: var(--b) solid var(--edge); border-radius: var(--radius);
     background: color-mix(in srgb, var(--tone) 35%, #101418);
     color: var(--ink-faint);
     opacity: 0.55;

@@ -47,7 +47,7 @@ async function choose(id: string | null) {
 /* the foot bar's left (pages/Home.vue .foot), a plain glass button (kit Button, sm): which version Play takes, opening downward */
 .picker { position: relative; min-width: 0; }
 .current { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 2.1rem; padding: 0 0.8rem;
-    border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); color: var(--ink); }
+    border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(8px); color: var(--ink); }
 .current:hover, .current.open { border-color: var(--edge-lit); color: #fff; }
 .current:focus-visible { outline: 1px solid var(--accent-hi); outline-offset: 2px; }
 .kind { font: 0.55rem var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-hi); }
@@ -58,12 +58,12 @@ async function choose(id: string | null) {
 /* the game's dropdown glass: strong, one hairline, the chosen in the ocean */
 .menu { position: absolute; left: 0; right: auto; width: max(100%, 280px); top: calc(100% + 8px); z-index: 5; display: flex; flex-direction: column; gap: 1px;
     max-height: min(320px, 40vh); overflow-y: auto; padding: 4px;
-    border: 1px solid var(--glass-edge); background: var(--glass-strong); box-shadow: var(--sheen); backdrop-filter: blur(12px); }
-.menu button { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 2px; padding: 8px 10px; text-align: left; border: 1px solid transparent; background: none; color: var(--ink); }
+    border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass-strong); box-shadow: var(--sheen); backdrop-filter: blur(12px); }
+.menu button { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 2px; padding: 8px 10px; text-align: left; border: 1px solid transparent; border-radius: var(--radius); background: none; color: var(--ink); }
 .menu button:hover { background: rgb(231 237 244 / 0.06); }
 .menu button.on { border-color: var(--edge-lit-hi); background: var(--glass-lit); }
 .name { font: 700 0.8rem var(--font); }
 small { font: 0.7rem var(--font-sans); color: var(--ink-dim); }
-.beta { margin-right: 6px; padding: 1px 5px; border: 1px solid rgb(210 153 34 / 0.5); color: var(--warn, #d29922); font: 0.55rem var(--font-display); text-transform: uppercase; }
+.beta { margin-right: 6px; padding: 1px 5px; border: 1px solid rgb(210 153 34 / 0.5); border-radius: var(--radius); color: var(--warn, #d29922); font: 0.55rem var(--font-display); text-transform: uppercase; }
 .rule { height: 1px; margin: 4px 2px; background: var(--glass-edge); }
 </style>

@@ -19,6 +19,7 @@
 #include "src/client/world/session/client.h"
 #include "src/client/world/session/clientenvironment.h"
 #include "src/client/world/sim/water/liquids.h"
+#include "src/client/app/shell/host/inspectors.h"
 #include "src/shared/base/constants.h"
 #include "src/shared/game/environment/skyparams.h"
 #include "src/shared/map/light/light.h"
@@ -38,6 +39,7 @@ WorldView::WorldView(Opts o) :
 	m_shaders(o.shaders),
 	m_textures(o.textures),
 	m_draw(o.draw),
+	m_inspectors(o.inspectors),
 	m_clouds(make_irr<Clouds>(o.engine.get_scene_manager(), &o.shaders, -1, myrand())),
 	m_sky(make_irr<Sky>(-1, &o.engine, &o.textures, &o.shaders))
 {}
@@ -52,6 +54,8 @@ WorldView::~WorldView()
 	if (m_far)
 		m_far->remove();
 	m_far.reset();
+	if (m_liquids && m_inspectors)
+		m_inspectors->remove("water");
 	if (m_liquids)
 		m_liquids->remove();
 	m_liquids.reset();
@@ -216,8 +220,12 @@ void WorldView::step(float dtime, const Frame &frame)
 	if (m_space)
 		m_sky->setFogColor(m_space->fog().value_or(video::SColor(0, 0, 0, 0))); // (no alpha: the sky's own)
 	// Terraverse: liquid lying in the world (sprint 81), drawn on its own
-	if (!m_liquids)
+	if (!m_liquids) {
 		m_liquids = make_irr<liquids::Layer>(liquids::Layer::Opts{ /*smgr*/ m_engine.get_scene_manager(), /*ndef*/ m_client.ndef(), /*shaders*/ &m_shaders });
+		if (m_inspectors)
+			m_inspectors->add("water", { /*describe*/ [this] { return m_liquids->inspect().describe(); },
+					/*act*/ [this](const std::string &control, const Json::Value &value) { return m_liquids->inspect().act(control, value); } });
+	}
 	{
 		// what pushes water aside (sprint 82): the player and the objects near
 		std::vector<liquids::Mover> movers;

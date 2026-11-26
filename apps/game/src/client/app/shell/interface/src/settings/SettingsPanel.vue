@@ -201,7 +201,7 @@ onMounted(async () => {
 <style scoped>
 .options { display: grid; }
 /* a row of the site's settings: a hairline between, the one being changed lit faintly */
-.option { padding: 0.9rem 0.75rem; border: 1px solid transparent; border-bottom-color: var(--glass-edge); }
+.option { padding: 0.9rem 0.75rem; border: 1px solid transparent; border-radius: var(--radius); border-bottom-color: var(--glass-edge); }
 .option.on { border-color: var(--glass-edge); background: rgb(99 163 233 / 0.05); }
 .option.unavailable { opacity: 0.45; }
 .option.unavailable :deep(.segmented) { pointer-events: none; }

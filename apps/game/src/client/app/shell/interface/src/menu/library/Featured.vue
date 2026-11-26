@@ -43,7 +43,7 @@ const STATE = { idle: "copy", copied: "copied", failed: "can't copy" } as const
 </template>
 
 <style scoped>
-.featured { position: relative; display: grid; min-height: 300px; overflow: hidden; border: 1px solid var(--glass-edge); }
+.featured { position: relative; display: grid; min-height: 300px; overflow: hidden; border: 1px solid var(--glass-edge); border-radius: var(--radius); }
 .art { position: absolute; inset: 0; }
 .shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgb(7 11 17 / 0.95) 0%, rgb(7 11 17 / 0.75) 45%, rgb(7 11 17 / 0) 80%); }
 .text { position: relative; display: grid; align-content: end; gap: 1rem; max-width: 36rem; padding: 2rem; }
@@ -54,7 +54,7 @@ h3 { margin: 0; overflow: hidden; font: 400 1.5rem var(--font-display); text-tra
 .by { color: var(--ink-dim); font-size: 0.72rem; }
 p { margin: 0; color: var(--ink-dim); font: 0.95rem/1.55 var(--font-sans); }
 .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
-.install { height: 2.6rem; padding: 0 1rem; border: 1px solid var(--glass-edge); background: rgb(4 7 11 / 0.8); color: var(--ink-dim); font: 0.75rem var(--font); }
+.install { height: 2.6rem; padding: 0 1rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: rgb(4 7 11 / 0.8); color: var(--ink-dim); font: 0.75rem var(--font); }
 .install .prompt { color: var(--accent-hi); }
 .install .state { margin-left: 0.8rem; color: var(--ink-faint); }
 .install:hover { border-color: var(--accent-hi); color: var(--ink); }

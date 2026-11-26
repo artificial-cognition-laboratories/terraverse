@@ -19,7 +19,7 @@ const fill = computed(() => share(props.value))
 </template>
 
 <style scoped>
-.meter { position: relative; height: 18px; border: var(--b) solid var(--edge); background: var(--stone-0); box-shadow: var(--sunk); }
+.meter { position: relative; height: 18px; border: var(--b) solid var(--edge); border-radius: var(--radius); background: var(--stone-0); box-shadow: var(--sunk); }
 .fill { position: absolute; inset: 0 auto 0 0; box-shadow: var(--raised); }
 .fill.ok { background: var(--accent-lo); }
 .fill.warn { background: var(--warn-lo); }

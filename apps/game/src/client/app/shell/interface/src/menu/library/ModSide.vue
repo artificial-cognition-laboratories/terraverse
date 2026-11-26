@@ -47,5 +47,5 @@ dd { margin: 0; color: var(--ink-dim); text-align: right; }
 .filed { color: var(--accent-hi); }
 .files { padding: 1rem 0.5rem 0.75rem; }
 .version { display: flex; gap: 0.6rem; align-items: center; margin: 0 0.5rem 0.75rem; color: var(--ink-faint); font: 0.6rem var(--font-display); text-transform: uppercase; }
-.version code { flex: 1; display: flex; align-items: center; height: 2rem; padding: 0 0.5rem; border: 1px solid var(--glass-edge); color: var(--ink); font: 0.72rem var(--font); text-transform: none; }
+.version code { flex: 1; display: flex; align-items: center; height: 2rem; padding: 0 0.5rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); color: var(--ink); font: 0.72rem var(--font); text-transform: none; }
 </style>

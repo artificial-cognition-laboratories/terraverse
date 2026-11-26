@@ -81,7 +81,7 @@ const step = (by: number) => { zoom.value = Math.min(8, Math.max(0.4, zoom.value
 .scene { position: absolute; inset: 0; }
 .flat { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; align-content: center; gap: 24px; padding: 64px 120px; }
 .flat figure { margin: 0; display: grid; gap: 6px; justify-items: center; }
-.flat img { image-rendering: pixelated; border: 1px solid var(--glass-edge); background: repeating-conic-gradient(var(--night-2) 0 25%, var(--night-1) 0 50%) 0 0 / 16px 16px; }
+.flat img { image-rendering: pixelated; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: repeating-conic-gradient(var(--night-2) 0 25%, var(--night-1) 0 50%) 0 0 / 16px 16px; }
 figcaption, .assets span { color: var(--ink-faint); font: 10px var(--font-display); text-transform: uppercase; letter-spacing: 0.1em; }
 
 .views { position: absolute; top: 14px; left: 14px; width: 120px; }
@@ -91,7 +91,7 @@ figcaption, .assets span { color: var(--ink-faint); font: 10px var(--font-displa
 .about code { color: var(--ink-faint); }
 
 .assets { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); display: grid; gap: 8px; }
-.assets button { display: grid; justify-items: center; gap: 3px; padding: 4px; border: 1px solid var(--glass-edge); background: var(--glass); cursor: pointer; }
+.assets button { display: grid; justify-items: center; gap: 3px; padding: 4px; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); cursor: pointer; }
 .assets button.on { border-color: var(--edge-lit-hi); background: var(--glass-lit); }
 .assets img { width: 44px; height: 44px; image-rendering: pixelated; }
 

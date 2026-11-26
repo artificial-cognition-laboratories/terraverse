@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "src/client/world/sim/water/grid.h"
+#include "src/client/world/sim/water/inspect.h"
 #include "src/client/world/sim/water/types.h"
 #include "irr_ptr.h"
 #include <SMaterial.h>
@@ -37,6 +39,7 @@ public:
 		const NodeDefManager &ndef;
 		Grid &grid;
 		const video::SMaterial &material; // the flat layer's, which this one's is made from
+		const Look &look;                 // what it's drawn as (the debugger's)
 	};
 	explicit Draw(Opts o);
 	~Draw();
@@ -51,12 +54,15 @@ public:
 
 private:
 	bool settle(int t);
+	std::array<float, 3> colourOf(int t) const;
 	void surfaceTexels(int t);
 	void tileTexels(int t, ClientMap &map, u32 daynight);
 
 	scene::ISceneManager *m_smgr;
 	const NodeDefManager &m_ndef;
 	Grid &m_grid;
+	const Look &m_look;
+	std::vector<Kind> m_kinds; // per tile: its water's, as last drawn (the Kinds view)
 	video::ITexture *m_heights = nullptr;
 	std::vector<float> m_texels;
 	bool m_upload = true;

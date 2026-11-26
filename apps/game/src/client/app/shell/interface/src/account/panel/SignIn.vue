@@ -61,18 +61,18 @@ const emit = defineEmits<{ signIn: []; cancel: []; retry: []; signOut: []; openU
 h2 { margin: 0; color: var(--ink); font: 0.85rem var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; }
 p { margin: 0; color: var(--ink-dim); font: 0.78rem/1.5 var(--font-sans); }
 .problem { color: var(--warn); }
-.code { padding: 0.8rem; border: 1px solid var(--edge-lit); background: rgb(231 237 244 / 0.025); color: var(--ink); text-align: center; letter-spacing: 0.3em; font: 1.4rem var(--font); }
+.code { padding: 0.8rem; border: 1px solid var(--edge-lit); border-radius: var(--radius); background: rgb(231 237 244 / 0.025); color: var(--ink); text-align: center; letter-spacing: 0.3em; font: 1.4rem var(--font); }
 .pair { display: flex; gap: 0.5rem; }
 .profiles { display: grid; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
 .profiles li { display: flex; gap: 0.35rem; }
 .profile { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr) auto; align-items: center; gap: 0.6rem; flex: 1; min-width: 0; padding: 0.45rem 0.6rem;
-    border: 1px solid var(--glass-edge); background: rgb(231 237 244 / 0.025); color: var(--ink); text-align: left; }
+    border: 1px solid var(--glass-edge); border-radius: var(--radius); background: rgb(231 237 244 / 0.025); color: var(--ink); text-align: left; }
 .profile:hover:not(:disabled) { border-color: var(--edge-lit); }
 .profile:hover:not(:disabled) strong, .profile:hover:not(:disabled) .go { color: var(--accent-hi); }
-.mark { display: grid; place-items: center; width: 1.8rem; height: 1.8rem; border: 1px solid var(--glass-edge-hi); background: var(--accent-lo); font: 0.75rem var(--font-display); }
+.mark { display: grid; place-items: center; width: 1.8rem; height: 1.8rem; border: 1px solid var(--glass-edge-hi); border-radius: var(--radius); background: var(--accent-lo); font: 0.75rem var(--font-display); }
 .profile strong { overflow: hidden; font: 400 0.72rem var(--font-display); text-overflow: ellipsis; white-space: nowrap; }
 .go { color: var(--ink-faint); font: 0.8rem var(--font-display); }
-.forget { flex: none; padding: 0 0.55rem; border: 1px solid var(--glass-edge); background: none; color: var(--ink-faint); font: 0.55rem var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+.forget { flex: none; padding: 0 0.55rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: none; color: var(--ink-faint); font: 0.55rem var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
 .forget:hover:not(:disabled) { border-color: var(--edge-lit); color: var(--warn); }
 .pair > * { flex: 1; }
 </style>

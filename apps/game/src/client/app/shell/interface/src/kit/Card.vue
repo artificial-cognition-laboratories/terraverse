@@ -36,14 +36,14 @@ defineEmits<{ open: [] }>()
 </template>
 
 <style scoped>
-.card { display: flex; flex-direction: column; min-width: 0; padding: 0; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); color: var(--ink); text-align: left; transition: border-color 0.1s; }
+.card { display: flex; flex-direction: column; min-width: 0; padding: 0; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(8px); color: var(--ink); text-align: left; transition: border-color 0.1s; }
 .card:hover { border-color: var(--edge-lit); }
 .card:hover strong { color: var(--accent-hi); }
 .card:focus-visible { outline: 1px solid var(--accent-hi); outline-offset: 2px; }
 .art { position: relative; aspect-ratio: 16 / 9; border-bottom: 1px solid var(--glass-edge); }
 .art .cover { position: absolute; inset: 0; }
 .badges { position: absolute; top: 0.6rem; left: 0.6rem; display: flex; gap: 0.3rem; }
-.badges span { padding: 0.2rem 0.4rem; background: rgb(7 11 17 / 0.85); border: 1px solid rgb(99 163 233 / 0.55); color: var(--accent-hi); font: 0.55rem var(--font-display); text-transform: uppercase; }
+.badges span { padding: 0.2rem 0.4rem; background: rgb(7 11 17 / 0.85); border: 1px solid rgb(99 163 233 / 0.55); border-radius: var(--radius); color: var(--accent-hi); font: 0.55rem var(--font-display); text-transform: uppercase; }
 .body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .head { position: relative; display: flex; gap: 0.75rem; align-items: center; min-width: 0; margin: -1.3rem 0.9rem 0; }
 .names { display: grid; min-width: 0; padding-top: 1.3rem; }
@@ -51,7 +51,7 @@ strong { overflow: hidden; font: 400 0.78rem var(--font-display); text-transform
 .by { overflow: hidden; color: var(--ink-faint); font-size: 0.68rem; text-overflow: ellipsis; white-space: nowrap; }
 .description { flex: 1; display: -webkit-box; margin: 0.8rem 0.9rem 0; overflow: hidden; color: var(--ink-dim); font: 0.82rem/1.5 var(--font-sans); -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .meta { display: flex; gap: 0.9rem; align-items: center; padding: 0.9rem; color: var(--ink-faint); font-size: 0.68rem; white-space: nowrap; overflow: hidden; }
-.meta :deep(.tag) { margin-left: auto; padding: 0.1rem 0.4rem; border: 1px solid var(--glass-edge); }
+.meta :deep(.tag) { margin-left: auto; padding: 0.1rem 0.4rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); }
 .card.on { border-color: var(--accent-hi); box-shadow: inset 0 0 0 1px var(--accent-hi); }
 .card.on strong { color: var(--accent-hi); }
 .dense .description { -webkit-line-clamp: 1; }

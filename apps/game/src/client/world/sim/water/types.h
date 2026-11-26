@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "library/matter/fill/fill.h"
 #include "src/shared/base/irr_v3d.h"
 #include "src/shared/base/irrlichttypes.h"
 #include <array>
@@ -30,32 +31,13 @@ struct River
 };
 using Rivers = std::unordered_map<v3s16, River>;
 
-// A river's rise at node p, sixteenths: its map blocks' rises blended between
-// their middles, so a river risen more in one block than the next slopes
-// between them, not steps at the block's edge (blocks read different cells'
-// flows). A block with no river of its own isn't counted; none: 0.
+// A river's rise at node p, sixteenths, blended between its map blocks (fill::surface::riseAt)
 inline float riseAt(const Rivers &rivers, v3s16 p)
 {
-	constexpr int B = 16; // MAP_BLOCKSIZE (mapblock.h's, not included here)
-	const float fx = (p.X - (B - 1) * 0.5f) / B, fz = (p.Z - (B - 1) * 0.5f) / B;
-	const int bx = int(std::floor(fx)), bz = int(std::floor(fz));
-	const float tx = fx - bx, tz = fz - bz;
-	const s16 by = s16(std::floor(p.Y / float(B)));
-	float sum = 0, weight = 0;
-	for (int k = 0; k < 4; k++) {
-		const int dx = k & 1, dz = k >> 1;
-		const float w = (dx ? tx : 1 - tx) * (dz ? tz : 1 - tz);
-		// (a river crossing a block's floor or roof: the one above or below)
-		for (s16 dy : { 0, -1, 1 }) {
-			auto r = rivers.find(v3s16(s16(bx + dx), s16(by + dy), s16(bz + dz)));
-			if (r == rivers.end())
-				continue;
-			sum += w * r->second.rise;
-			weight += w;
-			break;
-		}
-	}
-	return weight > 1e-6f ? sum / weight : 0;
+	return fill::surface::riseAt([&](v3s16 block) -> std::optional<float> {
+		auto r = rivers.find(block);
+		return r == rivers.end() ? std::nullopt : std::optional<float>(r->second.rise);
+	}, p);
 }
 
 // Something that pushes water aside: an object, the player; in nodes, its

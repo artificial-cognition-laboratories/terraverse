@@ -43,7 +43,7 @@ defineEmits<{ back: [] }>()
 .names { display: grid; gap: 7px; min-width: 0; }
 .title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 0; }
 h1 { margin: 0; overflow: hidden; font: 22px var(--font-display); text-overflow: ellipsis; white-space: nowrap; }
-.badge { padding: 2px 6px; border: 1px solid var(--accent-lo); color: var(--accent-hi); font-size: 10px; }
+.badge { padding: 2px 6px; border: 1px solid var(--accent-lo); border-radius: var(--radius); color: var(--accent-hi); font-size: 10px; }
 .description { margin: 0; max-width: 80ch; color: var(--ink-dim); font-size: 12px; line-height: 1.5; }
 .meta { display: flex; flex-wrap: wrap; gap: 16px; color: var(--ink-faint); font-size: 10px; }
 .meta :deep(b) { color: var(--ink); font-weight: normal; }

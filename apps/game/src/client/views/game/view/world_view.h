@@ -19,6 +19,7 @@ struct MapDrawControl;
 namespace far { class View; }
 namespace liquids { class Layer; }
 namespace planetarium { class Sky; }
+namespace shell { class Inspectors; }
 
 /*
 	The world as it's seen (sprint 126): the sky and the planet's system round it, the far view to
@@ -42,6 +43,8 @@ public:
 		IWritableTextureSource &textures;
 		// How far the map's drawn: the sky's fog can pull it in (a server's fog distance).
 		MapDrawControl &draw;
+		// The debugger's World tab: what's inspected of the water (none: no debugger, a body with no window)
+		shell::Inspectors *inspectors;
 	};
 	explicit WorldView(Opts o);
 	~WorldView();
@@ -92,6 +95,7 @@ private:
 	IWritableShaderSource &m_shaders;
 	IWritableTextureSource &m_textures;
 	MapDrawControl &m_draw;
+	shell::Inspectors *m_inspectors;
 
 	irr_ptr<Clouds> m_clouds;
 	irr_ptr<Sky> m_sky;

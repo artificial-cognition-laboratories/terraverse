@@ -62,7 +62,7 @@ const unworn = (label: string) => `${label} · wearing things isn't built yet`
 .body { display: flex; flex-direction: column; gap: 0.25rem; }
 .worn svg { width: calc(var(--u) * 11); height: calc(var(--u) * 11); color: rgb(231 237 244 / 0.12); }
 .figure { flex: none; width: calc(2.75rem * 3 + 0.25rem * 2); }
-.crafting { display: flex; flex: 1; align-items: center; justify-content: center; border: 1px solid rgb(231 237 244 / 0.06); }
+.crafting { display: flex; flex: 1; align-items: center; justify-content: center; border: 1px solid rgb(231 237 244 / 0.06); border-radius: var(--radius); }
 .craft-row { display: flex; align-items: center; gap: 1rem; }
 .arrow { width: 1.4rem; height: 0.9rem; color: var(--ink-faint); }
 </style>

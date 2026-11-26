@@ -50,6 +50,6 @@ h1 { margin: 0; font: 400 2.4rem/1.1 var(--font-display); text-transform: upperc
 .meta { margin: 0; color: var(--ink-faint); font-size: 0.78rem; }
 .actions { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem; }
 .under-way { margin-left: 0.6rem; color: var(--ink-faint); font: 0.65rem var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
-.problem { display: flex; gap: 0.75rem; align-items: start; margin: 0; max-width: 26rem; padding: 0.6rem 0.75rem; border: 1px solid rgb(248 81 73 / 0.4); background: var(--glass-strong); color: var(--danger); font-size: 0.78rem; text-shadow: none; }
+.problem { display: flex; gap: 0.75rem; align-items: start; margin: 0; max-width: 26rem; padding: 0.6rem 0.75rem; border: 1px solid rgb(248 81 73 / 0.4); border-radius: var(--radius); background: var(--glass-strong); color: var(--danger); font-size: 0.78rem; text-shadow: none; }
 .problem button { border: 0; background: none; padding: 0; color: var(--ink-dim); }
 </style>

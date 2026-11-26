@@ -30,7 +30,7 @@ const moments = computed(() => [
 <style scoped>
 .history { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: var(--b) solid var(--accent-lo); display: grid; gap: 8px; }
 li { position: relative; display: grid; grid-template-columns: 112px 1fr; gap: 10px; font-size: 11px; color: var(--ink-dim); }
-li::before { content: ""; position: absolute; left: -19px; top: 4px; width: 7px; height: 7px; background: var(--accent-lo); border: var(--b) solid var(--edge); }
+li::before { content: ""; position: absolute; left: -19px; top: 4px; width: 7px; height: 7px; background: var(--accent-lo); border: var(--b) solid var(--edge); border-radius: var(--radius); }
 .age { font: 10px var(--font-display); text-transform: uppercase; color: var(--ink-faint); }
 .now { color: var(--ink); }
 .now::before { background: var(--accent-hi); }

@@ -16,7 +16,7 @@ const model = defineModel<T | null>({ required: true })
 <style scoped>
 /* glass, as the site's layout toggle (registry browse: .views): the chosen one tinted with the ocean */
 .segmented { display: flex; min-width: 0; }
-button { flex: 1 0 auto; height: 2.1rem; margin-left: -1px; padding: 0 0.5rem; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px);
+button { flex: 1 0 auto; height: 2.1rem; margin-left: -1px; padding: 0 0.5rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(8px);
     color: var(--ink-faint); font: 0.68rem var(--font-display); text-transform: uppercase; white-space: nowrap; }
 button:first-child { margin-left: 0; }
 button:hover { color: var(--ink); }

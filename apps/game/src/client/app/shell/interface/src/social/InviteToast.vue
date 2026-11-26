@@ -48,7 +48,7 @@ onBeforeUnmount(() => { if (timer) clearTimeout(timer) })
     gap: 12px;
     max-width: calc(100vw - 40px);
     padding: 10px 12px 10px 14px;
-    border: var(--b) solid var(--edge);
+    border: var(--b) solid var(--edge); border-radius: var(--radius);
     background: rgb(21 24 27 / 0.96);
     box-shadow: inset 0 -4px 0 var(--accent), var(--raised), 6px 6px 0 rgb(0 0 0 / 0.35);
 }

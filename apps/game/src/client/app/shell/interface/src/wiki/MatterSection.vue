@@ -157,16 +157,16 @@ const pressure = (p: number) => p >= 1e9 ? `${(p / 1e9).toPrecision(3)} GPa` : p
 
 <style scoped>
 .model { width: 170px; height: 150px; }
-.here { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--glass-edge); background: rgb(4 7 11 / 0.6); font-size: 11px; }
+.here { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: rgb(4 7 11 / 0.6); font-size: 11px; }
 .here strong { font: 14px var(--font-display); text-transform: uppercase; }
 .solid { color: #8fb6e8; } .liquid { color: #40b8ec; } .gas { color: #d9b07a; } .supercritical { color: #c99be0; }
 .diagram { flex: none; height: 210px; }
 summary { cursor: pointer; color: var(--ink-faint); font: 11px var(--font-display); text-transform: uppercase; letter-spacing: 0.12em; }
 details dl { margin-top: 8px !important; }
 .worlds { display: flex; flex-wrap: wrap; gap: 6px; }
-.worlds button { border: 1px solid var(--glass-edge); background: var(--glass); padding: 3px 7px; font: 10px var(--font-display); text-transform: uppercase; color: var(--ink-dim); }
+.worlds button { border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); padding: 3px 7px; font: 10px var(--font-display); text-transform: uppercase; color: var(--ink-dim); }
 .worlds button:hover { color: var(--ink); }
-.bar { display: flex; height: 18px; border: 1px solid var(--glass-edge); overflow: hidden; }
+.bar { display: flex; height: 18px; border: 1px solid var(--glass-edge); border-radius: var(--radius); overflow: hidden; }
 .bar span { min-width: 2px; }
 .minerals { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .minerals li { display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; font-size: 12px; }

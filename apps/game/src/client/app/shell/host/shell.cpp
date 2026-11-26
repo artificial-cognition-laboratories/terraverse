@@ -572,6 +572,11 @@ void Shell::serverInfo(std::function<Json::Value()> describe)
 	m->debugger->serverInfo(std::move(describe));
 }
 
+Inspectors &Shell::inspectors()
+{
+	return m->debugger->inspectors();
+}
+
 void Shell::chooseUiScale(float chosen)
 {
 	m->ui_scale.choose(chosen);

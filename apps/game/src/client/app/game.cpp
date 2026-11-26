@@ -727,7 +727,8 @@ bool Game::createClient(const GameStartData &start_data)
 	/* The world as it's seen: the sky, clouds, the far view (views/game/view/world_view.h)
 	 */
 	m_world_view = std::make_unique<WorldView>(WorldView::Opts{ /* client */ *client, /* camera */ *camera,
-		/* engine */ *m_rendering_engine, /* shaders */ *shader_src, /* textures */ *texture_src, /* draw */ *draw_control });
+		/* engine */ *m_rendering_engine, /* shaders */ *shader_src, /* textures */ *texture_src, /* draw */ *draw_control,
+		/* inspectors */ g_shell ? &g_shell->inspectors() : nullptr });
 	scsf->setSky(&m_world_view->sky());
 
 	if (!initGui())

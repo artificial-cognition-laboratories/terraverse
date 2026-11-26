@@ -15,7 +15,7 @@ defineEmits<{ open: [] }>()
 </template>
 
 <style scoped>
-.category { display: flex; gap: 0.9rem; align-items: center; min-width: 0; padding: 0.85rem 1rem; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); color: var(--ink-dim); text-align: left; }
+.category { display: flex; gap: 0.9rem; align-items: center; min-width: 0; padding: 0.85rem 1rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(8px); color: var(--ink-dim); text-align: left; }
 .category:hover:not(:disabled) { border-color: var(--edge-lit); }
 .category:hover:not(:disabled) .label { color: var(--ink); }
 .category:disabled { cursor: default; }

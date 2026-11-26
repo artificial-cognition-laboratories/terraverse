@@ -112,7 +112,7 @@ onActivated(() => directory.run({}))
 .side { position: sticky; top: 2.5rem; }
 .switches { display: grid; gap: 0.4rem; }
 .rows { display: grid; gap: 0.75rem; }
-.row { border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); transition: border-color 0.1s; }
+.row { border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(8px); transition: border-color 0.1s; }
 .row:hover, .row.open { border-color: var(--edge-lit); }
 .head { display: grid; grid-template-columns: 7rem minmax(0, 1fr) 8rem 4rem; gap: 1.2rem; align-items: center; width: 100%; padding: 0 1.2rem 0 0; border: 0; background: none; color: var(--ink); text-align: left; }
 .thumb { height: 4rem; border-right: 1px solid var(--glass-edge); }

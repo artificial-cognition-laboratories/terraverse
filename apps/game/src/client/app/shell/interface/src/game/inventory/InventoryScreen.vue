@@ -221,7 +221,7 @@ const tooltip = computed(() => {
     flex-direction: column;
     gap: 0.25rem;
     padding: 0.25rem;
-    border: 1px solid var(--glass-edge);
+    border: 1px solid var(--glass-edge); border-radius: var(--radius);
     background: rgb(4 7 11 / 0.72);
 }
 .content.creative { min-height: calc(2.75rem * 7 + 0.25rem * 8 + 2px); }
@@ -245,6 +245,6 @@ const tooltip = computed(() => {
 .problem { margin: 0; padding: 0.25rem; color: var(--danger); font: 0.75rem var(--font-sans); }
 
 .hand { position: fixed; pointer-events: none; transform: translate(-50%, -50%); filter: drop-shadow(2px 2px 0 rgb(0 0 0 / 0.5)); }
-.tooltip { position: fixed; pointer-events: none; padding: 0.4rem 0.7rem; border: 1px solid var(--glass-edge); background: var(--glass-strong);
+.tooltip { position: fixed; pointer-events: none; padding: 0.4rem 0.7rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass-strong);
     color: var(--ink); font: 0.8rem var(--font-sans); white-space: pre-line; }
 </style>

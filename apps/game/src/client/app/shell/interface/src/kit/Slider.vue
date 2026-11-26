@@ -23,8 +23,8 @@ const shown = computed(() => (props.format ? props.format(model.value) : String(
 .row { display: flex; justify-content: space-between; color: var(--ink-dim); font-size: 0.8rem; }
 .value { color: var(--ink); font: 0.72rem var(--font-display); }
 /* a hairline track, filled with the ocean to the value; the thumb a small block of glass */
-input { appearance: none; height: 0.5rem; margin: 0; border: 1px solid var(--glass-edge); outline: none;
+input { appearance: none; height: 0.5rem; margin: 0; border: 1px solid var(--glass-edge); border-radius: var(--radius); outline: none;
     background: linear-gradient(90deg, var(--accent-lo) var(--fill), rgb(4 7 11 / 0.6) var(--fill)); }
-input::-webkit-slider-thumb { appearance: none; width: 0.75rem; height: 1.25rem; border: 1px solid var(--edge-lit-hi); background: var(--night-2); cursor: pointer; }
+input::-webkit-slider-thumb { appearance: none; width: 0.75rem; height: 1.25rem; border: 1px solid var(--edge-lit-hi); border-radius: var(--radius); background: var(--night-2); cursor: pointer; }
 input:hover::-webkit-slider-thumb { border-color: var(--accent-hi); }
 </style>

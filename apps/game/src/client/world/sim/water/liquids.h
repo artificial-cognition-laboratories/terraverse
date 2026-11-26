@@ -7,10 +7,11 @@
 #include "src/client/world/sim/water/grid.h"
 #include "src/client/world/sim/water/flat.h"
 #include "src/client/world/sim/water/scan.h"
-#include "src/client/world/sim/water/hold.h"
+#include "src/client/world/sim/water/base.h"
 #include "src/client/world/sim/water/flow.h"
 #include "src/client/world/sim/water/drops.h"
 #include "src/client/world/sim/water/draw.h"
+#include "src/client/world/sim/water/inspect.h"
 #include "src/shared/base/irr_aabb3d.h"
 #include <ISceneNode.h>
 #include <SMaterial.h>
@@ -28,13 +29,13 @@ class NodeDefManager;
 	drawn on its own, never by remeshing map blocks.
 
 	Near the camera (sprint 82) water is a grid of columns a sixteenth wide,
-	each with the ground under it and a depth of water, run as shallow water
-	by virtual pipes (waves, sloshing, wakes) and drawn on the GPU from a
-	texture of its heights, each top on a sixteenth. Only tiles something
-	stirred are run. Past the grid, liquid's drawn flat. The server's amounts
-	are the truth: the grid's water is held to them. Poured liquid falls as
-	sixteenth-cube drops that land in it. Only a picture: nothing goes back
-	to the server.
+	drawn on the GPU from a texture of its heights, each top on a sixteenth.
+	Each column's water is a base plus a disturbance (sprint 122): the base
+	is the server's (eased, never snapped), and only the disturbance is run,
+	as shallow water by virtual pipes (wakes, splashes) carried by the
+	current; tiles at rest aren't run at all. Past the grid, liquid's drawn
+	flat. Poured liquid falls as sixteenth-cube drops that land in it. Only
+	a picture: nothing goes back to the server.
 
 	The door: it builds its leaves and runs them in a frame's order.
 */
@@ -60,21 +61,26 @@ public:
 			const std::vector<Stream> &streams, const std::vector<Mover> &movers, const Rivers &rivers, ClientMap &map,
 			v3s16 offset, v3f camera, std::optional<s16> sea, u32 daynight, float dtime, bool hurrying);
 
+	// What the debugger's World tab shows of it, and how it's asked to show it
+	Inspect &inspect() { return m_inspect; }
+
 	void OnRegisterSceneNode() override;
 	void render() override;
 	const aabb3f &getBoundingBox() const override { return m_box; }
 
 private:
 	video::SMaterial m_material; // the flat layer's and the drops'
-	const bool m_gpu;            // the grid's run and drawn on the GPU; without it (no GL 3), water's drawn flat only
+	const bool m_gpu;
+	Look m_look; // (the debugger's)            // the grid's run and drawn on the GPU; without it (no GL 3), water's drawn flat only
 
 	Grid m_grid;
 	Flat m_flat;
 	Scan m_scan;
-	Hold m_hold;
+	Base m_base;
 	Flow m_flow;
 	Drops m_drops;
 	std::unique_ptr<Draw> m_draw; // with the GPU only
+	Inspect m_inspect;
 
 	float m_owed = 0; // s of the grid's steps not run yet
 	v3s16 m_offset;

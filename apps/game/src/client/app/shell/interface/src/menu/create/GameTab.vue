@@ -149,7 +149,7 @@ const sizeNote = computed(() => {
 .taken { color: var(--danger); font-size: 11px; }
 .choice-note { margin: -5px 0 0; min-height: 16px; color: var(--ink-dim); font-size: 11px; }
 .style-block { display: grid; gap: 10px; }
-.mods { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--stone-3); background: none; color: var(--ink); text-align: left; }
+.mods { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--stone-3); border-radius: var(--radius); background: none; color: var(--ink); text-align: left; }
 .mods:hover { border-color: var(--accent-lo); }
 .stack { display: flex; }
 .stack > * + * { margin-left: -8px; }

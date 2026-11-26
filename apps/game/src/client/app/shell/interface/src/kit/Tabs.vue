@@ -20,7 +20,7 @@ const model = defineModel<T>({ required: true })
 button {
     height: 36px;
     padding: 0 14px;
-    border: var(--b) solid var(--edge);
+    border: var(--b) solid var(--edge); border-radius: var(--radius);
     background: var(--stone-2);
     font: 12px var(--font-display);
     text-transform: uppercase;

@@ -38,7 +38,7 @@ const brush = (id: BrushId) => {
 /* the mouse is free only with C, or paused: elsewhere the rail is shown, not touched */
 .tool-rail.free { pointer-events: auto; }
 .way { width: 48px; padding: 3px 0; text-align: center; font: 9px var(--font-display); text-transform: uppercase;
-    color: var(--ink); background: var(--stone-1); border: var(--b) solid var(--edge);
+    color: var(--ink); background: var(--stone-1); border: var(--b) solid var(--edge); border-radius: var(--radius);
     box-shadow: inset 0 -3px 0 var(--accent); }
 .way.world { box-shadow: inset 0 -3px 0 var(--ink-faint); }
 </style>

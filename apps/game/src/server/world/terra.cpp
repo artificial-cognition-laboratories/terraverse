@@ -415,7 +415,29 @@ static u8 riverWay(Server *server, const World &w, v3s16 node)
 	if (!here)
 		return 0;
 	const terragen::Ground g = w.ground(*here, w.sunlight(*here, std::nullopt));
-	if (g.kind != terragen::Water::River || g.river_cell < 0)
+	if (g.kind != terragen::Water::River)
+		return 0;
+	// down its surface's slope, as generated (sprint 122): every river and stream has one
+	auto surface = [&](s16 dx, s16 dz) -> std::optional<double> {
+		const std::optional<Place> p = placeOf(server, intToFloat(node + v3s16(dx, 0, dz), 1));
+		if (!p)
+			return std::nullopt;
+		const terragen::Ground q = w.ground(*p, w.sunlight(*p, std::nullopt));
+		if (q.kind != terragen::Water::River)
+			return std::nullopt;
+		return q.water * 16.0 + q.water_part;
+	};
+	const double own = g.water * 16.0 + g.water_part;
+	auto fall = [&](s16 dx, s16 dz) {
+		const std::optional<double> a = surface(-dx, -dz), b = surface(dx, dz);
+		return a && b ? (*a - *b) / (2 * D) : b ? (own - *b) / D : a ? (*a - own) / D : 0.0;
+	};
+	if (const double fx = fall(D, 0), fz = fall(0, D); fx != 0 || fz != 0) {
+		const double turn = std::atan2(fz, fx) / (2 * M_PI); // −½..½
+		return (u8)(1 + (long)std::lround((turn < 0 ? turn + 1 : turn) * 254) % 255);
+	}
+	// a level reach: the way along its run (a grid river's; a stream's level water lies still)
+	if (g.river_cell < 0)
 		return 0;
 	// the gradient each way, from both sides where both are this run, else one
 	auto slope = [&](s16 dx, s16 dz) {
@@ -522,11 +544,13 @@ void terraSendRivers(Server *server)
 		ServerTerra::RiverBlock &rb = t.river_blocks[bp];
 		if (known == t.river_blocks.end()) {
 			// looked at once: generated water is held from the start
-			for (s16 i = 0; i < MAP_BLOCKSIZE * MAP_BLOCKSIZE * MAP_BLOCKSIZE && !rb.held; i++) {
+			// its highest: the river's top, not a cave under it that's held under the water table
+			// (whose column's no river: its block was still water, carrying nothing)
+			for (s16 i = 0; i < MAP_BLOCKSIZE * MAP_BLOCKSIZE * MAP_BLOCKSIZE; i++) {
 				const v3s16 rel(i % MAP_BLOCKSIZE, (i / MAP_BLOCKSIZE) % MAP_BLOCKSIZE, i / (MAP_BLOCKSIZE * MAP_BLOCKSIZE));
 				const u8 param2 = block->getNodeNoCheck(rel).getParam2();
-				if ((param2 & fill::HELD) && !(param2 & fill::LAKE)) // (a river's own, not a lake's over it)
-					rb.held = bp * MAP_BLOCKSIZE + rel;
+				if ((param2 & fill::HELD) && !(param2 & fill::LAKE) && (!rb.held || bp.Y * MAP_BLOCKSIZE + rel.Y > rb.held->Y))
+					rb.held = bp * MAP_BLOCKSIZE + rel; // (a river's own, not a lake's over it)
 			}
 			if (rb.held)
 				rb.way = riverWay(server, w, *rb.held);

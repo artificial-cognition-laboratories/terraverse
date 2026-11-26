@@ -23,7 +23,7 @@ const model = defineModel<T | null>({ required: true })
 <style scoped>
 /* the site's glass tiles (Button, CategoryTile): a hairline lit on hover, the ocean when chosen, at once */
 .choice { display: grid; gap: 0.5rem; }
-button { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.8rem 0.9rem; border: 1px solid var(--glass-edge); background: var(--glass); text-align: left; }
+button { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.8rem 0.9rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); text-align: left; }
 button:hover:not(:disabled) { border-color: var(--edge-lit); }
 button.on { border-color: var(--edge-lit-hi); background: var(--glass-lit); }
 .label { font: 0.75rem var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); }

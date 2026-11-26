@@ -28,11 +28,11 @@ defineEmits<{ open: [name: string] }>()
 
 <style scoped>
 .dependencies { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-section { padding: 1.25rem 1.5rem; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); }
+section { padding: 1.25rem 1.5rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(8px); }
 h3 { margin: 0 0 1rem; color: var(--ink); font: 400 0.68rem var(--font-display); text-transform: uppercase; }
 h3 span { margin-left: 0.4rem; color: var(--ink-faint); }
 ul { display: grid; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
-li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.6rem 0.8rem; border: 1px solid var(--glass-edge); font: 0.8rem var(--font); }
+li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.6rem 0.8rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); font: 0.8rem var(--font); }
 li button { padding: 0; border: 0; background: none; color: var(--accent-hi); font: inherit; text-align: left; }
 li button:hover { color: var(--ink); }
 code { color: var(--ink-faint); font: inherit; }

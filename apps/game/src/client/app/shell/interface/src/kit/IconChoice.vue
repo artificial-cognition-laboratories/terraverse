@@ -23,7 +23,7 @@ const model = defineModel<T | null>({ required: true })
 
 <style scoped>
 .icon-choice { display: grid; gap: 6px; min-width: 0; }
-button { display: flex; align-items: center; justify-content: flex-start; gap: 12px; min-width: 0; min-height: 50px; padding: 8px 12px; border: var(--b) solid var(--edge); background: var(--stone-2); box-shadow: var(--raised); text-align: left; }
+button { display: flex; align-items: center; justify-content: flex-start; gap: 12px; min-width: 0; min-height: 50px; padding: 8px 12px; border: var(--b) solid var(--edge); border-radius: var(--radius); background: var(--stone-2); box-shadow: var(--raised); text-align: left; }
 button:hover { background: var(--stone-3); }
 button:focus-visible { outline: var(--b) solid var(--accent-hi); outline-offset: 2px; }
 button.on { background: rgb(0 148 210 / 0.16); box-shadow: inset 0 -4px 0 var(--accent), var(--raised); }

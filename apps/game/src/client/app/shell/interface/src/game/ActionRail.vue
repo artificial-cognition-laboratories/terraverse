@@ -114,7 +114,7 @@ watch(() => props.tools.naming, (naming) => { if (naming) open.value = "save" },
 .gap { height: 6px; width: 48px; }
 .count {
     position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 3px;
-    background: var(--accent); border: 1px solid var(--edge); font: 10px/16px var(--font-display);
+    background: var(--accent); border: 1px solid var(--edge); border-radius: var(--radius); font: 10px/16px var(--font-display);
 }
 .beside {
     position: absolute; right: 20px; bottom: calc(110px + 33vh + 16px);
@@ -122,7 +122,7 @@ watch(() => props.tools.naming, (naming) => { if (naming) open.value = "save" },
 }
 .pop {
     display: flex; flex-direction: column; gap: 10px; width: 260px; padding: 12px;
-    border: var(--b) solid var(--edge); background: rgb(21 24 27 / 0.94); box-shadow: var(--raised), 8px 8px 0 rgb(0 0 0 / 0.35);
+    border: var(--b) solid var(--edge); border-radius: var(--radius); background: rgb(21 24 27 / 0.94); box-shadow: var(--raised), 8px 8px 0 rgb(0 0 0 / 0.35);
 }
 h3 { margin: 0; font: 12px var(--font-display); text-transform: uppercase; color: var(--ink); }
 .row { display: flex; gap: 6px; }
@@ -131,7 +131,7 @@ li .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; whi
 li .small { width: 34px; padding: 8px 0; text-align: center; }
 li button {
     width: 100%; padding: 8px 10px; text-align: left; color: var(--ink); background: var(--stone-2);
-    border: var(--b) solid var(--edge); font: 13px var(--font-body, inherit);
+    border: var(--b) solid var(--edge); border-radius: var(--radius); font: 13px var(--font-body, inherit);
 }
 li button:hover { background: var(--stone-3); outline: var(--b) solid var(--accent); }
 .hint { margin: 0; font-size: 12px; color: var(--ink-faint); }

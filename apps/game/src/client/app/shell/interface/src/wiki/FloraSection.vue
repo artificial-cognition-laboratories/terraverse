@@ -161,7 +161,7 @@ const worth = (b: FloraState["blocks"]) => Object.entries(b).filter(([, n]) => n
 <style scoped>
 /* nothing painted but the floats: the page's empty pixels are the scene's, and its mouse */
 .scene { position: relative; width: 100%; height: 100%; min-height: 0; }
-.facts { position: absolute; top: 12px; right: 12px; bottom: 12px; width: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--glass-edge); background: var(--glass-strong); backdrop-filter: blur(8px); }
+.facts { position: absolute; top: 12px; right: 12px; bottom: 12px; width: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass-strong); backdrop-filter: blur(8px); }
 .facts h5 { margin: 8px 0 0; font: 11px var(--font-display); text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); }
 .facts h5:first-child { margin-top: 0; }
 .facts p { margin: 0; font-size: 13px; }

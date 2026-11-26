@@ -23,7 +23,7 @@ onMounted(() => requestAnimationFrame(() => { full.value = true }))
 </template>
 
 <style scoped>
-.progress { position: relative; height: 22px; border: var(--b) solid var(--edge); background: var(--stone-0); box-shadow: var(--sunk); }
+.progress { position: relative; height: 22px; border: var(--b) solid var(--edge); border-radius: var(--radius); background: var(--stone-0); box-shadow: var(--sunk); }
 .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent-lo); box-shadow: var(--raised); transition-property: width; transition-timing-function: linear; }
 .fill.full { width: 100%; }
 .fill.measured { transition: width 0.25s linear; }

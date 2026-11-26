@@ -12,7 +12,7 @@ defineProps<{ title: string; corner: WidgetCorner; interactive?: boolean; belowP
 </template>
 
 <style scoped>
-.widget-frame { position: fixed; z-index: 2; min-width: 0; border: var(--b) solid var(--edge); background: rgb(14 18 21 / .92); box-shadow: var(--raised), 5px 5px 0 rgb(0 0 0 / .3); color: var(--ink); pointer-events: none; }
+.widget-frame { position: fixed; z-index: 2; min-width: 0; border: var(--b) solid var(--edge); border-radius: var(--radius); background: rgb(14 18 21 / .92); box-shadow: var(--raised), 5px 5px 0 rgb(0 0 0 / .3); color: var(--ink); pointer-events: none; }
 .widget-frame.interactive { pointer-events: auto; }
 .widget-frame header { padding: 7px 9px; border-bottom: var(--b) solid var(--edge); background: var(--stone-2); font: 10px var(--font-display); text-transform: uppercase; letter-spacing: .1em; white-space: nowrap; }
 .mark { color: var(--accent-hi); }

@@ -86,11 +86,11 @@ function runs(item: PaletteItem) {
 .palette-scene { position: fixed; inset: 0; display: flex; justify-content: center; align-items: flex-start; padding-top: 1.25rem; cursor: none; }
 /* the inventory's glass (game/inventory/InventoryScreen.vue .content): the night at 0.72, frosted by
    the shell, one hairline; a little wider than the hotbar under it */
-.palette { display: flex; flex-direction: column; gap: 0.25rem; width: min(32rem, calc(100vw - 4rem)); max-height: 60vh; padding: 0.25rem; border: 1px solid var(--glass-edge);
+.palette { display: flex; flex-direction: column; gap: 0.25rem; width: min(32rem, calc(100vw - 4rem)); max-height: 60vh; padding: 0.25rem; border: 1px solid var(--glass-edge); border-radius: var(--radius);
     /* and the slots' faint lift over it (cell.css), as the inventory reads: grey glass, not the full screens' night */
     background: linear-gradient(rgb(231 237 244 / 0.035), rgb(231 237 244 / 0.035)), rgb(4 7 11 / 0.72); }
 /* its search cell: the slots' hairline and lift, lit while typed in (it always is) */
-.line { display: flex; align-items: center; gap: 0.75rem; flex: none; padding: 0 0.75rem; height: 2.5rem; border: 1px solid var(--edge-lit); background: rgb(231 237 244 / 0.025); }
+.line { display: flex; align-items: center; gap: 0.75rem; flex: none; padding: 0 0.75rem; height: 2.5rem; border: 1px solid var(--edge-lit); border-radius: var(--radius); background: rgb(231 237 244 / 0.025); }
 input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: none; cursor: none; font: 0.85rem var(--font); color: var(--ink); }
 input::placeholder { color: var(--ink-faint); }
 .list { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 0; list-style: none; }

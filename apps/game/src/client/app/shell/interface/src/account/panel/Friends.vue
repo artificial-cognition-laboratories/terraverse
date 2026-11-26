@@ -49,7 +49,7 @@ function add() {
 
 <style scoped>
 /* the palette's search cell: the slots' hairline and lift */
-.add { display: flex; align-items: center; gap: 0.5rem; height: 2.3rem; margin-bottom: 0.25rem; padding: 0 0.35rem 0 0.7rem; border: 1px solid var(--glass-edge); background: rgb(231 237 244 / 0.025); }
+.add { display: flex; align-items: center; gap: 0.5rem; height: 2.3rem; margin-bottom: 0.25rem; padding: 0 0.35rem 0 0.7rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: rgb(231 237 244 / 0.025); }
 .add:focus-within { border-color: var(--edge-lit); }
 .plus { color: var(--accent-hi); font: 0.8rem var(--font-display); }
 input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: none; color: var(--ink); font: 0.8rem var(--font); }

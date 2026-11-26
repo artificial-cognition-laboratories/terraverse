@@ -13,7 +13,7 @@ defineProps<{ count?: number }>()
 
 <style scoped>
 .rows { display: grid; gap: 0.75rem; }
-.slot { display: grid; grid-template-columns: 7rem minmax(0, 1fr) 6rem; gap: 1.2rem; align-items: center; height: 4rem; padding-right: 1.2rem; border: 1px solid var(--glass-edge); background: rgb(231 237 244 / 0.02); }
+.slot { display: grid; grid-template-columns: 7rem minmax(0, 1fr) 6rem; gap: 1.2rem; align-items: center; height: 4rem; padding-right: 1.2rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: rgb(231 237 244 / 0.02); }
 .thumb { height: 100%; border-right: 1px solid var(--glass-edge); background: rgb(231 237 244 / 0.025); }
 .lines { display: grid; gap: 0.45rem; }
 i { display: block; height: 0.55rem; width: 55%; background: rgb(231 237 244 / 0.06); }

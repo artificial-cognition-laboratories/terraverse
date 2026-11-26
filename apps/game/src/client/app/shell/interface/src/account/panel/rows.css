@@ -15,7 +15,7 @@
 .acct .group { margin: 0.6rem 0.6rem 0.25rem; color: var(--ink-faint); font: 0.55rem var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; }
 .acct .group:first-child { margin-top: 0.2rem; }
 .acct .empty { margin: 0; padding: 0.9rem 0.6rem; color: var(--ink-dim); font: 0.75rem/1.5 var(--font-sans); }
-.acct .act { flex: none; height: 1.6rem; padding: 0 0.55rem; border: 1px solid var(--glass-edge); background: rgb(231 237 244 / 0.035); color: var(--ink); font: 0.55rem var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+.acct .act { flex: none; height: 1.6rem; padding: 0 0.55rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: rgb(231 237 244 / 0.035); color: var(--ink); font: 0.55rem var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
 .acct .act:hover:not(:disabled) { border-color: var(--edge-lit); }
 .acct .act.go { background: rgb(10 75 145 / 0.55); border-color: var(--edge-lit-hi); }
 .acct .act.warn { color: var(--warn); }

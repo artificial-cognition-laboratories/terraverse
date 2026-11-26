@@ -26,7 +26,7 @@ defineEmits<{ open: [server: PublicServer] }>()
 </template>
 
 <style scoped>
-.live { width: 100%; border: 1px solid var(--glass-edge); border-collapse: collapse; background: var(--glass); backdrop-filter: blur(8px); font-size: 0.78rem; }
+.live { width: 100%; border: 1px solid var(--glass-edge); border-radius: var(--radius); border-collapse: collapse; background: var(--glass); backdrop-filter: blur(8px); font-size: 0.78rem; }
 th { padding: 0.8rem 1rem; border-bottom: 1px solid var(--glass-edge); color: var(--ink-faint); font: 400 0.6rem var(--font-display); text-align: left; text-transform: uppercase; }
 td { padding: 0.85rem 1rem; border-bottom: 1px solid rgb(231 237 244 / 0.05); color: var(--ink-dim); white-space: nowrap; }
 tr:last-child td { border-bottom: none; }

@@ -33,7 +33,7 @@ withDefaults(defineProps<{ variant?: "primary" | "plain" | "ghost" | "danger"; s
     align-items: center;
     justify-content: center;
     gap: 10px;
-    border: 1px solid var(--glass-edge);
+    border: 1px solid var(--glass-edge); border-radius: var(--radius);
     background: var(--glass);
     backdrop-filter: blur(8px);
     font-family: var(--font-display);

@@ -89,7 +89,7 @@ const ICONS = {
 /* nothing painted but the floats: the page's empty pixels are the scene's, and its mouse */
 .scene { position: relative; width: 100%; height: 100%; min-height: 0; }
 .scene.empty { background: var(--wash); }
-.facts { position: absolute; top: 12px; right: 12px; width: 280px; max-height: calc(100% - 72px); display: flex; flex-direction: column; border: 1px solid var(--glass-edge); background: var(--glass-strong); backdrop-filter: blur(8px); }
+.facts { position: absolute; top: 12px; right: 12px; width: 280px; max-height: calc(100% - 72px); display: flex; flex-direction: column; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass-strong); backdrop-filter: blur(8px); }
 .facts.closed { width: auto; }
 .fold { align-self: flex-end; padding: 2px 8px; border: 0; background: none; color: var(--accent-hi); font: 13px var(--font-display); }
 .facts-body { overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 0 14px 14px; }
@@ -101,7 +101,7 @@ const ICONS = {
 .gap { flex: 1; }
 .speeds { flex: none; width: 200px; }
 .speeds :deep(button) { padding: 0 2px; font-size: 10px; }
-.key { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); cursor: pointer; }
+.key { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(8px); cursor: pointer; }
 .key:hover { border-color: var(--edge-lit); }
 .key.main { border-color: var(--edge-lit-hi); background: var(--glass-lit); }
 .glyph { width: 18px; height: 18px; }

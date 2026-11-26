@@ -18,6 +18,7 @@ namespace gui { class ICursorControl; }
 namespace shell {
 
 class Inbox;
+class Inspectors;
 
 /*
 	The debugger: a page of its own beside the game, as a browser's devtools sit
@@ -63,6 +64,8 @@ public:
 	bool onEvent(const SEvent &event, core::dimension2du window);
 	// What its Server tab shows of the server (shell/serverinfo.h), while in a world; null when not.
 	void serverInfo(std::function<Json::Value()> describe);
+	// What its World tab shows of the game's systems (inspectors.h)
+	Inspectors &inspectors();
 
 private:
 	struct Impl;

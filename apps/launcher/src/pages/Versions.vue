@@ -82,11 +82,11 @@ function trail(id: string): string {
 <style scoped>
 .page { display: flex; flex-direction: column; gap: 24px; padding: 18px 0 32px; }
 header { display: flex; gap: 22px; padding-bottom: 22px; border-bottom: 1px solid var(--stone-4); }
-.icon { display: grid; place-items: center; flex: none; width: 104px; height: 104px; background: var(--stone-2); border: var(--b) solid var(--edge); box-shadow: var(--raised); }
+.icon { display: grid; place-items: center; flex: none; width: 104px; height: 104px; background: var(--stone-2); border: var(--b) solid var(--edge); border-radius: var(--radius); box-shadow: var(--raised); }
 .what { display: flex; flex-direction: column; justify-content: center; gap: 8px; min-width: 0; min-height: 104px; }
 .title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 h2 { margin: 0; font: 400 24px var(--font-display); text-transform: uppercase; }
-.tag { padding: 1px 6px; font: 10px var(--font-display); text-transform: uppercase; letter-spacing: 0.1em; border: 1px solid var(--edge); }
+.tag { padding: 1px 6px; font: 10px var(--font-display); text-transform: uppercase; letter-spacing: 0.1em; border: 1px solid var(--edge); border-radius: var(--radius); }
 .tag.stable { background: var(--accent-lo); }
 .tag.beta { background: var(--warn-lo); }
 .tag.pinned { background: var(--stone-4); }

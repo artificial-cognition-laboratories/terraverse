@@ -593,6 +593,21 @@ export type ServerPlayer = { name: string; position: [number, number, number]; h
 /** A TypeScript mod the local server runs (its server folder's .terra/manifest.json). */
 export type ServerMod = { name: string; version: string; source: "game" | "user" }
 /** The server the game's connected to. Local: all of it; remote: `local` false and its address alone. */
+/**
+ * A game system as the debugger's World tab shows it (shell/host/inspectors.h): its
+ * numbers now, and its controls with their values. Using one sends `inspect.act`.
+ */
+export type InspectorState = {
+    title: string
+    about: string
+    stats: { label: string; value: string }[]
+    controls: InspectorControl[]
+}
+export type InspectorControl =
+    | { id: string; label: string; type: "choice"; value: string; options: { id: string; label: string; about: string }[] }
+    | { id: string; label: string; type: "toggle"; value: boolean; about: string }
+    | { id: string; label: string; type: "button"; about: string }
+
 export type ServerSummary =
     | { local: true; address: string; version: string; game: string; world: string; uptime: number; lag: number; players: ServerPlayer[]; mods: ServerMod[] }
     | { local: false; address: string }
@@ -624,6 +639,8 @@ export type EngineMessage =
     | { kind: "net.events"; events: NetEvent[] }
     /** The debugger's page only, once a second: the server (null outside a world) and the process. */
     | { kind: "server.summary"; server: ServerSummary | null; process: ProcessSample }
+    /** The debugger's page only, a few times a second: the game's systems, by name (empty outside a world). */
+    | { kind: "inspect.state"; inspectors: Record<string, InspectorState> }
     /** The debugger's page only: marks made since the last (all kept, to a fresh page). */
     | { kind: "server.marks"; marks: TraceMark[] }
     /** How far the world being entered has got, by stage; null once it's there (or it never got there). */
@@ -657,6 +674,8 @@ export type Intents = {
     "perf.capture": { request: { from: number; to: number }; response: PerfCapture }
     /** Everything the recorder has, written as a Chrome trace (Perfetto, chrome://tracing). */
     "perf.export": { request: {}; response: { path: string } }
+    /** The debugger's page only: a control of an inspected system used (a button's value is null). */
+    "inspect.act": { request: { name: string; control: string; value: string | boolean | null }; response: null }
     /** The client's messages over [from, to] ms, whole. Answered off the game's thread. */
     "net.capture": { request: { from: number; to: number }; response: NetCapture }
     "update.check": { request: {}; response: UpdateCheck }

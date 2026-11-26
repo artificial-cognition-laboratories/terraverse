@@ -105,7 +105,7 @@ const ICONS = {
 .scene { position: relative; width: 100%; height: 100%; min-height: 0; }
 .scene.empty { background: var(--wash); } /* no scene drawn: nothing behind the panel to show through */
 .top, .reading, .player { position: absolute; }
-.float { position: absolute; border: 1px solid var(--glass-edge); background: var(--glass-strong); backdrop-filter: blur(8px); }
+.float { position: absolute; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass-strong); backdrop-filter: blur(8px); }
 .top { top: 14px; left: 16px; max-width: calc(100% - 340px); }
 .facts { top: 12px; right: 12px; max-height: calc(100% - 72px); width: 280px; display: flex; flex-direction: column; }
 .facts.closed { width: auto; }
@@ -124,7 +124,7 @@ const ICONS = {
 .gap { flex: 1; }
 .speeds { flex: none; width: 200px; }
 .speeds :deep(button) { padding: 0 2px; font-size: 10px; }
-.key { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); cursor: pointer; }
+.key { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(8px); cursor: pointer; }
 .key:hover { border-color: var(--edge-lit); }
 .key.main { border-color: var(--edge-lit-hi); background: var(--glass-lit); }
 .key.on { border-color: var(--edge-lit-hi); background: var(--glass-lit); }

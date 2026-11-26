@@ -168,5 +168,5 @@ async function create() {
 .top { position: absolute; top: 0; left: 96px; right: 96px; display: flex; justify-content: center; pointer-events: none; }
 .top .picker { min-width: 0; pointer-events: auto; }
 .go { position: absolute; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: end; gap: 6px; }
-.problem { max-width: 320px; padding: 6px 8px; border: var(--b) solid var(--edge); background: rgb(12 14 16 / 0.85); color: var(--danger); font-size: 11px; }
+.problem { max-width: 320px; padding: 6px 8px; border: var(--b) solid var(--edge); border-radius: var(--radius); background: rgb(12 14 16 / 0.85); color: var(--danger); font-size: 11px; }
 </style>

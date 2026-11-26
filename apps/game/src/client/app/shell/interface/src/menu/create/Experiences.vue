@@ -24,7 +24,7 @@ defineEmits<{ browse: [] }>()
 <style scoped>
 .experiences { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .more { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 2px 10px;
-    padding: 10px 12px; border: 1px dashed var(--stone-4); background: none; color: var(--ink-dim); text-align: left; }
+    padding: 10px 12px; border: 1px dashed var(--stone-4); border-radius: var(--radius); background: none; color: var(--ink-dim); text-align: left; }
 .more:hover { border-color: var(--accent-lo); color: var(--ink); }
 .plus { grid-row: span 2; font: 18px var(--font-display); color: var(--accent-hi); }
 .label { font: 11px var(--font-display); text-transform: uppercase; }

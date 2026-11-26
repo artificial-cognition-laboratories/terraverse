@@ -47,7 +47,7 @@ const page = (type: string) => ({ rows: ["GGGG...", "GLLLG..", "GLLLLG.", "GLLLL
 
 <style scoped>
 .file-tree { margin: 0; padding: 0; list-style: none; }
-.node { display: flex; gap: 0.4rem; align-items: center; width: 100%; padding: 0.3rem 0.5rem; border: 1px solid transparent; background: none; color: var(--ink-dim); font: 0.74rem var(--font); text-align: left; }
+.node { display: flex; gap: 0.4rem; align-items: center; width: 100%; padding: 0.3rem 0.5rem; border: 1px solid transparent; border-radius: var(--radius); background: none; color: var(--ink-dim); font: 0.74rem var(--font); text-align: left; }
 .node:hover { color: var(--ink); background: rgb(231 237 244 / 0.04); }
 .node.active { color: var(--ink); background: rgb(10 75 145 / 0.3); border-color: rgb(99 163 233 / 0.4); }
 .caret { flex: none; width: 0.7rem; color: var(--ink-faint); font-size: 0.6rem; }

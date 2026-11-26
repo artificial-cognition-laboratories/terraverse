@@ -68,7 +68,7 @@ p { margin: 0; font-size: 13px; line-height: 1.5; }
     letter-spacing: 0.18em;
     color: var(--accent-hi);
     background: var(--stone-1);
-    border: var(--b) solid var(--edge);
+    border: var(--b) solid var(--edge); border-radius: var(--radius);
     box-shadow: var(--sunk);
 }
 

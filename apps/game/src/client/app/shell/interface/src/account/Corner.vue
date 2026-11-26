@@ -102,7 +102,7 @@ async function join(player: Player) {
 .profile-trigger { margin-left: auto; }
 /* under the button, its right edge on the button's: out of the corner's row, so nothing beside it moves */
 .drop { position: absolute; top: calc(100% + 10px); right: 0; }
-.status { position: absolute; right: 3px; bottom: 3px; width: 8px; height: 8px; background: var(--stone-4); border: 1px solid var(--edge); }
+.status { position: absolute; right: 3px; bottom: 3px; width: 8px; height: 8px; background: var(--stone-4); border: 1px solid var(--edge); border-radius: var(--radius); }
 .status.online { background: var(--accent-hi); }
-.badge { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 3px; background: var(--accent); border: 1px solid var(--edge); font: 10px/16px var(--font-display); }
+.badge { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 3px; background: var(--accent); border: 1px solid var(--edge); border-radius: var(--radius); font: 10px/16px var(--font-display); }
 </style>

@@ -37,7 +37,7 @@ watch(() => props.file, (path) => { if (!IMAGE.test(path)) void text.run({ name:
 </template>
 
 <style scoped>
-.source { display: flex; flex-direction: column; min-width: 0; min-height: 24rem; margin: 0; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); }
+.source { display: flex; flex-direction: column; min-width: 0; min-height: 24rem; margin: 0; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(8px); }
 figcaption { display: flex; align-items: center; gap: 1rem; min-height: 2.8rem; padding: 0 1rem; white-space: nowrap; overflow: hidden; }
 .dots { display: flex; flex: none; gap: 0.4rem; }
 .dots i { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--night-4); }

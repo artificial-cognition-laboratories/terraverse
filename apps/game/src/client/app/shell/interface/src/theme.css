@@ -76,7 +76,9 @@
     /* for reading: prose, descriptions, headings that are sentences */
     --font-sans: "Inter", system-ui, sans-serif;
 
-    /* Hard edges everywhere: nothing has a radius. --b is a heavy line (a focus ring, a chosen tab). */
+    /* Corners a hair round (a step under the website's 3px $radius: the game draws larger), so the glass reads modern without losing its
+       hard, pixel edge. --b is a heavy line (a focus ring, a chosen tab). */
+    --radius: 2px;
     --b: 2px;
 
     /*

@@ -84,7 +84,8 @@ set(client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/parts.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/grid.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/scan.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/hold.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/base.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/inspect.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/flow.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/drops.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/draw.cpp

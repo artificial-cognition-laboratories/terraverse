@@ -7,6 +7,7 @@ import DebuggerPanel from "./DebuggerPanel.vue"
 import { PerfStore } from "./perf/store.ts"
 import { NetStore } from "./net/store.ts"
 import { ServerStore } from "./server/store.ts"
+import { WorldStore } from "./world/store.ts"
 
 /**
  * The debugger's page: the panel, on whichever side the engine says (nothing
@@ -18,6 +19,7 @@ const log = TableFeed<LogLine>({ key: (line) => String(line.seq), max: 20_000 })
 const perf = PerfStore({ capture: (from, to) => bridge.send("perf.capture", { from: from, to: to }) })
 const net = NetStore({ capture: (from, to) => bridge.send("net.capture", { from: from, to: to }) })
 const server = ServerStore()
+const world = WorldStore({ act: (name, control, value) => bridge.send("inspect.act", { name: name, control: control, value: value }) })
 const exportTrace = async () => (await bridge.send("perf.export", {})).path
 const off = bridge.on((message) => {
     if (message.kind === "debugger.dock") side.value = message.side
@@ -27,11 +29,12 @@ const off = bridge.on((message) => {
     else if (message.kind === "net.events") net.addEvents(message.events)
     else if (message.kind === "server.summary") server.described(message.server, message.process)
     else if (message.kind === "server.marks") server.marked(message.marks)
+    else if (message.kind === "inspect.state") world.described(message.inspectors)
 })
 onUnmounted(off)
 </script>
 
 <template>
-    <DebuggerPanel v-if="side" :side="side" :log="log" :perf="perf" :net="net" :server="server" :export-trace="exportTrace" @dock="(to) => bridge.send('debugger.dock', { side: to })"
+    <DebuggerPanel v-if="side" :side="side" :log="log" :perf="perf" :net="net" :server="server" :world="world" :export-trace="exportTrace" @dock="(to) => bridge.send('debugger.dock', { side: to })"
         @grab="bridge.send('debugger.drag', {})" @close="bridge.send('debugger.close', {})" />
 </template>

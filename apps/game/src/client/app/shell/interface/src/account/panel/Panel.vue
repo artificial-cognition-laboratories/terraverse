@@ -73,17 +73,17 @@ const shown = computed(() => {
 
 <style scoped>
 /* the inventory's glass, a little deeper: it opens over the menu's title as well as the world */
-.panel { width: min(24rem, calc(100vw - 2.5rem)); border: 1px solid var(--glass-edge);
+.panel { width: min(24rem, calc(100vw - 2.5rem)); border: 1px solid var(--glass-edge); border-radius: var(--radius);
     background: linear-gradient(rgb(231 237 244 / 0.035), rgb(231 237 244 / 0.035)), rgb(4 7 11 / 0.88);
     backdrop-filter: blur(8px); }
 /* header across, the rail down the left, the page beside it */
 .hub { display: grid; grid-template: auto minmax(0, 1fr) / 3rem minmax(0, 1fr); height: min(26rem, 70vh); }
 .me { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.65rem; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--glass-edge); background: rgb(231 237 244 / 0.025); }
-.mark { display: grid; place-items: center; flex: none; width: 2rem; height: 2rem; border: 1px solid var(--edge-lit); background: rgb(4 7 11 / 0.6); color: var(--accent-hi); font: 0.85rem var(--font-display); }
+.mark { display: grid; place-items: center; flex: none; width: 2rem; height: 2rem; border: 1px solid var(--edge-lit); border-radius: var(--radius); background: rgb(4 7 11 / 0.6); color: var(--accent-hi); font: 0.85rem var(--font-display); }
 .me small { display: flex; align-items: center; gap: 0.35rem; }
 .me .dot.stale { background: var(--warn); }
 .rail { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.35rem; border-right: 1px solid var(--glass-edge); }
-.rail button { position: relative; display: grid; place-items: center; height: 2.3rem; border: 1px solid transparent; background: none; color: var(--ink-faint); }
+.rail button { position: relative; display: grid; place-items: center; height: 2.3rem; border: 1px solid transparent; border-radius: var(--radius); background: none; color: var(--ink-faint); }
 .rail button:hover { color: var(--ink); background: rgb(231 237 244 / 0.06); }
 .rail button.on { color: #fff; background: rgb(10 75 145 / 0.55); border-color: var(--edge-lit-hi); }
 .rail button.foot { margin-top: auto; }

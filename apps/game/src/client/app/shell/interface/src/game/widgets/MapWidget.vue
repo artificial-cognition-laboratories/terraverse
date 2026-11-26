@@ -44,7 +44,7 @@ watch(() => [map.value ? mapKey(map.value) : null, widgetConfig.ready, widgetCon
 </template>
 
 <style scoped>
-.open-map { display: block; position: relative; padding: 4px; border: var(--b) solid var(--edge); box-shadow: var(--raised), 4px 4px 0 rgb(0 0 0 / .35); background: #111820; color: var(--ink); text-align: left; }
+.open-map { display: block; position: relative; padding: 4px; border: var(--b) solid var(--edge); border-radius: var(--radius); box-shadow: var(--raised), 4px 4px 0 rgb(0 0 0 / .35); background: #111820; color: var(--ink); text-align: left; }
 .open-map > :first-child { aspect-ratio: 1; }
 .open-map:hover { outline: var(--b) solid var(--accent-hi); }
 .open-map.round { border-radius: 50%; overflow: hidden; }

@@ -22,7 +22,7 @@ const GLASS = { rows: [".###...", "#...#..", "#...#..", "#...#..", ".###...", ".
 
 <style scoped>
 /* the website's search (apps/site shared/search.vue): a pane of glass in the bar */
-.search-box { display: flex; align-items: center; gap: 0.6rem; width: 100%; height: 2.2rem; padding: 0 0.8rem; border: 1px solid var(--glass-edge); background: var(--glass); backdrop-filter: blur(8px); }
+.search-box { display: flex; align-items: center; gap: 0.6rem; width: 100%; height: 2.2rem; padding: 0 0.8rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: var(--glass); backdrop-filter: blur(8px); }
 .search-box:focus-within { border-color: var(--edge-lit-hi); }
 .glyph { flex: none; color: var(--ink-faint); }
 input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: none; font: 0.75rem var(--font); }

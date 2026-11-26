@@ -14,6 +14,7 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/host/console.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/cpu_canvas.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/debugger.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/host/inspectors.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/entering.cpp
 	${GAME_DIR}/src/client/views/scenes/kinds/course.cpp
 	${GAME_DIR}/src/client/world/sim/fine/finewater.cpp

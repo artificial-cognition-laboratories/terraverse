@@ -56,7 +56,7 @@ const part = (v: number) => `${Math.round(v * 100)}%`
 </template>
 
 <style scoped>
-.facts { display: grid; gap: 10px; padding: 12px; border: var(--b) solid var(--edge); background: var(--stone-1); box-shadow: var(--sunk); }
+.facts { display: grid; gap: 10px; padding: 12px; border: var(--b) solid var(--edge); border-radius: var(--radius); background: var(--stone-1); box-shadow: var(--sunk); }
 header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .kind { font: 16px var(--font-display); text-transform: uppercase; color: var(--accent-hi); }
 .tags { display: flex; gap: 8px; flex-wrap: wrap; font: 10px var(--font-display); text-transform: uppercase; color: var(--ink-faint); }
@@ -64,7 +64,7 @@ dl { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; margin: 0; }
 dl div { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; }
 dt { color: var(--ink-dim); }
 dd { margin: 0; color: var(--ink); font-family: var(--font-display); font-size: 11px; text-align: right; }
-.bar { display: flex; height: 16px; border: var(--b) solid var(--edge); overflow: hidden; }
+.bar { display: flex; height: 16px; border: var(--b) solid var(--edge); border-radius: var(--radius); overflow: hidden; }
 .bar span { display: grid; place-items: center; min-width: 2px; }
 .bar em { font: normal 9px var(--font-display); color: #0b1014; white-space: nowrap; }
 .makeup { margin: 0; font-size: 10px; color: var(--ink-faint); }

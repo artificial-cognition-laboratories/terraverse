@@ -126,7 +126,7 @@ const joinTitle = computed(() => (inMenu.value ? undefined : "Leave your world f
 .who strong { font-weight: 400; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .where { font-size: 11px; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.dot { flex: none; width: 10px; height: 10px; border: var(--b) solid var(--edge); }
+.dot { flex: none; width: 10px; height: 10px; border: var(--b) solid var(--edge); border-radius: var(--radius); }
 .dot.open { background: var(--accent-hi); box-shadow: 0 0 0 2px rgb(0 148 210 / 0.25); }
 .dot.online { background: #5fae5a; }
 .dot.offline { background: var(--stone-3); }

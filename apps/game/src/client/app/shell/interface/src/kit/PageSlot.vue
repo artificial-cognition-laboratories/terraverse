@@ -18,10 +18,10 @@
 <style scoped>
 .page { display: grid; grid-template-columns: minmax(0, 1fr) 17rem; gap: 2.5rem; align-items: start; }
 main { display: grid; gap: 2rem; min-width: 0; }
-.head { display: flex; gap: 1.2rem; align-items: center; min-height: 9rem; padding: 1.5rem; border: 1px solid var(--glass-edge); background: rgb(231 237 244 / 0.02); }
-.mark { flex: none; width: 64px; height: 64px; border: 1px solid var(--glass-edge); background: rgb(4 7 11 / 0.85); }
+.head { display: flex; gap: 1.2rem; align-items: center; min-height: 9rem; padding: 1.5rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: rgb(231 237 244 / 0.02); }
+.mark { flex: none; width: 64px; height: 64px; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: rgb(4 7 11 / 0.85); }
 .lines, .text, aside { display: grid; gap: 0.7rem; flex: 1; }
-aside { padding: 1.2rem; border: 1px solid var(--glass-edge); background: rgb(231 237 244 / 0.02); }
+aside { padding: 1.2rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: rgb(231 237 244 / 0.02); }
 i { display: block; height: 0.6rem; width: 80%; background: rgb(231 237 244 / 0.05); }
 i.title { height: 1rem; width: 45%; background: rgb(231 237 244 / 0.08); }
 i.short { width: 50%; }
