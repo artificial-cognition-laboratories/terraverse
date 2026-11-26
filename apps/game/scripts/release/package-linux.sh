@@ -60,7 +60,9 @@ system+='|libnss3|libnssutil3|libnspr4|libsmime3|libplc4|libplds4|libatk-1\.0|li
 # Not libnettle, libhogweed or libunistring: their sonames move between distros
 # (Arch has nettle.so.9 where we link .so.8), and each version installs side by side.
 system+='|libgnutls|libp11-kit|libtasn1'
-system+='|libcairo|libpango-1\.0|libharfbuzz|libfribidi|libthai|libdatrie|libpixman-1|libgraphite2|libpng16'
+# libpng16 is bundled: the engine loads its textures with it, its soname has held for years, and
+# a desktop without it in the usual place (NixOS: "libpng16.so.16: cannot open shared object file") couldn't start the game
+system+='|libcairo|libpango-1\.0|libharfbuzz|libfribidi|libthai|libdatrie|libpixman-1|libgraphite2'
 system+='|libkrb5|libk5crypto|libgssapi_krb5|libcom_err|libkrb5support|libkeyutils)\.so'
 LD_LIBRARY_PATH="$root/.output/bin" ldd "$root/.output/bin/terraverse" | while read -r lib _ path _; do
 	[ -n "$path" ] && [ -f "$path" ] || continue
