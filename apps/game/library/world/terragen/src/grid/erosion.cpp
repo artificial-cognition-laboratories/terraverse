@@ -3,6 +3,7 @@
 
 #include "library/world/terragen/src/grid/erosion.h"
 #include "library/world/terragen/src/grid/grid.h"
+#include "library/world/terragen/src/base/parallel.h"
 #include <algorithm>
 
 namespace terragen {
@@ -44,19 +45,26 @@ void creep(std::vector<fix> &h, fix kappa, std::vector<int64_t> &crumbs)
 {
 	const Sphere &sphere = gridSphere();
 	const int32_t n = (int32_t)h.size();
-	std::vector<int64_t> moved(crumbs);
-	for (int32_t i = 0; i < n; i++) {
-		if (h[i] < 0)
-			continue;
-		for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++) {
-			const int32_t k = *p;
-			if (k < i || h[k] < 0)
-				continue;
-			const int64_t q = (int64_t)mul(kappa, h[k] - h[i]) * std::min(sphere.area(i), sphere.area(k));
-			moved[i] += q;
-			moved[k] -= q;
-		}
-	}
+	// each cell gathers what moves across each of its edges, worked out as the
+	// pair's lower index sees it (h[higher] - h[lower]) on both sides, so the
+	// sums are exact and the cells don't read each other's: on every core
+	// (gathered first, then laid: a cell's neighbours read its height as it was)
+	std::vector<int64_t> moved(n);
+	parallelFor(n, [&](int32_t i) {
+		int64_t &m = moved[i];
+		m = crumbs[i];
+		if (h[i] >= 0)
+			for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++) {
+				const int32_t k = *p;
+				if (h[k] < 0)
+					continue;
+				const int64_t across = std::min(sphere.area(i), sphere.area(k));
+				if (k > i)
+					m += (int64_t)mul(kappa, h[k] - h[i]) * across;
+				else
+					m -= (int64_t)mul(kappa, h[i] - h[k]) * across;
+			}
+	});
 	for (int32_t i = 0; i < n; i++) {
 		const int64_t a = sphere.area(i);
 		const int64_t whole = moved[i] >= 0 ? moved[i] / a : -((-moved[i] + a - 1) / a);
@@ -74,12 +82,12 @@ int64_t rebound(std::vector<fix> &h, const std::vector<fix> &before, fix share, 
 		load[i] = before[i] >= 0 ? before[i] - h[i] : 0;
 	for (int pass = 0; pass < passes; pass++) {
 		const std::vector<fix> was = load;
-		for (int32_t i = 0; i < n; i++) {
+		parallelFor(n, [&](int32_t i) {
 			int64_t sum = was[i];
 			for (const int32_t *p = sphere.neighboursBegin(i); p != sphere.neighboursEnd(i); p++)
 				sum += was[*p];
 			load[i] = (fix)(sum / (sphere.neighbourCount(i) + 1));
-		}
+		});
 	}
 	int64_t raised = 0;
 	for (int32_t i = 0; i < n; i++) {

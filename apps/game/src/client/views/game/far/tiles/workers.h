@@ -37,6 +37,7 @@ struct Packed
 	std::array<Range, 4> ranges;   // merged: each quarter's in it
 	std::vector<std::vector<video::SColor>> own; // each part's
 	std::vector<aabb3f> boxes; // each part's bounds
+	std::array<aabb3f, 4> quarterBoxes{ aabb3f(v3f()), aabb3f(v3f()), aabb3f(v3f()), aabb3f(v3f()) }; // merged: each quarter's bounds (empty quarters' unused)
 };
 
 /*

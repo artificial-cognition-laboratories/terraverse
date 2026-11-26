@@ -6,6 +6,7 @@
 #include "src/client/views/game/far/land/mesh.h"
 #include "src/client/views/game/far/tiles/tiling.h"
 #include "src/client/views/game/far/tiles/budget.h"
+#include "src/client/views/game/far/tiles/stats.h"
 #include "src/client/views/game/far/land/terrain.h"
 #include "irr_ptr.h"
 #include "library/world/planet/atlas.h"
@@ -41,6 +42,23 @@ struct Eye
 	float range;     // farther than this along the ground, nothing is drawn
 	float split;     // a tile splits while nearer than this many of its spans past the cut
 	bool keep_fine = false; // what isn't built yet shows a coarser tile behind the rest (behind()), not instead of it
+	// passing through: zooming fast, what's chosen now is gone in a moment.
+	// Only a coarse preview of it's built meanwhile (tiles/preview.h; what's
+	// held still draws); the rest once it's slowed (the Planetarium's zoom:
+	// planetarium/zooming.h)
+	bool hurried = false;
+	// How much wider than what the eye would draw there a stand-in may be
+	// (Eye::keep_fine); 0: any, a root's if nothing finer's built. Near the
+	// ground, two levels: any ancestor stood in, a root's quarter kilometres
+	// wide stood over a hole near the eye at its own coarse heights, and
+	// seen edge-on, nothing in front of the sky, it stood across it, coming
+	// and going as tiles were chosen again. A hole with nothing near enough
+	// built stays open a moment, till its own tile is. An eye that never sees
+	// across the ground (the Planetarium's, looking straight down) takes any.
+	float stand_in = 4;
+	// coming down (the Planetarium zooming in): the next level's built ahead
+	// of tiles near splitting, after all that's needed now (Tiles: AHEAD)
+	bool ahead = false;
 	Tiling::Vec heading{ 0, 0, 0 }; // unit, or none: which way it's moving, on the planet. What's ahead is built first
 	// What it can see, if it knows: the way it looks, the screen's right and
 	// up (unit, square to each other), and how far its edges are off the way
@@ -140,8 +158,8 @@ private:
 	{
 		std::vector<irr_ptr<TileBuffer>> parts;
 		// the same land by the child it lies in, for standing in behind it
-		// (behind()): made when it's first wanted, from its range of `parts`
-		// (one buffer, merged), and again after it's repainted
+		// (behind()): made as it's taken, its own indices over `parts`'
+		// vertices (one buffer, merged: quarter())
 		std::array<std::vector<irr_ptr<TileBuffer>>, 4> quarters;
 		struct Range
 		{
@@ -175,20 +193,19 @@ private:
 	bool seen(const TileKey &key, const Eye &eye) const;
 	bool choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::vector<std::pair<float, Key>> &want);
 	// Whether a tile `span` wide may stand in for `hole` (Eye::keep_fine): no
-	// coarser than STAND_IN times what the eye would draw there
+	// coarser than Eye::stand_in times what the eye would draw there
 	bool fits(s32 span, const Key &hole, const Eye &eye) const;
 	bool install(); // whether it took any
 	void take(const TileKey &key, Packed &packed, bool sketch); // one built: its buffers, painted, on the GPU
 	// Whether the eye's as it was when the tiles were last chosen (choosing
 	// again would choose the same): to within a centimetre, looking the same way
 	bool still(const Eye &eye) const;
-	void quarters();                               // the stand-ins' buffers, in a budget
 	void paint(const Key &key, Entry &e) const; // its colours, tinted or its own
 	void upload(TileBuffer &buffer) const;       // to the GPU, if there's a driver
 	void repaint(); // tiles still in another tint's colours, within the budget
 	bool evict(); // whether it let any go
 	void choose(const Eye &eye); // the tiles to draw and to build, for the eye
-	void quarter(Entry &e, s32 child); // its quarter's buffers, if not made
+	void quarter(Entry &e, const std::array<aabb3f, 4> &boxes); // a merged tile's quarters, over its own vertices
 
 	const planet::Atlas m_atlas; // kept: the workers build from them
 	const Horizon m_horizon;
@@ -202,6 +219,9 @@ private:
 	bool m_changed = true; // a tile taken or let go since: choose again
 	size_t m_bytes = 0; // every held tile's (Entry::bytes)
 	size_t m_pending = 0;
+	size_t m_holes = 0; // tiles chosen that aren't there, with nothing allowed to stand in (Eye::stand_in)
+	std::vector<std::pair<float, Key>> m_ahead; // children of tiles near splitting, asked for after the rest (AHEAD)
+	size_t m_unready = 0; // stand-ins chosen with nothing yet to draw them with (quarter())
 	std::unique_ptr<terragen::Step> m_coarse; // the roots as they're built, till the coarse planet's all there (terragen/progress.h)
 	u32 m_settling = 0; // frames changed but still, since last chosen (update)
 	video::IVideoDriver *m_driver; // none: tiles go to the GPU as they're drawn
@@ -210,6 +230,7 @@ private:
 	std::shared_ptr<const Tint> m_tint;
 	u32 m_tints = 0; // tints set so far: a tile painted by this one is up to date
 	u32 m_swept = 0; // the tint every held tile's been painted by, once repaint() finds none left
+	TileStats m_stats; // what's done with the tiles, told to the trace
 };
 
 } // namespace far

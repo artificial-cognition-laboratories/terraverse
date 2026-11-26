@@ -50,6 +50,9 @@ void App::OnBeforeCommandLineProcessing(const CefString &process_type,
 	// Forked helpers return through our main(), which is built with stack
 	// protection; a canary rotated after fork aborts them on exit.
 	command_line->AppendSwitchWithValue("change-stack-guard-on-fork", "disable");
+	// The page is the game's own UI, not a website: its menu music starts on
+	// boot, not after the first click Chromium's autoplay policy waits for.
+	command_line->AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required");
 }
 
 void App::OnRegisterCustomSchemes(CefRawPtr<CefSchemeRegistrar> registrar)

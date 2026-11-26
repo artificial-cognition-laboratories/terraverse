@@ -17,6 +17,7 @@
 #include "src/shared/map/light/light.h"
 #include "src/shared/platform/settings/settings.h"
 #include "src/shared/util/math/numeric.h"
+#include <filesystem>
 #include <IVideoDriver.h>
 #include <cmath>
 #include <cstdio>
@@ -129,7 +130,11 @@ std::optional<Json::Value> Eye::see(unsigned long long now, float dtime)
 	const bool written = driver->writeImageToFile(shot, partial.c_str());
 	shot->drop();
 	// whole, then in place: a mind reading a ring's file never meets half a picture
-	if (!written || std::rename(partial.c_str(), path.c_str()) != 0)
+	// (std::filesystem::rename replaces on Windows too, where std::rename refuses)
+	std::error_code renamed;
+	if (written)
+		std::filesystem::rename(partial, path, renamed);
+	if (!written || renamed)
 		throw BaseException("body: couldn't keep its picture at " + path);
 
 	Json::Value reading;

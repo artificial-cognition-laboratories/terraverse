@@ -4,6 +4,7 @@
 #include "src/client/views/game/far/tiles/tiles.h"
 #include "src/client/views/game/far/land/mesh.h"
 #include "src/client/views/game/far/tiles/workers.h"
+#include "src/client/views/game/far/tiles/preview.h"
 #include "src/shared/base/constants.h"
 #include "src/shared/base/exceptions.h"
 #include "src/shared/platform/system/log.h"
@@ -24,23 +25,30 @@ namespace far {
 
 // What the held tiles' meshes may take, all of them: past it the least
 // recently wanted go. (Dropped after ten seconds unwanted, a spot panned away
-// from and back to was built again, coarse meanwhile; sprint 114)
-static constexpr size_t KEEP_BYTES = (size_t)256 << 20;
+// from and back to was built again, coarse meanwhile; sprint 114). At 256 MB the
+// Planetarium's whole planet from orbit was over it alone: zoomed in, every
+// one went, and zooming out built the planet again (bun perf:planetarium)
+static constexpr size_t KEEP_BYTES = (size_t)512 << 20;
 static constexpr u32 KEEP_UPDATES = 120; // a tile wanted this lately isn't evicted (about two seconds)
+// Tiles this few levels under their roots are never evicted: what the whole
+// planet's drawn with from afar (the Planetarium's from orbit, the far view's
+// horizon), a few hundred MB at most. Evicted, zooming out took them all
+// again, the planet laid anew (bun perf:planetarium); only fine tiles left
+// behind go.
+static constexpr s32 KEEP_COARSE = 3;
+// A tile drawn whole this near its split (its split distance times this) has
+// its children built ahead while the eye's coming down (Eye::ahead), so
+// zooming in finds them there, as a globe viewer loads the next level ahead
+// of the camera. Built ahead always, a third of the view's tiles asked for
+// four children each: the workers never idle, and twice the memory
+static constexpr float AHEAD = 1.25f;
 static constexpr float STAY_WHOLE = 0.85f;
 // How many levels finer a tile not built yet looks for finer ones to stand in for it.
 static constexpr s32 FINER_DEPTH = 3;
-// How much wider than what the eye would draw there a stand-in may be (two
-// levels). Any ancestor stood in, a root's quarter kilometres wide stood over
-// a hole near the eye at its own coarse heights: drawn behind the land, but
-// nothing's in front of the sky, so it stood across it, and came and went as
-// tiles were chosen again. A hole with nothing near enough built stays open,
-// a moment, till its own tile is.
-static constexpr float STAND_IN = 4;
 
 unsigned Tiles::threadsFor(float share)
 {
-	const unsigned cores = std::max(1u, std::thread::hardware_concurrency());
+	const unsigned cores = terragen::cores();
 	return std::max(1u, (unsigned)(cores * share));
 }
 
@@ -85,20 +93,19 @@ void Tiles::update(const Eye &eye)
 		actionstream << "far: " << m_horizon.code << " coarse planet there; " << terragen::breakdown(terragen::making(m_horizon.code)) << std::endl;
 	}
 	{
-		TF_ZONE("Far view: quarter");
-		quarters();
-	}
-	{
 		TF_ZONE("Far view: repaint");
-		// (repainting lets the stand-ins' quarters go: chosen again, they're made again)
 		m_changed |= m_swept != m_tints;
 		repaint();
 	}
+	m_stats.now(m_tiles.size(), m_bytes, m_pending, m_draw.size(), m_holes, m_unready);
 }
 
 void Tiles::choose(const Eye &eye)
 {
 	m_frame++;
+	m_holes = 0;
+	m_unready = 0;
+	m_ahead.clear();
 	m_draw.clear();
 	m_behind.clear();
 	std::vector<std::pair<float, Key>> want;
@@ -128,8 +135,21 @@ void Tiles::choose(const Eye &eye)
 		else
 			want.emplace_back(first, Key(root));
 	}
-	m_pending = want.size();
+	m_pending = want.size(); // (what's asked for ahead isn't: the view's complete without it)
+	if (eye.hurried) { // passing through: a coarse preview of what's wanted (tiles/preview.h)
+		std::vector<std::pair<float, TileKey>> wanted;
+		for (const auto &[priority, key] : want)
+			wanted.emplace_back(priority, key.tile());
+		want.clear();
+		for (const auto &[priority, key] : preview::of(wanted, m_tiling, [&](const TileKey &k) {
+				auto it = m_tiles.find(Key(k));
+				return it != m_tiles.end() && it->second.ready; }))
+			want.emplace_back(priority, Key(key));
+	}
 	std::sort(want.begin(), want.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
+	std::sort(m_ahead.begin(), m_ahead.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
+	for (const auto &a : m_ahead)
+		want.push_back(a); // after all that's needed now
 	{
 		TF_ZONE("Far view: want");
 		std::vector<Workers::Job> jobs;
@@ -158,6 +178,7 @@ bool Tiles::still(const Eye &eye) const
 	};
 	return off(eye.at, was.at) < MOVED && std::abs(eye.altitude - was.altitude) < MOVED
 			&& eye.cut == was.cut && eye.range == was.range && eye.split == was.split && eye.keep_fine == was.keep_fine
+			&& eye.hurried == was.hurried && eye.ahead == was.ahead
 			&& off(eye.heading, was.heading) < TURNED && off(eye.look, was.look) < TURNED
 			&& off(eye.right, was.right) < TURNED && off(eye.upward, was.upward) < TURNED
 			&& eye.wide == was.wide && eye.high == was.high;
@@ -272,6 +293,14 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 		if (e.ready) {
 			e.whole = m_frame;
 			draw.push_back(key);
+			// near splitting: its children asked for ahead, after all that's needed
+			if (eye.ahead && key.level > 0 && seen - eye.cut < (float)key.tile().span() * eye.split * AHEAD)
+				for (s32 c = 0; c < 4; c++) {
+					const Key child = key.child(c);
+					auto ce = m_tiles.find(child);
+					if ((ce == m_tiles.end() || !ce->second.ready) && Tiles::seen(child.tile(), eye))
+						m_ahead.emplace_back(d / (float)child.tile().span(), child);
+				}
 			return true;
 		}
 		{
@@ -314,7 +343,11 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 			draw.resize(mark);
 		// with keep_fine, the parent stands in for it only if it isn't too coarse
 		// to: else it's a hole, and no coarser tile's asked to fill it
-		return eye.keep_fine && !fits(key.tile().span() * 2, key, eye);
+		if (eye.keep_fine && !fits(key.tile().span() * 2, key, eye)) {
+			m_holes++;
+			return true;
+		}
+		return false;
 	}
 
 	size_t mark = draw.size();
@@ -332,13 +365,24 @@ bool Tiles::choose(const Key &key, const Eye &eye, std::vector<Key> &draw, std::
 		// showed past the finer land's edge, a block of it above or below the ground.
 		// A quarter too coarse for its hole is left out: the hole stays open
 		it->second.used = m_frame;
-		for (s32 c = 0; c < 4; c++)
-			if (!there[c] && fits(key.tile().span(), key.child(c), eye))
+		for (s32 c = 0; c < 4; c++) {
+			if (there[c])
+				continue;
+			if (fits(key.tile().span(), key.child(c), eye)) {
 				m_behind.emplace_back(key, c);
+				const Entry::Range &r = it->second.ranges[c];
+				m_unready += it->second.quarters[c].empty() && r.v1 > r.v0; // land there, nothing to draw it with: a gap
+			} else {
+				m_holes++;
+			}
+		}
 		return true;
 	}
-	if (eye.keep_fine && !fits(key.tile().span() * 2, key, eye))
+	if (eye.keep_fine && !fits(key.tile().span() * 2, key, eye)) {
+		for (s32 c = 0; c < 4; c++)
+			m_holes += !there[c];
 		return true; // its parent's too coarse to stand in: the holes stay open
+	}
 	if (it != m_tiles.end() && it->second.ready) {
 		draw.resize(mark);
 		draw.push_back(key);
@@ -355,7 +399,7 @@ bool Tiles::fits(s32 span, const Key &hole, const Eye &eye) const
 	const float d = distance(hole.tile(), eye);
 	const float seen = std::sqrt(d * d + eye.altitude * eye.altitude);
 	const float wanted = std::max((seen - eye.cut) / eye.split, (float)TILE);
-	return (float)span <= STAND_IN * wanted;
+	return eye.stand_in <= 0 || (float)span <= eye.stand_in * wanted;
 }
 
 bool Tiles::install()
@@ -395,7 +439,10 @@ void Tiles::take(const TileKey &key, Packed &packed, bool sketch)
 			e.quarters[part.quarter].push_back(buffer);
 		e.parts.push_back(std::move(buffer));
 	}
+	if (e.merged)
+		quarter(e, packed.quarterBoxes);
 	m_bytes += e.bytes;
+	m_stats.taken(key, sketch, e.bytes);
 	if (m_tint)
 		paint(Key(key), e);
 	e.painted = m_tints;
@@ -403,7 +450,10 @@ void Tiles::take(const TileKey &key, Packed &packed, bool sketch)
 	// drawn, where a burst of new tiles was tens of ms in one frame's draw
 	for (const auto &part : e.parts)
 		upload(*part);
-	if (m_coarse && !e.ready && key.level == m_tiling.roots().front().level)
+	for (const auto &q : e.quarters)
+		for (const auto &part : q)
+			upload(*part); // (their indices: the vertices went with the tile's)
+	if (m_coarse && !e.ready && key.level == m_tiling.top(key.face))
 		m_coarse->advance();
 	e.ready = true;
 	e.sketch = sketch;
@@ -413,32 +463,28 @@ void Tiles::take(const TileKey &key, Packed &packed, bool sketch)
 // has time for: one missing a frame or two leaves a gap it would only have
 // stood behind (a tint's repaint unmade them all at once: 16 ms of copying
 // and uploading in one frame)
-void Tiles::quarters()
+void Tiles::quarter(Entry &e, const std::array<aabb3f, 4> &boxes)
 {
-	for (const auto &[key, child] : m_behind) {
-		Entry &e = m_tiles.at(key);
-		if (!e.merged || !e.quarters[child].empty())
-			continue;
-		if (!m_budget.room(Budget::Work::Quarter))
-			return; // (the rest next frame)
-		m_budget.run(Budget::Work::Quarter, [&] { quarter(e, child); });
-	}
-}
-
-void Tiles::quarter(Entry &e, s32 child)
-{
-	const Entry::Range &r = e.ranges[child];
-	if (r.v1 == r.v0)
-		return; // nothing of it there
+	// Each quarter its own indices over the tile's own vertices, shared: made
+	// as the tile's taken, so a tile split before its children are built
+	// stands in behind them at once. Made when first wanted instead (each a
+	// copy of its vertices, uploaded, a few a frame), a zoom across a split
+	// wanted hundreds in a frame, and each not made yet was a gap to space.
 	const TileBuffer &all = *e.parts.front();
-	auto buffer = make_irr<TileBuffer>();
-	buffer->Vertices->Data.assign(all.Vertices->Data.begin() + r.v0, all.Vertices->Data.begin() + r.v1);
-	for (u32 i = r.i0; i < r.i1; i++)
-		buffer->Indices->Data.push_back((u16)(all.Indices->Data[i] - r.v0));
-	buffer->recalculateBoundingBox();
-	buffer->setHardwareMappingHint(scene::EHM_STATIC);
-	upload(*buffer);
-	e.quarters[child].push_back(std::move(buffer));
+	for (s32 q = 0; q < 4; q++) {
+		const Entry::Range &r = e.ranges[q];
+		if (r.v1 == r.v0)
+			continue; // nothing of it there
+		auto buffer = make_irr<TileBuffer>();
+		buffer->Vertices->drop();
+		buffer->Vertices = all.Vertices; // (repainted with the tile: they're its own)
+		buffer->Vertices->grab();
+		buffer->Indices->Data.assign(all.Indices->Data.begin() + r.i0, all.Indices->Data.begin() + r.i1);
+		buffer->setBoundingBox(boxes[q]);
+		buffer->setHardwareMappingHint(scene::EHM_STATIC);
+		e.bytes += buffer->Indices->Data.size() * sizeof(u16);
+		e.quarters[q].push_back(std::move(buffer));
+	}
 }
 
 void Tiles::tint(std::shared_ptr<const Tint> tint)
@@ -503,9 +549,6 @@ void Tiles::paint(const Key &key, Entry &e) const
 		}
 		e.parts[p]->setDirty(scene::EBT_VERTEX);
 	}
-	if (e.merged)
-		for (auto &q : e.quarters)
-			q.clear(); // (made again from the repainted buffer when they're wanted)
 }
 
 void Tiles::upload(TileBuffer &buffer) const
@@ -526,10 +569,10 @@ bool Tiles::evict()
 	// a tile drawn whole for an update doesn't want its children, and over the
 	// budget they went, so the next it split again and found them gone: its
 	// oldest kept ancestor stood in, a kilometre-wide tile flashing at the horizon.
-	bool gone = false;
+	size_t gone = 0;
 	std::vector<std::pair<u32, Key>> old;
 	for (const auto &[key, e] : m_tiles)
-		if (e.used + KEEP_UPDATES < m_frame)
+		if (e.used + KEEP_UPDATES < m_frame && m_tiling.top(key.face) - key.level >= KEEP_COARSE)
 			old.emplace_back(e.used, key);
 	std::sort(old.begin(), old.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
 	for (const auto &[used, key] : old) {
@@ -538,9 +581,10 @@ bool Tiles::evict()
 		auto it = m_tiles.find(key);
 		m_bytes -= it->second.bytes;
 		m_tiles.erase(it);
-		gone = true;
+		gone++;
 	}
-	return gone;
+	m_stats.evicted(gone);
+	return gone > 0;
 }
 
 } // namespace far

@@ -30,6 +30,16 @@ constexpr fix CRITICAL = ratio(55, 100), VALLEY = ratio(1, 8);
 constexpr fix UP = ONE;
 // What a channel drains (cells of average rain) for it to carry water
 constexpr fix WET = ratio(15, 10000);
+// …and past level THIN_FROM, only some do: a stream's count grows 4× a level
+// (what's seen of them 2×), so each level finer keeps KEEP of the last's
+// chance, raised by how much more than WET it drains, to the power WETTER (a
+// wet hollow's stream runs where a dry hill's doesn't). Fewer small streams,
+// every big one
+constexpr int THIN_FROM = 2;
+constexpr fix KEEP = ratio(1, 2), WETTER = ratio(1, 4);
+// Ground this cold the year round (a cell's mean, ~−11 °C: where it's Snow)
+// is under ice: no stream runs on it
+constexpr fix ICE = -ratio(60, 100);
 // A channel in its valley's floor: its water FREEBOARD of its width under the
 // floor (at least a half block, at most two), its bed DEEP of its width under
 // that (at least a block), and banks sloping from the water's edge up to the

@@ -26,8 +26,10 @@
 #include "src/server/app/mods/sidecar/ops.h" // Terra Firma
 #include "library/world/terragen/src/code/code.h" // Terra Firma
 #include "src/client/views/planetarium/run/standalone.h" // Terra Firma
+#include "src/client/views/planetarium/run/probe/probe.h"
 #include "src/client/views/planetarium/run/shot.h" // Terra Firma
 #include "src/client/views/planetarium/camera.h" // Terra Firma
+#include "src/client/views/planetarium/space/picture.h"
 #endif
 #include "src/server/world/load/database/database.h"
 #include "src/shared/base/config.h"
@@ -320,10 +322,28 @@ int main(int argc, char *argv[])
 		planetarium::runStandalone(planetarium::HOME_SHOT.code, std::nullopt, cmd_args.get("planetarium-shot"));
 		return 0;
 	}
+	if (cmd_args.exists("bake-galaxy")) {
+		planetarium::picture::ship(cmd_args.get("bake-galaxy"));
+		return 0;
+	}
 	if (cmd_args.exists("planetarium-ladder")) {
 		if (cmd_args.exists("planetarium-cell"))
 			planetarium::OrbitCamera::cell = cmd_args.getFloat("planetarium-cell");
 		planetarium::runStandalone(planetarium::HOME_SHOT.code, std::nullopt, std::nullopt, cmd_args.get("planetarium-ladder"));
+		return 0;
+	}
+	if (cmd_args.exists("planetarium-probe")) {
+		planetarium::probe::Opts probe;
+		probe.code = cmd_args.exists("planetarium") && !cmd_args.get("planetarium").empty()
+				? cmd_args.get("planetarium") : "TF24.eHRqNGM3aHc.BAKAqoCAAWZAgICAgICAgICCVQ"; // a full-size world (perf-planetarium)
+		probe.out = cmd_args.get("planetarium-probe");
+		if (cmd_args.exists("planetarium-script"))
+			probe.script = cmd_args.get("planetarium-script");
+		if (cmd_args.exists("planetarium-shots"))
+			probe.shots = cmd_args.get("planetarium-shots");
+		if (cmd_args.exists("planetarium-cell"))
+			probe.cell = cmd_args.getFloat("planetarium-cell");
+		planetarium::probe::run(probe);
 		return 0;
 	}
 	if (cmd_args.exists("planetarium")) {
@@ -482,7 +502,15 @@ static void set_allowed_options(OptionList *allowed_options)
 	allowed_options->insert(std::make_pair("planetarium-ladder", ValueSpec(VALUETYPE_STRING,
 			_("Render the Planetarium's map from a small planet down to the ground (Terraverse) as PNGs in <value>, and exit"))));
 	allowed_options->insert(std::make_pair("planetarium-cell", ValueSpec(VALUETYPE_STRING,
-			_("With --planetarium-ladder: pixels a tile's cell may span before it splits (the reference renders under 1)"))));
+			_("With --planetarium-ladder or --planetarium-probe: pixels a tile's cell may span before it splits (the reference renders under 1)"))));
+	allowed_options->insert(std::make_pair("planetarium-probe", ValueSpec(VALUETYPE_STRING,
+			_("Time the Planetarium (Terraverse) through a script, off screen, on --planetarium's world; write the steps as JSON to <value>, and exit (bun perf:planetarium)"))));
+	allowed_options->insert(std::make_pair("planetarium-script", ValueSpec(VALUETYPE_STRING,
+			_("With --planetarium-probe: the script (zoom, open; default zoom)"))));
+	allowed_options->insert(std::make_pair("planetarium-shots", ValueSpec(VALUETYPE_STRING,
+			_("With --planetarium-probe: a picture at each step's end, in the folder <value>"))));
+	allowed_options->insert(std::make_pair("bake-galaxy", ValueSpec(VALUETYPE_STRING,
+			_("Bake the sky's galaxy picture into the folder <value> to ship with the game, unless it's there (stage-runtime.sh), and exit"))));
 	allowed_options->insert(std::make_pair("export-palette", ValueSpec(VALUETYPE_STRING,
 			_("Write the game's baked palette (Terraverse) to <value>, from --world, and exit"))));
 	allowed_options->insert(std::make_pair("run-unittests", ValueSpec(VALUETYPE_FLAG,

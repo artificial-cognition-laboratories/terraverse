@@ -11,7 +11,6 @@ namespace {
 constexpr double LIMIT_MS[] = {
 	1.5, // Install: at 3, installs ran to 10 ms a frame
 	2,   // Paint
-	1,   // Quarter
 };
 static_assert(sizeof(LIMIT_MS) / sizeof(LIMIT_MS[0]) == (size_t)Budget::Work::Count);
 

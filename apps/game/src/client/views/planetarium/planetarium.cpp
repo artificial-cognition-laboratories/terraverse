@@ -19,11 +19,12 @@
 
 namespace planetarium {
 
-// All but the main thread's and the driver's: the Planetarium is all that runs.
+// Every core: the Planetarium is all that runs, and its workers run below the
+// frame's thread (terragen::background()), so they take only what it leaves.
+// (Two held back left one worker on a 2-core machine: a cold pan took 16 s.)
 static unsigned buildThreads()
 {
-	const unsigned all = far::Tiles::threadsFor(1);
-	return all > 2 ? all - 2 : 1;
+	return far::Tiles::threadsFor(1);
 }
 
 size_t systemIndex(const planet::Atlas &atlas, const far::Horizon &horizon, const terragen::System &system, int body)
@@ -541,6 +542,15 @@ void Planetarium::update(v2u32 screen)
 	// coarser one fills only that tile's hole (panning, the whole spot had
 	// gone coarse for a moment)
 	tilesEye.keep_fine = true;
+	const Zooming::Motion motion = m_zooming.at(tilesEye.altitude, dt);
+	tilesEye.hurried = motion.fast;
+	tilesEye.ahead = motion.descending && !motion.fast; // (fast: the preview's built instead)
+	// any coarser tile may stand in for one not built yet (far::Eye::stand_in):
+	// the game's limit is for an eye looking across the ground, where a coarse
+	// one stood up against the sky. This one looks straight down through a lens
+	// no wider than 80°: the horizon's only in view from high up, where no
+	// tile's heights show, so there's always ground, sharpening as tiles come
+	tilesEye.stand_in = 0;
 	if (!m_flight && m_target == m_tiled) {
 		// round it: what it sees is the screen, by the view's own axes in the
 		// ground's frame (as draw() turns it), and a margin

@@ -24,7 +24,7 @@ namespace far {
 class Budget
 {
 public:
-	enum class Work { Install, Paint, Quarter, Count };
+	enum class Work { Install, Paint, Count };
 
 	// A new frame: each kind's time back.
 	void frame();

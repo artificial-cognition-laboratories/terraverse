@@ -16,10 +16,18 @@ set(planetarium_client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/globe/lit.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/globe/rim.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/space/galaxy.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/space/picture.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/space/stars.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/space/eye.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pixels.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/zooming.cpp
 	${GAME_DIR}/library/space/milkyway/milkyway.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/space/sky.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/planetarium.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/run/standalone.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/run/river.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/run/probe/script.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/run/probe/record.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/run/probe/report.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/run/probe/probe.cpp
 	PARENT_SCOPE)

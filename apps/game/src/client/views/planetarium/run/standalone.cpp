@@ -5,6 +5,7 @@
 #include "src/client/views/planetarium/planetarium.h"
 #include "src/client/views/planetarium/framing.h"
 #include "src/client/views/planetarium/pixels.h"
+#include "src/client/views/planetarium/run/river.h"
 #include <chrono>
 #include "src/client/app/input/inputhandler.h"
 #include "src/client/render/renderingengine.h"
@@ -35,35 +36,6 @@ struct Rung
 static constexpr Rung LADDER[] = {
 	{ "1-small", 5.0 }, { "2-orbit", 1.2 }, { "3-continent", 0.3 }, { "4-region", 0.12 }, { "5-close", 0.04 },
 };
-
-// Where the ladder looks: over the widest river on land, within a radian of
-// the noon longitude `sun` and out of the polar caps (a broad search: the
-// shots want land, a river and light, nothing more exact). Radians, as the camera's.
-static std::pair<double, double> riverToShow(const terragen::WorldCode &code, double date, double sun)
-{
-	const terragen::World world(code);
-	constexpr int ROWS = 120, COLS = 240;
-	int64_t widest = -1;
-	std::pair<double, double> best{ 0, 0 };
-	for (int j = ROWS / 6; j < ROWS * 5 / 6; j++)
-		for (int i = 0; i < COLS; i++) {
-			const double longitude = 2 * M_PI * (2 * i + 1) / (2.0 * COLS) - M_PI;
-			if (std::abs(std::remainder(longitude - sun, 2 * M_PI)) > 1)
-				continue;
-			const terragen::fix u = terragen::ratio(2 * i + 1, 2 * COLS), v = terragen::ratio(2 * j + 1, 2 * ROWS);
-			const terragen::Place at = terragen::World::place(u, v);
-			const terragen::Ground g = world.ground(at, world.sunlight(at, (terragen::fix)(date * terragen::ONE)));
-			// on the river's line, on land
-			if (g.terrain <= 0 || g.river_width <= widest || g.river_dist > g.river_width)
-				continue;
-			widest = g.river_width;
-			// as Painter reads a place: u east from −π, v south from the pole
-			best = { M_PI / 2 - M_PI * (2 * j + 1) / (2.0 * ROWS), longitude };
-		}
-	if (widest < 0)
-		throw BaseException("planetarium: no river on land for the ladder");
-	return best;
-}
 
 // What's drawn on a render target, as an image (the caller drops it)
 static video::IImage *picture(video::IVideoDriver *driver, video::ITexture *target)

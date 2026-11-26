@@ -4,6 +4,7 @@
 #include "library/world/terragen/src/rivers/streams.h"
 #include "library/world/terragen/src/rivers/streams_detail.h"
 #include "library/world/terragen/src/column/amplify.h"
+#include "library/world/terragen/src/grid/climate.h"
 #include "library/world/terragen/src/grid/drainage.h"
 #include "library/world/terragen/src/grid/grid.h"
 #include "library/world/terragen/src/world.h"
@@ -184,6 +185,24 @@ int64_t Streams::depth(const Here &h, int level) const
 // what runs off here, of a cell's average rain: its rain, less what the land
 // gives back to the air (the share of what passes through it that's still
 // water, Grid::discharge of Grid::drained)
+bool Streams::frozen(const Here &h) const
+{
+	return h.of(m_grid.heat) - mul(std::max<fix>(0, h.of(m_grid.eroded)), LAPSE) < ICE;
+}
+
+bool Streams::wet(int level, int64_t i, int64_t j, int64_t l, int64_t cells) const
+{
+	if (cells < WET)
+		return false;
+	int64_t keep = ONE;
+	for (int k = THIN_FROM; k < level; k++)
+		keep = mulShift(keep, KEEP, FRAC);
+	const fix more = (fix)std::min<int64_t>(64 * ONE, (int64_t)(((__int128)cells << FRAC) / WET));
+	keep = std::min<int64_t>(ONE, mulShift(keep, pow(more, WETTER), FRAC));
+	const uint64_t h = mix(keyOf(i, j, l) ^ ((uint64_t)m_seed << 32) ^ (uint64_t)level * 0x9e3779b97f4a7c15ull);
+	return (int64_t)(h & (ONE - 1)) < keep;
+}
+
 fix Streams::water(const Here &h) const
 {
 	int64_t sum = 0;

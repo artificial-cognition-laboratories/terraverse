@@ -26,6 +26,12 @@ stage apps/game/assets/matter matter
 stage apps/game/assets/world world
 stage apps/game/assets/misc misc
 
+# The sky's galaxy, baked by the engine once (seconds, every core) and shipped in
+# client/ (planetarium/space/picture.h), so a player's first world isn't made
+# beside it. The engine skips it if this version's there; staged before a build, it waits.
+engine="$out/bin/terraverse"; [[ -x "$engine.exe" ]] && engine="$engine.exe"
+[[ -x "$engine" ]] && "$engine" --bake-galaxy "$out/client"
+
 # The game's own server folder (apps/game/server): its official TypeScript mods, prepared
 # from source here, then only what runs (.terra's build and manifest, which point nowhere
 # outside it) staged as the engine's default server folder.

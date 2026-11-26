@@ -38,6 +38,7 @@
     "palette": "bash scripts/bake/palette.sh",
     "pose-sheet": "bash library/physics/tools/pose-sheet.sh",
     "perf:gen": "bash tests/checks/perf-gen.sh",
+    "perf:planetarium": "bun tests/checks/perf-planetarium/index.ts",
     "shots:map": "bash scripts/map-shots.sh",
 
     "release:gate": "bash scripts/release/gate.sh",

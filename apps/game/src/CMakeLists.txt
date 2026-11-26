@@ -774,6 +774,16 @@ if(BUILD_CLIENT)
 		# The engine's binary is terraverse; PROJECT_NAME (luanti) still names its gettext
 		# domain and share paths, which installed users' files depend on.
 		set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME terraverse)
+		if(WIN32)
+			# A windowed program, or Windows gives it a console of its own, and closing that
+			# console kills the game (0xC000013A). /SUBSYSTEM:WINDOWS in the linker flags isn't
+			# enough: CMake appends /subsystem:console for a console target, and the last wins.
+			# main() stays the entry; the CLI's paths attach a console when they need one.
+			set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
+			if(MSVC)
+				target_link_options(${PROJECT_NAME} PRIVATE /ENTRY:mainCRTStartup)
+			endif()
+		endif()
 	endif()
 
 

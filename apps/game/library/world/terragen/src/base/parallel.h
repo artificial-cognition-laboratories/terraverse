@@ -18,6 +18,11 @@ namespace terragen {
 
 constexpr int32_t PARTS = 64;
 
+// The cores this process may run on: the machine's, or fewer where it's
+// pinned to some (taskset, a container), as a probe standing in for a smaller
+// machine is. Every crew of threads is sized by it.
+unsigned cores();
+
 // The calling thread yields to the rest: a worker (building a world, the
 // far view, meshes, physics' ground) runs below the frame's thread, so a
 // machine that's busy everywhere still draws on time. Once per thread.

@@ -110,20 +110,44 @@ public:
 			Result r{ job.key, {} };
 			try {
 				const ScopeProfiler timed(g_profiler, "Far view: tile built [ms]", SPT_AVG);
+				// each stage its own zone and count, so a probe can say where
+				// a tile's time goes (planetarium/run/probe)
+				TF_ZONE("Far tile");
 				// kept from before if it can be: the world model's only made
 				// once a tile isn't
-				std::optional<Tile> tile = m_cache.load(job.key);
-				if (!tile && job.sketch) {
+				std::optional<Tile> tile;
+				{
+					TF_ZONE("Far tile: cache read");
+					tile = m_cache.load(job.key);
+				}
+				if (tile) {
+					trace::count("Far tile: read [#]", 1, trace::Fold::Sum);
+				} else if (job.sketch) {
 					// never kept: only the tile itself is
+					TF_ZONE("Far tile: sketch");
 					tile = generator().sketch(job.key);
 					r.sketch = true;
-				} else if (!tile) {
-					tile = generator().build(job.key);
-					m_cache.save(*tile);
+					trace::count("Far tile: sketched [#]", 1, trace::Fold::Sum);
+				} else {
+					{
+						TF_ZONE("Far tile: build");
+						tile = generator().build(job.key);
+					}
+					{
+						TF_ZONE("Far tile: cache write");
+						m_cache.save(*tile);
+					}
+					trace::count("Far tile: built [#]", 1, trace::Fold::Sum);
 					std::lock_guard kept(m_mutex);
 					m_kept.insert(id(job.key));
 				}
-				r.mesh = pack(onPlanet(*tile));
+				Mesh mesh;
+				{
+					TF_ZONE("Far tile: mesh");
+					mesh = onPlanet(*tile);
+				}
+				TF_ZONE("Far tile: pack");
+				r.mesh = pack(std::move(mesh));
 			} catch (const std::exception &e) {
 				lock.lock();
 				m_error = e.what();
@@ -182,6 +206,7 @@ private:
 	const Generator &generator()
 	{
 		std::call_once(m_made, [&] {
+			TF_ZONE("Far tile: world model");
 			try {
 				m_generator = std::make_unique<Generator>(m_horizon, m_atlas, m_body);
 			} catch (const std::exception &e) {
@@ -208,7 +233,11 @@ Workers::Workers(const planet::Atlas &atlas, int body, const Horizon &horizon, c
 	if (threads == 0)
 		throw BaseException("far tiles: no threads to build with");
 	for (unsigned i = 0; i < threads; i++)
-		m_threads.emplace_back([crew = m_crew] { terragen::background(); crew->run(); });
+		m_threads.emplace_back([crew = m_crew] {
+			trace::nameThread("Far tiles");
+			terragen::background();
+			crew->run();
+		});
 }
 
 Workers::~Workers()
@@ -246,6 +275,12 @@ Packed pack(Mesh mesh)
 			}
 			range.v1 = (u32)one.vertices.size();
 			range.i1 = (u32)one.indices.size();
+			if (range.v1 > range.v0) {
+				aabb3f &box = out.quarterBoxes[q];
+				box.reset(one.vertices[range.v0].Pos);
+				for (u32 v = range.v0; v < range.v1; v++)
+					box.addInternalPoint(one.vertices[v].Pos);
+			}
 		}
 		out.merged = true;
 		out.parts.push_back(std::move(one));

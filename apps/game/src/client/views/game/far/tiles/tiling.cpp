@@ -28,6 +28,7 @@ Tiling::Tiling(const terragen::Atlas &atlas) : m_atlas(atlas)
 		for (int64_t z = 0; z * span < depth; z++)
 			for (int64_t x = 0; x * span < width; x++)
 				m_roots.push_back({ level, (s32)x, (s32)z, (s32)g });
+		m_tops[(s32)g] = level;
 	}
 	if (m_roots.empty())
 		throw BaseException("far tiling: the atlas has no surface");

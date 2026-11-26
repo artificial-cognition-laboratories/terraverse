@@ -541,7 +541,7 @@ void Planetarium::idle(std::optional<std::pair<double, double>> player)
 		m_over = player;
 	}
 	// only its coarse planet while the game's played: its finer tiles are
-	// built when it's opened (at 2 px cells, building every tile a map would
+	// built when it's opened (at 2 px cells then, building every tile a map would
 	// show took the game's cores for seconds after Play: sprint 114)
 	if (!m_parked->ready())
 		m_parked->update(m_screen);

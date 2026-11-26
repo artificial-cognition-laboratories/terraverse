@@ -285,15 +285,9 @@ void serverMatterSave()
 {
 	if (!s_matter || !s_matter->started)
 		return; // nothing has run: nothing to save
-	const std::string tmp = s_matter->path + ".tmp";
-	{
-		std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
-		const std::string bytes = s_matter->world->save();
-		out.write(bytes.data(), bytes.size());
-		if (!out)
-			throw BaseException("matter: couldn't write " + tmp);
-	}
-	if (std::rename(tmp.c_str(), s_matter->path.c_str()) != 0)
+	// safeWriteToFile, not std::rename: on Windows rename refuses to replace a file
+	// that exists, so every save after the first failed and ended the session
+	if (!fs::safeWriteToFile(s_matter->path, s_matter->world->save()))
 		throw BaseException("matter: couldn't replace " + s_matter->path);
 }
 

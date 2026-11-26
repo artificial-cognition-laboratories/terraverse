@@ -7,6 +7,7 @@
 #elif defined(__APPLE__)
 #include <pthread.h>
 #else
+#include <sched.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -20,6 +21,17 @@
 #include <vector>
 
 namespace terragen {
+
+unsigned cores()
+{
+#if defined(__linux__)
+	// (hardware_concurrency counts the machine's, pinned or not)
+	cpu_set_t set;
+	if (sched_getaffinity(0, sizeof set, &set) == 0)
+		return (unsigned)std::max(1, CPU_COUNT(&set));
+#endif
+	return std::max(1u, std::thread::hardware_concurrency());
+}
 
 void background()
 {
@@ -51,10 +63,10 @@ class Crew
 public:
 	Crew()
 	{
-		const unsigned cores = std::max(1u, std::thread::hardware_concurrency());
-		for (unsigned k = 1; k < cores; k++)
+		const unsigned all = cores();
+		for (unsigned k = 1; k < all; k++)
 			std::thread([this] { work(); }).detach();
-		m_helpers = (int)cores - 1;
+		m_helpers = (int)all - 1;
 	}
 
 	void run(int32_t n, const std::function<void(int32_t, int32_t, int32_t)> &fn)

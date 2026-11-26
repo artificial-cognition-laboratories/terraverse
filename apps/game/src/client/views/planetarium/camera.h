@@ -47,9 +47,10 @@ public:
 	static float focal(float height, float fov) { return height / (2 * std::tan(fov / 2)); }
 	// pixels a tile's cell may span before it splits: about one block a pixel
 	// or two, as sharp at every height as the land zoomed into (sprint 114;
-	// 6 left a coarse planet till it was zoomed in on). Lowered further only
-	// for a reference render (the ladder's)
-	static inline float cell = 2;
+	// 6 left a coarse planet till it was zoomed in on; 2 held 261 MB of tiles
+	// for the planet from orbit, 4 holds 107 and looks the same zoomed in:
+	// bun perf:planetarium CELL=). Lowered further only for a reference render (the ladder's)
+	static inline float cell = 4;
 
 	// pixels the mouse moved while held; wheel steps (up: closer)
 	void drag(double dx, double dy);

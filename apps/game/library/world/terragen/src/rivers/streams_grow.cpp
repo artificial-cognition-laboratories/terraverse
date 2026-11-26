@@ -105,7 +105,7 @@ std::shared_ptr<const Streams::Branch> Streams::run(int32_t c) const
 			const fix a = (fix)(g.discharge[c] - mulShift(std::min<int64_t>(g.discharge[c], ONE), ONE - t, FRAC) / 2);
 			return m_world.riverWidth(mulShift(a, cell * cell, FRAC));
 		};
-		const bool wet = (int64_t)g.discharge[c] >= WET;
+		const bool wet = (int64_t)g.discharge[c] >= WET && !frozen(Here{ { c, c, c }, { ONE, 0, 0 } });
 		const V up = unit(p1), side = unit(cross(up, unit({ p2.x - p1.x, p2.y - p1.y, p2.z - p1.z })));
 		const int64_t run_len = length({ p2.x - p1.x, p2.y - p1.y, p2.z - p1.z });
 		const uint64_t hc = mix((uint64_t)c * 0x9e3779b97f4a7c15ull ^ ((uint64_t)m_seed << 32));
@@ -416,12 +416,12 @@ std::shared_ptr<const Streams::Branch> Streams::edge(int level, int64_t i, int64
 	}
 	// the water: all that drains through its node (area(): its own lattice's
 	// and every node's upstream), so a stream that's gathered many is a
-	// river; wet where that passes WET, never wider than what it runs into,
+	// river; wet where that drains enough (wet(): fewer the finer) and isn't under ice, never wider than what it runs into,
 	// never over the land the coarser left (a bed caught over a coarser
 	// valley: dry there)
 	const int64_t cell = m_cell_blocks >> FRAC;
 	const int64_t cells = area(level, i, j, l);
-	const int64_t width = cells >= WET && foot_width > 0 ? std::min(m_world.riverWidth(mulShift(cells, cell * cell, FRAC)), foot_width) : 0;
+	const int64_t width = wet(level, i, j, l, cells) && foot_width > 0 && !frozen(hn) ? std::min(m_world.riverWidth(mulShift(cells, cell * cell, FRAC)), foot_width) : 0;
 	b.width.assign(b.pts.size(), 0);
 	for (size_t k = 0; k < b.pts.size(); k++)
 		if (b.bed[k] <= under[k] + ONE)

@@ -107,6 +107,8 @@ private:
 	Here here(const V &p) const;
 	int64_t depth(const Here &h, int level) const; // a valley's depth at a level's scale
 	fix water(const Here &h) const; // what runs off, of a cell's average rain
+	bool frozen(const Here &h) const; // under ice the year round
+	bool wet(int level, int64_t i, int64_t j, int64_t l, int64_t cells) const; // whether a node's channel carries water
 	std::shared_ptr<const std::unordered_map<uint64_t, std::vector<std::shared_ptr<const Branch>>>> indexed(int level, int64_t bi, int64_t bj, int64_t bl) const;
 	std::shared_ptr<const Branch> grown(int level, int64_t i, int64_t j, int64_t l) const;
 	struct Node;

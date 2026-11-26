@@ -5,6 +5,7 @@
 
 #include "src/shared/base/irrlichttypes.h"
 #include "library/world/terragen/src/out/atlas.h"
+#include <map>
 #include <vector>
 
 namespace far {
@@ -37,6 +38,8 @@ public:
 	// as wide as its grid's short side (a segment's grid is long and thin).
 	// A square can still reach past its grid's far edge.
 	const std::vector<TileKey> &roots() const { return m_roots; }
+	// The level of a region's roots (its grid's index in the atlas: TileKey::face)
+	s32 top(s32 face) const { return m_tops.at(face); }
 
 	// The atlas cell a tile's cell stands for at the surface layer (the
 	// middle fine cell of a coarse one), (i, j) from the tile's corner.
@@ -72,6 +75,7 @@ private:
 
 	const terragen::Atlas m_atlas;
 	std::vector<TileKey> m_roots;
+	std::map<s32, s32> m_tops; // each region's roots' level (top)
 };
 
 } // namespace far

@@ -238,18 +238,16 @@ void erode(const WorldCode &code, Grid &g, const std::vector<fix> &rain, std::op
 					g.uplifted -= (int64_t)(was - h[i]) * sphere.area((int32_t)i);
 				}
 			}
-		for (size_t i = 0; i < n; i++) {
-			const fix frozen = clamp(div(-celsiusOf(g.heat[i] - mul(std::max<fix>(0, h[i]), LAPSE)), ICE_FULL), 0, ONE);
-			erodibility[i] = mul(hard[i], ONE + mul(BUZZSAW, frozen));
-		}
 		// (which basins spill: rain against what open water gives back, warmer
-		// the lower it stands)
-		std::vector<fix> gives(n);
-		for (size_t i = 0; i < n; i++)
-			gives[i] = water::evaporation(g.heat[i] - mul(std::max<fix>(0, h[i]), LAPSE));
-		std::vector<fix> sheds(n);
-		for (size_t i = 0; i < n; i++)
-			sheds[i] = water::runoff(rain[i], g.heat[i] - mul(std::max<fix>(0, h[i]), LAPSE));
+		// the lower it stands; each cell its own, so on every core)
+		std::vector<fix> gives(n), sheds(n);
+		parallelFor((int32_t)n, [&](int32_t i) {
+			const fix air = g.heat[i] - mul(std::max<fix>(0, h[i]), LAPSE);
+			const fix frozen = clamp(div(-celsiusOf(air), ICE_FULL), 0, ONE);
+			erodibility[i] = mul(hard[i], ONE + mul(BUZZSAW, frozen));
+			gives[i] = water::evaporation(air);
+			sheds[i] = water::runoff(rain[i], air);
+		});
 		const Balance balance{ sheds, gives };
 		const Routing way = route(h, code.processes.water ? &balance : nullptr);
 		const std::vector<int32_t> &down = way.receiver, &order = way.order;

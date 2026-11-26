@@ -16,6 +16,7 @@
 #include "src/client/views/planetarium/globe/seams.h"
 #include "src/client/views/planetarium/run/shot.h"
 #include "src/client/views/planetarium/space/system.h"
+#include "src/client/views/planetarium/zooming.h"
 #include <chrono>
 #include <future>
 #include <unordered_set>
@@ -283,6 +284,7 @@ private:
 	OrbitCamera::Vec centreOf(size_t body) const; // in the scene
 	double radiusOf(size_t body) const;           // blocks (the tiled body: its sea)
 	std::chrono::steady_clock::time_point m_last; // the last update, for flights
+	Zooming m_zooming; // whether the tiles are passing through (far::Eye::hurried)
 	bool m_dragging = false;
 	s32 m_x = 0, m_y = 0;          // the mouse, while dragging
 	s32 m_downX = 0, m_downY = 0;  // where the press was
