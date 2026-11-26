@@ -11,6 +11,17 @@ const box = ref<{ focus: () => void; blur: () => void } | null>(null)
 const sections = shallowRef<readonly Section[] | null>(null)
 const open = ref(false)
 const lit = ref(0)
+// a phone's search row, opened from the where-you-are bar: the box takes focus when it shows
+const searching = useDocsSearch()
+watch(searching, async on => {
+    if (!on) return
+    await nextTick()
+    box.value?.focus()
+})
+function leave() {
+    open.value = false
+    if (!words.value) searching.value = false
+}
 
 const hits = computed((): Hit[] => (sections.value ? search.find(sections.value, words.value) : []))
 watch(hits, () => (lit.value = 0))
@@ -28,6 +39,7 @@ async function go(hit: Hit | undefined) {
     if (!hit) return
     open.value = false
     words.value = ""
+    searching.value = false
     box.value?.blur()
     await navigateTo(hit.id)
 }
@@ -38,6 +50,7 @@ const KEYS: Record<string, () => void> = {
     ArrowUp: () => (lit.value = Math.max(lit.value - 1, 0)),
     Escape: () => {
         open.value = false
+        searching.value = false
         box.value?.blur()
     },
 }
@@ -68,7 +81,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", slash))
         @focus="load"
         @keydown="key"
         @submit="go(hits[lit])"
-        @focusout="open = false"
+        @focusout="leave"
     >
         <template #hint>
             <kbd v-if="!words">/</kbd>
@@ -94,6 +107,7 @@ kbd {
     font-size: 0.65rem;
     color: $ink-faint;
     border: 1px solid $glass-edge;
+    border-radius: $radius;
 }
 
 .results {
@@ -110,6 +124,7 @@ kbd {
     background: rgba($night-0, 0.96);
     backdrop-filter: blur(10px);
     border: 1px solid $glass-edge;
+    border-radius: $radius;
 
     button {
         display: grid;

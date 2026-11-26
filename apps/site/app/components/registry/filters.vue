@@ -115,6 +115,7 @@ button {
     width: 0.8rem;
     height: 0.8rem;
     border: 1px solid $night-4;
+    border-radius: $radius;
 }
 
 .name {
@@ -142,6 +143,7 @@ button {
         width: 2.2rem;
         height: 1.1rem;
         border: 1px solid $night-4;
+        border-radius: $radius;
         transition: background 0.12s, border-color 0.12s;
     }
 

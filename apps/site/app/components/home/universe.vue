@@ -101,6 +101,7 @@ const at = ref(1)
     font-size: 0.7rem;
     color: $ink-faint;
     border: 1px solid $glass-edge;
+    border-radius: $radius;
 }
 
 .words {
@@ -130,6 +131,7 @@ const at = ref(1)
     overflow: hidden;
     background: $night-0;
     border: 1px solid $glass-edge;
+    border-radius: $radius;
 
     img {
         position: absolute;

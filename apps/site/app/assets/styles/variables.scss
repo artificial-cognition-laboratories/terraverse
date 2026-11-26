@@ -93,3 +93,6 @@ $side-width: 17rem;
 $bp-mobile: 640px; // phones: single column, nav collapses to a drawer
 $bp-tablet: 900px; // small tablets, split screens: sidebars fold away
 $bp-desktop: 1200px; // below full desktop: wide grids narrow
+
+/// Corners: a hair round, so the glass reads modern without losing its hard, pixel edge.
+$radius: 3px;

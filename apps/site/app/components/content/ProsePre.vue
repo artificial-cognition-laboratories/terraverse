@@ -3,6 +3,7 @@
  * Every code block in markdown (the docs, a mod's readme): the landing's window,
  * its label on the left (the file's name when the fence gives one, else the
  * language), its dots on the right. Pointed at, the dots give way to "copy".
+ * Clicking anywhere on it copies the code, unless you've selected some of it.
  * Shiki's highlighting arrives as the slot.
  */
 defineOptions({ inheritAttrs: false })
@@ -25,14 +26,20 @@ const props = withDefaults(
     },
 )
 const copy = useCopy()
+
+// the whole block copies; a click that ends a selection is the reader taking part of it, so it's left alone
+function take() {
+    if (window.getSelection()?.toString()) return
+    void copy.copy(props.code)
+}
 </script>
 
 <template>
-    <div class="prose-window">
+    <div class="prose-window" :class="{ told: copy.label.value !== 'copy' }" @click="take">
         <home-window dots="right">
             <template #bar>
                 <span class="label">{{ props.filename ?? props.language }}</span>
-                <button type="button" class="copy" @click="copy.copy(props.code)">{{ copy.label.value }}</button>
+                <button type="button" class="copy" @click.stop="copy.copy(props.code)">{{ copy.label.value }}</button>
             </template>
             <pre :class="props.class"><slot /></pre>
         </home-window>
@@ -42,6 +49,7 @@ const copy = useCopy()
 <style scoped lang="scss">
 .prose-window {
     margin: 1.75rem 0;
+    cursor: copy;
 }
 
 .label {
@@ -76,8 +84,10 @@ const copy = useCopy()
     transition: opacity 0.15s;
 }
 
+// pointed at, focused, or just copied (a phone has no pointing: the label says it went)
 .prose-window:hover,
-.prose-window:focus-within {
+.prose-window:focus-within,
+.prose-window.told {
     .copy {
         opacity: 1;
     }

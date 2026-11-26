@@ -106,6 +106,7 @@ $top: calc(#{$topnav-height} + #{$subnav-height} + #{$page-top});
     color: $ink-faint;
     background: transparent;
     border: 1px solid $glass-edge;
+    border-radius: $radius;
     cursor: pointer;
 
     &.active {

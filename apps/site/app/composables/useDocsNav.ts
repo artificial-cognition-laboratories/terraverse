@@ -35,9 +35,11 @@ export function useDocsNav() {
         () => routeSection.value ?? sections.value[0],
     )
 
+    // immediate: the state outlives the docs (it's still the last section when you come back from
+    // the landing page by a link), so a page arriving must set it, not only a route changing under it
     watch(routeSection, resolved => {
         if (resolved) activeSection.value = resolved
-    })
+    }, { immediate: true })
 
     function select(section: DocsSection) {
         activeSection.value = section

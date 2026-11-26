@@ -37,7 +37,7 @@ export const hero = {
     code: "TF24.dGVycmE",
 }
 
-export const facts = ["Free forever", "Open source", "Multiplayer", "TypeScript mods", "Agent API", "Linux · Windows"]
+export const facts = ["Open source", "Multiplayer", "TypeScript mods", "Agent API"]
 
 /** What it is: the block game you know, and where this one goes past it. */
 export const limits = {

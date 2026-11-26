@@ -67,6 +67,7 @@ ul {
     color: $ink-dim;
     background: none;
     border: 1px solid transparent;
+    border-radius: $radius;
     cursor: pointer;
 
     &:hover {

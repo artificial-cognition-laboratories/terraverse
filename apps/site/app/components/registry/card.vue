@@ -36,6 +36,7 @@ const art = computed(() => cover(props.listing.name, 32))
     flex-direction: column;
     min-width: 0;
     @include panel;
+    overflow: hidden; // the picture's corners follow the card's
     text-decoration: none;
     transition: background 0.1s;
 
@@ -68,6 +69,7 @@ const art = computed(() => cover(props.listing.name, 32))
     color: $primary-ink;
     background: rgba($night-0, 0.85);
     border: 1px solid $primary-ink;
+    border-radius: $radius;
 }
 
 .head {
@@ -129,5 +131,6 @@ p {
     margin-left: auto;
     padding: 0.1rem 0.4rem;
     border: 1px solid $glass-edge;
+    border-radius: $radius;
 }
 </style>

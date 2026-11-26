@@ -21,6 +21,7 @@ defineProps<{ first: boolean }>()
     min-height: 17rem;
     text-decoration: none;
     border: 1px dashed rgba($ink, 0.14);
+    border-radius: $radius;
     transition: border-color 0.1s;
 
     &:hover {

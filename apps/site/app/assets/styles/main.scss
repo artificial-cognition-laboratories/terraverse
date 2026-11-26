@@ -56,3 +56,9 @@ button {
         display: none;
     }
 }
+
+// Selected text drops the sky's halo (on-sky): the dark shadow around each glyph smeared
+// across the selection and made it unreadable
+::selection {
+    text-shadow: none;
+}

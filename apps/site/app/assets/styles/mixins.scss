@@ -66,12 +66,14 @@
     background: rgba($night-0, 0.6);
     backdrop-filter: blur(8px);
     border: 1px solid $glass-edge;
+    border-radius: $radius;
 }
 
 /// A small inset square on a panel (an icon's ground, a monogram): the same edge.
 @mixin well {
     background: rgba($night-sky, 0.6);
     border: 1px solid $glass-edge;
+    border-radius: $radius;
 }
 
 /// Words on the open sky: a tight halo of the night around each glyph, so no

@@ -122,6 +122,7 @@ function signOut() {
     background: rgba($night-0, 0.97);
     backdrop-filter: blur(10px);
     border: 1px solid $glass-edge;
+    border-radius: $radius;
 
     a,
     button {

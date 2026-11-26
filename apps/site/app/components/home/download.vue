@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { platforms } from "~/config/downloads"
+import { words } from "~/lib/shell"
 
 /** Every way to get the game: the tiles, and under them, as wide as they are, the one-line install. */
 const { detected } = usePlatform()
 const command = computed(() => (platforms.find(p => p.id === detected.value) ?? platforms[0])?.command)
 const copy = useCopy()
+const parts = computed(() => (command.value ? words(command.value) : []))
 </script>
 
 <template>
@@ -12,7 +14,7 @@ const copy = useCopy()
         <home-download-tiles />
         <button v-if="command" type="button" class="command" @click="copy.copy(command)">
             <span class="prompt">$</span>
-            <code>{{ command }}</code>
+            <code><template v-for="(w, i) in parts" :key="i">{{ i ? " " : "" }}<span :class="w.kind">{{ w.text }}</span></template></code>
             <span class="state">{{ copy.label.value }}</span>
         </button>
     </div>
@@ -55,6 +57,20 @@ const copy = useCopy()
 
     .prompt {
         color: $primary-ink;
+    }
+
+    // the docs' bash colours (dark-plus), as their code blocks and the sidebar's commands
+    .program {
+        color: #dcdcaa;
+    }
+
+    .flag,
+    .pipe {
+        color: #d4d4d4;
+    }
+
+    .arg {
+        color: #ce9178;
     }
 
     .state {

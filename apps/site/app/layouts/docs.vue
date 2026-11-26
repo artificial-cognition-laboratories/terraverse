@@ -10,6 +10,7 @@ const nav = useDocsNav()
         <shared-topnav />
         <home-sky :seed="hero.code" scene="quiet" />
         <docs-subnav />
+        <docs-where />
 
         <div class="docs-container">
             <docs-sidebar :section="nav.activeSection.value" />

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { view as views, type Tab, type View } from "~/registry/detail"
+import { numbers, view as views, type Tab, type View } from "~/registry/detail"
+import { useAccount } from "~/account"
 import { tree } from "~/registry/tree"
 import type { Mod } from "~/registry"
 
@@ -8,6 +9,8 @@ import type { Mod } from "~/registry"
  * kept in the URL; the sidebar and each tab only render what it hands them.
  */
 const props = defineProps<{ mod: Mod }>()
+const account = useAccount()
+const stats = computed(() => numbers(props.mod, account.stars.has(props.mod.name)))
 const route = useRoute()
 const current = computed(() => views.read(route.query, props.mod))
 const files = computed(() => tree(props.mod.files))
@@ -35,15 +38,38 @@ function toggle(path: string) {
 </script>
 
 <template>
+    <!-- On a phone the side card is gone and its pieces sit in the page (.phone): the tabs as a
+         strip under the header, the numbers under the title, the files above the source, the
+         particulars folded at the end -->
     <div class="detail">
         <main class="main">
             <registry-detail-header :mod="mod" :version="current.version" />
+            <div class="phone numbers"><shared-side-stats :items="stats" /></div>
+            <registry-detail-tabs class="phone" :mod="mod" :tab="current.tab" :version="current.version" @tab="(tab: Tab) => show({ tab: tab })" />
             <registry-detail-readme v-if="current.tab === 'readme'" :name="mod.name" :markdown="mod.readme" />
             <registry-detail-versions v-else-if="current.tab === 'versions'" :mod="mod" :version="current.version" @pick="(version: string) => show({ version: version })" />
             <registry-detail-dependencies v-else-if="current.tab === 'dependencies'" :mod="mod" :version="current.version" />
-            <registry-detail-source v-else-if="file" :file="file" :version="current.version" />
+            <template v-else>
+                <registry-detail-files
+                    class="phone tree"
+                    :mod="mod"
+                    :version="current.version"
+                    :tree="files"
+                    :open="open"
+                    :file="file?.path ?? null"
+                    @version="(version: string) => show({ version: version })"
+                    @toggle="toggle"
+                    @pick="(path: string) => show({ tab: 'source', file: path })"
+                />
+                <registry-detail-source v-if="file" :file="file" :version="current.version" />
+            </template>
+            <details class="phone about">
+                <summary>About</summary>
+                <registry-detail-about :mod="mod" />
+            </details>
         </main>
         <registry-detail-sidebar
+            class="side"
             :mod="mod"
             :tab="current.tab"
             :version="current.version"
@@ -73,9 +99,42 @@ function toggle(path: string) {
     min-width: 0;
 }
 
+// the phone's own pieces: hidden only above tablet, so each keeps its own display (a strip stays a row)
+@include desktop-up {
+    .phone {
+        display: none;
+    }
+}
+
 @include tablet {
     .detail {
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .side {
+        display: none;
+    }
+
+    .numbers,
+    .tree,
+    .about {
+        @include panel;
+    }
+
+    .about {
+        padding: 0.9rem 1rem;
+
+        summary {
+            font-family: $font-display;
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            color: $ink-faint;
+            cursor: pointer;
+        }
+
+        .about {
+            margin-top: 0.9rem;
+        }
     }
 }
 </style>

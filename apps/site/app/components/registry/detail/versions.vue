@@ -81,6 +81,7 @@ tr.on td {
     padding: 0.1rem 0.35rem;
     font-size: 0.62rem;
     border: 1px solid rgba($forest-ink, 0.5);
+    border-radius: $radius;
     color: $forest-ink;
 }
 

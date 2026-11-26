@@ -20,7 +20,7 @@
             </nav>
 
             <span class="profile-narrow"><shared-profile /></span>
-            <button class="burger" :aria-expanded="open" aria-label="Menu" @click="open = !open">
+            <button class="burger" :aria-expanded="open" aria-label="Menu" @click="toggle">
                 {{ open ? "×" : "≡" }}
             </button>
         </div>
@@ -43,7 +43,7 @@
 import { GITHUB, navLinks } from "~/config/site"
 
 const route = useRoute()
-const open = ref(false)
+const { open, toggle } = useDrawer()
 
 // Any navigation closes the drawer
 watch(() => route.fullPath, () => (open.value = false))
@@ -56,7 +56,8 @@ watch(() => route.fullPath, () => (open.value = false))
     left: 0;
     right: 0;
     z-index: 1000;
-    background: rgba($night-0, 0.72);
+    // the subnav's glass: the night sky, blurred, with no tint of its own
+    background: rgba($night-sky, 0.72);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid $glass-edge;
 }
@@ -113,6 +114,7 @@ watch(() => route.fullPath, () => (open.value = false))
     display: none;
     background: transparent;
     border: 1px solid $glass-edge;
+    border-radius: $radius;
     color: $ink;
     width: 2rem;
     height: 2rem;
@@ -148,13 +150,16 @@ watch(() => route.fullPath, () => (open.value = false))
         margin-right: 1rem;
     }
 
+    // Sized to the screen, not by bottom: 0: the topnav's backdrop-filter makes the topnav
+    // (52px tall) the box a fixed child is placed in, so `bottom: 0` gave the drawer no height
+    // and clipped the docs' tree out of it
     .drawer.open {
         display: block;
         position: fixed;
         top: $topnav-height;
         left: 0;
         right: 0;
-        bottom: 0;
+        height: calc(100dvh - #{$topnav-height});
         overflow-y: auto;
         background: $night-sky;
         padding: 1rem 1.25rem 2rem;

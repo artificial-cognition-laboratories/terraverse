@@ -72,6 +72,7 @@ li {
     font-family: $font-mono;
     font-size: 0.8rem;
     border: 1px solid $glass-edge;
+    border-radius: $radius;
 
     a {
         color: $primary-ink;

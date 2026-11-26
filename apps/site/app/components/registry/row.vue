@@ -76,6 +76,7 @@ const art = computed(() => cover(props.listing.name, 24))
     color: $primary-ink;
     background: rgba($night-sky, 0.85);
     border: 1px solid rgba($primary-ink, 0.55);
+    border-radius: $radius;
 }
 
 .body {
@@ -140,6 +141,7 @@ p {
 .tag {
     padding: 0.1rem 0.4rem;
     border: 1px solid $glass-edge;
+    border-radius: $radius;
 }
 
 @include mobile {

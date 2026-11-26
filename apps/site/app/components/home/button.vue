@@ -38,6 +38,7 @@ const emit = defineEmits<{ click: [] }>()
     white-space: nowrap;
     text-decoration: none;
     border: 1px solid $edge;
+    border-radius: $radius;
     box-shadow: $raised;
     cursor: pointer;
     transition: background 0.1s, color 0.1s;

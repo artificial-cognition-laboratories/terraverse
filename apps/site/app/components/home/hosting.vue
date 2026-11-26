@@ -94,6 +94,7 @@ const self = useCopy()
     font-size: 0.8rem;
     color: $primary-ink !important;
     border: 1px solid $glass-edge;
+    border-radius: $radius;
 }
 
 .plans {

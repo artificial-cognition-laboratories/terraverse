@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import type { Mod } from "~/registry"
-import { cover } from "~/lib/cover"
 
 /**
  * The top of a mod's page: its banner, name, owner and words. The address sits
  * quietly on the banner; clicking it copies the line that installs this version.
  */
 const props = defineProps<{ mod: Mod; version: string }>()
-const art = computed(() => cover(props.mod.name, 120))
 const install = useCopy()
 const command = computed(() => `terra install ${props.mod.name}${props.version === props.mod.latestVersion ? "" : `@${props.version}`}`)
 const owner = computed(() => `@${props.mod.owner}`)
@@ -16,13 +14,12 @@ const address = computed(() => `${props.mod.name}${props.version === props.mod.l
 
 <template>
     <header class="header">
-        <div class="banner">
-            <home-art class="art" :art="art" />
+        <registry-banner :seed="mod.name">
             <button type="button" class="address" :title="command" @click="install.copy(command)">
                 <code>{{ address }}</code>
                 <span class="state">{{ install.label.value }}</span>
             </button>
-        </div>
+        </registry-banner>
         <div class="title">
             <registry-monogram :title="mod.title" size="lg" />
             <div class="names">
@@ -30,11 +27,13 @@ const address = computed(() => `${props.mod.name}${props.version === props.mod.l
                     <h1>{{ mod.title }}</h1>
                     <span class="badge">v{{ version }}</span>
                     <span v-if="mod.official" class="badge official">Official</span>
-                    <registry-star class="star" :name="mod.name" :stars="mod.stars" />
                 </div>
-                <span class="by">
-                    by <NuxtLink :to="`/registry/${owner}`">{{ mod.owner }}</NuxtLink>
-                </span>
+                <div class="byline">
+                    <span class="by">
+                        by <NuxtLink :to="`/registry/${owner}`">{{ mod.owner }}</NuxtLink>
+                    </span>
+                    <registry-star :name="mod.name" :stars="mod.stars" />
+                </div>
             </div>
         </div>
         <p class="description">{{ mod.description }}</p>
@@ -49,22 +48,8 @@ const address = computed(() => `${props.mod.name}${props.version === props.mod.l
     gap: 1.25rem;
 }
 
-.banner {
-    position: relative;
-    height: 9rem;
-    border: 1px solid $glass-edge;
-
-    .art {
-        position: absolute;
-        inset: 0;
-    }
-}
-
 // The address, copied as an install line: quiet until it's wanted
 .address {
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
     display: flex;
     gap: 0.6rem;
     align-items: center;
@@ -75,6 +60,7 @@ const address = computed(() => `${props.mod.name}${props.version === props.mod.l
     background: rgba($night-sky, 0.55);
     backdrop-filter: blur(6px);
     border: 1px solid $glass-edge;
+    border-radius: $radius;
     cursor: pointer;
 
     // Takes no room until it's wanted, so the chip is only the address at rest
@@ -112,18 +98,25 @@ const address = computed(() => `${props.mod.name}${props.version === props.mod.l
 }
 
 .line {
+    min-width: 0;
     display: flex;
     flex-wrap: wrap;
     gap: 0.75rem;
     align-items: center;
 }
 
-// The star sits at the far end of the title line, level with the name
-.star {
-    margin-left: auto;
+// The owner, and the star at the far end: its own row, so a narrow title never wraps it between the name and the owner
+.byline {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
 }
 
+// a long name (one word, as a scope is) wraps rather than pushing the page wider than a phone
 h1 {
+    min-width: 0;
+    overflow-wrap: anywhere;
     margin: 0;
     font-family: $font-display;
     font-weight: 400;
@@ -138,6 +131,7 @@ h1 {
     font-size: 0.68rem;
     color: $ink-dim;
     border: 1px solid $glass-edge;
+    border-radius: $radius;
 
     &.official {
         font-family: $font-display;
@@ -177,5 +171,6 @@ h1 {
     font-size: 0.85rem;
     color: $status-warn;
     border: 1px solid rgba($status-warn, 0.5);
+    border-radius: $radius;
 }
 </style>

@@ -1,4 +1,5 @@
 import type { LocationQuery, LocationQueryRaw } from "vue-router"
+import { format } from "~/lib/format"
 import type { Mod } from "./types"
 
 /** What a mod's page is showing: its tab, the version it's scoped to, and the open file. */
@@ -34,4 +35,24 @@ export const view = {
         if (v.tab === "source" && v.file) out.file = v.file
         return out
     },
+}
+
+/** A mod page's tabs, with what each holds: the side card lists them, and a phone's tab strip. */
+export function contents(mod: Mod, version: string) {
+    const needs = Object.keys(mod.versions.find(v => v.version === version)?.dependencies ?? {}).length
+    return [
+        { id: "readme" as const, label: "Readme", icon: "readme" as const },
+        { id: "versions" as const, label: "Versions", icon: "versions" as const, count: mod.versions.length },
+        { id: "dependencies" as const, label: "Dependencies", icon: "dependencies" as const, count: needs + mod.dependents.length },
+        { id: "source" as const, label: "Source", icon: "source" as const, count: mod.files.length },
+    ]
+}
+
+/** A mod's headline numbers; `starred`: the visitor's own star, not yet counted by the registry. */
+export function numbers(mod: Mod, starred: boolean) {
+    return [
+        { icon: "download" as const, value: format.count(mod.installs), label: "installs" },
+        { icon: "star" as const, value: format.count(mod.stars + (starred ? 1 : 0)), label: "stars" },
+        { icon: "dependencies" as const, value: format.count(mod.dependents.length), label: "dependents" },
+    ]
 }

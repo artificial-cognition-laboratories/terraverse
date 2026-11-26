@@ -9,7 +9,10 @@ import { facts, hero, links } from "~/config/home"
             <h1>{{ hero.title[0] }}<br /><em>{{ hero.title[1] }}</em></h1>
             <p class="lede">{{ hero.lede }}</p>
 
-            <home-download-tiles />
+            <!-- getting it: the downloads and the install line under them, as one group -->
+            <div class="get">
+                <home-download />
+            </div>
             <div class="actions">
                 <home-button :to="links.registry" variant="primary">Browse the registry »</home-button>
                 <home-button :to="links.docs">Read the docs</home-button>
@@ -45,6 +48,11 @@ import { facts, hero, links } from "~/config/home"
     :deep(.tiles) {
         justify-content: center;
     }
+}
+
+.get {
+    display: inline-block;
+    max-width: 100%;
 }
 
 .kicker {
@@ -85,7 +93,7 @@ h1 {
     flex-wrap: wrap;
     justify-content: center;
     gap: 0.75rem;
-    margin-top: 1.5rem;
+    margin-top: 1.75rem;
 }
 
 .facts {
@@ -122,6 +130,10 @@ h1 {
 
     .inner {
         padding: 0 1.25rem;
+    }
+
+    .get {
+        display: block;
     }
 
     .actions > * {

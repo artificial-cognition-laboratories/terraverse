@@ -72,6 +72,7 @@ const command = computed(() => `terra install ${shown.value?.name ?? ""}`)
     min-height: 300px;
     overflow: hidden;
     border: 1px solid $glass-edge;
+    border-radius: $radius;
 }
 
 .art {
@@ -152,6 +153,7 @@ p {
     color: $ink-dim;
     background: rgba($night-sky, 0.8);
     border: 1px solid $glass-edge;
+    border-radius: $radius;
     cursor: pointer;
 
     .prompt {
