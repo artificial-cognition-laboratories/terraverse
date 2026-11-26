@@ -1,6 +1,6 @@
 # Testing: state
 
-## Map (2026-11-25)
+## Map (2026-11-26)
 
 Entry points (`apps/game/package.json`; root `bun check`, `bun test:hot`, `bun test:game` forward):
 
@@ -31,7 +31,19 @@ Entry points (`apps/game/package.json`; root `bun check`, `bun test:hot`, `bun t
   binary per library, objects in `.output/build/src/<lib>/CMakeFiles/<lib>_tests.dir`.
   Heaviest slow: terragen.soil.slow 87 s, ranges.slow 19 s.
 - Engine unit modules: `apps/game/tests/unit/` + Catch in `tests/engine/`. 3 tests skipped by name.
-- check:* harnesses: `apps/game/tests/checks/*.sh` (~25). Not timed, not selected yet.
+- check:* harnesses: `apps/game/tests/checks/*.sh` (~25). **None runs in the gate or CI.** The
+  probe checks share `checks/lib/probe.sh` (build, throwaway world, server, verdict) since
+  2026-11-26: matter, interact, atlas-world/land/seam/debug/dig, window, bodies (9).
+  `select` names the checks a change reaches (`run/select/checks.ts`, path prefixes), stderr only.
+  Timings on clean master after the build (2026-11-26): matter 7 s, interact 8 s, atlas-world 4 s,
+  atlas-land 4 s, atlas-seam 21 s, atlas-debug 4 s, atlas-dig 24 s, window 65 s, bodies 5 s
+  (≈ 140 s all, sequential). **Red on master:** atlas-world, atlas-seam, bodies (job
+  `testing-atlas-sea-missing`); interact flaked 1 in 16 under load. Not yet timed: terragen, land,
+  far, wiki, moves, mods, dev, serve (display/network), ui, registry.
+- Clean measurements: the shared tree may hold the developer's WIP (2026-11-26: a sidecar protocol
+  bump made every probe refuse). Use a worktree: `git worktree add /tmp/tv-master HEAD`, `cmake -S
+  apps/game -B .output/build -DRUN_IN_PLACE=TRUE -DCMAKE_BUILD_TYPE=Release` (CEF download ≈ 10 min,
+  configure 170 s), build -j6, `bun install`, `bun run stage`, `cd apps/cli && bun run build`.
 - `apps/game/tests/README.md`: layout, tiers, how to add a test.
 - Profiling: `perf` unusable from the tool shell, gdb attach blocked; use timers.
 - **Coverage by system** (2026-11-25, `select` over each folder of AGENTS.md's table, at today's
@@ -60,6 +72,7 @@ Scoreboard (charter definitions). "Suites" = unit suites: 81 engine + 13 library
 | 2026-11-21 | `bun check` not re-timed; `--changed` seconds–80 s | 222 s loaded (game running), ≈ 160 s idle est. | **median 0 of 94** over last 20 (13 touch no code); **6 of 94** over the 7 that touch code | not audited (27 folders of uncompiled-against code listed) | 0 |
 | 2026-11-24 | not re-timed (game running) | not re-timed | **median 0 of 99** over last 100; **86 of 99** over the 34 touching code or data (`--measure` prints both now) | not audited | 0 |
 | 2026-11-25 | `bun check` **69 s** | `bun run test` **133 s** idle | median 0 of 102 over last 20; 12.5 of 102 over the 6 touching code or data | **2 → 0** (milkyway, views/figure: now TestMilkyway, TestFigure) | 0 |
+| 2026-11-26 | not re-timed (developer's game running) | not re-timed | not re-measured | 0 | 0 (3 probe checks red on master, not yet tied to a release) |
 
 Own numbers:
 
@@ -88,9 +101,13 @@ data (palette.json in most visual commits), `src/shared` and the runners run eve
    that doesn't check less (the machine is CPU-bound).
 4. **(current) Time and fold the check:* harnesses.** Done when every check:* has a timing in Map,
    shared server-boot/world-staging lives in one helper used by ≥ 4 harnesses, and select maps paths
-   to checks (so --changed can say which check:* to run). Steps: (a) time each headless check
-   (`terragen`, `land`, `wiki`, `matter`, `interact`, `far`, `mods`, `atlas-*`, `bodies`, `window`)
-   into Map; (b) read them for the repeated boot/stage blocks; (c) `checks` effects in select.
+   to checks. (b) and (c) done 2026-11-26 (9 harnesses on lib/probe.sh; checks.ts). Left: (a) time
+   terragen, land, far, wiki, moves, mods; fold far.sh/terragen.sh onto the helper.
+6. **Probe checks in the gate.** Done when the gate runs every headless probe check that's green
+   (≈ 2.5 min sequential; parallel by port, less). Steps: a `bun run test:checks` running them in
+   parallel with a summary; a red one skipped by name citing its job, as skip.txt does; then the
+   proposal to the gate (CI's boundary for the workflow). Motive: atlas-world/seam/bodies broke
+   unseen because nothing runs them.
 5. ~~Coverage audit~~: systems without tests 0 (2026-11-25). Keep it there: a new folder in
    AGENTS.md's table gets a row in Map's coverage line. Deepen the thin ones (`planetarium/globe`,
    `shell/host`) when work reaches them.
@@ -114,9 +131,16 @@ data (palette.json in most visual commits), `src/shared` and the runners run eve
 
 ## Proposals
 
-- (none open)
+- (none open; milestone 6 will need one: the gate runs the probe checks)
 
 ## Log
+
+- 2026-11-26: every probe check timed on a clean master build (worktree; the shared tree's WIP
+  broke the sidecar). 3 red on master, unseen because nothing runs them: job
+  `testing-atlas-sea-missing` (not the `perf` commit: reverted, still red). 9 harnesses onto
+  `checks/lib/probe.sh` (≈ 180 lines of copies → one 80-line helper), same verdicts before/after,
+  no-verdict path checked. `select` names the check:* a change reaches. Scoreboard: no number moved
+  (escaped bugs 0: the breaks are unreleased-unknown, not found after a release).
 
 - 2026-11-25: coverage audit: systems without tests 2 → 0 (TestMilkyway, TestFigure, each proven
   by deliberate breaks). Library tools/ select with their library (milkyway/tools 87 → 1 suite).

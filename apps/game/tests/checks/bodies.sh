@@ -6,27 +6,12 @@
 # (apps/game/tests/probe). Takes ~70 s (the pager's hold, twice).
 # Builds the engine first.
 set -euo pipefail
+source "$(dirname "$0")/lib/probe.sh"
 
-root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
-nice -n 19 ionice -c 3 bash "$root/apps/game/scripts/build.sh" -j 3 > /dev/null
-work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT
-world="$work/world"
-mkdir -p "$world"
-printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$world/world.mt"
-atlas="atlas-v2 radius=250000 segments=24 capLatitude=85 core=62500 rounding=0.95 height=256"
-printf 'mg_name = terra\nmgterra_code = TF24.dGVycmE\nseed = 1\nchunksize = 1\nplanet_atlas = %s\n[end_of_params]\n' "$atlas" > "$world/map_meta.txt"
-
-port=$((30700 + RANDOM % 500))
-timeout 300 "$root/.output/bin/terraverse" --server --config /dev/null --world "$world" --probe bodies --port "$port" 2>&1 \
-	| tee "$work/server.txt" | grep -oE 'BODIES .*' | tee "$work/log.txt" || true
+probe_build background
+probe_world terra "$probe_atlas_250k"
+probe_run bodies 300 'BODIES .*'
 
 stored=yes
 [ -s "$world/bodies/moon/map.sqlite" ] || { echo "BODIES FAILED: the moon's blocks aren't in bodies/moon/map.sqlite"; stored=no; }
-if grep -qx 'BODIES pass' "$work/log.txt" && [ "$stored" = yes ]; then
-	echo "bodies check: ok"
-else
-	echo "bodies check: FAILED; the server said:"
-	grep -E "ERROR|error" "$work/server.txt" | head -20
-	exit 1
-fi
+grep -qx 'BODIES pass' "$work/log.txt" && [ "$stored" = yes ] && echo "bodies check: ok" || probe_said bodies FAILED

@@ -4,17 +4,11 @@
 # tinder must burn, flames must rise, reactions must be seen, and the
 # awake blocks must save. Builds the engine first.
 set -euo pipefail
-root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
-bash "$root/apps/game/scripts/build.sh" -j > /dev/null
-work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT
-world="$work/world"
-mkdir -p "$world"
-printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$world/world.mt"
-printf 'mg_name = singlenode\nseed = 1\n[end_of_params]\n' > "$world/map_meta.txt"
-port=$((30700 + RANDOM % 500))
-# no settings but the world's: a check can't depend on the minetest.conf of whoever runs it
-timeout 300 "$root/.output/bin/terraverse" --server --config /dev/null --world "$world" --probe matter --port "$port" 2>&1 | tee "$work/server.txt" | grep -oE 'MATTER .*' > "$work/log.txt" || true
+source "$(dirname "$0")/lib/probe.sh"
+
+probe_build
+probe_world singlenode
+probe_run matter 300 'MATTER .*' > /dev/null
 cat "$work/log.txt"
 python3 -I - "$work" <<'PY'
 import sys, os, re

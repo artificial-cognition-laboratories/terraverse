@@ -8,6 +8,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { Checks } from "./checks";
 import { type Change, Selection, type Picked } from "./index";
 import { Loaders } from "./loaders";
 import { Suites } from "./suites";
@@ -21,13 +22,14 @@ const units = Units({ root: root });
 const suites = Suites({ root: root, build: join(root, ".output/build"), units: units });
 const loaders = Loaders({ root: root });
 const selection = Selection({ suites: suites, units: units, loaders: loaders });
+const checks = Checks();
 
 const [verb, ...rest] = process.argv.slice(2);
 if (verb === undefined) throw new Error("select: give --changed [base], --commit <rev>, --measure [n] or a system or path");
 if (verb === "--measure") measure(Number(rest[0] ?? 20));
-else if (verb === "--changed") report(selection.pick(changed(rest[0])));
-else if (verb === "--commit") report(selection.pick(commit(rest[0])));
-else report(selection.pick([verb, ...rest].flatMap(named)));
+else if (verb === "--changed") report(changed(rest[0]));
+else if (verb === "--commit") report(commit(rest[0]));
+else report([verb, ...rest].flatMap(named));
 
 function changed(base: string | undefined): Change[] {
 	const diffs = [...(base === undefined ? [] : [[`${base}...HEAD`]]), ["HEAD"]];
@@ -65,7 +67,8 @@ function files(name: string) {
 	return folders;
 }
 
-function report(picked: Picked) {
+function report(changes: Change[]) {
+	const picked: Picked = selection.pick(changes);
 	for (const suite of picked.suites) {
 		console.log(`${suite.kind} ${suite.name}`);
 		console.error(`  ${suite.kind} ${suite.name.padEnd(28)} ${picked.why.get(suite.name)}`);
@@ -75,6 +78,9 @@ function report(picked: Picked) {
 	const runs = picked.suites.reduce((n, s) => n + s.runs.length, 0);
 	const total = selection.all.reduce((n, s) => n + s.runs.length, 0);
 	console.error(`select: ${runs} of ${total} suites${picked.ui ? ", and the UI's typecheck" : ""}`);
+	// not run here (some need a display, the network or minutes): named, so they're run by hand
+	const reached = checks.reached(changes.map((change) => change.path));
+	for (const [check, path] of reached) console.error(`  worth running: bun ${check.padEnd(20)} ${path}`);
 }
 
 // The Scoreboard's "suites run for a typical change": a library counts each of

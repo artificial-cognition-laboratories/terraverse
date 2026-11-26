@@ -21,12 +21,17 @@ libraries' report prints after the engine's). It's CPU-bound: about half its cor
 suite compiled against its unit (its library, or its folder). A data file (`assets/`, shaders,
 textures) runs the suites built against the code naming it in a string (`"palette.json"`), else
 naming its folder; nothing naming it runs every engine module. Build files and the runners run wide. `bun run/select/main.ts --changed` says what would run and why, and lists changed code
-that no suite is built against.
+that no suite is built against. It also names the `check:*` harnesses the change reaches
+("worth running: bun check:atlas-world"), from the table in `run/select/checks.ts`; it doesn't
+run them, since some need a display, the network or minutes.
 
 **Adding a test.**
 - A pure library: a `.cpp` in its `tests/`, listed in its `library_test(… SOURCES …)`. Cases in
   `* doctest::test_suite("slow")` run in the slow tier only.
 - The engine: `unit/test_<thing>.cpp` with a `TestBase` subclass and a static instance (copy
   `unit/test_far.cpp`), listed in `unit/CMakeLists.txt`. Selection finds it from what it includes.
+- A probe check: a probe in `probe/` (registered in `probe.cpp`) and a script in `checks/` that
+  sources `checks/lib/probe.sh` (build, a throwaway world, the server, the verdict line); copy
+  `checks/atlas-dig.sh`. Add it to `run/select/checks.ts` with the paths it exercises.
 - A test that fails because the code is wrong is skipped by name in `run/skip.txt`, citing a job
   in `.agents/jobs/`, never left red or deleted.

@@ -295,14 +295,14 @@ bun run build           # engine + production UI
 bash apps/game/scripts/build.sh -j8              # engine only, waits its turn if another build is running (after cmake -S . -B .output/build -DRUN_IN_PLACE=TRUE)
 bun run stage           # refresh resources in the runtime tree
 cd apps/game/src/client/app/shell/interface && bun run typecheck
-./.output/bin/terraverse --server --gameid terrafirma --world <tmp dir> --port <n>   # headless boot: catches content and start-up errors
+./.output/bin/terraverse --server --gameid terraverse --world <tmp dir> --port <n>   # headless boot: catches content and start-up errors
 bun test:hot [library]   # the pure libraries' quick tests (each library's tests/, as library/world/terragen/tests): their own small binaries, seconds; the loop to keep running
 bun test:slow [library]  # their slow ones: goldens, Earth-sized worlds
 bun check                # before a commit: test:hot, every engine module, the UI's types
 bun check --changed [base]   # the same, only what your uncommitted changes (or everything since base) reach
 bun run test             # (apps/game) the full tier, as the gate runs it: every library's tests hot and slow, every engine module
 bun run test <system|path|Module>...  # what covers far, physics, library/world/terragen, a file; --changed [base] as above
-bun apps/game/tests/run/select/main.ts --changed   # just say what would run and why, and which changed files no suite is built against
+bun apps/game/tests/run/select/main.ts --changed   # just say what would run and why, which changed files no suite is built against, and which check:* the change reaches
 ./.output/bin/terraverse --test-module TestFar                                       # one engine test module; --run-unittests for all
 bash apps/game/tests/run/engine.sh [Module...]  # every engine unit test module in parallel, slowest listed first; skips (apps/game/tests/run/skip.txt) cite their job
 
