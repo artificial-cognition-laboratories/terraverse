@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "tests/unit/test.h"
@@ -112,7 +112,7 @@ void TestFar::testPacketRoundTrip()
 	UASSERT(r.content.species[0].on == h.content.species[0].on);
 }
 
-// An atlas planet as Terra Firma's worlds are: its far view tiles its regions.
+// An atlas planet as Terraverse's worlds are: its far view tiles its regions.
 static const terragen::Atlas::Params ATLAS = terragen::Atlas::standard(8192 / (2 * M_PI));
 
 static double apart(const Tiling::Vec &a, const Tiling::Vec &b)

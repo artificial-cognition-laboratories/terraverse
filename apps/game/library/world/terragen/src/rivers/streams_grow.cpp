@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 // Growing the tree of Streams (streams.h): the grid's runs, and the walks

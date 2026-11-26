@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2014 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -495,7 +495,7 @@ void WieldMeshSceneNode::setItem(const ItemStack &item, Client *client, bool che
 		return;
 	}
 
-	// Terra Firma: a small thing is drawn as itself, at its size, its middle in the hand
+	// Terraverse: a small thing is drawn as itself, at its size, its middle in the hand
 	if (const std::string text = item.metadata.getString("piece"); !text.empty()) {
 		piece::Machine machine(client);
 		machine.read(base64_decode(text));

@@ -184,7 +184,7 @@ void main(void)
 	pos.y += disp_z * 0.1;
 	pos.z += disp_z;
 #elif MATERIAL_TYPE == TILE_MATERIAL_WAVING_PLANTS
-	// Terra Firma: a small plant (client/sprigs) carries its height over its
+	// Terraverse: a small plant (client/sprigs) carries its height over its
 	// foot, in blocks, as how far its normal is longer than one: it bends in
 	// the wind from its foot up, its tips most, whatever the setting says
 	float sway = length(inVertexNormal) - 1.0;

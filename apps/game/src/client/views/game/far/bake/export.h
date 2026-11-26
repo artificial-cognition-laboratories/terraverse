@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -10,7 +10,7 @@ struct GameParams;
 namespace far {
 
 /*
-	`luanti --export-palette <file> --world <dir> --gameid <game>`: the
+	`terraverse --export-palette <file> --world <dir> --gameid <game>`: the
 	game's baked palette (far/baked.h), from its own content and textures.
 	The world's mods are loaded as a server would (no thread, no players),
 	its images given to the client's texture source as a client is given

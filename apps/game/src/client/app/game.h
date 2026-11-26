@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -36,7 +36,7 @@ struct CameraOrientation {
 #define GAME_FALLBACK_TIMEOUT 1.8f
 #define GAME_CONNECTION_TIMEOUT 10.0f
 
-// Terra Firma: the game's own server stopped because its mods' content changed (src/sidecar):
+// Terraverse: the game's own server stopped because its mods' content changed (src/sidecar):
 // whoever started the game starts it again (main returns sidecar::EXIT_RESTART)
 extern bool g_game_restart_for_mods;
 

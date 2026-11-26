@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -62,7 +62,7 @@ public:
 	void setDayNightRatioOverride(bool enable, u32 value);
 
 protected:
-	// Terra Firma: the time of day the light follows; the client's solar sky
+	// Terraverse: the time of day the light follows; the client's solar sky
 	// lights the world by where the real sun is (see client/solar.h).
 	virtual float lightTimeOfDay(float time_of_day) { return time_of_day; }
 
@@ -99,7 +99,7 @@ public:
 	 * @param state current state of the raycast
 	 * @result output, will contain the next pointed thing
 	 */
-	// Terra Firma: a ray past an atlas's seam (environment.cpp)
+	// Terraverse: a ray past an atlas's seam (environment.cpp)
 	void seamCells(RaycastState *state, Map &map, const planet::Atlas &atlas, v3s16 from, v3s16 np);
 	void continueRaycast(RaycastState *state, PointedThing *result);
 

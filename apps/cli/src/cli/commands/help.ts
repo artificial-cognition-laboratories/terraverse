@@ -29,7 +29,7 @@ export function HelpCommand(opts: { presentation: PresentationT; version: string
             `  terra publish [--dry-run]        ${r.c.dim("put the mod you stand in on the registry")}`,
             `  terra info <@scope/name>         ${r.c.dim("a published mod: its versions and what they need")}`,
             `  terra deprecate <@scope/name> <reason> | --undo`,
-            `  terra login · logout · whoami    ${r.c.dim("your ArcLabs account (ARCLABS_URL picks the server)")}`,
+            `  terra login · logout · whoami    ${r.c.dim("your ArcLabs account (ARCLABS_URL picks the server); login opens your browser, --no-browser doesn't")}`,
             "",
             r.c.dim("Not built yet: uninstall, snapshot, deploy."),
         ]

@@ -1,9 +1,9 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "src/shared/game/environment/environment.h"
-#include "library/world/planet/atlas.h" // Terra Firma
+#include "library/world/planet/atlas.h" // Terraverse
 #include "src/shared/base/exceptions.h"
 #include "src/shared/game/objects/collision.h"
 #include "src/shared/map/raycast.h"
@@ -44,7 +44,7 @@ void Environment::setDayNightRatioOverride(bool enable, u32 value)
 void Environment::setTimeOfDay(u32 time)
 {
 	MutexAutoLock lock(m_time_lock);
-	// Terra Firma: never counts a day. A client ahead of the server's sync was
+	// Terraverse: never counts a day. A client ahead of the server's sync was
 	// counting one every few seconds; whoever means a new day says so (setDayCount).
 	m_time_of_day = time;
 	m_time_of_day_f = (float)time / 24000.0;
@@ -101,7 +101,7 @@ inline static PointabilityType isPointableNode(const MapNode &n,
 }
 
 /*
-	Terra Firma, an atlas: where the ray meets the cells over slot `np` of its
+	Terraverse, an atlas: where the ray meets the cells over slot `np` of its
 	grid (Map::seeAll: one to a few over a seam, each where it really is),
 	a cut cell only its solid (planet::Atlas::cut). What's pointed is the cell
 	really hit; above it, the cell past the face hit: across a cut face, the
@@ -255,7 +255,7 @@ void Environment::continueRaycast(RaycastState *state, PointedThing *result_p)
 			break; // About to go out of bounds
 		}
 
-		const v3s16 from = floatToInt(state->m_shootline.start, BS); // Terra Firma
+		const v3s16 from = floatToInt(state->m_shootline.start, BS); // Terraverse
 		// For each untested node
 		for (s16 z = new_nodes.MinEdge.Z; z <= new_nodes.MaxEdge.Z; z++)
 		for (s16 y = new_nodes.MinEdge.Y; y <= new_nodes.MaxEdge.Y; y++)
@@ -264,7 +264,7 @@ void Environment::continueRaycast(RaycastState *state, PointedThing *result_p)
 			v3s16 np(x, y, z);
 			bool is_valid_position;
 
-			// Terra Firma, an atlas: over a seam, or in a cut cell, the cells
+			// Terraverse, an atlas: over a seam, or in a cut cell, the cells
 			// really there, each as it is (seamCells)
 			if (const planet::Atlas *atlas = map.getAtlas()) {
 				const Map::Next seen = map.see(from, np);
@@ -273,7 +273,7 @@ void Environment::continueRaycast(RaycastState *state, PointedThing *result_p)
 					continue;
 				}
 			}
-			// Terra Firma: past a planet face's edge, the next face's node, as
+			// Terraverse: past a planet face's edge, the next face's node, as
 			// seen from where the ray starts (Map::see)
 			n = map.getNodeSeen(from, np, &is_valid_position);
 			if (!is_valid_position)
@@ -289,7 +289,7 @@ void Environment::continueRaycast(RaycastState *state, PointedThing *result_p)
 			PointedThing result;
 
 			boxes.clear();
-			// Terra Firma: a cut node's sixteenths, smoothed ground's columns
+			// Terraverse: a cut node's sixteenths, smoothed ground's columns
 			map.getPointedBoxes(np, n, boxes);
 
 			// Is there a collision with a selection box?
@@ -367,7 +367,7 @@ void Environment::continueRaycast(RaycastState *state, PointedThing *result_p)
 			// the search can be shorter
 			s16 newIndex = state->m_iterator.getIndex(
 				result.node_real_undersurface);
-			// Terra Firma: the nodes the map keeps (past an edge, on the next face)
+			// Terraverse: the nodes the map keeps (past an edge, on the next face)
 			result.node_undersurface = map.see(from, result.node_undersurface).pos;
 			result.node_real_undersurface = map.see(from, result.node_real_undersurface).pos;
 			result.node_abovesurface = map.see(from, result.node_abovesurface).pos;
@@ -407,7 +407,7 @@ void Environment::stepTimeOfDay(float dtime)
 	f32 cached_time_of_day_speed = m_time_of_day_speed;
 
 	f32 speed = cached_time_of_day_speed * 24000. / (24. * 3600);
-	// Terra Firma: a stopped clock banks nothing to spend when it starts again
+	// Terraverse: a stopped clock banks nothing to spend when it starts again
 	if (speed <= 0)
 		m_time_conversion_skew = 0;
 	else

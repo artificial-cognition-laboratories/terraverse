@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2013-2020 Luanti core developers & community
@@ -156,7 +156,7 @@ public:
 	void setMaxSpeedOverride(const v3f &vel);
 	// Returns true if cheated
 	bool checkMovementCheat();
-	// Terra Firma: driving a machine (sprint 69): it moves them, as fast as it goes
+	// Terraverse: driving a machine (sprint 69): it moves them, as fast as it goes
 	void setDriving(bool driving) { m_driving = driving; }
 	bool driving() const { return m_driving; }
 
@@ -186,7 +186,7 @@ private:
 	std::string getPropertyPacket();
 	void unlinkPlayerSessionAndSave();
 	std::string generateUpdatePhysicsOverrideCommand() const;
-	u8 stanceNow() const; // Terra Firma
+	u8 stanceNow() const; // Terraverse
 	std::string generateStanceCommand() const;
 	u8 m_stance_sent = 0;
 
@@ -216,7 +216,7 @@ private:
 	// Cached privileges for enforcement
 	std::set<std::string> m_privs;
 	const bool m_is_singleplayer;
-	bool m_driving = false; // Terra Firma
+	bool m_driving = false; // Terraverse
 	bool m_is_new_player = false;
 
 	u16 m_breath = PLAYER_MAX_BREATH_DEFAULT;

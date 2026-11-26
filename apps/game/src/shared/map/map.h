@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -24,7 +24,7 @@
 #include "src/shared/util/math/numeric.h" // for forEachNodeInArea
 
 class MapSector;
-namespace planet { class Atlas; } // Terra Firma
+namespace planet { class Atlas; } // Terraverse
 class NodeMetadata;
 class NodeTimer;
 class IGameDef;
@@ -44,9 +44,9 @@ enum MapEditEventType {
 	MEET_BLOCK_NODE_METADATA_CHANGED,
 	// Anything else (modified_blocks are set unsent)
 	MEET_OTHER,
-	// Terra Firma: a node's cut shape changed (Map::setShape)
+	// Terraverse: a node's cut shape changed (Map::setShape)
 	MEET_SHAPE,
-	MEET_FILL, // Terra Firma: a node's liquid (sprint 81)
+	MEET_FILL, // Terraverse: a node's liquid (sprint 81)
 };
 
 struct MapEditEvent
@@ -201,7 +201,7 @@ public:
 		Saves modified blocks before unloading if possible.
 	*/
 	void unloadUnreferencedBlocks(std::vector<v3s16> *unloaded_blocks=NULL);
-	// Terra Firma: take every block in a box (block positions, inclusive) out
+	// Terraverse: take every block in a box (block positions, inclusive) out
 	// of memory, saving those modified when `save`. False when some are in
 	// use: those stay (the rest are out).
 	bool unloadArea(v3s16 low, v3s16 high, bool save);
@@ -240,7 +240,7 @@ public:
 	void removeNodeMetadata(v3s16 p);
 
 	/*
-		Terra Firma: node shapes (sprint 44)
+		Terraverse: node shapes (sprint 44)
 	*/
 
 	// The node at p's cut shape, if it's cut (nothing if not, or unloaded).
@@ -251,7 +251,7 @@ public:
 	// Keeps `s` at p exactly, whole too: cut ground that's whole stays as it
 	// is, never smoothed by its neighbours (sprint 85: a dug hole's walls).
 	bool keepShape(v3s16 p, const shape::Shape &s);
-	// Terra Firma: the liquid in a node's open space (sprint 81: fill::Fill),
+	// Terraverse: the liquid in a node's open space (sprint 81: fill::Fill),
 	// nullptr: none. Setting it tells the clients (MEET_FILL), not the mesh;
 	// false where its block isn't loaded.
 	const fill::Fill *getFill(v3s16 p);
@@ -266,7 +266,7 @@ public:
 	std::optional<ground::Top> groundTop(v3s16 p);
 	// ... as it was while the node at `at` was `was` (just before it changed)
 	std::optional<ground::Top> groundTopAs(v3s16 p, v3s16 at, MapNode was);
-	// Terra Firma (sprint 81): the sixteenths of the node at p that are
+	// Terraverse (sprint 81): the sixteenths of the node at p that are
 	// solid, where it's partly there: cut, smoothed ground (its own cell),
 	// or the air a smoothed block below rises into. nullopt: whole (it's
 	// all there or all open, as its node is). Where liquid can lie.
@@ -334,14 +334,14 @@ public:
 	}
 	bool isBlockOccluded(v3s16 pos_relative, v3s16 cam_pos_nodes, bool dense = false);
 
-	// Terra Firma: the planet this map stores, if it is one
+	// Terraverse: the planet this map stores, if it is one
 	// (src/planet/atlas.h): its regions are the map's. Set once, before
 	// anything reads the map.
 	void setAtlas(const planet::Atlas *atlas) { m_atlas = atlas; }
 	const planet::Atlas *getAtlas() const { return m_atlas; }
 
 	/*
-		Terra Firma: the node next to `p` along `dir` (one axis, ±1). On a
+		Terraverse: the node next to `p` along `dir` (one axis, ±1). On a
 		flat world, p + dir. On a planet, a step across a seam lands in the
 		next grid (planet::Atlas::step), and `turn` is the quarter turns the
 		grid took (east toward north). Whatever asks "what's next to this
@@ -351,14 +351,14 @@ public:
 	{
 		v3s16 pos;
 		int turn;
-		// Terra Firma, an atlas: where pos's centre is in the grid looked
+		// Terraverse, an atlas: where pos's centre is in the grid looked
 		// from, less p (nodes). Across a T-junction columns don't line up.
 		v3f offset{};
 	};
 	Next next(v3s16 p, v3s16 dir) const;
 
 	/*
-		Terra Firma: what's at `p` as seen from `from`'s grid. On a planet,
+		Terraverse: what's at `p` as seen from `from`'s grid. On a planet,
 		past a seam `from`'s grid carries on into the next one
 		(planet::Atlas::see): `pos` is the node the map keeps there and `turn`
 		the grid's turn between. Elsewhere (a flat world, inside a grid, from
@@ -366,23 +366,23 @@ public:
 		(collision, meshes, rays) looks through this.
 	*/
 	Next see(v3s16 from, v3s16 p) const;
-	// Terra Firma: every node `p`'s cell of `from`'s grid overlaps (an atlas
+	// Terraverse: every node `p`'s cell of `from`'s grid overlaps (an atlas
 	// across a seam: one to a few, each at its own offset); see() alone
 	// elsewhere. What collision gathers, so no sliver of a cell is missed.
 	std::vector<Next> seeAll(v3s16 from, v3s16 p) const;
 
-	// Terra Firma: how far apart two positions are (BS units): on a planet,
+	// Terraverse: how far apart two positions are (BS units): on a planet,
 	// straight through it, each where it is on the planet (infinite for one
 	// past the atlas's top); straight across the map if not.
 	f32 distance(v3f a, v3f b) const;
 	// The node at `p` seen from `from`'s grid, turned into that grid.
 	MapNode getNodeSeen(v3s16 from, v3s16 p, bool *is_valid_position = nullptr);
-	// Terra Firma: the node at p, from a grid `turn` quarter turns from its own
+	// Terraverse: the node at p, from a grid `turn` quarter turns from its own
 	MapNode getNodeTurned(v3s16 p, int turn);
 
 protected:
 	IGameDef *m_gamedef;
-	const planet::Atlas *m_atlas = nullptr;   // Terra Firma
+	const planet::Atlas *m_atlas = nullptr;   // Terraverse
 
 	std::set<MapEventReceiver*> m_event_receivers;
 
@@ -439,7 +439,7 @@ public:
 	*/
 	void blitBackAll(std::map<v3s16, MapBlock*> * modified_blocks,
 		bool overwrite_generated = true) const;
-	// Terra Firma: ... and the blocks from `always_min` to `always_max` (a
+	// Terraverse: ... and the blocks from `always_min` to `always_max` (a
 	// chunk's own, its border's generated neighbours left as they are)
 	void blitBackAll(std::map<v3s16, MapBlock*> *modified_blocks,
 		v3s16 always_min, v3s16 always_max) const;

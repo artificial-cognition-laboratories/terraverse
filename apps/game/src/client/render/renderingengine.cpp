@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2017 nerzhul, Loic Blot <loic.blot@unix-experience.fr>
@@ -43,7 +43,7 @@ void FpsControl::reset()
 
 void FpsControl::limit(IrrlichtDevice *device, f32 *dtime)
 {
-	// Terra Firma: not while the debugger's open (Shell::debuggerOpen)
+	// Terraverse: not while the debugger's open (Shell::debuggerOpen)
 	bool keep_pace = device->isWindowFocused();
 #if USE_SHELL
 	keep_pace = keep_pace || (g_shell && g_shell->debuggerOpen());
@@ -286,7 +286,7 @@ bool RenderingEngine::setupTopLevelWindow()
 bool RenderingEngine::setWindowIcon()
 {
 	irr_ptr<video::IImage> img(driver->createImageFromFile(
-			(porting::path_share + "/textures/base/pack/logo.png").c_str()));
+			(porting::path_share + "/misc/terraverse.png").c_str()));
 	if (!img) {
 		warningstream << "Could not load icon file." << std::endl;
 		return false;
@@ -304,11 +304,11 @@ void RenderingEngine::draw_load_screen(const std::wstring &text,
 		gui::IGUIEnvironment *guienv, ITextureSource *tsrc, float dtime,
 		int percent, float *indef_pos, const std::wstring &bottom_text)
 {
-	// Terra Firma: a body (client/app/headless) has no loading screen to show, and no fonts
+	// Terraverse: a body (client/app/headless) has no loading screen to show, and no fonts
 	if (!g_fontengine)
 		return;
 #if USE_SHELL
-	// Terra Firma: the page shows how far a world's got (shell/entering.h),
+	// Terraverse: the page shows how far a world's got (shell/entering.h),
 	// over the planet chosen; otherwise (shutting down) the page alone
 	if (g_shell) {
 		if (g_shell->entering().active()) {
@@ -499,7 +499,7 @@ void RenderingEngine::autosaveScreensizeAndCo(
 		return;
 
 	// Note: If the screensize or similar hasn't changed (i.e. it's the same as
-	// the setting was when luanti started, as given by the initial_* parameters),
+	// the setting was when the engine started, as given by the initial_* parameters),
 	// we do not want to save the thing. This allows users to also manually change
 	// the settings.
 

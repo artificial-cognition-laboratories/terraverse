@@ -455,7 +455,7 @@ public:
 	operations. */
 	virtual void setViewPort(const core::rect<s32> &area) = 0;
 
-	//! Terra Firma: where the screen starts in the window, in pixels from its
+	//! Terraverse: where the screen starts in the window, in pixels from its
 	//! bottom-left corner. With OnResize to a smaller size, the screen becomes a
 	//! part of the window and everything drawn to it lands there.
 	virtual void setScreenOffset(const core::vector2di &offset) {}

@@ -1,4 +1,4 @@
-// Terra Firma: the checks' probes (sprint 119: were Lua mods in scripts/*-check/probe).
+// Terraverse: the checks' probes (sprint 119: were Lua mods in scripts/*-check/probe).
 // A check starts a headless server with --probe <name>; the probe drives the world as the
 // check needs (makes areas, digs, pours, waits), prints lines the check's script reads
 // (MATTER …, ATLAS …), and stops the server. Native, so a probe reaches what's inside the

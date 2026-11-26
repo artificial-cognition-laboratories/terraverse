@@ -18,7 +18,8 @@ stage() {
 # The executable uses its parent directory as both share and user path in
 # RUN_IN_PLACE builds. Mirror only resources here; user worlds and account
 # data in .output are deliberately outside these targets.
-stage apps/game/assets/game games/terrafirma
+stage apps/game/assets/game games/terraverse
+rm -rf "$out/games/terrafirma" # the game's old id (rename step 2): its folder here would be a second game
 stage registry/shaders client/shaders
 stage registry/textures textures
 stage apps/game/assets/fonts fonts

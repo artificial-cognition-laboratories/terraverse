@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "tests/unit/test.h"
@@ -67,7 +67,7 @@ namespace {
 
 using V = terragen::Atlas::Vec;
 
-// the world's planet (Terra Firma's default atlas)
+// the world's planet (Terraverse's default atlas)
 const terragen::Atlas::Params PLANET = terragen::Atlas::standard(8192 / (2 * M_PI));
 
 constexpr double RANGE = 48;  // nodes: how far the client draws, here

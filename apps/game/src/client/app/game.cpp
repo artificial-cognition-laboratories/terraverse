@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -12,9 +12,9 @@
 #include <set>
 #include <ISceneCollisionManager.h>
 #include <csignal>
-#include "src/client/views/game/sky/atlas_view.h" // Terra Firma
+#include "src/client/views/game/sky/atlas_view.h" // Terraverse
 #include "library/physics/tuning.h"
-#include "src/client/world/player/body.h" // Terra Firma
+#include "src/client/world/player/body.h" // Terraverse
 #include "src/client/app/gameui.h"
 #include "src/client/app/input/inputhandler.h"
 #include "src/client/render/textures/texturepaths.h"
@@ -72,7 +72,7 @@
 #include "src/shared/platform/online/players.h"
 #endif
 
-// Terra Firma: a held member's ghost's edges, where it fits and where it doesn't (sprint 123)
+// Terraverse: a held member's ghost's edges, where it fits and where it doesn't (sprint 123)
 static const video::SColor GHOST_FITS(255, 90, 220, 150), GHOST_BLOCKED(255, 240, 80, 70);
 // a bore's next cells, the very next brightest (sprint 124)
 static const video::SColor BORE_NEXT[] = { { 255, 255, 230, 140 }, { 140, 255, 230, 140 }, { 60, 255, 230, 140 }, { 18, 255, 230, 140 } };
@@ -280,7 +280,7 @@ void Game::run()
 		}
 
 		framemarker.start();
-		trace::report::tick(porting::path_user + "/perf-reports"); // Terra Firma: the session's report (trace/report.h)
+		trace::report::tick(porting::path_user + "/perf-reports"); // Terraverse: the session's report (trace/report.h)
 
 		g_fontengine->handleReload();
 
@@ -333,7 +333,7 @@ void Game::run()
 			TF_ZONE("Input");
 			processUserInput(dtime);
 		}
-		// Terra Firma: carried over a planet's edge, the view turns with the ground
+		// Terraverse: carried over a planet's edge, the view turns with the ground
 		if (const f32 turn = client->getEnv().getLocalPlayer()->takePlanetTurn()) {
 			cam_view_target.camera_yaw += turn;
 			cam_view.camera_yaw += turn;
@@ -395,7 +395,7 @@ void Game::run()
 
 		if (m_does_lost_focus_pause_game && !device->isWindowFocused() && !isMenuActive()
 #if USE_SHELL
-				&& !(g_shell && g_shell->debuggerOpen()) // Terra Firma: profiling a game that paused itself measures a menu
+				&& !(g_shell && g_shell->debuggerOpen()) // Terraverse: profiling a game that paused itself measures a menu
 #endif
 				) {
 			m_shell_session->screens().open("pause");
@@ -414,7 +414,7 @@ void Game::run()
 
 void Game::shutdown()
 {
-	trace::report::finish(porting::path_user + "/perf-reports"); // Terra Firma: read after a run
+	trace::report::finish(porting::path_user + "/perf-reports"); // Terraverse: read after a run
 
 #if USE_SHELL
 	g_shell->serverInfo(nullptr); // it reads the server and client, about to go
@@ -569,7 +569,7 @@ bool Game::createServer(GameStartData &start_data)
 
 	bool ipv6 = g_settings->getBool("ipv6_server");
 #if USE_SHELL
-	// Terra Firma: hosting for friends is IPv4 (STUN, punching: src/online)
+	// Terraverse: hosting for friends is IPv4 (STUN, punching: src/online)
 	ipv6 = ipv6 && start_data.online.kind != online::Launch::Kind::Host;
 #endif
 	if (ipv6)
@@ -592,7 +592,7 @@ bool Game::createServer(GameStartData &start_data)
 	start_data.socket_port = server_socket.GetLocalAddress().getPort();
 
 #if USE_SHELL
-	// Terra Firma: hosted for friends; a world played alone carries over.
+	// Terraverse: hosted for friends; a world played alone carries over.
 	if (start_data.online.kind == online::Launch::Kind::Host) {
 		online::adoptSingleplayer(start_data.world_spec.path, start_data.name);
 		// Returns at once: where the world can be reached is learned alongside.
@@ -604,7 +604,7 @@ bool Game::createServer(GameStartData &start_data)
 	server = new Server(start_data.world_spec.path, start_data.game_spec,
 		simple_singleplayer_mode, std::move(server_socket),
 		false, nullptr, &(errordata->message));
-	// Terra Firma: a TypeScript server's mods run beside it (src/sidecar, sprint 119)
+	// Terraverse: a TypeScript server's mods run beside it (src/sidecar, sprint 119)
 	server->setServerFolder(start_data.server_folder);
 #if USE_SHELL
 	if (m_online_host) {
@@ -1218,7 +1218,7 @@ void Game::processUserInput(f32 dtime)
 
 void Game::processKeyInput()
 {
-	// Terra Firma: one build mode (sprint 70), Tab in and out. What's
+	// Terraverse: one build mode (sprint 70), Tab in and out. What's
 	// added is an object unless Alt's held, when it's the world's. The
 	// workpiece stays on the bench either way: only F (or walking off)
 	// puts it down.
@@ -1231,7 +1231,7 @@ void Game::processKeyInput()
 				: std::string("Hands")));
 		return;
 	}
-	// Terra Firma: with Ctrl while building, a part copied, pasted, saved
+	// Terraverse: with Ctrl while building, a part copied, pasted, saved
 	// (sprint 74): asked as the rail asks, where what's pointed at is known
 	if (m_hand.out() && isKeyDown(KeyType::SNEAK)) {
 		for (const auto &[key, verb] : { std::pair(KeyType::COPY, Hand::Verb::Copy),
@@ -1241,7 +1241,7 @@ void Game::processKeyInput()
 				return;
 			}
 	}
-	// Terra Firma: N frees the cursor (the rails, the menus; the world
+	// Terraverse: N frees the cursor (the rails, the menus; the world
 	// pointed at through it) and takes it back
 	if (wasKeyPressed(KeyType::CURSOR)) {
 		m_cursor = !m_cursor;
@@ -1250,7 +1250,7 @@ void Game::processKeyInput()
 		m_game_ui->showTranslatedStatusText(m_cursor ? "The cursor's free (N: look again)" : "Looking");
 		return;
 	}
-	// Terra Firma: what's carried is turned in the hands a quarter at a
+	// Terraverse: what's carried is turned in the hands a quarter at a
 	// time (sprint 77): E about the up, Q tipped toward them; Shift the
 	// other way. Four of either is where it began. handleCarry does it
 	if (m_carry) {
@@ -1286,7 +1286,7 @@ void Game::processKeyInput()
 		openPlanetarium();
 	} else if (!m_hand.out() && wasKeyDown(KeyType::TOOL_NEXT) && m_cutting &&
 			(isKeyDown(KeyType::AUX1) ? m_cutting->tip() : m_cutting->turn())) {
-		// Terra Firma: a member held turned round the up (R), or tipped end over end (Shift+R) (sprint 123)
+		// Terraverse: a member held turned round the up (R), or tipped end over end (Shift+R) (sprint 123)
 	} else if (m_hand.out() && wasKeyDown(KeyType::TOOL_NEXT)) {
 		m_hand.nextBrush();
 		showTool();
@@ -1383,7 +1383,7 @@ void Game::processKeyInput()
 	} else if (wasKeyPressed(KeyType::TOGGLE_PROFILER)) {
 		m_game_ui->toggleProfiler();
 	} else if (isKeyDown(KeyType::ALT) && wasKeyDown(KeyType::INCREASE_VIEWING_RANGE)) {
-		// Terra Firma: Alt+= mirrors, and steps its plane round (sprint 68)
+		// Terraverse: Alt+= mirrors, and steps its plane round (sprint 68)
 		if (!m_hand.out())
 			m_hand.takeOut();
 		stepMirror();
@@ -1428,13 +1428,13 @@ void Game::processItemSelection(u16 *new_playeritem)
 	/* Item selection using mouse wheel
 	 */
 	s32 wheel = input->getMouseWheel();
-	// Terra Firma: grabbing, the wheel brings the hand nearer or further
+	// Terraverse: grabbing, the wheel brings the hand nearer or further
 	if (m_grab && wheel != 0) {
 		constexpr f32 STEP = 0.25f * BS, NEAREST = 0.75f * BS, FURTHEST = 4.f * BS;
 		m_grab->distance = std::clamp(m_grab->distance + (wheel > 0 ? STEP : -STEP), NEAREST, FURTHEST);
 		wheel = 0;
 	}
-	// Terra Firma: with the tools out the wheel sizes them
+	// Terraverse: with the tools out the wheel sizes them
 	if (m_hand.out() && wheel != 0) {
 		m_hand.resize(wheel > 0 ? 1 : -1);
 		showTool();
@@ -1459,7 +1459,7 @@ void Game::processItemSelection(u16 *new_playeritem)
 		*new_playeritem = *new_playeritem > 0 ? *new_playeritem - 1 : max_item;
 	// else dir == 0
 
-	// Terra Firma: building, the slot keys pick the shape drawn, not the
+	// Terraverse: building, the slot keys pick the shape drawn, not the
 	// item held (sprint 70: the shapes' bar sits on the hotbar); with Alt
 	// they're the hotbar's again
 	if (m_hand.out() && !isKeyDown(KeyType::ALT)) {
@@ -1526,7 +1526,7 @@ void Game::toggleFreeMove()
 	g_settings->set("free_move", bool_to_cstr(free_move));
 
 #if USE_SHELL
-	return; // Terra Firma: flying shows itself, as Minecraft's does: no status text
+	return; // Terraverse: flying shows itself, as Minecraft's does: no status text
 #endif
 	if (free_move) {
 		if (client->checkPrivilege("core:fly")) {
@@ -1649,7 +1649,7 @@ void Game::toggleAutoforward()
 		m_game_ui->showTranslatedStatusText("Automatic forward disabled");
 }
 
-// Terra Firma: the planet this world is, in the Planetarium, over the
+// Terraverse: the planet this world is, in the Planetarium, over the
 // whole window, by its key. Its key or Escape closes it; meanwhile it has the
 // mouse and the keyboard (the player stands still). Under a page's screen
 // (the map) the page shows and hides it, and keys go on to the screen.
@@ -1873,7 +1873,7 @@ void Game::updateCameraDirection(CameraOrientation *cam, float dtime)
 {
 	auto *cur_control = device->getCursorControl();
 
-	// Terra Firma: the object the server made for us, focused when it's here
+	// Terraverse: the object the server made for us, focused when it's here
 	if (const std::optional<std::pair<u16, workshop::Handed>> held = client->takeHeld())
 		m_awaited = held;
 	if (m_awaited && pieceMiddle(m_awaited->first)) {
@@ -1898,10 +1898,10 @@ void Game::updateCameraDirection(CameraOrientation *cam, float dtime)
 		m_awaited.reset();
 	}
 
-	// Terra Firma: an object on the workbench, turned by its handle
+	// Terraverse: an object on the workbench, turned by its handle
 	if (m_hold)
 		benchStep(dtime);
-	// Terra Firma: the cursor free (Tab): the view stays, the mouse points
+	// Terraverse: the cursor free (Tab): the view stays, the mouse points
 	if (m_cursor) {
 		if (cur_control) {
 			cur_control->setRelativeMode(false);
@@ -1962,15 +1962,15 @@ f32 Game::getSensitivityScaleFactor() const
 	return std::tan(fov_y / 2.0f) * 1.3763819f;
 }
 
-// Terra Firma: whether the player's own body is on its feet, not flown, swum or climbed
-// by Luanti's movement, where the crouch key means "down"
+// Terraverse: whether the player's own body is on its feet, not flown, swum or climbed
+// by the engine's movement, where the crouch key means "down"
 bool Game::bodyIsLoose(LocalPlayer &player) const
 {
 	const PlayerSettings &s = player.getPlayerSettings();
 	return (client->checkPrivilege("core:fly") && s.free_move) || player.in_liquid || player.is_climbing;
 }
 
-// Terra Firma: a tap of the crouch key stays crouched till the next; held, it's crouched
+// Terraverse: a tap of the crouch key stays crouched till the next; held, it's crouched
 // till let go. Z lies down the same way. Jumping stands up. While building, Ctrl is Ctrl.
 bool Game::sneakNow(LocalPlayer &player)
 {
@@ -2102,7 +2102,7 @@ void Game::updatePlayerControl(const CameraOrientation &cam)
 	control.prone = m_prone && !bodyIsLoose(*player);
 
 	client->setPlayerControl(control);
-	client->getBody().brake(isKeyDown(KeyType::BRAKE)); // Terra Firma: thrusting's brake
+	client->getBody().brake(isKeyDown(KeyType::BRAKE)); // Terraverse: thrusting's brake
 
 	//tt.stop();
 }
@@ -2112,7 +2112,7 @@ void Game::updatePauseState()
 	bool was_paused = this->m_is_paused;
 	bool alone = this->simple_singleplayer_mode;
 #if USE_SHELL
-	// Terra Firma: a world hosted for friends pauses only while no friend is in it
+	// Terraverse: a world hosted for friends pauses only while no friend is in it
 	alone = alone || (m_online_host && server && server->clientCount() <= 1);
 #endif
 	this->m_is_paused = alone && g_menumgr.pausesGame();
@@ -2134,7 +2134,7 @@ inline void Game::step(f32 dtime)
 	if (server) {
 		bool unfocused = !device->isWindowFocused();
 #if USE_SHELL
-		unfocused = unfocused && !(g_shell && g_shell->debuggerOpen()); // Terra Firma: the debugger keeps the pace
+		unfocused = unfocused && !(g_shell && g_shell->debuggerOpen()); // Terraverse: the debugger keeps the pace
 #endif
 		float fps_max = unfocused && simple_singleplayer_mode ?
 				g_settings->getFloat("fps_max_unfocused") :
@@ -2573,14 +2573,14 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 		d = 0;
 		break;
 	case CAMERA_MODE_SHOULDER:
-		// Terra Firma: along the crosshair, but reach counts from level with the head
+		// Terraverse: along the crosshair, but reach counts from level with the head
 		shootline.start = camera->getPosition() + camera_direction *
 				(camera->getHeadPosition() - camera->getPosition()).dotProduct(camera_direction);
 		break;
 	}
 	shootline.end = shootline.start + camera_direction * BS * d;
 
-	// Terra Firma: the cursor free, through it, as far as the hand reaches
+	// Terraverse: the cursor free, through it, as far as the hand reaches
 	if (m_cursor) {
 		core::line3d<f32> through = smgr->getSceneCollisionManager()->getRayFromScreenCoordinates(
 				input->getMousePos(), camera->getCameraNode());
@@ -2590,11 +2590,11 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 		shootline.end = shootline.start + dir * BS * d;
 	}
 
-	m_pointed_from = shootline; // Terra Firma: pieces are pointed at again in their own grid
-	if (m_cutting) // Terra Firma: where a member held would snap to (sprint 123); Ctrl: freely; Shift: onto a stack
+	m_pointed_from = shootline; // Terraverse: pieces are pointed at again in their own grid
+	if (m_cutting) // Terraverse: where a member held would snap to (sprint 123); Ctrl: freely; Shift: onto a stack
 		m_cutting->look(shootline, isKeyDown(KeyType::SNEAK) ? cut::Cutting::Mode::Free :
 				isKeyDown(KeyType::AUX1) ? cut::Cutting::Mode::Stack : cut::Cutting::Mode::Snap);
-	if (m_digging) // Terra Firma: where a shovel's form goes (sprint 124); Ctrl: freely; Shift: a level where aimed
+	if (m_digging) // Terraverse: where a shovel's form goes (sprint 124); Ctrl: freely; Shift: a level where aimed
 		m_digging->look(isKeyDown(KeyType::SNEAK) ? earthwork::Mode::Free :
 				isKeyDown(KeyType::AUX1) ? earthwork::Mode::Aimed : earthwork::Mode::Snap,
 				isKeyDown(KeyType::DIG) ? dig::Digging::Button::Down : dig::Digging::Button::Up, shootline);
@@ -2603,10 +2603,10 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 			selected_def.pointabilities,
 			!runData.btn_down_for_dig,
 			camera_offset);
-	if (m_digging) // Terra Firma: a shovel held down bores a cell at a time, evenly (sprint 124)
+	if (m_digging) // Terraverse: a shovel held down bores a cell at a time, evenly (sprint 124)
 		m_digging->swing(dtime);
 
-	// Terra Firma: machines are pointed at by what they're built of, not by
+	// Terraverse: machines are pointed at by what they're built of, not by
 	// a box round them (sprint 69): through the box's empty corners, what's
 	// behind; a part nearer than the block hit, the part
 	{
@@ -2699,7 +2699,7 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 	else
 		runData.repeat_place_timer = 0;
 
-	// Terra Firma: what's been let go rolls on here, drawn where it is here,
+	// Terraverse: what's been let go rolls on here, drawn where it is here,
 	// till it's still and the server's to draw again (sprint 72)
 	{
 		std::set<u16> now;
@@ -2715,10 +2715,10 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 					obj->setPosed(std::nullopt);
 		m_coasting = std::move(now);
 	}
-	// Terra Firma: what the page's rail asked, now what's pointed at is known
+	// Terraverse: what the page's rail asked, now what's pointed at is known
 	for (const Hand::Ask &ask : m_hand.take())
 		handleAsk(ask, pointed);
-	// Terra Firma: an object pointed at in the world is lit, and what a
+	// Terraverse: an object pointed at in the world is lit, and what a
 	// press would do said: with the tools away it's carried, out it's
 	// worked on where it is
 	// (with the tools out on the bench they draw, so nothing else is lit;
@@ -2745,38 +2745,38 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 		m_lit = lit;
 	}
 	gridStep();
-	// Terra Firma: Shift-click on a socket, another of the last thing
+	// Terraverse: Shift-click on a socket, another of the last thing
 	// plugged in put there (sprint 64)
 	const std::optional<std::pair<u16, u64>> again = !m_carry && !m_hand.out() && isKeyDown(KeyType::AUX1)
 			&& wasKeyPressed(KeyType::DIG) ? socketAt() : std::nullopt;
 	if (again) {
 		client->sendPlugAgain(again->first, again->second);
 	} else if (m_driving) {
-		// Terra Firma: sat in from an object's menu (sprint 69, 71)
+		// Terraverse: sat in from an object's menu (sprint 69, 71)
 		handleDrive(pointed, dtime);
 	} else if (m_grab || (!m_carry && !m_menu && !m_hand.out() && wasKeyPressed(KeyType::DIG) && lit
 			&& !isKeyDown(KeyType::ALT))) {
-		// Terra Firma: with the tools away, an object pressed on is grabbed
+		// Terraverse: with the tools away, an object pressed on is grabbed
 		// where it's pressed (sprint 68)
 		handleGrab(pointed, dtime);
 	} else if (m_carry || (!m_menu && !m_hand.out() && wasKeyPressed(KeyType::DIG) && lit)) {
-		// Terra Firma: Alt-pressed, it's carried whole
+		// Terraverse: Alt-pressed, it's carried whole
 		handleCarry(pointed, dtime);
 	} else if (m_menu) {
-		// Terra Firma: an object's menu, in the world, takes the clicks
+		// Terraverse: an object's menu, in the world, takes the clicks
 		menuStep(dtime);
 	} else if (fitStep(lit)) {
-		// Terra Firma: a seat or an engine held: fitted where it's outlined (sprint 73)
+		// Terraverse: a seat or an engine held: fitted where it's outlined (sprint 73)
 	} else if (!m_hand.out() && wasKeyPressed(KeyType::PLACE) && m_hover_joint) {
-		// Terra Firma: right-click on a joint looked at: its own menu (sprint 72)
+		// Terraverse: right-click on a joint looked at: its own menu (sprint 72)
 		openJointMenu(*m_hover_joint);
 	} else if (!m_hand.out() && wasKeyPressed(KeyType::PLACE) && (lit || (m_hold && aimAtPiece(m_hold->object())))) {
-		// Terra Firma: right-click on an object: its menu (sprint 71)
+		// Terraverse: right-click on an object: its menu (sprint 71)
 		const u16 object = lit ? lit : m_hold->object();
 		if (const std::optional<Aim> aim = aimAtPiece(object))
 			openMenu(*aim);
 	} else if (!m_hand.out() && m_hold && wasKeyPressed(KeyType::DIG) && aimAtPiece(m_hold->object())) {
-		// Terra Firma: with the tools away, a part of the workpiece pressed
+		// Terraverse: with the tools away, a part of the workpiece pressed
 		// on is pulled off, with what hangs from it, and carried while the
 		// button's down (sprint 77); Shift-clicked, it's selected
 		const Aim aim = *aimAtPiece(m_hold->object());
@@ -2793,14 +2793,14 @@ void Game::processPlayerInteraction(f32 dtime, bool show_hud)
 			client->sendPull(aim.piece, aim.part);
 		}
 	} else if (m_hand.out()) {
-		// Terra Firma: the tools in hand make strokes, on the world or what's held
+		// Terraverse: the tools in hand make strokes, on the world or what's held
 		handleTools(pointed);
 	} else if (selected_def.usable && isKeyDown(KeyType::DIG)) {
 		if (wasKeyPressed(KeyType::DIG))
 			client->interact(INTERACT_USE, pointed);
 	} else if (pointed.type == POINTEDTHING_NODE && m_hold
 			&& intToFloat(pointed.node_undersurface, 1).getDistanceFrom(m_hold->held()) <= m_hold->radius() + 2) {
-		// Terra Firma: the ground round the workpiece isn't dug (sprint 77:
+		// Terraverse: the ground round the workpiece isn't dug (sprint 77:
 		// a press that missed a part dug under it)
 		if (wasKeyPressed(KeyType::DIG))
 			m_game_ui->showTranslatedStatusText("Not round the workpiece · F to put it down");
@@ -2840,7 +2840,7 @@ PointedThing Game::updatePointedThing(
 {
 	std::vector<aabb3f> *selectionboxes = hud->getSelectionBoxes();
 	selectionboxes->clear();
-	hud->getSolids()->clear(); // Terra Firma
+	hud->getSolids()->clear(); // Terraverse
 	hud->getSelectionLines()->clear();
 	hud->setSelectedFaceNormal(v3f());
 	static thread_local const bool show_entity_selectionbox = g_settings->getBool(
@@ -2878,7 +2878,7 @@ PointedThing Game::updatePointedThing(
 		// Update selection boxes
 		MapNode n = map.getNode(result.node_undersurface);
 		std::vector<aabb3f> boxes;
-		// Terra Firma: a shaped node (cut, smoothed ground) is outlined
+		// Terraverse: a shaped node (cut, smoothed ground) is outlined
 		// round what's there, not each of its boxes
 		std::vector<aabb3f> shaped;
 		if (map.getShapedBoxes(result.node_undersurface, shaped)) {
@@ -2893,7 +2893,7 @@ PointedThing Game::updatePointedThing(
 				n.getNeighbors(result.node_undersurface, &map));
 		}
 
-		// Terra Firma: a cut chosen, the member a dig would peel off instead (sprint 123)
+		// Terraverse: a cut chosen, the member a dig would peel off instead (sprint 123)
 		if (m_cutting) {
 			if (const std::optional<cut::Cutting::Ghost> g = m_cutting->ghost(result)) {
 				// a member held: where it would go, seen through, green where it fits
@@ -2903,7 +2903,7 @@ PointedThing Game::updatePointedThing(
 				boxes = { *member }; // what a dig would take
 			}
 		}
-		// Terra Firma: what a shovel would take (sprint 124): a bore's ring on the face and its next cells lit
+		// Terraverse: what a shovel would take (sprint 124): a bore's ring on the face and its next cells lit
 		std::optional<dig::Digging::Bore> bore = m_digging ? m_digging->bore(result) : std::nullopt;
 		if (bore) {
 			boxes.clear();
@@ -2923,7 +2923,7 @@ PointedThing Game::updatePointedThing(
 			camera_offset);
 		hud->setSelectionRotationRadians(v3f());
 		hud->setSelectedFaceNormal(result.intersection_normal);
-		// Terra Firma: on a planet, the cell as it's drawn (over a seam, cut)
+		// Terraverse: on a planet, the cell as it's drawn (over a seam, cut)
 		if (AtlasView *view = map.atlasView())
 			if (auto lines = view->outline(result.node_undersurface, *selectionboxes))
 				*hud->getSelectionLines() = std::move(*lines);
@@ -2943,12 +2943,12 @@ PointedThing Game::updatePointedThing(
 			}
 		}
 	} else if (m_cutting) {
-		// Terra Firma: a member held, aimed at the air: where it would go, out there (sprint 123)
+		// Terraverse: a member held, aimed at the air: where it would go, out there (sprint 123)
 		if (const std::optional<cut::Cutting::Ghost> g = m_cutting->ghost(result))
 			showSolid(g->node, g->box, g->fits ? GHOST_FITS : GHOST_BLOCKED, camera_offset);
 	}
 
-	// Terra Firma: the tools: a ghost of what a dig would take, its own
+	// Terraverse: the tools: a ghost of what a dig would take, its own
 	// edges drawn, on the world or a piece
 	// (drawing only: selecting and joining outline the part instead)
 	const sculpt::Act act = brushNow().act;
@@ -2999,7 +2999,7 @@ PointedThing Game::updatePointedThing(
 	}
 	hud->setSelectionThrough(m_ghost_shown);
 	m_ghost_shown = false;
-	// Terra Firma: what's pointed at may have been changed above (a machine
+	// Terraverse: what's pointed at may have been changed above (a machine
 	// looked through, a nearer part over a node, sprint 69): the object
 	// selected is the one it ends on, or none (a stale one crashed the punch)
 	runData.selected_object = result.type == POINTEDTHING_OBJECT
@@ -3013,7 +3013,7 @@ void Game::handlePointingAtNothing(const ItemStack &playerItem)
 	infostream << "Attempted to place item while pointing at nothing" << std::endl;
 	PointedThing fauxPointed;
 	fauxPointed.type = POINTEDTHING_NOTHING;
-	// Terra Firma: a member held is placed out in the air (sprint 123)
+	// Terraverse: a member held is placed out in the air (sprint 123)
 	if (m_cutting && m_cutting->place(fauxPointed))
 		return;
 	client->interact(INTERACT_ACTIVATE, fauxPointed);
@@ -3032,7 +3032,7 @@ void Game::handlePointingAtNode(const PointedThing &pointed,
 
 	ClientMap &map = client->getEnv().getClientMap();
 
-	// Terra Firma: left click breaks with what's in the hand, as its tool
+	// Terraverse: left click breaks with what's in the hand, as its tool
 	// capabilities allow (the bare hand only soft things); carving is build mode's
 	if (runData.nodig_delay_timer <= 0.0 && isKeyDown(KeyType::DIG)
 			&& !runData.digging_blocked
@@ -3070,7 +3070,7 @@ void Game::handlePointingAtNode(const PointedThing &pointed,
 		// And also set the sound and send the interact
 		// But first check for meta formspec and rightclickable
 		auto &def = selected_item.getDefinition(itemdef_manager);
-		// Terra Firma: a member held is placed where they aim, as timber (sprint 123)
+		// Terraverse: a member held is placed where they aim, as timber (sprint 123)
 		if (!(m_cutting && m_cutting->place(pointed)))
 			nodePlacement(def, selected_item, nodepos, neighborpos,
 				pointed, meta);
@@ -5494,7 +5494,7 @@ bool Game::nodePlacement(const ItemDefinition &selected_def,
 void Game::handlePointingAtObject(const PointedThing &pointed, const ItemStack &tool_item,
 		const ItemStack &hand_item, const v3f &player_position, bool show_debug)
 {
-	// Terra Firma: an object that's gone since it was pointed at
+	// Terraverse: an object that's gone since it was pointed at
 	if (!runData.selected_object)
 		return;
 	std::wstring infotext = unescape_translate(
@@ -5509,7 +5509,7 @@ void Game::handlePointingAtObject(const PointedThing &pointed, const ItemStack &
 
 	m_game_ui->setInfoText(infotext);
 
-	// Terra Firma: a machine isn't punched: it's grabbed (above)
+	// Terraverse: a machine isn't punched: it's grabbed (above)
 	const auto *punched = dynamic_cast<GenericCAO *>(runData.selected_object);
 	if (isKeyDown(KeyType::DIG) && !(punched && punched->getMachine())) {
 		bool do_punch = false;
@@ -5572,7 +5572,7 @@ void Game::handleDigging(const PointedThing &pointed, const v3s16 &nodepos,
 				&hand_item.getToolCapabilities(itemdef_manager));
 	}
 
-	// Terra Firma: in creative, whatever can be dug at all goes at once (sprint 119:
+	// Terraverse: in creative, whatever can be dug at all goes at once (sprint 119:
 	// was tf_player's creative hand); the server lets it (handleCommand_Interact)
 	if (client->checkPrivilege("core:creative")) {
 		for (const char *group : { "crumbly", "choppy", "cracky", "snappy", "oddly_breakable_by_hand", "dig_immediate" })
@@ -5655,9 +5655,9 @@ void Game::handleDigging(const PointedThing &pointed, const v3s16 &nodepos,
 		runData.nodig_delay_timer = std::max(runData.nodig_delay_timer,
 				m_repeat_dig_time - runData.dig_time_complete);
 
-		// Terra Firma: a cut chosen, the cut's asked for where they aim, nothing predicted (sprint 123)
+		// Terraverse: a cut chosen, the cut's asked for where they aim, nothing predicted (sprint 123)
 		if (m_cutting && m_cutting->take(pointed)) {
-		} else if (m_digging && m_digging->take(pointed)) { // Terra Firma: a scoop, with a shovel (sprint 124)
+		} else if (m_digging && m_digging->take(pointed)) { // Terraverse: a scoop, with a shovel (sprint 124)
 		} else {
 			if (features.node_dig_prediction == "air") {
 				client->removeNode(nodepos);
@@ -5809,7 +5809,7 @@ void Game::drawScene(RunStats *stats)
 		closePlanetarium();
 #if USE_SHELL
 	if (planetariumShown())
-		m_shell_session->planetarium().draw(this->driver); // Terra Firma: over the whole window
+		m_shell_session->planetarium().draw(this->driver); // Terraverse: over the whole window
 	else
 #endif
 	{
@@ -5868,7 +5868,7 @@ void Game::settingChangedCallback(const std::string &setting_name, void *data)
 
 void Game::readSettings()
 {
-	// Terra Firma: what the world controls change (only what did: F3 has its say too)
+	// Terraverse: what the world controls change (only what did: F3 has its say too)
 	for (const physics::TuningKnob &knob : physics::TUNING_KNOBS)
 		physics::tuning().*knob.field = g_settings->getFloat(knob.setting);
 	if (hud && draw_control)

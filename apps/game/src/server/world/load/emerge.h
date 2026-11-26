@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 kwolekr, Ryan Kwolek <kwolekr@minetest.net>
 
@@ -42,9 +42,9 @@ struct BlockMakeData {
 	v3s16 blockpos_max;
 	UniqueQueue<v3s16> transforming_liquid;
 	const NodeDefManager *nodedef = nullptr;
-	// Terra Firma: the cut shapes of nodes the generator placed (plants), set once they're in the map
+	// Terraverse: the cut shapes of nodes the generator placed (plants), set once they're in the map
 	std::map<v3s16, shape::Shape> shapes;
-	// Terra Firma: the small plants it planted, by their foot (a core:growth it placed)
+	// Terraverse: the small plants it planted, by their foot (a core:growth it placed)
 	std::map<v3s16, sprig::Sprig> sprigs;
 
 	BlockMakeData() = default;
@@ -190,7 +190,7 @@ public:
 
 	// Mapgen helpers methods
 	int getSpawnLevelAtPoint(v2s16 p);
-	// Terra Firma: MapgenTerra::spawnLevelAt (throws for another mapgen)
+	// Terraverse: MapgenTerra::spawnLevelAt (throws for another mapgen)
 	int getSpawnLevelAt(int body, double latitude, double longitude);
 	bool isBlockUnderground(v3s16 blockpos);
 

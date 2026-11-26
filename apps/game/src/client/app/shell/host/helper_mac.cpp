@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 // Chromium's helper processes on macOS (renderer, GPU, …): their own executable in

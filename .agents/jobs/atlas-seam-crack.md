@@ -4,7 +4,7 @@ Split from testing-atlas-render-fails (jobs bot, 2026-11-17). `TestAtlasRender.t
 fails on one eye; the other three were the test's own ray missing two triangles' shared diagonal by float
 rounding (fixed with the job's commit).
 
-The one left: `ATLAS_EYE=58,137,22 ./.output/bin/luanti --test-module TestAtlasRender`:
+The one left: `ATLAS_EYE=58,137,22 ./.output/bin/terraverse --test-module TestAtlasRender`:
 `hole at el -44 az 190: drawn nothing, planet 32.7498`, planet's cell region 0 8, block (-642,-1,-1336),
 seam block, sent and drawn. The nearest triangles to the ray there (eye-relative nodes):
 

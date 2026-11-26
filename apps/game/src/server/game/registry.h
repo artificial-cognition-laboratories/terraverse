@@ -1,4 +1,4 @@
-// Terra Firma: what the world's made of, registered natively (sprint 119). The engine's
+// Terraverse: what the world's made of, registered natively (sprint 119). The engine's
 // own blocks and items are data (assets/world/*.json) and what the matter table says
 // (a block of every substance); a TypeScript mod's blocks join them. Registered before
 // the world starts, so the node definitions sent to players, the generator, the world's

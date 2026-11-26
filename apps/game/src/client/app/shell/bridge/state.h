@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -27,9 +27,9 @@ struct HudView
 {
 	bool visible;
 	bool crosshair;
-	bool focused; // Terra Firma: an object's on the workbench
-	bool cursor;  // Terra Firma: the cursor's free (the page is clicked)
-	bool naming;  // Terra Firma: a part's to be saved, the page asks its name (sprint 74)
+	bool focused; // Terraverse: an object's on the workbench
+	bool cursor;  // Terraverse: the cursor's free (the page is clicked)
+	bool naming;  // Terraverse: a part's to be saved, the page asks its name (sprint 74)
 };
 
 /*
@@ -45,7 +45,7 @@ public:
 		Shell &shell;
 		Client *client;
 		Items &items;
-		const Hand &hand; // Terra Firma: the tools in hand
+		const Hand &hand; // Terraverse: the tools in hand
 	};
 
 	explicit State(const Opts &opts) : m_opts(opts) {}

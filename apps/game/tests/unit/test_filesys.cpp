@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -108,10 +108,10 @@ void TestFileSys::testPathsEqual()
 	std::string paths[numpaths] = {
 		"",
 		p("/"),
-		p("/home/user/luanti"),
-		p("/home/user/LUANTI"),
-		p("//home//user//luanti"),
-		p("/home/user/luanti/"),
+		p("/home/user/terraverse"),
+		p("/home/user/TERRAVERSE"),
+		p("//home//user//terraverse"),
+		p("/home/user/terraverse/"),
 	};
 	/*
 		expected fs::PathsEqual results
@@ -149,16 +149,16 @@ void TestFileSys::testPathStartsWith()
 	std::string paths[numpaths] = {
 		"",
 		p("/"),
-		p("/home/user/luanti"),
-		p("/home/user/luanti/bin"),
+		p("/home/user/terraverse"),
+		p("/home/user/terraverse/bin"),
 		p("/home/user/.minetest"),
 		p("/tmp/dir/file"),
 		p("/tmp/file/"),
 		p("/tmP/file"),
 		p("/tmp"),
 		p("/tmp/dir"),
-		p("/home/user2/luanti/worlds"),
-		p("/home/user2/luanti/world"),
+		p("/home/user2/terraverse/worlds"),
+		p("/home/user2/terraverse/world"),
 	};
 	/*
 		expected fs::PathStartsWith results
@@ -269,31 +269,31 @@ void TestFileSys::testRemoveLastPathComponent()
 
 	UASSERT(fs::RemoveLastPathComponent("") == "");
 
-	path = p("/home/user/luanti/bin/..//worlds/world1");
+	path = p("/home/user/terraverse/bin/..//worlds/world1");
 	result = fs::RemoveLastPathComponent(path, &removed, 0);
 	UASSERT(result == path);
 	UASSERT(removed == "");
 	result = fs::RemoveLastPathComponent(path, &removed, 1);
-	UASSERT(result == p("/home/user/luanti/bin/..//worlds"));
+	UASSERT(result == p("/home/user/terraverse/bin/..//worlds"));
 	UASSERT(removed == p("world1"));
 	result = fs::RemoveLastPathComponent(path, &removed, 2);
-	UASSERT(result == p("/home/user/luanti/bin/.."));
+	UASSERT(result == p("/home/user/terraverse/bin/.."));
 	UASSERT(removed == p("worlds/world1"));
 	result = fs::RemoveLastPathComponent(path, &removed, 3);
-	UASSERT(result == p("/home/user/luanti/bin"));
+	UASSERT(result == p("/home/user/terraverse/bin"));
 	UASSERT(removed == p("../worlds/world1"));
 	result = fs::RemoveLastPathComponent(path, &removed, 4);
-	UASSERT(result == p("/home/user/luanti"));
+	UASSERT(result == p("/home/user/terraverse"));
 	UASSERT(removed == p("bin/../worlds/world1"));
 	result = fs::RemoveLastPathComponent(path, &removed, 5);
 	UASSERT(result == p("/home/user"));
-	UASSERT(removed == p("luanti/bin/../worlds/world1"));
+	UASSERT(removed == p("terraverse/bin/../worlds/world1"));
 	result = fs::RemoveLastPathComponent(path, &removed, 6);
 	UASSERT(result == p("/home"));
-	UASSERT(removed == p("user/luanti/bin/../worlds/world1"));
+	UASSERT(removed == p("user/terraverse/bin/../worlds/world1"));
 	result = fs::RemoveLastPathComponent(path, &removed, 7);
 	UASSERTEQ(auto, result, win32 ? "C:" : "/");
-	UASSERT(removed == p("home/user/luanti/bin/../worlds/world1"));
+	UASSERT(removed == p("home/user/terraverse/bin/../worlds/world1"));
 
 	path = p("./README.txt");
 	result = fs::RemoveLastPathComponent(path, &removed);
@@ -323,31 +323,31 @@ void TestFileSys::testRemoveLastPathComponentWithTrailingDelimiter()
 {
 	std::string path, result, removed;
 
-	path = p("/home/user/luanti/bin/..//worlds/world1/");
+	path = p("/home/user/terraverse/bin/..//worlds/world1/");
 	result = fs::RemoveLastPathComponent(path, &removed, 0);
 	UASSERT(result == path);
 	UASSERT(removed == "");
 	result = fs::RemoveLastPathComponent(path, &removed, 1);
-	UASSERT(result == p("/home/user/luanti/bin/..//worlds"));
+	UASSERT(result == p("/home/user/terraverse/bin/..//worlds"));
 	UASSERT(removed == p("world1"));
 	result = fs::RemoveLastPathComponent(path, &removed, 2);
-	UASSERT(result == p("/home/user/luanti/bin/.."));
+	UASSERT(result == p("/home/user/terraverse/bin/.."));
 	UASSERT(removed == p("worlds/world1"));
 	result = fs::RemoveLastPathComponent(path, &removed, 3);
-	UASSERT(result == p("/home/user/luanti/bin"));
+	UASSERT(result == p("/home/user/terraverse/bin"));
 	UASSERT(removed == p("../worlds/world1"));
 	result = fs::RemoveLastPathComponent(path, &removed, 4);
-	UASSERT(result == p("/home/user/luanti"));
+	UASSERT(result == p("/home/user/terraverse"));
 	UASSERT(removed == p("bin/../worlds/world1"));
 	result = fs::RemoveLastPathComponent(path, &removed, 5);
 	UASSERT(result == p("/home/user"));
-	UASSERT(removed == p("luanti/bin/../worlds/world1"));
+	UASSERT(removed == p("terraverse/bin/../worlds/world1"));
 	result = fs::RemoveLastPathComponent(path, &removed, 6);
 	UASSERT(result == p("/home"));
-	UASSERT(removed == p("user/luanti/bin/../worlds/world1"));
+	UASSERT(removed == p("user/terraverse/bin/../worlds/world1"));
 	result = fs::RemoveLastPathComponent(path, &removed, 7);
 	UASSERTEQ(auto, result, win32 ? "C:" : "/");
-	UASSERT(removed == p("home/user/luanti/bin/../worlds/world1"));
+	UASSERT(removed == p("home/user/terraverse/bin/../worlds/world1"));
 }
 
 
@@ -355,15 +355,15 @@ void TestFileSys::testRemoveRelativePathComponent()
 {
 	std::string path, result;
 
-	path = p("/home/user/luanti/bin");
+	path = p("/home/user/terraverse/bin");
 	result = fs::RemoveRelativePathComponents(path);
 	UASSERTEQ(auto, result, path);
-	path = p("/home/user/luanti/bin/../worlds/world1");
+	path = p("/home/user/terraverse/bin/../worlds/world1");
 	result = fs::RemoveRelativePathComponents(path);
-	UASSERTEQ(auto, result, p("/home/user/luanti/worlds/world1"));
-	path = p("/home/user/luanti/bin/../worlds/world1/");
+	UASSERTEQ(auto, result, p("/home/user/terraverse/worlds/world1"));
+	path = p("/home/user/terraverse/bin/../worlds/world1/");
 	result = fs::RemoveRelativePathComponents(path);
-	UASSERTEQ(auto, result, p("/home/user/luanti/worlds/world1"));
+	UASSERTEQ(auto, result, p("/home/user/terraverse/worlds/world1"));
 	path = p(".");
 	result = fs::RemoveRelativePathComponents(path);
 	UASSERTEQ(auto, result, "");

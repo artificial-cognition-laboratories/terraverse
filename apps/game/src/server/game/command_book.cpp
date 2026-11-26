@@ -1,4 +1,4 @@
-// Terra Firma: every command a server answers. See command_book.h.
+// Terraverse: every command a server answers. See command_book.h.
 #include "src/server/game/command_book.h"
 
 #include "src/server/app/server.h"

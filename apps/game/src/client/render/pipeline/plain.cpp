@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2017 numzero, Lobachevskiy Vitaliy <numzer0@yandex.ru>
@@ -41,7 +41,7 @@ void DrawWield::run(PipelineContext &context)
 
 void DrawHUD::run(PipelineContext &context)
 {
-	// Terra Firma: a body's eye (client/app/headless) sees the world, not a HUD, and has no fonts
+	// Terraverse: a body's eye (client/app/headless) sees the world, not a HUD, and has no fonts
 	if (!g_fontengine)
 		return;
 	if (context.show_hud) {

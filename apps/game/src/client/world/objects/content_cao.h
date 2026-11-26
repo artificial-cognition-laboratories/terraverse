@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -6,7 +6,7 @@
 
 namespace piece { class Machine; }
 class Figure;
-#include "library/physics/walk.h" // Terra Firma: stances
+#include "library/physics/walk.h" // Terraverse: stances
 
 #include "src/shared/base/irrlichttypes.h"
 
@@ -83,7 +83,7 @@ struct MeshAnimationInfo {
 class GenericCAO : public ClientActiveObject
 {
 private:
-	// Terra Firma: on an atlas, moved over a seam from `was`: put in the grid
+	// Terraverse: on an atlas, moved over a seam from `was`: put in the grid
 	// it's moved into, velocity, acceleration and yaw turned. Whether it was.
 	bool carry(const v3f &was);
 
@@ -120,10 +120,10 @@ private:
 	v3f m_velocity;
 	v3f m_acceleration;
 	v3f m_rotation;
-	std::unique_ptr<piece::Machine> m_machine; // Terra Firma
-	std::unique_ptr<Figure> m_figure; // Terra Firma: visual "body" (sprint 58)
+	std::unique_ptr<piece::Machine> m_machine; // Terraverse
+	std::unique_ptr<Figure> m_figure; // Terraverse: visual "body" (sprint 58)
 public:
-	// Terra Firma: its figure, posed, when its visual is a body; null otherwise
+	// Terraverse: its figure, posed, when its visual is a body; null otherwise
 	const Figure *figure() const { return m_figure.get(); }
 private:
 	v3f m_figure_was;    // where it was last frame (BS): how fast it moves
@@ -132,7 +132,7 @@ private:
 	physics::Stance m_figure_stance = physics::Stance::STAND; // others'; yours is your body's
 	float m_figure_yaw = 0;  // degrees: the view's, last frame
 	bool m_was_dig = false, m_was_place = false; // yours: clicks held last frame (each press throws a strike)
-	// Terra Firma (sprint 57): its rigid groups but the first, each drawn on
+	// Terraverse (sprint 57): its rigid groups but the first, each drawn on
 	// its own (a wheel turns), and where each is in the first's (BS; x y z w)
 	std::vector<scene::IMeshSceneNode *> m_group_nodes;
 	struct GroupPose
@@ -157,7 +157,7 @@ private:
 	std::vector<v3f> m_group_turn, m_group_rate;
 	GroupPose groupShown(size_t i) const;
 	void poseGroups();
-	// Terra Firma: how its parts are drawn
+	// Terraverse: how its parts are drawn
 	struct Look
 	{
 		std::optional<u64> selected; // drawn tinted; the rest dimmed
@@ -172,7 +172,7 @@ private:
 	Look m_look;
 	std::optional<std::pair<v3f, v3f>> m_posed;
 public:
-	// Terra Firma: where the server last said it is (BS), turned (degrees),
+	// Terraverse: where the server last said it is (BS), turned (degrees),
 	// moving (BS/s): posed here, it's drawn elsewhere (sprint 68)
 	struct Served
 	{
@@ -263,21 +263,21 @@ public:
 	const v3f getVelocity() const override final { return m_velocity; }
 
 	inline const v3f &getRotation() const { return m_rotation; }
-	// Terra Firma: its piece's blocks, if it's a piece (visual "piece")
-	// Terra Firma: the machine it carries (visual "piece"), if it's one
+	// Terraverse: its piece's blocks, if it's a piece (visual "piece")
+	// Terraverse: the machine it carries (visual "piece"), if it's one
 	const piece::Machine *getMachine() const { return m_machine.get(); }
-	// Terra Firma: the part selected tinted, the rest dimmed; looking
+	// Terraverse: the part selected tinted, the rest dimmed; looking
 	// through (selecting), all see-through but the part hovered and the
 	// part selected
 	void setLook(const Look &look);
-	// Terra Firma: drawn where this client says (BS, and its rotation in
+	// Terraverse: drawn where this client says (BS, and its rotation in
 	// degrees), carried or held; none: where the server says
 	void setPosed(std::optional<std::pair<v3f, v3f>> posed);
-	// Terra Firma: posed so and drawn there now, not at its next step (what
+	// Terraverse: posed so and drawn there now, not at its next step (what
 	// the camera's already moved for this frame is drawn where it's seen)
 	void applyPosed(std::pair<v3f, v3f> posed);
 	const Served &served() const { return m_served; }
-	// Terra Firma: its grid in the world as it's drawn (piece::frame)
+	// Terraverse: its grid in the world as it's drawn (piece::frame)
 	core::matrix4 getFrame() const;
 
 	bool isImmortal() const;

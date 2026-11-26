@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2014 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -122,7 +122,7 @@ void RemoteClient::GetNextBlocks (
 	if (playerspeed.getLength() > 1.0f * BS)
 		playerspeeddir = playerspeed / playerspeed.getLength();
 	// Predict to next block
-	// Terra Firma: half a second on, at speed: what's sent nearest first is where it'll be
+	// Terraverse: half a second on, at speed: what's sent nearest first is where it'll be
 	v3f playerpos_predicted = playerpos + playerspeeddir * std::max<f32>(MAP_BLOCKSIZE * BS, playerspeed.getLength() * 0.5f);
 
 	v3s16 center_nodepos = floatToInt(playerpos_predicted, BS);
@@ -138,7 +138,7 @@ void RemoteClient::GetNextBlocks (
 	if (sao->getCameraInverted())
 		camera_dir = -camera_dir;
 
-	// Terra Firma: nothing left to send, for now: unless they've moved or
+	// Terraverse: nothing left to send, for now: unless they've moved or
 	// turned, or a teleport waits out the pause on an empty view
 	if (m_nothing_to_send_pause_timer >= 0 && center == m_last_center &&
 			camera_dir.dotProduct(m_last_camera_dir) >= std::cos(sao->getFov() * 0.1f))
@@ -252,7 +252,7 @@ void RemoteClient::GetNextBlocks (
 
 	const f32 cone = std::cos(std::min(camera_fov * 0.55f, core::PI * 0.5f)); // the view, and a tenth more
 
-	// Terra Firma: an atlas planet (planet/atlas.h): the shells round the
+	// Terraverse: an atlas planet (planet/atlas.h): the shells round the
 	// player are of its own grid carried on over every seam (Atlas::seeAt);
 	// each slot is the block that holds that place
 	const planet::Atlas *atlas = env->getServer()->atlas();
@@ -284,7 +284,7 @@ void RemoteClient::GetNextBlocks (
 		for (auto li = list.begin(); li != list.end(); ++li) {
 			v3s16 p = *li + center;
 			v3f slot; // the slot's middle from the camera, in its grid (nodes)
-			// Terra Firma: the blocks this slot shows. One, but on an atlas
+			// Terraverse: the blocks this slot shows. One, but on an atlas
 			// a slot over a seam or down a shell lies across the other
 			// grid's blocks: every block its middle or a corner falls in
 			// (which, asked last: in range and in view first. Asked of every

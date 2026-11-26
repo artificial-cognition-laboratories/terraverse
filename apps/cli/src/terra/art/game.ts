@@ -52,7 +52,7 @@ export function GameBlocks(opts: { share: string }) {
 
 export type GameBlocksT = ReturnType<typeof GameBlocks>
 
-/** A definition's tiles, as Luanti reads them, into top, bottom and the side players face first (-Z). */
+/** A definition's tiles, as the engine reads them, into top, bottom and the side players face first (-Z). */
 function faces(tiles: readonly string[]): [string, string, string] {
     const at = (i: number) => tiles[Math.min(i, tiles.length - 1)]!
     return [at(0), at(1), tiles.length >= 6 ? at(5) : at(2)]

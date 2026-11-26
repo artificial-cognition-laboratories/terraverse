@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2017 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -137,7 +137,7 @@ public:
 	u64 getFrameTime() const { return m_frame_time; }
 	u64 getFrameTimeDelta() const { return m_frame_dtime; }
 
-	// Terra Firma: light the world by the real sun (set with the sky).
+	// Terraverse: light the world by the real sun (set with the sky).
 	void setSolar(const SkySolar &solar) { m_solar = solar; }
 
 protected:

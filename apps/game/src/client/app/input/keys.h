@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2016 est31, <MTest31@outlook.com>
 
@@ -32,20 +32,20 @@ public:
 		// Other
 		DROP,
 		INVENTORY,
-		WIKI, // Terra Firma
-		LIBRARY, // Terra Firma: mods and servers, as on the main menu
-		PLANETARIUM, // Terra Firma
-		TOOLS, // Terra Firma: the tools in hand out or away
-		PRONE, // Terra Firma: lie down (sprint 116)
-		BRAKE, // Terra Firma: flight's brake (sprint 59)
-		TOOL_NEXT, // Terra Firma
-		FOCUS, // Terra Firma: the focus view
-		MIRROR, // Terra Firma
-		UNDO, // Terra Firma
-		TURN_LEFT, TURN_RIGHT, // Terra Firma: what's carried turned a quarter (sprint 64)
-		CURSOR, // Terra Firma: the cursor freed, and taken back
-		COPY, PASTE, SAVE_PART, // Terra Firma: with Ctrl (aux1) while building: a part copied, pasted, kept (sprint 74)
-		ALT, // Terra Firma: the build layer: with it, the slot keys pick shapes, = mirrors, a click carries (sprint 68)
+		WIKI, // Terraverse
+		LIBRARY, // Terraverse: mods and servers, as on the main menu
+		PLANETARIUM, // Terraverse
+		TOOLS, // Terraverse: the tools in hand out or away
+		PRONE, // Terraverse: lie down (sprint 116)
+		BRAKE, // Terraverse: flight's brake (sprint 59)
+		TOOL_NEXT, // Terraverse
+		FOCUS, // Terraverse: the focus view
+		MIRROR, // Terraverse
+		UNDO, // Terraverse
+		TURN_LEFT, TURN_RIGHT, // Terraverse: what's carried turned a quarter (sprint 64)
+		CURSOR, // Terraverse: the cursor freed, and taken back
+		COPY, PASTE, SAVE_PART, // Terraverse: with Ctrl (aux1) while building: a part copied, pasted, kept (sprint 74)
+		ALT, // Terraverse: the build layer: with it, the slot keys pick shapes, = mirrors, a click carries (sprint 68)
 		CHAT,
 		CMD,
 		CONSOLE,

@@ -33,4 +33,4 @@ cmake -S "$root/apps/game" -B "$root/.output/build" -G Ninja \
 	-DENABLE_LTO=OFF \
 	-DOPENAL_LIBRARY="$(xcrun --show-sdk-path)/System/Library/Frameworks/OpenAL.framework" \
 	-DOPENAL_INCLUDE_DIR="$(xcrun --show-sdk-path)/System/Library/Frameworks/OpenAL.framework/Headers" \
-	-DTERRAFIRMA_VERSION="$version"
+	-DTERRAVERSE_VERSION="$version"

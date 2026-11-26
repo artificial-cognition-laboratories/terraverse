@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -254,8 +254,8 @@ private:
 	ItemStack m_wield_item_next;
 
 	CameraMode m_camera_mode;
-	v3f m_stance_eye; // Terra Firma: the view against standing (BS), eased
-	f32 m_shoulder_rise = 0, m_shoulder_share = 0; // Terra Firma: the shoulder view lifted (BS), and how far out it is
+	v3f m_stance_eye; // Terraverse: the view against standing (BS), eased
+	f32 m_shoulder_rise = 0, m_shoulder_share = 0; // Terraverse: the shoulder view lifted (BS), and how far out it is
 
 	f32 m_cache_view_bobbing_amount;
 	bool m_arm_inertia;

@@ -4,7 +4,7 @@ import { BridgeError, type RegistryListing, type WorldMod, type WorldMods } from
 import { useBridge } from "../bridge/use.ts"
 import { Button, Monogram, Notice } from "../kit/index.ts"
 import { format } from "./library/format.ts"
-import { useRegistry } from "./library/registry.ts"
+import { useCache } from "../cache/index.ts"
 import RegistryPicker from "./library/RegistryPicker.vue"
 
 /**
@@ -14,7 +14,7 @@ import RegistryPicker from "./library/RegistryPicker.vue"
 const props = defineProps<{ path: string }>()
 const emit = defineEmits<{ changed: [] }>()
 const bridge = useBridge()
-const registry = useRegistry()
+const cache = useCache()
 const state = shallowRef<WorldMods | null>(null)
 const latest = ref<Record<string, string>>({})
 const busy = ref<string | null>(null) // what's being done, said
@@ -54,7 +54,7 @@ async function checkUpdates(mods: readonly WorldMod[]) {
     const found: Record<string, string> = {}
     try {
         for (const m of mods) {
-            const page = await registry.mod(m.name)
+            const page = await cache.fetch("registry.mod", { name: m.name })
             if (page.latestVersion) found[m.name] = page.latestVersion
         }
         latest.value = found

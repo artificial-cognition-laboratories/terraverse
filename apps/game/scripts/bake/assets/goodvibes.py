@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Good Vibes textures for Terra Firma's blocks, from the pinned revision of
+Good Vibes textures for Terraverse's blocks, from the pinned revision of
 the pack (CC BY 4.0, by Acaitart; see assets/CREDITS.md).
 
 Copies are the pack's PNGs unchanged. Derived textures (rocks and ores the

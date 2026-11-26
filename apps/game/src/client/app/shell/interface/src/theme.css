@@ -120,3 +120,6 @@ button { cursor: pointer; }
 ::-webkit-scrollbar-thumb:hover { background: var(--edge-lit-hi); }
 ::-webkit-scrollbar-thumb:active { background: var(--accent-hi); }
 ::-webkit-scrollbar-button, ::-webkit-scrollbar-corner { display: none; background: transparent; }
+
+/* The UI answers at once: no transition anywhere, whatever a component sets. */
+*, *::before, *::after { transition: none !important; }

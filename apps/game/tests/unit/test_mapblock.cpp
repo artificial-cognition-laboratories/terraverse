@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "tests/unit/test.h"
@@ -262,7 +262,7 @@ void TestMapBlock::testSave29(IGameDef *gamedef)
 
 	/*
 	 * Quick note:
-	 * Luanti deals with MapBlocks that violate these invariants (mostly) fine,
+	 * The engine deals with MapBlocks that violate these invariants (mostly) fine,
 	 * but we should still be careful about them as third-party tools may rely on them.
 	 */
 

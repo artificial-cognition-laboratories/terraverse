@@ -13,7 +13,7 @@ check() { # <code> <atlas> [body]: its output in its own log, its status its own
 work="$(mktemp -d -p "$logs")"
 world="$work/world"
 mkdir -p "$world"
-printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$world/world.mt"
+printf 'gameid = terraverse\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$world/world.mt"
 printf 'mg_name = terra\nmgterra_code = %s\nseed = 1\nchunksize = 1\nplanet_atlas = %s\n[end_of_params]\n' "$1" "$2" > "$world/map_meta.txt"
 
 port=$((30700 + 10 * checks + RANDOM % 10)) # (each check its own: they run together)

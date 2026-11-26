@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2024 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -61,7 +61,7 @@ public:
 	*/
 	bool blockpos_over_mapgen_limit(v3s16 p);
 
-	// Terra Firma: this map is a planet's window (planet/atlas.h). Its blocks
+	// Terraverse: this map is a planet's window (planet/atlas.h). Its blocks
 	// are kept by where they are on the planet (database/database-planet.h).
 	// An atlas world: its blocks kept by body and spot. `bodies`: each
 	// body's id (the home's blocks are the world's own; another's are in

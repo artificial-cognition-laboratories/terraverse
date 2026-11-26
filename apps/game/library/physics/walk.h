@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -119,7 +119,7 @@ constexpr float FLYING_KICK_FROM = 4.5f; // nodes/s
 struct Intent
 {
 	float forward = 0, right = 0; // −1..1 each (a stick's: it's capped at 1 together)
-	float yaw = 0;                // radians: which way "forward" is (Luanti's: 0 faces +z)
+	float yaw = 0;                // radians: which way "forward" is (the engine's: 0 faces +z)
 	bool jump = false;
 };
 

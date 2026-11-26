@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -21,14 +21,14 @@
 #include "src/shared/platform/system/httpfetch.h"
 #include "src/shared/base/gameparams.h"
 #if CHECK_CLIENT_BUILD()
-#include "src/client/views/game/far/bake/export.h" // Terra Firma
-#include "src/server/world/load/universe.h" // Terra Firma
-#include "src/server/app/mods/sidecar/ops.h" // Terra Firma
-#include "library/world/terragen/src/code/code.h" // Terra Firma
-#include "src/client/views/planetarium/run/standalone.h" // Terra Firma
+#include "src/client/views/game/far/bake/export.h" // Terraverse
+#include "src/server/world/load/universe.h" // Terraverse
+#include "src/server/app/mods/sidecar/ops.h" // Terraverse
+#include "library/world/terragen/src/code/code.h" // Terraverse
+#include "src/client/views/planetarium/run/standalone.h" // Terraverse
 #include "src/client/views/planetarium/run/probe/probe.h"
-#include "src/client/views/planetarium/run/shot.h" // Terra Firma
-#include "src/client/views/planetarium/camera.h" // Terra Firma
+#include "src/client/views/planetarium/run/shot.h" // Terraverse
+#include "src/client/views/planetarium/camera.h" // Terraverse
 #include "src/client/views/planetarium/space/picture.h"
 #endif
 #include "src/server/world/load/database/database.h"
@@ -48,7 +48,7 @@
 #if CHECK_CLIENT_BUILD()
 #include "src/client/app/shell/launch/clientlauncher.h"
 #include "src/client/app/headless/headless.h"
-#include "src/client/app/game.h" // Terra Firma: g_game_restart_for_mods
+#include "src/client/app/game.h" // Terraverse: g_game_restart_for_mods
 #if USE_SHELL
 #include "src/client/app/shell/host/shell.h"
 #endif
@@ -61,7 +61,7 @@
 #endif
 
 #if !defined(__cpp_rtti) || !defined(__cpp_exceptions)
-#error Luanti cannot be built without exceptions or RTTI
+#error Terraverse cannot be built without exceptions or RTTI
 #endif
 
 #if defined(__MINGW32__) && !defined(__clang__)
@@ -69,12 +69,11 @@
 // <https://github.com/luanti-org/luanti/issues/10137> for some of the issues we had
 #error ==================================
 #error MinGW gcc has a broken TLS implementation and is not supported for building \
-	Luanti. Look at testTLS() in test_threading.cpp and see for yourself. \
+	Terraverse. Look at testTLS() in test_threading.cpp and see for yourself. \
 	Please use a clang-based compiler or alternatively MSVC.
 #error ==================================
 #endif
 
-// TODO: luanti.conf with migration
 #define CONFIGFILE "minetest.conf"
 #define DEBUGFILE "debug.txt"
 #define DEFAULT_SERVER_PORT 30000
@@ -135,7 +134,7 @@ static bool recompress_map_database(const GameParams &game_params, const Setting
 
 
 static FileLogOutput file_log_output;
-// Terra Firma: the dedicated server's exit code when it ran and stopped cleanly
+// Terraverse: the dedicated server's exit code when it ran and stopped cleanly
 static int g_dedicated_exit = 0;
 
 static OptionList allowed_options;
@@ -145,7 +144,7 @@ static OptionList allowed_options;
 #include "library/world/terragen/src/base/progress.h"
 #include <filesystem>
 #include "src/shared/platform/online/local.h"
-// Terra Firma: built planet grids kept between runs, named by what they're
+// Terraverse: built planet grids kept between runs, named by what they're
 // built from; the river levels and atlas layouts by all terragen's sources
 static void keepTerrainGrids()
 {
@@ -156,6 +155,8 @@ static void keepTerrainGrids()
 	});
 }
 #endif
+
+[[noreturn]] static void leave(int code);
 
 int main(int argc, char *argv[])
 {
@@ -220,7 +221,7 @@ int main(int argc, char *argv[])
 
 	porting::signal_handler_init();
 	porting::initializePaths();
-	// Terra Firma: where things are kept, and whose they are (.agents/planning/home.md)
+	// Terraverse: where things are kept, and whose they are (.agents/planning/home.md)
 	std::unique_ptr<home::Home> home;
 	try {
 		home = home::Home::boot({
@@ -317,7 +318,7 @@ int main(int argc, char *argv[])
 	}
 
 #if CHECK_CLIENT_BUILD()
-	// Terra Firma: the Planetarium alone, on a world code (planetarium/standalone.h)
+	// Terraverse: the Planetarium alone, on a world code (planetarium/standalone.h)
 	if (cmd_args.exists("planetarium-shot")) {
 		planetarium::runStandalone(planetarium::HOME_SHOT.code, std::nullopt, cmd_args.get("planetarium-shot"));
 		return 0;
@@ -356,7 +357,7 @@ int main(int argc, char *argv[])
 #endif
 
 #if CHECK_CLIENT_BUILD()
-	// Terra Firma: a body, joining a server terra runs (sprint 126; client/app/headless)
+	// Terraverse: a body, joining a server terra runs (sprint 126; client/app/headless)
 	if (cmd_args.getFlag("body")) {
 		try {
 			return headless::runBody(cmd_args.get("address"), cmd_args.getU16("port"), cmd_args.get("name"),
@@ -388,7 +389,7 @@ int main(int argc, char *argv[])
 		return 1;
 
 #if CHECK_CLIENT_BUILD()
-	// Terra Firma: the game's baked palette (far/export.h), then out: nothing
+	// Terraverse: the game's baked palette (far/export.h), then out: nothing
 	// of this run is kept (its video driver is the NULL one)
 	if (cmd_args.exists("export-palette")) {
 		far::exportPalette(game_params, cmd_args.get("export-palette"));
@@ -397,11 +398,11 @@ int main(int argc, char *argv[])
 #endif
 
 	if (game_params.is_dedicated_server)
-		return run_dedicated_server(game_params, cmd_args) ? g_dedicated_exit : 1;
+		leave(run_dedicated_server(game_params, cmd_args) ? g_dedicated_exit : 1);
 
 #if CHECK_CLIENT_BUILD()
 	retval = ClientLauncher(*home).run(game_params, cmd_args) ? 0 : 1;
-	// Terra Firma: its mods' content changed; whoever started it starts it again
+	// Terraverse: its mods' content changed; whoever started it starts it again
 	if (g_game_restart_for_mods)
 		retval = sidecar::EXIT_RESTART;
 #else
@@ -416,7 +417,19 @@ int main(int argc, char *argv[])
 
 	END_DEBUG_EXCEPTION_HANDLER
 
-	return retval;
+	leave(retval);
+}
+
+// Out, once the engine has shut down, without destroying the program's statics: worlds are
+// built on detached threads (terragen's crew, the planetarium's globe) that may still be
+// working, and destroying what they read under them (the grid's sphere) crashed a quit with
+// SIGFPE. The log file flushes every line; the standard streams are flushed here.
+[[noreturn]] static void leave(int code)
+{
+	std::cout.flush();
+	std::cerr.flush();
+	std::fflush(nullptr);
+	std::_Exit(code);
 }
 
 
@@ -459,7 +472,7 @@ static void get_env_opts(Settings &args)
 		args.set("color", "always");
 	}
 
-	// No standard, Luanti-specific
+	// No standard, engine-specific
 	const char *log_ts = std::getenv(ENV_LOG_TIMESTAMP);
 	if (log_ts)
 		args.set("log-timestamp", log_ts);
@@ -977,7 +990,7 @@ static bool read_config_file(const Settings &cmd_args, const home::Home &home)
 		}
 		g_settings_path = cmd_args.get("config");
 	} else {
-		// Terra Firma: this machine's settings, in the home's root (every profile shares them)
+		// Terraverse: this machine's settings, in the home's root (every profile shares them)
 		std::vector<std::string> filenames = { home.settingsFile() };
 
 		for (const std::string &filename : filenames) {
@@ -1002,7 +1015,7 @@ static bool read_config_file(const Settings &cmd_args, const home::Home &home)
 
 static void init_log_streams(const Settings &cmd_args, const home::Home &home)
 {
-	// Terra Firma: logs are the home's cache's, every profile's together
+	// Terraverse: logs are the home's cache's, every profile's together
 	if (!fs::CreateAllDirs(home.logs()))
 		throw BaseException("could not create " + home.logs());
 	std::string log_filename = home.logs() + DIR_DELIM + DEBUGFILE;
@@ -1084,7 +1097,7 @@ static void game_configure_port(GameParams *game_params, const Settings &cmd_arg
 
 static bool game_configure_world(GameParams *game_params, const Settings &cmd_args)
 {
-	// Terra Firma: already chosen, by a world code alone (game_configure)
+	// Terraverse: already chosen, by a world code alone (game_configure)
 	if (!game_params->world_path.empty())
 		return true;
 
@@ -1297,7 +1310,7 @@ static bool determine_subgame(GameParams *game_params)
 }
 
 
-// Terra Firma: a TypeScript server's universe, made from its system on its first boot, and
+// Terraverse: a TypeScript server's universe, made from its system on its first boot, and
 // refused if it was made from another (--world-code; terra passes server.config.ts's system).
 // Before either a dedicated server or the game opens the world: both read it as they start.
 static bool make_universe(const GameParams &game_params)
@@ -1345,7 +1358,7 @@ static bool run_dedicated_server(const GameParams &game_params, const Settings &
 	if (cmd_args.getFlag("recompress"))
 		return recompress_map_database(game_params, cmd_args);
 
-	// Terra Firma: a server terra started for this machine admits by its run's secret
+	// Terraverse: a server terra started for this machine admits by its run's secret
 	const std::optional<online::LocalRun> local = online::LocalRun::fromEnvironment();
 	if (local && !local->owner.empty())
 		g_settings->set("name", local->owner); // its owner, its admin (server.cpp: m_access)
@@ -1408,7 +1421,7 @@ static bool run_dedicated_server(const GameParams &game_params, const Settings &
 			server.start();
 			// Run server
 			dedicated_server_loop(server, kill);
-			// Terra Firma: its mods' content changed; whoever started it starts it again
+			// Terraverse: its mods' content changed; whoever started it starts it again
 			if (server.restartForMods())
 				g_dedicated_exit = sidecar::EXIT_RESTART;
 		} catch (const ModError &e) {
@@ -1450,7 +1463,7 @@ static bool run_dedicated_server(const GameParams &game_params, const Settings &
 			// Run server
 			volatile auto &kill = *porting::signal_handler_killstatus();
 			dedicated_server_loop(server, kill);
-			// Terra Firma: its mods' content changed; whoever started it starts it again
+			// Terraverse: its mods' content changed; whoever started it starts it again
 			if (server.restartForMods())
 				g_dedicated_exit = sidecar::EXIT_RESTART;
 

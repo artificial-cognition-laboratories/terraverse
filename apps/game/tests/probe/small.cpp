@@ -1,4 +1,4 @@
-// Terra Firma: the checks' small probes (sprint 119: were Lua mods). See probe.h.
+// Terraverse: the checks' small probes (sprint 119: were Lua mods). See probe.h.
 #include "tests/probe/probe.h"
 
 #include "src/shared/map/map.h"

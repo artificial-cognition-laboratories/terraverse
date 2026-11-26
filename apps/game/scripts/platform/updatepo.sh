@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Update/create luanti po files
+# Update/create the engine's po files
 
 # an auxiliary function to abort processing with an optional error
 # message
@@ -39,9 +39,9 @@ cd ..
 # First thing first, update the .pot template. We place it in the po/
 # directory at the top level. You a recent enough xgettext that supports
 # --package-name
-potfile=assets/po/luanti.pot
+potfile=assets/po/terraverse.pot
 echo "updating pot"
-xgettext --package-name=luanti \
+xgettext --package-name=terraverse \
 	--add-comments='TRANSLATORS:'\
 	--sort-by-file \
 	--add-location=file \
@@ -64,7 +64,7 @@ xgettext --package-name=luanti \
 # Now iterate on all languages and create the po file if missing, or update it
 # if it exists already
 for lang in $langs ; do # note the missing quotes around $langs
-	pofile=assets/po/$lang/luanti.po
+	pofile=assets/po/$lang/terraverse.po
 	if test -e $pofile; then
 		echo "[$lang]: updating strings"
 		# Drop old strings *before* updating such that they can be re-used

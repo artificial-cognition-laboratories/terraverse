@@ -1,9 +1,9 @@
 # Always run during 'make'
 
-# Terra Firma: a release is its tag (-DTERRAFIRMA_VERSION=v0.2.0). Joining a
+# Terraverse: a release is its tag (-DTERRAVERSE_VERSION=v0.2.0). Joining a
 # friend compares this (src/online/gate.h), so every release must differ.
-if(TERRAFIRMA_VERSION)
-	set(VERSION_GITHASH "${TERRAFIRMA_VERSION}")
+if(TERRAVERSE_VERSION)
+	set(VERSION_GITHASH "${TERRAVERSE_VERSION}")
 endif()
 
 if(DEVELOPMENT_BUILD AND NOT VERSION_GITHASH)

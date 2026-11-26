@@ -74,7 +74,8 @@ const shown = computed(() => {
 <style scoped>
 /* the inventory's glass, a little deeper: it opens over the menu's title as well as the world */
 .panel { width: min(24rem, calc(100vw - 2.5rem)); border: 1px solid var(--glass-edge);
-    background: linear-gradient(rgb(231 237 244 / 0.035), rgb(231 237 244 / 0.035)), rgb(4 7 11 / 0.88); }
+    background: linear-gradient(rgb(231 237 244 / 0.035), rgb(231 237 244 / 0.035)), rgb(4 7 11 / 0.88);
+    backdrop-filter: blur(8px); }
 /* header across, the rail down the left, the page beside it */
 .hub { display: grid; grid-template: auto minmax(0, 1fr) / 3rem minmax(0, 1fr); height: min(26rem, 70vh); }
 .me { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.65rem; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--glass-edge); background: rgb(231 237 244 / 0.025); }

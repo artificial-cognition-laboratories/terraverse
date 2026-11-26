@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * The frame chart, as Luanti's: one line, the target (60 fps) across the
+ * The frame chart, as the engine's: one line, the target (60 fps) across the
  * middle, read two ways. A frame that made its target is above it, green, by
  * the time it had to spare (what it slept), filled to the middle. One that
  * didn't is below it, red, by its fps. Both halves scale to the window: the

@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2014 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -223,7 +223,7 @@ public:
 
 	void SetBlockNotSent(v3s16 p, bool low_priority = false);
 	void SetBlocksNotSent(const std::vector<v3s16> &blocks, bool low_priority = false);
-	// Terra Firma: forget every block sent or sending in a box (block
+	// Terraverse: forget every block sent or sending in a box (block
 	// positions, inclusive): what's there is another place now
 	void forgetArea(v3s16 low, v3s16 high);
 
@@ -422,7 +422,7 @@ public:
 
 	/* mark blocks as not sent on all active clients */
 	void markBlocksNotSent(const std::vector<v3s16> &positions, bool low_priority = false);
-	// Terra Firma: RemoteClient::forgetArea for every client
+	// Terraverse: RemoteClient::forgetArea for every client
 	void forgetArea(v3s16 low, v3s16 high);
 
 	/* verify if server user limit was reached */

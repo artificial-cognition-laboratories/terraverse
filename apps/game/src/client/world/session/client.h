@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -7,7 +7,7 @@
 #include "src/client/world/session/clientenvironment.h"
 #include "src/server/world/run/machines/piece/machine.h"
 #include "src/server/world/run/sculpt/sculpt.h"
-#include "src/server/world/run/machines/workshop/motion.h" // Terra Firma: Materials, Grip
+#include "src/server/world/run/machines/workshop/motion.h" // Terraverse: Materials, Grip
 #include "src/shared/base/gamedef.h"
 #include "src/shared/game/chat/chatmessage.h"
 #include "src/shared/base/gameparams.h"
@@ -19,8 +19,8 @@
 #include "src/shared/platform/network/peerhandler.h"
 #include "src/shared/util/math/numeric.h"
 #include "src/shared/util/text/string.h" // StringMap
-#include "src/client/views/game/far/land/terrain.h" // Terra Firma: far::Horizon
-#include "library/world/planet/atlas.h" // Terra Firma
+#include "src/client/views/game/far/land/terrain.h" // Terraverse: far::Horizon
+#include "library/world/planet/atlas.h" // Terraverse
 
 #include <map>
 #include <memory>
@@ -29,7 +29,7 @@
 #include <set>
 #include <unordered_set>
 #include <vector>
-#include "src/client/world/sim/water/liquids.h" // Terra Firma: liquids::Stream
+#include "src/client/world/sim/water/liquids.h" // Terraverse: liquids::Stream
 
 #if !IS_CLIENT_BUILD
 #error Do not include in server builds
@@ -143,7 +143,7 @@ public:
 	bool isShutdown();
 
 	void connect(const Address &address, const std::string &address_name);
-	// Terra Firma: connect from this socket — the one STUN mapped, whose
+	// Terraverse: connect from this socket — the one STUN mapped, whose
 	// public address the host is punching toward (src/online/join.h).
 	void connect(const Address &address, const std::string &address_name, UDPSocket &&socket);
 
@@ -199,20 +199,20 @@ public:
 	void handleCommand_Horizon(NetworkPacket *pkt);
 	void handleCommand_Atlas(NetworkPacket *pkt);
 	void handleCommand_Window(NetworkPacket *pkt);
-	void handleCommand_Shape(NetworkPacket *pkt); // Terra Firma
-	void handleCommand_Fill(NetworkPacket *pkt); // Terra Firma (sprint 81)
-	void handleCommand_Stream(NetworkPacket *pkt); // Terra Firma (sprint 82)
-	void handleCommand_Rivers(NetworkPacket *pkt); // Terra Firma (sprint 115)
-	// Terra Firma: map blocks whose liquid changed since the liquid layer last looked (sprint 81)
+	void handleCommand_Shape(NetworkPacket *pkt); // Terraverse
+	void handleCommand_Fill(NetworkPacket *pkt); // Terraverse (sprint 81)
+	void handleCommand_Stream(NetworkPacket *pkt); // Terraverse (sprint 82)
+	void handleCommand_Rivers(NetworkPacket *pkt); // Terraverse (sprint 115)
+	// Terraverse: map blocks whose liquid changed since the liquid layer last looked (sprint 81)
 	std::unordered_set<v3s16> takeLiquidsChanged() { std::unordered_set<v3s16> out; out.swap(m_liquids_changed); return out; }
 	std::vector<liquids::Stream> takeStreams() { std::vector<liquids::Stream> out; out.swap(m_streams); return out; }
-	const liquids::Rivers &rivers() const { return m_rivers; } // Terra Firma (sprint 115)
+	const liquids::Rivers &rivers() const { return m_rivers; } // Terraverse (sprint 115)
 	// blocks whose ground changed under or beside their liquid (sprint 82: the sea's looked at again)
 	std::unordered_set<v3s16> takeLiquidGround() { std::unordered_set<v3s16> out; out.swap(m_liquid_ground); return out; }
 	void liquidsChanged(v3s16 blockpos) { m_liquids_changed.insert(blockpos); }
-	void handleCommand_Blueprints(NetworkPacket *pkt); // Terra Firma
-	void handleCommand_Held(NetworkPacket *pkt); // Terra Firma
-	void handleCommand_Materials(NetworkPacket *pkt); // Terra Firma
+	void handleCommand_Blueprints(NetworkPacket *pkt); // Terraverse
+	void handleCommand_Held(NetworkPacket *pkt); // Terraverse
+	void handleCommand_Materials(NetworkPacket *pkt); // Terraverse
 	void handleCommand_AddParticleSpawner(NetworkPacket* pkt);
 	void handleCommand_DeleteParticleSpawner(NetworkPacket* pkt);
 	void handleCommand_HudAdd(NetworkPacket* pkt);
@@ -247,28 +247,28 @@ public:
 	void sendInventoryFields(const std::string &formname,
 		const StringMap &fields);
 	void sendInventoryAction(InventoryAction *a);
-	// Terra Firma: a stroke of the tools in hand (TOSERVER_SCULPT)
+	// Terraverse: a stroke of the tools in hand (TOSERVER_SCULPT)
 	// on the world (piece 0) or a piece (its object id), in its own grid
 	// apart: what it adds made a part of its own, joined so
 	void sendStroke(u16 piece, u64 part, const sculpt::Stroke &s, std::optional<piece::Joint> apart);
-	// Terra Firma: a new object, held up in front (TOSERVER_PIECE_NEW)
+	// Terraverse: a new object, held up in front (TOSERVER_PIECE_NEW)
 	void sendPieceNew();
-	// Terra Firma: an object held or let go (sprint 49)
+	// Terraverse: an object held or let go (sprint 49)
 	void sendHold(u16 object, workshop::Grip grip);
 	// where a held object is (BS) and how it's turned (degrees, piece::frame)
 	void sendPose(u16 object, v3f position, v3f rotation);
 	void sendPush(u16 object, v3f impulse);
-	// Terra Firma: a point of an object grabbed (in its frame, BS) and pulled
+	// Terraverse: a point of an object grabbed (in its frame, BS) and pulled
 	// toward `hand`, or let go (none)
 	void sendGrab(u16 object, std::optional<std::pair<v3f, v3f>> grip);
-	// Terra Firma: driving from a machine's seat, or getting up (none)
+	// Terraverse: driving from a machine's seat, or getting up (none)
 	void sendDrive(u16 object, std::optional<physics::Drive> drive);
-	// Terra Firma: another of the last plugged in, into this socket (sprint 64)
+	// Terraverse: another of the last plugged in, into this socket (sprint 64)
 	void sendPlugAgain(u16 object, u64 socket);
-	// Terra Firma: an object's design made a shell, `thickness` sixteenths
+	// Terraverse: an object's design made a shell, `thickness` sixteenths
 	// rounded (sprint 75): its edges rounded to `thickness`, not hollowed
 	void sendHollow(u16 object, u64 part, int thickness, bool rounded);
-	// Terra Firma: machines (sprints 52–53): a joint between two parts set
+	// Terraverse: machines (sprints 52–53): a joint between two parts set
 	// (made at `at`, a face of a's, if there's none), two machines joined
 	// face to face, a part taken off or deleted
 	// joint none: the joint taken away
@@ -277,22 +277,22 @@ public:
 			const std::optional<piece::Machine::Face> &at, std::optional<piece::Spring> spring = std::nullopt);
 	void sendJoin(u16 a, const piece::Machine::Face &on_a, u16 b, const piece::Machine::Face &on_b, piece::Joint joint, u8 spin);
 	void sendPart(u16 object, u64 part, bool remove);
-	// Terra Firma: sockets (sprint 56): one made on a face (and its
+	// Terraverse: sockets (sprint 56): one made on a face (and its
 	// mirror's), one taken away, a machine carried onto one
 	void sendSocket(u16 object, const piece::Machine::Face &face, piece::Joint joint,
 			std::optional<sculpt::Stroke::Mirror> mirror);
 	void sendUnsocket(u16 object, u64 socket);
 	void sendPlug(u16 a, u64 socket, u16 b, const piece::Machine::Face &on_b, u8 spin);
-	// Terra Firma: the new object the server made for the player, to focus
+	// Terraverse: the new object the server made for the player, to focus
 	// when it's here; taken, it's gone
 	// the object id, and how it's handed (carried: a paste, sprint 74; pulled off, 77)
 	std::optional<std::pair<u16, workshop::Handed>> takeHeld() { return std::exchange(m_held, std::nullopt); }
-	// Terra Firma: undo the last stroke (TOSERVER_UNDO)
+	// Terraverse: undo the last stroke (TOSERVER_UNDO)
 	void sendUndo();
-	// Terra Firma: the library (sprint 48): an object (its object id) kept
+	// Terraverse: the library (sprint 48): an object (its object id) kept
 	// as a blueprint, one put down where `at` is
 	void sendBlueprintSave(u16 piece, u64 part, const std::string &name);
-	// Terra Firma: copy a part, paste, take one from the library or forget
+	// Terraverse: copy a part, paste, take one from the library or forget
 	// it (TOSERVER_CLIPBOARD, sprint 74)
 	void sendCopy(u16 piece, u64 part);
 	void sendPaste();
@@ -301,11 +301,11 @@ public:
 	void sendTake(const std::string &name);
 	void sendForget(const std::string &name);
 	void sendBlueprintPlace(const std::string &name, v3s16 at);
-	// Terra Firma: the player's blueprints, as the server last said
+	// Terraverse: the player's blueprints, as the server last said
 	const std::vector<std::string> &getBlueprints() const { return m_blueprints; }
-	// Terra Firma: what blocks weigh, as the server says (sprint 58)
+	// Terraverse: what blocks weigh, as the server says (sprint 58)
 	const workshop::Materials &getMaterials() const { return m_materials; }
-	// Terra Firma: the player's body: this client's physics (sprint 58)
+	// Terraverse: the player's body: this client's physics (sprint 58)
 	Body &getBody();
 	void sendChatMessage(const std::wstring &message);
 	void clearOutChatQueue();
@@ -315,13 +315,13 @@ public:
 	void sendHaveMedia(const std::vector<u32> &tokens);
 	void sendUpdateClientInfo(const ClientDynamicInfo &info);
 
-	// Terra Firma: the page's UI channel. Values the server set for this
+	// Terraverse: the page's UI channel. Values the server set for this
 	// player's page (key, JSON), oldest first, taken once; and events back.
 	std::vector<std::pair<std::string, std::string>> takeUiValues();
 	void sendUiEvent(const std::string &name, const std::string &payload_json);
-	// Terra Firma: set once the server says this is a terra world (the far view's input).
+	// Terraverse: set once the server says this is a terra world (the far view's input).
 	const std::optional<far::Horizon> &getHorizon() const { return m_horizon; }
-	// Terra Firma: the planet the world is, if it is one
+	// Terraverse: the planet the world is, if it is one
 	const planet::Atlas *getAtlas() const { return m_atlas ? &*m_atlas : nullptr; }
 	// Where the server says the player is over the planet, carried forward
 	// to now; none while that's where they stand.
@@ -385,9 +385,9 @@ public:
 	// Including blocks at appropriate edges
 	void addUpdateMeshTaskWithEdge(v3s16 blockpos, bool ack_to_server=false, bool urgent=false);
 	void addUpdateMeshTaskForNode(v3s16 nodepos, bool ack_to_server=false, bool urgent=false);
-	// Terra Firma: and the meshes that read the block over an atlas's seam
+	// Terraverse: and the meshes that read the block over an atlas's seam
 	void updateMeshReaders(v3s16 blockpos, bool urgent);
-	// Terra Firma: the meshes across a planet face's edge from a node on it,
+	// Terraverse: the meshes across a planet face's edge from a node on it,
 	// which show it in their border (QueuedMeshUpdate::halo)
 
 	bool hasClientEvents() const { return !m_client_event_queue.empty(); }
@@ -422,11 +422,11 @@ public:
 	// This implies "m_internal_server = true".
 	bool m_simple_singleplayer_mode;
 
-	// Whether the server is hosted by the same Luanti instance and singletons
+	// Whether the server is hosted by the same engine instance and singletons
 	// like g_settings are shared between client and server.
 	//
 	// This is intentionally *not* true if we're just connecting to a localhost
-	// server hosted by a different Luanti instance.
+	// server hosted by a different engine instance.
 	bool m_internal_server;
 
 	bool mediaReceiveProgress(s32 &received, s32 &total, size_t &received_size) const;
@@ -525,25 +525,25 @@ public:
 private:
 	std::vector<std::pair<std::string, std::string>> m_ui_values;
 	std::optional<far::Horizon> m_horizon;
-	std::vector<std::string> m_blueprints; // Terra Firma
-	std::unordered_set<v3s16> m_liquids_changed; // Terra Firma: blocks whose liquid changed (sprint 81)
-	std::unordered_set<v3s16> m_liquid_ground; // Terra Firma: blocks whose nodes changed (sprint 82)
-	std::vector<liquids::Stream> m_streams; // Terra Firma: liquid poured since the last frame (sprint 82)
-	liquids::Rivers m_rivers; // Terra Firma: the rivers near, as the server last said (sprint 115)
-	workshop::Materials m_materials; // Terra Firma
-	std::unique_ptr<Body> m_body; // Terra Firma: made when it's first asked for
-	// Terra Firma (sprint 84): loose ground this client's own wheels and
+	std::vector<std::string> m_blueprints; // Terraverse
+	std::unordered_set<v3s16> m_liquids_changed; // Terraverse: blocks whose liquid changed (sprint 81)
+	std::unordered_set<v3s16> m_liquid_ground; // Terraverse: blocks whose nodes changed (sprint 82)
+	std::vector<liquids::Stream> m_streams; // Terraverse: liquid poured since the last frame (sprint 82)
+	liquids::Rivers m_rivers; // Terraverse: the rivers near, as the server last said (sprint 115)
+	workshop::Materials m_materials; // Terraverse
+	std::unique_ptr<Body> m_body; // Terraverse: made when it's first asked for
+	// Terraverse (sprint 84): loose ground this client's own wheels and
 	// feet press, predicted here as the server runs it; its word replaces
 	// it as it arrives
 	std::unique_ptr<pile::Piles> m_piles;
 	void pressGround(float dtime);
-	// Terra Firma (sprint 85): each block's mesh detail as made, and where
+	// Terraverse (sprint 85): each block's mesh detail as made, and where
 	// the camera was when they were last weighed (moved a node: again)
 	std::unordered_map<v3s16, u8> m_detail;
 	v3s16 m_detail_camera{ S16_MIN, S16_MIN, S16_MIN };
 	void meshDetail(v3s16 camera);
 	std::vector<v3s16> m_detail_pending; // made again a few a frame, not all at once
-	// Terra Firma (sprint 85): nodes whose ground changed this frame (piles,
+	// Terraverse (sprint 85): nodes whose ground changed this frame (piles,
 	// the server's shapes): each block they reach is made again once
 	std::unordered_set<v3s16> m_ground_nodes;
 	std::unordered_set<v3s16> m_ground_blocks; // ... and the blocks they relit
@@ -551,8 +551,8 @@ private:
 	std::unordered_set<v3s16> m_body_ground; // ... and the physics' ground, a few times a second
 	float m_body_ground_wait = 0;
 	void flushBodyGround(float dtime);
-	std::optional<std::pair<u16, workshop::Handed>> m_held; // Terra Firma
-	std::optional<planet::Atlas> m_atlas; // Terra Firma: or an atlas planet (never both)
+	std::optional<std::pair<u16, workshop::Handed>> m_held; // Terraverse
+	std::optional<planet::Atlas> m_atlas; // Terraverse: or an atlas planet (never both)
 
 	struct PendingMediaDownload {
 		// Tokens to ack to the server. multiple because server can send duplicate

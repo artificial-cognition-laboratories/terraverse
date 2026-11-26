@@ -1,16 +1,16 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2014-2018 kwolekr, Ryan Kwolek <kwolekr@minetest.net>
 // Copyright (C) 2015-2018 paramat
 
-#include "src/server/world/generate/luanti/mg_decoration.h"
-#include "src/server/world/generate/luanti/mg_schematic.h"
+#include "src/server/world/generate/legacy/mg_decoration.h"
+#include "src/server/world/generate/legacy/mg_schematic.h"
 #include "src/server/world/generate/mapgen.h"
 #include "src/shared/base/noise.h"
 #include "src/shared/map/map.h"
 #include <algorithm>
 #include <vector>
-#include "src/server/world/generate/luanti/treegen.h"
+#include "src/server/world/generate/legacy/treegen.h"
 
 
 const FlagDesc flagdesc_deco[] = {

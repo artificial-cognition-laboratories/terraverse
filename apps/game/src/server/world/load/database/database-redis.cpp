@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2014 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -18,7 +18,7 @@
 #include <cassert>
 
 /*
- * Redis is not a good fit for Luanti and only still supported for legacy as
+ * Redis is not a good fit for the engine and only still supported for legacy as
  * well as advanced use case reasons, see:
  * <https://github.com/luanti-org/luanti/issues/14822>
  *

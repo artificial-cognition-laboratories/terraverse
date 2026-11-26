@@ -1,4 +1,4 @@
-// Terra Firma: where Terraverse keeps things (shared/platform/home, .agents/planning/home.md)
+// Terraverse: where Terraverse keeps things (shared/platform/home, .agents/planning/home.md)
 
 #include "tests/unit/test.h"
 

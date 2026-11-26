@@ -24,7 +24,7 @@ describe("the game's blocks, to compare with", () => {
         return GameBlocks({ share: root })
     }
 
-    test("by name, with or without core:, their faces as Luanti reads tiles", () => {
+    test("by name, with or without core:, their faces as the engine reads tiles", () => {
         const [stone, log] = share().entries(["stone", "core:log"])
         expect(stone).toMatchObject({ type: "block", source: "game", name: "core:stone" })
         if (log?.type !== "block") throw new Error("a block")

@@ -1,4 +1,4 @@
-// Terra Firma: what an entity does, by its name (sprint 119: were Lua's registered
+// Terraverse: what an entity does, by its name (sprint 119: were Lua's registered
 // entities). An entity off the world's grid is one of a few native kinds:
 //
 //   core:piece             a machine (src/workshop), its text kept as its state

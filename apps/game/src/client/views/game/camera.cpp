@@ -1,12 +1,12 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "src/client/views/game/camera.h"
-#include "src/client/world/player/body.h" // Terra Firma
+#include "src/client/world/player/body.h" // Terraverse
 #include "src/client/world/session/client.h"
 #include "src/client/render/map/clientmap.h"     // MapDrawControl
-#include "library/world/planet/atlas.h" // Terra Firma
+#include "library/world/planet/atlas.h" // Terraverse
 #include "src/client/world/objects/localplayer.h"
 #include "src/shared/game/objects/player.h"
 #include <cmath>
@@ -363,7 +363,7 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 			break;
 		case CAMERA_MODE_FIRST:
 			eye_offset += player->eye_offset_first;
-			eye_offset.Y -= FACE_ABOVE_NECK * BS; // Terra Firma: the head turns at the neck (below)
+			eye_offset.Y -= FACE_ABOVE_NECK * BS; // Terraverse: the head turns at the neck (below)
 			break;
 		case CAMERA_MODE_THIRD:
 			eye_offset += player->eye_offset_third;
@@ -373,11 +373,11 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 			eye_offset.Y += player->eye_offset_third_front.Y;
 			eye_offset.Z -= player->eye_offset_third_front.Z;
 			break;
-		case CAMERA_MODE_SHOULDER: // Terra Firma: from the head, moved below
+		case CAMERA_MODE_SHOULDER: // Terraverse: from the head, moved below
 			break;
 		}
 
-		// Terra Firma: the view eases after the head as a stance moves it, never tied to it
+		// Terraverse: the view eases after the head as a stance moves it, never tied to it
 		const physics::StanceInfo &held = physics::stanceInfo(m_client->getBody().stance());
 		const f32 ease = 1 - std::exp(-9 * frametime);
 		m_stance_eye += (v3f(0, -held.eye_drop, held.eye_forward) * BS - m_stance_eye) * ease;
@@ -395,7 +395,7 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 	// Compute relative camera position and target
 	v3f rel_cam_pos = v3f(0,0,0);
 	v3f rel_cam_target = v3f(0,0,1);
-	// Terra Firma: first person looks from the face, as the head turns at the neck: looking
+	// Terraverse: first person looks from the face, as the head turns at the neck: looking
 	// down it's out ahead of the chest, and sees the front of the body
 	if (m_camera_mode == CAMERA_MODE_FIRST) {
 		const v3f face = v3f(0, FACE_ABOVE_NECK, FACE_AHEAD) * BS;
@@ -430,7 +430,7 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 	v3f abs_cam_up = m_headnode->getAbsoluteTransformation()
 			.rotateAndScaleVect(rel_cam_up);
 
-	// Terra Firma: over the shoulder, drawn in by what's in the way and easing back out
+	// Terraverse: over the shoulder, drawn in by what's in the way and easing back out
 	if (m_camera_mode == CAMERA_MODE_SHOULDER) {
 		const v3f right = abs_cam_up.crossProduct(m_camera_direction).normalize();
 		// Looking down it comes in over the body, or the crosshair falls in the next node
@@ -658,7 +658,7 @@ void Camera::updateViewingRange()
 	m_cameranode->setNearValue(0.1f * BS);
 
 	m_draw_control.wanted_range = std::fmin(adjustDist(viewing_range, getFovMax()), 6000);
-	m_draw_control.wanted_range = m_client->getBody().nearRange(m_draw_control.wanted_range); // Terra Firma: by the flight
+	m_draw_control.wanted_range = m_client->getBody().nearRange(m_draw_control.wanted_range); // Terraverse: by the flight
 	f32 far_blocks = m_draw_control.range_all ? 10000 : std::fmax(2000, m_draw_control.wanted_range);
 	if (const planet::Atlas *atlas = m_client->getAtlas()) {
 		// Far terrain, near blocks and clouds share one depth buffer. It must

@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/world/sim/water/liquids.h"
@@ -95,7 +95,7 @@ void Layer::OnRegisterSceneNode()
 
 void Layer::render()
 {
-	TF_ZONE("Water render"); // Terra Firma: inside Draw3D, timed (the debugger)
+	TF_ZONE("Water render"); // Terraverse: inside Draw3D, timed (the debugger)
 	gpu::Zone gpu("Water");
 	video::IVideoDriver *driver = SceneManager->getVideoDriver();
 	if (SceneManager->getSceneNodeRenderPass() != scene::ESNRP_TRANSPARENT)

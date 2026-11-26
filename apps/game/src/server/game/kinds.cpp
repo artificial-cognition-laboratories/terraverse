@@ -1,4 +1,4 @@
-// Terra Firma: what an entity does, by its name (sprint 119). See kinds.h. The item and
+// Terraverse: what an entity does, by its name (sprint 119). See kinds.h. The item and
 // falling block were builtin/game/item_entity.lua and falling.lua; the machine's carrier
 // was builtin/game/world.lua's core:piece.
 #include "src/server/game/kinds.h"

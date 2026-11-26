@@ -1,4 +1,4 @@
-// Terra Firma: terra:// refs against the golden terra's parser passes too (assets/misc/refs.json)
+// Terraverse: terra:// refs against the golden terra's parser passes too (assets/misc/refs.json)
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "tests/unit/test.h"

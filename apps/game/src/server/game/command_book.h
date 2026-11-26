@@ -1,4 +1,4 @@
-// Terra Firma: every command a server answers, the engine's and its mods', and what each player
+// Terraverse: every command a server answers, the engine's and its mods', and what each player
 // may run of them (the page's palette lists exactly that).
 #pragma once
 

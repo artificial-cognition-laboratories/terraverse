@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -145,7 +145,7 @@ void IMoveAction::swapDirections()
 	std::swap(from_i, to_i);
 }
 
-// Terra Firma (sprint 119): no inventory answers a move but by its rules (were Lua's
+// Terraverse (sprint 119): no inventory answers a move but by its rules (were Lua's
 // callbacks): what's asked for may be taken, put and moved.
 void IMoveAction::onTake(const ItemStack &, ServerActiveObject *) const {}
 void IMoveAction::onPut(const ItemStack &, ServerActiveObject *) const {}
@@ -657,7 +657,7 @@ void IDropAction::apply(InventoryManager *mgr, ServerActiveObject *player, IGame
 
 	src_item.count = take_count;
 
-	// Drop the item in front of them (Terra Firma, sprint 119: was builtin's item.lua)
+	// Drop the item in front of them (Terraverse, sprint 119: was builtin's item.lua)
 	ItemStack item1 = src_item;
 	item1.count = take_count;
 	auto *dropper = dynamic_cast<PlayerSAO *>(player);

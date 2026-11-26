@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { watch } from "vue"
-import type { CreativeItem } from "../../bridge/index.ts"
-import { useBridge } from "../../bridge/use.ts"
+import { useCache } from "../../cache/index.ts"
 import { Spinner } from "../../kit/index.ts"
 import LibraryBrowser from "../../wiki/LibraryBrowser.vue"
-import { Request } from "./request.ts"
 
 /**
  * A mod's blocks and items: the list at the left, the one picked turning at the right, as
@@ -12,9 +10,10 @@ import { Request } from "./request.ts"
  */
 const props = defineProps<{ path: string; /** Bumped to read the mod again (after a save). */ reload: number }>()
 const emit = defineEmits<{ count: [n: number] }>()
-const bridge = useBridge()
-const contents = Request<string, CreativeItem[]>((path) => bridge.send("mods.contents", { path: path }))
-watch(() => [props.path, props.reload] as const, ([path]) => void contents.run(path), { immediate: true })
+const contents = useCache().cached("mods.contents")
+// shown from this session's last read at once; a reload (after a save) always reads again
+watch(() => props.path, (path) => void contents.run({ path: path }), { immediate: true })
+watch(() => props.reload, () => void contents.refresh({ path: props.path }))
 watch(() => contents.data.value, (items) => { if (items) emit("count", items.length) })
 </script>
 

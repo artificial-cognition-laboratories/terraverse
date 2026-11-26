@@ -1,9 +1,9 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2015-2020 paramat
 // Copyright (C) 2014-2016 kwolekr, Ryan Kwolek <kwolekr@minetest.net>
 
-#include "src/server/world/generate/luanti/mg_ore.h"
+#include "src/server/world/generate/legacy/mg_ore.h"
 #include "src/server/world/generate/mapgen.h"
 #include "src/shared/base/noise.h"
 #include "src/shared/map/map.h"

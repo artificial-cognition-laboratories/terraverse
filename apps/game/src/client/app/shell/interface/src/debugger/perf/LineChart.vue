@@ -30,7 +30,7 @@ const props = defineProps<{
     budgets?: readonly { ms: number; label: string }[]
     cursor: number | null
     /**
-     * As Luanti's graphs: one series on a scale from zero to its most in the
+     * As the engine's graphs: one series on a scale from zero to its most in the
      * window, that most at the top right and its least (the work it does
      * every frame, whatever happens) at the bottom right.
      */

@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -29,7 +29,7 @@ float inItself(const std::vector<Pose> &parts);
 class Limbs
 {
 public:
-	// In the world: its feet at `foot`, facing `yaw` (Luanti's), as `bones` has it.
+	// In the world: its feet at `foot`, facing `yaw` (the engine's), as `bones` has it.
 	Limbs(World &world, const Bones &bones, const v3d &foot, float yaw, v3f velocity);
 	~Limbs();
 	Limbs(const Limbs &) = delete;

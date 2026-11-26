@@ -1,4 +1,4 @@
-// Terra Firma: a body's skeleton turns as the figure the game draws (client/app/headless/rig.h)
+// Terraverse: a body's skeleton turns as the figure the game draws (client/app/headless/rig.h)
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "tests/unit/test.h"

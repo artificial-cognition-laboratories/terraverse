@@ -9,7 +9,7 @@ const props = defineProps<{ stack: Stack | null }>()
 const store = useStore()
 
 const info = computed(() => (props.stack ? store.items[props.stack.item] ?? null : null))
-// Luanti wear runs 0 (new) to 65535 (broken).
+// Wear runs 0 (new) to 65535 (broken).
 // a stack is an amount of something, by mass (AGENTS.md: Building is easy, distance is what costs)
 const weight = computed(() => {
     const mass = info.value?.mass

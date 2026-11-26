@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2015 nerzhul, Loic Blot <loic.blot@unix-experience.fr>
 
@@ -279,7 +279,7 @@ void Client::handleCommand_BlockData(NetworkPacket* pkt)
 		Add it to mesh update queue and set it to be acknowledged after update.
 	*/
 	addUpdateMeshTaskWithEdge(p, true);
-	m_liquid_ground.insert(p); // Terra Firma: its liquid and the sea, drawn by the liquid layer (sprint 81)
+	m_liquid_ground.insert(p); // Terraverse: its liquid and the sea, drawn by the liquid layer (sprint 81)
 }
 
 void Client::handleCommand_Inventory(NetworkPacket* pkt)
@@ -322,7 +322,7 @@ void Client::handleCommand_TimeOfDay(NetworkPacket* pkt)
 	*pkt >> time_speed;
 
 	u32 day_count;
-	*pkt >> day_count; // Terra Firma: the server's, so the sky and the light read one date
+	*pkt >> day_count; // Terraverse: the server's, so the sky and the light read one date
 
 	// Update environment
 	m_env.setDayCount(day_count);
@@ -1394,7 +1394,7 @@ void Client::handleCommand_HudSetSky(NetworkPacket* pkt)
 
 		if (!pkt->hasRemainingBytes())
 			break;
-		// Terra Firma
+		// Terraverse
 		*pkt >> skybox.solar.on >> skybox.solar.latitude >> skybox.solar.declination >> skybox.solar.turns >> skybox.solar.at;
 	} while (0);
 
@@ -1810,7 +1810,7 @@ void Client::handleCommand_Window(NetworkPacket *pkt)
 }
 
 
-// Terra Firma: a node's cut shape (sprint 44); its content is as we have it
+// Terraverse: a node's cut shape (sprint 44); its content is as we have it
 void Client::handleCommand_Shape(NetworkPacket *pkt)
 {
 	v3s16 p;
@@ -1834,7 +1834,7 @@ void Client::handleCommand_Shape(NetworkPacket *pkt)
 	m_ground_nodes.insert(p); // made again once a frame, with the rest (Client::flushGround)
 }
 
-// Terra Firma: a node's liquid (sprint 81): kept in its block, drawn by the
+// Terraverse: a node's liquid (sprint 81): kept in its block, drawn by the
 // liquid layer (client/liquids), which glides to it; the block isn't remeshed
 void Client::handleCommand_Fill(NetworkPacket *pkt)
 {
@@ -1850,7 +1850,7 @@ void Client::handleCommand_Fill(NetworkPacket *pkt)
 		m_liquids_changed.insert(getNodeBlockPos(p));
 }
 
-// Terra Firma: liquid poured (sprint 82): drops from a spout to where it lands,
+// Terraverse: liquid poured (sprint 82): drops from a spout to where it lands,
 // drawn falling by the liquid layer, which splashes them into the water there
 void Client::handleCommand_Stream(NetworkPacket *pkt)
 {
@@ -1859,7 +1859,7 @@ void Client::handleCommand_Stream(NetworkPacket *pkt)
 	m_streams.push_back(s);
 }
 
-// Terra Firma: the rivers near, as the weather fills them (sprint 115): their
+// Terraverse: the rivers near, as the weather fills them (sprint 115): their
 // blocks' water looked at again
 void Client::handleCommand_Rivers(NetworkPacket *pkt)
 {
@@ -1888,7 +1888,7 @@ void Client::handleCommand_Rivers(NetworkPacket *pkt)
 	}
 }
 
-// Terra Firma: the player's blueprints (sprint 48)
+// Terraverse: the player's blueprints (sprint 48)
 void Client::handleCommand_Blueprints(NetworkPacket *pkt)
 {
 	u16 count;
@@ -1899,7 +1899,7 @@ void Client::handleCommand_Blueprints(NetworkPacket *pkt)
 	m_blueprints = std::move(names);
 }
 
-// Terra Firma: what blocks weigh (sprint 58)
+// Terraverse: what blocks weigh (sprint 58)
 void Client::handleCommand_Materials(NetworkPacket *pkt)
 {
 	u16 count;
@@ -1916,7 +1916,7 @@ void Client::handleCommand_Materials(NetworkPacket *pkt)
 	m_materials = std::move(m);
 }
 
-// Terra Firma: the player's new object, held (sprint 49)
+// Terraverse: the player's new object, held (sprint 49)
 void Client::handleCommand_Held(NetworkPacket *pkt)
 {
 	u16 id;

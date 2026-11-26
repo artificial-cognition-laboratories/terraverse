@@ -1,4 +1,4 @@
-// Terra Firma: what the world's made of, registered natively (sprint 119). See registry.h.
+// Terraverse: what the world's made of, registered natively (sprint 119). See registry.h.
 // Was builtin/game/world.lua, matter.lua, planet.lua and sidecar.lua.
 #include "src/server/game/registry.h"
 
@@ -12,7 +12,7 @@
 #include "src/shared/base/exceptions.h"
 #include "src/shared/platform/system/filesys.h"
 #include "src/shared/platform/system/log.h"
-#include "src/server/world/generate/luanti/mg_biome.h"
+#include "src/server/world/generate/legacy/mg_biome.h"
 #include "src/server/world/run/rules/matter.h"
 #include "library/matter/matter/matter.h"
 #include "src/shared/platform/system/porting.h"

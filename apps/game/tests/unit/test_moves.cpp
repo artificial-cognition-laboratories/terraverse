@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "tests/unit/test.h"
@@ -71,7 +71,7 @@ void TestMoves::runTests(IGameDef *gamedef)
 
 void TestMoves::testEveryMove()
 {
-	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terraverse" DIR_DELIM;
 	std::ifstream in(game + "palette.json");
 	Json::Value palette;
 	in >> palette;
@@ -107,7 +107,7 @@ void TestMoves::testEveryMove()
 // What a body's drawn doing against what's there: how deep any bone goes into anything solid, and when.
 void TestMoves::testBonesStayOut()
 {
-	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terraverse" DIR_DELIM;
 	std::ifstream in(game + "palette.json");
 	Json::Value palette;
 	in >> palette;
@@ -209,7 +209,7 @@ void TestMoves::testBonesStayOut()
 // and never been found stuck. Where it's drawn stays in what's drawn, however far it's gone.
 void TestMoves::testEndless()
 {
-	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terraverse" DIR_DELIM;
 	std::ifstream in(game + "palette.json");
 	Json::Value palette;
 	in >> palette;
@@ -255,7 +255,7 @@ void TestMoves::testEndless()
 // no step in it can't hold the car still while the camera goes on, then jump it two.
 void TestMoves::testDrivenDrawnSmoothly()
 {
-	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terraverse" DIR_DELIM;
 	std::ifstream in(game + "palette.json");
 	Json::Value palette;
 	in >> palette;
@@ -329,7 +329,7 @@ static void testGapRunsIn(const std::vector<sandbox::StageBlock> &blocks)
 
 void TestMoves::testIceMeltsInwards()
 {
-	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terraverse" DIR_DELIM;
 	std::ifstream in(game + "palette.json");
 	Json::Value palette;
 	in >> palette;
@@ -436,7 +436,7 @@ void TestMoves::testIceMeltsInwards()
 
 void TestMoves::testEveryVehicle()
 {
-	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terraverse" DIR_DELIM;
 	std::ifstream in(game + "palette.json");
 	Json::Value palette;
 	in >> palette;
@@ -499,7 +499,7 @@ void TestMoves::testEveryVehicle()
 // the sixteenth), and when it's settled the picture holds what the world's matter has.
 void TestMoves::testFineWater()
 {
-	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terraverse" DIR_DELIM;
 	std::ifstream in(game + "palette.json");
 	Json::Value palette;
 	in >> palette;
@@ -540,7 +540,7 @@ void TestMoves::testFineWater()
 // Copper running ahead of the matter is copper, and nothing of it hangs solid in the air on its way down.
 void TestMoves::testPourColour()
 {
-	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terraverse" DIR_DELIM;
 	std::ifstream in(game + "palette.json");
 	Json::Value palette;
 	in >> palette;
@@ -583,7 +583,7 @@ void TestMoves::testPourColour()
 // Gas shows where the matter has it and only there, in its own colour; a flame only where something burns.
 void TestMoves::testPlume()
 {
-	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terraverse" DIR_DELIM;
 	std::ifstream in(game + "palette.json");
 	Json::Value palette;
 	in >> palette;
@@ -628,7 +628,7 @@ void TestMoves::testPlume()
 // A heap is a slope of many heights, on the ground, holding about what the matter has, and what's falling isn't in it.
 void TestMoves::testFinePowder()
 {
-	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terraverse" DIR_DELIM;
 	std::ifstream in(game + "palette.json");
 	Json::Value palette;
 	in >> palette;
@@ -684,7 +684,7 @@ void TestMoves::testFinePowder()
 // Water down a flight of steps at speed stays water: no column stands far over what's beside it.
 void TestMoves::testSteps()
 {
-	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terraverse" DIR_DELIM;
 	std::ifstream in(game + "palette.json");
 	Json::Value palette;
 	in >> palette;
@@ -730,7 +730,7 @@ void TestMoves::testSteps()
 // A full basin let go may surge onto its walls, as the matter says, but once that's over nothing's left on them.
 void TestMoves::testWallsStayDry()
 {
-	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terraverse" DIR_DELIM;
 	std::ifstream in(game + "palette.json");
 	Json::Value palette;
 	in >> palette;
@@ -770,7 +770,7 @@ void TestMoves::testWallsStayDry()
 // Cold water has no bubbles; near boiling a few die on the way up; boiling, they break the surface and ripple it.
 void TestMoves::testBoiling()
 {
-	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terraverse" DIR_DELIM;
 	std::ifstream in(game + "palette.json");
 	Json::Value palette;
 	in >> palette;
@@ -810,7 +810,7 @@ void TestMoves::testBoiling()
 // A burner warms water over time, then it holds at boiling and boils away at the rate the heat allows.
 void TestMoves::testBurner()
 {
-	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terraverse" DIR_DELIM;
 	std::ifstream in(game + "palette.json");
 	Json::Value palette;
 	in >> palette;
@@ -863,7 +863,7 @@ void TestMoves::testLook()
 // laid, and its bed worn below where it began.
 void TestMoves::testRiverPatch()
 {
-	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terrafirma" DIR_DELIM;
+	const std::string game = porting::path_share + DIR_DELIM "games" DIR_DELIM "terraverse" DIR_DELIM;
 	std::ifstream in(game + "palette.json");
 	Json::Value palette;
 	in >> palette;

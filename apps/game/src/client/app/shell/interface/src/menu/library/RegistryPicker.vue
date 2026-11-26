@@ -1,31 +1,31 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue"
 import type { RegistryListing } from "../../bridge/index.ts"
-import { Button, ListEmpty, Monogram, Notice, SearchBox, Spinner } from "../../kit/index.ts"
+import { useCache } from "../../cache/index.ts"
+import { Button, KeptNote, ListEmpty, Monogram, Notice, SearchBox, Spinner } from "../../kit/index.ts"
 import { format } from "./format.ts"
-import { useRegistry } from "./registry.ts"
-import { Request } from "./request.ts"
 import { search } from "./search.ts"
 
 /** Mods on the registry to pick from: a search, and a row each with its Add. `chosen` ones say so; `hidden` aren't listed. */
 const props = withDefaults(defineProps<{ chosen: readonly string[]; hidden?: readonly string[]; busy?: boolean; autofocus?: boolean }>(),
     { hidden: () => [], busy: false, autofocus: false })
 const emit = defineEmits<{ pick: [listing: RegistryListing] }>()
-const registry = useRegistry()
-const results = Request((query: string) => registry.search(search.from({ query: query, type: "mod" })))
+const results = useCache().cached("registry.search")
+const ask = (query: string) => results.run(search.from({ query: query, type: "mod" }))
 const query = ref("")
 const found = computed(() => (results.data.value?.listings ?? []).filter((l) => !props.hidden.includes(l.name)))
 const chosen = (l: RegistryListing) => props.chosen.includes(l.name)
 let typing: ReturnType<typeof setTimeout> | undefined
-watch(query, (q) => { clearTimeout(typing); typing = setTimeout(() => void results.run(q.trim()), 250) })
-onMounted(() => results.run(""))
+watch(query, (q) => { clearTimeout(typing); typing = setTimeout(() => void ask(q.trim()), 250) })
+onMounted(() => ask(""))
 </script>
 
 <template>
     <div class="picker">
         <SearchBox v-model="query" :autofocus="autofocus" label="Search mods" placeholder="Search mods…" />
         <Spinner v-if="results.busy.value" />
-        <Notice v-if="results.problem.value" tone="danger">{{ results.problem.value }}</Notice>
+        <KeptNote v-if="results.problem.value && results.at.value !== null" :at="results.at.value" :problem="results.problem.value" />
+        <Notice v-else-if="results.problem.value" tone="danger">{{ results.problem.value }}</Notice>
         <div v-for="l in found" :key="l.name" class="row">
             <Monogram :name="l.name" :image="l.icon" :size="30" />
             <span class="copy"><strong>{{ l.title ?? format.bare(l.name) }}</strong><small>{{ l.description ?? l.name }}</small></span>

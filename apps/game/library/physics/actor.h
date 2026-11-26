@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -30,7 +30,7 @@ public:
 	{
 		float at = 0;       // s
 		float ahead = 0, right = 0;
-		float yaw = 0;      // radians, Luanti's: 0 goes +z, + turns toward -x
+		float yaw = 0;      // radians, the engine's: 0 goes +z, + turns toward -x
 		bool run = false, jump = false, crouch = false, prone = false;
 		bool punch = false, kick = false; // (each press throws one)
 	};

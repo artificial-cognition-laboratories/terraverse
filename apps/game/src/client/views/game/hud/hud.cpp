@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2010-2013 blue42u, Jonathon Anderson <anderjon@umail.iu.edu>
@@ -316,7 +316,7 @@ bool Hud::hasElementOfType(HudElementType type)
 	return false;
 }
 
-// Terra Firma: the kit's colours (ui/src/theme.css): stone, its lit and
+// Terraverse: the kit's colours (ui/src/theme.css): stone, its lit and
 // shaded edges, the accent, the ink
 void Hud::drawSolids(video::IVideoDriver *driver)
 {
@@ -387,7 +387,7 @@ void Hud::drawTiles(video::IVideoDriver *driver)
 }
 
 // Calculates screen position of waypoint. Returns true if waypoint is visible (in front of the player), else false.
-// Terra Firma: each label centred where its place is on screen (behind
+// Terraverse: each label centred where its place is on screen (behind
 // the camera: not drawn)
 void Hud::drawLabels(const v3s16 &camera_offset)
 {
@@ -431,7 +431,7 @@ void Hud::drawLuaElements(const v3s16 &camera_offset, bool only_unhidable)
 {
 	const u32 text_height = g_fontengine->getTextHeight();
 	gui::IGUIFont *const font = g_fontengine->getFont();
-	drawLabels(camera_offset); // Terra Firma
+	drawLabels(camera_offset); // Terraverse
 
 	std::vector<HudElement*> elems;
 
@@ -977,11 +977,11 @@ void Hud::drawSelectionMesh()
 {
 	if (m_mode == HIGHLIGHT_NONE || (m_mode == HIGHLIGHT_HALO && !m_selection_mesh))
 		return;
-	if (!m_tiles.empty()) // Terra Firma
+	if (!m_tiles.empty()) // Terraverse
 		drawTiles(driver);
-	if (!m_solids.empty()) // Terra Firma
+	if (!m_solids.empty()) // Terraverse
 		drawSolids(driver);
-	if (!m_grid.empty()) { // Terra Firma
+	if (!m_grid.empty()) { // Terraverse
 		video::SMaterial faded = m_selection_material;
 		faded.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
 		faded.ZWriteEnable = video::EZW_OFF;
@@ -990,7 +990,7 @@ void Hud::drawSelectionMesh()
 		for (const Guide &g : m_grid)
 			driver->draw3DLine(g.a, g.b, g.colour);
 	}
-	if (!m_guides.empty()) { // Terra Firma
+	if (!m_guides.empty()) { // Terraverse
 		driver->setMaterial(m_selection_material);
 		driver->setTransform(video::ETS_WORLD, core::IdentityMatrix);
 		for (const Guide &g : m_guides)
@@ -1006,7 +1006,7 @@ void Hud::drawSelectionMesh()
 	driver->setTransform(video::ETS_WORLD, translate * rotation);
 
 	if (m_mode == HIGHLIGHT_BOX && !m_selection_lines.empty()) {
-		// Terra Firma: the cell's own outline, already where it's drawn
+		// Terraverse: the cell's own outline, already where it's drawn
 		const video::SColor colour(255, selectionbox_argb.getRed() * m_selection_mesh_color.getRed() / 255,
 				selectionbox_argb.getGreen() * m_selection_mesh_color.getGreen() / 255,
 				selectionbox_argb.getBlue() * m_selection_mesh_color.getBlue() / 255);

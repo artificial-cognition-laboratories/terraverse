@@ -104,7 +104,7 @@ step "its scope routed to the registry"       0 "\"testuser\" = \{ url = \"$ARCL
 
 save="$work/world/save/worlds/main"
 mkdir -p "$save"
-printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$save/world.mt"
+printf 'gameid = terraverse\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$save/world.mt"
 printf 'mg_name = singlenode\n[end_of_params]\n' > "$save/map_meta.txt"
 port=$((32200 + RANDOM % 500))
 timeout -s INT 8 "$root/.output/bin/terraverse" --server --config /dev/null --world "$save" \

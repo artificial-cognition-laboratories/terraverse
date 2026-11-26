@@ -1,11 +1,11 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2014-2018 kwolekr, Ryan Kwolek <kwolekr@minetest.net>
 // Copyright (C) 2015-2018 paramat
 
 #pragma once
 
-#include "src/server/world/generate/luanti/mg_decoration.h"
+#include "src/server/world/generate/legacy/mg_decoration.h"
 #include "src/shared/util/text/string.h"
 
 class Map;

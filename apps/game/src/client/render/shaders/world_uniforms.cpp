@@ -1,6 +1,6 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
-// Terra Firma: the world's shader uniforms and node constants, out of Game (sprint 126) so a
+// Terraverse: the world's shader uniforms and node constants, out of Game (sprint 126) so a
 // body's eye (client/app/headless) draws the world as the game does.
 
 #include "src/client/render/shaders/world_uniforms.h"
@@ -112,7 +112,7 @@ public:
 		u32 daynight_ratio = (float)m_client->getEnv().getDayNightRatio();
 		video::SColorf sunlight;
 		get_sunlight_color(&sunlight, daynight_ratio);
-		// Terra Firma: daylight through this world's air
+		// Terraverse: daylight through this world's air
 		sunlight.r *= solar::tint().r;
 		sunlight.g *= solar::tint().g;
 		sunlight.b *= solar::tint().b;

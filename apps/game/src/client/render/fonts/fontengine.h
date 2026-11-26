@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2014 sapier <sapier at gmx dot net>
 
@@ -17,7 +17,7 @@ namespace gui {
 	class IGUIFont;
 }
 
-// Luanti namespace
+// The engine's namespace
 namespace gui {
 	struct SGUITTFace;
 }
@@ -158,7 +158,7 @@ private:
 	/** initialize a new TTF font */
 	gui::IGUIFont *initFont(FontSpec spec);
 
-	/** update current luanti skin with font changes */
+	/** update the current GUI skin with font changes */
 	void updateSkin();
 
 	void clearCache();

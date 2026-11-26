@@ -1,11 +1,11 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "src/client/render/gputime/gputime.h"
 #include "src/client/render/map/clientmap.h"
-#include "src/client/views/game/sky/atlas_view.h" // Terra Firma
-#include "src/client/world/objects/localplayer.h" // Terra Firma
+#include "src/client/views/game/sky/atlas_view.h" // Terraverse
+#include "src/client/world/objects/localplayer.h" // Terraverse
 #include "src/client/world/session/client.h"
 #include "src/client/render/mesh/mesh.h"
 #include "src/client/render/map/mesh/mapblock_mesh.h"
@@ -74,7 +74,7 @@ namespace {
 	// reference to a mesh buffer used when rendering the map.
 	struct DrawDescriptor {
 		v3f m_pos; // world translation
-		const core::matrix4 *m_world = nullptr; // Terra Firma: or a whole transform (an atlas's block)
+		const core::matrix4 *m_world = nullptr; // Terraverse: or a whole transform (an atlas's block)
 		bool m_reuse_material:1;
 		bool m_use_partial_buffer:1;
 		union {
@@ -247,7 +247,7 @@ bool ClientMap::useLoopsCuller() const
 	if (m_loops_occlusion_culler)
 		return true;
 
-	// Terra Firma: on a planet the grids near the camera can be far apart in
+	// Terraverse: on a planet the grids near the camera can be far apart in
 	// the map; the BFS walks the map, the loops visit every block loaded.
 	if (m_client->getAtlas())
 		return true;
@@ -464,10 +464,10 @@ void ClientMap::updateDrawList()
 	// No occlusion culling when free_move is on and camera is inside ground
 	// No occlusion culling for chunk sizes of 4 and above
 	//   because the current occlusion culling test is highly inefficient at these sizes
-	// Terra Firma: nor on a planet, where the world is drawn curved and the
+	// Terraverse: nor on a planet, where the world is drawn curved and the
 	//   flat map's rays don't say what's hidden
 	bool occlusion_culling_enabled = mesh_grid.cell_size < 4 && !m_client->getAtlas();
-	AtlasView *atlas = atlasView(); // Terra Firma: each block where the eye sees it
+	AtlasView *atlas = atlasView(); // Terraverse: each block where the eye sees it
 	if (m_control.allow_noclip) {
 		MapNode n = getNode(cam_pos_nodes);
 		if (n.getContent() == CONTENT_IGNORE || NDT_solidness[m_nodedef->get(n).drawtype] == 2)
@@ -516,7 +516,7 @@ void ClientMap::updateDrawList()
 						sp.Y < p_blocks_min.Z || sp.Y > p_blocks_max.Z)
 					continue;
 			}
-			// Terra Firma: on a planet the flat map's box doesn't say what's in
+			// Terraverse: on a planet the flat map's box doesn't say what's in
 			// range (a seam brings a far region near), but where the column is
 			// seen does: one of its own blocks (loaded, so charted; one at the
 			// camera's height mostly wasn't, and nothing was skipped) placed,
@@ -583,7 +583,7 @@ void ClientMap::updateDrawList()
 				// Keep the block alive as long as it is in range.
 				block->resetUsageTimer();
 				blocks_in_range++;
-				// Terra Firma: the near world's here (once it has what to draw), the far view's past it
+				// Terraverse: the near world's here (once it has what to draw), the far view's past it
 				if (atlas && (mesh || block->isAir())) {
 					const u64 t0 = trace::now();
 					m_coverage.add(block_pos);
@@ -1124,7 +1124,7 @@ static u32 transformBuffersToDrawOrder(
 	return can_merge < 2 ? 0 : can_merge;
 }
 
-// Terra Firma: an atlas's buffers of one material, each block with its own
+// Terraverse: an atlas's buffers of one material, each block with its own
 // transform (not merged); as transformBuffersToDrawOrder, the first sets
 // the material for the rest
 static void atlasBuffersToDrawOrder(const MeshBufListMaps::MeshBufList &list, DrawDescriptorList &draw_order, AtlasView &atlas)
@@ -1142,7 +1142,7 @@ void ClientMap::renderMap(video::IVideoDriver* driver, s32 pass)
 	ZoneScoped;
 
 	const bool is_transparent_pass = pass == scene::ESNRP_TRANSPARENT;
-	gpu::Zone gpu(is_transparent_pass ? "Map: transparent" : "Map: solid"); // Terra Firma (the debugger)
+	gpu::Zone gpu(is_transparent_pass ? "Map: transparent" : "Map: solid"); // Terraverse (the debugger)
 
 	std::string prefix;
 	if (pass == scene::ESNRP_SOLID)
@@ -1187,7 +1187,7 @@ void ClientMap::renderMap(video::IVideoDriver* driver, s32 pass)
 	draw_order.clear();
 
 	auto is_frustum_culled = m_client->getCamera()->getFrustumCuller();
-	AtlasView *atlas = atlasView(); // Terra Firma: each block where the eye sees it
+	AtlasView *atlas = atlasView(); // Terraverse: each block where the eye sees it
 
 	for (auto &i : m_drawlist) {
 		const v3s16 block_pos = i.first;
@@ -1610,7 +1610,7 @@ void ClientMap::renderMapShadows(video::IVideoDriver *driver,
 	DrawDescriptorList &draw_order = tl_drawdescriptorlist;
 	grouped_buffers.clear();
 	draw_order.clear();
-	AtlasView *atlas = atlasView(); // Terra Firma
+	AtlasView *atlas = atlasView(); // Terraverse
 
 	std::size_t count = 0;
 	std::size_t meshes_per_frame = m_drawlist_shadow.size() / total_frames + 1;

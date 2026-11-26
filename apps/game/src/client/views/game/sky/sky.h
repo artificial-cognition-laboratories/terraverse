@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -41,7 +41,7 @@ public:
 	virtual video::SMaterial &getMaterial(u32 i) { return m_materials[i]; }
 	virtual u32 getMaterialCount() const { return SKY_MATERIAL_COUNT; }
 
-	void setDay(u32 day) { m_day = day; } // Terra Firma: before update
+	void setDay(u32 day) { m_day = day; } // Terraverse: before update
 	void update(float m_time_of_day, float time_brightness, float direct_brightness,
 			bool sunlight_seen, CameraMode cam_mode, float yaw, float pitch);
 
@@ -98,7 +98,7 @@ public:
 		if (body_orbit_tilt != SkyboxParams::INVALID_SKYBOX_TILT)
 			m_sky_params.body_orbit_tilt = rangelim(body_orbit_tilt, -90.f, 90.f);
 	}
-	// Terra Firma: follow the real sun (see SkySolar).
+	// Terraverse: follow the real sun (see SkySolar).
 	void setSolar(const SkySolar &solar) { m_sky_params.solar = solar; }
 	void overrideColors(video::SColor bgcolor, video::SColor skycolor)
 	{
@@ -180,7 +180,7 @@ private:
 	// Used when m_visible=false
 	video::SColor m_fallback_bg_color = video::SColor(255, 255, 255, 255);
 	bool m_first_update = true; // Set before the sky is updated for the first time
-	u32 m_day = 0; // Terra Firma: the date its smoothed time belongs to (setDay)
+	u32 m_day = 0; // Terraverse: the date its smoothed time belongs to (setDay)
 	float m_time_of_day; // apparent when solar (see solar::apparentTime)
 	float m_body_time = 0.0f; // the real time of day, placing solar bodies
 	float m_time_brightness;

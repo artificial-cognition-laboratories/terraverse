@@ -1,4 +1,4 @@
-project(luanti)
+project(terraverse)
 
 # apps/game: src/ holds the engine, client/ what wraps it for a person, library/ the pure cores
 set(GAME_DIR "${CMAKE_SOURCE_DIR}")
@@ -81,7 +81,7 @@ if(BUILD_CLIENT AND ENABLE_SHELL)
 endif()
 
 
-# Terra Firma: hosts ask the router to open their port (shared/platform/online/upnp.cpp)
+# Terraverse: hosts ask the router to open their port (shared/platform/online/upnp.cpp)
 option(ENABLE_UPNP "Open the hosting port with UPnP (miniupnpc)" TRUE)
 set(USE_UPNP FALSE)
 if(BUILD_CLIENT AND ENABLE_UPNP)
@@ -340,9 +340,9 @@ if(WIN32)
 			# Don't define min/max macros in minwindef.h
 			NOMINMAX
 		)
-		# Terra Firma: <windows.h>'s `near` and `far` macros, gone before anything sees them
+		# Terraverse: <windows.h>'s `near` and `far` macros, gone before anything sees them
 		add_compile_options("/FI${CMAKE_CURRENT_SOURCE_DIR}/shared/platform/system/windows_names.h")
-		# Terra Firma: clang-cl and compiler-rt's builtins are required in apps/game/CMakeLists.txt
+		# Terraverse: clang-cl and compiler-rt's builtins are required in apps/game/CMakeLists.txt
 	endif()
 	list(APPEND PLATFORM_LIBS ws2_32.lib version.lib shlwapi.lib winmm.lib iphlpapi.lib)
 
@@ -441,7 +441,7 @@ add_custom_target(GenerateVersion
 	-D "GENERATE_VERSION_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}"
 	-D "VERSION_STRING=${VERSION_STRING}"
 	-D "DEVELOPMENT_BUILD=${DEVELOPMENT_BUILD}"
-	-D "TERRAFIRMA_VERSION=${TERRAFIRMA_VERSION}"
+	-D "TERRAVERSE_VERSION=${TERRAVERSE_VERSION}"
 	-P "${CMAKE_SOURCE_DIR}/cmake/Modules/GenerateVersion.cmake"
 	WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -647,7 +647,7 @@ endif()
 # This gives us the icon and file version information
 if(WIN32)
 	set(WINRESOURCE_FILE "${CMAKE_SOURCE_DIR}/assets/misc/winresource.rc")
-	set(EXE_MANIFEST_FILE "${CMAKE_SOURCE_DIR}/assets/misc/luanti.exe.manifest")
+	set(EXE_MANIFEST_FILE "${CMAKE_SOURCE_DIR}/assets/misc/terraverse.exe.manifest")
 	if(MINGW)
 		if(NOT CMAKE_RC_COMPILER)
 			set(CMAKE_RC_COMPILER "windres.exe")
@@ -709,7 +709,7 @@ include_directories(SYSTEM
 	${SQLITE3_INCLUDE_DIR}
 	${GMP_INCLUDE_DIR}
 	${JSON_INCLUDE_DIR}
-	# on Android, Luanti depends on SDL2 directly
+	# on Android, the engine depends on SDL2 directly
 	# on other platforms, only IrrlichtMt depends on SDL2
 	"$<$<PLATFORM_ID:Android>:${SDL2_INCLUDE_DIRS}>"
 )
@@ -732,7 +732,7 @@ endif()
 
 # When cross-compiling place the executable in <build dir>/bin so that multiple
 # targets can be built from the same source folder. Otherwise, place it in
-# <source dir>/bin/ since Luanti can only run from there.
+# <source dir>/bin/ since the engine can only run from there.
 if(CMAKE_CROSSCOMPILING)
 	set(EXECUTABLE_OUTPUT_PATH "${CMAKE_BINARY_DIR}/bin")
 else()
@@ -771,9 +771,6 @@ if(BUILD_CLIENT)
 		add_library(${PROJECT_NAME} SHARED)
 	else()
 		add_executable(${PROJECT_NAME})
-		# The engine's binary is terraverse; PROJECT_NAME (luanti) still names its gettext
-		# domain and share paths, which installed users' files depend on.
-		set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME terraverse)
 		if(WIN32)
 			# A windowed program, or Windows gives it a console of its own, and closing that
 			# console kills the game (0xC000013A). /SUBSYSTEM:WINDOWS in the linker flags isn't
@@ -802,7 +799,7 @@ if(BUILD_CLIENT)
 			MACOSX_BUNDLE TRUE
 			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_BINARY_DIR}/Info.plist"
 			RESOURCE "${client_RESOURCES}"
-			XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.luanti.luanti"
+			XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "net.arclabs.terraverse"
 			XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME "YES"
 			XCODE_ATTRIBUTE_INSTALL_PATH "/Applications"
 			XCODE_ATTRIBUTE_SKIP_INSTALL "NO"
@@ -848,7 +845,7 @@ if(BUILD_CLIENT)
 		sha256
 		${FREETYPE_LINK}
 		${PLATFORM_LIBS}
-		# on Android, Luanti depends on SDL2 directly
+		# on Android, the engine depends on SDL2 directly
 		# on other platforms, only IrrlichtMt depends on SDL2
 		"$<$<PLATFORM_ID:Android>:${SDL2_LIBRARIES}>"
 	)
@@ -1058,7 +1055,7 @@ if(MSVC)
 
 		# Disable pragma-pack warning
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wno-pragma-pack")
-		# Terra Firma: clang-cl under /EHa leaves std::variant's inline destructors
+		# Terraverse: clang-cl under /EHa leaves std::variant's inline destructors
 		# undefined at link; C++ exceptions only (a segfault isn't caught as one).
 		string(REPLACE "/EHa" "/EHsc" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 		# Our manifest says asInvoker itself; the linker's own copy would be a duplicate.

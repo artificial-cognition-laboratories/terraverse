@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013-2017 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2017 celeron55, Loic Blot <loic.blot@unix-experience.fr>
@@ -942,7 +942,7 @@ void ConnectionReceiveThread::receive(SharedBuffer<u8> &packetdata,
 
 		if ((received_size < BASE_HEADER_SIZE) ||
 				(readU32(&packetdata[0]) != m_connection->GetProtocolID())) {
-			// Terra Firma: not the game's, maybe someone else's (STUN answers)
+			// Terraverse: not the game's, maybe someone else's (STUN answers)
 			if (m_connection->stray(sender, &packetdata[0], received_size))
 				return;
 			LOG(derr_con << m_connection->getDesc()

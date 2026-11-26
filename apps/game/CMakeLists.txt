@@ -4,11 +4,11 @@ if(POLICY CMP0177)
 endif()
 
 # This can be read from ${PROJECT_NAME} after project() is called
-project(luanti)
+project(terraverse)
 
 # The monorepo's root: .output and registry live there, not under apps/game
 get_filename_component(REPO_DIR "${CMAKE_SOURCE_DIR}/../.." ABSOLUTE)
-set(PROJECT_NAME_CAPITALIZED "Luanti")
+set(PROJECT_NAME_CAPITALIZED "Terraverse")
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -40,8 +40,8 @@ set(VERSION_EXTRA "" CACHE STRING "Stuff to append to version string")
 
 # Change to false for releases
 set(DEVELOPMENT_BUILD TRUE)
-# Terra Firma: a release build's identity, its tag (apps/game/scripts/release); empty in development
-set(TERRAFIRMA_VERSION "" CACHE STRING "Release tag, e.g. v0.2.0: the build id friends' games compare")
+# Terraverse: a release build's identity, its tag (apps/game/scripts/release); empty in development
+set(TERRAVERSE_VERSION "" CACHE STRING "Release tag, e.g. v0.2.0: the build id friends' games compare")
 
 set(VERSION_STRING "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 if(VERSION_EXTRA)
@@ -92,7 +92,7 @@ if(WIN32)
 endif()
 set(RUN_IN_PLACE ${DEFAULT_RUN_IN_PLACE} CACHE BOOL
 	"Run directly in source directory structure")
-# Terra Firma: an installed build keeps its things in ~/.terraverse, a source build in
+# Terraverse: an installed build keeps its things in ~/.terraverse, a source build in
 # ~/.terraverse-dev, so the two never share (.agents/planning/home.md). Release builds set it.
 option(TERRAVERSE_RELEASE "A build players install: its home is ~/.terraverse, not ~/.terraverse-dev" FALSE)
 message(STATUS "TERRAVERSE_RELEASE: " ${TERRAVERSE_RELEASE})
@@ -125,7 +125,7 @@ if(ANDROID)
 endif()
 
 
-# Terra Firma: what every Windows target needs, set here because the libraries added below
+# Terraverse: what every Windows target needs, set here because the libraries added below
 # (terragen, its tests) are configured before src/CMakeLists.txt sets the engine's MSVC
 # flags, and clang-cl's own defaults differ: M_PI, as glibc gives it; C++ exceptions; the
 # DLL runtime the engine and its vcpkg libraries use (clang-cl alone picks the static one);
@@ -296,23 +296,13 @@ install(FILES "doc/texture_packs.md" DESTINATION "${DOCDIR}" COMPONENT "Docs")
 install(FILES "doc/world_format.md" DESTINATION "${DOCDIR}" COMPONENT "Docs")
 install(FILES "minetest.conf.example" DESTINATION "${EXAMPLE_CONF_DIR}")
 
-if(UNIX AND NOT APPLE)
-	install(FILES "doc/luanti.6" "doc/luantiserver.6" DESTINATION "${MANDIR}/man6")
-	install(FILES "assets/misc/org.luanti.luanti.desktop" DESTINATION "${XDG_APPS_DIR}")
-	install(FILES "assets/misc/org.luanti.luanti.metainfo.xml" DESTINATION "${METAINFODIR}")
-	install(FILES "assets/misc/luanti.svg" DESTINATION "${ICONDIR}/hicolor/scalable/apps")
-	install(FILES "assets/misc/luanti-xorg-icon-128.png"
-		DESTINATION "${ICONDIR}/hicolor/128x128/apps"
-		RENAME "luanti.png")
-endif()
-
 if(APPLE)
-	install(FILES "assets/misc/luanti-icon.icns" DESTINATION "${SHAREDIR}")
+	install(FILES "assets/misc/terraverse.icns" DESTINATION "${SHAREDIR}")
 	install(FILES "${CMAKE_BINARY_DIR}/Info.plist" DESTINATION "${BUNDLE_PATH}/Contents")
 endif()
 
 if(CMAKE_GENERATOR STREQUAL "Xcode")
-	set(client_RESOURCES "${CMAKE_SOURCE_DIR}/assets/misc/luanti-icon.icns")
+	set(client_RESOURCES "${CMAKE_SOURCE_DIR}/assets/misc/terraverse.icns")
 endif()
 
 # Library pack
@@ -359,7 +349,7 @@ if(WIN32)
 
 	if(NOT RUN_IN_PLACE)
 		set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${VERSION_STRING}-nsis")
-		install(FILES "assets/misc/luanti-icon.ico" DESTINATION ".")
+		install(FILES "assets/misc/terraverse.ico" DESTINATION ".")
 		install(FILES "assets/misc/sfx-launcher.nsi" DESTINATION ".")
 		# normalize to 0/1
 		set(DEVELOPMENT_BUILD01 0)

@@ -20,7 +20,7 @@ cat "$work/version.log"
 grep -qF "$version" "$work/version.log" || fail "--version doesn't say $version"
 
 # The server runs until stopped: give it 20 s to make a world and listen, then stop it.
-"$exe" --server --gameid terrafirma --world "$work/world" --world-code TF24.dGVycmE \
+"$exe" --server --gameid terraverse --world "$work/world" --world-code TF24.dGVycmE \
 	--port 30500 >"$work/boot.log" 2>&1 &
 pid=$!
 for _ in $(seq 1 40); do

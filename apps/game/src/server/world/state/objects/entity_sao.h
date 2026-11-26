@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2013-2020 Luanti core developers & community
@@ -64,22 +64,22 @@ public:
 	bool getSelectionBox(aabb3f *toset) const;
 	bool collideWithObjects() const;
 
-	// Terra Firma (sprint 57): moved by the workshop's physics, not by its
+	// Terraverse (sprint 57): moved by the workshop's physics, not by its
 	// own velocity and collisions; its rigid groups' poses sent to clients
 	void setDriven(bool driven) { m_driven = driven; }
 	bool isDriven() const { return m_driven; }
 	void sendParts(const std::string &data);
 
-	// Terra Firma (sprint 119): what it does (server/kinds.h); null for an entity of no
+	// Terraverse (sprint 119): what it does (server/kinds.h); null for an entity of no
 	// kind the engine knows, kept inert as it was saved
 	EntityKind *kind() { return m_kind.get(); }
 	const ObjectProperties &properties() const { return m_prop; }
 
 private:
-	// Terra Firma: on a planet, moved off its face from `was`: put on the face
+	// Terraverse: on a planet, moved off its face from `was`: put on the face
 	// it's moved onto, its velocity, acceleration and yaw turned with the grid.
 	void carry(const v3f &was);
-	bool m_driven = false; // Terra Firma
+	bool m_driven = false; // Terraverse
 
 	std::string getPropertyPacket();
 	void sendPosition(bool do_interpolate, bool is_movement_end);

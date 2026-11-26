@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2014 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -75,7 +75,7 @@ void osSpecificInit()
 #ifdef GPROF
 	// in the start-up code
 	warningstream << "Initializing GPROF profiler" << std::endl;
-	monstartup("libluanti.so");
+	monstartup("libterraverse.so");
 #endif
 }
 

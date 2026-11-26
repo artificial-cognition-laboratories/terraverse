@@ -1,12 +1,12 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2015 nerzhul, Loic Blot <loic.blot@unix-experience.fr>
 
 #include "src/shared/game/chat/chatmessage.h"
 #include "src/server/app/server.h"
 #include "src/server/game/interact.h"
-#include "src/server/world/terra.h" // Terra Firma
-#include "src/server/world/run/rules/matter.h" // Terra Firma
+#include "src/server/world/terra.h" // Terraverse
+#include "src/server/world/run/rules/matter.h" // Terraverse
 #include "src/shared/platform/online/gate.h"
 #include "src/server/app/mods/sidecar/sidecar.h"
 #include <json/json.h>
@@ -204,7 +204,7 @@ void Server::handleCommand_Init(NetworkPacket* pkt)
 	u32 auth_mechs = 0;
 	client->chosen_mech = AUTH_MECHANISM_NONE;
 
-	// Terra Firma (sprint 119): no passwords. Hosted for friends, a ticket is the only way
+	// Terraverse (sprint 119): no passwords. Hosted for friends, a ticket is the only way
 	// in; played alone, the one player (127.0.0.1 only) is let in at once.
 	if (m_gate) {
 		auth_mechs = AUTH_MECHANISM_TICKET;
@@ -287,7 +287,7 @@ void Server::handleCommand_Init2(NetworkPacket* pkt)
 
 	// Send time of day
 	u16 time = m_env->getTimeOfDay();
-	SendTimeOfDay(peer_id, time, getTimeSpeed()); // (Terra Firma: a stopped clock stays stopped for who joins)
+	SendTimeOfDay(peer_id, time, getTimeSpeed()); // (Terraverse: a stopped clock stays stopped for who joins)
 
 	SendPlanet(peer_id); // before the horizon: the far view is made with both
 	SendHorizon(peer_id);
@@ -368,7 +368,7 @@ void Server::handleCommand_ClientReady(NetworkPacket* pkt)
 	}
 
 	s64 last_login = -1; // (builtin's on_joinplayer: nothing keeps logins now)
-	// Terra Firma: one who joins in seam starts at the spawn, before anything asks the
+	// Terraverse: one who joins in seam starts at the spawn, before anything asks the
 	// planet where they are (sprint 119: was tf_planet's)
 	terraOffSeam(this, playersao, "joined");
 	terraJoinPlayer(this, playersao); // what they're given (sprint 119: was tf_player's)
@@ -376,13 +376,13 @@ void Server::handleCommand_ClientReady(NetworkPacket* pkt)
 	// one who left dead is still dead: they're shown it, and respawn when they choose
 	if (playersao->isDead())
 		SendDeathscreen(peer_id);
-	if (!isSingleplayer()) // Terra Firma: was builtin's (sprint 119)
+	if (!isSingleplayer()) // Terraverse: was builtin's (sprint 119)
 		SendChatMessage(PEER_ID_INEXISTENT, ChatMessage(CHATMESSAGE_TYPE_ANNOUNCE,
 				utf8_to_wide("*** " + playersao->getPlayer()->getName() + " joined the game.")));
-	if (m_sidecar) // Terra Firma: TypeScript mods (sprint 119)
+	if (m_sidecar) // Terraverse: TypeScript mods (sprint 119)
 		m_sidecar->joined(playersao->getPlayer()->getName());
-	SendBlueprints(peer_id, playersao->getPlayer()->getName()); // Terra Firma
-	SendMaterials(peer_id); // Terra Firma
+	SendBlueprints(peer_id, playersao->getPlayer()->getName()); // Terraverse
+	SendMaterials(peer_id); // Terraverse
 
 	// Send shutdown timer if shutdown has been scheduled
 	if (m_shutdown_state.isTimerRunning())
@@ -952,7 +952,7 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 			}
 			target_pos = pointed_object->getBasePosition();
 		}
-		// Terra Firma: on a planet, over the planet (a node across a face's
+		// Terraverse: on a planet, over the planet (a node across a face's
 		// edge is near, wherever the net keeps it)
 		float d = m_env->getMap().distance(playersao->getEyePosition(), target_pos);
 
@@ -984,7 +984,7 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 					getNodeBlockPos(pointed.node_abovesurface), false);
 			}
 
-			// a punch shakes loose what's lost its support (Terra Firma, sprint 119: was
+			// a punch shakes loose what's lost its support (Terraverse, sprint 119: was
 			// builtin's falling.lua)
 			if (n.getContent() != CONTENT_IGNORE)
 				interact::settle(*m_env, p_under);
@@ -1041,7 +1041,7 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 
 		/* Cheat prevention */
 		bool is_valid_dig = true;
-		// Terra Firma: creative digs anything at once (Game::handleDigging)
+		// Terraverse: creative digs anything at once (Game::handleDigging)
 		if ((anticheat_flags & AC_DIGGING) && !isSingleplayer() && !checkPriv(player->getName(), "core:creative")) {
 			v3s16 nocheat_p = playersao->getNoCheatDigPos();
 			float nocheat_t = playersao->getNoCheatDigTime();
@@ -1104,10 +1104,10 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 
 		/* Actually dig node */
 
-		// Terra Firma: timber dug gives back offcuts (sprint 123); else dug (sprint 119: was builtin's item.lua)
+		// Terraverse: timber dug gives back offcuts (sprint 123); else dug (sprint 119: was builtin's item.lua)
 		if (is_valid_dig && n.getContent() != CONTENT_IGNORE && !terra().cuts->dig(this, playersao, p_under))
 			interact::dig(this, playersao, p_under);
-		// Terra Firma: liquids and heaps beside it run into the hole, and the loose ground
+		// Terraverse: liquids and heaps beside it run into the hole, and the loose ground
 		// round it keeps its shape (sprint 85; sprint 119: were tf_matter's and tf_world's)
 		if (is_valid_dig && m_env->getMap().getNode(p_under).getContent() != n.getContent()) {
 			terraMatterDisturb(this, p_under);
@@ -1131,7 +1131,7 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 
 		const bool had_prediction = !selected_item->getDefinition(m_itemdef).
 			node_placement_prediction.empty();
-		// Terra Firma: the two nodes a block could go into, as they were (below)
+		// Terraverse: the two nodes a block could go into, as they were (below)
 		const MapNode under = m_env->getMap().getNode(pointed.node_undersurface),
 				above = m_env->getMap().getNode(pointed.node_abovesurface);
 
@@ -1149,11 +1149,11 @@ void Server::handleCommand_Interact(NetworkPacket *pkt)
 			pointed_object->rightClick(playersao);
 		} else if (selected_item.has_value() &&
 				interact::place(this, playersao, *selected_item, pointed)) {
-			// Terra Firma (sprint 119: was builtin's item.lua): what's left in hand
+			// Terraverse (sprint 119: was builtin's item.lua): what's left in hand
 			if (playersao->setWieldedItem(*selected_item))
 				SendInventory(player, true);
 		}
-		// Terra Firma: what's beside a block built runs against it, a liquid placed starts
+		// Terraverse: what's beside a block built runs against it, a liquid placed starts
 		// to run, and the loose ground round it keeps its shape (sprint 119: were tf_matter's
 		// and tf_world's); whichever of the two it went into
 		if (pointed.type == POINTEDTHING_NODE) {
@@ -1288,7 +1288,7 @@ void Server::handleCommand_NodeMetaFields(NetworkPacket* pkt)
 	if (!checkInteractDistance(player, d, "node metadata"))
 		return;
 
-	// Terra Firma (sprint 119): no block shows a form; the page is the UI
+	// Terraverse (sprint 119): no block shows a form; the page is the UI
 	infostream << player->getName() << " sent fields for a block's form at " << p
 			<< ", which no block shows; ignoring" << std::endl;
 }
@@ -1327,7 +1327,7 @@ void Server::handleCommand_InventoryFields(NetworkPacket* pkt)
 			auto it2 = fields.find("quit");
 			if (it2 != fields.end() && it2->second == "true")
 				m_formspec_state_data.erase(it);
-			// Terra Firma (sprint 119): the server shows no forms of its own; the page is the UI
+			// Terraverse (sprint 119): the server shows no forms of its own; the page is the UI
 			infostream << player->getName() << " answered the form " << client_formspec_name
 					<< ", which nothing reads" << std::endl;
 			return;
@@ -1363,7 +1363,7 @@ void Server::handleCommand_Ticket(NetworkPacket *pkt)
 	m_gate->begin({ peer_id, client->getName(), ticket, build, client->getAddress().isLocalhost() }); // answered in AsyncRunStep
 }
 
-// Terra Firma (sprint 119: was builtin's death_screen.lua): the one who died chose to
+// Terraverse (sprint 119: was builtin's death_screen.lua): the one who died chose to
 // live again (the client's own death screen, TOCLIENT_DEATHSCREEN_LEGACY)
 void Server::handleCommand_Respawn(NetworkPacket *pkt)
 {
@@ -1439,16 +1439,16 @@ void Server::handleCommand_Ui(NetworkPacket *pkt)
 				<< ": payload isn't JSON (" << errors << ")" << std::endl;
 		return;
 	}
-	// Terra Firma: the engine's own first (sprint 119: were tf_player's)
+	// Terraverse: the engine's own first (sprint 119: were tf_player's)
 	if (terraUiEvent(this, playersao, name, value))
 		return;
 	warningstream << "UI event \"" << name << "\" from " << player->getName()
 			<< ": nothing answers it" << std::endl;
 }
 
-// Terra Firma: the tools in hand (sprints 45–47). Creative only for now; the
+// Terraverse: the tools in hand (sprints 45–47). Creative only for now; the
 // server applies the stroke, to the world (its changes go out as the map's
-// Terra Firma: a workshop verb (sprint 48) for a player who may use the
+// Terraverse: a workshop verb (sprint 48) for a player who may use the
 // tools in hand: interact, in creative
 template <class F>
 void Server::inWorkshop(session_t peer_id, const char *what, F &&f)
@@ -1474,7 +1474,7 @@ void Server::inWorkshop(session_t peer_id, const char *what, F &&f)
 	}
 }
 
-// Terra Firma: a stroke of the tools in hand (sprint 45), on the world or a piece
+// Terraverse: a stroke of the tools in hand (sprint 45), on the world or a piece
 void Server::handleCommand_Sculpt(NetworkPacket *pkt)
 {
 	u16 piece_id;
@@ -1514,13 +1514,13 @@ void Server::handleCommand_Sculpt(NetworkPacket *pkt)
 	});
 }
 
-// Terra Firma: undo the player's last stroke (sprint 46), on what it was made on
+// Terraverse: undo the player's last stroke (sprint 46), on what it was made on
 void Server::handleCommand_Undo(NetworkPacket *pkt)
 {
 	inWorkshop(pkt->getPeerId(), "undo", [&](PlayerSAO &sao) { m_workshop->undo(sao); });
 }
 
-// Terra Firma: a new object, held up in front of the player (sprint 49)
+// Terraverse: a new object, held up in front of the player (sprint 49)
 void Server::handleCommand_PieceNew(NetworkPacket *pkt)
 {
 	inWorkshop(pkt->getPeerId(), "new object", [&](PlayerSAO &sao) {
@@ -1531,7 +1531,7 @@ void Server::handleCommand_PieceNew(NetworkPacket *pkt)
 	});
 }
 
-// Terra Firma: a piece kept as a blueprint (sprint 48)
+// Terraverse: a piece kept as a blueprint (sprint 48)
 void Server::handleCommand_BlueprintSave(NetworkPacket *pkt)
 {
 	u16 piece_id;
@@ -1545,7 +1545,7 @@ void Server::handleCommand_BlueprintSave(NetworkPacket *pkt)
 	});
 }
 
-// Terra Firma: copy and paste, and the parts library (sprint 74)
+// Terraverse: copy and paste, and the parts library (sprint 74)
 void Server::handleCommand_Clipboard(NetworkPacket *pkt)
 {
 	u8 verb;
@@ -1607,7 +1607,7 @@ void Server::handleCommand_Clipboard(NetworkPacket *pkt)
 	}
 }
 
-// Terra Firma: a blueprint put down as ghosts (sprint 48)
+// Terraverse: a blueprint put down as ghosts (sprint 48)
 void Server::handleCommand_BlueprintPlace(NetworkPacket *pkt)
 {
 	std::string name;
@@ -1616,7 +1616,7 @@ void Server::handleCommand_BlueprintPlace(NetworkPacket *pkt)
 	inWorkshop(pkt->getPeerId(), "blueprint", [&](PlayerSAO &sao) { m_workshop->place(sao, name, at); });
 }
 
-// Terra Firma: an object held or let go (sprint 49)
+// Terraverse: an object held or let go (sprint 49)
 void Server::handleCommand_ObjectHold(NetworkPacket *pkt)
 {
 	u16 id;
@@ -1629,7 +1629,7 @@ void Server::handleCommand_ObjectHold(NetworkPacket *pkt)
 	inWorkshop(pkt->getPeerId(), "hold", [&](PlayerSAO &sao) { m_workshop->hold(sao, id, workshop::Grip(grip)); });
 }
 
-// Terra Firma: where a held object is (sprint 50)
+// Terraverse: where a held object is (sprint 50)
 void Server::handleCommand_ObjectPose(NetworkPacket *pkt)
 {
 	u16 id;
@@ -1638,7 +1638,7 @@ void Server::handleCommand_ObjectPose(NetworkPacket *pkt)
 	inWorkshop(pkt->getPeerId(), "pose", [&](PlayerSAO &sao) { m_workshop->pose(sao, id, position, rotation); });
 }
 
-// Terra Firma: a player walking into an object (sprint 61)
+// Terraverse: a player walking into an object (sprint 61)
 void Server::handleCommand_ObjectPush(NetworkPacket *pkt)
 {
 	u16 id;
@@ -1656,7 +1656,7 @@ void Server::handleCommand_ObjectPush(NetworkPacket *pkt)
 	}
 }
 
-// Terra Firma: a point of an object grabbed, or let go (sprint 68)
+// Terraverse: a point of an object grabbed, or let go (sprint 68)
 void Server::handleCommand_ObjectGrab(NetworkPacket *pkt)
 {
 	u16 id;
@@ -1680,7 +1680,7 @@ void Server::handleCommand_ObjectGrab(NetworkPacket *pkt)
 	}
 }
 
-// Terra Firma: a machine driven from its seat, or got up from (sprint 69)
+// Terraverse: a machine driven from its seat, or got up from (sprint 69)
 void Server::handleCommand_Drive(NetworkPacket *pkt)
 {
 	u16 id;
@@ -1703,7 +1703,7 @@ void Server::handleCommand_Drive(NetworkPacket *pkt)
 	}
 }
 
-// Terra Firma: a machine set back on its feet (sprint 79); anyone may,
+// Terraverse: a machine set back on its feet (sprint 79); anyone may,
 // as anyone can push one
 void Server::handleCommand_Upright(NetworkPacket *pkt)
 {
@@ -1720,7 +1720,7 @@ void Server::handleCommand_Upright(NetworkPacket *pkt)
 	}
 }
 
-// Terra Firma: an object's design made a shell (sprint 50)
+// Terraverse: an object's design made a shell (sprint 50)
 void Server::handleCommand_Hollow(NetworkPacket *pkt)
 {
 	u16 id;
@@ -1735,7 +1735,7 @@ void Server::handleCommand_Hollow(NetworkPacket *pkt)
 	});
 }
 
-// Terra Firma: a face of a machine's part, off the wire (sprint 52)
+// Terraverse: a face of a machine's part, off the wire (sprint 52)
 static piece::Machine::Face readFace(NetworkPacket &pkt)
 {
 	piece::Machine::Face f;
@@ -1751,7 +1751,7 @@ static void checkFace(const piece::Machine::Face &f)
 		throw workshop::Refused("That's not a face");
 }
 
-// Terra Firma: the joint between two parts set (sprint 53)
+// Terraverse: the joint between two parts set (sprint 53)
 void Server::handleCommand_Link(NetworkPacket *pkt)
 {
 	u16 id;
@@ -1781,7 +1781,7 @@ void Server::handleCommand_Link(NetworkPacket *pkt)
 	});
 }
 
-// Terra Firma: two machines made one, face to face (sprint 52)
+// Terraverse: two machines made one, face to face (sprint 52)
 void Server::handleCommand_Join(NetworkPacket *pkt)
 {
 	u16 a, b;
@@ -1802,7 +1802,7 @@ void Server::handleCommand_Join(NetworkPacket *pkt)
 	});
 }
 
-// Terra Firma: a part made a machine of its own, or deleted (sprints 52–53)
+// Terraverse: a part made a machine of its own, or deleted (sprints 52–53)
 void Server::handleCommand_Part(NetworkPacket *pkt)
 {
 	u16 id;
@@ -1819,7 +1819,7 @@ void Server::handleCommand_Part(NetworkPacket *pkt)
 	});
 }
 
-// Terra Firma: a socket made on a face, or taken away (sprint 56)
+// Terraverse: a socket made on a face, or taken away (sprint 56)
 void Server::handleCommand_Socket(NetworkPacket *pkt)
 {
 	u16 id;
@@ -1848,8 +1848,8 @@ void Server::handleCommand_Socket(NetworkPacket *pkt)
 	});
 }
 
-// Terra Firma: a machine carried onto another's socket (sprint 56)
-// Terra Firma: another of the last plugged in (sprint 64)
+// Terraverse: a machine carried onto another's socket (sprint 56)
+// Terraverse: another of the last plugged in (sprint 64)
 void Server::handleCommand_PlugAgain(NetworkPacket *pkt)
 {
 	u16 a;

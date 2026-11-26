@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/render/gputime/gputime.h"
@@ -276,7 +276,7 @@ void View::OnRegisterSceneNode()
 
 void View::render()
 {
-	TF_ZONE("Far view render"); // Terra Firma: inside Draw3D, timed (the debugger)
+	TF_ZONE("Far view render"); // Terraverse: inside Draw3D, timed (the debugger)
 	gpu::Zone gpu("Far view");
 	video::IVideoDriver *driver = SceneManager->getVideoDriver();
 	scene::ICameraSceneNode *camera = SceneManager->getActiveCamera();

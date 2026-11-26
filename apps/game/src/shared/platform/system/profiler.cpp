@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2015 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -90,7 +90,7 @@ Profiler::Profiler()
 
 void Profiler::add(const std::string &name, float value)
 {
-	trace::count(name, value, trace::Fold::Sum); // Terra Firma: the debugger's counters
+	trace::count(name, value, trace::Fold::Sum); // Terraverse: the debugger's counters
 	MutexAutoLock lock(m_mutex);
 
 	auto it = m_data.find(name);
@@ -105,7 +105,7 @@ void Profiler::add(const std::string &name, float value)
 
 void Profiler::max(const std::string &name, float value)
 {
-	trace::count(name, value, trace::Fold::Max); // Terra Firma: the debugger's counters
+	trace::count(name, value, trace::Fold::Max); // Terraverse: the debugger's counters
 	MutexAutoLock lock(m_mutex);
 
 	auto it = m_data.find(name);
@@ -120,7 +120,7 @@ void Profiler::max(const std::string &name, float value)
 
 void Profiler::avg(const std::string &name, float value)
 {
-	trace::count(name, value, trace::Fold::Mean); // Terra Firma: the debugger's counters
+	trace::count(name, value, trace::Fold::Mean); // Terraverse: the debugger's counters
 	MutexAutoLock lock(m_mutex);
 
 	auto it = m_data.find(name);

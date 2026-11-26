@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2010-2013 kwolekr, Ryan Kwolek <kwolekr@minetest.net>
@@ -17,10 +17,10 @@
 #include "src/server/world/state/environment/serverenvironment.h"
 #include "src/server/world/state/servermap.h"
 #include "src/shared/map/block/mapblock.h"
-#include "src/server/world/generate/luanti/mg_biome.h"
-#include "src/server/world/generate/luanti/mg_ore.h"
-#include "src/server/world/generate/luanti/mg_decoration.h"
-#include "src/server/world/generate/luanti/mg_schematic.h"
+#include "src/server/world/generate/legacy/mg_biome.h"
+#include "src/server/world/generate/legacy/mg_ore.h"
+#include "src/server/world/generate/legacy/mg_decoration.h"
+#include "src/server/world/generate/legacy/mg_schematic.h"
 #include "src/shared/platform/system/porting.h"
 #include "src/shared/platform/system/profiler.h"
 #include "src/server/app/server.h"
@@ -28,7 +28,7 @@
 #include "src/shared/util/data/serialize.h"
 #include "src/shared/platform/settings/settings.h"
 #include "src/shared/map/voxel/voxel.h"
-#include "library/world/terragen/src/base/parallel.h" // Terra Firma: background()
+#include "library/world/terragen/src/base/parallel.h" // Terraverse: background()
 
 EmergeParams::~EmergeParams()
 {
@@ -185,7 +185,7 @@ void EmergeManager::initMapgens(MapgenParams *params)
 	 * itself isn't very useful).
 	 * see <https://github.com/luanti-org/luanti/issues/9357>
 	 */
-	// Terra Firma: terra too. Its land is a pure function of the place and it
+	// Terraverse: terra too. Its land is a pure function of the place and it
 	// lights and fills only its own block; nothing it plants crosses into a
 	// neighbour since the trees went.
 	bool multithread = params->mgtype == MAPGEN_SINGLENODE || params->mgtype == MAPGEN_TERRA;
@@ -220,7 +220,7 @@ void EmergeManager::initThreads(bool should_multithread)
 		// May have to be revisited after emerge code is refactored to be less
 		// lock heavy.
 #if USE_SHELL
-		// Terra Firma: a planet's chunks are almost all the generator's own
+		// Terraverse: a planet's chunks are almost all the generator's own
 		// work, not the map's locks: six threads made a place 15% sooner than four
 		nthreads = std::min<s16>(8, nthreads);
 #else
@@ -256,7 +256,7 @@ void EmergeManager::startThreads()
 	if (m_threads_active)
 		return;
 
-	// Terra Firma: active before any starts. A started thread can generate a
+	// Terraverse: active before any starts. A started thread can generate a
 	// queued block while the rest start, and its on_generated callbacks find
 	// their mapgen by this (getCurrentMapgen): set after, they found none
 	m_threads_active = true;
@@ -659,7 +659,7 @@ void *EmergeThread::run()
 	std::map<v3s16, MapBlock*> modified_blocks;
 	std::string databuf;
 
-	terragen::background(); // Terra Firma: the frame's thread first
+	terragen::background(); // Terraverse: the frame's thread first
 	m_map    = &m_server->m_env->getServerMap();
 	m_emerge = m_server->getEmergeManager();
 	m_mapgen = m_emerge->m_mapgens[id];
@@ -715,7 +715,7 @@ void *EmergeThread::run()
 
 				m_mapgen->makeChunk(&bmdata);
 			}
-			// Terra Firma: the wet shore it made, for the server to fill (sprint 119)
+			// Terraverse: the wet shore it made, for the server to fill (sprint 119)
 			m_server->queueShore(mapgenShore(*m_mapgen));
 
 			if (!error)

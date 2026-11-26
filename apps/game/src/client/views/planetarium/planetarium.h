@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -33,7 +33,7 @@ namespace video { class IVideoDriver; }
 	native, drawn under whatever page is shown over it. A body's land is
 	far::Tiles for the camera's eye, the same tiles the far view draws in
 	game; layers draw over it (the atlas's seams, for now). Hosts make one
-	and give it the window: the game (a key), and `luanti --planetarium`
+	and give it the window: the game (a key), and `terraverse --planetarium`
 	(a world code alone, from the game's baked palette).
 */
 namespace planetarium {

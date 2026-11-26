@@ -4,7 +4,7 @@
 #   terraverse-<version>-windows-x86_64/
 #     bin/terraverse.exe   run this. Player data goes in %APPDATA%\Terraverse (main.cpp)
 #     bin/                 the engine, Chromium, vcpkg's DLLs and the VC++ runtime
-#     client fonts games/terrafirma locale matter world textures ui/dist misc
+#     client fonts games/terraverse locale matter world textures ui/dist misc
 #     licenses/
 #
 # Needs a Release build with RUN_IN_PLACE=TRUE and the staged .output tree, and
@@ -45,7 +45,7 @@ cp "$crt"/*.dll "$stage/bin/"
 for d in client fonts locale matter textures misc server world; do
 	cp -a "$root/.output/$d" "$stage/"
 done
-cp -a "$root/.output/games/terrafirma" "$stage/games/"
+cp -a "$root/.output/games/terraverse" "$stage/games/"
 cp -a "$root/.output/ui/dist" "$stage/ui/"
 
 cp "$root/LICENSE.txt" "$stage/licenses/luanti-LICENSE.txt"

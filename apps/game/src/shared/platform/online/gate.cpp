@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/shared/platform/online/gate.h"
@@ -21,7 +21,7 @@ void Gate::begin(const Asking &asking)
 	const u16 peer = asking.peer;
 	const std::string &name = asking.name, &ticket = asking.ticket, &build = asking.build;
 	if (build != m_opts.build) {
-		m_ready.push_back({ peer, false, "This world runs Terra Firma build " + m_opts.build +
+		m_ready.push_back({ peer, false, "This world runs Terraverse build " + m_opts.build +
 				"; you have " + build + ". You both need the same build to play together." });
 		return;
 	}

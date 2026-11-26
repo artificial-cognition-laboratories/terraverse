@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -21,7 +21,7 @@ HTTPFetchRequest request(const Api &api, HttpMethod method, const std::string &p
 		const Json::Value &body = Json::Value(), long timeout_ms = 10000);
 
 // Waits for a request on the calling thread. Not httpfetch_sync_interruptible:
-// that one runs only on Luanti's own Thread class. The request's timeout
+// that one runs only on the engine's own Thread class. The request's timeout
 // bounds the wait.
 HTTPFetchResult fetch(HTTPFetchRequest req);
 

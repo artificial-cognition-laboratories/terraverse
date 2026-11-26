@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -47,7 +47,7 @@ public:
 
 	void graphSet(const std::string &id, float value)
 	{
-		trace::count(id, value, trace::Fold::Last); // Terra Firma: the debugger's counters
+		trace::count(id, value, trace::Fold::Last); // Terraverse: the debugger's counters
 		MutexAutoLock lock(m_mutex);
 		m_graphvalues[id] = value;
 	}
@@ -125,6 +125,6 @@ private:
 	u64 m_time1;
 	ScopeProfilerType m_type;
 	TimePrecision m_precision;
-	// Terra Firma: every profiled scope is a zone in the debugger's Perf tab too
+	// Terraverse: every profiled scope is a zone in the debugger's Perf tab too
 	std::optional<trace::Zone> m_zone;
 };

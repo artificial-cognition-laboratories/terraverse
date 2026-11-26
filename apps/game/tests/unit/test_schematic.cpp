@@ -1,10 +1,10 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2014 kwolekr, Ryan Kwolek <kwolekr@minetest.net>
 
 #include "tests/unit/test.h"
 
-#include "src/server/world/generate/luanti/mg_schematic.h"
+#include "src/server/world/generate/legacy/mg_schematic.h"
 #include "src/shared/base/gamedef.h"
 #include "src/shared/game/content/nodedef.h"
 

@@ -1,4 +1,4 @@
-// Terra Firma: the check's probe of digging, placing and what falls (sprint 119:
+// Terraverse: the check's probe of digging, placing and what falls (sprint 119:
 // apps/game/tests/checks/interact.sh), on a live server: what server/interact and server/kinds do
 // in place of Lua's item.lua, item_entity.lua and falling.lua.
 #include "tests/probe/probe.h"

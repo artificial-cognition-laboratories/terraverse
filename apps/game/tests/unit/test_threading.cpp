@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -204,7 +204,7 @@ private:
 	which affected only 32-bit MinGW. It was caused by incorrect calling convention
 	and fixed in GCC in 2020.
 
-	Occurrences in Luanti:
+	Occurrences in the engine:
 	* <https://github.com/luanti-org/luanti/issues/10137> (2020)
 	* <https://github.com/luanti-org/luanti/issues/12022> (2022)
 	* <https://github.com/luanti-org/luanti/issues/14140> (2023)

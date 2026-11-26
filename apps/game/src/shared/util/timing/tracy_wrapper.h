@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2024 DS
 
@@ -35,7 +35,7 @@
 #define ZoneTransient(x,y)
 #define ZoneTransientN(x,y,z)
 
-// Terra Firma: without Tracy, Luanti's annotations are zones in the debugger's recorder
+// Terraverse: without Tracy, the engine's annotations are zones in the debugger's recorder
 #define ZoneScoped TF_ZONE(__func__)
 #define ZoneScopedN(x) TF_ZONE(x)
 #define ZoneScopedC(x)

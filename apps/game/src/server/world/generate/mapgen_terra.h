@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -37,7 +37,7 @@ struct MapgenTerraParams : public MapgenParams
 };
 
 /*
-	Terra Firma's generator: terrain, climate and biome come from terragen, a
+	Terraverse's generator: terrain, climate and biome come from terragen, a
 	pure function of the world code (src/terragen). The engine's own passes —
 	ores, decorations, dust, liquids, lighting — run on top, driven by the
 	biome terragen chose for each column.
@@ -53,7 +53,7 @@ public:
 	virtual void makeChunk(BlockMakeData *data);
 	int getSpawnLevelAtPoint(v2s16 p);
 	int getGroundLevelAtPoint(v2s16 p);
-	// Terra Firma: the same at a place on a body (radians), with no node of
+	// Terraverse: the same at a place on a body (radians), with no node of
 	// the map: a spawn is looked for before its tile is in the window.
 	// MAX_MAP_GENERATION_LIMIT where no one spawns. Safe from another thread.
 	int spawnLevelAt(int body, double latitude, double longitude) const;

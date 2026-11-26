@@ -1,4 +1,4 @@
-// Terra Firma: who may do what on this server (sprint 119). No passwords: everyone is their
+// Terraverse: who may do what on this server (sprint 119). No passwords: everyone is their
 // ArcLabs account. A world played alone admits its one player (AUTH_MECHANISM_LOCAL), a hosted
 // one admits by ticket (src/online/gate).
 //

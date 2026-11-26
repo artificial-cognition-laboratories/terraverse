@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -23,8 +23,8 @@ enum ObjectVisual : u8 {
 	OBJECTVISUAL_ITEM,
 	OBJECTVISUAL_WIELDITEM,
 	OBJECTVISUAL_NODE,
-	OBJECTVISUAL_PIECE, // Terra Firma: a piece (src/piece), its blocks in `piece`
-	OBJECTVISUAL_BODY, // Terra Firma: a jointed figure posed by how it moves (client/figure.h)
+	OBJECTVISUAL_PIECE, // Terraverse: a piece (src/piece), its blocks in `piece`
+	OBJECTVISUAL_BODY, // Terraverse: a jointed figure posed by how it moves (client/figure.h)
 };
 
 extern const EnumString es_ObjectVisual[];
@@ -67,7 +67,7 @@ struct ObjectProperties
 	float zoom_fov = 0.0f;
 	std::optional<u32> nametag_fontsize;
 	MapNode node = MapNode(CONTENT_IGNORE);
-	// Terra Firma: a piece's blocks (piece::Piece::write), for visual "piece"
+	// Terraverse: a piece's blocks (piece::Piece::write), for visual "piece"
 	std::string piece;
 	u16 hp_max = 1;
 	u16 breath_max = 0;

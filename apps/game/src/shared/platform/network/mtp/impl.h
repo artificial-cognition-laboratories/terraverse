@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -203,7 +203,7 @@ class Peer : public IPeer {
 			the connection is considered half-open.
 			During this time we inhibit re-sending any reliables or pings. This
 			is to avoid spending too many resources on a potential DoS attack
-			and to make sure Luanti servers are not useful for UDP amplificiation.
+			and to make sure our servers are not useful for UDP amplificiation.
 		*/
 		bool m_half_open = true;
 
@@ -243,7 +243,7 @@ public:
 	float getPeerStat(session_t peer_id, rtt_stat_type type);
 	float getLocalStat(rate_stat_type type);
 	void setStrayHandler(StrayHandler handler);
-	// Terra Firma: the receive thread hands a stray datagram on; false if nobody takes them
+	// Terraverse: the receive thread hands a stray datagram on; false if nobody takes them
 	bool stray(const Address &sender, const u8 *data, size_t size);
 	u32 GetProtocolID() const { return m_protocol_id; };
 	const std::string getDesc();

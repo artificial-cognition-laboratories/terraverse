@@ -1,10 +1,10 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2018 nerzhul, Loic Blot <loic.blot@unix-experience.fr>
 
 #include "src/client/app/gameui.h"
-#include "src/client/world/player/body.h" // Terra Firma
+#include "src/client/world/player/body.h" // Terraverse
 #include "src/client/render/fonts/static_text.h"
 #include "src/shared/platform/system/gettext.h"
 #include "src/client/app/menus/mainmenumanager.h"
@@ -43,7 +43,7 @@ void GameUI::init()
 	m_guitext2 = gui::StaticText::add(guienv, L"", core::recti(), false,
 		true, guiroot);
 
-	// Terra Firma: no chat list over the game: Luanti's, in the corner, showed
+	// Terraverse: no chat list over the game: the engine's, in the corner, showed
 	// every join and log line. Chat comes back as part of the UI.
 
 	// Infotext of nodes and objects.
@@ -136,11 +136,11 @@ void GameUI::update(const RunStats &stats, Client *client, MapDrawControl *draw_
 			}
 		}
 
-		// Terra Firma: the body, for tuning its movement (world controls, View)
+		// Terraverse: the body, for tuning its movement (world controls, View)
 		if (g_settings->getBool("view_movement"))
 			os << "\n" << client->getBody().readout();
 
-		// Terra Firma: the orbit the player's on (sprint 59; a stand-in for the flight HUD)
+		// Terraverse: the orbit the player's on (sprint 59; a stand-in for the flight HUD)
 		if (const std::optional<orbit::Elements> e = client->getBody().orbit()) {
 			os << "\n" << (client->getBody().thrusting() ? "thrusting | " : "")
 				<< "speed: " << e->speed << " m/s | altitude: " << e->altitude << " m | ";

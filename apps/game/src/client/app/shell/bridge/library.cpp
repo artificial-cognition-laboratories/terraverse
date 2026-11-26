@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/app/shell/bridge/library.h"
@@ -21,7 +21,8 @@ Library::Library(Opts opts) :
 		return m_local_mods.contents(intent["path"].asString());
 	});
 	// the public directory isn't wired yet (unavailable); servers on this machine are
-	m_intents.on("servers.list", [this](const Json::Value &) {
+	// a read of running/, off the main thread so the game frame never waits on it
+	m_intents.onAsync("servers.list", [this](const Json::Value &) {
 		Json::Value out(Json::objectValue);
 		out["status"] = "unavailable";
 		out["servers"] = Json::Value(Json::arrayValue);

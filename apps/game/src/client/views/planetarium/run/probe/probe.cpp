@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/views/planetarium/run/probe/probe.h"
@@ -42,7 +42,7 @@ void run(const Opts &opts)
 	if (opts.cell)
 		OrbitCamera::cell = *opts.cell;
 	const terragen::WorldCode world = terragen::WorldCode::decode(opts.code);
-	far::Baked baked = far::Baked::load("terrafirma");
+	far::Baked baked = far::Baked::load("terraverse");
 	set_light_curve(g_settings->getFloat("display_gamma"));
 
 	// a GL context with no window anyone sees (SDL's offscreen driver, by EGL, as a

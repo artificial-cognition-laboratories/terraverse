@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -48,7 +48,7 @@ struct CollisionInfo;
 	grid's), harder the longer they're held; the brake pushes against the
 	motion. Landing ends it and puts them on their feet.
 
-	Luanti's movement still does what this doesn't yet: flying (until
+	The engine's movement still does what this doesn't yet: flying (until
 	thrust), noclip, swimming and climbing. The body takes over again from
 	wherever that left the player.
 */
@@ -58,7 +58,7 @@ public:
 	explicit Body(Client *client);
 	~Body();
 
-	// Whether it moves the player this step (else Luanti's movement does);
+	// Whether it moves the player this step (else the engine's movement does);
 	// it starts thrusting here.
 	bool moves(LocalPlayer &p);
 	bool thrusting() const { return m_thrusting; }
@@ -77,7 +77,7 @@ public:
 	// New presses, not holds: Space takes hold of what's in reach, Ctrl lets go.
 	void pressJump() { if (m_mover) m_mover->pressJump(); }
 	void pressCrouch() { if (m_mover) m_mover->pressCrouch(); }
-	// On a wall: how far its hips are turned from a view at this yaw (radians, Luanti's).
+	// On a wall: how far its hips are turned from a view at this yaw (radians, the engine's).
 	std::optional<float> wallFace(float yaw) const { return m_mover ? m_mover->wallFace(yaw) : std::nullopt; }
 	// Running on a wall: how far to lean out from it (radians, + left of a view at this yaw).
 	float wallLean(float yaw) const { return m_mover ? m_mover->wallLean(yaw) : 0; }
@@ -107,7 +107,7 @@ public:
 	// as a collision (for fall damage).
 	void move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisions);
 	// Each frame something's carried: if move() didn't step the world
-	// this frame (they fly, swim or climb by Luanti's movement), the
+	// this frame (they fly, swim or climb by the engine's movement), the
 	// objects are stepped without them, so what's carried still follows.
 	void stepObjects(LocalPlayer &p, float dtime);
 

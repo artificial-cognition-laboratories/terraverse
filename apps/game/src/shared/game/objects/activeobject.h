@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -62,10 +62,10 @@ enum ActiveObjectCommand : u8 {
 	AO_CMD_SET_ANIMATION_SPEED,
 	// >= 5.17.0-dev
 	AO_CMD_STOP_ANIMATION,
-	// Terra Firma, protocol 70: a machine's rigid groups, each in its first's
+	// Terraverse, protocol 70: a machine's rigid groups, each in its first's
 	// (u16 count, then each: v3f offset BS, f32 x y z w): its hinges' turns
 	AO_CMD_SET_PARTS,
-	// Terra Firma, protocol 91: how a player holds themselves (u8 physics::Stance)
+	// Terraverse, protocol 91: how a player holds themselves (u8 physics::Stance)
 	AO_CMD_SET_STANCE,
 	// When adding new commands, update Server::AsyncRunStep()
 	// to drop newer commands for older clients

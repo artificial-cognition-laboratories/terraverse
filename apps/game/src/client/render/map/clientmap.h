@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -57,7 +57,7 @@ using ModifyMaterialCallback = std::function<void(video::SMaterial& /* material 
 	This is the only map class that is able to render itself on screen.
 */
 
-class AtlasView; // Terra Firma
+class AtlasView; // Terraverse
 
 class ClientMap : public Map, public scene::ISceneNode
 {
@@ -101,10 +101,10 @@ public:
 	/// @brief clears m_drawlist and m_keeplist
 	void clearDrawList();
 
-	// Terra Firma: an atlas planet's view from the camera, up to date (null
+	// Terraverse: an atlas planet's view from the camera, up to date (null
 	// on any other world): how its blocks, and the far view's tiles, are drawn
 	AtlasView *atlasView();
-	// Terra Firma: the blocks the near world draws, by column (made with the draw list)
+	// Terraverse: the blocks the near world draws, by column (made with the draw list)
 	const far::Coverage &coverage() const { return m_coverage; }
 
 	/// @brief Calculate statistics about the map and keep the blocks alive
@@ -118,7 +118,7 @@ public:
 
 	// Returns true if draw list needs updating before drawing the next frame.
 	bool needsUpdateDrawList() { return m_needs_update_drawlist; }
-	// Terra Firma: a block's mesh came or went since the draw list was made:
+	// Terraverse: a block's mesh came or went since the draw list was made:
 	// it's made again soon (Game, at most a few times a second while flying)
 	void meshesChanged() { m_meshes_changed = true; }
 	bool haveMeshesChanged() const { return m_meshes_changed; }
@@ -186,7 +186,7 @@ private:
 	v3f m_camera_direction = v3f(0,0,1);
 	f32 m_camera_fov = M_PI;
 	v3s16 m_camera_offset;
-	// Terra Firma: an atlas planet's blocks as the eye sees them (null on any
+	// Terraverse: an atlas planet's blocks as the eye sees them (null on any
 	// other world); atlasView() keeps it up to the camera
 	std::unique_ptr<AtlasView> m_atlas_view;
 	far::Coverage m_coverage;
@@ -199,7 +199,7 @@ private:
 	std::vector<MapBlock*> m_keeplist;
 	std::map<v3s16, MapBlock*> m_drawlist_shadow;
 	bool m_needs_update_drawlist;
-	bool m_meshes_changed = false; // Terra Firma: meshesChanged()
+	bool m_meshes_changed = false; // Terraverse: meshesChanged()
 	CachedMeshBuffers m_dynamic_buffers;
 
 	bool m_cache_trilinear_filter;

@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -8,7 +8,7 @@
 
 extern const u16 LATEST_PROTOCOL_VERSION;
 
-// Server's supported network protocol range. Terra Firma: only our own
+// Server's supported network protocol range. Terraverse: only our own
 // protocol; stock Luanti peers are refused cleanly.
 constexpr u16 SERVER_PROTOCOL_VERSION_MIN = 106;
 
@@ -676,7 +676,7 @@ enum ToClientCommand : u16
 
 	TOCLIENT_UI = 0x65,
 	/*
-		Terra Firma: a value for the player's page (player:set_ui)
+		Terraverse: a value for the player's page (player:set_ui)
 		std::string key
 		u32 len
 		u8[len] value, JSON (null clears the key)
@@ -684,18 +684,18 @@ enum ToClientCommand : u16
 
 	TOCLIENT_HORIZON = 0x66,
 	/*
-		Terra Firma: this is a terra world; what the far view needs to build
+		Terraverse: this is a terra world; what the far view needs to build
 		it as the generator does (src/far/horizon.cpp: far::write). Sent once,
 		on join: the world code and water level, the generator's blocks
 		(terra::Blocks), and the tree species (terra::Species).
 	*/
 
-	// 0x67: Terra Firma's TOCLIENT_ALOFT (space bubbles), gone in protocol 60
-	// 0x68: Terra Firma's TOCLIENT_PLANET (the cube-sphere net), gone in protocol 62
+	// 0x67: Terraverse's TOCLIENT_ALOFT (space bubbles), gone in protocol 60
+	// 0x68: Terraverse's TOCLIENT_PLANET (the cube-sphere net), gone in protocol 62
 
 	TOCLIENT_ATLAS = 0x69,
 	/*
-		Terra Firma: this world is an atlas of bodies (src/planet/atlas.h),
+		Terraverse: this world is an atlas of bodies (src/planet/atlas.h),
 		the home first. Sent once, on join, on TOCLIENT_WINDOW's channel
 		(so before it).
 		u16 count
@@ -704,7 +704,7 @@ enum ToClientCommand : u16
 
 	TOCLIENT_WINDOW = 0x6A,
 	/*
-		Terra Firma: which of the planet's tiles are in the map's window
+		Terraverse: which of the planet's tiles are in the map's window
 		(planet::Atlas::window): every slot after TOCLIENT_ATLAS on join, then
 		each slot that changes. A slot that holds another tile is another
 		place: what the client has of it is gone.
@@ -717,7 +717,7 @@ enum ToClientCommand : u16
 
 	TOCLIENT_SHAPE = 0x6B,
 	/*
-		Terra Firma: a node's cut shape changed (shape::Shape). Its content is
+		Terraverse: a node's cut shape changed (shape::Shape). Its content is
 		as the client has it (a change of content comes as TOCLIENT_ADDNODE
 		first, on the same channel).
 		v3s16 node
@@ -727,7 +727,7 @@ enum ToClientCommand : u16
 
 	TOCLIENT_BLUEPRINTS = 0x6C,
 	/*
-		Terra Firma: the player's blueprints (workshop::Library), when they
+		Terraverse: the player's blueprints (workshop::Library), when they
 		join and when they save one
 		u16 count
 		for each: std::string name
@@ -735,7 +735,7 @@ enum ToClientCommand : u16
 
 	TOCLIENT_HELD = 0x6D,
 	/*
-		Terra Firma: the object the player's new one is, held (sprint 49):
+		Terraverse: the object the player's new one is, held (sprint 49):
 		the client focuses it when it arrives, or carries it (sprint 74:
 		a copy pasted, to be carried onto something)
 		u16 object: its object id
@@ -745,7 +745,7 @@ enum ToClientCommand : u16
 
 	TOCLIENT_MATERIALS = 0x6E,
 	/*
-		Terra Firma: what each block weighs in a machine (core.physics.material,
+		Terraverse: what each block weighs in a machine (core.physics.material,
 		sprint 58), on joining: the client's physics weighs what it carries so
 		u16 count
 		for each: u16 content id, f32 density (kg/m³), f32 friction,
@@ -755,7 +755,7 @@ enum ToClientCommand : u16
 
 	TOCLIENT_FILL = 0x6F,
 	/*
-		Terra Firma (sprint 81): a node's liquid, for the client's liquid layer
+		Terraverse (sprint 81): a node's liquid, for the client's liquid layer
 		v3s16 pos
 		std::string liquid ("" : none, and nothing follows but zeros)
 		u8 amount (of its open space, /255), u8 r, g, b
@@ -763,13 +763,13 @@ enum ToClientCommand : u16
 
 	TOCLIENT_STREAM = 0x70,
 	/*
-		Terra Firma (sprint 82): liquid poured, for the liquid layer to draw falling
+		Terraverse (sprint 82): liquid poured, for the liquid layer to draw falling
 		v3f from, to (nodes), u8 r, g, b, u16 cups (each 1/4096 of a node)
 	*/
 
 	TOCLIENT_RIVERS = 0x71,
 	/*
-		Terra Firma (sprint 115): the rivers in map blocks near the player, as
+		Terraverse (sprint 115): the rivers in map blocks near the player, as
 		the weather fills them
 		u16 count
 		for each: v3s16 block, s16 rise (sixteenths over the water as
@@ -944,7 +944,7 @@ enum ToServerCommand : u16
 
 	TOSERVER_UI = 0x54,
 	/*
-		Terra Firma: an event from the player's page (core.register_on_ui_event)
+		Terraverse: an event from the player's page (core.register_on_ui_event)
 		std::string name
 		u32 len
 		u8[len] payload, JSON
@@ -952,14 +952,14 @@ enum ToServerCommand : u16
 
 	TOSERVER_TICKET = 0x55,
 	/*
-		Terra Firma: the answer to AUTH_MECHANISM_TICKET
+		Terraverse: the answer to AUTH_MECHANISM_TICKET
 		std::string ticket   the joiner's ArcLabs ticket, or the host's own secret
 		std::string build    the client's build (g_version_hash): must be the host's
 	*/
 
 	TOSERVER_SCULPT = 0x56,
 	/*
-		Terra Firma: a stroke of the tools in hand (sculpt::Stroke)
+		Terraverse: a stroke of the tools in hand (sculpt::Stroke)
 		u16 piece: its object id, in its own grid; 0: the world
 		u64 part: the machine's part (sprint 52; 0 on the world)
 		u8 tool, u8 size (sixteenths)
@@ -977,18 +977,18 @@ enum ToServerCommand : u16
 
 	TOSERVER_UNDO = 0x57,
 	/*
-		Terra Firma: undo the player's last stroke (sculpt::History)
+		Terraverse: undo the player's last stroke (sculpt::History)
 	*/
 
 	TOSERVER_PIECE_NEW = 0x58,
 	/*
-		Terra Firma: a new object (sprint 49): one block of the block held,
+		Terraverse: a new object (sprint 49): one block of the block held,
 		held up in front of the player (TOCLIENT_HELD answers)
 	*/
 
 	TOSERVER_BLUEPRINT_SAVE = 0x59,
 	/*
-		Terra Firma: a part kept in the player's library (sprint 48; a
+		Terraverse: a part kept in the player's library (sprint 48; a
 		part and what hangs from it, sprint 74)
 		u16 piece: its object id
 		u64 part
@@ -997,28 +997,28 @@ enum ToServerCommand : u16
 
 	TOSERVER_BLUEPRINT_PLACE = 0x5A,
 	/*
-		Terra Firma: a blueprint of the player's put down, as ghosts
+		Terraverse: a blueprint of the player's put down, as ghosts
 		std::string name
 		v3s16 at: an open node
 	*/
 
 	TOSERVER_OBJECT_HOLD = 0x5B,
 	/*
-		Terra Firma: an object held or let go (sprints 49, 58)
+		Terraverse: an object held or let go (sprints 49, 58)
 		u16 object: its object id
 		u8 grip: workshop::Grip (0 let go, 1 still: the bench, 2 carried)
 	*/
 
 	TOSERVER_OBJECT_POSE = 0x5C,
 	/*
-		Terra Firma: where a held object is, as its holder has it (sprint 50)
+		Terraverse: where a held object is, as its holder has it (sprint 50)
 		u16 object: its object id
 		v3f position (BS), v3f rotation (degrees)
 	*/
 
 	TOSERVER_HOLLOW = 0x5D,
 	/*
-		Terra Firma: a part's design made a shell (sprint 50), or rounded
+		Terraverse: a part's design made a shell (sprint 50), or rounded
 		(sprint 75)
 		u16 object: its object id
 		u64 part
@@ -1027,12 +1027,12 @@ enum ToServerCommand : u16
 	*/
 
 	/*
-		Terra Firma, sprint 52: a face of a machine's part, in these:
+		Terraverse, sprint 52: a face of a machine's part, in these:
 		u64 part, v3s16 node, u8 x, y, z (the sixteenth), v3s16 normal (the part's)
 	*/
 	TOSERVER_LINK = 0x5E,
 	/*
-		Terra Firma: the joint between two of a machine's parts set (sprint 53)
+		Terraverse: the joint between two of a machine's parts set (sprint 53)
 		u16 object, u64 a, u64 b, u8 joint (piece::Joint; 255: taken away)
 		u8 at: 1 if a face of a's follows, where a new joint's made
 		if so: face
@@ -1041,19 +1041,19 @@ enum ToServerCommand : u16
 
 	TOSERVER_JOIN = 0x5F,
 	/*
-		Terra Firma: machine b set against a, face to face, made one
+		Terraverse: machine b set against a, face to face, made one
 		u16 a, face on a, u16 b, face on b, u8 joint (piece::Joint)
 	*/
 
 	TOSERVER_PART = 0x60,
 	/*
-		Terra Firma: a part made a machine of its own, or deleted
+		Terraverse: a part made a machine of its own, or deleted
 		u16 object, u64 part, u8 action: 0 detach, 1 delete
 	*/
 
 	TOSERVER_SOCKET = 0x61,
 	/*
-		Terra Firma: a socket made on a face, or taken away (sprint 56)
+		Terraverse: a socket made on a face, or taken away (sprint 56)
 		u16 object, u8 action: 0 made, 1 taken away
 		made: face, u8 joint, u8 mirror axis (255: none), s32 twice its plane (the machine's sixteenths)
 		taken away: u64 socket
@@ -1061,27 +1061,27 @@ enum ToServerCommand : u16
 
 	TOSERVER_PLUG = 0x62,
 	/*
-		Terra Firma: machine b carried onto a's socket (sprint 56)
+		Terraverse: machine b carried onto a's socket (sprint 56)
 		u16 a, u64 socket, u16 b, face on b
 	*/
 
 	TOSERVER_OBJECT_PUSH = 0x63,
 	/*
-		Terra Firma: a player walking into an object (sprint 61): what their
+		Terraverse: a player walking into an object (sprint 61): what their
 		body gave it since the last (N·s, in nodes), the server's to move
 		u16 object, v3f impulse
 	*/
 
 	TOSERVER_PLUG_AGAIN = 0x64,
 	/*
-		Terra Firma: another of the last thing plugged in, plugged into a's
+		Terraverse: another of the last thing plugged in, plugged into a's
 		socket as that was (sprint 64; creative)
 		u16 a, u64 socket
 	*/
 
 	TOSERVER_OBJECT_GRAB = 0x65,
 	/*
-		Terra Firma: a point of an object grabbed and pulled toward a hand
+		Terraverse: a point of an object grabbed and pulled toward a hand
 		(sprint 68), sent while it's held; or let go
 		u16 object, u8 held (0: let go, and nothing more)
 		v3f point (BS, in the object's frame), v3f hand (BS)
@@ -1089,7 +1089,7 @@ enum ToServerCommand : u16
 
 	TOSERVER_DRIVE = 0x66,
 	/*
-		Terra Firma: driving a machine from its seat (sprint 69), sent while
+		Terraverse: driving a machine from its seat (sprint 69), sent while
 		they sit there; or getting up
 		u16 object, u8 seated (0: they get up, and nothing more)
 		f32 forward, f32 right, f32 brake (ahead is the seat's front: sprint 73)
@@ -1097,7 +1097,7 @@ enum ToServerCommand : u16
 
 	TOSERVER_CLIPBOARD = 0x67,
 	/*
-		Terra Firma: copy and paste (sprint 74)
+		Terraverse: copy and paste (sprint 74)
 		u8 verb (workshop::Clip): then for copy u16 object, u64 part; for
 		paste nothing; for take and forget std::string name (the library's);
 		for pull (sprint 77: a part pulled off by hand) u16 object, u64 part.
@@ -1106,7 +1106,7 @@ enum ToServerCommand : u16
 
 	TOSERVER_UPRIGHT = 0x68,
 	/*
-		Terra Firma: a machine set back on its feet (sprint 79)
+		Terraverse: a machine set back on its feet (sprint 79)
 		u16 object
 	*/
 
@@ -1118,11 +1118,11 @@ enum AuthMechanism
 	// reserved
 	AUTH_MECHANISM_NONE = 0,
 
-	// Terra Firma: a world played alone, on this machine (sprint 119). The server
+	// Terraverse: a world played alone, on this machine (sprint 119). The server
 	// accepts at once, after TOCLIENT_HELLO: there's no one else it could be
 	AUTH_MECHANISM_LOCAL = 1 << 0,
 
-	// Terra Firma: a world hosted for friends admits by ArcLabs ticket only
+	// Terraverse: a world hosted for friends admits by ArcLabs ticket only
 	// (src/online/gate.h); the ticket is the client's password field
 	AUTH_MECHANISM_TICKET = 1 << 1,
 };

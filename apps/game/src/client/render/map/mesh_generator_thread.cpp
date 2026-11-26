@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013, 2017 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -14,10 +14,10 @@
 #include "src/shared/base/exceptions.h"
 #include "src/shared/game/content/nodedef.h"
 #include "library/world/planet/atlas.h"
-#include "library/world/terragen/src/base/parallel.h" // Terra Firma: background()
+#include "library/world/terragen/src/base/parallel.h" // Terraverse: background()
 #include <optional>
 
-// Terra Firma: what a cut cell shows across its cut face (below)
+// Terraverse: what a cut cell shows across its cut face (below)
 static MapNode across(Map &map, const std::vector<planet::Atlas::Node> &nodes, std::vector<v3s16> &read);
 
 /*
@@ -70,7 +70,7 @@ void QueuedMeshUpdate::retrieveBlocks(Map *map, u16 cell_size)
 				});
 		}
 
-	// Terra Firma: the border past an atlas's seams, read now (this is the
+	// Terraverse: the border past an atlas's seams, read now (this is the
 	// main thread; meshes are made on others)
 	halo.clear();
 	read.clear();
@@ -154,7 +154,7 @@ void QueuedMeshUpdate::fill(MeshMakeData *data) const
 		if (block)
 			block->copyTo(data->m_vmanip);
 	}
-	// Terra Firma: over the seam; what's inside the block is read, not drawn
+	// Terraverse: over the seam; what's inside the block is read, not drawn
 	const s32 side = data->m_side_length;
 	const v3s16 low = p * MAP_BLOCKSIZE;
 	for (const auto &[pos, node] : halo) {
@@ -243,7 +243,7 @@ bool MeshUpdateQueue::addBlock(Map *map, v3s16 p, bool ack_block_to_server,
 
 	const MeshGrid mesh_grid = m_client->getMeshGrid();
 
-	// Terra Firma, an atlas: its geometry found first, off this thread
+	// Terraverse, an atlas: its geometry found first, off this thread
 	if (const planet::Atlas *atlas = map->getAtlas()) {
 		if (!atlas->prepared({ p.X, p.Y, p.Z })) {
 			if (!m_preparer)
@@ -470,7 +470,7 @@ void MeshUpdateQueue::clear(bool finish)
 {
 	MutexAutoLock lock(m_mutex);
 	if (finish)
-		m_waiting.clear(); // Terra Firma: nothing is acked after this
+		m_waiting.clear(); // Terraverse: nothing is acked after this
 	decltype(m_queue) new_queue;
 	for (auto *it : m_queue) {
 		// If we're in an active game session clearing updates that the
@@ -534,7 +534,7 @@ MeshUpdateWorkerThread::MeshUpdateWorkerThread(Client *client, MeshUpdateQueue *
 
 void MeshUpdateWorkerThread::doUpdate()
 {
-	terragen::background(); // Terra Firma: the frame's thread first
+	terragen::background(); // Terraverse: the frame's thread first
 	QueuedMeshUpdate *q;
 	while ((q = m_queue_in->pop())) {
 		ScopeProfiler sp(g_profiler, "Client: Mesh making (sum)");
@@ -595,7 +595,7 @@ void MeshUpdateManager::updateBlock(Map *map, v3s16 p, bool ack_block_to_server,
 				<< p << std::endl;
 		return;
 	}
-	// Terra Firma: every neighbour, edges and corners too: the ground's shape
+	// Terraverse: every neighbour, edges and corners too: the ground's shape
 	// reads the columns round a block (ground::Ground), across them (was:
 	// only with smooth lighting)
 	if (update_neighbors)

@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -303,7 +303,7 @@ bool ClientLauncher::run(const GameParams &game_params, const Settings &cmd_args
 		 * in case of a later unclean exit from the mainmenu.
 		 * This is especially useful on Android because closing the app from the
 		 * "Recents screen" results in an unclean exit.
-		 * Caveat: This means that the settings are saved twice when exiting Luanti.
+		 * Caveat: This means that the settings are saved twice when exiting the game.
 		 */
 		if (!g_settings_path.empty())
 			g_settings->updateConfigFile(g_settings_path.c_str());
@@ -327,7 +327,7 @@ bool ClientLauncher::run(const GameParams &game_params, const Settings &cmd_args
 }
 
 #if USE_SHELL
-// Terra Firma: a friend's world, or one of the player's own — hosted for
+// Terraverse: a friend's world, or one of the player's own — hosted for
 // friends while signed in to ArcLabs, alone otherwise.
 bool ClientLauncher::online(GameStartData &start_data, shell::Choice &choice, std::string &error_message)
 {

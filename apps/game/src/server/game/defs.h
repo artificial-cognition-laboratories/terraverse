@@ -1,4 +1,4 @@
-// Terra Firma: blocks and items as data (sprint 119). One JSON definition says what a
+// Terraverse: blocks and items as data (sprint 119). One JSON definition says what a
 // block is (assets/world/blocks.json, a TypeScript mod's block, a substance's); this reads
 // it into what the engine holds: its item and, for a block, its node. Only the fields
 // content uses are read, and any other is refused, so a typo fails loudly rather than

@@ -26,16 +26,14 @@ onBeforeUnmount(() => { if (timer) clearTimeout(timer) })
 </script>
 
 <template>
-    <Transition name="toast">
-        <aside v-if="shown" class="toast" role="status">
-            <span class="chev">»</span>
-            <span class="text">
-                <strong>{{ shown.from.username }}</strong> invited you to {{ shown.world }}
-                <small>{{ store.mode === "game" ? "Pause to answer" : "Answer in Friends" }}</small>
-            </span>
-            <button aria-label="Hide" @click="shown = null">✕</button>
-        </aside>
-    </Transition>
+    <aside v-if="shown" class="toast" role="status">
+        <span class="chev">»</span>
+        <span class="text">
+            <strong>{{ shown.from.username }}</strong> invited you to {{ shown.world }}
+            <small>{{ store.mode === "game" ? "Pause to answer" : "Answer in Friends" }}</small>
+        </span>
+        <button aria-label="Hide" @click="shown = null">✕</button>
+    </aside>
 </template>
 
 <style scoped>
@@ -59,6 +57,4 @@ onBeforeUnmount(() => { if (timer) clearTimeout(timer) })
 .text strong { font-weight: 400; color: var(--accent-hi); }
 small { font-size: 11px; color: var(--ink-faint); }
 button { border: 0; background: none; color: var(--ink-dim); padding: 0 4px; }
-.toast-enter-active, .toast-leave-active { transition: opacity 160ms steps(4), transform 160ms steps(4); }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, -12px); }
 </style>

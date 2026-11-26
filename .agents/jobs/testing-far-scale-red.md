@@ -10,8 +10,8 @@ Found by the CI owner, 2026-11-18, running the whole unit suite (`bun run test`,
 
 Likely sprint 116 (0f12048e4, "Land by the book": steeper relief), but not confirmed. Reproduce:
 
-    ./.output/bin/luanti --test-module TestFar
-    ./.output/bin/luanti --test-module TestScale
+    ./.output/bin/terraverse --test-module TestFar
+    ./.output/bin/terraverse --test-module TestScale
 
 CI runs only TestOnline, TestRelease and TestTerragen today, so these don't hold master red. When the
 fast tier runs the whole suite in CI they will: fix or skip them by name (apps/game/tests/run/skip.txt) first.

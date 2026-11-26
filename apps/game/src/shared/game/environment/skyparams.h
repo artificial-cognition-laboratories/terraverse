@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2019 Jordach, Jordan Snelling <jordach.snelling@gmail.com>
 
@@ -21,7 +21,7 @@ struct SkyColor
 	video::SColor indoors;
 };
 
-// Terra Firma: the real sun for where the player stands and the day of the
+// Terraverse: the real sun for where the player stands and the day of the
 // year (degrees). When on, the sun, moon and stars follow it instead of the
 // orbit tilt, and the sky is lit by how high the sun really is.
 struct SkySolar
@@ -30,7 +30,7 @@ struct SkySolar
 	float latitude { 0.0f };    // north positive
 	float declination { 0.0f }; // the latitude under the noon sun
 	float turns { 1.0f };       // its body's days to the engine's, and where the clock stands at
-	float at { 0.0f };          // the engine's 0: the local time is at + turns × the engine's
+	float at { 0.0f };          // The engine's 0: the local time is at + turns × the engine's
 };
 
 struct SkyboxParams

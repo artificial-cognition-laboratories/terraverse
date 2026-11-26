@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -37,7 +37,7 @@ public:
 		Client *client;
 		video::IVideoDriver *driver;
 		gui::IGUIEnvironment *guienv;
-		Hand &hand; // Terra Firma: the tools in hand (the page picks one)
+		Hand &hand; // Terraverse: the tools in hand (the page picks one)
 	};
 
 	explicit Session(const Opts &opts);

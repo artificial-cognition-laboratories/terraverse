@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -70,7 +70,7 @@
 #include <atomic>
 
 #if CHECK_CLIENT_BUILD() && defined(_WIN32)
-// On Windows export some driver-specific variables to encourage Luanti to be
+// On Windows export some driver-specific variables to encourage the engine to be
 // executed on the discrete GPU in case of systems with two. Portability is fun.
 extern "C" {
 	__declspec(dllexport) DWORD NvOptimusEnablement = 1;
@@ -213,14 +213,8 @@ void signal_handler_init()
 
 static std::optional<std::string> getUserPathEnvVar()
 {
-	if (const char *user_path = getenv("LUANTI_USER_PATH");
+	if (const char *user_path = getenv("TERRAVERSE_USER_PATH");
 	    		user_path && *user_path) {
-		return user_path;
-	}
-	if (const char *user_path = getenv("MINETEST_USER_PATH");
-	    		user_path && *user_path) {
-		warningstream << "MINETEST_USER_PATH is deprecated, "
-			      << "use LUANTI_USER_PATH instead." << std::endl;
 		return user_path;
 	}
 	return std::nullopt;
@@ -536,23 +530,14 @@ bool setSystemPaths()
 		path_share += DIR_DELIM "..";
 	}
 
-	// Use %LUANTI_USER_PATH%
-	DWORD len = GetEnvironmentVariable("LUANTI_USER_PATH", buf, sizeof(buf));
-	if (!len) {
-		len = GetEnvironmentVariable("MINETEST_USER_PATH", buf, sizeof(buf));
-		if (len) {
-			warningstream << "MINETEST_USER_PATH is deprecated, "
-				      << "use LUANTI_USER_PATH instead." << std::endl;
-		}
-	}
-
-	FATAL_ERROR_IF(len >= sizeof(buf), "Failed to get LUANTI_USER_PATH (too large for buffer)");
+	// Use %TERRAVERSE_USER_PATH%
+	DWORD len = GetEnvironmentVariable("TERRAVERSE_USER_PATH", buf, sizeof(buf));
+	FATAL_ERROR_IF(len >= sizeof(buf), "Failed to get TERRAVERSE_USER_PATH (too large for buffer)");
 	if (len == 0) {
 		// Use "C:\Users\<user>\AppData\Roaming\<PROJECT_NAME_C>"
 		len = GetEnvironmentVariable("APPDATA", buf, sizeof(buf));
 		FATAL_ERROR_IF(len == 0 || len > sizeof(buf), "Failed to get APPDATA");
-		// TODO: Luanti with migration
-		path_user = std::string(buf) + DIR_DELIM "Minetest";
+		path_user = std::string(buf) + DIR_DELIM "Terraverse";
 	} else {
 		path_user = std::string(buf);
 	}
@@ -616,8 +601,7 @@ bool setSystemPaths()
 	if (user_path_env) {
 		path_user = std::move(user_path_env.value());
 	} else {
-		// TODO: luanti with migration
-		path_user = std::string(getHomeOrFail()) + DIR_DELIM "." "minetest";
+		path_user = std::string(getHomeOrFail()) + DIR_DELIM "." "terraverse";
 	}
 
 	return true;
@@ -645,9 +629,8 @@ bool setSystemPaths()
 	if (user_path_env) {
 		path_user = std::move(user_path_env.value());
 	} else {
-		// TODO: luanti with migration
 		path_user = std::string(getHomeOrFail())
-			+ "/Library/Application Support/" "minetest";
+			+ "/Library/Application Support/" "Terraverse";
 	}
 	return true;
 }
@@ -663,8 +646,7 @@ bool setSystemPaths()
 	if (user_path_env) {
 		path_user = std::move(user_path_env.value());
 	} else {
-		// TODO: luanti with migration
-		path_user  = std::string(getHomeOrFail()) + DIR_DELIM "." "minetest";
+		path_user  = std::string(getHomeOrFail()) + DIR_DELIM "." "terraverse";
 	}
 	return true;
 }
@@ -756,7 +738,7 @@ void initializePaths()
 	}
 	path_cache = path_user + DIR_DELIM "cache";
 
-	// Terra Firma: where the player's things are is the home's to say (shared/platform/home),
+	// Terraverse: where the player's things are is the home's to say (shared/platform/home),
 	// which points path_user and path_cache at the active profile once it boots
 #else
 	infostream << "Using system-wide paths (NOT RUN_IN_PLACE)" << std::endl;
@@ -773,13 +755,11 @@ void initializePaths()
 	const char *cache_dir = getenv("XDG_CACHE_HOME");
 	const char *home_dir = getenv("HOME");
 	if (cache_dir && cache_dir[0] != '\0') {
-		// TODO: luanti with migration
-		path_cache = std::string(cache_dir) + DIR_DELIM "minetest";
+		path_cache = std::string(cache_dir) + DIR_DELIM "terraverse";
 	} else if (home_dir) {
 		// Then try $HOME/.cache/PROJECT_NAME
-		// TODO: luanti with migration
 		path_cache = std::string(home_dir) + DIR_DELIM ".cache"
-			DIR_DELIM "minetest";
+			DIR_DELIM "terraverse";
 	} else {
 		// If neither works, use $PATH_USER/cache
 		path_cache = path_user + DIR_DELIM "cache";

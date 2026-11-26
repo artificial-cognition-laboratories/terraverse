@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -54,7 +54,7 @@ public:
 
 	void reloadKeybindings();
 
-	// Terra Firma: a full-screen view (the Planetarium) takes every event the
+	// Terraverse: a full-screen view (the Planetarium) takes every event the
 	// page doesn't, before the game sees it, while one is set; empty for none.
 	std::function<bool(const SEvent &)> capture;
 
@@ -112,7 +112,7 @@ public:
 private:
 	void listenForKey(KeyPress keyCode, GameKeyType action)
 	{
-		// Terra Firma: a key can be several actions' (sprint 74: S walks
+		// Terraverse: a key can be several actions' (sprint 74: S walks
 		// back, and with Ctrl saves a part), so none takes another's key
 		if (keyCode)
 			keysListenedFor[keyCode].push_back(action);
@@ -241,7 +241,7 @@ public:
 
 	virtual void step(float dtime) {}
 
-	// Terra Firma: events to a full-screen view first (MyEventReceiver::capture);
+	// Terraverse: events to a full-screen view first (MyEventReceiver::capture);
 	// empty gives them back to the game
 	virtual void capture(std::function<bool(const SEvent &)> to) = 0;
 

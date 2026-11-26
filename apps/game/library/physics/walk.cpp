@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "library/physics/walk.h"
@@ -15,7 +15,7 @@ v3f walk(const Gait &gait, const Intent &intent, const Footing &now, float dt)
 	if (ask.getLengthSQ() > 1)
 		ask.normalize();
 	const float s = std::sin(intent.yaw), c = std::cos(intent.yaw);
-	// Luanti's yaw turns +z toward −x
+	// The engine's yaw turns +z toward −x
 	const v3f dir(ask.X * c - ask.Z * s, 0, ask.X * s + ask.Z * c);
 	const v3f target = dir * (gait.walk * gait.run);
 

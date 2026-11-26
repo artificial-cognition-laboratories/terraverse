@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // What Game did each frame to show the world (Game::updateFrame, drawScene, updateClouds,
 // updateShadows and its sky's client events), moved here whole (sprint 126).
@@ -69,7 +69,7 @@ bool WorldView::fogEnabled() const
 void WorldView::light(Client &client, const ClientEvent &event)
 {
 	if (event.type == CE_SET_SKY)
-		client.getEnv().setSolar(event.set_sky->solar); // Terra Firma: the real sun, for the light
+		client.getEnv().setSolar(event.set_sky->solar); // Terraverse: the real sun, for the light
 	else if (event.type == CE_OVERRIDE_DAY_NIGHT_RATIO)
 		client.getEnv().setDayNightRatioOverride(event.override_day_night_ratio.do_override,
 				event.override_day_night_ratio.ratio_f * 1000.0f);
@@ -108,7 +108,7 @@ bool WorldView::heard(ClientEvent &event)
 			m_sky->setHorizonTint(set.bgcolor, set.bgcolor, "custom");
 		}
 		m_sky->setBodyOrbitTilt(set.body_orbit_tilt);
-		// Terra Firma: the real sun, for the sky (and the light: `light`)
+		// Terraverse: the real sun, for the sky (and the light: `light`)
 		m_sky->setSolar(set.solar);
 		// fog: a server's distance never overrides a smaller one of the player's
 		m_sky->setFogDistance(set.fog_distance);
@@ -170,7 +170,7 @@ void WorldView::offsetMoved(v3s16 offset)
 
 void WorldView::ensurePlanet()
 {
-	// Terra Firma: the far view, once the server says this is a terra world. Made after the sky,
+	// Terraverse: the far view, once the server says this is a terra world. Made after the sky,
 	// so it draws right after it. The planet comes before the horizon (Server::SendPlanet). On an
 	// atlas world it's the body the player stands on: made again when that's another (kept while
 	// they're in seam, between tiles).
@@ -212,10 +212,10 @@ void WorldView::step(float dtime, const Frame &frame)
 	ensurePlanet();
 	if (m_space)
 		m_space->update(m_camera, map, m_client.getEnv().getDayCount() + m_client.getEnv().getTimeOfDayF());
-	// Terra Firma: land fades into the air's own horizon
+	// Terraverse: land fades into the air's own horizon
 	if (m_space)
 		m_sky->setFogColor(m_space->fog().value_or(video::SColor(0, 0, 0, 0))); // (no alpha: the sky's own)
-	// Terra Firma: liquid lying in the world (sprint 81), drawn on its own
+	// Terraverse: liquid lying in the world (sprint 81), drawn on its own
 	if (!m_liquids)
 		m_liquids = make_irr<liquids::Layer>(liquids::Layer::Opts{ /*smgr*/ m_engine.get_scene_manager(), /*ndef*/ m_client.ndef(), /*shaders*/ &m_shaders });
 	{
@@ -276,7 +276,7 @@ void WorldView::step(float dtime, const Frame &frame)
 		time_of_day_smooth = time_of_day_smooth * (1.0 - todsm) + time_of_day * todsm;
 	m_time_of_day_smooth = time_of_day_smooth;
 
-	// Terra Firma: the date the smoothed time belongs to, which lags across midnight
+	// Terraverse: the date the smoothed time belongs to, which lags across midnight
 	const float smooth_lag = time_of_day_smooth - time_of_day;
 	m_sky->setDay(m_client.getEnv().getDayCount() + (smooth_lag > 0.5f ? -1 : smooth_lag < -0.5f ? 1 : 0));
 	m_sky->update(time_of_day_smooth, time_brightness, direct_brightness,
@@ -286,7 +286,7 @@ void WorldView::step(float dtime, const Frame &frame)
 	m_client.getParticleManager()->step(dtime);
 
 	/*
-		Terra Firma: the block draw list is made again when what it shows changes: the camera
+		Terraverse: the block draw list is made again when what it shows changes: the camera
 		into another block (ClientMap::updateCamera), turned much, or the offset moved at once;
 		meshes come or gone soon after (at most every MESHES_DELTA: flying, they come every
 		frame); and every second whatever happens. It was every 200 ms besides, a spike each
@@ -350,7 +350,7 @@ void WorldView::updateShadows()
 	const float offset_constant = 10000.0f;
 	v3f light;
 	if (const std::optional<planetarium::Sky::Light> real = m_space ? m_space->light() : std::nullopt) {
-		// Terra Firma: the stock sun's hidden on a planet; the real star casts them
+		// Terraverse: the stock sun's hidden on a planet; the real star casts them
 		shadow->setShadowIntensity(real->strength);
 		light = real->way;
 	} else if (lighting.shadow_direction.getLengthSQ() > 0.0f) {

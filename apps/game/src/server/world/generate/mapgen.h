@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2020 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2015-2020 paramat
@@ -6,7 +6,7 @@
 
 #pragma once
 
-namespace planet { class Atlas; } // Terra Firma
+namespace planet { class Atlas; } // Terraverse
 
 #include "src/shared/base/constants.h"
 #include "src/shared/base/noise.h"
@@ -50,8 +50,8 @@ enum MapgenObject {
 	MGOBJ_HEATMAP,
 	MGOBJ_HUMIDMAP,
 	MGOBJ_GENNOTIFY,
-	MGOBJ_SHORE,     // Terra Firma: loose ground meeting water
-	MGOBJ_TERRA_COVER // Terra Firma: what can grow on each surface of the chunk
+	MGOBJ_SHORE,     // Terraverse: loose ground meeting water
+	MGOBJ_TERRA_COVER // Terraverse: what can grow on each surface of the chunk
 };
 
 enum GenNotifyType {
@@ -115,13 +115,13 @@ struct MapgenParams {
 	u64 seed = 0;
 	s16 water_level = 1;
 	s16 mapgen_limit = MAX_MAP_GENERATION_LIMIT;
-	// Terra Firma: the planet's mapping code (terragen::Atlas::code,
+	// Terraverse: the planet's mapping code (terragen::Atlas::code,
 	// planet/atlas.h); empty unless the world is one. Any mapgen.
 	std::string planet_atlas;
-	// Terra Firma: the server's atlas, the window its map is (set before the
+	// Terraverse: the server's atlas, the window its map is (set before the
 	// mapgens are made; a mapgen's copy shares its window). Not saved.
 	const planet::Atlas *planet = nullptr;
-	// Terra Firma, TEMP(2026-10-27): an atlas planet with no terrain: a smooth
+	// Terraverse, TEMP(2026-10-27): an atlas planet with no terrain: a smooth
 	// sphere (ground below layer 0) painted by what each cell is, its regions
 	// and seams, to look at (sprint 30). Never in a production world.
 	bool planet_atlas_debug = false;
@@ -317,7 +317,7 @@ protected:
 // mapgen_limit. Returns the minimum and maximum edges in nodes in that order.
 std::pair<v3s16, v3s16> get_mapgen_edges(s16 mapgen_limit, v3s16 chunksize);
 
-// Terra Firma: the loose ground of a chunk just made that's wet (water over it or
+// Terraverse: the loose ground of a chunk just made that's wet (water over it or
 // beside it), in its inner blocks: where the shore's smoothed slopes hold water as a
 // fill (sprint 81). The engine fills them (Server::queueShore); core.get_mapgen_object("shore").
 std::vector<v3s16> mapgenShore(Mapgen &mg);

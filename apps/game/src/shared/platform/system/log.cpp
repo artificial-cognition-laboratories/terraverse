@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -189,7 +189,7 @@ void Logger::registerThread(std::string_view name)
 	std::thread::id id = std::this_thread::get_id();
 	MutexAutoLock lock(m_mutex);
 	m_thread_names[id] = name;
-	trace::nameThread(name); // Terra Firma: the debugger's tracks are named as the log's
+	trace::nameThread(name); // Terraverse: the debugger's tracks are named as the log's
 }
 
 void Logger::deregisterThread()

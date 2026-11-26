@@ -1,22 +1,20 @@
 <script setup lang="ts">
 import { computed, watch } from "vue"
 import type { RegistryMod } from "../../bridge/index.ts"
-import { Notice, Spinner } from "../../kit/index.ts"
+import { useCache } from "../../cache/index.ts"
+import { KeptNote, Notice, Spinner } from "../../kit/index.ts"
 import { format } from "./format.ts"
-import { useRegistry } from "./registry.ts"
-import { Request } from "./request.ts"
 
 /**
  * One file of the latest version, as the website's (registry/detail/source.vue): a window, its path
  * and size along the bar, its text under it. The file is picked in the side card's tree.
  */
 const props = defineProps<{ mod: RegistryMod; file: string }>()
-const registry = useRegistry()
-const text = Request<string, string>((path) => registry.file(props.mod.name, path))
+const text = useCache().cached("registry.file")
 const IMAGE = /\.(png|jpe?g|gif|webp)$/i
 const crumbs = computed(() => props.file.split("/"))
 const size = computed(() => props.mod.files?.find((f) => f.path === props.file)?.size ?? null)
-watch(() => props.file, (path) => { if (!IMAGE.test(path)) void text.run(path) }, { immediate: true })
+watch(() => props.file, (path) => { if (!IMAGE.test(path)) void text.run({ name: props.mod.name, path: path }) }, { immediate: true })
 </script>
 
 <template>
@@ -29,9 +27,12 @@ watch(() => props.file, (path) => { if (!IMAGE.test(path)) void text.run(path) }
             <span v-if="size !== null" class="size">{{ format.size(size) }}</span>
         </figcaption>
         <p v-if="IMAGE.test(file)" class="binary">An image: it shows in the README, and in the game.</p>
-        <Notice v-else-if="text.problem.value" tone="danger">{{ text.problem.value }}</Notice>
-        <div v-else-if="text.busy.value" class="binary"><Spinner /></div>
-        <pre v-else-if="text.data.value !== null"><code>{{ text.data.value }}</code></pre>
+        <Notice v-else-if="text.problem.value && text.data.value === null" tone="danger">{{ text.problem.value }}</Notice>
+        <div v-else-if="text.data.value === null" class="binary"><Spinner /></div>
+        <template v-else>
+            <KeptNote v-if="text.problem.value && text.at.value !== null" :at="text.at.value" :problem="text.problem.value" />
+            <pre><code>{{ text.data.value }}</code></pre>
+        </template>
     </figure>
 </template>
 

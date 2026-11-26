@@ -1,4 +1,4 @@
-// Terra Firma: the checks' probes (sprint 119). See probe.h.
+// Terraverse: the checks' probes (sprint 119). See probe.h.
 #include "tests/probe/probe.h"
 
 #include "src/server/world/load/emerge.h"

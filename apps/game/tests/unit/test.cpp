@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -94,7 +94,7 @@ void TestGameDef::defineSomeNodes()
 	idef->registerItem(itemdef);
 	t_CONTENT_GRASS = ndef->set(f.name, std::move(f));
 
-	// Terra Firma: sand, loose ground that moves when pressed (sprint 84)
+	// Terraverse: sand, loose ground that moves when pressed (sprint 84)
 	itemdef = ItemDefinition();
 	itemdef.type = ITEM_NODE;
 	itemdef.name = "default:sand";
@@ -182,7 +182,7 @@ void TestGameDef::defineSomeNodes()
 	idef->registerItem(itemdef);
 	t_CONTENT_BRICK = ndef->set(f.name, std::move(f));
 
-	//// A node that faces a way (Terra Firma: turned across a planet's edges)
+	//// A node that faces a way (Terraverse: turned across a planet's edges)
 	itemdef = ItemDefinition();
 	itemdef.type = ITEM_NODE;
 	itemdef.name = "test:facedir";
@@ -222,7 +222,7 @@ bool run_tests()
 	config.allowZeroTests = true;
 	session.useConfigData(config);
 	auto exit_code = session.run();
-	// We count all the Catch tests as one test for Luanti's own logging
+	// We count all the Catch tests as one test for the engine's own logging
 	// because we don't have a way to tell how many individual tests Catch ran.
 	++num_total_tests_run;
 	if (exit_code != 0) {

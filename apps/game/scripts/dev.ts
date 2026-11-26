@@ -38,7 +38,7 @@ async function launchGame(args: string[]) {
         try {
             return Bun.spawn(["./.output/bin/terraverse", "--shell-url", devUrl, "--arclabs-url", arclabsUrl, ...args], {
                 cwd: root,
-                stdio: ["inherit", "inherit", "inherit"],
+                stdio: ["inherit", "inherit", "pipe"],
             })
         } catch (error) {
             // Another terminal may be linking the same executable. Linux
@@ -72,7 +72,10 @@ if (!(await Bun.file(`${ui}/node_modules/.bin/vite`).exists()))
 // Another game's dev loop may already serve the UI: share it rather than fail
 // on the port. (It goes away when that game closes.)
 const serving = await fetch(devUrl).then(() => true, () => false)
-const vite = serving ? null : Bun.spawn(["bun", "run", "dev"], { cwd: ui, stdio: ["ignore", "inherit", "inherit"] })
+// vite itself, not `bun run dev`: stopping it is how every session ends, and the script wrapper
+// reported that as a failure ("script dev exited with code 143")
+// (--logLevel warn: its banner and per-update lines are noise here; a broken build still prints)
+const vite = serving ? null : Bun.spawn(["./node_modules/.bin/vite", "--port", "5173", "--strictPort", "--logLevel", "warn"], { cwd: ui, stdio: ["ignore", "inherit", "inherit"] })
 if (serving) console.log(`dev: sharing the UI server already at ${devUrl}`)
 let game: ReturnType<typeof Bun.spawn> | null = null
 const stop = () => {
@@ -82,14 +85,37 @@ const stop = () => {
 process.on("SIGINT", stop)
 process.on("SIGTERM", stop)
 
+/**
+ * The engine's stderr, without what a dev session needn't read: its ACTION lines (they stay in
+ * the dev home's cache/logs/debug.txt; terra and the checks still read them from a server's
+ * stderr) and Chromium's one harmless complaint about Vulkan under Wayland. Errors and warnings
+ * come through.
+ */
+async function show(stderr: ReadableStream<Uint8Array>) {
+    const quiet = [/: ACTION\[/, /is not compatible with Vulkan/]
+    const text = new TextDecoder()
+    let rest = ""
+    for await (const chunk of stderr) {
+        const lines = (rest + text.decode(chunk, { stream: true })).split("\n")
+        rest = lines.pop()!
+        for (const line of lines)
+            if (!quiet.some((q) => q.test(line))) process.stderr.write(line + "\n")
+    }
+    if (rest && !quiet.some((q) => q.test(rest))) process.stderr.write(rest + "\n")
+}
+
 try {
     const uiStarted = performance.now()
     await waitFor(devUrl, 15_000)
     console.log(`dev: UI server ready in ${((performance.now() - uiStarted) / 1000).toFixed(2)}s`)
-    game = await launchGame(process.argv.slice(2))
+    const launched = await launchGame(process.argv.slice(2))
+    game = launched
+    const shown = show(launched.stderr)
     const code = await game.exited
-    // how it ended, so a game that goes away unasked says so: a signal (and which) or an exit code
-    console.log(`dev: the engine ended: ${game.signalCode ? `killed by ${game.signalCode}` : `exit code ${code}`}`)
+    await shown
+    // a game that goes away unasked says how: a signal (and which) or its exit code; a clean quit says nothing
+    if (game.signalCode || code !== 0)
+        console.error(`dev: the engine ended: ${game.signalCode ? `killed by ${game.signalCode}` : `exit code ${code}`}`)
     process.exitCode = code
 } finally {
     stop()

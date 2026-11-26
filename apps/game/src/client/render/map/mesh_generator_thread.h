@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013, 2017 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -38,23 +38,23 @@ struct QueuedMeshUpdate
 	v3s16 crack_pos;
 	MeshMakeData *data = nullptr; // This is generated in MeshUpdateQueue::pop()
 	std::vector<MapBlock*> map_blocks;
-	// Terra Firma: on a planet, the nodes round the mesh that are past its
+	// Terraverse: on a planet, the nodes round the mesh that are past its
 	// face's edge, as seen from it (Map::getNodeSeen): written over what the
 	// net has there (the seam) before meshing, so the next face's blocks
 	// meet this one's.
 	std::vector<std::pair<v3s16, MapNode>> halo;
-	const planet::Atlas *atlas = nullptr; // Terra Firma: the map's, if it's one
-	// Terra Firma, an atlas: the blocks the halo read over a seam (present
+	const planet::Atlas *atlas = nullptr; // Terraverse: the map's, if it's one
+	// Terraverse, an atlas: the blocks the halo read over a seam (present
 	// or not): when one arrives, this mesh is made again
 	std::vector<v3s16> read;
-	// Terra Firma, an atlas: what each cut cell of the mesh (planet::Atlas::cut)
+	// Terraverse, an atlas: what each cut cell of the mesh (planet::Atlas::cut)
 	// shows across each of its cut faces: the node there, or, where a face
 	// lies over several kinds, air lit as the air across is (so it's drawn)
 	std::vector<std::pair<v3s16, std::vector<MapNode>>> cuts;
-	// Terra Firma: the cut nodes of the blocks read (absolute), copied here
+	// Terraverse: the cut nodes of the blocks read (absolute), copied here
 	// on the main thread, which changes them
 	std::vector<std::pair<v3s16, shape::Shape>> shapes;
-	std::vector<std::pair<v3s16, sprig::Sprig>> sprigs; // Terra Firma: of the cell's own blocks
+	std::vector<std::pair<v3s16, sprig::Sprig>> sprigs; // Terraverse: of the cell's own blocks
 	u16 epoch = U16_MAX;
 	bool urgent = false;
 
@@ -132,15 +132,15 @@ public:
 	/// @param finish if true, also clears updates that need to be acked to the server
 	void clear(bool finish);
 
-	// Terra Firma, an atlas: the meshes that read a block over a seam
+	// Terraverse, an atlas: the meshes that read a block over a seam
 	std::vector<v3s16> readersOf(v3s16 block);
-	// Terra Firma, an atlas: the blocks whose geometry (Atlas::prepare) was
+	// Terraverse, an atlas: the blocks whose geometry (Atlas::prepare) was
 	// found since, queued now as they were asked (main thread, each frame)
 	void takePrepared(Map *map);
 
 private:
 	/*
-		Terra Firma, an atlas: what a block's mesh reads of the atlas, found
+		Terraverse, an atlas: what a block's mesh reads of the atlas, found
 		on a thread of its own the first time (at a seam it takes a
 		millisecond or two; the main thread would stutter near the poles).
 		A block asked for before it's found waits here, then is queued.
@@ -170,7 +170,7 @@ private:
 	std::unordered_map<v3s16, Waiting> m_waiting; // by block, main thread only
 
 	Client *m_client;
-	std::unordered_map<v3s16, std::unordered_set<v3s16>> m_readers; // Terra Firma: block → meshes that read it
+	std::unordered_map<v3s16, std::unordered_set<v3s16>> m_readers; // Terraverse: block → meshes that read it
 	std::vector<QueuedMeshUpdate *> m_queue;
 	std::unordered_set<v3s16> m_urgents;
 	std::unordered_set<v3s16> m_inflight_blocks;
@@ -181,7 +181,7 @@ private:
 	bool m_cache_smooth_lighting;
 	bool m_cache_enable_water_reflections;
 	bool m_cache_enable_waving_water;
-	// Terra Firma (sprint 85): where the camera is (nodes), for each mesh's
+	// Terraverse (sprint 85): where the camera is (nodes), for each mesh's
 	// detail, and the rings it changes at (ground_detail_near / _far)
 	std::atomic<s16> m_cam_x{ 0 }, m_cam_y{ 0 }, m_cam_z{ 0 };
 	float m_detail_near, m_detail_far;
@@ -204,7 +204,7 @@ struct MeshUpdateResult
 	std::vector<MapBlock*> map_blocks;
 	u16 epoch = U16_MAX;
 	bool urgent = false;
-	u8 detail = 1; // Terra Firma: the detail it was made at (MeshMakeData::m_detail)
+	u8 detail = 1; // Terraverse: the detail it was made at (MeshMakeData::m_detail)
 
 	MeshUpdateResult() = default;
 
@@ -260,12 +260,12 @@ public:
 	/// @param finish if true, also clears updates that need to be acked to the server
 	void clearAllQueues(bool finish);
 
-	// Terra Firma, an atlas: the meshes that read a block over a seam (made
+	// Terraverse, an atlas: the meshes that read a block over a seam (made
 	// again when it arrives)
 	std::vector<v3s16> readersOf(v3s16 block) { return m_queue_in.readersOf(block); }
-	// Terra Firma, an atlas: queues the blocks whose geometry is found (each frame)
+	// Terraverse, an atlas: queues the blocks whose geometry is found (each frame)
 	void takePrepared(Map *map);
-	// Terra Firma (sprint 85): where the camera is, and the detail a block's
+	// Terraverse (sprint 85): where the camera is, and the detail a block's
 	// mesh is made at from there
 	void setCamera(v3s16 node) { m_queue_in.setCamera(node); }
 	u8 detailAt(v3s16 p) const { return m_queue_in.detailAt(p); }

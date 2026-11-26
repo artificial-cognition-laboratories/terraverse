@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -186,7 +186,7 @@ u32 PlayerControl::getKeysPressed() const
 		( (u32)(place & 1) << 8) |
 		( (u32)(zoom  & 1) << 9) |
 		// bit 10 was pour (sprint 80), gone with pouring: unused
-		( (u32)(prone & 1) << 11) | // Terra Firma (sprint 116)
+		( (u32)(prone & 1) << 11) | // Terraverse (sprint 116)
 		( (u32)(slide & 1) << 12) |
 		( (u32)(roll  & 1) << 13) |
 		( (u32)(climb & 7) << 14)
@@ -216,7 +216,7 @@ void PlayerControl::unpackKeysPressed(u32 keypress_bits)
 	dig   = keypress_bits & (1 << 7);
 	place = keypress_bits & (1 << 8);
 	zoom  = keypress_bits & (1 << 9);
-	prone = keypress_bits & (1 << 11); // Terra Firma
+	prone = keypress_bits & (1 << 11); // Terraverse
 	slide = keypress_bits & (1 << 12);
 	roll  = keypress_bits & (1 << 13);
 	climb = (keypress_bits >> 14) & 7;

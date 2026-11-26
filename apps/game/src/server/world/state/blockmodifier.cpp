@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2017 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -212,7 +212,7 @@ void ABMHandler::apply(MapBlock *block, int &blocks_scanned, int &abms_run, int 
 						const MapNode &n = block->getNodeNoCheck(p1);
 						c = n.getContent();
 					} else {
-						// otherwise consult the map (Terra Firma: past a planet
+						// otherwise consult the map (Terraverse: past a planet
 						// face's edge, the next face's node: Map::see)
 						MapNode n = map->getNodeSeen(p0 + block->getPosRelative(), p1 + block->getPosRelative());
 						c = n.getContent();

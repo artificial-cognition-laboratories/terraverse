@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/server/world/generate/mapgen_terra.h"
@@ -6,9 +6,9 @@
 #include <optional>
 #include "src/server/world/load/emerge.h"
 #include "src/shared/base/exceptions.h"
-#include "src/server/world/generate/luanti/mg_biome.h"
-#include "src/server/world/generate/luanti/mg_decoration.h"
-#include "src/server/world/generate/luanti/mg_ore.h"
+#include "src/server/world/generate/legacy/mg_biome.h"
+#include "src/server/world/generate/legacy/mg_decoration.h"
+#include "src/server/world/generate/legacy/mg_ore.h"
 #include "src/shared/game/content/nodedef.h"
 #include "src/shared/platform/settings/settings.h"
 #include "src/shared/map/voxel/voxel.h"

@@ -19,7 +19,7 @@ export type Suite = {
 };
 
 export function Suites(opts: { root: string; build: string; units: Units }) {
-	const engineObjects = Depfiles({ root: opts.root, build: opts.build, target: "luanti" });
+	const engineObjects = Depfiles({ root: opts.root, build: opts.build, target: "terraverse" });
 
 	const read = () => {
 		const objects = engineObjects.read();

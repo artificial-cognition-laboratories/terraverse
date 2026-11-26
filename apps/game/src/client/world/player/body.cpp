@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/server/world/run/machines/workshop/ground_read.h"
@@ -35,7 +35,7 @@ constexpr int NEW_MIRRORS_A_FRAME = 2;
 constexpr unsigned ME = 1;
 // A person's weight (physics::Mover's body), against the air when thrusting.
 constexpr float MASS = 75;
-// Jumping clears a block (nodes), as Luanti's jump did under its doubled gravity.
+// Jumping clears a block (nodes), as the engine's jump did under its doubled gravity.
 constexpr float JUMP = 1.25f;
 // A person to the air: a drag coefficient times the area they show (m²).
 constexpr float DRAG_AREA = 0.7f;
@@ -144,7 +144,7 @@ bool Body::moves(LocalPlayer &p)
 		return true;
 	const bool on_wall = m_mover && m_mover->busy();
 	const bool walks = !p.getParent() && !fly && !noclip && !p.in_liquid && !p.is_climbing;
-	// Luanti's movement has no stances: on its feet as it's handed over
+	// The engine's movement has no stances: on its feet as it's handed over
 	if (!walks && on_wall)
 		m_mover->onItsFeet();
 	if (!walks && m_mover)
@@ -241,7 +241,7 @@ bool Body::ensureWorld()
 void Body::nudge(v3f by)
 {
 	if (!m_mover)
-		return; // not walking yet: Luanti's movement had it
+		return; // not walking yet: the engine's movement had it
 	const physics::World::CharacterState c = m_world->character(m_mover->id());
 	m_mover->place(c.foot, c.velocity + by);
 	m_set = v3f::from(c.foot * BS);
@@ -448,7 +448,7 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 	m_player = &p;
 	const physics::World::CharId me = m_mover->id();
 	if (at.getDistanceFrom(m_set) > 0.001f * BS) {
-		// put elsewhere since (by the server, Luanti's movement, a seam's
+		// put elsewhere since (by the server, the engine's movement, a seam's
 		// crossing): from there
 		m_mover->place(v3d::from(at / BS), p.getSpeed() / BS);
 		m_behind = 0;
@@ -537,7 +537,7 @@ void Body::move(LocalPlayer &p, float dtime, std::vector<CollisionInfo> *collisi
 v3f Body::thrust(LocalPlayer &p, v3f velocity, const physics::Here &h, float dt)
 {
 	const PlayerControl &c = p.control;
-	// where they look (Luanti's: yaw turns +z toward −x, pitch up is negative)
+	// where they look (the engine's: yaw turns +z toward −x, pitch up is negative)
 	const float yaw = c.yaw * core::DEGTORAD, pitch = c.pitch * core::DEGTORAD;
 	const v3f look(-std::sin(yaw) * std::cos(pitch), -std::sin(pitch), std::cos(yaw) * std::cos(pitch));
 	const v3f right(std::cos(yaw), 0, std::sin(yaw));

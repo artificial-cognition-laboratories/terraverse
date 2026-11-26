@@ -1,4 +1,4 @@
-// Terra Firma: digging, placing and what falls (sprint 119: was builtin/game/item.lua,
+// Terraverse: digging, placing and what falls (sprint 119: was builtin/game/item.lua,
 // falling.lua and world.lua). A block dug falls where it was as items to be picked up
 // (its `drop`, or itself with its colour); a block placed goes where a player puts it,
 // facing the way it's put down if it rotates; what's left unsupported (sand over a hole,

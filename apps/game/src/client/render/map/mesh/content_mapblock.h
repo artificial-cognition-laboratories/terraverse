@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -8,8 +8,8 @@
 
 #include "src/shared/game/content/nodedef.h"
 #include "src/client/render/textures/tile.h"
-#include "library/world/planet/atlas.h" // Terra Firma: cut cells
-#include "library/geometry/shape/shape.h" // Terra Firma: cut nodes
+#include "library/world/planet/atlas.h" // Terraverse: cut cells
+#include "library/geometry/shape/shape.h" // Terraverse: cut nodes
 #include <functional>
 
 struct MeshMakeData;
@@ -58,7 +58,7 @@ public:
 private:
 	MeshMakeData *const data;
 	MeshCollector *const collector;
-	size_t collectedVertices() const; // Terra Firma
+	size_t collectedVertices() const; // Terraverse
 	static const char *drawtypeName(NodeDrawType t);
 
 	const NodeDefManager *const nodedef;
@@ -162,18 +162,18 @@ private:
 
 	template <bool LIQUID>
 	void drawSolidNode();
-	void drawCutFace(); // Terra Firma
-	// Terra Firma: natural loose ground's shape (ground::Ground)
+	void drawCutFace(); // Terraverse
+	// Terraverse: natural loose ground's shape (ground::Ground)
 	std::optional<ground::Top> groundTop(v3s16 p) const;
 	void drawGround(const ground::Top &top);
 	// how low each wall at its sides goes, by voxel along the side (sixteenths)
 	std::array<std::array<int, shape::STEPS>, 4> wallBottoms(const ground::Top &top, const bool (&open)[4]) const;
-	// Terra Firma: a cut node's sixteenths (MeshMakeData::m_shapes)
+	// Terraverse: a cut node's sixteenths (MeshMakeData::m_shapes)
 	const shape::Shape *cutShape(v3s16 p) const;
 	void drawShape(const shape::Shape &s);
-	// Terra Firma: the small plants footed in the area (sprig::Sprig)
+	// Terraverse: the small plants footed in the area (sprig::Sprig)
 	void drawSprigs();
-	// Terra Firma: a quad of sixteenths facing `face` (tile_dirs), wound to
+	// Terraverse: a quad of sixteenths facing `face` (tile_dirs), wound to
 	// face it; lit smoothly, or with `flat`
 	void voxelQuad(const TileSpec &tile, int face, std::array<v3f, 4> q,
 			const std::function<v2f(const v3f &)> &uv, video::SColor flat);

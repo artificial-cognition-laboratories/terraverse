@@ -482,7 +482,7 @@ public:
 		}
 	}
 
-	// Terra Firma: the screen (framebuffer 0) may be only a part of the window,
+	// Terraverse: the screen (framebuffer 0) may be only a part of the window,
 	// this far from its bottom-left corner, so a debugger can sit beside it.
 	void setScreenOffset(GLint x, GLint y)
 	{

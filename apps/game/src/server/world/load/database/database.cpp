@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -11,7 +11,7 @@
  * The position encoding is a bit messed up because negative
  * values were not taken into account.
  * But this also maps 0,0,0 to 0, which is nice, and we mostly
- * need forward encoding in Luanti.
+ * need forward encoding in the engine.
  */
 s64 MapDatabase::getBlockAsInteger(const v3s16 &pos)
 {

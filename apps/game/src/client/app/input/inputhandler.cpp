@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2017 nerzhul, Loic Blot <loic.blot@unix-experience.fr>
@@ -280,7 +280,7 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 	if (g_shell && g_shell->onEvent(event))
 		return true;
 #endif
-	// Terra Firma: then a full-screen view, if one is open
+	// Terraverse: then a full-screen view, if one is open
 	if (capture && capture(event))
 		return true;
 
@@ -290,7 +290,7 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 		last_pointer_type = PointerType::Touch;
 
 	bool ret = g_menumgr.runPreprocessEvent(event);
-	// Terra Firma: what a menu took is its own, even if taking it closed the menu (Esc on a
+	// Terraverse: what a menu took is its own, even if taking it closed the menu (Esc on a
 	// page screen's stand-in, shell/bridge/screens.cpp): else the game saw that Esc too, and paused
 	if (ret || isMenuActive()) {
 		// Let the menu handle events, if one is active.

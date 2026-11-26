@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2017 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -246,7 +246,7 @@ public:
 	void step(f32 dtime);
 
 	u32 getGameTime() const { return m_game_time; }
-	// Terra Firma: game.time.skip, the universe moved forward (server/world/clock.h)
+	// Terraverse: game.time.skip, the universe moved forward (server/world/clock.h)
 	void skipGameTime(u32 seconds) { m_game_time += seconds; }
 
 	void reportMaxLagEstimate(float f) { m_max_lag_estimate = f; }

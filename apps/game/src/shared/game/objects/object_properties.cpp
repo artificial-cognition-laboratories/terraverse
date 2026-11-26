@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -156,7 +156,7 @@ bool ObjectProperties::validate()
 		wield_item.clear();
 		ret = false;
 	}
-	// Terra Firma: an object (piece::Object) is stood on as far as what's
+	// Terraverse: an object (piece::Object) is stood on as far as what's
 	// built of it goes, selected as far as it's designed; nothing built,
 	// it's passed through (a piece that isn't one throws: whoever set it is
 	// wrong)
@@ -241,7 +241,7 @@ void ObjectProperties::serialize(std::ostream &os) const
 
 	writeU8(os, nametag_scale_z);
 	writeU8(os, static_cast<u8>(step_up_mode));
-	os << serializeString32(piece); // Terra Firma, protocol 66
+	os << serializeString32(piece); // Terraverse, protocol 66
 
 	// Add stuff only at the bottom.
 	// Never remove anything, because we don't want new versions of this!
@@ -353,7 +353,7 @@ void ObjectProperties::deSerialize(std::istream &is)
 
 	if (!canRead(is))
 		return;
-	// Terra Firma, protocol 66
+	// Terraverse, protocol 66
 	piece = deSerializeString32(is);
 
 	//if (!canRead(is))

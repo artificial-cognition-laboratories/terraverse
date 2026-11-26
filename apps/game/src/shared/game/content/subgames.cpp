@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -50,46 +50,14 @@ std::unordered_set<std::string> getAliasesFromSettings(const Settings &conf)
 
 std::string getSubgamePathEnv()
 {
-	static bool has_warned = false;
-
-	if (const char *path = getenv("LUANTI_GAME_PATH"))
-		return std::string(path);
-
-	if (const char *path = getenv("MINETEST_GAME_PATH")) {
-		if (!has_warned) {
-			warningstream << "MINETEST_GAME_PATH is deprecated, use LUANTI_GAME_PATH instead."
-				      << std::endl;
-			has_warned = true;
-		}
-		return std::string(path);
-	}
-	if (const char *path = getenv("MINETEST_SUBGAME_PATH")) {
-		if (!has_warned) {
-			warningstream << "MINETEST_SUBGAME_PATH is deprecated, use LUANTI_GAME_PATH instead."
-				      << std::endl;
-			has_warned = true;
-		}
-		return std::string(path);
-	}
-	return "";
+	const char *path = getenv("TERRAVERSE_GAME_PATH");
+	return path ? path : "";
 }
 
 std::string getWorldPathEnv()
 {
-	static bool has_warned = false;
-
-	if (const char *path = getenv("LUANTI_WORLD_PATH"))
-		return std::string(path);
-
-	if (const char *path = getenv("MINETEST_WORLD_PATH")) {
-		if (!has_warned) {
-			warningstream << "MINETEST_WORLD_PATH is deprecated, use LUANTI_WORLD_PATH instead."
-				      << std::endl;
-			has_warned = true;
-		}
-		return std::string(path);
-	}
-	return "";
+	const char *path = getenv("TERRAVERSE_WORLD_PATH");
+	return path ? path : "";
 }
 
 }
@@ -300,6 +268,11 @@ std::string getWorldName(const std::string &world_path, const std::string &defau
 	return conf.get("world_name");
 }
 
+// Games that were renamed: their old id, and the one they have now
+constexpr std::pair<const char *, const char *> RENAMED_GAMES[] = {
+	{ "terrafirma", "terraverse" },
+};
+
 std::string getWorldGameId(const std::string &world_path, bool can_be_legacy)
 {
 	std::string conf_path = world_path + DIR_DELIM + "world.mt";
@@ -315,7 +288,17 @@ std::string getWorldGameId(const std::string &world_path, bool can_be_legacy)
 	}
 	if (!conf.exists("gameid"))
 		return "";
-	return conf.get("gameid");
+	const std::string id = conf.get("gameid");
+	// a world made under a game's old id is that game's: said so once in its world.mt,
+	// so everything after (the world list, the server) reads the id it has now
+	for (const auto &[old, now] : RENAMED_GAMES)
+		if (id == old) {
+			conf.set("gameid", now);
+			if (!conf.updateConfigFile(conf_path.c_str()))
+				errorstream << "worlds: couldn't rename " << conf_path << "'s game " << old << " to " << now << std::endl;
+			return now;
+		}
+	return id;
 }
 
 std::vector<WorldSpec> getAvailableWorlds()
@@ -447,19 +430,8 @@ void loadGameConfAndInitWorld(const std::string &path, const std::string &name,
 
 std::vector<std::string> getEnvModPaths()
 {
-	static bool has_warned = false;
-
 	std::vector<std::string> paths;
-	const char *c_mod_path = nullptr;
-	if ((c_mod_path = getenv("LUANTI_MOD_PATH"))) {
-		// no-op
-	} else if ((c_mod_path = getenv("MINETEST_MOD_PATH"))) {
-		if (!has_warned) {
-			warningstream << "MINETEST_MOD_PATH is deprecated, use LUANTI_MOD_PATH instead."
-				      << std::endl;
-			has_warned = true;
-		}
-	}
+	const char *c_mod_path = getenv("TERRAVERSE_MOD_PATH");
 
 	if (c_mod_path) {
 		Strfnd search_paths(c_mod_path);

@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2024 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -25,7 +25,7 @@
 #include "src/shared/game/environment/rollback_interface.h"
 #include "src/shared/map/voxel/reflowscan.h"
 #include "src/server/world/load/emerge.h"
-#include "src/server/world/generate/luanti/mg_biome.h"
+#include "src/server/world/generate/legacy/mg_biome.h"
 #include "src/shared/base/config.h"
 #include "src/server/app/server.h"
 #include "src/server/world/state/environment/serverenvironment.h"
@@ -293,7 +293,7 @@ void ServerMap::finishBlockMake(BlockMakeData *data,
 		NOTE: blitBackAll adds nearly everything to changed_blocks
 	*/
 #if USE_SHELL
-	// Terra Firma: never over a neighbour's finished block. Its border was
+	// Terraverse: never over a neighbour's finished block. Its border was
 	// read before that chunk was made (another emerge thread making it at
 	// once): written back, it put an empty copy over its trees, and a world
 	// came out by which thread finished first. A chunk's own blocks aren't
@@ -302,7 +302,7 @@ void ServerMap::finishBlockMake(BlockMakeData *data,
 #else
 	data->vmanip->blitBackAll(changed_blocks);
 #endif
-	// Terra Firma: what the generator cut (its plants), now the nodes are there
+	// Terraverse: what the generator cut (its plants), now the nodes are there
 	for (const auto &[p, s] : data->shapes)
 		setShape(p, s);
 	for (const auto &[p, s] : data->sprigs) {
@@ -774,7 +774,7 @@ std::pair<std::unique_ptr<std::istream>, u8> ServerMap::createBlockIStream(const
 	}
 }
 
-// Terra Firma: a planet block's stored objects, moved by however far its
+// Terraverse: a planet block's stored objects, moved by however far its
 // slot is from the one they were saved in (planet::Atlas: a tile's blocks
 // are the same wherever the window puts it; their objects' positions are
 // the map's).
@@ -832,7 +832,7 @@ MapBlock *ServerMap::loadBlock(std::istream &is, v3s16 p3d, u8 version)
 			block->deSerialize(is, version, true);
 		}
 
-		// Terra Firma: a planet's block may have been saved from another slot
+		// Terraverse: a planet's block may have been saved from another slot
 		// of the window: its objects come with it
 		if (const planet::Atlas *atlas = getAtlas())
 			rebaseObjects(*atlas, *block);
@@ -1108,7 +1108,7 @@ void ServerMap::transformLiquidsLocal(std::map<v3s16, MapBlock*> &modified_block
 				default:
 					break;
 			}
-			// Terra Firma: on a planet, over a face's edge onto the next face
+			// Terraverse: on a planet, over a face's edge onto the next face
 			v3s16 npos = next(p0, liquid_6dirs[i]).pos;
 			NodeNeighbor nb(getNode(npos), nt, npos);
 			const ContentFeatures &cfnb = m_nodedef->get(nb.n);
@@ -1332,7 +1332,7 @@ void ServerMap::transformLiquidsLocal(std::map<v3s16, MapBlock*> &modified_block
 
 	voxalgo::update_lighting_nodes(this, changed_nodes, modified_blocks);
 
-	// what the liquid took the support from falls (Terra Firma, sprint 119: was builtin's)
+	// what the liquid took the support from falls (Terraverse, sprint 119: was builtin's)
 	for (const v3s16 &p : check_for_falling)
 		interact::settle(*env, p);
 }

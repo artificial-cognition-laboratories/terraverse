@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -36,7 +36,7 @@ constexpr float STEPS_OVER = 1.1f;       // nodes above the feet as they are: wa
 constexpr float HANG_DROP = 1.55f;      // the feet below the lip, hanging: arms all but straight, hands on it (the figure leans in to the wall)
 constexpr float SHIMMY = 1.2f;           // nodes/s
 
-// The best edge to hand from a foot, looking along a yaw (Luanti's: radians, 0 is +z): straight
+// The best edge to hand from a foot, looking along a yaw (the engine's: radians, 0 is +z): straight
 // ahead first, then further round.
 constexpr float GRAB_REACH = 0.5f, VAULT_REACH = 1.2f; // nodes from the feet: hands can get there; a run's last stride can
 std::optional<Ledge> findLedge(const Solid &solid, v3f foot, float yaw, float reach = GRAB_REACH);

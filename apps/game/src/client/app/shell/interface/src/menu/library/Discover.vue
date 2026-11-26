@@ -1,27 +1,24 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue"
-import type { PublicServer, RegistryFront, RegistrySearch, ServerDirectory } from "../../bridge/index.ts"
-import { useBridge } from "../../bridge/use.ts"
-import { CardSlot, CategoryTile, Copier, Notice, Shelf, Spinner } from "../../kit/index.ts"
+import { computed, onActivated } from "vue"
+import type { PublicServer, RegistrySearch } from "../../bridge/index.ts"
+import { useCache } from "../../cache/index.ts"
+import { CardSlot, CategoryTile, Copier, KeptNote, Notice, Shelf, Spinner } from "../../kit/index.ts"
 import Featured from "./Featured.vue"
 import { CATEGORIES, CATEGORY_ICONS } from "./icons.ts"
 import LiveServers from "./LiveServers.vue"
 import ModCard from "./ModCard.vue"
-import { useRegistry } from "./registry.ts"
-import { Request } from "./request.ts"
 
 /** The front page, as the website's registry (pages/registry/index.vue), less its claim: featured, categories, shelves of mods, live servers. */
 const emit = defineEmits<{ open: [name: string]; browse: [search: Partial<RegistrySearch>]; servers: [server: PublicServer | null] }>()
-const bridge = useBridge()
-const registry = useRegistry()
-const front = Request<void, RegistryFront>(() => registry.front())
-const directory = Request<void, ServerDirectory>(() => bridge.send("servers.list", {}))
+const cache = useCache()
+const front = cache.cached("registry.front")
+const directory = cache.cached("servers.list")
 const icon = (id: string) => CATEGORY_ICONS[id] ?? CATEGORY_ICONS.other
 const labelOf = (id: string | undefined) => front.data.value?.categories.find((c) => c.id === id)?.label ?? null
 // the busiest first, as many as the website's table shows
 const live = computed(() => directory.data.value?.status === "ready"
     ? [...directory.data.value.servers].sort((a, b) => b.players - a.players).slice(0, 5) : [])
-const liveEmpty = computed(() => directory.problem.value ? `The server list can't be reached: ${directory.problem.value}`
+const liveEmpty = computed(() => directory.problem.value && !directory.data.value ? `The server list can't be reached: ${directory.problem.value}`
     : !directory.data.value ? "Asking for the server list…"
     : directory.data.value.status === "unavailable" ? "The server list can't be reached right now." : "No public servers yet.")
 // the registry's own categories once it keeps them; till then the website's, shown but shut
@@ -42,12 +39,14 @@ const shelves = computed(() => {
 const waiting = computed(() => !front.data.value && !front.problem.value)
 const publish = Copier()
 const STATE = { idle: "copy", copied: "copied", failed: "can't copy" } as const
-onMounted(() => { front.run(); directory.run() })
+// kept alive by the library: shown again from the cache, refreshed behind it
+onActivated(() => { void front.run({}); void directory.run({}) })
 </script>
 
 <template>
     <div class="discover">
-        <Notice v-if="front.problem.value" tone="danger">The registry couldn't be reached: {{ front.problem.value }}</Notice>
+        <KeptNote v-if="front.problem.value && front.at.value !== null" :at="front.at.value" :problem="front.problem.value" />
+        <Notice v-else-if="front.problem.value" tone="danger">The registry couldn't be reached: {{ front.problem.value }}</Notice>
         <Featured v-if="front.data.value?.featured.length" :listings="front.data.value.featured" @open="(name) => emit('open', name)" />
         <div v-else class="featured-slot">
             <CardSlot wide />

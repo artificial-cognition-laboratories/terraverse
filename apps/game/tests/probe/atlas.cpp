@@ -1,4 +1,4 @@
-// Terra Firma: the checks' probes of an atlas planet (sprint 119: were Lua mods in
+// Terraverse: the checks' probes of an atlas planet (sprint 119: were Lua mods in
 // scripts/atlas-*-check). See probe.h.
 #include "tests/probe/probe.h"
 

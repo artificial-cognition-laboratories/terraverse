@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -7,7 +7,7 @@
 #include "src/shared/base/irrlichttypes.h"
 #include "src/shared/game/content/subgames.h"
 #include "src/shared/platform/system/log.h" // errorstream
-#include "src/shared/platform/online/launch.h" // Terra Firma
+#include "src/shared/platform/online/launch.h" // Terraverse
 
 // Information provided from "main"
 // Start information for server or client
@@ -19,10 +19,10 @@ struct GameParams
 	SubgameSpec game_spec;
 	bool is_dedicated_server;
 	u16 socket_port;
-	// Terra Firma: a TypeScript server folder, its mods run by the sidecar (sprint 119)
+	// Terraverse: a TypeScript server folder, its mods run by the sidecar (sprint 119)
 	std::string server_folder;
-	std::string probe; // Terra Firma: a check's (src/probe)
-	// Terra Firma: the star system to make the world from if it's new, and to check it
+	std::string probe; // Terraverse: a check's (src/probe)
+	// Terraverse: the star system to make the world from if it's new, and to check it
 	// against if it isn't (terra serve passes server.config.ts's `system`)
 	std::string world_code;
 };
@@ -54,7 +54,7 @@ struct GameStartData : GameParams, GameClientData
 	// "world_path" must be kept in sync!
 	WorldSpec world_spec;
 
-	// Terra Firma: hosting for friends, or joining one (src/online)
+	// Terraverse: hosting for friends, or joining one (src/online)
 	online::Launch online;
 };
 

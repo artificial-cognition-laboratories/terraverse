@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "tests/unit/test.h"
@@ -77,7 +77,7 @@ void TestRelease::testOpenWorld()
 	fs::RecursiveDelete(world);
 	fs::RecursiveDelete(backups);
 	fs::CreateAllDirs(world);
-	std::ofstream(conf) << "gameid = terrafirma\n";
+	std::ofstream(conf) << "gameid = terraverse\n";
 
 	const auto savedBy = [&] {
 		Settings s;

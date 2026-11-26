@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/shared/platform/online/upnp.h"
@@ -53,7 +53,7 @@ std::unique_ptr<PortMapping> PortMapping::open(u16 port)
 	std::string p = std::to_string(port);
 	// lease 0: until removed; we remove it when the world closes
 	int added = UPNP_AddPortMapping(router->urls.controlURL, router->data.first.servicetype,
-			p.c_str(), p.c_str(), lan, "Terra Firma", "UDP", nullptr, "0");
+			p.c_str(), p.c_str(), lan, "Terraverse", "UDP", nullptr, "0");
 	if (added != UPNPCOMMAND_SUCCESS) {
 		infostream << "online: the UPnP gateway refused to open UDP " << port << " (" << added << ")" << std::endl;
 		return nullptr;

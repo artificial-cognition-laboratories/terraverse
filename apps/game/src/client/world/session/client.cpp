@@ -1,10 +1,10 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "src/client/world/session/client.h"
-#include "src/client/world/player/body.h" // Terra Firma
-#include "src/server/world/run/ground/ground.h" // Terra Firma
+#include "src/client/world/player/body.h" // Terraverse
+#include "src/server/world/run/ground/ground.h" // Terraverse
 
 #include "src/shared/game/chat/chatmessage.h"
 #include "src/client/app/clientevent.h"
@@ -357,7 +357,7 @@ void Client::step(float dtime)
 
 	m_animation_time = fmodf(m_animation_time + dtime, 60.0f);
 
-	// Terra Firma: the connection as the debugger's Network tab charts it
+	// Terraverse: the connection as the debugger's Network tab charts it
 	// (rates in KiB/s, the way the connection counts them; times in seconds)
 	if (m_con) {
 		const float rtt = m_con->getPeerStat(PEER_ID_SERVER, con::AVG_RTT);
@@ -376,12 +376,12 @@ void Client::step(float dtime)
 		ReceiveAll();
 	}
 
-	// Terra Firma: what this client's wheels and feet press, at once (sprint 84)
+	// Terraverse: what this client's wheels and feet press, at once (sprint 84)
 	if (m_nodedef_received) {
 		TF_ZONE("Client: press ground");
 		pressGround(dtime);
 	}
-	// Terra Firma: ground drawn coarser further off (sprint 85)
+	// Terraverse: ground drawn coarser further off (sprint 85)
 	if (m_camera) {
 		TF_ZONE("Client: mesh detail");
 		meshDetail(floatToInt(m_camera->getPosition(), BS));
@@ -574,12 +574,12 @@ void Client::step(float dtime)
 		// before processing them.
 		updateStaticLighting(player->getLighting().static_);
 
-		m_mesh_update_manager->takePrepared(&m_env.getMap()); // Terra Firma
+		m_mesh_update_manager->takePrepared(&m_env.getMap()); // Terraverse
 		int num_processed_meshes = 0;
 		std::vector<v3s16> blocks_to_ack;
 		bool force_update_shadows = false;
 		MeshUpdateResult r;
-		// Terra Firma: only so much new mesh a frame. Each is uploaded to the
+		// Terraverse: only so much new mesh a frame. Each is uploaded to the
 		// GPU when it's first drawn, and a burst of them (a ring of detail
 		// crossed, a world arriving) was a frame of tens of ms; the rest wait
 		// a frame or two. By vertices, not meshes: a forest block's plants are
@@ -616,16 +616,16 @@ void Client::step(float dtime)
 				delete block->mesh;
 				block->mesh = nullptr;
 				block->solid_sides = r.solid_sides;
-				map.meshesChanged(); // Terra Firma: the draw list (and the far view's edge) follow
+				map.meshesChanged(); // Terraverse: the draw list (and the far view's edge) follow
 
-				m_detail[r.p] = r.detail; // Terra Firma: made again when the camera's moved across its ring
+				m_detail[r.p] = r.detail; // Terraverse: made again when the camera's moved across its ring
 				if (r.mesh) {
 					minimap_mapblocks = r.mesh->moveMinimapMapblocks();
 					if (minimap_mapblocks.empty())
 						do_mapper_update = false;
 
 					if (!r.mesh->isEmpty()) {
-						// Replace with the new mesh (Terra Firma: on the GPU now, in this frame's budget)
+						// Replace with the new mesh (Terraverse: on the GPU now, in this frame's budget)
 						r.mesh->upload(m_rendering_engine->get_video_driver());
 						block->mesh = r.mesh.release();
 						if (r.urgent)
@@ -660,7 +660,7 @@ void Client::step(float dtime)
 
 			r.dropBlocks();
 		}
-		g_profiler->avg("Client: mesh vertices taken [#]", vertices_taken); // Terra Firma: what the GPU's given this frame
+		g_profiler->avg("Client: mesh vertices taken [#]", vertices_taken); // Terraverse: what the GPU's given this frame
 		if (blocks_to_ack.size() > 0) {
 				// Acknowledge block(s)
 				sendGotBlocks(blocks_to_ack);
@@ -815,7 +815,7 @@ bool Client::loadMedia(const std::string &data, const std::string &filename,
 {
 	std::string name;
 
-	// Consider updating LuantiDocumentsProvider.java if new file types are added
+	// Consider updating the Android documents provider if new file types are added
 
 	const char *image_ext[] = {
 		".png", ".jpg", ".tga",
@@ -1030,7 +1030,7 @@ void Client::ProcessData(NetworkPacket *pkt)
 {
 	ToClientCommand command = (ToClientCommand) pkt->getCommand();
 
-	// Terra Firma: the debugger's Network tab. The server's table says which
+	// Terraverse: the debugger's Network tab. The server's table says which
 	// channel, and whether reliably, it sent this kind on.
 	if (command < TOCLIENT_NUM_MSG_TYPES) {
 		const ClientCommandFactory &sent = clientCommandFactoryTable[command];
@@ -1160,7 +1160,7 @@ void Client::interact(InteractAction action, const PointedThing& pointed)
 
 AuthMechanism Client::choseAuthMech(const u32 mechs)
 {
-	if (mechs & AUTH_MECHANISM_TICKET) // Terra Firma: a world hosted for friends
+	if (mechs & AUTH_MECHANISM_TICKET) // Terraverse: a world hosted for friends
 		return AUTH_MECHANISM_TICKET;
 	if (mechs & AUTH_MECHANISM_LOCAL) // a world played alone
 		return AUTH_MECHANISM_LOCAL;
@@ -1183,7 +1183,7 @@ void Client::startAuth(AuthMechanism chosen_auth_mechanism)
 	m_chosen_auth_mech = chosen_auth_mechanism;
 
 	switch (chosen_auth_mechanism) {
-		case AUTH_MECHANISM_TICKET: { // Terra Firma: the ticket is the password field
+		case AUTH_MECHANISM_TICKET: { // Terraverse: the ticket is the password field
 			NetworkPacket resp_pkt(TOSERVER_TICKET, 0);
 			resp_pkt << m_password << std::string(g_version_hash);
 			Send(&resp_pkt);
@@ -1652,7 +1652,7 @@ void Client::removeNode(v3s16 p)
 	std::map<v3s16, MapBlock*> modified_blocks;
 
 	try {
-		const bool loose = m_nodedef->get(m_env.getMap().getNode(p)).loose; // Terra Firma: as addNode
+		const bool loose = m_nodedef->get(m_env.getMap().getNode(p)).loose; // Terraverse: as addNode
 		m_env.getMap().removeNodeAndUpdate(p, modified_blocks);
 		if (loose) {
 			m_ground_nodes.insert(p);
@@ -1663,7 +1663,7 @@ void Client::removeNode(v3s16 p)
 	}
 	catch(InvalidPositionException &e) {
 	}
-	m_liquid_ground.insert(getNodeBlockPos(p)); // Terra Firma: the liquid beside it meets it anew
+	m_liquid_ground.insert(getNodeBlockPos(p)); // Terraverse: the liquid beside it meets it anew
 
 	for (const auto &modified_block : modified_blocks) {
 		addUpdateMeshTaskWithEdge(modified_block.first, false, true);
@@ -1678,7 +1678,7 @@ void Client::addNode(v3s16 p, MapNode n, bool remove_metadata)
 
 	try {
 		//TimeTaker timer3("Client::addNode(): addNodeAndUpdate");
-		// Terra Firma: loose ground's comes with its shape, sent after it: made
+		// Terraverse: loose ground's comes with its shape, sent after it: made
 		// again with it, once, at the frame's end (sprint 85: drawn between
 		// the two it was smoothed, the old ramp, for a frame)
 		const bool loose = m_nodedef->get(n).loose || m_nodedef->get(m_env.getMap().getNode(p)).loose;
@@ -1692,7 +1692,7 @@ void Client::addNode(v3s16 p, MapNode n, bool remove_metadata)
 	}
 	catch(InvalidPositionException &e) {
 	}
-	m_liquid_ground.insert(getNodeBlockPos(p)); // Terra Firma: the liquid beside it meets it anew
+	m_liquid_ground.insert(getNodeBlockPos(p)); // Terraverse: the liquid beside it meets it anew
 
 	for (const auto &modified_block : modified_blocks) {
 		addUpdateMeshTaskWithEdge(modified_block.first, false, true);
@@ -1881,8 +1881,8 @@ void Client::addUpdateMeshTask(v3s16 p, bool ack_to_server, bool urgent)
 void Client::addUpdateMeshTaskWithEdge(v3s16 blockpos, bool ack_to_server, bool urgent)
 {
 	m_mesh_update_manager->updateBlock(&m_env.getMap(), blockpos, ack_to_server, urgent, true);
-	updateMeshReaders(blockpos, urgent); // Terra Firma
-	// Terra Firma: what the player walks on is as the map is; a smoothed
+	updateMeshReaders(blockpos, urgent); // Terraverse
+	// Terraverse: what the player walks on is as the map is; a smoothed
 	// top at a block's edge is shaped by the next block too, so those are
 	// built again as well (sprint 72: a block that came before its
 	// neighbours kept a wrong edge under one side of a car)
@@ -1899,7 +1899,7 @@ Body &Client::getBody()
 	return *m_body;
 }
 
-// Terra Firma, an atlas: the meshes that read a block over a seam (made
+// Terraverse, an atlas: the meshes that read a block over a seam (made
 // before it came or changed, they show what it was)
 void Client::updateMeshReaders(v3s16 blockpos, bool urgent)
 {
@@ -1916,7 +1916,7 @@ void Client::addUpdateMeshTaskForNode(v3s16 nodepos, bool ack_to_server, bool ur
 
 	v3s16 blockpos = getNodeBlockPos(nodepos);
 	m_mesh_update_manager->updateBlock(&m_env.getMap(), blockpos, ack_to_server, urgent, false);
-	// Terra Firma: every block a node's change reaches. A cube's faces read
+	// Terraverse: every block a node's change reaches. A cube's faces read
 	// a node away (the leading edge); the ground's shape reads the columns
 	// round it, up to two across and REACH + 1 up and down (ground::Ground).
 	const s16 up = ground::REACH + 1;
@@ -1927,7 +1927,7 @@ void Client::addUpdateMeshTaskForNode(v3s16 nodepos, bool ack_to_server, bool ur
 	for (s16 z = low.Z; z <= high.Z; z++)
 		if (v3s16(x, y, z) != blockpos)
 			addUpdateMeshTask(v3s16(x, y, z), false, urgent);
-	updateMeshReaders(blockpos, urgent); // Terra Firma
+	updateMeshReaders(blockpos, urgent); // Terraverse
 }
 
 ClientEvent *Client::getClientEvent()

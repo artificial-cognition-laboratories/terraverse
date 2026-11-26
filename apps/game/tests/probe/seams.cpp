@@ -1,4 +1,4 @@
-// Terra Firma: the check's probe of an atlas's seams, crossed (sprint 119: was a Lua mod in
+// Terraverse: the check's probe of an atlas's seams, crossed (sprint 119: was a Lua mod in
 // tests/checks/atlas-seam.sh; layout v2: planet.paper.md, section 3). See probe.h.
 //
 // Courses of stone are laid along real paths on the planet, so each is whole across the

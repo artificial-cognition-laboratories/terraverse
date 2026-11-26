@@ -29,7 +29,7 @@ BUILT=1 bash apps/game/tests/run/test.sh
 world=$(mktemp -d)
 trap 'rm -rf "$world"' EXIT
 set +e
-timeout 20 ./.output/bin/terraverse --server --gameid terrafirma --world "$world/w" --world-code TF24.dGVycmE --port 30501 >"$world/boot.log" 2>&1
+timeout 20 ./.output/bin/terraverse --server --gameid terraverse --world "$world/w" --world-code TF24.dGVycmE --port 30501 >"$world/boot.log" 2>&1
 set -e
 grep -q 'listening on' "$world/boot.log" || { cat "$world/boot.log"; echo "gate: the server didn't start" >&2; exit 1; }
 if grep -q 'ERROR\[' "$world/boot.log"; then grep 'ERROR\[' "$world/boot.log"; echo "gate: errors booting a world" >&2; exit 1; fi

@@ -1,11 +1,11 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2013-2020 Luanti core developers & community
 
 #include "src/server/players/player_sao.h"
-#include "library/physics/walk.h" // Terra Firma: stances
-#include "library/world/planet/atlas.h" // Terra Firma
+#include "library/physics/walk.h" // Terraverse: stances
+#include "library/world/planet/atlas.h" // Terraverse
 #include "src/shared/game/content/nodedef.h"
 #include "src/shared/game/objects/remoteplayer.h"
 #include "src/server/app/server.h"
@@ -299,7 +299,7 @@ void PlayerSAO::step(float dtime, bool send_recommended)
 		m_messages_out.emplace(getId(), false, str);
 	}
 
-	// Terra Firma: for other players' figures
+	// Terraverse: for other players' figures
 	if (const u8 stance = stanceNow(); stance != m_stance_sent) {
 		m_stance_sent = stance;
 		m_messages_out.emplace(getId(), true, generateStanceCommand());
@@ -646,7 +646,7 @@ bool PlayerSAO::checkMovementCheat()
 	static thread_local const u32 anticheat_flags =
 		g_settings->getFlagStr("anticheat_flags", flagdesc_anticheat, nullptr);
 
-	// Terra Firma: who may fly may thrust (sprint 59): any speed, the orbit's too;
+	// Terraverse: who may fly may thrust (sprint 59): any speed, the orbit's too;
 	// a driver goes where their machine takes them (sprint 69)
 	if (m_is_singleplayer ||
 			isAttached() || m_driving ||
@@ -721,7 +721,7 @@ bool PlayerSAO::checkMovementCheat()
 	float d_vert = diff.Y;
 	diff.Y = 0;
 	float d_horiz = diff.getLength();
-	// Terra Firma: on an atlas, on the planet: up is the change in radius, along the rest
+	// Terraverse: on an atlas, on the planet: up is the change in radius, along the rest
 	// (a step over a seam is a step, wherever the regions are stored)
 	if (const planet::Atlas *atlas = m_env->getServer()->atlas()) {
 		const v3f a = m_last_good_position / BS, b = getBasePosition() / BS;

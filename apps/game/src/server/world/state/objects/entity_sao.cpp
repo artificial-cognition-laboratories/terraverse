@@ -1,10 +1,10 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2013-2020 Luanti core developers & community
 
 #include "src/server/world/state/objects/entity_sao.h"
-#include "library/world/planet/atlas.h" // Terra Firma
+#include "library/world/planet/atlas.h" // Terraverse
 #include "src/server/app/server.h"
 #include "AnimSpec.h"
 #include "src/shared/game/objects/collision.h"
@@ -102,7 +102,7 @@ void EntitySAO::addedToEnvironment(u32 dtime_s)
 {
 	ServerActiveObject::addedToEnvironment(dtime_s);
 
-	// Terra Firma (sprint 119): its kind is native (server/kinds.h)
+	// Terraverse (sprint 119): its kind is native (server/kinds.h)
 	m_kind = entityKind(m_init_name);
 	if (m_kind) {
 		m_kind->activate(*this, m_init_state, dtime_s);
@@ -151,9 +151,9 @@ void EntitySAO::step(float dtime, bool send_recommended)
 		m_velocity = v3f(0,0,0);
 		m_acceleration = v3f(0,0,0);
 	} else {
-		const v3f was = getBasePosition(); // Terra Firma: for carry()
+		const v3f was = getBasePosition(); // Terraverse: for carry()
 		if (m_driven) {
-			// Terra Firma: the workshop's physics moved it (sprint 57)
+			// Terraverse: the workshop's physics moved it (sprint 57)
 		} else if(m_prop.physical){
 			aabb3f box = m_prop.collisionbox;
 			box.MinEdge *= BS;

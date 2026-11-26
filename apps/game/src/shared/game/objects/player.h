@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -90,9 +90,9 @@ struct PlayerControl
 	bool zoom = false;
 	bool dig = false;
 	bool place = false;
-	bool prone = false; // Terra Firma: lying down (sneak is crouching; sprint 116)
-	bool slide = false, roll = false; // Terra Firma: what the body's doing (sprint 117)
-	u8 climb = 0; // Terra Firma: 0 none, or what it's doing from physics::Stance::VAULT (sprint 118)
+	bool prone = false; // Terraverse: lying down (sneak is crouching; sprint 116)
+	bool slide = false, roll = false; // Terraverse: what the body's doing (sprint 117)
+	u8 climb = 0; // Terraverse: 0 none, or what it's doing from physics::Stance::VAULT (sprint 118)
 	// Note: These two are NOT available on the server
 	float pitch = 0.0f;
 	float yaw = 0.0f;
@@ -154,7 +154,7 @@ enum CameraMode : int {
 	CAMERA_MODE_FIRST,
 	CAMERA_MODE_THIRD,
 	CAMERA_MODE_THIRD_FRONT,
-	CAMERA_MODE_SHOULDER, // Terra Firma: behind and beside the head, aimed by the crosshair
+	CAMERA_MODE_SHOULDER, // Terraverse: behind and beside the head, aimed by the crosshair
 
 	CameraMode_END // Dummy for validity check
 };

@@ -1,4 +1,4 @@
-// Terra Firma: who may do what on this server (sprint 119). See access.h.
+// Terraverse: who may do what on this server (sprint 119). See access.h.
 #include "src/server/app/access/access.h"
 
 #include "src/shared/base/exceptions.h"

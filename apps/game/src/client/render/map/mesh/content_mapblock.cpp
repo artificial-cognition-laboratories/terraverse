@@ -1,12 +1,12 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include <cmath>
 #include "src/client/render/map/mesh/content_mapblock.h"
-#include "src/client/render/map/mesh/sprigs.h" // Terra Firma
-#include "library/world/planet/atlas.h" // Terra Firma
-#include "src/server/world/run/ground/ground.h" // Terra Firma
+#include "src/client/render/map/mesh/sprigs.h" // Terraverse
+#include "library/world/planet/atlas.h" // Terraverse
+#include "src/server/world/run/ground/ground.h" // Terraverse
 #include "src/shared/base/exceptions.h"
 #include "src/shared/util/data/basic_macros.h"
 #include "src/shared/util/math/numeric.h"
@@ -338,7 +338,7 @@ static LightPair getFaceLight(MapNode n, MapNode n2, const NodeDefManager *ndef)
 }
 
 /*
-	Terra Firma (sprint 85): far off, ground in coarser steps. A drawn mesh's
+	Terraverse (sprint 85): far off, ground in coarser steps. A drawn mesh's
 	quads merge runs of one height or one fill, so ground in steps of `g`
 	sixteenths is far fewer quads than in sixteenths, and looks the same
 	from there.
@@ -426,7 +426,7 @@ static LightPair getSmoothLightCorner(const v3s16 &p,
 		MapNode n = data->m_vmanip.getNodeNoExNoEmerge(q);
 		if (n.getContent() == CONTENT_IGNORE)
 			return true;
-		// Terra Firma: a cut node (shape::Shape) is mostly open, but the
+		// Terraverse: a cut node (shape::Shape) is mostly open, but the
 		// lighting keeps no light in it (it's its material's, solid): what
 		// it lets through is the light above it, as if it weren't there
 		if (data->m_shapes.count(q)) {
@@ -693,7 +693,7 @@ void MapblockMeshGenerator::drawSolidNode()
 				layer.material_flags |= MATERIAL_FLAG_BACKFACE_CULLING;
 		}
 		if (!data->m_smooth_lighting) {
-			// Terra Firma: across a cut node, the light above it (see getSmoothLightCorner)
+			// Terraverse: across a cut node, the light above it (see getSmoothLightCorner)
 			v3s16 q = p1 + tile_dirs[face];
 			MapNode lit = neighbor;
 			while (data->m_shapes.count(q))
@@ -734,7 +734,7 @@ void MapblockMeshGenerator::drawSolidNode()
 		return false; // May still draw the face and with backface culling
 	};
 
-	// Terra Firma: smoothed ground draws its own top and sides; its bottom is the cube's
+	// Terraverse: smoothed ground draws its own top and sides; its bottom is the cube's
 	std::optional<ground::Top> shape;
 	if constexpr (!LIQUID)
 		shape = groundTop(p1);
@@ -745,7 +745,7 @@ void MapblockMeshGenerator::drawSolidNode()
 		v3s16 p2 = p1 + tile_dirs[face];
 		MapNode neighbor = data->m_vmanip.getNodeRefUnsafeCheckFlags(p2);
 		content_t n2 = neighbor.getContent();
-		// Terra Firma: a cut node covers only some of the face
+		// Terraverse: a cut node covers only some of the face
 		if (cutShape(p2)) {
 			add_face(face, neighbor, !LIQUID);
 			continue;
@@ -1870,7 +1870,7 @@ void MapblockMeshGenerator::drawAllfacesNode()
 	for (int face = 0; face < 6; face++)
 		getTile(tile_dirs[face], &tiles[face]);
 #if USE_SHELL
-	// Terra Firma: a canopy is thousands of leaves, and drawing every face
+	// Terraverse: a canopy is thousands of leaves, and drawing every face
 	// between two of them made trees most of the vertices on screen. Only
 	// faces onto something see-through are drawn; a log hides one too. Ground
 	// may be cut or smoothed, so it never hides a face.
@@ -2115,7 +2115,7 @@ void MapblockMeshGenerator::drawNode()
 		return;
 	}
 	if (cur_node.f->drawtype == NDT_LIQUID) {
-		// Terra Firma: the liquid layer draws it (sprint 82: the sea meets the shore's fills)
+		// Terraverse: the liquid layer draws it (sprint 82: the sea meets the shore's fills)
 		if (itemgroup_get(cur_node.f->groups, "liquid_layer"))
 			return;
 		drawSolidNode<true>();
@@ -2123,7 +2123,7 @@ void MapblockMeshGenerator::drawNode()
 		return;
 	}
 
-	// Terra Firma: what stands on smoothed ground (a plant) stands on its surface
+	// Terraverse: what stands on smoothed ground (a plant) stands on its surface
 	if (!cur_node.f->walkable && cur_node.f->drawtype != NDT_FLOWINGLIQUID) {
 		const v3s16 below = blockpos_nodes + cur_node.p - v3s16(0, 1, 0);
 		if (const std::optional<ground::Top> top = groundTop(below))
@@ -2154,7 +2154,7 @@ void MapblockMeshGenerator::drawNode()
 	}
 }
 
-// Terra Firma: the shape the ground at p takes, if it's smoothed. A cut
+// Terraverse: the shape the ground at p takes, if it's smoothed. A cut
 // cell (the atlas's) keeps its cube (its cut faces are drawn for it), and
 // the ground beside it is shaped against a cube.
 std::optional<ground::Top> MapblockMeshGenerator::groundTop(v3s16 p) const
@@ -2168,7 +2168,7 @@ std::optional<ground::Top> MapblockMeshGenerator::groundTop(v3s16 p) const
 }
 
 /*
-	Terra Firma: smoothed ground (ground::Top), in voxels of a sixteenth: each
+	Terraverse: smoothed ground (ground::Top), in voxels of a sixteenth: each
 	row of columns' tops, a quad a run of one height; a riser where two
 	columns side by side stand differently, from the lower to the higher;
 	at the block's sides, a wall from where the neighbour stands no lower
@@ -2299,7 +2299,7 @@ void MapblockMeshGenerator::drawGround(const ground::Top &top)
 }
 
 /*
-	Terra Firma: how low each wall at a ground node's sides goes, by voxel
+	Terraverse: how low each wall at a ground node's sides goes, by voxel
 	along the side. Down to where the neighbour stands no lower than
 	(Top::beside), a sloped line along the side, or to its base against a
 	cut node; and lower, to where the neighbour is drawn, if that's coarser
@@ -2388,7 +2388,7 @@ const shape::Shape *MapblockMeshGenerator::cutShape(v3s16 p) const
 }
 
 /*
-	Terra Firma: a cut node (shape::Shape): each face of a sixteenth that's
+	Terraverse: a cut node (shape::Shape): each face of a sixteenth that's
 	open, merged into rectangles a plane at a time. Open: the next sixteenth
 	is empty, or, at the node's side, what's across doesn't cover it (a
 	whole opaque cube that isn't smoothed ground, the same material whole,
@@ -2491,7 +2491,7 @@ void MapblockMeshGenerator::drawShape(const shape::Shape &s)
 }
 
 /*
-	Terra Firma, an atlas: a cut cell's cut faces (planet::Atlas::cut): each
+	Terraverse, an atlas: a cut cell's cut faces (planet::Atlas::cut): each
 	plane across its node, as much of it as the other planes keep, where
 	what's across (MeshMakeData::m_cuts) shows it; textured as the node's face
 	the plane most faces. Their triangles are on the planes, so clipping
@@ -2625,12 +2625,12 @@ void MapblockMeshGenerator::generate()
 		content_t c = cur_node.n.getContent();
 		if (c == CONTENT_AIR)
 			continue;
-		const s32 side = data->m_side_length; // Terra Firma: read, not drawn
+		const s32 side = data->m_side_length; // Terraverse: read, not drawn
 		if (!data->m_hidden.empty() &&
 				data->m_hidden[(cur_node.p.Z * side + cur_node.p.Y) * side + cur_node.p.X])
 			continue;
 		cur_node.f = &nodedef->get(cur_node.n);
-		// Terra Firma: what each kind of node costs in vertices, for the profiler
+		// Terraverse: what each kind of node costs in vertices, for the profiler
 		const size_t before = collectedVertices();
 		drawNode();
 		const char *kind = cur_node.f->drawtype == NDT_NORMAL && cutShape(blockpos_nodes + cur_node.p) ?
@@ -2667,7 +2667,7 @@ const char *MapblockMeshGenerator::drawtypeName(NodeDrawType t)
 }
 
 /*
-	Terra Firma: each small plant footed here, grown from its sprig
+	Terraverse: each small plant footed here, grown from its sprig
 	(client/sprigs): its faces, turned as it stands, in the plant blocks'
 	look (core:sprig: a tile for each flora::Part, in grey, waving)
 	and its own colours, lit as its foot is. Past the area too: a plant's

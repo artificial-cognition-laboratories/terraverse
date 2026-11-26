@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2015 nerzhul, Loic Blot <loic.blot@unix-experience.fr>
@@ -112,19 +112,19 @@ const ToClientCommandHandler toClientCommandTable[TOCLIENT_NUM_MSG_TYPES] =
 	{ "TOCLIENT_MINIMAP_MODES",            TOCLIENT_STATE_CONNECTED, &Client::handleCommand_MinimapModes }, // 0x62,
 	{ "TOCLIENT_SET_LIGHTING",             TOCLIENT_STATE_CONNECTED, &Client::handleCommand_SetLighting }, // 0x63,
 	{ "TOCLIENT_SPAWN_PARTICLE_BATCH",     TOCLIENT_STATE_CONNECTED, &Client::handleCommand_SpawnParticleBatch }, // 0x64,
-	{ "TOCLIENT_UI",                       TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Ui }, // 0x65 Terra Firma
-	{ "TOCLIENT_HORIZON",                  TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Horizon }, // 0x66 Terra Firma
-	null_command_handler, // 0x67 (Terra Firma's TOCLIENT_ALOFT, gone)
-	null_command_handler, // 0x68 (Terra Firma's TOCLIENT_PLANET, gone)
-	{ "TOCLIENT_ATLAS",                    TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Atlas }, // 0x69 Terra Firma
-	{ "TOCLIENT_WINDOW",                   TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Window }, // 0x6A Terra Firma
-	{ "TOCLIENT_SHAPE",                    TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Shape }, // 0x6B Terra Firma
-	{ "TOCLIENT_BLUEPRINTS",               TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Blueprints }, // 0x6C Terra Firma
-	{ "TOCLIENT_HELD",                     TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Held }, // 0x6D Terra Firma
-	{ "TOCLIENT_MATERIALS",                TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Materials }, // 0x6E Terra Firma
-	{ "TOCLIENT_FILL",                     TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Fill }, // 0x6F Terra Firma
-	{ "TOCLIENT_STREAM",                   TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Stream }, // 0x70 Terra Firma
-	{ "TOCLIENT_RIVERS",                   TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Rivers }, // 0x71 Terra Firma
+	{ "TOCLIENT_UI",                       TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Ui }, // 0x65 Terraverse
+	{ "TOCLIENT_HORIZON",                  TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Horizon }, // 0x66 Terraverse
+	null_command_handler, // 0x67 (Terraverse's TOCLIENT_ALOFT, gone)
+	null_command_handler, // 0x68 (Terraverse's TOCLIENT_PLANET, gone)
+	{ "TOCLIENT_ATLAS",                    TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Atlas }, // 0x69 Terraverse
+	{ "TOCLIENT_WINDOW",                   TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Window }, // 0x6A Terraverse
+	{ "TOCLIENT_SHAPE",                    TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Shape }, // 0x6B Terraverse
+	{ "TOCLIENT_BLUEPRINTS",               TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Blueprints }, // 0x6C Terraverse
+	{ "TOCLIENT_HELD",                     TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Held }, // 0x6D Terraverse
+	{ "TOCLIENT_MATERIALS",                TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Materials }, // 0x6E Terraverse
+	{ "TOCLIENT_FILL",                     TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Fill }, // 0x6F Terraverse
+	{ "TOCLIENT_STREAM",                   TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Stream }, // 0x70 Terraverse
+	{ "TOCLIENT_RIVERS",                   TOCLIENT_STATE_CONNECTED, &Client::handleCommand_Rivers }, // 0x71 Terraverse
 };
 
 const static ServerCommandFactory null_command_factory = { nullptr, 0, false };
@@ -225,25 +225,25 @@ const ServerCommandFactory serverCommandFactoryTable[TOSERVER_NUM_MSG_TYPES] =
 	null_command_factory, // 0x51
 	null_command_factory, // 0x52
 	{ "TOSERVER_UPDATE_CLIENT_INFO", 2, true }, // 0x53
-	{ "TOSERVER_UI",                 0, true }, // 0x54 Terra Firma
-	{ "TOSERVER_TICKET",             0, true }, // 0x55 Terra Firma
-	{ "TOSERVER_SCULPT",             0, true }, // 0x56 Terra Firma
-	{ "TOSERVER_UNDO",               0, true }, // 0x57 Terra Firma
-	{ "TOSERVER_PIECE_NEW",          0, true }, // 0x58 Terra Firma
-	{ "TOSERVER_BLUEPRINT_SAVE",     0, true }, // 0x59 Terra Firma
-	{ "TOSERVER_BLUEPRINT_PLACE",    0, true }, // 0x5A Terra Firma
-	{ "TOSERVER_OBJECT_HOLD",        0, true }, // 0x5B Terra Firma
-	{ "TOSERVER_OBJECT_POSE",        0, true }, // 0x5C Terra Firma
-	{ "TOSERVER_HOLLOW",             0, true }, // 0x5D Terra Firma
-	{ "TOSERVER_LINK",               0, true }, // 0x5E Terra Firma
-	{ "TOSERVER_JOIN",               0, true }, // 0x5F Terra Firma
-	{ "TOSERVER_PART",               0, true }, // 0x60 Terra Firma
-	{ "TOSERVER_SOCKET",             0, true }, // 0x61 Terra Firma
-	{ "TOSERVER_PLUG",               0, true }, // 0x62 Terra Firma
-	{ "TOSERVER_OBJECT_PUSH",        0, true }, // 0x63 Terra Firma
-	{ "TOSERVER_PLUG_AGAIN",         0, true }, // 0x64 Terra Firma
-	{ "TOSERVER_OBJECT_GRAB",        0, true }, // 0x65 Terra Firma
-	{ "TOSERVER_DRIVE",              0, true }, // 0x66 Terra Firma
-	{ "TOSERVER_CLIPBOARD",          0, true }, // 0x67 Terra Firma
-	{ "TOSERVER_UPRIGHT",            0, true }, // 0x68 Terra Firma
+	{ "TOSERVER_UI",                 0, true }, // 0x54 Terraverse
+	{ "TOSERVER_TICKET",             0, true }, // 0x55 Terraverse
+	{ "TOSERVER_SCULPT",             0, true }, // 0x56 Terraverse
+	{ "TOSERVER_UNDO",               0, true }, // 0x57 Terraverse
+	{ "TOSERVER_PIECE_NEW",          0, true }, // 0x58 Terraverse
+	{ "TOSERVER_BLUEPRINT_SAVE",     0, true }, // 0x59 Terraverse
+	{ "TOSERVER_BLUEPRINT_PLACE",    0, true }, // 0x5A Terraverse
+	{ "TOSERVER_OBJECT_HOLD",        0, true }, // 0x5B Terraverse
+	{ "TOSERVER_OBJECT_POSE",        0, true }, // 0x5C Terraverse
+	{ "TOSERVER_HOLLOW",             0, true }, // 0x5D Terraverse
+	{ "TOSERVER_LINK",               0, true }, // 0x5E Terraverse
+	{ "TOSERVER_JOIN",               0, true }, // 0x5F Terraverse
+	{ "TOSERVER_PART",               0, true }, // 0x60 Terraverse
+	{ "TOSERVER_SOCKET",             0, true }, // 0x61 Terraverse
+	{ "TOSERVER_PLUG",               0, true }, // 0x62 Terraverse
+	{ "TOSERVER_OBJECT_PUSH",        0, true }, // 0x63 Terraverse
+	{ "TOSERVER_PLUG_AGAIN",         0, true }, // 0x64 Terraverse
+	{ "TOSERVER_OBJECT_GRAB",        0, true }, // 0x65 Terraverse
+	{ "TOSERVER_DRIVE",              0, true }, // 0x66 Terraverse
+	{ "TOSERVER_CLIPBOARD",          0, true }, // 0x67 Terraverse
+	{ "TOSERVER_UPRIGHT",            0, true }, // 0x68 Terraverse
 };

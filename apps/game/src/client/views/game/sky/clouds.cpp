@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -366,7 +366,7 @@ void Clouds::updateMesh()
 
 void Clouds::render()
 {
-	TF_ZONE("Clouds render"); // Terra Firma: inside Draw3D, timed (the debugger)
+	TF_ZONE("Clouds render"); // Terraverse: inside Draw3D, timed (the debugger)
 	if (m_params.density <= 0.0f)
 		return; // no need to do anything
 

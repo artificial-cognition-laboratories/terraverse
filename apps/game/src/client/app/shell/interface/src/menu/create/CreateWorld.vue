@@ -159,7 +159,7 @@ async function create() {
 </template>
 
 <style scoped>
-.controls { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; padding: 20px 18px 28px; background: var(--stone-0); }
+.controls { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; padding: 20px 18px 28px; }
 /* the planet's between these: the strip centred over it, clear of the overlays */
 .visual { position: fixed; top: 16px; right: 16px; bottom: 16px; min-width: 0; pointer-events: none; }
 .visual > * { pointer-events: auto; }

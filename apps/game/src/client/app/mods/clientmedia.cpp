@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -460,7 +460,7 @@ void ClientMediaDownloader::startConventionalTransfers(Client *client)
 
 	if (m_uncached_received_count != m_uncached_count) {
 		// Some media files have not been received yet, use the
-		// conventional slow method (luanti protocol) to get them
+		// conventional slow method (the engine's protocol) to get them
 		std::vector<std::string> file_requests;
 		for (auto &file : m_files) {
 			if (!file.second->received)

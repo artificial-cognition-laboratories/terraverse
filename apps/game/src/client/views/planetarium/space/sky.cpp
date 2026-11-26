@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/render/gputime/gputime.h"
@@ -220,13 +220,14 @@ void Sky::update(const Camera &camera, ClientMap &map, double worldDays)
 	say(m_airHeight >= 1 ? "above the air" : m_air.any() ? "in the air" : "no air on this body");
 }
 
-// (only when it changes: finding why a sky vanishes shouldn't need a debugger)
+// (only when it changes: finding why a sky vanishes shouldn't need a debugger; an action, so it
+// lands in debug.txt, not a warning on every run)
 void Sky::say(const std::string &state)
 {
 	if (state == m_said)
 		return;
 	m_said = state;
-	warningstream << "sky: " << state << std::endl;
+	actionstream << "sky: " << state << std::endl;
 }
 
 void Sky::OnRegisterSceneNode()
@@ -238,7 +239,7 @@ void Sky::OnRegisterSceneNode()
 
 void Sky::render()
 {
-	TF_ZONE("Space render"); // Terra Firma: inside Draw3D, timed (the debugger)
+	TF_ZONE("Space render"); // Terraverse: inside Draw3D, timed (the debugger)
 	gpu::Zone gpu("Space");
 	scene::ICameraSceneNode *camera = SceneManager->getActiveCamera();
 	if (!m_eye || !camera || SceneManager->getSceneNodeRenderPass() != scene::ESNRP_SKY_BOX)

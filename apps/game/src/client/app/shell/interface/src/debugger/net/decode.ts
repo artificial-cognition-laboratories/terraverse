@@ -3,7 +3,7 @@ import { short } from "./categories.ts"
 /**
  * One-line summaries of the messages that matter most, read from the head of
  * their payload (the engine keeps the first 16 bytes of each incoming one).
- * A table: a type with no row here shows its size alone. Luanti writes numbers
+ * A table: a type with no row here shows its size alone. The engine writes numbers
  * big-endian; a v3s16 is three s16s.
  */
 type Reader = { u16: (at: number) => number; s16: (at: number) => number; size: number }

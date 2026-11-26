@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2018 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2013-2018 kwolekr, Ryan Kwolek <kwolekr@minetest.net>
@@ -9,7 +9,7 @@
 #include "src/shared/map/voxel/voxel.h"
 #include "src/shared/base/noise.h"
 #include "src/shared/base/gamedef.h"
-#include "src/server/world/generate/luanti/mg_biome.h"
+#include "src/server/world/generate/legacy/mg_biome.h"
 #include "src/shared/map/block/mapnode.h"
 #include "src/shared/map/map.h"
 #include "src/shared/game/content/nodedef.h"
@@ -17,11 +17,11 @@
 #include "src/shared/map/voxel/voxelalgorithms.h"
 #include "src/shared/platform/system/profiler.h"
 #include "src/shared/platform/settings/settings.h"
-#include "src/server/world/generate/luanti/treegen.h"
+#include "src/server/world/generate/legacy/treegen.h"
 #include "src/shared/util/math/numeric.h"
 #include "src/shared/util/math/directiontables.h"
 #include "src/shared/platform/system/log.h"
-#include "src/server/world/generate/luanti/mapgen_singlenode.h"
+#include "src/server/world/generate/legacy/mapgen_singlenode.h"
 #include "src/server/world/generate/mapgen_terra.h"
 
 const FlagDesc flagdesc_mapgen[] = {
@@ -899,7 +899,7 @@ void MapgenParams::readParams(const Settings *settings)
 		// in another would join two lands at the edge of what's saved
 		if (mgtype == MAPGEN_INVALID)
 			throw BaseException("this world was made by mapgen '" + mg_name +
-					"', which Terra Firma doesn't have (only terra)");
+					"', which Terraverse doesn't have (only terra)");
 	}
 
 	settings->getS16NoEx("water_level", water_level);
@@ -1007,7 +1007,7 @@ std::pair<v3s16, v3s16> get_mapgen_edges(s16 mapgen_limit, v3s16 chunksize)
 	return {emin, emax};
 }
 
-// Terra Firma: the list of positions, in this chunk, of loose ground (group
+// Terraverse: the list of positions, in this chunk, of loose ground (group
 // `loose`) under water, or open above with water beside it at its level.
 std::vector<v3s16> mapgenShore(Mapgen &mg)
 {

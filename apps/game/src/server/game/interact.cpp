@@ -1,4 +1,4 @@
-// Terra Firma: digging, placing and what falls (sprint 119). See interact.h.
+// Terraverse: digging, placing and what falls (sprint 119). See interact.h.
 #include "src/server/game/interact.h"
 
 #include "src/shared/game/items/inventory.h"
@@ -46,7 +46,7 @@ std::optional<u32> colourSpan(ContentParamType2 type)
 	}
 }
 
-// The way a player's facing, as Luanti's facedir: along whichever of x and z is the larger.
+// The way a player's facing, as the engine's facedir: along whichever of x and z is the larger.
 u8 facedirOf(v3f dir)
 {
 	if (std::fabs(dir.X) > std::fabs(dir.Z))

@@ -1,11 +1,11 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include <array>
 
 #include "src/shared/map/voxel/voxelalgorithms.h"
-#include "library/world/planet/atlas.h" // Terra Firma
+#include "library/world/planet/atlas.h" // Terraverse
 #include "src/shared/game/content/nodedef.h"
 #include "src/shared/map/block/mapblock.h"
 #include "src/shared/map/map.h"
@@ -231,7 +231,7 @@ bool step_rel_block_pos(direction dir, relative_v3 &rel_pos,
 }
 
 /*
- * Terra Firma: step_rel_block_pos, across an atlas's seam if the step
+ * Terraverse: step_rel_block_pos, across an atlas's seam if the step
  * crosses one: the neighbour is the next grid's node (Map::next), and `dir`
  * becomes the way the step goes in that grid (so light doesn't turn back
  * on its source there). Returns whether the block changed.
@@ -304,7 +304,7 @@ void unspread_light(Map *map, const NodeDefManager *nodemgr, LightBank bank,
 			neighbor_rel_pos = current.rel_position;
 			neighbor_block_pos = current.block_position;
 			MapBlock *neighbor_block;
-			direction way = i; // Terra Firma: turned over a planet's edge
+			direction way = i; // Terraverse: turned over a planet's edge
 			if (step_on_planet(map, way, neighbor_rel_pos, neighbor_block_pos)) {
 				neighbor_block = map->getBlockNoCreateNoEx(neighbor_block_pos);
 				if (neighbor_block == NULL) {
@@ -392,7 +392,7 @@ void spread_light(Map *map, const NodeDefManager *nodemgr, LightBank bank,
 			neighbor_rel_pos = current.rel_position;
 			neighbor_block_pos = current.block_position;
 			MapBlock *neighbor_block;
-			direction way = i; // Terra Firma: turned over a planet's edge
+			direction way = i; // Terraverse: turned over a planet's edge
 			if (step_on_planet(map, way, neighbor_rel_pos, neighbor_block_pos)) {
 				neighbor_block = map->getBlockNoCreateNoEx(neighbor_block_pos);
 				if (neighbor_block == NULL) {

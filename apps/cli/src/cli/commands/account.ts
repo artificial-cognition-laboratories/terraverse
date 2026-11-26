@@ -1,13 +1,14 @@
 import { countdown, header, hyperlink, next, status, type RendererHandle } from "@arcforge/arcline"
 import type { Identity, TerraT } from "../../terra"
 import { flags, type Args } from "../args"
+import type { Browser } from "../browser"
 import type { PresentationT } from "../presentation"
 
 /**
  * terra login · terra logout · terra whoami — your ArcLabs account, as terra holds it.
  * terra signs in as itself, with a key that can publish; the game keeps its own.
  */
-export function AccountCommand(opts: { terra: TerraT; presentation: PresentationT }) {
+export function AccountCommand(opts: { terra: TerraT; presentation: PresentationT; browser: Browser }) {
     const p = opts.presentation
     const account = opts.terra.account
 
@@ -22,7 +23,7 @@ export function AccountCommand(opts: { terra: TerraT; presentation: Presentation
     }
 
     async function login(args: Args): Promise<number> {
-        flags.only(args, [])
+        flags.only(args, ["no-browser"])
         const pending = await account.authorize()
         const r = p.renderer
         p.line("")
@@ -32,6 +33,13 @@ export function AccountCommand(opts: { terra: TerraT; presentation: Presentation
         p.line("")
         p.line(`   ${r.c.dim("Code")}   ${r.c.bold(r.c.primary(pending.code))}`)
         p.line("")
+        // the link opens itself; the code beside it is there to check it's the same one
+        if (!flags.on(args, "no-browser")) {
+            const shown = opts.browser.open(pending.url)
+            if (shown.opened) p.line(status(r, "info", "Opened in your browser"))
+            else p.line(status(r, "info", "Open the link above to sign in", shown.why))
+            p.line("")
+        }
         const live = p.live((rr: RendererHandle, left: number, frame: string) => status(rr, "pending", "waiting for approval", `${countdown(left / 1000)} left`, frame), pending.expiresAt - Date.now())
         const tick = setInterval(() => live.set(pending.expiresAt - Date.now()), 1000)
         try {

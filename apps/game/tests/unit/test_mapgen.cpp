@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2024 Luanti core developers & community
 
@@ -6,7 +6,7 @@
 
 #include "src/server/world/load/emerge.h"
 #include "src/server/world/generate/mapgen.h"
-#include "src/server/world/generate/luanti/mg_biome.h"
+#include "src/server/world/generate/legacy/mg_biome.h"
 #include "src/shared/base/printing.h"
 #include "tests/unit/mock_server.h"
 

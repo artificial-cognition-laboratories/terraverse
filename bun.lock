@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "terrafirma",
+      "name": "terraverse",
       "devDependencies": {
         "@types/bun": "latest",
       },

@@ -1,11 +1,11 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
 
 #include "src/shared/base/irrlichttypes.h"
 #include "src/shared/map/block/mapnode.h"
-#include "src/server/world/generate/luanti/treegen.h"
+#include "src/server/world/generate/legacy/treegen.h"
 #include "library/world/terragen/src/world.h"
 #include <string>
 #include <vector>

@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 kwolekr, Ryan Kwolek <kwolekr@minetest.net>
 // Copyright (C) 2017 red-001 <red-001@outlook.ie>
@@ -71,11 +71,11 @@ public:
 	void updateSelectionMesh(const v3s16 &camera_offset);
 
 	std::vector<aabb3f> *getSelectionBoxes() { return &m_selection_boxes; }
-	// Terra Firma, an atlas: the pointed cell's outline as it's drawn (scene
+	// Terraverse, an atlas: the pointed cell's outline as it's drawn (scene
 	// coordinates: AtlasView::outline), in place of the boxes. Empty: the boxes.
 	std::vector<std::pair<v3f, v3f>> *getSelectionLines() { return &m_selection_lines; }
 	void setSelectionThrough(bool through) { m_selection_through = through; }
-	// Terra Firma: lines over the world (the camera offset taken off), each
+	// Terraverse: lines over the world (the camera offset taken off), each
 	// its colour: a held object's turning handle
 	struct Guide
 	{
@@ -83,10 +83,10 @@ public:
 		video::SColor colour;
 	};
 	std::vector<Guide> *getGuides() { return &m_guides; }
-	// Terra Firma: the world's block grid in build mode (sprint 73): lines
+	// Terraverse: the world's block grid in build mode (sprint 73): lines
 	// as guides are, their colours' alpha blended (they fade out)
 	std::vector<Guide> *getGrid() { return &m_grid; }
-	// Terra Firma: words at a place in the world (BS, the world's), drawn
+	// Terraverse: words at a place in the world (BS, the world's), drawn
 	// over it (sprint 63: the joint menu's)
 	struct Label
 	{
@@ -95,7 +95,7 @@ public:
 		video::SColor colour;
 	};
 	std::vector<Label> *getLabels() { return &m_labels; }
-	// Terra Firma: a button in the world (sprint 71: the part menu), drawn
+	// Terraverse: a button in the world (sprint 71: the part menu), drawn
 	// as the page's are (a stone face, lit from the top left, the accent
 	// under it when lit) with its sign's strokes on it, over the world
 	// (never in the ground). BS, the camera offset taken off: its middle
@@ -107,7 +107,7 @@ public:
 		std::vector<std::pair<v2f, v2f>> strokes; // in its halves, -1..1
 	};
 	std::vector<Tile> *getTiles() { return &m_tiles; }
-	// Terra Firma: a box seen through, where something would go (sprint 123:
+	// Terraverse: a box seen through, where something would go (sprint 123:
 	// a member held): its corners in the scene (BS, the camera offset taken
 	// off; bit 0 x, bit 1 y, bit 2 z: max), its colour (its alpha the fill's).
 	struct Solid
@@ -169,7 +169,7 @@ private:
 	Inventory *inventory = nullptr;
 	ITextureSource *tsrc = nullptr;
 
-	float m_hud_scaling; // cached luanti setting
+	float m_hud_scaling; // cached setting
 	float m_scale_factor;
 	v3s16 m_camera_offset;
 	v2u32 m_screensize;
@@ -179,16 +179,16 @@ private:
 	video::SColor hbar_colors[4];
 
 	std::vector<aabb3f> m_selection_boxes;
-	std::vector<std::pair<v3f, v3f>> m_selection_lines; // Terra Firma
-	bool m_selection_through = false; // Terra Firma: the lines seen through what's in front, dim
-	std::vector<Guide> m_guides; // Terra Firma
-	std::vector<Guide> m_grid;   // Terra Firma
-	std::vector<Label> m_labels; // Terra Firma
-	std::vector<Tile> m_tiles; // Terra Firma
-	std::vector<Solid> m_solids; // Terra Firma
-	void drawSolids(video::IVideoDriver *driver); // Terra Firma
-	void drawTiles(video::IVideoDriver *driver); // Terra Firma
-	void drawLabels(const v3s16 &camera_offset); // Terra Firma
+	std::vector<std::pair<v3f, v3f>> m_selection_lines; // Terraverse
+	bool m_selection_through = false; // Terraverse: the lines seen through what's in front, dim
+	std::vector<Guide> m_guides; // Terraverse
+	std::vector<Guide> m_grid;   // Terraverse
+	std::vector<Label> m_labels; // Terraverse
+	std::vector<Tile> m_tiles; // Terraverse
+	std::vector<Solid> m_solids; // Terraverse
+	void drawSolids(video::IVideoDriver *driver); // Terraverse
+	void drawTiles(video::IVideoDriver *driver); // Terraverse
+	void drawLabels(const v3s16 &camera_offset); // Terraverse
 	std::vector<aabb3f> m_halo_boxes;
 	v3f m_selection_pos;
 	v3f m_selection_pos_with_offset;

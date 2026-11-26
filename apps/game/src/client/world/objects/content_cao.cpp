@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -6,11 +6,11 @@
 #include "src/shared/platform/system/porting.h"
 #include "src/shared/platform/system/profiler.h"
 #include <array>
-#include "src/server/world/run/machines/piece/frame.h" // Terra Firma
-#include "src/server/world/run/machines/piece/machine.h" // Terra Firma
-#include "src/client/world/player/figure.h" // Terra Firma
-#include "src/client/world/player/body.h" // Terra Firma
-#include "library/world/planet/atlas.h" // Terra Firma
+#include "src/server/world/run/machines/piece/frame.h" // Terraverse
+#include "src/server/world/run/machines/piece/machine.h" // Terraverse
+#include "src/client/world/player/figure.h" // Terraverse
+#include "src/client/world/player/body.h" // Terraverse
+#include "library/world/planet/atlas.h" // Terraverse
 #include <IBillboardSceneNode.h>
 #include <ICameraSceneNode.h>
 #include <IMeshManipulator.h>
@@ -205,7 +205,7 @@ static bool logOnce(const std::ostringstream &from, std::ostream &log_to)
 	return true;
 }
 
-// Terra Firma: visuals whose mesh is nodes' (MapblockMeshGenerator), with
+// Terraverse: visuals whose mesh is nodes' (MapblockMeshGenerator), with
 // the nodes' own materials and animations
 static bool meshedAsNodes(ObjectVisual visual)
 {
@@ -271,7 +271,7 @@ static scene::SMesh *generateNodeMesh(Client *client, MapNode n,
 
 static constexpr u64 PIECE_MESH_WINDOW_US = 16000, PIECE_MESH_BUDGET_US = 4000;
 
-// Terra Firma: a piece's blocks (and cut nodes), meshed as the world's are,
+// Terraverse: a piece's blocks (and cut nodes), meshed as the world's are,
 // local node (0, 0, 0) at the object's origin; a ghost's see-through
 static scene::SMesh *generatePieceMesh(Client *client, const piece::Piece &piece, bool ghost,
 	std::optional<video::SColor> tint, std::vector<MeshAnimationInfo> &animation)
@@ -319,7 +319,7 @@ static scene::SMesh *generatePieceMesh(Client *client, const piece::Piece &piece
 	return mesh;
 }
 
-// Terra Firma: a small thing in the hand (sprint 130): what's built of it, whole, at its size
+// Terraverse: a small thing in the hand (sprint 130): what's built of it, whole, at its size
 scene::SMesh *generateMachineMesh(Client *client, const piece::Machine &machine)
 {
 	auto *mesh = new scene::SMesh();
@@ -496,7 +496,7 @@ scene::ISceneNode *GenericCAO::getSceneNode() const
 	if (m_spritenode) {
 		return m_spritenode;
 	}
-	if (m_figure) // Terra Firma
+	if (m_figure) // Terraverse
 		return m_figure->root();
 	return NULL;
 }
@@ -632,13 +632,13 @@ void GenericCAO::removeFromScene(bool permanent)
 		if (auto node = getSceneNode())
 			shadow->removeNodeFromShadowList(node);
 
-	for (scene::IMeshSceneNode *n : m_group_nodes) { // Terra Firma
+	for (scene::IMeshSceneNode *n : m_group_nodes) { // Terraverse
 		n->remove();
 		n->drop();
 	}
 	m_group_nodes.clear();
 	m_group_middles.clear();
-	m_figure.reset(); // Terra Firma
+	m_figure.reset(); // Terraverse
 	if (m_meshnode) {
 		m_meshnode->remove();
 		m_meshnode->drop();
@@ -691,7 +691,7 @@ void GenericCAO::addToScene(ITextureSource *tsrc, scene::ISceneManager *smgr)
 		enum_to_string(es_ObjectVisual, m_prop.visual)<< std::endl;
 
 	auto updateMaterialType = [this](bool hw_skin) {
-		// Terra Firma: a piece is meshed as nodes are, with their materials
+		// Terraverse: a piece is meshed as nodes are, with their materials
 		if (!meshedAsNodes(m_prop.visual) &&
 				m_prop.visual != OBJECTVISUAL_WIELDITEM &&
 				m_prop.visual != OBJECTVISUAL_ITEM)
@@ -865,7 +865,7 @@ void GenericCAO::addToScene(ITextureSource *tsrc, scene::ISceneManager *smgr)
 
 		m_wield_meshnode->setScale(m_prop.visual_size / 2.0f);
 		break;
-	} case OBJECTVISUAL_PIECE: { // Terra Firma
+	} case OBJECTVISUAL_PIECE: { // Terraverse
 		// a crowd of them come into range together is drawn over a few frames,
 		// and not all in one (sprint 130: 278 ms at once, walking onto new ground)
 		static u64 window_began = 0, window_spent = 0;
@@ -961,7 +961,7 @@ void GenericCAO::addToScene(ITextureSource *tsrc, scene::ISceneManager *smgr)
 		}
 		poseGroups();
 		break;
-	} case OBJECTVISUAL_BODY: { // Terra Firma
+	} case OBJECTVISUAL_BODY: { // Terraverse
 		updateMaterialType(false);
 		m_figure = std::make_unique<Figure>(m_smgr, m_matrixnode,
 				m_client->tsrc()->getTextureForMesh("[fill:1x1:#ffffff"),
@@ -1062,7 +1062,7 @@ void GenericCAO::updateLight(u32 day_night_ratio)
 
 	v3s16 pos[5];
 	u16 npos = getLightPosition(pos);
-	// Terra Firma: a machine's box is its origin's, often inside the ground
+	// Terraverse: a machine's box is its origin's, often inside the ground
 	// it rests on: it's lit as brightly as the air just above it
 	if (!m_group_nodes.empty()) {
 		const v3s16 at = floatToInt(m_position, BS);
@@ -1083,7 +1083,7 @@ void GenericCAO::updateLight(u32 day_night_ratio)
 			pos_ok = true;
 		}
 	}
-	// Terra Firma: flying over the land it went black in air blocks that hold no
+	// Terraverse: flying over the land it went black in air blocks that hold no
 	// light and bright between them, where none are loaded: up there it's the sun's.
 	// Decoded, as getInteriorLight's are (day in the low byte, night none): the
 	// level itself, 15 of 255, was all but black the moment it left the ground
@@ -1179,9 +1179,9 @@ void GenericCAO::setNodeLight(const video::SColor &light_color)
 		if (!node)
 			return;
 		setColorParam(node, light_color);
-		for (scene::IMeshSceneNode *g : m_group_nodes) // Terra Firma
+		for (scene::IMeshSceneNode *g : m_group_nodes) // Terraverse
 			setColorParam(g, light_color);
-		if (m_figure) // Terra Firma
+		if (m_figure) // Terraverse
 			m_figure->light(light_color);
 	}
 }
@@ -1423,7 +1423,7 @@ void GenericCAO::step(float dtime, ClientEnvironment *env)
 	} else {
 		rot_translator.translate(dtime);
 		v3f lastpos = pos_translator.val_current;
-		const v3f was = m_position; // Terra Firma: for carry()
+		const v3f was = m_position; // Terraverse: for carry()
 
 		if(m_prop.physical)
 		{
@@ -1458,7 +1458,7 @@ void GenericCAO::step(float dtime, ClientEnvironment *env)
 			m_group_t = std::min(1.f, m_group_t + dtime / m_group_interval);
 			poseGroups();
 		}
-		// Terra Firma: carried or held here, it's where this client says,
+		// Terraverse: carried or held here, it's where this client says,
 		// each frame (the server's word comes late and stepped)
 		if (m_posed) {
 			m_position = m_posed->first;
@@ -1468,7 +1468,7 @@ void GenericCAO::step(float dtime, ClientEnvironment *env)
 		}
 		updateNodePos();
 
-		// Terra Firma: the figure posed by how it moves, in its own frame
+		// Terraverse: the figure posed by how it moves, in its own frame
 		if (m_figure && dtime > 0) {
 			v3f moving;
 			float pitch = 0;
@@ -1523,7 +1523,7 @@ void GenericCAO::step(float dtime, ClientEnvironment *env)
 				}
 				back.transformVect(grip->over);
 			}
-			// Luanti's yaw turns the view left, the figure's frame +x is its right
+			// The engine's yaw turns the view left, the figure's frame +x is its right
 			const float turned = -wrapDegrees_180(yaw - m_figure_yaw) * core::DEGTORAD;
 			m_figure_yaw = yaw;
 			core::matrix4 turn = getPosRotMatrix();
@@ -1952,7 +1952,7 @@ bool GenericCAO::visualExpiryRequired(const ObjectProperties &new_) const
 		old.shaded != new_.shaded ||
 		old.use_texture_alpha != new_.use_texture_alpha ||
 		old.node != new_.node ||
-		old.piece != new_.piece || // Terra Firma
+		old.piece != new_.piece || // Terraverse
 		old.mesh != new_.mesh ||
 		old.visual != new_.visual ||
 		old.visual_size != new_.visual_size ||
@@ -2121,7 +2121,7 @@ void GenericCAO::processMessage(const std::string &data)
 		float update_interval = readF32(is);
 		bool do_interpolate_rotation = canRead(is) ? readU8(is) : true;
 
-		// Terra Firma: carried over an atlas's seam, it's in another grid,
+		// Terraverse: carried over an atlas's seam, it's in another grid,
 		// stored far off: it's put there, not glided there
 		if (const planet::Atlas *atlas = m_client->getAtlas()) {
 			const auto grid = [&](v3f v) {
@@ -2245,11 +2245,11 @@ void GenericCAO::processMessage(const std::string &data)
 			it->second.fps = new_fps;
 			m_animated_meshnode->getAnimation().tracks[track_nr].fps = new_fps;
 		}
-	} else if (cmd == AO_CMD_SET_STANCE) { // Terra Firma
+	} else if (cmd == AO_CMD_SET_STANCE) { // Terraverse
 		const u8 stance = readU8(is);
 		if (stance <= (u8)physics::Stance::WALL_RUN)
 			m_figure_stance = (physics::Stance)stance;
-	} else if (cmd == AO_CMD_SET_PARTS) { // Terra Firma
+	} else if (cmd == AO_CMD_SET_PARTS) { // Terraverse
 		const u16 count = readU16(is);
 		m_group_from.clear();
 		for (size_t i = 0; i < m_group_poses.size(); i++)
@@ -2489,7 +2489,7 @@ void GenericCAO::updateMeshCulling()
 
 	const bool hidden = m_client->getCamera()->getCameraMode() == CAMERA_MODE_FIRST;
 
-	if (m_figure) { // Terra Firma: its boxes are its own; your body stays, your head goes
+	if (m_figure) { // Terraverse: its boxes are its own; your body stays, your head goes
 		m_figure->hideHead(hidden);
 		return;
 	}
@@ -2524,7 +2524,7 @@ void GenericCAO::updateMeshCulling()
 	}
 }
 
-// Terra Firma: the top of what's solid under a place (nodes), to the sixteenth on cut
+// Terraverse: the top of what's solid under a place (nodes), to the sixteenth on cut
 // or smoothed ground. A foot looks from a little over its knee to a little past its reach.
 float GenericCAO::groundUnder(v3f at) const
 {

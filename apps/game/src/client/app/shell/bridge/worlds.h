@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -34,7 +34,7 @@ public:
 	void rename(const std::string &path, const std::string &name) const; // Refused for no name
 	WorldSpec find(const std::string &path) const;   // throws Refused
 	// Before playing a world: its creative_mode / enable_damage (world.mt)
-	// become the engine's, as Luanti's own menu does when you pick a world.
+	// become the engine's, as the old Lua menu did when you picked a world.
 	void select(const WorldSpec &world) const;
 	// When a world was last opened (seconds since the epoch: select()), if
 	// ever. Throws for a value that isn't one.

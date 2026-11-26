@@ -1,4 +1,4 @@
-// Terra Firma: blocks and items as data (sprint 119). See defs.h.
+// Terraverse: blocks and items as data (sprint 119). See defs.h.
 #include "src/server/game/defs.h"
 
 #include "src/shared/base/config.h"
@@ -208,7 +208,7 @@ TileAnimationParams animation(const std::string &owner, const Json::Value &v)
 }
 
 // A tile: its texture, or { name, backface_culling, color, animation, … }. Whether it
-// tiles and culls by default depends on how the block's drawn, as Luanti's did.
+// tiles and culls by default depends on how the block's drawn, as the engine's did.
 TileDef tile(const std::string &owner, const Json::Value &v, NodeDrawType drawtype, bool special)
 {
 	bool tiling = true, culling = true;
@@ -439,7 +439,7 @@ void itemFields(Fields &f, ItemDefinition &d)
 	d.inventory_image = f.string("inventory_image");
 	d.wield_image = f.string("wield_image");
 	d.groups = groups(f);
-	// (a stack holds 99, as Luanti's: TEMP, until what's carried is held by its mass)
+	// (a stack holds 99, as the engine's: TEMP, until what's carried is held by its mass)
 }
 
 } // namespace

@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2017 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -531,7 +531,7 @@ void ServerEnvironment::activateBlock(MapBlock *block)
 	if (block->isOrphan())
 		return;
 
-	// Run node timers: nothing keeps one yet (Terra Firma, sprint 119: they were Lua's)
+	// Run node timers: nothing keeps one yet (Terraverse, sprint 119: they were Lua's)
 	block->step((float)dtime_s, [](v3s16, MapNode, NodeTimer) { return false; });
 }
 

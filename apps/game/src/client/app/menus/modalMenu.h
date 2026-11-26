@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -90,7 +90,7 @@ private:
 	/* If true, remap a click outside the formspec to ESC. This is so that, for
 	 * example, touchscreen users can close formspecs.
 	 * The default for this setting is true. Currently, it's set to false for
-	 * the mainmenu to prevent Luanti from closing unexpectedly.
+	 * the mainmenu to prevent the engine from closing unexpectedly.
 	 */
 	bool m_remap_click_outside;
 	PointerAction m_last_click_outside{};

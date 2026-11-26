@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -227,7 +227,7 @@ void MapBlock::copyFrom(const VoxelManipulator &src)
 	VoxelArea data_area(v3s16(0,0,0), data_size - v3s16(1,1,1));
 
 	expandNodesIfNeeded();
-	// Terra Firma: a shape is its material's; what's become something
+	// Terraverse: a shape is its material's; what's become something
 	// else is whole
 	std::vector<std::pair<v3s16, content_t>> cut;
 	m_shapes.each([&](v3s16 rel, const shape::Shape &) {

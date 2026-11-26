@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2022 x2048, Dmitry Kostenko <codeforsmile@gmail.com>
 
@@ -301,7 +301,7 @@ void RenderPipeline::run(PipelineContext &context)
 	for (auto &object : m_objects)
 		object->reset(context);
 
-	// Terra Firma: each step a zone, named by its class (a pipeline nests its own)
+	// Terraverse: each step a zone, named by its class (a pipeline nests its own)
 	for (auto &step: m_pipeline) {
 		const u32 name = trace::internType(typeid(*step));
 		trace::Zone zone(name);

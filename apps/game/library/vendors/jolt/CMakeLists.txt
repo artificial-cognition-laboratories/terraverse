@@ -1,6 +1,6 @@
 # Jolt Physics (MIT, https://github.com/jrouwe/JoltPhysics), vendored at v5.4.0:
 # only its Jolt/ sources and LICENSE. Built through its own Jolt.cmake with the
-# options Terra Firma needs (planning/sprint-57-rolling.md):
+# options Terraverse needs (planning/sprint-57-rolling.md):
 # - double precision: positions stay exact far from the origin
 # - cross-platform determinism: the same inputs, the same results everywhere
 # - SSE4.2 and no newer: the Linux package runs on any x86-64 of the last decade

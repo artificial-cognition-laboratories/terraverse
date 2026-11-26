@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -12,10 +12,10 @@
 namespace far {
 
 /*
-	A game's baked palette (games/terrafirma/palette.json): everything the
+	A game's baked palette (games/terraverse/palette.json): everything the
 	generator places, by role, the tree species, and how each block looks
 	from afar, by block name. Exported from the game's own content and
-	textures (`luanti --export-palette`), so a planet drawn with no server
+	textures (`terraverse --export-palette`), so a planet drawn with no server
 	(the menu, the create screen, the Planetarium before a world is joined)
 	is the game's planet, block for block.
 

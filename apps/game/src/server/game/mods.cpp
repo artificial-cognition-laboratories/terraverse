@@ -1,4 +1,4 @@
-// Terra Firma: what TypeScript mods declare, registered beside the engine's own (sprint 119).
+// Terraverse: what TypeScript mods declare, registered beside the engine's own (sprint 119).
 // See registry.h.
 #include "src/server/game/registry.h"
 
@@ -61,7 +61,7 @@ void block(Server *server, const sidecar::Content::Block &b)
 	addBlock(server, b.name, def);
 }
 
-// A craft item: its icon in the inventory, and (Luanti's way) the same icon extruded
+// A craft item: its icon in the inventory, and (the engine's way) the same icon extruded
 // into a thick sprite in the hand, so a 16 × 16 silhouette reads as a solid tool.
 void item(Server *server, const sidecar::Content::Item &i)
 {

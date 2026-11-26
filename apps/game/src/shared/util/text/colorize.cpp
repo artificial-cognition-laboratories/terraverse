@@ -1,5 +1,5 @@
 /*
-Part of Luanti
+Part of Terraverse
 Copyright (C) 2024 rubenwardy
 
 Permission to use, copy, modify, and distribute this software for any

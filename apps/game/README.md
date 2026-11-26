@@ -1,6 +1,6 @@
 # Game
 
-Terra Firma: the engine and the game. A fork of Luanti (C++, LGPL-2.1+) that keeps its
+Terraverse: the engine and the game. A fork of Luanti (C++, LGPL-2.1+) that keeps its
 rendering, meshing, networking and map storage, and replaces its shell, world generation,
 movement and much of its simulation. What the game is and the rules for changing it are in
 the repo's `AGENTS.md`; players start at [terraverse.arclabs.it](https://www.terraverse.arclabs.it/).
@@ -23,7 +23,7 @@ scripts/         the dev loop, build, staging, bakes (bake/), releases (release/
 bun run build                 # engine and production UI, into .output/
 bun dev                       # engine, Vite and the game, hot-reloading the UI (from the root)
 bun run stage                 # refresh resources in the runtime tree
-../../.output/bin/terraverse --server --gameid terrafirma --world <tmp dir> --port <n>   # headless boot
+../../.output/bin/terraverse --server --gameid terraverse --world <tmp dir> --port <n>   # headless boot
 ```
 
 ## Checking

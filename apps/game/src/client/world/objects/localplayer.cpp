@@ -1,12 +1,12 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "src/client/world/objects/localplayer.h"
-#include "src/client/world/player/body.h" // Terra Firma
-#include "library/world/planet/atlas.h" // Terra Firma
-#include "library/matter/fill/fill.h" // Terra Firma
-#include "library/geometry/shape/shape.h" // Terra Firma
+#include "src/client/world/player/body.h" // Terraverse
+#include "library/world/planet/atlas.h" // Terraverse
+#include "library/matter/fill/fill.h" // Terraverse
+#include "library/geometry/shape/shape.h" // Terraverse
 #include <cmath>
 #include "src/client/app/input/mtevent.h"
 #include "src/shared/game/objects/collision.h"
@@ -265,7 +265,7 @@ void LocalPlayer::move(f32 dtime, Environment *env,
 	MapNode node;
 	v3s16 pp;
 
-	// Terra Firma: liquid lying in open space (sprint 81: fill::Fill) is swum in
+	// Terraverse: liquid lying in open space (sprint 81: fill::Fill) is swum in
 	// where it stands above the point looked at, as a liquid block is
 	auto under_fill = [&](v3f at) {
 		const v3s16 p = floatToInt(at, BS);
@@ -276,7 +276,7 @@ void LocalPlayer::move(f32 dtime, Environment *env,
 		const float top = p.Y - 0.5f + fill::Room::of(solid ? &*solid : nullptr).surface(f->amount / 255.0f);
 		return at.Y / BS < top;
 	};
-	// Terra Firma: a river's held water stands where the weather has it
+	// Terraverse: a river's held water stands where the weather has it
 	// (sprint 115: TOCLIENT_RIVERS), over or under the blocks generated, as
 	// it's drawn: swum in under that surface, not under the block's top
 	auto is_held = [&](v3s16 p) {
@@ -367,7 +367,7 @@ void LocalPlayer::move(f32 dtime, Environment *env,
 	// (BS * 0.6f) is the default stepheight while standing on ground
 	const float sneak_stepheight = 0.6f * BS;
 
-	// Terra Firma (sprint 58): walking is the body's (physics); Luanti's
+	// Terraverse (sprint 58): walking is the body's (physics); the engine's
 	// movement flies, swims and climbs
 	if (m_client->getBody().moves(*this)) {
 		if (m_added_velocity != v3f(0.0f)) // a knock (the server's add_velocity)
@@ -593,7 +593,7 @@ void LocalPlayer::applyControl(float dtime, Environment *env)
 	setPitch(control.pitch);
 	setYaw(control.yaw);
 
-	// Terra Firma: walking, the body (physics::walk) turns the controls into speed
+	// Terraverse: walking, the body (physics::walk) turns the controls into speed
 	if (m_client->getBody().moves(*this))
 		return;
 
@@ -925,7 +925,7 @@ void LocalPlayer::old_move(f32 dtime, Environment *env,
 	MapNode node;
 	v3s16 pp;
 
-	// Terra Firma: liquid lying in open space (sprint 81: fill::Fill) is swum in
+	// Terraverse: liquid lying in open space (sprint 81: fill::Fill) is swum in
 	// where it stands above the point looked at, as a liquid block is
 	auto under_fill = [&](v3f at) {
 		const v3s16 p = floatToInt(at, BS);
@@ -936,7 +936,7 @@ void LocalPlayer::old_move(f32 dtime, Environment *env,
 		const float top = p.Y - 0.5f + fill::Room::of(solid ? &*solid : nullptr).surface(f->amount / 255.0f);
 		return at.Y / BS < top;
 	};
-	// Terra Firma: a river's held water stands where the weather has it
+	// Terraverse: a river's held water stands where the weather has it
 	// (sprint 115: TOCLIENT_RIVERS), over or under the blocks generated, as
 	// it's drawn: swum in under that surface, not under the block's top
 	auto is_held = [&](v3s16 p) {

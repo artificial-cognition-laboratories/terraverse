@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue"
 import type { LocalMod, RegistryMod } from "../../bridge/index.ts"
-import { Button, Markdown, Notice, Spinner } from "../../kit/index.ts"
+import { useCache } from "../../cache/index.ts"
+import { Button, KeptNote, Markdown, Notice, PageSlot } from "../../kit/index.ts"
 import { ICONS } from "../../kit/icons.ts"
 import ModContents from "./ModContents.vue"
 import ModDependencies from "./ModDependencies.vue"
@@ -9,8 +10,6 @@ import ModHeader from "./ModHeader.vue"
 import ModSide from "./ModSide.vue"
 import ModSource from "./ModSource.vue"
 import ModVersions from "./ModVersions.vue"
-import { useRegistry } from "./registry.ts"
-import { Request } from "./request.ts"
 
 /**
  * One mod or texture pack's own page, as the website's (registry/detail/index.vue): the header and
@@ -20,8 +19,7 @@ import { Request } from "./request.ts"
 type Tab = "readme" | "contents" | "versions" | "dependencies" | "source"
 const props = withDefaults(defineProps<{ name: string; back: string; local?: LocalMod | null }>(), { local: null })
 const emit = defineEmits<{ back: []; open: [name: string] }>()
-const registry = useRegistry()
-const fetched = Request<string, RegistryMod>((name) => registry.mod(name))
+const fetched = useCache().cached("registry.mod")
 const mod = computed(() => props.local ?? fetched.data.value)
 const tab = ref<Tab>("readme")
 const file = ref<string | null>(null)
@@ -55,16 +53,17 @@ watch(() => [props.name, props.local?.path] as const, ([name]) => {
     tab.value = props.local ? "contents" : "readme"
     file.value = null
     count.value = null
-    if (!props.local) void fetched.run(name)
+    if (!props.local) void fetched.run({ name: name })
 }, { immediate: true })
 </script>
 
 <template>
     <div class="mod-page">
         <button type="button" class="back" @click="emit('back')">← {{ back }}</button>
-        <Notice v-if="!local && fetched.problem.value" tone="danger">{{ fetched.problem.value }}</Notice>
-        <div v-else-if="!mod" class="loading"><Spinner /> Reading {{ name }}…</div>
-        <div v-else class="detail">
+        <Notice v-if="!mod && fetched.problem.value" tone="danger">{{ fetched.problem.value }}</Notice>
+        <PageSlot v-else-if="!mod" />
+        <KeptNote v-if="mod && !local && fetched.problem.value && fetched.at.value !== null" :at="fetched.at.value" :problem="fetched.problem.value" />
+        <div v-if="mod" class="detail">
             <main class="main">
                 <ModHeader :mod="mod" :yours="local !== null">
                     <template #actions>
@@ -79,7 +78,7 @@ watch(() => [props.name, props.local?.path] as const, ([name]) => {
                 <ModDependencies v-else-if="tab === 'dependencies'" :needs="needs" @open="(n) => emit('open', n)" />
                 <ModSource v-else-if="tab === 'source' && file" :mod="mod" :file="file" />
             </main>
-            <ModSide v-model:tab="tab" :mod="mod" :tabs="tabs" :file="tab === 'source' ? file : null" @file="openFile" />
+            <ModSide class="side" v-model:tab="tab" :mod="mod" :tabs="tabs" :file="tab === 'source' ? file : null" @file="openFile" />
         </div>
     </div>
 </template>
@@ -96,9 +95,10 @@ function readme(mod: RegistryMod & { path?: string }): string {
 .mod-page { display: grid; gap: 1rem; }
 .back { justify-self: start; padding: 0; border: 0; background: none; color: var(--ink-faint); font: 0.62rem var(--font-display); text-transform: uppercase; }
 .back:hover { color: var(--ink); }
-.loading { display: flex; gap: 10px; align-items: center; color: var(--ink-dim); font-size: 0.8rem; }
 /* the side card on the right, as npm and GitHub: the readme leads, reference sits beside it */
 .detail { display: grid; grid-template-columns: minmax(0, 1fr) 17rem; gap: 2.5rem; align-items: start; }
 .main { display: grid; gap: 2rem; min-width: 0; }
-@media (max-width: 900px) { .detail { grid-template-columns: minmax(0, 1fr); } }
+/* stays put while the readme scrolls, as Browse's side card does */
+.side { position: sticky; top: 2.5rem; }
+@media (max-width: 900px) { .detail { grid-template-columns: minmax(0, 1fr); } .side { position: static; } }
 </style>

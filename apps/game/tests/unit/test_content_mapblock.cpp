@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2023 Vitaliy Lobachevskiy
 
@@ -13,8 +13,8 @@
 #include "src/client/render/map/mesh/node_visuals.h"
 #include <memory>
 #include "tests/unit/mesh_compare.h"
-#include "src/server/world/run/ground/ground.h" // Terra Firma
-#include "library/geometry/shape/shape.h" // Terra Firma
+#include "src/server/world/run/ground/ground.h" // Terraverse
+#include "library/geometry/shape/shape.h" // Terraverse
 #include "src/shared/base/noise.h"
 #include <map>
 
@@ -80,7 +80,7 @@ public:
 			tiledef.name = name + ".png";
 		for (TileSpec &tile : f.visuals->tiles)
 			tile.layers[0].texture_id = texture;
-		if (loose) // Terra Firma
+		if (loose) // Terraverse
 			f.groups["loose"] = 1;
 
 		return registerNode(itemdef, std::move(f));
@@ -160,9 +160,9 @@ public:
 	void testSurroundedNode();
 	void testInterliquidSame();
 	void testInterliquidDifferent();
-	void testSmoothedGroundHasNoHoles(); // Terra Firma
-	void testNoHolesWhereDetailChanges(); // Terra Firma
-	void testCutNodeIsItsSurface(); // Terra Firma
+	void testSmoothedGroundHasNoHoles(); // Terraverse
+	void testNoHolesWhereDetailChanges(); // Terraverse
+	void testCutNodeIsItsSurface(); // Terraverse
 };
 
 static TestMapblockMeshGenerator g_test_instance;
@@ -276,7 +276,7 @@ void TestMapblockMeshGenerator::testInterliquidDifferent()
 
 
 /*
-	Terra Firma: a block of rough ground, dirt (loose) and some stone, meshed.
+	Terraverse: a block of rough ground, dirt (loose) and some stone, meshed.
 	Straight down, a ray meets the voxel column the rule gives (what
 	collision will stand on); slanting, it reaches the mesh through no ground
 	(a crack would let it through to a surface beyond). With the walls at the
@@ -405,7 +405,7 @@ void TestMapblockMeshGenerator::testSmoothedGroundHasNoHoles()
 }
 
 /*
-	Terra Firma: two blocks side by side, one meshed fine and the next coarse
+	Terraverse: two blocks side by side, one meshed fine and the next coarse
 	(MeshUpdateQueue::detailAt's ring between them). Looked at across the
 	seam from the coarse side, just over its ground, a ray meets the fine
 	side's wall there, never passes under it: its wall stopped at a sloped
@@ -498,7 +498,7 @@ void TestMapblockMeshGenerator::testNoHolesWhereDetailChanges()
 }
 
 /*
-	Terra Firma: a cut node draws exactly its open surface: every face of a
+	Terraverse: a cut node draws exactly its open surface: every face of a
 	sixteenth with nothing across it, and no other; against a whole cube,
 	that side's faces are hidden, and the cube draws its whole face toward
 	the cut node (it covers only some of it).

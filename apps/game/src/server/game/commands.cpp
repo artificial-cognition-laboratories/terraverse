@@ -1,4 +1,4 @@
-// Terra Firma: the engine's own chat commands (sprint 119). See commands.h.
+// Terraverse: the engine's own chat commands (sprint 119). See commands.h.
 #include "src/server/game/commands.h"
 
 #include "src/server/players/player_sao.h"

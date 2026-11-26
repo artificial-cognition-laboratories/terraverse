@@ -1,9 +1,9 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
-#include "src/shared/platform/release/release.h" // Terra Firma
-#include "src/shared/base/version.h" // Terra Firma
+#include "src/shared/platform/release/release.h" // Terraverse
+#include "src/shared/base/version.h" // Terraverse
 #include "src/server/app/server.h"
 #include "src/server/app/world_lock.h"
 #include "library/trace/marks.h"
@@ -57,7 +57,7 @@
 // Mapgen
 #include "src/server/world/load/emerge.h"
 #include "src/server/world/generate/mapgen.h"
-#include "src/server/world/generate/luanti/mg_biome.h"
+#include "src/server/world/generate/legacy/mg_biome.h"
 #include "src/server/world/generate/mapgen_terra.h"
 #include "src/client/views/game/far/land/horizon.h"
 
@@ -65,9 +65,9 @@
 #include "src/server/app/mods/sidecar/sidecar.h"
 #include "src/server/app/mods/sidecar/terra.h"
 #include "src/server/app/mods/sidecar/ledger.h"
-#include "src/server/game/registry.h" // Terra Firma
-#include "tests/probe/probe.h" // Terra Firma
-#include "src/server/game/interact.h" // Terra Firma
+#include "src/server/game/registry.h" // Terraverse
+#include "tests/probe/probe.h" // Terraverse
+#include "src/server/game/interact.h" // Terraverse
 
 // Network
 #include "src/shared/platform/network/connection.h"
@@ -86,8 +86,8 @@
 #include "src/server/world/load/database/database-files.h"
 #include "src/server/world/load/database/database-dummy.h"
 
-#include "src/server/world/terra.h" // Terra Firma
-#include "src/server/world/run/rules/matter.h" // Terra Firma
+#include "src/server/world/terra.h" // Terraverse
+#include "src/server/world/run/rules/matter.h" // Terraverse
 #include <iostream>
 #include <queue>
 #include <algorithm>
@@ -134,7 +134,7 @@ void *ServerThread::run()
 	try {
 		m_server->AsyncRunStep(0.0f, true);
 	} catch (BaseException &e) {
-		// Terra Firma: what the engine refuses stops the server, said (was Lua's errors)
+		// Terraverse: what the engine refuses stops the server, said (was Lua's errors)
 		m_server->setAsyncFatalError(e.what());
 	}
 	framemarker.end();
@@ -283,7 +283,7 @@ static void enrich_exception(BaseException &e, const NetworkPacket &pkt, bool in
 	Server
 */
 
-// Terra Firma: the map blocks of a slot of the planet's window, low and
+// Terraverse: the map blocks of a slot of the planet's window, low and
 // high corners (every layer)
 static std::pair<v3s16, v3s16> slotBlocks(int slot)
 {
@@ -382,7 +382,7 @@ Server::~Server()
 
 	actionstream << "Server: Shutting down" << std::endl;
 #if USE_SHELL
-	// Terra Firma: each slow part of closing is named, so a slow leave says why
+	// Terraverse: each slow part of closing is named, so a slow leave says why
 	u64 closing = porting::getTimeMs();
 	const auto took = [&](const char *what) {
 		const u64 now = porting::getTimeMs();
@@ -437,7 +437,7 @@ Server::~Server()
 
 		infostream << "Server: Saving environment metadata" << std::endl;
 		m_env->saveMeta();
-		// Terra Firma: what's awake in the world's matter (sprint 119: was tf_matter's on_shutdown)
+		// Terraverse: what's awake in the world's matter (sprint 119: was tf_matter's on_shutdown)
 		try {
 			serverMatterSave();
 		} catch (const BaseException &e) {
@@ -449,7 +449,7 @@ Server::~Server()
 		m_workshop.reset();
 		m_inventory_mgr.reset();
 		m_sidecar.reset();
-		serverMatterShutdown(); // Terra Firma: it points at this server
+		serverMatterShutdown(); // Terraverse: it points at this server
 		took("closing its systems");
 
 		// Note that this also deletes and saves the map.
@@ -493,7 +493,7 @@ Server::~Server()
 
 void Server::init()
 {
-	trace::Marking marking("startup", "Server init"); // Terra Firma: the debugger's Startup waterfall
+	trace::Marking marking("startup", "Server init"); // Terraverse: the debugger's Startup waterfall
 	infostream << "Server created for gameid \"" << m_gamespec.id << "\"";
 	if (m_simple_singleplayer_mode)
 		infostream << " in simple singleplayer mode" << std::endl;
@@ -501,7 +501,7 @@ void Server::init()
 		infostream << std::endl;
 	infostream << "- world:  " << m_path_world << std::endl;
 	infostream << "- game:   " << m_gamespec.path << std::endl;
-	// Terra Firma: one engine to a world, held from here, where it's opened (world_lock.h)
+	// Terraverse: one engine to a world, held from here, where it's opened (world_lock.h)
 	m_world_lock = std::make_unique<WorldLock>(WorldLock::Opts{ /* world */ m_path_world });
 
 	m_game_settings = Settings::createLayer(SL_GAME);
@@ -514,7 +514,7 @@ void Server::init()
 	} catch (const BaseException &e) {
 		throw ServerError(std::string("Failed to initialize world: ") + e.what());
 	}
-	// Terra Firma: which release may open this world, and a copy before a new one does
+	// Terraverse: which release may open this world, and a copy before a new one does
 	try {
 		release::openWorld(m_path_world, g_version_hash, porting::path_user + DIR_DELIM "backups");
 	} catch (const BaseException &e) {
@@ -524,7 +524,7 @@ void Server::init()
 	// Create emerge manager
 	m_emerge = std::make_unique<EmergeManager>(this, m_metrics_backend.get());
 
-	// Terra Firma: who may do what (sprint 119): the one playing alone, or the host, owns it
+	// Terraverse: who may do what (sprint 119): the one playing alone, or the host, owns it
 	m_access = std::make_unique<Access>(m_path_world,
 			m_simple_singleplayer_mode ? "singleplayer" : g_settings->get("name"));
 
@@ -546,7 +546,7 @@ void Server::init()
 			"corrupted or in an unsupported format.\n") + e.what());
 	}
 
-	// Terra Firma: whether the world is a planet is the world's (map_meta.txt,
+	// Terraverse: whether the world is a planet is the world's (map_meta.txt,
 	// or the settings a new world starts from), known before any mod runs:
 	// core.planet answers while mods load. One made on the cube-sphere net
 	// (planet_half), before the atlas, is refused.
@@ -614,7 +614,7 @@ void Server::init()
 
 	m_gamespec.checkAndLog();
 	m_materials = std::make_unique<workshop::Materials>();
-	// Terra Firma (sprint 119): what the world's made of, natively (server/registry): the
+	// Terraverse (sprint 119): what the world's made of, natively (server/registry): the
 	// engine's own blocks, then the TypeScript mods'. A world given no server folder runs the
 	// game's own (apps/game/server, staged prepared into the share): the official mods.
 	registerContent(this);
@@ -710,7 +710,7 @@ void Server::init()
 		m_rollback = new RollbackManager(m_path_world, this);
 	}
 
-	// Terra Firma: snow, ice and thaw (sprint 119: were tf_weather's)
+	// Terraverse: snow, ice and thaw (sprint 119: were tf_weather's)
 	terraAddWeatherModifiers(this);
 
 	// Register us to receive map edit events
@@ -738,24 +738,6 @@ void Server::start()
 
 	// Start thread
 	m_thread->start();
-
-	// ASCII art for the win!
-	const char *art[] = {
-		R"( _                   _   _ )",
-		R"(| |_   _  __ _ _ __ | |_(_))",
-		R"(| | | | |/ _` | '_ \| __| |)",
-		R"(| | |_| | (_| | | | | |_| |)",
-		R"(|_|\__,_|\__,_|_| |_|\__|_|)",
-	};
-	if (!m_admin_chat) {
-		// we're not printing to rawstream to avoid it showing up in the logs.
-		// however it would then mess up the ncurses terminal (m_admin_chat),
-		// so we skip it in that case.
-		for (size_t i = 0; i < ARRLEN(art); ++i)
-			std::cerr << art[i] << (i == ARRLEN(art) - 1 ? "" : "\n");
-		// add a "tail" with the engine version
-		std::cerr << "  ___ " << g_version_hash << std::endl;
-	}
 
 	actionstream << "World at [" << m_path_world << "]" << std::endl;
 	actionstream << "Server for gameid=\"" << m_gamespec.id
@@ -803,9 +785,9 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 		// Send blocks to clients
 		SendBlocks(dtime);
 	}
-	m_client_count.store(m_clients.getClientIDs(CS_Created).size(), std::memory_order_relaxed); // Terra Firma: clientCount()
+	m_client_count.store(m_clients.getClientIDs(CS_Created).size(), std::memory_order_relaxed); // Terraverse: clientCount()
 
-	// Terra Firma: answers on joiners' tickets, admitted under the environment lock, as
+	// Terraverse: answers on joiners' tickets, admitted under the environment lock, as
 	// packet handling is.
 	if (m_gate) {
 		std::vector<online::Gate::Decision> decisions = m_gate->poll();
@@ -816,7 +798,7 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 		}
 	}
 
-	// Terra Firma: the players' report (reportPlayers), each half second
+	// Terraverse: the players' report (reportPlayers), each half second
 	m_players_report_age += dtime;
 	if (m_players_report_age >= 0.5f) {
 		m_players_report_age = 0;
@@ -886,17 +868,17 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 
 		m_env->reportMaxLagEstimate(max_lag);
 
-		// Terra Firma: machines move by physics, then the environment steps (sprint 57)
+		// Terraverse: machines move by physics, then the environment steps (sprint 57)
 		if (m_workshop)
 			{ TF_ZONE("Server: machines"); m_workshop->step(dtime); }
-		// Terra Firma: what that pressed into loose ground, and how it slides (sprint 84)
+		// Terraverse: what that pressed into loose ground, and how it slides (sprint 84)
 		if (m_piles)
 			pressGround(dtime);
 
 		// Step environment
 		{ TF_ZONE("Server: environment"); m_env->step(dtime); }
 
-		// Terra Firma: a window for TypeScript mods (sprint 119)
+		// Terraverse: a window for TypeScript mods (sprint 119)
 		if (m_sidecar) {
 			m_sidecar_now += dtime;
 			{ TF_ZONE("Server: mods (sidecar)"); m_sidecar->step(dtime, m_sidecar_now); }
@@ -907,20 +889,20 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 			}
 		}
 
-		// Terra Firma: a check's probe, driving the world (src/probe, sprint 119)
+		// Terraverse: a check's probe, driving the world (src/probe, sprint 119)
 		if (m_probe)
 			m_probe->step(dtime);
 
-		// Terra Firma: each player's sky, from the real sun where they stand (sprint 119: was tf_sky)
+		// Terraverse: each player's sky, from the real sun where they stand (sprint 119: was tf_sky)
 		{ TF_ZONE("Server: sky"); terraStepSkies(this, dtime); }
-		// Terra Firma: each player's weight, and standing on the planet (sprint 119: were
+		// Terraverse: each player's weight, and standing on the planet (sprint 119: were
 		// tf_flight's and tf_planet's)
 		{ TF_ZONE("Server: gravity"); terraStepGravity(this); }
 		{ TF_ZONE("Server: planet"); terraStepPlanet(this, dtime); }
 		{ TF_ZONE("Server: weather"); terraStepWeather(this, dtime); }
 		{ TF_ZONE("Server: players"); terraStepPlayers(this, dtime); }
 		{ TF_ZONE("Server: matter"); terraStepMatter(this, dtime); }
-		// Terra Firma: the shore's smoothed ground holds water as a fill (sprint 81; sprint
+		// Terraverse: the shore's smoothed ground holds water as a fill (sprint 81; sprint
 		// 119: was tf_world's on_generated)
 		{
 			std::vector<v3s16> shore;
@@ -931,19 +913,19 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 			terraFillShore(this, shore);
 		}
 
-		// Terra Firma: the rivers round each player, as the weather fills them (sprint 115)
+		// Terraverse: the rivers round each player, as the weather fills them (sprint 115)
 		if ((m_rivers_timer -= dtime) <= 0) {
 			m_rivers_timer = 2;
 			terraSendRivers(this);
 		}
-		// Terra Firma: dammed rivers' lakes rise (sprint 115)
+		// Terraverse: dammed rivers' lakes rise (sprint 115)
 		m_lakes_dtime += dtime;
 		if (m_lakes_dtime >= 0.5f) {
 			{ TF_ZONE("Server: lakes"); terraStepLakes(this, m_lakes_dtime); }
 			m_lakes_dtime = 0;
 		}
 
-		// Terra Firma: the planet's window follows the players
+		// Terraverse: the planet's window follows the players
 		if (m_pager && (m_window_timer -= dtime) <= 0) {
 			m_window_timer = 1;
 			keepPlanetWindow();
@@ -1166,7 +1148,7 @@ void Server::AsyncRunStep(float dtime, bool initial_step)
 						if (cmd >= AO_CMD_STOP_ANIMATION && client->net_proto_version < 52)
 							continue; // AO_CMD_STOP_ANIMATION added in protocol version 52
 						if (cmd >= AO_CMD_SET_PARTS && client->net_proto_version < 70)
-							continue; // Terra Firma: AO_CMD_SET_PARTS added in protocol version 70
+							continue; // Terraverse: AO_CMD_SET_PARTS added in protocol version 70
 
 						// Add full new data to appropriate buffer
 						std::string &buffer = aom.reliable ? reliable_data : unreliable_data;
@@ -1612,10 +1594,10 @@ void Server::setDate(u32 days, u32 time)
 
 void Server::onMapEditEvent(const MapEditEvent &event)
 {
-	// Terra Firma: the physics' ground follows every edit (sprint 57)
+	// Terraverse: the physics' ground follows every edit (sprint 57)
 	if (m_workshop)
 		m_workshop->mapEdited(event);
-	// Terra Firma: a river dammed (sprint 115)
+	// Terraverse: a river dammed (sprint 115)
 	terraEdited(this, event);
 
 	if (m_ignore_map_edit_events_area.contains(event.getArea()))
@@ -2248,7 +2230,7 @@ void Server::SendSetSky(session_t peer_id, const SkyboxParams &params)
 			<< params.fog_color;
 
 		pkt << params.auto_dim_skybox;
-		// Terra Firma
+		// Terraverse
 		pkt << params.solar.on << params.solar.latitude << params.solar.declination << params.solar.turns << params.solar.at;
 	}
 
@@ -2343,7 +2325,7 @@ void Server::SendCamera(session_t peer_id, Player *player)
 void Server::SendTimeOfDay(session_t peer_id, u16 time, f32 time_speed)
 {
 	NetworkPacket pkt(TOCLIENT_TIME_OF_DAY, 0, peer_id);
-	pkt << time << time_speed << m_env->getDayCount(); // Terra Firma: the client never counts days itself
+	pkt << time << time_speed << m_env->getDayCount(); // Terraverse: the client never counts days itself
 
 	if (peer_id == PEER_ID_INEXISTENT) {
 		m_clients.sendToAll(&pkt);
@@ -2755,7 +2737,7 @@ void Server::sendShape(v3s16 p, std::unordered_set<u16> *far_players, float far_
 	sendNodeChangePkt(pkt, getNodeBlockPos(p), intToFloat(p, BS), far_d_nodes, far_players);
 }
 
-// Terra Firma: a node's liquid (sprint 81), drawn by the client's liquid layer, not its mesh
+// Terraverse: a node's liquid (sprint 81), drawn by the client's liquid layer, not its mesh
 void Server::sendFill(v3s16 p, std::unordered_set<u16> *far_players, float far_d_nodes)
 {
 	NetworkPacket pkt(TOCLIENT_FILL, 6 + 64 + 4);
@@ -2768,7 +2750,7 @@ void Server::sendFill(v3s16 p, std::unordered_set<u16> *far_players, float far_d
 	sendNodeChangePkt(pkt, getNodeBlockPos(p), intToFloat(p, BS), far_d_nodes, far_players);
 }
 
-// Terra Firma: liquid poured (sprint 82), to the players near enough to see it fall
+// Terraverse: liquid poured (sprint 82), to the players near enough to see it fall
 void Server::sendStream(v3f from, v3f to, video::SColor colour, u16 cups)
 {
 	static const float SEEN = 48; // nodes
@@ -2778,7 +2760,7 @@ void Server::sendStream(v3f from, v3f to, video::SColor colour, u16 cups)
 	sendNodeChangePkt(pkt, getNodeBlockPos(floatToInt(from * BS, BS)), from * BS, SEEN, &far);
 }
 
-// Terra Firma: the rivers round a player, as the weather fills them (sprint 115)
+// Terraverse: the rivers round a player, as the weather fills them (sprint 115)
 void Server::sendRivers(session_t peer, const std::vector<std::tuple<v3s16, s16, u8, u8>> &blocks)
 {
 	NetworkPacket pkt(TOCLIENT_RIVERS, 2 + blocks.size() * 10, peer);
@@ -3066,7 +3048,7 @@ bool Server::sidecarCommand(const std::string &player, const std::string &name, 
 	return m_sidecar && m_sidecar->command(player, name, text);
 }
 
-// Terra Firma: start `terra runtime` on the server folder, and make what its mods
+// Terraverse: start `terra runtime` on the server folder, and make what its mods
 // declared into items and nodes, before registration closes (sprint 119).
 void Server::startSidecar()
 {
@@ -3497,7 +3479,7 @@ void Server::HandlePlayerDeath(PlayerSAO *playersao, const PlayerHPChangeReason 
 
 	playersao->clearParentAttachment();
 
-	// Terra Firma (sprint 119: was builtin's death_screen.lua): shown they died; they
+	// Terraverse (sprint 119: was builtin's death_screen.lua): shown they died; they
 	// respawn when they choose (handleCommand_Respawn)
 	SendDeathscreen(playersao->getPeerID());
 }
@@ -3597,7 +3579,7 @@ void Server::DeleteClient(session_t peer_id, ClientDeletionReason reason)
 			// (u16) 1 + std::string represents a vector serialization representation
 			notice << (u8) PLAYER_LIST_REMOVE  << (u16) 1 << player_name;
 			m_clients.sendToAll(&notice);
-			// Terra Firma: was builtin's (sprint 119)
+			// Terraverse: was builtin's (sprint 119)
 			SendChatMessage(PEER_ID_INEXISTENT, ChatMessage(CHATMESSAGE_TYPE_ANNOUNCE, utf8_to_wide("*** " +
 					player_name + (reason == CDR_TIMEOUT ? " left the game (timed out)." : " left the game."))));
 			if (m_sidecar)
@@ -3722,7 +3704,7 @@ std::wstring Server::handleChat(const std::string &name,
 	if (message.find_first_of("\r\n") != std::string::npos)
 		return L"Newlines are not permitted in chat messages";
 
-	// Terra Firma: a command is the engine's or a mod's (server/commands, sprint 119)
+	// Terraverse: a command is the engine's or a mod's (server/commands, sprint 119)
 	if (message[0] == '/')
 		return utf8_to_wide(m_commands->run(name, player, message.substr(1)));
 
@@ -3841,7 +3823,7 @@ std::string Server::getStatusString()
 
 std::set<std::string> Server::getPlayerEffectivePrivs(const std::string &name)
 {
-	// Terra Firma: their roles' and grants' (server/access), and creative's (sprint 119)
+	// Terraverse: their roles' and grants' (server/access), and creative's (sprint 119)
 	std::set<std::string> privs = m_access->permissions(name);
 	terraCreativePrivs(privs);
 	return privs;
@@ -4509,7 +4491,7 @@ v3f Server::findSpawnPos()
 		return *staticSpawnPoint * BS;
 	}
 
-	// Terra Firma: on the planet, land nearest the equator (sprint 119: was tf_planet's)
+	// Terraverse: on the planet, land nearest the equator (sprint 119: was tf_planet's)
 	if (m_atlas)
 		return terraSpawn(this);
 
@@ -4658,7 +4640,7 @@ std::unique_ptr<PlayerSAO> Server::emergePlayer(const char *name, session_t peer
 
 	// Load player
 	auto playersao = m_env->loadPlayer(player, peer_id);
-	// Terra Firma: back where they were on the planet, whatever slot of the
+	// Terraverse: back where they were on the planet, whatever slot of the
 	// map's window holds it now (keepPlanetWindow keeps it)
 	if (m_pager)
 		if (const std::string &at = playersao->getMeta().getString("planet_cell"); !at.empty()) {
@@ -4836,7 +4818,7 @@ void Server::SendHorizon(session_t peer_id)
 	Send(&pkt);
 }
 
-// Terra Firma: the world's atlas (every body's), so the client stores and
+// Terraverse: the world's atlas (every body's), so the client stores and
 // draws it as the server does, and its window
 void Server::SendPlanet(session_t peer_id)
 {
@@ -4886,7 +4868,7 @@ planet::Atlas::Node Server::planetNode(const planet::Atlas::Cell &cell)
 	return m_pager->node(cell, getUptime());
 }
 
-// Terra Firma (sprint 84): wheels and feet press loose ground. A wheel's
+// Terraverse (sprint 84): wheels and feet press loose ground. A wheel's
 // patch is its tyre's width across, carrying its load; a foot's, a
 // person's weight on a sole. The piles keep each pressing once per
 // sixteenth it moves, and ignore what's off the ground.

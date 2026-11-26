@@ -1,4 +1,4 @@
-// Terra Firma: where Terraverse keeps things on this machine (.agents/planning/home.md): one
+// Terraverse: where Terraverse keeps things on this machine (.agents/planning/home.md): one
 // root, a profile per player, a cache that's safe to delete. The engine's legacy globals
 // (porting::path_user, path_cache) are set from here and follow the active profile.
 #pragma once

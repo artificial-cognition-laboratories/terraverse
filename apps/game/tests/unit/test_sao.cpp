@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2024 sfan5
 
@@ -36,7 +36,7 @@ private:
 
 static TestSAO g_test_instance;
 
-// Terra Firma (sprint 119): an entity's kind is native (server/kinds.h); these are of no
+// Terraverse (sprint 119): an entity's kind is native (server/kinds.h); these are of no
 // kind, kept as they were saved, so whether they're saved is set by hand.
 void TestSAO::runTests(IGameDef *gamedef)
 {

@@ -1,4 +1,4 @@
-// Terra Firma: the engine's own chat commands (sprint 119): an admin's tools for what the
+// Terraverse: the engine's own chat commands (sprint 119): an admin's tools for what the
 // engine owns (its bodies, its rivers). Everything else typed is chat's (Server::handleChat):
 // a line, or a mod's command, which TypeScript answers (the sidecar, @terraverse/commands).
 #pragma once

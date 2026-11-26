@@ -1,9 +1,9 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "src/client/render/map/mesh/mapblock_mesh.h"
-#include "library/world/planet/atlas.h" // Terra Firma
+#include "library/world/planet/atlas.h" // Terraverse
 #include "src/shared/base/exceptions.h"
 #include "CMeshBuffer.h"
 #include "src/client/world/session/client.h"
@@ -496,7 +496,7 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 		// Generate everything
 		MapblockMeshGenerator(data, &collector).generate();
 	}
-	if (data->m_atlas) { // Terra Firma: on the planet, round the block's middle
+	if (data->m_atlas) { // Terraverse: on the planet, round the block's middle
 		bendOntoAtlas(collector, *data->m_atlas, data->m_blockpos);
 		m_bounding_sphere_center = v3f(0);
 	}
@@ -796,7 +796,7 @@ u8 get_solid_sides(MeshMakeData *data)
 }
 
 /*
-	Terra Firma: a cut cell (where a grid's territory ends inside it) is drawn
+	Terraverse: a cut cell (where a grid's territory ends inside it) is drawn
 	as the part of it in its territory (planet::Atlas::cut, what collision
 	and pointing take too): each of its triangles clipped by the cut's planes,
 	so two grids' cut cells meet on one surface. Its cut faces (where they show
@@ -917,7 +917,7 @@ void bendOntoAtlas(MeshCollector &collector, const planet::Atlas &atlas, v3s16 b
 	collector.m_bounding_radius_sq = radius_sq;
 }
 
-// Terra Firma (mapblock_mesh.h)
+// Terraverse (mapblock_mesh.h)
 void MapBlockMesh::upload(video::IVideoDriver *driver) const
 {
 	for (const auto &mesh : m_mesh)

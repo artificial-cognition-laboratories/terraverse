@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -858,7 +858,7 @@ std::string sanitizeDirName(std::string_view str, std::string_view optional_pref
 
 /**
  * Sanitize an untrusted string (e.g. from the network). This will strip
- * control characters and (optionally) any Luanti-style escape sequences too.
+ * control characters and (optionally) any engine-style escape sequences too.
  * Note that they won't be removed cleanly but rather just broken, unlike with
  * unescape_enriched.
  * Line breaks and UTF-8 are permitted.

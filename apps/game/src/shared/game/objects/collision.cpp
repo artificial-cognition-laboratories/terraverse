@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -219,7 +219,7 @@ bool wouldCollideWithCeiling(
 	return false;
 }
 
-// Terra Firma: the node a mover is in (planet::Atlas::moverNode: a
+// Terraverse: the node a mover is in (planet::Atlas::moverNode: a
 // centimetre above its feet, so feet on a floor are in the node above it).
 static v3s16 moverNode(v3f pos)
 {
@@ -227,7 +227,7 @@ static v3s16 moverNode(v3f pos)
 	return v3s16(n.x, n.y, n.z);
 }
 
-// Terra Firma, an atlas: a cut cell's solid (planet::Atlas::cut) as boxes,
+// Terraverse, an atlas: a cut cell's solid (planet::Atlas::cut) as boxes,
 // turned into the grid it's seen from, about its centre (nodes × BS). None
 // for a whole cell.
 static constexpr int CUT_COLUMNS = 4; // a side: the slant's steps are a quarter node
@@ -246,7 +246,7 @@ static std::optional<std::vector<aabb3f>> solidParts(const planet::Atlas &atlas,
 	return out;
 }
 
-// `from`: where the mover is. Terra Firma: on a planet, past a seam the
+// `from`: where the mover is. Terraverse: on a planet, past a seam the
 // nodes are the next grid's, seen from here (Map::seeAll).
 static bool add_area_node_boxes(const v3s16 min, const v3s16 max, v3s16 from, IGameDef *gamedef,
 		Environment *env, std::vector<NearbyCollisionInfo> &cinfo)
@@ -267,7 +267,7 @@ static bool add_area_node_boxes(const v3s16 min, const v3s16 max, v3s16 from, IG
 	// Note #2: the >= min check will prevent an overflow from causing an
 	// infinite loop.
 
-	std::vector<v3s16> across; // Terra Firma, an atlas: cells over a seam, once each
+	std::vector<v3s16> across; // Terraverse, an atlas: cells over a seam, once each
 
 	v3s16 p;
 	for (p.Z = min.Z; p.Z >= min.Z && p.Z <= max.Z; p.Z++)
@@ -364,7 +364,7 @@ static bool add_area_node_boxes(const v3s16 min, const v3s16 max, v3s16 from, IG
 			u8 neighbors = n.getNeighbors(p, map);
 
 			nodeboxes.clear();
-			// Terra Firma: a cut node and smoothed ground are stood on as drawn
+			// Terraverse: a cut node and smoothed ground are stood on as drawn
 			if (!map->getShapedBoxes(p, nodeboxes))
 				n.getCollisionBoxes(nodedef, &nodeboxes, neighbors);
 

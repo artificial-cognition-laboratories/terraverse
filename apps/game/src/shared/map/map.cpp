@@ -1,10 +1,10 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "src/shared/map/map.h"
-#include "library/world/planet/atlas.h" // Terra Firma
-#include "src/server/world/run/ground/ground.h" // Terra Firma
+#include "library/world/planet/atlas.h" // Terraverse
+#include "src/server/world/run/ground/ground.h" // Terraverse
 #include <algorithm>
 #include "src/shared/map/block/mapsector.h"
 #include "src/shared/map/block/mapblock.h"
@@ -246,7 +246,7 @@ static void set_node_in_block(const NodeDefManager *nodedef, MapBlock *block,
 				<<"\" at "<<p<<" (block "<<blockpos<<")"<<std::endl;
 		return;
 	}
-	// Terra Firma: a shape is its material's; something else is whole
+	// Terraverse: a shape is its material's; something else is whole
 	if (block->getNodeNoCheck(relpos).getContent() != n.getContent()) {
 		block->m_shapes.erase(relpos);
 		block->m_sprigs.erase(relpos); // (and a plant its foot's)

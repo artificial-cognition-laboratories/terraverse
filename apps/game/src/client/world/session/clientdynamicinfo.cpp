@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2022-3 rubenwardy <rw@rubenwardy.com>
 
@@ -28,7 +28,7 @@ ClientDynamicInfo ClientDynamicInfo::getCurrent()
 
 v2f32 ClientDynamicInfo::calculateMaxFSSize(v2u32 render_target_size, f32 density, f32 gui_scaling)
 {
-	// The protocol still carries the largest formspec that fits (Luanti's formula,
+	// The protocol still carries the largest formspec that fits (the engine's formula,
 	// from the formspec menu that's gone): 0.53 inch a cell, or a fifteenth of the
 	// screen's short side, whichever is bigger.
 	const double screen_dpi = density * 96;

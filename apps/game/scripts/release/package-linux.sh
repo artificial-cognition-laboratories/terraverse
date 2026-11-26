@@ -5,7 +5,7 @@
 #     terraverse         the launcher: run this. Player data goes in ~/.terraverse
 #     bin/               the engine and Chromium (run in place)
 #     lib/               the libraries it needs that a desktop may not have
-#     client fonts games/terrafirma locale matter world textures ui/dist misc
+#     client fonts games/terraverse locale matter world textures ui/dist misc
 #     licenses/
 #
 # Needs a Release build with RUN_IN_PLACE=TRUE and the staged .output tree.
@@ -39,7 +39,7 @@ strip --strip-unneeded "$stage/bin/terraverse"
 for d in client fonts locale matter textures misc server world; do
 	cp -a "$root/.output/$d" "$stage/"
 done
-cp -a "$root/.output/games/terrafirma" "$stage/games/"
+cp -a "$root/.output/games/terraverse" "$stage/games/"
 cp -a "$root/.output/ui/dist" "$stage/ui/"
 
 cp "$root/LICENSE.txt" "$stage/licenses/luanti-LICENSE.txt"
@@ -72,7 +72,7 @@ done
 
 cat > "$stage/terraverse" <<'LAUNCH'
 #!/bin/sh
-# Terra Firma: run the engine with its own libraries found first.
+# Terraverse: run the engine with its own libraries found first.
 here=$(dirname "$(readlink -f "$0")")
 export TERRAVERSE_HOME="${TERRAVERSE_HOME:-${HOME:?HOME is not set}/.terraverse}"
 LD_LIBRARY_PATH="$here/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" exec "$here/bin/terraverse" "$@"

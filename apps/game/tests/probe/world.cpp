@@ -1,4 +1,4 @@
-// Terra Firma: the checks' probes of the world model, the far view and the bodies
+// Terraverse: the checks' probes of the world model, the far view and the bodies
 // (sprint 119: were Lua mods in scripts/{terragen,far,bodies}-check). See probe.h.
 #include "tests/probe/probe.h"
 
@@ -47,7 +47,7 @@ std::string kind(Context &c, const std::string &name)
 	// planted after: tufts, cacti, flora's stems and flowers
 	if (itemgroup_get(f.groups, "plant") > 0 || f.drawtype == NDT_PLANTLIKE || f.drawtype == NDT_NODEBOX)
 		return "plant";
-	// (the world's water is the matter's since sprint 80: group liquid, no Luanti liquidtype)
+	// (the world's water is the matter's since sprint 80: group liquid, no the engine liquidtype)
 	if (f.liquid_type != LIQUID_NONE || itemgroup_get(f.groups, "liquid") > 0 || name == "core:ice")
 		return "liquid"; // a frozen sea's top is its water
 	return "solid";

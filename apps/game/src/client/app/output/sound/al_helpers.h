@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2022 DS
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
@@ -64,7 +64,7 @@ inline ALenum warn_if_al_error(const char *desc)
 /**
  * Transforms vectors from a left-handed coordinate system to a right-handed one
  * and vice-versa.
- * (Needed because Luanti uses a left-handed one and OpenAL a right-handed one.)
+ * (Needed because the engine uses a left-handed one and OpenAL a right-handed one.)
  */
 inline v3f swap_handedness(v3f v) noexcept
 {

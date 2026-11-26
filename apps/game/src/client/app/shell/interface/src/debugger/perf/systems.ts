@@ -1,7 +1,7 @@
 import type { PerfFrame } from "../../bridge/index.ts"
 
 /**
- * The Live tab's per-system charts, as Luanti's graphs were: one each, its
+ * The Live tab's per-system charts, as the engine's graphs were: one each, its
  * time in µs on a scale of its own. A table, so a system is one row.
  *
  * `thread`: the kind of thread it runs on ("Main", "Server", a pool's name;

@@ -1,4 +1,4 @@
-// Terra Firma: the world being served, asked natively (sprint 119: was the native half of
+// Terraverse: the world being served, asked natively (sprint 119: was the native half of
 // script/lua_api/l_terra.cpp): the sun, the weather, the place and the rivers at a point.
 #include "src/server/world/load/emerge.h"
 #include "src/shared/base/exceptions.h"

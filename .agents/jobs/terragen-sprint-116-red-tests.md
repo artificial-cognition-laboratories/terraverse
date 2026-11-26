@@ -3,7 +3,7 @@
 Found by the CI owner, 2026-11-18: the release run on f99e48d5 (run 44397404612) failed its Linux
 unit tests. Both fail at 0f12048e4 "Land by the book" and reproduce locally:
 
-    ./.output/bin/luanti --test-module TestTerragen
+    ./.output/bin/terraverse --test-module TestTerragen
     Test assertion failed: grid->eroded[i] > ratio(6, 10)     [FAIL] testRanges
     Test assertion failed: h == 3643851153u                    [FAIL] testDeterminismGolden
 

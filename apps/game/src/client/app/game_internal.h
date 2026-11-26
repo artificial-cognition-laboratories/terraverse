@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -175,14 +175,14 @@ protected:
 	void toggleAutoforward();
 
 	void toggleMinimap(bool shift_pressed);
-	// Terra Firma: the Planetarium (the session's: shell/planetarium.h) over
+	// Terraverse: the Planetarium (the session's: shell/planetarium.h) over
 	// the whole window, by its key; and whether it's shown, by the key or the page
 	void openPlanetarium();
 	void closePlanetarium();
 	bool planetariumShown();
 	void toggleFog();
 	void toggleDebug();
-	// Terra Firma: the world controls' View page (settings view_*), applied as they change
+	// Terraverse: the world controls' View page (settings view_*), applied as they change
 	void applyView();
 	struct { bool text = false, wireframe = false, boxes = false; std::string bounds = "off"; } m_view;
 	void toggleUpdateCamera();
@@ -200,7 +200,7 @@ protected:
 	void step(f32 dtime);
 	void processClientEvents(CameraOrientation *cam);
 	void updateCameraMode(); // call after changing it
-	bool bodyIsLoose(LocalPlayer &player) const; // Terra Firma
+	bool bodyIsLoose(LocalPlayer &player) const; // Terraverse
 	bool sneakNow(LocalPlayer &player);
 	bool m_crouch = false, m_prone = false;
 	bool m_crouch_key = false, m_prone_key = false, m_run_key = false, m_jump_key = false;
@@ -333,40 +333,40 @@ private:
 	std::unique_ptr<GameUI> m_game_ui;
 #if USE_SHELL
 	std::unique_ptr<shell::Session> m_shell_session;
-	std::unique_ptr<dig::Digging> m_digging; // Terra Firma: the shovel (sprint 124)
-	std::unique_ptr<cut::Cutting> m_cutting; // Terra Firma: F's cut menu, and what a dig would peel off (sprint 123)
-	// Terra Firma: this world hosted for friends (src/online/host.h); null otherwise.
+	std::unique_ptr<dig::Digging> m_digging; // Terraverse: the shovel (sprint 124)
+	std::unique_ptr<cut::Cutting> m_cutting; // Terraverse: F's cut menu, and what a dig would peel off (sprint 123)
+	// Terraverse: this world hosted for friends (src/online/host.h); null otherwise.
 	// Holds the server's socket handle, so it goes before the server does.
 	std::unique_ptr<online::Host> m_online_host;
-	// Terra Firma: joining a friend's world: how to say a failed connection
+	// Terraverse: joining a friend's world: how to say a failed connection
 	online::Launch::Kind m_online_kind = online::Launch::Kind::Offline;
 	std::string m_online_host_name;
 #endif
 	MapDrawControl *draw_control = nullptr;
 	Camera *camera = nullptr;
-	std::unique_ptr<WorldView> m_world_view; // Terra Firma: the world as it's seen (sprint 126)
-	std::unique_ptr<gpu::Clock> gpu_clock; // Terra Firma: the GPU's time by part of the frame (the debugger)
-	// Terra Firma: the planet viewer, while it's open (it takes the input)
+	std::unique_ptr<WorldView> m_world_view; // Terraverse: the world as it's seen (sprint 126)
+	std::unique_ptr<gpu::Clock> gpu_clock; // Terraverse: the GPU's time by part of the frame (the debugger)
+	// Terraverse: the planet viewer, while it's open (it takes the input)
 	bool m_planetarium_alone = false;   // opened by its key (no screen over it): its key and Esc close it
 	bool m_planetarium_closing = false; // asked from the input callback: closed next frame
-	// Terra Firma: the tools in hand (sprint 45): out (dig and place make
+	// Terraverse: the tools in hand (sprint 45): out (dig and place make
 	// strokes, the wheel sizes them), which, and how big (sixteenths)
 	Hand m_hand;
 	// the focus view, while it's open (sprint 46)
 	std::optional<Hold> m_hold;
-	// Terra Firma: when the held object's pose was last sent, and what
+	// Terraverse: when the held object's pose was last sent, and what
 	f32 m_pose_age = 0;
 	std::optional<Hold::Pose> m_pose_sent;
-	// Terra Firma: a new object of ours, to focus when it arrives (or, a
+	// Terraverse: a new object of ours, to focus when it arrives (or, a
 	// paste, to carry: sprint 74; pulled off the workpiece, 77)
 	std::optional<std::pair<u16, workshop::Handed>> m_awaited;
-	// Terra Firma: where a part was pressed to pull it off (sprint 77):
+	// Terraverse: where a part was pressed to pull it off (sprint 77):
 	// it's carried from there, by that point, when it arrives
 	std::optional<v3f> m_pulled_at;
-	// Terra Firma: a part to be saved (Ctrl+S: its object and part), while
+	// Terraverse: a part to be saved (Ctrl+S: its object and part), while
 	// the page asks its name
 	std::optional<std::pair<u16, u64>> m_naming;
-	// Terra Firma: the other button stopped a stroke (sprint 75): not a
+	// Terraverse: the other button stopped a stroke (sprint 75): not a
 	// turn or a menu till it's let go
 	bool m_place_spent = false;
 	// What the tools are pointed at (sprint 47): the world (piece 0, frame
@@ -428,7 +428,7 @@ private:
 	void handleTools(const PointedThing &pointed);
 	// one of the page's rail's asks (Hand::Ask), or a key's
 	void handleAsk(const Hand::Ask &ask, const PointedThing &pointed);
-	// Terra Firma: a box seen through, where something would go (sprint 123: a member held)
+	// Terraverse: a box seen through, where something would go (sprint 123: a member held)
 	void showSolid(v3s16 node, const aabb3f &box, video::SColor colour, v3s16 camera_offset);
 	void showGhost(const Aim &aim, const sculpt::Stroke &stroke, v3s16 camera_offset);
 	core::line3d<f32> m_pointed_from; // this frame's shootline
@@ -491,10 +491,10 @@ private:
 	void faceMenu(Menu &m) const;
 	// a sprung joint's spring, its travel and firmness, on rows `row` and the next
 	static void springRows(Menu &m, int row);
-	// Terra Firma: a seat or engine held, its place on what's looked at
+	// Terraverse: a seat or engine held, its place on what's looked at
 	// outlined, right-click fits it (sprint 73); true while it's shown
 	bool fitStep(u16 lit);
-	// Terra Firma: building, the floor's block grid round the player (sprint 73)
+	// Terraverse: building, the floor's block grid round the player (sprint 73)
 	void gridStep();
 	bool m_fit_shown = false;
 	static const std::pair<piece::Joint, int> JOINT_ROWS[size_t(piece::Joint::Count)];
@@ -575,7 +575,7 @@ private:
 	// a carry begun, of `object` held at `hit` (BS); `sticky`: carried
 	// till the next click (a paste), not while the button's down
 	void startCarry(u16 object, v3f hit, bool sticky);
-	// Terra Firma: grabbing (sprint 68): a point of an object pressed on,
+	// Terraverse: grabbing (sprint 68): a point of an object pressed on,
 	// pulled toward the hand (as far off as it was, nearer or further by
 	// the wheel) as hard as a person, here at once and on the server
 	struct Grab
@@ -587,7 +587,7 @@ private:
 	};
 	std::optional<Grab> m_grab;
 	void handleGrab(const PointedThing &pointed, f32 dtime);
-	// Terra Firma: driving (sprint 69): sat in a machine's seat
+	// Terraverse: driving (sprint 69): sat in a machine's seat
 	// (right-click it), W/S forward and back, A/D steer, Space brakes,
 	// Shift gets up
 	struct Driving
@@ -611,7 +611,7 @@ private:
 	piece::Machine::Face faceOf(const Aim &aim) const;
 	// what a socket's mirrored across: the workbench machine's middle, if mirrored
 	std::optional<sculpt::Stroke::Mirror> machineMirror() const;
-	// Terra Firma: the axis mirroring mirrors across, chosen once when it's
+	// Terraverse: the axis mirroring mirrors across, chosen once when it's
 	// turned on and kept (sprint 68: it was the screen's right at each
 	// stroke, so it flipped as the player walked round); in the machine's
 	// grid while one's held, else the world's. Alt+= steps it on.

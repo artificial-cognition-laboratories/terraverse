@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2018 nerzhul, Loic BLOT <loic.blot@unix-experience.fr>
 
@@ -35,7 +35,7 @@ public:
 	void getObjectsInArea(const aabb3f &box,
 			std::vector<ServerActiveObject *> &result,
 			std::function<bool(ServerActiveObject *obj)> include_obj_cb);
-	// `distance`: how far apart two positions are (Terra Firma: on a planet,
+	// `distance`: how far apart two positions are (Terraverse: on a planet,
 	// over the planet: Map::distance); straight across the map if not given.
 	void getAddedActiveObjectsAroundPos(
 			v3f player_pos, const std::string &player_name,

@@ -1,4 +1,4 @@
-# Terra Firma releases. A pushed tag v* builds every platform we ship and
+# Terraverse releases. A pushed tag v* builds every platform we ship and
 # attaches each to that tag's GitHub Release (`arc deploy terraverse` pushes the
 # tag: repo.config.ts). Run it by hand to get the builds as artifacts without
 # releasing.
@@ -102,7 +102,7 @@ jobs:
             -DTERRAVERSE_RELEASE=TRUE \
             -DENABLE_POSTGRESQL=OFF -DENABLE_LEVELDB=OFF \
             -DENABLE_UPDATE_CHECKER=OFF \
-            -DTERRAFIRMA_VERSION="$VERSION"
+            -DTERRAVERSE_VERSION="$VERSION"
 
       # -k: one run reports every compile error, not just the first.
       - name: Build the engine
@@ -217,7 +217,7 @@ jobs:
             -DENABLE_REDIS=OFF -DENABLE_SPATIAL=OFF -DENABLE_PROMETHEUS=OFF \
             -DENABLE_UPDATE_CHECKER=OFF \
             -DENABLE_LTO=OFF \
-            -DTERRAFIRMA_VERSION="$VERSION"
+            -DTERRAVERSE_VERSION="$VERSION"
 
       - name: Save vcpkg builds
         if: always()

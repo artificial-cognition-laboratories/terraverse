@@ -1,10 +1,10 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013-2018 celeron55, Perttu Ahola <celeron55@gmail.com>
 // Copyright (C) 2013-2018 kwolekr, Ryan Kwolek <kwolekr@minetest.net>
 // Copyright (C) 2015-2018 paramat
 
-#include "src/server/world/generate/luanti/mapgen_singlenode.h"
+#include "src/server/world/generate/legacy/mapgen_singlenode.h"
 #include "src/shared/map/voxel/voxel.h"
 #include "src/shared/map/block/mapblock.h"
 #include "src/shared/map/block/mapnode.h"

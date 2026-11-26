@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -61,7 +61,7 @@ public:
 	virtual video::ITexture *getTexture(u32 id)=0;
 
 	/// The picture a texture string makes, on the CPU (grabbed: the caller
-	/// drops it), or null. Terra Firma: read from a texture, a picture waited
+	/// drops it), or null. Terraverse: read from a texture, a picture waited
 	/// on everything the GPU was doing (the shell's item icons).
 	virtual video::IImage *getImage(const std::string &name)=0;
 

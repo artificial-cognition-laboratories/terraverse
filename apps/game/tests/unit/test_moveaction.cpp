@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2022 Luanti core developers & community
 
@@ -28,7 +28,7 @@ public:
 
 static TestMoveAction g_test_instance;
 
-// Terra Firma (sprint 119): inventories answer moves by their rules alone (what Lua's
+// Terraverse (sprint 119): inventories answer moves by their rules alone (what Lua's
 // callbacks once allowed, limited or saw went with Lua), so only those are tested here.
 void TestMoveAction::runTests(IGameDef *gamedef)
 {

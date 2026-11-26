@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -45,7 +45,7 @@ struct Framing
 // east round the body, nothing else.
 inline constexpr double PLAY_ALTITUDE = 2.67, PLAY_OFF = 2.0944; // radii; 120°
 
-// The main menu's. Tuned by eye: `luanti --planetarium-shot <png>` renders it.
+// The main menu's. Tuned by eye: `terraverse --planetarium-shot <png>` renders it.
 // Only the camera's place: the lens is the planetarium's own, so the sky is
 // the same sky the planetarium shows. The planet pulled back into the lower
 // left corner, most of it in view; the star well into the upper right, so its

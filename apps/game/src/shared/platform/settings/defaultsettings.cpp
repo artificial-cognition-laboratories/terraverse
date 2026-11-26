@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -84,24 +84,24 @@ void set_default_settings()
 	// Client
 	settings->setDefault("address", "");
 	settings->setDefault("shell_url", "shell://ui/index.html");
-	// Terra Firma: the debugger beside the game (shell/debugger.h); CSS pixels across
+	// Terraverse: the debugger beside the game (shell/debugger.h); CSS pixels across
 	settings->setDefault("debugger_dock", "right");
 	settings->setDefault("debugger_size", "420");
 	// TEMP(2026-10-27): new worlds as the debug sphere: no terrain, every
 	// cell painted by its region and seams (sprint 30)
 	settings->setDefault("planet_atlas_debug", "false");
-	settings->setDefault("game_id", "terrafirma");
+	settings->setDefault("game_id", "terraverse");
 	settings->setDefault("shell_gpu", "true");
-	settings->setDefault("ui_scale", "1.0"); // Terra Firma: the player's multiplier on the page's size, over the window's fit (shell/host/ui_scale.h)
-	// Terra Firma: the ArcLabs API accounts sign in to (src/shell/account.cpp);
+	settings->setDefault("ui_scale", "1.0"); // Terraverse: the player's multiplier on the page's size, over the window's fit (shell/host/ui_scale.h)
+	// Terraverse: the ArcLabs API accounts sign in to (src/shell/account.cpp);
 	// the approval page it sends players to is on axon.arclabs.it
 	settings->setDefault("arclabs_url", "https://axon-api-t53zrgvpga-ew.a.run.app");
-	// Terra Firma: the far view (planning/sprint-20-horizon.md)
+	// Terraverse: the far view (planning/sprint-20-horizon.md)
 	settings->setDefault("far_view", "true");
 	settings->setDefault("far_view_detail", "2");
 	settings->setDefault("far_view_max", "16000");
 	settings->setDefault("far_view_debug_levels", "false");
-	settings->setDefault("far_view_debug_mask", "false"); // Terra Firma: each far tile tinted by its level
+	settings->setDefault("far_view_debug_mask", "false"); // Terraverse: each far tile tinted by its level
 	settings->setDefault("remote_port", "30000");
 #if defined(__unix__) && !defined(__APPLE__) && !defined (__ANDROID__)
 	// On Linux+X11 (not Linux+Wayland or Linux+XWayland), I've encountered a bug
@@ -156,31 +156,31 @@ void set_default_settings()
 	settings->setDefault("keymap_left", "SYSTEM_SCANCODE_4|GAMEPAD_AXIS_MINUS_0"); // KEY_KEY_A|Left Joystick
 	settings->setDefault("keymap_right", "SYSTEM_SCANCODE_7|GAMEPAD_AXIS_PLUS_0"); // KEY_KEY_D|Left Joystick
 	settings->setDefault("keymap_jump", "SYSTEM_SCANCODE_44|GAMEPAD_BUTTON_0"); // KEY_SPACE|Gamepad South
-	settings->setDefault("keymap_sneak", "SYSTEM_SCANCODE_224|GAMEPAD_BUTTON_1"); // KEY_LCONTROL|Gamepad East (Terra Firma: crouch)
+	settings->setDefault("keymap_sneak", "SYSTEM_SCANCODE_224|GAMEPAD_BUTTON_1"); // KEY_LCONTROL|Gamepad East (Terraverse: crouch)
 	settings->setDefault("keymap_dig", "MOUSE_BUTTON_1|GAMEPAD_AXIS_PLUS_5"); // LMB|Gamepad RT
 	settings->setDefault("keymap_place", "MOUSE_BUTTON_3|GAMEPAD_AXIS_PLUS_4"); // RMB|Gamepad LT
 	settings->setDefault("keymap_drop", "SYSTEM_SCANCODE_20|GAMEPAD_BUTTON_12"); // KEY_KEY_Q|D-Pad Down
-	settings->setDefault("keymap_prone", "SYSTEM_SCANCODE_29"); // KEY_KEY_Z (Terra Firma: lie down)
+	settings->setDefault("keymap_prone", "SYSTEM_SCANCODE_29"); // KEY_KEY_Z (Terraverse: lie down)
 	settings->setDefault("keymap_zoom", "SYSTEM_SCANCODE_19|GAMEPAD_BUTTON_11"); // KEY_KEY_P|D-Pad Up
 	settings->setDefault("keymap_inventory", "SYSTEM_SCANCODE_8|GAMEPAD_BUTTON_3"); // KEY_KEY_E|Gamepad North
-	settings->setDefault("keymap_turn_left", "SYSTEM_SCANCODE_47"); // KEY_OEM_4 [ (Terra Firma: what's carried turned, sprint 64; E is the inventory)
+	settings->setDefault("keymap_turn_left", "SYSTEM_SCANCODE_47"); // KEY_OEM_4 [ (Terraverse: what's carried turned, sprint 64; E is the inventory)
 	settings->setDefault("keymap_turn_right", "SYSTEM_SCANCODE_48"); // KEY_OEM_6 ]
-	settings->setDefault("keymap_planetarium", "SYSTEM_SCANCODE_64"); // KEY_F7 (Terra Firma: the planet viewer)
-	settings->setDefault("keymap_wiki", "SYSTEM_SCANCODE_10"); // KEY_KEY_G (Terra Firma: the wiki)
-	settings->setDefault("keymap_library", "SYSTEM_SCANCODE_15"); // KEY_KEY_L (Terra Firma: the library)
-	settings->setDefault("keymap_tools", "SYSTEM_SCANCODE_43"); // KEY_TAB (Terra Firma: build mode, sprint 70)
-	settings->setDefault("keymap_brake", "SYSTEM_SCANCODE_5"); // KEY_KEY_B (Terra Firma: flight's brake)
-	settings->setDefault("keymap_tool_next", "SYSTEM_SCANCODE_21"); // KEY_KEY_R (Terra Firma: the next tool)
-	settings->setDefault("keymap_focus", "SYSTEM_SCANCODE_9"); // KEY_KEY_F (Terra Firma: the focus view)
-	settings->setDefault("keymap_mirror", "SYSTEM_SCANCODE_28"); // KEY_KEY_Y (Terra Firma: mirrored strokes)
-	settings->setDefault("keymap_undo", "SYSTEM_SCANCODE_24"); // KEY_KEY_U (Terra Firma: undo a stroke)
-	settings->setDefault("keymap_cursor", "SYSTEM_SCANCODE_17"); // KEY_KEY_N (Terra Firma: the cursor freed)
-	settings->setDefault("keymap_copy", "SYSTEM_SCANCODE_6"); // KEY_KEY_C (Terra Firma: with Ctrl, a part copied, sprint 74)
+	settings->setDefault("keymap_planetarium", "SYSTEM_SCANCODE_64"); // KEY_F7 (Terraverse: the planet viewer)
+	settings->setDefault("keymap_wiki", "SYSTEM_SCANCODE_10"); // KEY_KEY_G (Terraverse: the wiki)
+	settings->setDefault("keymap_library", "SYSTEM_SCANCODE_15"); // KEY_KEY_L (Terraverse: the library)
+	settings->setDefault("keymap_tools", "SYSTEM_SCANCODE_43"); // KEY_TAB (Terraverse: build mode, sprint 70)
+	settings->setDefault("keymap_brake", "SYSTEM_SCANCODE_5"); // KEY_KEY_B (Terraverse: flight's brake)
+	settings->setDefault("keymap_tool_next", "SYSTEM_SCANCODE_21"); // KEY_KEY_R (Terraverse: the next tool)
+	settings->setDefault("keymap_focus", "SYSTEM_SCANCODE_9"); // KEY_KEY_F (Terraverse: the focus view)
+	settings->setDefault("keymap_mirror", "SYSTEM_SCANCODE_28"); // KEY_KEY_Y (Terraverse: mirrored strokes)
+	settings->setDefault("keymap_undo", "SYSTEM_SCANCODE_24"); // KEY_KEY_U (Terraverse: undo a stroke)
+	settings->setDefault("keymap_cursor", "SYSTEM_SCANCODE_17"); // KEY_KEY_N (Terraverse: the cursor freed)
+	settings->setDefault("keymap_copy", "SYSTEM_SCANCODE_6"); // KEY_KEY_C (Terraverse: with Ctrl, a part copied, sprint 74)
 	settings->setDefault("keymap_paste", "SYSTEM_SCANCODE_25"); // KEY_KEY_V (with Ctrl, pasted)
 	settings->setDefault("keymap_save_part", "SYSTEM_SCANCODE_22"); // KEY_KEY_S (with Ctrl, kept in the library)
-	settings->setDefault("keymap_alt", "SYSTEM_SCANCODE_226"); // KEY_LMENU (Terra Firma: the build layer, sprint 68)
+	settings->setDefault("keymap_alt", "SYSTEM_SCANCODE_226"); // KEY_LMENU (Terraverse: the build layer, sprint 68)
 	settings->setDefault("keymap_pause", "GAMEPAD_BUTTON_6"); // Gamepad Start
-	settings->setDefault("keymap_aux1", "SYSTEM_SCANCODE_225|GAMEPAD_BUTTON_2"); // KEY_LSHIFT|Gamepad West (Terra Firma: run and thrust; also the modifier Shift-clicks read)
+	settings->setDefault("keymap_aux1", "SYSTEM_SCANCODE_225|GAMEPAD_BUTTON_2"); // KEY_LSHIFT|Gamepad West (Terraverse: run and thrust; also the modifier Shift-clicks read)
 	settings->setDefault("keymap_chat", "SYSTEM_SCANCODE_23"); // KEY_KEY_T
 	settings->setDefault("keymap_cmd", "SYSTEM_SCANCODE_56"); // /
 	settings->setDefault("keymap_minimap", "SYSTEM_SCANCODE_25|GAMEPAD_BUTTON_4"); // KEY_KEY_V|Gamepad Back
@@ -193,7 +193,7 @@ void set_default_settings()
 	settings->setDefault("keymap_pitchmove", "");
 	settings->setDefault("keymap_fastmove", "SYSTEM_SCANCODE_13"); // KEY_KEY_J
 	settings->setDefault("keymap_noclip", "SYSTEM_SCANCODE_11"); // KEY_KEY_H
-	settings->setDefault("keymap_hotbar_next", "GAMEPAD_BUTTON_10"); // Gamepad RB (Terra Firma: N makes an object)
+	settings->setDefault("keymap_hotbar_next", "GAMEPAD_BUTTON_10"); // Gamepad RB (Terraverse: N makes an object)
 	settings->setDefault("keymap_hotbar_previous", "SYSTEM_SCANCODE_5|GAMEPAD_BUTTON_9"); // KEY_KEY_B|Gamepad LB
 	settings->setDefault("keymap_mute", "SYSTEM_SCANCODE_16"); // KEY_KEY_M
 	settings->setDefault("keymap_increase_volume", "");
@@ -202,15 +202,15 @@ void set_default_settings()
 	settings->setDefault("keymap_toggle_block_bounds", "");
 	settings->setDefault("keymap_toggle_hud", "SYSTEM_SCANCODE_58"); // KEY_F1
 	settings->setDefault("keymap_toggle_chat", "SYSTEM_SCANCODE_59"); // KEY_F2
-	settings->setDefault("keymap_toggle_fog", ""); // (Terra Firma: F3 is the debug screen, as Minecraft)
+	settings->setDefault("keymap_toggle_fog", ""); // (Terraverse: F3 is the debug screen, as Minecraft)
 #ifndef NDEBUG
 	settings->setDefault("keymap_toggle_update_camera", "SYSTEM_SCANCODE_61"); // KEY_F4
 #else
 	settings->setDefault("keymap_toggle_update_camera", "");
 #endif
-	settings->setDefault("keymap_toggle_debug", "SYSTEM_SCANCODE_60"); // KEY_F3 (Terra Firma: the debugger, on every screen)
+	settings->setDefault("keymap_toggle_debug", "SYSTEM_SCANCODE_60"); // KEY_F3 (Terraverse: the debugger, on every screen)
 	settings->setDefault("keymap_toggle_profiler", "SYSTEM_SCANCODE_63"); // KEY_F6
-	settings->setDefault("keymap_camera_mode", "SYSTEM_SCANCODE_6"); // KEY_KEY_C (Terra Firma; with Ctrl while building, copy)
+	settings->setDefault("keymap_camera_mode", "SYSTEM_SCANCODE_6"); // KEY_KEY_C (Terraverse; with Ctrl while building, copy)
 	settings->setDefault("keymap_camera_yaw_left", "GAMEPAD_AXIS_MINUS_2"); // Right Joystick
 	settings->setDefault("keymap_camera_yaw_right", "GAMEPAD_AXIS_PLUS_2"); // Right Joystick
 	settings->setDefault("keymap_camera_pitch_up", "GAMEPAD_AXIS_MINUS_3"); // Right Joystick
@@ -299,11 +299,11 @@ void set_default_settings()
 	settings->setDefault("leaves_style", "fancy");
 	settings->setDefault("connected_glass", "false");
 	settings->setDefault("smooth_lighting", "true");
-	// Terra Firma (sprint 85): cut and smoothed ground drawn in sixteenths
+	// Terraverse (sprint 85): cut and smoothed ground drawn in sixteenths
 	// within the first, quarters to the second, whole nodes past it (nodes)
 	settings->setDefault("ground_detail_near", "12");
 	settings->setDefault("ground_detail_far", "32");
-	// Terra Firma: water run as columns: sixteenths and quarters, nodes round the camera
+	// Terraverse: water run as columns: sixteenths and quarters, nodes round the camera
 	settings->setDefault("water_fine", "true");
 	settings->setDefault("water_fine_reach", "10");
 	settings->setDefault("performance_tradeoffs", "false");
@@ -320,7 +320,7 @@ void set_default_settings()
 	settings->setDefault("cinematic", "false");
 	settings->setDefault("camera_smoothing", "0.0");
 	settings->setDefault("cinematic_camera_smoothing", "0.05");
-	settings->setDefault("view_bobbing_amount", "0"); // Terra Firma: no bobbing, and no setting for it
+	settings->setDefault("view_bobbing_amount", "0"); // Terraverse: no bobbing, and no setting for it
 	settings->setDefault("enable_dig_particles", "true");
 	settings->setDefault("enable_3d_clouds", "true");
 	settings->setDefault("soft_clouds", "false");
@@ -343,7 +343,7 @@ void set_default_settings()
 	settings->setDefault("widget_map_shape", "0");
 	settings->setDefault("widget_map_rotate", "true");
 	settings->setDefault("widget_map_zoom", "3");
-	// Terra Firma: the world controls
+	// Terraverse: the world controls
 	settings->setDefault("view_debug_text", "false");
 	settings->setDefault("view_movement", "false");
 	settings->setDefault("view_wireframe", "false");
@@ -428,7 +428,7 @@ void set_default_settings()
 	settings->setDefault("safe_dig_and_place", "false");
 	settings->setDefault("random_input", "false");
 	settings->setDefault("aux1_descends", "false");
-	settings->setDefault("doubletap_jump", "true"); // Terra Firma: double-tap jump flies, as Minecraft (where flying is allowed)
+	settings->setDefault("doubletap_jump", "true"); // Terraverse: double-tap jump flies, as Minecraft (where flying is allowed)
 	settings->setDefault("always_fly_fast", "true");
 	settings->setDefault("toggle_sneak_key", "false");
 	settings->setDefault("toggle_aux1_key", "false");
@@ -559,7 +559,7 @@ void set_default_settings()
 	settings->setDefault("movement_acceleration_default", "3");
 	settings->setDefault("movement_acceleration_air", "2");
 	settings->setDefault("movement_acceleration_fast", "10");
-	settings->setDefault("movement_speed_walk", "3.5"); // Terra Firma (sprint 105): a person's jog
+	settings->setDefault("movement_speed_walk", "3.5"); // Terraverse (sprint 105): a person's jog
 	settings->setDefault("movement_speed_crouch", "1.35");
 	settings->setDefault("movement_speed_fast", "20");
 	settings->setDefault("movement_speed_climb", "3");
@@ -568,7 +568,7 @@ void set_default_settings()
 	settings->setDefault("movement_liquid_fluidity_smooth", "0.5");
 	settings->setDefault("movement_liquid_sink", "10");
 	settings->setDefault("movement_gravity", "9.81");
-	settings->setDefault("item_entity_ttl", "900"); // Terra Firma: s a dropped item lies (server/kinds)
+	settings->setDefault("item_entity_ttl", "900"); // Terraverse: s a dropped item lies (server/kinds)
 
 	// Liquids
 	settings->setDefault("liquid_loop_max", "100000");

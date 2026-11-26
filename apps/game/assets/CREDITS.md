@@ -10,13 +10,13 @@ These files do not have a redistributable licence documented in this repository.
 
 **Silkscreen** by Jason Kottke and **JetBrains Mono** by JetBrains are bundled through `@fontsource`, both under the SIL Open Font License. They are used for display lettering and interface text, respectively.
 
-## Terra Firma default block textures
+## Terraverse default block textures
 
 Good Vibes by Acaitart, licensed under [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 Source: [Phyronnaz/VoxelAssets, GoodVibes](https://github.com/Phyronnaz/VoxelAssets/tree/f1bb6fb20e36a47b8dacbdf23c4a10b994b6f224/GoodVibes), revision `f1bb6fb20e36a47b8dacbdf23c4a10b994b6f224`.
 
-Terra Firma copies selected original PNG files with `tf_goodvibes_` prefixes and uses them for its block faces. The PNG artwork is unchanged. Dry grass and tundra apply colour tints at runtime. Animated water uses the source pack's water texture. A copy of the source licence is in `registry/textures/base/pack/GOODVIBES-LICENSE.txt`, beside the textures (the engine's since sprint 119).
+Terraverse copies selected original PNG files with `tf_goodvibes_` prefixes and uses them for its block faces. The PNG artwork is unchanged. Dry grass and tundra apply colour tints at runtime. Animated water uses the source pack's water texture. A copy of the source licence is in `registry/textures/base/pack/GOODVIBES-LICENSE.txt`, beside the textures (the engine's since sprint 119).
 
 Since sprint 9 the textures are fetched by `apps/game/scripts/bake/assets/goodvibes.py` from the same pinned revision. Most are copied unchanged (rocks, ores, lava, clay, trees, leaves, plants, from the pack's `minecraft` and `biomesoplenty` folders); the animated lava is scaled down. Some are **derived** from the pack's own art (changes made, as CC BY 4.0 requires noting):
 
@@ -32,13 +32,13 @@ Several leaf and plant textures are greyscale in the pack (meant to be tinted pe
 
 ## Substances
 
-`matter_substance.png` and `matter_liquid.png` (in `registry/textures/base/pack`, once `tf_matter_*.png`) are original to Terra Firma, drawn for this game in sprint 18; substance blocks tint the first two per substance.
+`matter_substance.png` and `matter_liquid.png` (in `registry/textures/base/pack`, once `tf_matter_*.png`) are original to Terraverse, drawn for this game in sprint 18; substance blocks tint the first two per substance.
 
 ## Building materials
 
-The textures of `@terraverse/materials` (in `registry/mods/materials/assets/textures`), sprint 119, are baked from the tints `tf_world` (the game's blocks before sprint 119) gave them at runtime: flint, aluminium, steel, rubber and glass multiply Terra Firma's own `matter_substance.png` (glass also made see-through); timber is the Good Vibes oak log turned a quarter and coloured, and canvas the Good Vibes sandstone top coloured (derived, as above).
+The textures of `@terraverse/materials` (in `registry/mods/materials/assets/textures`), sprint 119, are baked from the tints `tf_world` (the game's blocks before sprint 119) gave them at runtime: flint, aluminium, steel, rubber and glass multiply Terraverse's own `matter_substance.png` (glass also made see-through); timber is the Good Vibes oak log turned a quarter and coloured, and canvas the Good Vibes sandstone top coloured (derived, as above).
 
 
 ## tf_tools item icons
 
-`apps/game/game/mods/tf_tools/textures/`: drawn for Terra Firma, part of the game.
+`apps/game/game/mods/tf_tools/textures/`: drawn for Terraverse, part of the game.

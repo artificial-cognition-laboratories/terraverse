@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -561,10 +561,10 @@ private:
 
 public:
 	NodeMetadataList m_node_metadata;
-	// Terra Firma: its cut nodes (sprint 44)
+	// Terraverse: its cut nodes (sprint 44)
 	shape::Shapes m_shapes;
-	fill::Fills m_fills; // Terra Firma: liquid in its nodes' open space (sprint 81)
-	sprig::Sprigs m_sprigs; // Terra Firma: its small plants, by their foot (sprint 113)
+	fill::Fills m_fills; // Terraverse: liquid in its nodes' open space (sprint 81)
+	sprig::Sprigs m_sprigs; // Terraverse: its small plants, by their foot (sprint 113)
 	StaticObjectList m_static_objects;
 
 private:

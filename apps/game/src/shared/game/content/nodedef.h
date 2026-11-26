@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -9,7 +9,7 @@
 #include <iostream>
 #include <memory> // shared_ptr
 #include "src/shared/map/block/mapnode.h"
-#include "library/matter/matter/block.h" // Terra Firma
+#include "library/matter/matter/block.h" // Terraverse
 #include "src/shared/map/block/nameidmapping.h"
 #include "src/shared/game/items/itemgroup.h"
 #include "src/shared/game/content/sound_spec.h"
@@ -299,10 +299,10 @@ struct ContentFeatures
 
 	// "float" group
 	bool floats;
-	// Terra Firma: natural ground of it takes the ground's shape (the `loose`
+	// Terraverse: natural ground of it takes the ground's shape (the `loose`
 	// group; ground::Ground)
 	bool loose = false;
-	// Terra Firma: floats and loose, from the groups; wherever a definition
+	// Terraverse: floats and loose, from the groups; wherever a definition
 	// is registered (set, deSerialize)
 	void deriveFromGroups();
 
@@ -431,7 +431,7 @@ struct ContentFeatures
 	// Set to true if wall_mounted used to be set to true
 	bool legacy_wallmounted;
 
-	// --- MATTER (Terra Firma, sprint 119) ---
+	// --- MATTER (Terraverse, sprint 119) ---
 
 	// What it's made of, and what it does in a machine: server only, never sent (the
 	// client's wiki reads palette.json). Registered by the engine (server/matter.cpp).
@@ -440,7 +440,7 @@ struct ContentFeatures
 	bool matter_generated = false;       // the generator's own: registered after the world's
 	std::optional<MatterMachine> machine;
 
-	// --- DIGGING AND PLACING (Terra Firma, sprint 119): server only, never sent ---
+	// --- DIGGING AND PLACING (Terraverse, sprint 119): server only, never sent ---
 
 	// What digging it gives: itself (with its colour) when unset, nothing when "", else
 	// the item named (server/interact.cpp).

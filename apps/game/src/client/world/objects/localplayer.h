@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -120,10 +120,10 @@ public:
 	void setPitch(f32 pitch) { m_pitch = pitch; }
 	f32 getPitch() const { return m_pitch; }
 
-	// Terra Firma: the ground turned under the player by this much, east
+	// Terraverse: the ground turned under the player by this much, east
 	// toward north (the body crosses seams itself, sprint 59).
 	void turnWithGround(double radians) { m_planet_turn += (f32)(radians * 180 / M_PI); }
-	// Terra Firma: degrees the ground has turned under the player since
+	// Terraverse: degrees the ground has turned under the player since
 	// last asked (carried over a planet's edge or an atlas's seam), east
 	// toward north; the camera turns with it. Asking clears it.
 	f32 takePlanetTurn()
@@ -173,7 +173,7 @@ public:
 	inline PlayerSettings &getPlayerSettings() { return m_player_settings; }
 
 private:
-	// Terra Firma: on a planet, a position that has left the player's face
+	// Terraverse: on a planet, a position that has left the player's face
 	// is put on the face it's moved onto, the speed turned with the grid.
 	void carry(v3f &position);
 	f32 m_planet_turn = 0; // degrees

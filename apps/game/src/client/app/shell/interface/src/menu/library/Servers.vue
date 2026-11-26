@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue"
-import type { PublicServer, ServerDirectory } from "../../bridge/index.ts"
+import { computed, onActivated, ref } from "vue"
+import type { PublicServer } from "../../bridge/index.ts"
 import { BridgeError } from "../../bridge/index.ts"
 import { useBridge } from "../../bridge/use.ts"
-import { Button, Cover, Dropdown, FacetList, ICONS, ListEmpty, Notice, ResultsHead, SideCard, SideNav, SideStats, Spinner, Toggle } from "../../kit/index.ts"
+import { useCache } from "../../cache/index.ts"
+import { Button, Cover, Dropdown, FacetList, ICONS, KeptNote, ListEmpty, Notice, ResultsHead, RowSlot, SideCard, SideNav, SideStats, Toggle } from "../../kit/index.ts"
 import { format } from "./format.ts"
-import { Request } from "./request.ts"
 
 /**
  * Public servers, laid out as the website's Browse: a side card that stays put (which list, the
@@ -14,7 +14,7 @@ import { Request } from "./request.ts"
  */
 const props = defineProps<{ start: string | null; query: string }>()
 const bridge = useBridge()
-const directory = Request<void, ServerDirectory>(() => bridge.send("servers.list", {}))
+const directory = useCache().cached("servers.list")
 const regions = ref<string[]>([])
 const tags = ref<string[]>([])
 const room = ref(false)
@@ -55,8 +55,9 @@ async function act(fn: () => Promise<unknown>) {
     }
 }
 const join = (s: PublicServer) => act(() => bridge.send("servers.join", { ref: s.ref }))
-const favorite = (s: PublicServer) => act(async () => { await bridge.send("servers.favorite.set", { id: s.id, favorite: !s.favorite }); await directory.run() })
-onMounted(() => directory.run())
+const favorite = (s: PublicServer) => act(async () => { await bridge.send("servers.favorite.set", { id: s.id, favorite: !s.favorite }); await directory.refresh({}) })
+// kept alive by the library: shown again from the cache, refreshed behind it
+onActivated(() => directory.run({}))
 </script>
 
 <template>
@@ -77,8 +78,9 @@ onMounted(() => directory.run())
                 <Dropdown v-model="sort" label="Sort" :options="SORTS" />
             </ResultsHead>
             <Notice v-if="problem" tone="danger">{{ problem }}</Notice>
-            <Notice v-if="directory.problem.value || directory.data.value?.status === 'unavailable'" tone="warn">The server list isn't available right now.</Notice>
-            <div v-else-if="!directory.data.value"><Spinner /></div>
+            <KeptNote v-if="directory.problem.value && directory.at.value !== null" :at="directory.at.value" :problem="directory.problem.value" />
+            <Notice v-if="(directory.problem.value && !directory.data.value) || directory.data.value?.status === 'unavailable'" tone="warn">The server list isn't available right now.</Notice>
+            <RowSlot v-else-if="!directory.data.value" />
             <ListEmpty v-else-if="!shown.length" title="No servers match"><p>Loosen a filter to see more.</p></ListEmpty>
             <div v-else class="rows">
                 <article v-for="s in shown" :key="s.id" class="row" :class="{ open: open === s.id }">

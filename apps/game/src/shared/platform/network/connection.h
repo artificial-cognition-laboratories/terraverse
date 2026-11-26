@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -66,7 +66,7 @@ public:
 	virtual float getPeerStat(session_t peer_id, rtt_stat_type type) = 0;
 	virtual float getLocalStat(rate_stat_type type) = 0;
 
-	// Terra Firma: datagrams on this socket that aren't the game's (a STUN
+	// Terraverse: datagrams on this socket that aren't the game's (a STUN
 	// server's answers, src/online/host.h) go here instead of being dropped.
 	// Called on the receive thread.
 	using StrayHandler = std::function<void(const Address &sender, const u8 *data, size_t size)>;

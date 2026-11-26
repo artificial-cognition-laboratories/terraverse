@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "src/client/views/planetarium/run/standalone.h"
@@ -53,7 +53,7 @@ void runStandalone(const std::string &code, std::optional<double> bench, std::op
 		std::optional<std::string> ladder)
 {
 	const terragen::WorldCode world = terragen::WorldCode::decode(code);
-	far::Baked baked = far::Baked::load("terrafirma");
+	far::Baked baked = far::Baked::load("terraverse");
 	const far::Palette palette = baked.palette; // (a copy, for the bench's second body)
 
 	// the light curve tiles are lit by, as a client sets it when its server sends none

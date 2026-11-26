@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -34,7 +34,7 @@ namespace headless {
 	mouse do in Game. Nothing is drawn: the video driver is the NULL one, there's no Chromium and
 	no sound. What it senses and what it was told go over the Link, a JSON line each.
 
-	`luanti --body --address <host> --port <n> --name <name> [--vision WxH]`, the secret in
+	`terraverse --body --address <host> --port <n> --name <name> [--vision WxH]`, the secret in
 	TERRA_LOCAL_SECRET. With vision it draws as the game does, into a window nobody sees (Eye).
 */
 class Headless

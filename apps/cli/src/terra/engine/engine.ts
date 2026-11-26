@@ -99,7 +99,7 @@ export function Engine(opts: {
         const args = [
             ...MODES[e.mode](e.port),
             ...(e.profile ? ["--profile", e.profile] : []),
-            "--gameid", "terrafirma",
+            "--gameid", "terraverse",
             ...universe(e),
         ]
         // a server's run: its secret admits players from this machine (online/local.h); through

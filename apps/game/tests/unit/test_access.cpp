@@ -1,4 +1,4 @@
-// Terra Firma: who may do what (server/access, sprint 119)
+// Terraverse: who may do what (server/access, sprint 119)
 
 #include "tests/unit/test.h"
 

@@ -14,13 +14,13 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 world="$work/world"
 mkdir -p "$world"
-printf 'gameid = terrafirma\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$world/world.mt"
+printf 'gameid = terraverse\nbackend = sqlite3\nplayer_backend = sqlite3\n' > "$world/world.mt"
 # any terra world: the palette is the game's, not a world's
 atlas="atlas-v2 radius=2607.5945876176133 segments=24 capLatitude=85 core=651.8986469044033 rounding=0.95 height=256"
 printf 'mg_name = terra\nmgterra_code = TF24.dGVycmE\nseed = 1\nchunksize = 1\nplanet_atlas = %s\n[end_of_params]\n' "$atlas" > "$world/map_meta.txt"
 
 env -u DISPLAY -u WAYLAND_DISPLAY timeout 120 "$root/.output/bin/terraverse" --config /dev/null --world "$world" \
-	--gameid terrafirma --export-palette "$work/palette.json" > "$work/log.txt" 2>&1 || {
+	--gameid terraverse --export-palette "$work/palette.json" > "$work/log.txt" 2>&1 || {
 	echo "palette: the export failed:"
 	grep -E "ERROR|rror" "$work/log.txt" | head -20
 	exit 1

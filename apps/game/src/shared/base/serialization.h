@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -48,9 +48,9 @@
 	27: Added light spreading flags to blocks
 	28: Added "private" flag to NodeMetadata
 	29: Switched compression to zstd, a bit of reorganization
-	30: Terra Firma: cut nodes' shapes (shape::Shapes), after node metadata
-	31: Terra Firma: liquid in nodes' open space (fill::Fills), after the shapes (sprint 81)
-	32: Terra Firma: small plants (sprig::Sprigs), after the fills (sprint 113)
+	30: Terraverse: cut nodes' shapes (shape::Shapes), after node metadata
+	31: Terraverse: liquid in nodes' open space (fill::Fills), after the shapes (sprint 81)
+	32: Terraverse: small plants (sprig::Sprigs), after the fills (sprint 113)
 */
 
 // This represents an uninitialized or invalid format

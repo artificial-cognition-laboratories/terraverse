@@ -1,4 +1,4 @@
-// How `arc` releases Terra Firma (arclabs: libs/repo, which finds this file
+// How `arc` releases Terraverse (arclabs: libs/repo, which finds this file
 // from the working directory). No import: defineRepo returns what it's given,
 // and this repo doesn't depend on the ArcLabs workspace.
 //

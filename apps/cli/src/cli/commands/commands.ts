@@ -10,6 +10,7 @@ import { PlayCommand } from "./play"
 import { PrepareCommand } from "./prepare"
 import { RuntimeCommand } from "./runtime"
 import { AccountCommand } from "./account"
+import { Browser } from "../browser"
 import { InfoCommand } from "./info"
 import { InstallCommand } from "./install"
 import { PublishCommand } from "./publish"
@@ -28,7 +29,8 @@ export function Commands(opts: { terra: TerraT; presentation: PresentationT; ver
     const init = InitCommand({ terra: opts.terra, presentation: opts.presentation, as: opts.as })
     const dev = DevCommand({ terra: opts.terra, presentation: opts.presentation })
     const play = PlayCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare })
-    const account = AccountCommand({ terra: opts.terra, presentation: opts.presentation })
+    const browser = Browser()
+    const account = AccountCommand({ terra: opts.terra, presentation: opts.presentation, browser: browser })
     const publish = PublishCommand({ terra: opts.terra, presentation: opts.presentation })
     const install = InstallCommand({ terra: opts.terra, presentation: opts.presentation, as: opts.as })
     const info = InfoCommand({ terra: opts.terra, presentation: opts.presentation })

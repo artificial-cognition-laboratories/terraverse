@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #pragma once
@@ -38,7 +38,7 @@ public:
 	struct Input
 	{
 		float ahead = 0, right = 0; // the controls, -1..1
-		float yaw = 0;              // radians, Luanti's
+		float yaw = 0;              // radians, the engine's
 		bool jump = false;          // Space held
 		Stance asked = Stance::STAND;
 		float walk = 3.5f;          // nodes/s

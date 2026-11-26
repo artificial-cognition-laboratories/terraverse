@@ -1,11 +1,11 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2018 celeron55, Perttu Ahola <celeron55@gmail.com>,
 // Copyright (C) 2012-2018 RealBadAngel, Maciej Kasatkin
 // Copyright (C) 2015-2018 paramat
 
 #include <stack>
-#include "src/server/world/generate/luanti/treegen.h"
+#include "src/server/world/generate/legacy/treegen.h"
 #include "src/shared/base/irr_v3d.h"
 #include "src/shared/util/data/pointer.h"
 #include "src/shared/util/math/numeric.h"

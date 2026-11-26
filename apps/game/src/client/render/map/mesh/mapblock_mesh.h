@@ -1,4 +1,4 @@
-// Luanti
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
@@ -51,21 +51,21 @@ struct MeshMakeData
 
 	// relative to blockpos
 	v3s16 m_crack_pos_relative = v3s16(-1337,-1337,-1337);
-	// Terra Firma: nodes of the area (relative to blockpos) that are read,
+	// Terraverse: nodes of the area (relative to blockpos) that are read,
 	// never drawn: an atlas's seam inside a block, holding what lies across
 	// it (QueuedMeshUpdate::halo). Empty, or one per node of the area.
 	std::vector<bool> m_hidden;
-	// Terra Firma, an atlas: what each cut cell's cut faces show across, a
+	// Terraverse, an atlas: what each cut cell's cut faces show across, a
 	// node for each of its planes (QueuedMeshUpdate::cuts), by its node (absolute)
 	std::unordered_map<v3s16, std::vector<MapNode>> m_cuts;
-	// Terra Firma: an atlas's: the mesh is bent onto the planet (bendOntoAtlas)
+	// Terraverse: an atlas's: the mesh is bent onto the planet (bendOntoAtlas)
 	const planet::Atlas *m_atlas = nullptr;
-	// Terra Firma: the cut nodes of the area and its margin, by node (absolute)
+	// Terraverse: the cut nodes of the area and its margin, by node (absolute)
 	std::unordered_map<v3s16, shape::Shape> m_shapes;
-	// Terra Firma: the small plants footed in the area, by their foot (absolute)
+	// Terraverse: the small plants footed in the area, by their foot (absolute)
 	std::vector<std::pair<v3s16, sprig::Sprig>> m_sprigs;
 	float m_ao_gamma_inv = 0.0f;
-	// Terra Firma (sprint 85): how coarsely cut and smoothed ground is drawn
+	// Terraverse (sprint 85): how coarsely cut and smoothed ground is drawn
 	// far off: sixteenths a drawn step (1 near, 4 quarters, 16 whole nodes)
 	u8 m_detail = 1;
 	bool m_generate_minimap = false;
@@ -94,7 +94,7 @@ struct MeshMakeData
 };
 
 struct MeshCollector;
-// Terra Firma: an atlas's mesh, its vertices (BS, from the block's lowest
+// Terraverse: an atlas's mesh, its vertices (BS, from the block's lowest
 // node) put on the planet by its grid's chart, round the block's middle
 // (planet::Atlas::blockChart), its normals turned with it. A block of no
 // cells has no faces.
@@ -240,7 +240,7 @@ public:
 	}
 
 	/// @return true if the mesh contains nothing to draw
-	// Terra Firma: every vertex it has, every layer: what drawing it the first
+	// Terraverse: every vertex it has, every layer: what drawing it the first
 	// time uploads to the GPU (Client takes new meshes by this, a frame's worth at a time)
 	u32 vertexCount() const
 	{
@@ -252,7 +252,7 @@ public:
 		return n;
 	}
 
-	// Terra Firma: to the GPU now, rather than when first drawn: a mesh taken
+	// Terraverse: to the GPU now, rather than when first drawn: a mesh taken
 	// out of sight went up later with everything else turned to (a forest
 	// behind you, all at once)
 	void upload(video::IVideoDriver *driver) const;

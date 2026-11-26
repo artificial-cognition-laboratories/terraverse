@@ -1,4 +1,4 @@
-// Terra Firma
+// Terraverse
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "tests/unit/test.h"
@@ -108,7 +108,7 @@ std::string nameOf(content_t id)
 // The game's own, as staged next to the binary.
 Baked shipped()
 {
-	return Baked::load("terrafirma");
+	return Baked::load("terraverse");
 }
 
 // Updates the tiles for an eye until every tile it wants is built (at least

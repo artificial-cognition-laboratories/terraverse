@@ -1,4 +1,4 @@
-// Terra Firma: moving what an older layout left into the home's (.agents/planning/home.md,
+// Terraverse: moving what an older layout left into the home's (.agents/planning/home.md,
 // "Moving in"): once, the first time a root has no profiles/.
 #pragma once
 
