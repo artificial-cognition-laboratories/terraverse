@@ -90,7 +90,8 @@ function(add_cef_runtime_macos dir)
 	set(cef_runtime_outputs "${stamp}")
 
 	set(shell_dir "${CMAKE_CURRENT_FUNCTION_LIST_DIR}")
-	add_executable(shell_helper "${shell_dir}/host/helper_mac.cpp" "${shell_dir}/host/app.cpp")
+	add_executable(shell_helper "${shell_dir}/host/helper_mac.cpp" "${shell_dir}/host/app.cpp"
+		"${shell_dir}/host/pump.cpp")
 	target_compile_features(shell_helper PRIVATE cxx_std_20)
 	target_include_directories(shell_helper PRIVATE "${GAME_DIR}")
 	target_include_directories(shell_helper SYSTEM PRIVATE "${CEF_ROOT}")
