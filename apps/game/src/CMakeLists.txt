@@ -867,7 +867,7 @@ if(BUILD_CLIENT)
 			# from Frameworks/ with its helper apps beside it.
 			add_cef_runtime_macos("${EXECUTABLE_OUTPUT_PATH}")
 			add_dependencies(${PROJECT_NAME} cef_runtime)
-			target_link_libraries(${PROJECT_NAME} libcef_dll_wrapper)
+			target_link_libraries(${PROJECT_NAME} libcef_dll_wrapper "-framework Cocoa")
 		else()
 			target_link_libraries(${PROJECT_NAME} libcef_dll_wrapper "${CEF_LIB_RELEASE}")
 			# libcef and its resources sit next to the executable.

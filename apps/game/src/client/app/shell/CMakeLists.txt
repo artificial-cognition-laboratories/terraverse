@@ -38,6 +38,7 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/options.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/pixels.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/process.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/host/pump.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/../../views/preview/preview.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/host/scheme.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/serverinfo.cpp
@@ -63,6 +64,10 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/host/surface.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/worlds.cpp
 )
+if(APPLE)
+	# Chromium's protocol on SDL's NSApplication (host/app_protocol.h): Objective-C++
+	list(APPEND shell_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/host/app_protocol.mm)
+endif()
 set(shell_SRCS ${shell_SRCS} PARENT_SCOPE)
 
 # macOS: Chromium's framework and its helper apps in Frameworks/ beside the
