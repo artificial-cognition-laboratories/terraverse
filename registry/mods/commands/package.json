@@ -1,6 +1,6 @@
 {
     "name": "@terraverse/commands",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "The base commands every server has: /msg someone, see who's here with /players, and an admin's /kick and /announce.",
     "type": "module",
     "exports": {

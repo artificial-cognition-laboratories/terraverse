@@ -1,6 +1,6 @@
 {
     "name": "@terraverse/materials",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "What machines and buildings are made of: flint, timber, aluminium, steel, rubber, canvas and glass. Each is its substance, so weight, strength and grip follow.",
     "type": "module",
     "exports": {
