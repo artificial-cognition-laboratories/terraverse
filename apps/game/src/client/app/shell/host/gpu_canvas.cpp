@@ -38,6 +38,7 @@ Canvas::Painted GpuCanvas::taken() { unreachable(); return {}; }
 #include "src/client/app/shell/host/gpu_programs.h"
 #include "src/client/app/shell/host/gl_restore.h"
 #include "library/trace/trace.h"
+#include "src/shared/platform/system/log.h"
 #include <mt_opengl.h>
 #include <GL/gl.h>
 #include <GL/glext.h>
@@ -59,6 +60,9 @@ struct GpuCanvas::Impl
 
 	// Chromium's thread's
 	GLuint fbo = 0, vao = 0, mask_texture = 0;
+	// the newest capture taken: Chromium's capturer can hand an older one over after it
+	uint64_t capture = 0;
+	bool captured = false;
 	GLuint pack = 0; // the mask on its way back (a buffer: shared, so the main thread maps it)
 	size_t pack_size = 0;
 	u32 mask_width = 0, mask_height = 0;
@@ -203,6 +207,19 @@ void GpuCanvas::paint(const CefAcceleratedPaintInfo &info, const std::vector<Cef
 	const u32 w = (u32)visible.width, h = (u32)visible.height;
 	if (w == 0 || h == 0)
 		return;
+	// Frames come from Chromium's capturer, which can deliver one out of order: drawn, an older
+	// frame flashed the page back to what it showed before. Only a newer capture is taken.
+	if (info.extra.has_capture_counter) {
+		// (a long way back is a capturer started again, on a reload or a resize: taken)
+		const uint64_t c = info.extra.capture_counter;
+		if (m.captured && c <= m.capture && m.capture - c < 16) {
+			infostream << "shell: dropped an out-of-order frame (capture " << c
+					<< ", newest " << m.capture << ")" << std::endl;
+			return;
+		}
+		m.capture = c;
+		m.captured = true;
+	}
 
 	const GpuEgl::Frame frame = m.egl->take(info);
 	if (frame.external && !m.programs.hasExternal()) {
@@ -262,8 +279,12 @@ void GpuCanvas::paint(const CefAcceleratedPaintInfo &info, const std::vector<Cef
 	GL.ReadPixels(0, 0, mw, mh, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	GL.BindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 	GLsync done = GL.FenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-	GL.Flush(); // (the main thread polls it)
-	m.egl->letGo(frame); // (GL keeps them till the GPU's done with them)
+	// Chromium's buffer is ours only until this returns: it goes back to its pool, and the next
+	// small change is drawn into just its damaged part, over an older frame. A copy still queued
+	// on the GPU then took that, and the page flashed back to what it showed before. So the copy
+	// is finished here, on Chromium's thread (a GPU copy: well under a millisecond).
+	GL.ClientWaitSync(done, GL_SYNC_FLUSH_COMMANDS_BIT, GL_TIMEOUT_IGNORED);
+	m.egl->letGo(frame);
 
 	double area = 0;
 	for (const CefRect &r : dirty)

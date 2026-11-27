@@ -16,9 +16,10 @@ namespace shell {
 	one of three slots. The main thread draws the newest slot; nothing is
 	read back but a quarter-size mask of where the page is solid (alphaAt).
 
-	Neither thread waits on the GPU: a paint is fenced, and the main thread
-	takes it in (settled) once the fence has passed, and only then asks
-	Chromium for the next frame. Chromium paints only when asked
+	The main thread never waits on the GPU: a paint is fenced, and it takes
+	it in (settled) once the fence has passed, and only then asks Chromium
+	for the next frame. Chromium's thread waits for its own copy, as its
+	buffer is reused once the paint returns (gpu_canvas.cpp: paint). Chromium paints only when asked
 	(external begin frames), so the buffer it handed over isn't reused
 	while our copy of it is still on the GPU.
 
