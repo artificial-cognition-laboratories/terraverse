@@ -49,7 +49,7 @@ cat "$work/client.log"
 [[ $shot == 1 ]] && echo "check-macos-shell: screenshot in $2/macos-shell.png"
 grep -q "shell: loaded shell://ui/index.html (200)" "$work/client.log" || fail "the page never loaded (log above)"
 grep -q "the page's first frame" "$work/client.log" || fail "the page loaded but never painted (log above)"
-echo "check-macos-shell: the page loaded and painted"
+echo "check-macos-shell: the page loaded and Chromium painted it (whether it reaches the screen: the screenshot)"
 # A verdict means the client kept running with Chromium to the end of the check.
 verdict="$(grep -oE "UICHECK (pass|fail)" "$work/client.log" | tail -1 || true)"
 [[ -n "$verdict" ]] || fail "the UI check reached no verdict: the client and Chromium didn't run together (log above)"
