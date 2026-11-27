@@ -51,6 +51,9 @@ struct UiCheck::Stats
 	double gap = 0;            // ms
 	double held = 0;           // frames
 	u32 frames = 0;
+	// The slowest frame, ms, and its main thread's zones by time: where a slow frame went
+	double slowest = 0;
+	std::vector<std::pair<u32, u64>> slowest_parts;
 };
 
 UiCheck::UiCheck(Opts opts) : m_opts(std::move(opts)), m_stats(std::make_unique<Stats>()) {}
@@ -85,6 +88,14 @@ void UiCheck::step(core::dimension2du screen)
 					if (name == UI)
 						ui = took / 1e6;
 		m_stats->ui.push_back(ui);
+		const double took = (f.end - f.start) / 1e6;
+		if (took > m_stats->slowest) {
+			m_stats->slowest = took;
+			m_stats->slowest_parts.clear();
+			for (const trace::Frame::Thread &t : f.threads)
+				if (t.thread == "Main")
+					m_stats->slowest_parts = t.parts;
+		}
 		for (const auto &[name, value] : f.counters) {
 			if (name == INPUT)
 				m_stats->input.push_back(value / 1000);
@@ -124,6 +135,12 @@ void UiCheck::step(core::dimension2du screen)
 	const Stats &s = *m_stats;
 	actionstream << "UICHECK " << s.frames << " frames, " << m_moves << " moves, "
 			<< s.input.size() << " answered, " << s.held << " page frames held" << std::endl;
+	std::vector<std::pair<u32, u64>> parts = s.slowest_parts;
+	std::sort(parts.begin(), parts.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
+	std::ostringstream where;
+	for (size_t i = 0; i < std::min<size_t>(parts.size(), 6); i++)
+		where << (i ? ", " : "") << trace::nameOf(parts[i].first) << " " << parts[i].second / 1e6 << " ms";
+	actionstream << "UICHECK slowest frame " << s.slowest << " ms; its main thread: " << where.str() << std::endl;
 	judge(UI_P99, percentile(s.ui, 0.99));
 	judge(UI_WORST, s.ui.empty() ? 0 : *std::max_element(s.ui.begin(), s.ui.end()));
 	judge(INPUT_P95, percentile(s.input, 0.95));

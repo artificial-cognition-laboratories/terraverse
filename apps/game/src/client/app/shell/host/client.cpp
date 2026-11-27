@@ -45,6 +45,7 @@ void Client::OnPaint(CefRefPtr<CefBrowser> browser, PaintElementType type,
 {
 	if (type != PET_VIEW)
 		return; // <select> popups are not composited yet
+	firstPaint("in software", width, height);
 	m_canvas.paint(buffer, width, height, dirty);
 }
 
@@ -53,7 +54,17 @@ void Client::OnAcceleratedPaint(CefRefPtr<CefBrowser> browser, PaintElementType 
 {
 	if (type != PET_VIEW)
 		return; // <select> popups are not composited yet
+	firstPaint("shared", info.extra.coded_size.width, info.extra.coded_size.height);
 	m_canvas.paint(info, dirty);
+}
+
+// A page that never paints is otherwise silent (macOS, 2026-11-27): say when its first frame comes.
+void Client::firstPaint(const char *how, int width, int height)
+{
+	if (m_painted)
+		return;
+	m_painted = true;
+	actionstream << "shell: the page's first frame, " << how << ", " << width << "x" << height << std::endl;
 }
 
 void Client::OnBeforeClose(CefRefPtr<CefBrowser> browser)
@@ -98,6 +109,12 @@ void Client::OnLoadError(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> fram
 		return; // superseded by another navigation, not a failure
 	errorstream << "shell: failed to load " << url.ToString() << ": "
 			<< text.ToString() << " (" << code << ")" << std::endl;
+}
+
+void Client::OnLoadEnd(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, int status)
+{
+	if (frame->IsMain())
+		actionstream << "shell: loaded " << frame->GetURL().ToString() << " (" << status << ")" << std::endl;
 }
 
 } // namespace shell

@@ -75,14 +75,18 @@ public:
 	// CefLoadHandler
 	void OnLoadError(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
 			ErrorCode code, const CefString &text, const CefString &url) override;
+	void OnLoadEnd(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, int status) override;
 
 private:
+	void firstPaint(const char *how, int width, int height);
+
 	Canvas &m_canvas;
 	const Viewport &m_viewport;
 	Inbox &m_inbox;
 	CefRefPtr<CefMessageRouterBrowserSide> m_router;
 	std::function<void()> m_on_navigate;
 	std::atomic<bool> m_closed{ false };
+	bool m_painted = false; // (Chromium's UI thread only) its first frame has been said
 
 	IMPLEMENT_REFCOUNTING(Client);
 };
