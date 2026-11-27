@@ -3,9 +3,9 @@
 ## Map
 - `.github/workflows/release.yml`: the game on Linux (ubuntu-22.04, gcc-12, sccache) and Windows
   (clang-cl, vcpkg x64-windows, sccache). Each: UI build, terra (gen:check, tsc, bun test, compile),
-  engine, unit tests (TestOnline, TestRelease, TestTerragen: Linux through `apps/game/tests/run/engine.sh`, Windows
-  through cmd with `TF_TEST_SKIP` from `apps/game/tests/run/skips.sh`, so `apps/game/tests/run/skip.txt` applies to
-  both), package, smoke boot. Publish only on a tag (a dispatch keeps an artifact, nothing else). Push
+  engine, unit tests (Linux: every engine module through `apps/game/tests/run/engine.sh`, 2.3 min in CI,
+  since 2026-11-27; Windows: TestOnline, TestRelease, TestTerragenMatter through cmd with `TF_TEST_SKIP`
+  from `apps/game/tests/run/skips.sh`; macOS: the same three through engine.sh; `skip.txt` applies to all), package, smoke boot. Publish only on a tag (a dispatch keeps an artifact, nothing else). Push
   filter: apps/game, apps/cli, packages/types, assets, library, cmake, CMakeLists, vcpkg.json,
   .gitignore, apps/game/scripts/release, stage-runtime, the workflow. Smoke boot: both platforms call
   `apps/game/scripts/release/smoke-server.sh <exe> <version>` (bash 3.2-portable; stops once listening
@@ -37,8 +37,13 @@
   targets (`CURL_LINK`, `FREETYPE_LINK` in apps/game/src/CMakeLists.txt), OpenAL is the system framework
   (configure-macos.sh). The shell loads the framework, then throws "not wired on macOS yet (Chromium's message loop)";
   `main` skips `runHelper` on Apple (helpers are their own executable). So: tests and `--server` can run, the client can't.
-  Still non-portable: `apps/game/tests/run/engine.sh` with no module args uses `mapfile` (bash 4; macOS has 3.2);
-  vcpkg's openal-soft is still built on osx though unused (drop it with `"platform": "!osx"` the next
+  The "Shell" step (`check-macos-shell.sh`) runs the client under lldb (a crash prints every thread's
+  backtrace; the engine's own crash report says nothing on macOS) and demands the page load and
+  Chromium paint it; the UI check's verdict is reached, not held. **What we know of the macOS client
+  (2026-11-27):** the GL3 driver asks for a 3.2 *compatibility* context, which macOS never gives, so it
+  runs on the legacy GL 2.1 driver; the runner has no GPU, so the planetarium behind the menu takes
+  ~1.2 s a frame in software; Chromium paints the page (first frame ~18 s in) but the menu isn't on
+  screen. vcpkg's openal-soft is still built on osx though unused (drop it with `"platform": "!osx"` the next
   time vcpkg.json changes anyway: changing it now makes Windows rebuild vcpkg cold, ~36 min);
   vcpkg builds for macOS 15 while the engine targets 13.0 (ld warns; needs an overlay triplet with
   VCPKG_OSX_DEPLOYMENT_TARGET 13.0 before shipping).
@@ -49,6 +54,7 @@ kind's median (the API doesn't say whether caches hit).
 
 | Date | Master green rate | Time to signal (median) | Warm build (job) | Cold build | Release reliability | Runner min/day |
 |---|---|---|---|---|---|---|
+| 2026-11-27 | 10/10 = 100% (11-26 21:21 to 11-27 19:21; 2 superseded cancels excluded) | 12.0 min (8 pushes) | release linux 8.3, windows 12.0, macos 4.4; launcher 3.6 / 3.5 | macos 18.9 (11-26 21:39) | 5/5 (v0.1.16, v0.1.17, launcher-v0.1.8/9/10) | 409 (22 runs over 1.0 day) |
 | 2026-11-26 | 4/5 = 80% (11-25 21:15 to 11-26 20:58; 3 superseded cancels excluded) | 11.9 min (5 pushes) | release linux 9.8, windows 11.2, macos 5.2; launcher 3.1 / 3.8 | none in window | 1/1 (v0.1.14) | 222 |
 | 2026-11-25 | 6/10 = 60% (11-24 21:02 to 11-25 19:31; the red: v0.1.12's Windows `interface` macro, fixed upstream in d539b696; master green since) | 9.3 min (9 pushes) | release linux 7.4, windows 11.8, macos 3.2; launcher 3.3 / 3.6 | none in window | 2/3 (v0.1.12 failed Windows; v0.1.13, launcher-v0.1.7 ok) | 225 |
 | 2026-11-24 | 7/14 = 50% (11-21 21:32 to 11-24 19:23; red from launcher Panel prop and terra's running/ test on Windows) | 10.6 min (9 pushes) | release linux 6.1, windows 11.3, macos 4.0; launcher 3.5 / 3.2 | none in window | 3/3 (v0.1.11, launcher-v0.1.5, v0.1.6) | 103 |
@@ -93,10 +99,16 @@ kind's median (the API doesn't say whether caches hit).
      (branch run 45701234394).
    - [x] 2026-11-26: Chromium's loop pumped on macOS; the client runs and renders the menu
      (branch ci/macos-pump, runs 45898615442, 45901096474, 45901680693).
-   - [ ] **Next:** the page paints on macOS and the UI check passes. Leads: only 10 engine frames in
-     25 s (something blocks the main thread: CefDoMessageLoopWork running long? log its time per
-     call); whether OnPaint arrives at all (CPU canvas); SendExternalBeginFrame needing work done
-     right after. Then the Shell step requires "UICHECK pass".
+   - [x] 2026-11-27: the page paints on macOS (Chromium's first frame logged; the check demands it).
+     The slow frames were the planetarium in software GL (no GPU on the runner), not the pump.
+   - [ ] **Next:** the painted page reaches the screen. Leads: the legacy GL 2.1 driver (GL state the
+     planetarium leaves, gl_restore.cpp written for GL3?); the page's first frames blank at ~1 engine
+     frame a second (Chromium gets a begin-frame per engine frame: check the pixels' alpha). Cheapest
+     test: a menu without the planetarium, so the engine runs fast. The check then demands a non-blank
+     page (e.g. Surface counting opaque pixels in its first upload, logged).
+   - [ ] The GL3 driver on Apple's core profile (3.2+ forward-compatible): a bound VAO, core GLSL in
+     every shader. A port; job render-macos-packed-vertices-crash.md proposes it. Needed before
+     macOS ships: the legacy driver can't draw far tiles' packed vertices (b165b8c8, crash).
    - [x] (was the plan for the step above, kept for reference) Chromium's message loop on macOS: `multi_threaded_message_loop` is Windows/Linux
      only. Set `external_message_pump` on Apple, `App::OnScheduleMessagePumpWork` (browser-process
      handler) plus `CefDoMessageLoopWork` from the engine's frame; the UI thread becomes the main
@@ -114,8 +126,9 @@ kind's median (the API doesn't say whether caches hit).
    - [ ] Launcher (Tauri) on macOS in launcher.yml.
 3. **One-command CI status.** Done 2026-11-18: `bun ci:status`.
 4. **Fast tier first.** Done when: median time to signal under 10 min with the whole unit suite in CI.
-   Blocked on: TestFar and TestScale red on master (job testing-far-scale-red); the full suite takes
-   47 s locally, so running all of it on Linux early is cheap once they're fixed or skipped by name.
+   - [x] 2026-11-27: Linux runs every engine module (2.3 min of its 10.4 min job; locally 50 s).
+   - [ ] Time to signal is ~12 min, set by Windows (12 min). Next: a separate fast Linux job (UI
+     typecheck, terra, `bun test:hot`) whose red arrives in ~3 min, before the platform builds finish.
 5. **Path filters.** Done when: launcher-only pushes run 0 engine builds (looks true already; verify).
 6. **Move inline YAML steps into scripts.** Done when: no `run:` block holds multi-line logic (the
    smoke tests and the publish steps are the big ones).
@@ -138,6 +151,7 @@ kind's median (the API doesn't say whether caches hit).
 Over the next few sessions we want to get everything setup properly to allow macos. So choose chunks of work to do. getting the repo itself in line and setting up the appropriate ci. you are tasked with the full thing. within a few sessions we should have macos online. permission to make the changes you need to get this working and online. keep track of this work and your plan until the job is complete.
 
 ## Log
+- 2026-11-27: Master green on arrival (100%, 10/10). Linux CI runs the whole engine suite (92 modules, 2.3 min) instead of 3 (milestone 4's blocker was gone: TestScale skipped by name). macOS: the page does paint (last session's "never paints" was the runner's software GL at 1 fps plus an early screenshot); the client runs under lldb in CI, which caught b165b8c8 (local, unpushed) crashing the legacy GL driver: job render-macos-packed-vertices-crash. Branch runs 46068295867, 46069031677, 46069712930 (superseded), 46070424322 green.
 - 2026-11-26: Master green on arrival (4/5 = 80%). macOS: Chromium's loop now pumped from the engine's frames, CefAppProtocol on SDL's NSApplication, bundle id for the helpers' rendezvous; the client runs on macOS and renders the menu (first screenshot). The page doesn't paint yet. Green rate 60% → 80%.
 - 2026-11-25: Master green on arrival (v0.1.12's Windows red was fixed upstream). macOS milestone: Chromium's framework now loads in the client from `Frameworks/`, with 5 helper apps; the shell refuses one step later, at the message loop. The macOS job checks it (new "Shell" step). Branch run 45701234394. Green rate 50% → 60%.
 - 2026-11-24: Master red on both workflows from outside CI: the launcher's ProfileMenu missed Panel's new `remembered` prop (UI typecheck), terra's running/ test asserted POSIX modes on Windows. Fixed in 5cc38760 (launcher run 45487045883 green); that release run then showed a third break, terragen's tests on Windows (7f04a5ae put $ENV{APPDATA}'s backslashes into a C string), fixed in a CMake string(REPLACE); release run 45490107989 green on every job. Lesson: read a run's job list before writing it down as green. No macOS progress tonight (short session). Green rate 88% → 50% over the window.
