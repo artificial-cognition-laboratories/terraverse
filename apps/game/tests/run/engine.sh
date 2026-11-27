@@ -21,7 +21,13 @@ bin="$root/.output/bin/terraverse"
 skips="$(bash "$root/apps/game/tests/run/skips.sh")"
 export TF_TEST_SKIP="$skips"
 
-if [[ $# -gt 0 ]]; then modules=("$@"); else mapfile -t modules < <("$bin" --list-test-modules 2>&1 | grep -E '^Test'); modules+=(Catch); fi
+# (no mapfile: macOS's bash 3.2 lacks it)
+if [[ $# -gt 0 ]]; then modules=("$@")
+else
+	modules=()
+	while IFS= read -r m; do modules+=("$m"); done < <("$bin" --list-test-modules 2>&1 | grep -E '^Test')
+	modules+=(Catch)
+fi
 [[ ${#modules[@]} -gt 0 ]] || { echo "test: no modules listed" >&2; exit 1; }
 
 logs="$(mktemp -d)"

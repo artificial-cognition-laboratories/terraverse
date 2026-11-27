@@ -110,11 +110,12 @@ jobs:
           SCCACHE_GHA_ENABLED: "true"
         run: cmake --build .output/build -j"$(nproc)" -- -k && bash apps/game/scripts/stage-runtime.sh
 
-      # bun run test's script (built above): tests in apps/game/tests/run/skip.txt are skipped by name.
-      # terragen's own tests are fixed point: every platform must pass them alike.
+      # bun run test's script (built above): every engine module, tests in
+      # apps/game/tests/run/skip.txt skipped by name. terragen's own tests are fixed point:
+      # every platform must pass them alike.
       - name: Unit tests
         run: |
-          BUILT=1 bash apps/game/tests/run/engine.sh TestOnline TestRelease TestTerragenMatter
+          BUILT=1 bash apps/game/tests/run/engine.sh
           ctest --test-dir .output/build -L '^terragen$' -L '^hot$' --output-on-failure
 
       - name: Package
