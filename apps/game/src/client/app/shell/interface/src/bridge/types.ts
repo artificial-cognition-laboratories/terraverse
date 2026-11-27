@@ -12,7 +12,7 @@ import type { StarId } from "../worldgen/config"
 export type Mode = "menu" | "entering" | "game" | "leaving"
 
 /** In-game screens the engine can open (src/shell/screens.cpp: SCREENS). */
-export type ScreenName = "pause" | "inventory" | "wiki" | "map" | "library" | "palette" | "cut" | "dig"
+export type ScreenName = "pause" | "inventory" | "wiki" | "map" | "library" | "online" | "palette" | "cut" | "dig"
 
 /** A slot in the local player's inventory, or with `at` a node's (a station's worktop). */
 export type NodePos = { x: number; y: number; z: number }
@@ -96,6 +96,8 @@ export type RegistryVersion = {
     dependencies: Record<string, string>; withheld: string | null
 }
 export type RegistryFile = { path: string; size: number }
+/** A player as the registry knows them: what they've published, and its stars and installs. */
+export type RegistryOwner = { scope: string; official: boolean; stars: number; installs: number; listings: RegistryListing[] }
 export type RegistryMod = RegistryListing & {
     readme: string; deprecated: string | null; versions: RegistryVersion[]
     /** Where the README's relative media is served from (the latest version's); null without a version. */
@@ -485,6 +487,27 @@ export type Account =
     | { status: "signedIn"; id: string; username: string; name: string | null }
     | { status: "unreachable"; problem: string }
 
+/** A link on a player's profile, as the site shows it. */
+export type ProfileLink = { label: string; url: string }
+/**
+ * The signed-in player's own profile, as they edit it (arclabs: api/terrafirma/profile). What
+ * others see on their page beside the handle; never the email.
+ */
+export type AccountProfile = {
+    id: string
+    username: string
+    name: string | null
+    bio: string | null
+    location: string | null
+    website: string | null
+    links: ProfileLink[]
+    createdAt: string
+}
+/** What the profile page sends: only the fields changed; an empty text clears its field. */
+export type ProfileEdit = Partial<{ bio: string; location: string; website: string; links: ProfileLink[] }>
+/** Whether a handle can be taken, and if not, why (arclabs: users.available). */
+export type HandleAvailability = { available: true } | { available: false; reason: string }
+
 /** An ArcLabs player, as Terraverse's friends list shows them. */
 export type Player = { id: string; username: string; name: string | null }
 /** Where a player is: the menu, someone's world, or their own (hosting; `open`: friends can join). */
@@ -689,6 +712,8 @@ export type Intents = {
     "registry.front": { request: {}; response: RegistryFront }
     "registry.search": { request: RegistrySearch; response: RegistryResults }
     "registry.mod": { request: { name: string }; response: RegistryMod }
+    /** What a player has published (backend: registry/owners/@handle); null when nothing. */
+    "registry.owner": { request: { scope: string }; response: RegistryOwner | null }
     /** One file of a mod's latest version, as text, for the source view. */
     "registry.file": { request: { name: string; path: string }; response: string }
     "community.list": { request: {}; response: CommunityCatalog }
@@ -786,6 +811,17 @@ export type Intents = {
     "profiles.forget": { request: { name: string }; response: null }
     /** Checks the saved key again after ArcLabs couldn't be reached. */
     "account.retry": { request: {}; response: null }
+    /** The signed-in player's own profile (shell/bridge/identity.cpp). */
+    "account.profile": { request: {}; response: AccountProfile }
+    /** Changes it; answered with the profile as saved. Refused with the backend's reason. */
+    "account.edit": { request: ProfileEdit; response: AccountProfile }
+    /** Whether a handle is free, as it's typed: advice only, the rename checks again. */
+    "account.available": { request: { username: string }; response: HandleAvailability }
+    /**
+     * Takes a new handle, and with it the scope of all they've published. In the menu only: the
+     * account's profile folder moves with it, and the `account` message brings the new name.
+     */
+    "account.rename": { request: { username: string }; response: AccountProfile }
     /** Friends, presence and invites (src/shell/social.cpp); changes arrive as `social` messages. */
     "social.get": { request: {}; response: Social | null }
     /** Friends can join the world you're in (your own). */

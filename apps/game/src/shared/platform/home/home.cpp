@@ -21,6 +21,9 @@ std::string readActive(const std::string &root);
 void writeJson(const std::string &path, const Json::Value &value);
 void makeProfile(const std::string &dir, const std::string &name);
 void move(const std::string &from, const std::string &to);
+// profile.json's account: whose profile it is, so a renamed account finds it again
+std::string accountOf(const std::string &dir);
+void stamp(const std::string &dir, const std::string &name, const std::string &account_id);
 
 } // namespace
 
@@ -103,28 +106,30 @@ void Home::use(const std::string &name)
 	point();
 }
 
-std::string Home::signedIn(const std::string &handle, const std::string &key_file)
+std::string Home::signedIn(const std::string &handle, const std::string &account_id, const std::string &key_file)
 {
 	const std::string name = "@" + handle;
 	if (!validName(name))
 		throw Error("ArcLabs named the account \"" + handle + "\", which can't name a profile");
 	const std::string dir = m_root + DIR_DELIM "profiles" DIR_DELIM + name;
 	const std::string file = fs::GetFilenameFromPath(key_file.c_str());
-	if (m_profile == name)
+	if (m_profile == name) {
+		stamp(profileDir(), name, account_id);
 		return key_file;
-	// the first sign-in here: what was played signed out becomes the account's
-	if (m_profile == LOCAL && !fs::PathExists(dir)) {
+	}
+	// the first sign-in here: what was played signed out becomes the account's; or the
+	// account was renamed, and its profile goes with it
+	const bool adopt = m_profile == LOCAL && !fs::PathExists(dir);
+	const bool renamed = m_profile != LOCAL && accountOf(profileDir()) == account_id && !fs::PathExists(dir);
+	if (adopt || renamed) {
 		move(profileDir(), dir);
-		Json::Value p;
-		p["name"] = name;
-		p["handle"] = handle;
-		p["created"] = (Json::Int64)time(nullptr);
-		writeJson(dir + DIR_DELIM "profile.json", p);
+		stamp(dir, name, account_id);
 		use(name);
 		return profileDir() + DIR_DELIM + file;
 	}
 	const std::string from = key_file;
 	use(name);
+	stamp(profileDir(), name, account_id);
 	const std::string to = profileDir() + DIR_DELIM + file;
 	move(from, to);
 	return to;
@@ -211,6 +216,38 @@ void move(const std::string &from, const std::string &to)
 		return;
 	if (!fs::MoveDir(from, to))
 		throw Error("could not move " + from + " to " + to);
+}
+
+std::string accountOf(const std::string &dir)
+{
+	std::string text;
+	if (!fs::ReadFile(dir + DIR_DELIM "profile.json", text, false))
+		return "";
+	Json::Value p;
+	std::istringstream in(text);
+	if (!Json::parseFromStream(Json::CharReaderBuilder(), in, &p, nullptr))
+		throw Error("could not read " + dir + DIR_DELIM "profile.json");
+	return p["account"].isString() ? p["account"].asString() : "";
+}
+
+void stamp(const std::string &dir, const std::string &name, const std::string &account_id)
+{
+	const std::string file = dir + DIR_DELIM "profile.json";
+	Json::Value p;
+	std::string text;
+	if (fs::ReadFile(file, text, false)) {
+		std::istringstream in(text);
+		if (!Json::parseFromStream(Json::CharReaderBuilder(), in, &p, nullptr))
+			throw Error("could not read " + file);
+	}
+	if (p["name"].asString() == name && p["account"].asString() == account_id)
+		return;
+	p["name"] = name;
+	p["handle"] = name.substr(1);
+	p["account"] = account_id;
+	if (!p["created"].isInt64())
+		p["created"] = (Json::Int64)time(nullptr);
+	writeJson(file, p);
 }
 
 } // namespace

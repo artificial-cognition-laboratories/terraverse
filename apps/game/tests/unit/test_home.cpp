@@ -19,6 +19,7 @@ private:
 	void testAnOldLayoutMovesIn();
 	void testTheFirstSignInAdoptsLocal();
 	void testALaterSignInBringsOnlyTheKey();
+	void testARenamedAccountTakesItsProfile();
 	void testSigningOutGoesBackToLocal();
 	void testTheActiveProfileIsRemembered();
 	void testNamesAreChecked();
@@ -38,6 +39,7 @@ void TestHome::runTests(IGameDef *gamedef)
 	TEST(testAnOldLayoutMovesIn);
 	TEST(testTheFirstSignInAdoptsLocal);
 	TEST(testALaterSignInBringsOnlyTheKey);
+	TEST(testARenamedAccountTakesItsProfile);
 	TEST(testSigningOutGoesBackToLocal);
 	TEST(testTheActiveProfileIsRemembered);
 	TEST(testNamesAreChecked);
@@ -97,7 +99,7 @@ void TestHome::testTheFirstSignInAdoptsLocal()
 	write(porting::path_user + DIR_DELIM "worlds" DIR_DELIM "mine" DIR_DELIM "world.mt", "x");
 	const std::string key = porting::path_user + DIR_DELIM "account.json";
 	write(key, "{\"key\":\"k\"}");
-	const std::string moved = h->signedIn("cody", key);
+	const std::string moved = h->signedIn("cody", "id-1", key);
 	const std::string mine = root + DIR_DELIM "profiles" DIR_DELIM "@cody";
 	UASSERTEQ(std::string, h->profile(), "@cody");
 	UASSERTEQ(std::string, moved, mine + DIR_DELIM "account.json");
@@ -116,11 +118,33 @@ void TestHome::testALaterSignInBringsOnlyTheKey()
 	write(porting::path_user + DIR_DELIM "worlds" DIR_DELIM "other" DIR_DELIM "world.mt", "x");
 	const std::string key = porting::path_user + DIR_DELIM "account.json";
 	write(key, "{\"key\":\"k\"}");
-	const std::string moved = h->signedIn("cody", key);
+	const std::string moved = h->signedIn("cody", "id-1", key);
 	UASSERTEQ(std::string, moved, root + DIR_DELIM "profiles" DIR_DELIM "@cody" DIR_DELIM "account.json");
 	UASSERT(!fs::PathExists(key));
 	// @cody had a profile: local keeps what it played
 	UASSERT(fs::PathExists(root + DIR_DELIM "profiles" DIR_DELIM "local" DIR_DELIM "worlds" DIR_DELIM "other" DIR_DELIM "world.mt"));
+}
+
+void TestHome::testARenamedAccountTakesItsProfile()
+{
+	const std::string root = fresh();
+	auto h = boot(root);
+	write(porting::path_user + DIR_DELIM "worlds" DIR_DELIM "mine" DIR_DELIM "world.mt", "x");
+	const std::string key = porting::path_user + DIR_DELIM "account.json";
+	write(key, "{\"key\":\"k\"}");
+	const std::string first = h->signedIn("cody", "id-1", key);
+	// the same account, under its new handle: the profile and its worlds follow
+	const std::string moved = h->signedIn("cody2", "id-1", first);
+	const std::string now = root + DIR_DELIM "profiles" DIR_DELIM "@cody2";
+	UASSERTEQ(std::string, h->profile(), "@cody2");
+	UASSERTEQ(std::string, moved, now + DIR_DELIM "account.json");
+	UASSERT(fs::PathExists(now + DIR_DELIM "worlds" DIR_DELIM "mine" DIR_DELIM "world.mt"));
+	UASSERT(!fs::PathExists(root + DIR_DELIM "profiles" DIR_DELIM "@cody"));
+	// another account signing in from there gets its own profile, and @cody2's stays
+	write(porting::path_user + DIR_DELIM "other.json", "{}");
+	h->signedIn("sam", "id-2", porting::path_user + DIR_DELIM "other.json");
+	UASSERTEQ(std::string, h->profile(), "@sam");
+	UASSERT(fs::PathExists(now + DIR_DELIM "worlds" DIR_DELIM "mine" DIR_DELIM "world.mt"));
 }
 
 void TestHome::testSigningOutGoesBackToLocal()

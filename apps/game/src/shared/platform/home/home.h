@@ -44,9 +44,11 @@ public:
 	// Run as `name` from now on (created if it's new) and remember it as the active one.
 	// Throws Error for a name a profile can't have.
 	void use(const std::string &name);
-	// An ArcLabs account signed in: its profile, adopting `local` when it has none yet.
-	// The account's key file, moved into it, is returned at its new path.
-	std::string signedIn(const std::string &handle, const std::string &key_file);
+	// An ArcLabs account signed in: its profile, adopting `local` when it has none yet, and
+	// following the account when its handle changed (renamed here or on the site): the profile
+	// running holds `account_id`, so it moves to the new name with its worlds. The account's key
+	// file, moved into it, is returned at its new path.
+	std::string signedIn(const std::string &handle, const std::string &account_id, const std::string &key_file);
 	// Signed out: back to `local`, the account's profile kept for next time.
 	void signedOut();
 

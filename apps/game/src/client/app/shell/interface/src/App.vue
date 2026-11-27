@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineAsyncComponent } from "vue"
+import { defineAsyncComponent, ref, watch } from "vue"
 import { useBridge } from "./bridge/use.ts"
 import Hud from "./game/Hud.vue"
 import InventoryScreen from "./game/inventory/InventoryScreen.vue"
@@ -11,7 +11,9 @@ import DigScreen from "./game/dig/DigScreen.vue"
 import { useStore } from "./game/store.ts"
 import MainMenu from "./menu/MainMenu.vue"
 import InviteToast from "./social/InviteToast.vue"
+import Friends from "./friends/Friends.vue"
 import { Spinner } from "./kit/index.ts"
+import type { LibraryOpen } from "./menu/library/icons.ts"
 
 // the wiki brings three.js, so it and the library are their own chunks, kept off the first paint;
 // fetched once the page is idle, so neither waits on its code the first time it's opened
@@ -22,6 +24,13 @@ const Library = defineAsyncComponent(loadLibrary)
 requestIdleCallback(() => { void loadWiki(); void loadLibrary() }, { timeout: 5000 })
 const bridge = useBridge()
 const store = useStore()
+// asked for from the popover (a friend's page, your account): the library opens on it, and forgets it once left
+const libraryOpen = ref<LibraryOpen | null>(null)
+watch(() => store.screen, (screen) => { if (screen !== "library") libraryOpen.value = null })
+function openLibrary(to: LibraryOpen) {
+    libraryOpen.value = to
+    void bridge.send("screen.open", { name: "library" })
+}
 </script>
 
 <template>
@@ -38,7 +47,9 @@ const store = useStore()
         <DigScreen v-else-if="store.screen === 'dig'" />
         <div v-else-if="store.screen === 'wiki'" class="whole"><WikiScreen place="game" @close="bridge.send('screen.close', {})" /></div>
         <!-- over the world, frosted as the menu's scene is; the search waits to be clicked, so L closes it again -->
-        <div v-else-if="store.screen === 'library'" class="whole"><Library :autofocus="false" @close="bridge.send('screen.close', {})" /></div>
+        <div v-else-if="store.screen === 'library'" class="whole"><Library :autofocus="false" :open="libraryOpen" @close="bridge.send('screen.close', {})" /></div>
+        <!-- the account corner's popover, over the world as in the menu; the full Online screen waits to be re-homed -->
+        <Friends v-else-if="store.screen === 'online'" @close="bridge.send('screen.close', {})" @library="openLibrary" />
     </template>
     <!-- over the world's last frame, held frosted by the shell while it's saved (host/frame_blur.h: hold) -->
     <div v-else-if="store.mode === 'leaving'" class="leaving"><p><Spinner label="Saving the world" /> Saving the world</p></div>

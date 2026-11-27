@@ -1,26 +1,18 @@
 <script setup lang="ts">
 import { computed, onActivated } from "vue"
-import type { PublicServer, RegistrySearch } from "../../bridge/index.ts"
+import type { RegistrySearch } from "../../bridge/index.ts"
 import { useCache } from "../../cache/index.ts"
 import { CardSlot, CategoryTile, Copier, KeptNote, Notice, Shelf, Spinner } from "../../kit/index.ts"
 import Featured from "./Featured.vue"
 import { CATEGORIES, CATEGORY_ICONS } from "./icons.ts"
-import LiveServers from "./LiveServers.vue"
 import ModCard from "./ModCard.vue"
 
-/** The front page, as the website's registry (pages/registry/index.vue), less its claim: featured, categories, shelves of mods, live servers. */
-const emit = defineEmits<{ open: [name: string]; browse: [search: Partial<RegistrySearch>]; servers: [server: PublicServer | null] }>()
+/** The front page, as the website's registry (pages/registry/index.vue), less its claim: featured, categories, shelves of mods. */
+const emit = defineEmits<{ open: [name: string]; browse: [search: Partial<RegistrySearch>] }>()
 const cache = useCache()
 const front = cache.cached("registry.front")
-const directory = cache.cached("servers.list")
 const icon = (id: string) => CATEGORY_ICONS[id] ?? CATEGORY_ICONS.other
 const labelOf = (id: string | undefined) => front.data.value?.categories.find((c) => c.id === id)?.label ?? null
-// the busiest first, as many as the website's table shows
-const live = computed(() => directory.data.value?.status === "ready"
-    ? [...directory.data.value.servers].sort((a, b) => b.players - a.players).slice(0, 5) : [])
-const liveEmpty = computed(() => directory.problem.value && !directory.data.value ? `The server list can't be reached: ${directory.problem.value}`
-    : !directory.data.value ? "Asking for the server list…"
-    : directory.data.value.status === "unavailable" ? "The server list can't be reached right now." : "No public servers yet.")
 // the registry's own categories once it keeps them; till then the website's, shown but shut
 const categories = computed(() => {
     const own = front.data.value?.categories ?? []
@@ -40,7 +32,7 @@ const waiting = computed(() => !front.data.value && !front.problem.value)
 const publish = Copier()
 const STATE = { idle: "copy", copied: "copied", failed: "can't copy" } as const
 // kept alive by the library: shown again from the cache, refreshed behind it
-onActivated(() => { void front.run({}); void directory.run({}) })
+onActivated(() => { void front.run({}) })
 </script>
 
 <template>
@@ -62,9 +54,6 @@ onActivated(() => { void front.run({}); void directory.run({}) })
             @more="shelf.search && emit('browse', shelf.search)">
             <ModCard v-for="l in shelf.listings" :key="l.name" :listing="l" :tag="labelOf(l.categories[0])" @open="emit('open', l.name)" />
             <CardSlot v-for="n in shelf.slots" :key="'slot' + n" />
-        </Shelf>
-        <Shelf title="Live servers" more="All servers" :cols="null" @more="emit('servers', null)">
-            <LiveServers :servers="live" :empty="liveEmpty" @open="(s) => emit('servers', s)" />
         </Shelf>
         <section class="publish">
             <div>

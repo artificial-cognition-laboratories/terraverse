@@ -2,7 +2,7 @@
 import { computed, ref, watch } from "vue"
 import type { LocalMod, RegistryMod } from "../../bridge/index.ts"
 import { useCache } from "../../cache/index.ts"
-import { Button, KeptNote, Markdown, Notice, PageSlot } from "../../kit/index.ts"
+import { Button, DetailLayout, KeptNote, Markdown } from "../../kit/index.ts"
 import { ICONS } from "../../kit/icons.ts"
 import ModContents from "./ModContents.vue"
 import ModDependencies from "./ModDependencies.vue"
@@ -58,29 +58,28 @@ watch(() => [props.name, props.local?.path] as const, ([name]) => {
 </script>
 
 <template>
-    <div class="mod-page">
-        <button type="button" class="back" @click="emit('back')">← {{ back }}</button>
-        <Notice v-if="!mod && fetched.problem.value" tone="danger">{{ fetched.problem.value }}</Notice>
-        <PageSlot v-else-if="!mod" />
-        <KeptNote v-if="mod && !local && fetched.problem.value && fetched.at.value !== null" :at="fetched.at.value" :problem="fetched.problem.value" />
-        <div v-if="mod" class="detail">
-            <main class="main">
-                <ModHeader :mod="mod" :yours="local !== null">
-                    <template #actions>
-                        <Button v-if="local" size="sm" title="Read the mod again after you save" @click="reload++">Reload</Button>
-                        <Button v-else-if="mod.installed" size="sm" disabled title="Not wired yet">Installed</Button>
-                        <Button v-else variant="primary" size="sm" disabled title="Not wired yet">Install »</Button>
-                    </template>
-                </ModHeader>
-                <ModContents v-if="tab === 'contents' && local" :path="local.path" :reload="reload" @count="(n) => (count = n)" />
-                <Markdown v-else-if="tab === 'readme'" :source="readme(mod)" :resolve="media" />
-                <ModVersions v-else-if="tab === 'versions'" :versions="mod.versions" />
-                <ModDependencies v-else-if="tab === 'dependencies'" :needs="needs" @open="(n) => emit('open', n)" />
-                <ModSource v-else-if="tab === 'source' && file" :mod="mod" :file="file" />
-            </main>
-            <ModSide class="side" v-model:tab="tab" :mod="mod" :tabs="tabs" :file="tab === 'source' ? file : null" @file="openFile" />
-        </div>
-    </div>
+    <DetailLayout :back="back" :ready="!!mod" :problem="fetched.problem.value" @back="emit('back')">
+        <template #above>
+            <KeptNote v-if="mod && !local && fetched.problem.value && fetched.at.value !== null" :at="fetched.at.value" :problem="fetched.problem.value" />
+        </template>
+        <template v-if="mod">
+            <ModHeader :mod="mod" :yours="local !== null">
+                <template #actions>
+                    <Button v-if="local" size="sm" title="Read the mod again after you save" @click="reload++">Reload</Button>
+                    <Button v-else-if="mod.installed" size="sm" disabled title="Not wired yet">Installed</Button>
+                    <Button v-else variant="primary" size="sm" disabled title="Not wired yet">Install »</Button>
+                </template>
+            </ModHeader>
+            <ModContents v-if="tab === 'contents' && local" :path="local.path" :reload="reload" @count="(n) => (count = n)" />
+            <Markdown v-else-if="tab === 'readme'" :source="readme(mod)" :resolve="media" />
+            <ModVersions v-else-if="tab === 'versions'" :versions="mod.versions" />
+            <ModDependencies v-else-if="tab === 'dependencies'" :needs="needs" @open="(n) => emit('open', n)" />
+            <ModSource v-else-if="tab === 'source' && file" :mod="mod" :file="file" />
+        </template>
+        <template #side>
+            <ModSide v-if="mod" v-model:tab="tab" :mod="mod" :tabs="tabs" :file="tab === 'source' ? file : null" @file="openFile" />
+        </template>
+    </DetailLayout>
 </template>
 
 <script lang="ts">
@@ -90,15 +89,3 @@ function readme(mod: RegistryMod & { path?: string }): string {
     return mod.readme.replace(/^\s*# [^\n]*\n+/, "")
 }
 </script>
-
-<style scoped>
-.mod-page { display: grid; gap: 1rem; }
-.back { justify-self: start; padding: 0; border: 0; background: none; color: var(--ink-faint); font: 0.62rem var(--font-display); text-transform: uppercase; }
-.back:hover { color: var(--ink); }
-/* the side card on the right, as npm and GitHub: the readme leads, reference sits beside it */
-.detail { display: grid; grid-template-columns: minmax(0, 1fr) 17rem; gap: 2.5rem; align-items: start; }
-.main { display: grid; gap: 2rem; min-width: 0; }
-/* stays put while the readme scrolls, as Browse's side card does */
-.side { position: sticky; top: 2.5rem; }
-@media (max-width: 900px) { .detail { grid-template-columns: minmax(0, 1fr); } .side { position: static; } }
-</style>

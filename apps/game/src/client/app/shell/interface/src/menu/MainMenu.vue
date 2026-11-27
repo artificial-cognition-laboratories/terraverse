@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent, onBeforeUnmount, ref, watch } from "vue"
 import Corner from "../account/Corner.vue"
+import Friends from "../friends/Friends.vue"
 import { useBridge } from "../bridge/use.ts"
 import PixelIcon from "../game/PixelIcon.vue"
 import { IconTile, Progress } from "../kit/index.ts"
@@ -8,6 +9,8 @@ import Attributions from "./Attributions.vue"
 import CreateWorld from "./create/CreateWorld.vue"
 import Home from "./Home.vue"
 import Library from "./library/Library.vue"
+import type { LibraryOpen } from "./library/icons.ts"
+import Online from "../online/Online.vue"
 import Settings from "./Settings.vue"
 import { SHOT, type Screen } from "./screens.ts"
 import type { Loading, PlanetariumShot, SystemWire, UpdateCheck } from "../bridge/index.ts"
@@ -24,6 +27,7 @@ defineEmits<{ dismiss: [] }>()
 useMenuMusic(props.playMusic)
 
 const store = useStore()
+const friends = ref(false)
 const screen = ref<Screen>(store.hop ? "worlds" : "home")
 const seedCode = ref<string | null>(null)
 const bridge = useBridge()
@@ -65,7 +69,15 @@ function go(next: Screen) {
         seedCode.value = null
         return void create()
     }
+    if (next !== "library") libraryOpen.value = null
     screen.value = next
+}
+// asked for from the popover (a friend's page, your account): the library opens on it
+const libraryOpen = ref<LibraryOpen | null>(null)
+function openLibrary(to: LibraryOpen) {
+    friends.value = false
+    go("library")
+    libraryOpen.value = to
 }
 
 // a 9×9 pictogram for the workshop row: an open book
@@ -98,13 +110,15 @@ const CREDITS_ICON = {
         <WorldSelect v-else-if="screen === 'worlds'" :entering="entering" :error="error" @go="go" @dismiss="$emit('dismiss')" />
         <CreateWorld v-else-if="screen === 'create' && home" :initial-code="seedCode" :home="home" @go="go" />
         <Settings v-else-if="screen === 'settings'" @go="go" />
-        <Library v-else-if="screen === 'library'" @close="go('home')" />
+        <Library v-else-if="screen === 'library'" :open="libraryOpen" @close="go('home')" />
+        <Online v-else-if="screen === 'online'" @close="go('home')" />
         <Attributions v-else-if="screen === 'attributions'" @go="go" />
         <WikiScreen v-else-if="screen === 'wiki'" place="menu" @close="screen = 'home'" />
 
         <!-- the home screen's corners -->
         <div v-if="screen === 'home'" class="corners">
-            <Corner />
+            <Corner @open="friends = !friends" />
+            <Friends v-if="friends" @close="friends = false" @library="openLibrary" />
             <!-- the workshop: places to see the engine's building blocks and mechanics -->
             <nav class="tools" aria-label="Workshop">
                 <IconTile label="Wiki — what everything is made of, and how it behaves" side="left" @click="screen = 'wiki'">

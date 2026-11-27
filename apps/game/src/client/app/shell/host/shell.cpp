@@ -8,6 +8,7 @@
 #include <IEventReceiver.h>
 #include "src/client/app/shell/bridge/account.h"
 #include "src/client/app/shell/bridge/profiles.h"
+#include "src/client/app/shell/bridge/identity.h"
 #include "src/client/app/shell/bridge/social.h"
 #include "src/client/app/shell/host/app.h"
 #include "src/client/app/shell/host/app_protocol.h"
@@ -81,6 +82,7 @@ struct Shell::Impl
 	std::unique_ptr<Social> social;
 	std::unique_ptr<Account> account;
 	std::unique_ptr<Profiles> profiles; // the accounts remembered here: switching, signing out
+	std::unique_ptr<Identity> identity; // the account's own profile: editing it, renaming
 	CefRefPtr<CefMessageRouterBrowserSide> router;
 	CefRefPtr<Client> client;
 	CefRefPtr<CefBrowser> browser;
@@ -249,7 +251,7 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(opts))
 				bool in = message["account"]["status"].asString() == "signedIn";
 				// signed in: the account's own profile is the one running (home.md, "Profiles")
 				if (in)
-					m->account->keyAt(home.signedIn(m->account->username(), m->account->keyPath()));
+					m->account->keyAt(home.signedIn(m->account->username(), m->account->id(), m->account->keyPath()));
 				m->send(message);
 				m->social->signedIn(in ? m->account->key() : "");
 			});
@@ -284,6 +286,7 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(opts))
 		m->profiles->forget(intent["name"].isString() ? intent["name"].asString() : "");
 		return Json::Value();
 	});
+	m->identity = std::make_unique<Identity>(Identity::Opts{ .bridge = m->bridge, .account = *m->account, .social = *m->social });
 	m->bridge.on("account.retry", [this](const Json::Value &) {
 		m->account->retry();
 		return Json::Value();
@@ -428,6 +431,7 @@ void Shell::frameUi()
 	}
 	m->account->step();
 	m->social->step();
+	m->identity->step(m->mode == Mode::Menu);
 
 	// The device tells the driver when the window changes; any other size it
 	// holds is the screen set here, the game's part of the window.

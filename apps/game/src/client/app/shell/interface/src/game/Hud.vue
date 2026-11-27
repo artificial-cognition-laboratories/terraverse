@@ -66,9 +66,10 @@ const hotbar = computed(() => {
     </div>
     <!-- above any screen that leaves them (pause, the inventory, the palette): their own layer, not
          the HUD's, which a screen's backdrop covers -->
-    <div v-if="hud?.visible && (!covered || store.screen === 'inventory' || store.screen === 'palette')" class="corner-icons under-full-screen">
+    <div v-if="hud?.visible && (!covered || store.screen === 'inventory' || store.screen === 'palette' || store.screen === 'online')" class="corner-icons under-full-screen">
         <WikiButton />
-        <Corner />
+        <!-- its popover is the online screen: the icon stays over it, and closes it again -->
+        <Corner @open="store.screen === 'online' ? bridge.send('screen.close', {}) : bridge.send('screen.open', { name: 'online' })" />
     </div>
     <ChatFeed v-if="hud?.visible" class="under-full-screen" />
     <MapWidget />

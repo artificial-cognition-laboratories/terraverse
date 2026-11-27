@@ -36,6 +36,8 @@ public:
 	const std::string &key() const { return m_key; }
 	// The player's ArcLabs username; empty unless signed in.
 	std::string username() const { return m_status == Status::SignedIn ? m_username : ""; }
+	// The account's id; empty unless signed in. Stays the same through a rename.
+	std::string id() const { return m_status == Status::SignedIn ? m_id : ""; }
 	// Starts the device flow and opens the browser. Throws Refused unless signed out.
 	void signIn();
 	// Stops waiting for an approval.
@@ -48,6 +50,8 @@ public:
 	void resume();
 	// Checks the saved key again after the backend couldn't be reached.
 	void retry();
+	// Asks the backend who this is again, while signed in: the handle changed (a rename).
+	void reread();
 	// The key's file moved (the player's profile changed): where it's kept from now on.
 	void keyAt(std::string path) { m_key_path = std::move(path); }
 	// Neither signed in nor on the way: a profile can be switched to.

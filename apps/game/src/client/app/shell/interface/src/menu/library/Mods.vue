@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onActivated, ref, watch } from "vue"
-import type { LocalMod, RegistrySearch } from "../../bridge/index.ts"
+import type { LocalMod, RegistrySearch, RegistryType } from "../../bridge/index.ts"
 import { useCache } from "../../cache/index.ts"
 import { CardSlot, Dropdown, FacetList, ICONS, KeptNote, LayoutToggle, ListEmpty, Notice, Pager, ResultsHead, SideCard, SideNav, Spinner, Toggle } from "../../kit/index.ts"
 import { CATEGORY_ICONS } from "./icons.ts"
@@ -8,35 +8,35 @@ import ModCard from "./ModCard.vue"
 import { SORTS, search } from "./search.ts"
 
 /**
- * Browse, as the website's (pages/registry/browse.vue): a side card that stays put (what kind,
- * which categories, installed only) beside the results. "Yours" is the mods you're making, your
- * profile's mods/. The query comes from the screen's search.
+ * One kind of the registry browsed, as the website's (pages/registry/browse.vue): a side card that
+ * stays put (the registry's or your own, its categories, installed only) beside the results. `type`:
+ * mods, or shaders and textures. "Yours" (mods) is what you're making, your profile's mods/. The
+ * query comes from the screen's search.
  */
-const props = defineProps<{ start: Partial<RegistrySearch>; query: string }>()
+const props = defineProps<{ type: RegistryType; start: Partial<RegistrySearch>; query: string }>()
 const emit = defineEmits<{ open: [name: string]; openLocal: [mod: LocalMod] }>()
-type Kind = "all" | "mod" | "textures" | "yours"
+type Kind = "all" | "yours"
 const cache = useCache()
 const front = cache.cached("registry.front")
 const results = cache.cached("registry.search")
 const local = cache.cached("mods.local")
-const current = ref<RegistrySearch>(search.from({ ...props.start, query: props.query }))
+const current = ref<RegistrySearch>(search.from({ ...props.start, query: props.query, type: props.type }))
 const yoursOn = ref(false)
 const layout = ref<"grid" | "list">("grid")
 const categories = computed(() => front.data.value?.categories ?? [])
 const labelOf = (id: string | undefined) => categories.value.find((c) => c.id === id)?.label ?? null
 const kind = computed<Kind>({
-    get: () => yoursOn.value ? "yours" : current.value.type ?? "all",
+    get: () => yoursOn.value ? "yours" : "all",
     set: (k) => {
         yoursOn.value = k === "yours"
         if (k === "yours") void local.run({})
-        else set({ type: k === "all" ? null : k })
     },
 })
-const kinds = computed(() => [
-    { id: "all" as const, label: "Everything", icon: ICONS.all },
-    { id: "mod" as const, label: "Mods", icon: ICONS.mods },
-    { id: "textures" as const, label: "Textures", icon: ICONS.textures },
+const kinds = computed(() => props.type === "mod" ? [
+    { id: "all" as const, label: "All mods", icon: ICONS.mods },
     { id: "yours" as const, label: "Yours", icon: ICONS.profile, count: local.data.value?.length ?? null },
+] : [
+    { id: "all" as const, label: "Shaders & textures", icon: ICONS.textures },
 ])
 const facets = computed(() => categories.value.map((c) => ({ ...c, icon: CATEGORY_ICONS[c.id] ?? CATEGORY_ICONS.other })))
 const yours = computed(() => {
@@ -45,7 +45,7 @@ const yours = computed(() => {
 })
 const page = computed({ get: () => current.value.page, set: (value: number) => { current.value = { ...current.value, page: value } } })
 const pages = computed(() => results.data.value ? Math.max(1, Math.ceil(results.data.value.total / results.data.value.pageSize)) : 1)
-const title = computed(() => props.query.trim() ? `“${props.query.trim()}”` : yoursOn.value ? "Your mods" : "Browse")
+const title = computed(() => props.query.trim() ? `“${props.query.trim()}”` : yoursOn.value ? "Your mods" : props.type === "mod" ? "Mods" : "Shaders")
 const count = computed(() => {
     const n = yoursOn.value ? (local.data.value ? yours.value.length : null) : results.data.value?.total ?? null
     return n === null ? null : `${n} ${n === 1 ? "result" : "results"}`
@@ -63,7 +63,7 @@ const SLOTS = 8
 function set(change: Partial<RegistrySearch>) {
     current.value = { ...current.value, page: 1, ...change }
 }
-watch(() => props.start, (start) => { yoursOn.value = false; current.value = search.from({ ...start, query: props.query }) })
+watch(() => props.start, (start) => { yoursOn.value = false; current.value = search.from({ ...start, query: props.query, type: props.type }) })
 // typing settles for a moment before it searches
 let timer: ReturnType<typeof setTimeout> | undefined
 watch(() => props.query, (q) => { clearTimeout(timer); timer = setTimeout(() => set({ query: q.trim() }), 250) })
@@ -77,7 +77,7 @@ onActivated(() => { void front.run({}); void results.run(current.value); void lo
         <SideCard class="side">
             <SideNav v-model="kind" :items="kinds" />
             <template v-if="!yoursOn">
-                <FacetList title="Categories" :options="facets" :model-value="current.categories" @update:model-value="(v) => set({ categories: v })" />
+                <FacetList v-if="type === 'mod'" title="Categories" :options="facets" :model-value="current.categories" @update:model-value="(v) => set({ categories: v })" />
                 <section><Toggle label="Installed only" :model-value="current.installed" @update:model-value="(v) => set({ installed: v })" /></section>
             </template>
             <p v-else class="note">What you're making: your profile's mods folder, where <code>terra mod init</code> puts them.</p>

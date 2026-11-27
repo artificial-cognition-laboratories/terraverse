@@ -33,6 +33,8 @@ static const ScreenKind SCREENS[] = {
 	{ "map", true, "keymap_minimap", "map" },
 	{ "wiki", false, "keymap_wiki", "wiki" }, // offered where the world's rules allow it (server/player.cpp)
 	{ "library", false, "keymap_library", nullptr },
+	// friends, worlds to join and profiles (the corner's account button)
+	{ "online", false, nullptr, nullptr },
 	// chat and commands (the page's palette): Esc is the page's, its input has the keyboard
 	{ "palette", false, nullptr, nullptr },
 	// what a cutting tool cuts (sprint 123): F on a block it cuts opens it, and closes it

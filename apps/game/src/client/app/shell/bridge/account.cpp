@@ -135,6 +135,14 @@ void Account::retry()
 	check();
 }
 
+void Account::reread()
+{
+	if (m_status != Status::SignedIn)
+		return; // signed out since: the next sign-in reads it anyway
+	// still signed in while it's asked: the answer is the same account, under its new handle
+	request(Ask::Me, "/api/terrafirma/me");
+}
+
 void Account::check()
 {
 	become(Status::Checking);

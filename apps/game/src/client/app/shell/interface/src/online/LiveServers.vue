@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PublicServer } from "../../bridge/index.ts"
+import type { PublicServer } from "../bridge/index.ts"
 
 /**
  * Servers as the website's table: name, what it plays as, mods, region and how full. `empty`: the

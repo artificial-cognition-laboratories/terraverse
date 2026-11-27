@@ -15,6 +15,7 @@ namespace {
 	const char *OFFICIAL = "terraverse";
 
 	const std::string &packageName(const std::string &name);
+	const std::string &scopeName(const std::string &scope);
 	Json::Value listing(const Json::Value &row, const Json::Value &latest);
 	void refuseUnsupported(const Json::Value &search);
 }
@@ -27,6 +28,11 @@ Registry::Registry(Opts opts) : m_api(std::move(opts.api))
 		if (!intent["name"].isString())
 			throw Refused("missing string field 'name'");
 		return mod(intent["name"].asString());
+	});
+	opts.intents.onAsync("registry.owner", [this](const Json::Value &intent) {
+		if (!intent["scope"].isString())
+			throw Refused("missing string field 'scope'");
+		return owner(intent["scope"].asString());
 	});
 	opts.intents.onAsync("registry.file", [](const Json::Value &) -> Json::Value {
 		throw Refused("the registry doesn't serve a mod's files yet");
@@ -98,6 +104,30 @@ Json::Value Registry::mod(const std::string &name) const
 	return out;
 }
 
+// What a scope has published, as the site's owner page (registry/[scope]); null when it's
+// published nothing, which the backend answers 404.
+Json::Value Registry::owner(const std::string &scope) const
+{
+	const HTTPFetchResult res = online::fetch(online::request({ m_api, "" }, HTTP_GET,
+		"/api/terrafirma/registry/owners/" + scopeName(scope)));
+	if (!res.succeeded)
+		throw Refused("the registry couldn't be reached");
+	if (res.response_code == 404)
+		return Json::Value();
+	if (res.response_code != 200)
+		throw Refused(online::reason(res.response_code, res.data));
+	const Json::Value page = online::parse(res.data);
+	Json::Value out;
+	out["scope"] = scope;
+	out["official"] = page["official"].isBool() && page["official"].asBool();
+	out["stars"] = page["stars"].isInt() ? page["stars"] : Json::Value(0);
+	out["installs"] = page["installs"].isInt() ? page["installs"] : Json::Value(0);
+	out["listings"] = Json::Value(Json::arrayValue);
+	for (const Json::Value &row : page["mods"])
+		out["listings"].append(listing(row, Json::Value()));
+	return out;
+}
+
 // One blocking GET; a refusal carries the backend's reason to the page.
 Json::Value Registry::get(const std::string &path) const
 {
@@ -117,6 +147,15 @@ namespace {
 		if (!std::regex_match(name, shape))
 			throw Refused("not a mod name: " + name);
 		return name;
+	}
+
+	// A scope from the page goes into a URL path: only @handle gets there.
+	const std::string &scopeName(const std::string &scope)
+	{
+		static const std::regex shape("^@[A-Za-z0-9][A-Za-z0-9._-]*$");
+		if (!std::regex_match(scope, shape))
+			throw Refused("not a player's handle: " + scope);
+		return scope;
 	}
 
 	// A search row or a package page as the page's RegistryListing. What the backend

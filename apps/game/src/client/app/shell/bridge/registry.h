@@ -32,6 +32,7 @@ private:
 	Json::Value front() const;
 	Json::Value search(const Json::Value &search) const;
 	Json::Value mod(const std::string &name) const;
+	Json::Value owner(const std::string &scope) const;
 	Json::Value get(const std::string &path) const;
 
 	const std::string m_api;

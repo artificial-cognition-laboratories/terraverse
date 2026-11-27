@@ -1,107 +1,34 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue"
-import { BridgeError, type IntentKind, type Intents, type Player, type RememberedProfile } from "../bridge/index.ts"
-import { useBridge } from "../bridge/use.ts"
+import { computed } from "vue"
 import { useStore } from "../game/store.ts"
-import Panel from "./panel/Panel.vue"
 import IconButton from "../kit/IconButton.vue"
 
-const bridge = useBridge()
+/**
+ * The account corner: who you are at a glance (signed in or not, what's waiting on you), and the
+ * way to the online screen (online/Online.vue), which its place opens (the menu's, or the game's).
+ */
+const emit = defineEmits<{ open: [] }>()
 const store = useStore()
-const root = ref<HTMLElement | null>(null)
-const expanded = ref(false)
-const error = ref<string | null>(null)
-const busy = ref(false)
-const joining = ref<string | null>(null)
-// the accounts remembered here, read whenever the panel opens signed out: switching is one click
-const remembered = ref<RememberedProfile[] | null>(null)
-watch(() => [expanded.value, store.account?.status] as const, async ([open, status]) => {
-    if (!open || status !== "signedOut") return
-    try { remembered.value = await bridge.send("profiles.list", {}) }
-    catch (e) { error.value = e instanceof Error ? e.message : String(e) }
-}, { immediate: true })
-async function forget(name: string) {
-    await act("profiles.forget", { name: name })
-    remembered.value = await bridge.send("profiles.list", {})
-}
 const waiting = computed(() => {
     const view = store.social?.view
     return view ? view.incoming.length + view.invites.length : 0
 })
-
-function onPointerDown(event: PointerEvent) {
-    if (root.value && !root.value.contains(event.target as Node)) expanded.value = false
-}
-function onKeyDown(event: KeyboardEvent) {
-    if (event.key === "Escape" && expanded.value) {
-        event.preventDefault()
-        event.stopPropagation()
-        expanded.value = false
-        root.value?.querySelector<HTMLButtonElement>(".profile-trigger")?.focus()
-    }
-}
-onMounted(() => {
-    document.addEventListener("pointerdown", onPointerDown)
-    document.addEventListener("keydown", onKeyDown, true)
-})
-onUnmounted(() => {
-    document.removeEventListener("pointerdown", onPointerDown)
-    document.removeEventListener("keydown", onKeyDown, true)
-})
-
-async function act<K extends IntentKind>(kind: K, request: Intents[K]["request"]) {
-    error.value = null
-    busy.value = true
-    try {
-        await bridge.send(kind, request)
-    } catch (e) {
-        if (!(e instanceof BridgeError) || !e.refused) throw e
-        error.value = e.message
-    } finally {
-        busy.value = false
-    }
-}
-
-async function join(player: Player) {
-    joining.value = player.id
-    try {
-        await act("social.join", { id: player.id, name: player.username })
-    } finally {
-        joining.value = null
-    }
-}
 </script>
 
 <template>
-    <div v-if="store.account" ref="root" class="corner">
-        <IconButton class="profile-trigger" label="Account and friends" :on="expanded"
-            aria-controls="profile-dropdown" :aria-expanded="expanded" @click="expanded = !expanded">
+    <div v-if="store.account" class="corner">
+        <IconButton class="profile-trigger" label="Online: friends, servers and your account" @click="emit('open')">
             <svg viewBox="0 0 16 16" width="25" height="25" shape-rendering="crispEdges" aria-hidden="true">
                 <path fill="currentColor" d="M5 1h6v2h2v5h-2v2H5V8H3V3h2zm1 2v2H5v2h1v1h4V7h1V5h-1V3zM4 11h8v1h2v3H2v-3h2z" />
             </svg>
             <span class="status" :class="{ online: store.account.status === 'signedIn' }" />
             <span v-if="waiting" class="badge">{{ waiting }}</span>
         </IconButton>
-        <Panel v-if="expanded" id="profile-dropdown" class="drop" :account="store.account" :social="store.social"
-            :error="error" :busy="busy" :joining="joining" :remembered="remembered"
-            @sign-in="act('account.signIn', {})" @cancel="act('account.cancel', {})"
-            @sign-out="act('account.signOut', {})" @leave="act('account.leave', {})" @retry="act('account.retry', {})"
-            @use="act('profiles.use', { name: $event })" @forget="forget"
-            @open-url="act('open', { url: $event })"
-            @request="act('social.request', { username: $event })"
-            @accept="act('social.accept', { id: $event })"
-            @remove="act('social.remove', { id: $event })"
-            @invite="act('social.invite', { id: $event })"
-            @dismiss="act('social.dismiss', { id: $event })"
-            @join="join" />
     </div>
 </template>
 
 <style scoped>
-.corner { position: fixed; top: 20px; right: 20px; z-index: 3; max-width: calc(100vw - 40px); }
-.profile-trigger { margin-left: auto; }
-/* under the button, its right edge on the button's: out of the corner's row, so nothing beside it moves */
-.drop { position: absolute; top: calc(100% + 10px); right: 0; }
+.corner { position: fixed; top: 20px; right: 20px; z-index: 3; }
 .status { position: absolute; right: 3px; bottom: 3px; width: 8px; height: 8px; background: var(--stone-4); border: 1px solid var(--edge); border-radius: var(--radius); }
 .status.online { background: var(--accent-hi); }
 .badge { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 3px; background: var(--accent); border: 1px solid var(--edge); border-radius: var(--radius); font: 10px/16px var(--font-display); }

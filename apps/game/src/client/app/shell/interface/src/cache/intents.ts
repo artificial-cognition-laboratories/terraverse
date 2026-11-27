@@ -10,6 +10,7 @@ export const CACHED = {
     "registry.front": "disk",
     "registry.search": "disk",
     "registry.mod": "disk",
+    "registry.owner": "disk",
     "registry.file": "disk",
     "servers.list": "disk",
     "mods.local": "disk",
