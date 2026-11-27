@@ -187,7 +187,7 @@ void TestFarPalette::testTilesForAnEye()
 	const Baked b = shipped();
 	const Horizon h{ "TF24.dGVycmE", 1, b.content };
 	const planet::Atlas atlas = planet::Atlas::resident({ 300, 12, 80, 60, 0.95, 32 });
-	Tiles tiles(atlas, planet::Atlas::HOME, h, b.palette, 2);
+	Tiles tiles(Tiles::Opts{ /* atlas */ atlas, /* body */ planet::Atlas::HOME, /* horizon */ h, /* palette */ b.palette, /* threads */ 2 });
 	const double sea = 300 + h.water_level + 1;
 	const Eye eye{ { sea, 0, 0 }, 40, 0, 500, 2 };
 	std::vector<Tiles::Drawn> drawn;
@@ -250,7 +250,8 @@ void TestFarPalette::testTintPaintsTheLand()
 	const Baked b = shipped();
 	const Horizon h{ "TF24.dGVycmE", 1, b.content };
 	const planet::Atlas atlas = planet::Atlas::resident({ 300, 12, 80, 60, 0.95, 32 });
-	Tiles tiles(atlas, planet::Atlas::HOME, h, b.palette, 2);
+	Tiles tiles(Tiles::Opts{ /* atlas */ atlas, /* body */ planet::Atlas::HOME, /* horizon */ h, /* palette */ b.palette, /* threads */ 2,
+		/* driver */ nullptr, /* budget */ nullptr, /* system */ "Planetarium", /* paint */ Tiles::Paint::Tinted }); // (an overlay repaints the Planetarium's)
 	tiles.tint(std::make_shared<const Tiles::Tint>([](video::SColor, const Tiling::Vec &at) {
 		return at.y >= 0 ? video::SColor(255, 255, 0, 0) : video::SColor(255, 0, 0, 255);
 	}));
@@ -268,7 +269,7 @@ void TestFarPalette::testTintPaintsTheLand()
 		red = blue = other = 0;
 		for (const Tiles::Drawn &t : drawn)
 			for (const auto &part : t.parts)
-				for (const far::Vertex &v : part->Vertices->Data) {
+				for (const far::PackedVertex &v : part->Vertices->Data) {
 					const video::SColor c = v.Color;
 					if (c.getRed() == 255 && c.getGreen() == 0 && c.getBlue() == 0)
 						red++;
@@ -303,7 +304,7 @@ void TestFarPalette::testInsideTheCutIsFine()
 	const double sea = 2000 + h.water_level + 1;
 	const float CUT = 700;
 	auto drawnFor = [&](float cut) {
-		Tiles tiles(atlas, planet::Atlas::HOME, h, b.palette, 2);
+		Tiles tiles(Tiles::Opts{ /* atlas */ atlas, /* body */ planet::Atlas::HOME, /* horizon */ h, /* palette */ b.palette, /* threads */ 2 });
 		const Eye eye{ { sea, 0, 0 }, 10, cut, 1500, 2 };
 		std::vector<Tiles::Drawn> drawn;
 		settle(tiles, eye);
@@ -356,7 +357,7 @@ void TestFarPalette::testStandInsAreNearlyAsFine()
 	const planet::Atlas atlas = planet::Atlas::resident(terragen::Atlas::standard(8192 / (2 * M_PI) * 4));
 	const double sea = atlas.body(planet::Atlas::HOME).params().radius + h.water_level + 1;
 	const float CUT = 300, SPLIT = 2;
-	Tiles tiles(atlas, planet::Atlas::HOME, h, b.palette, 2);
+	Tiles tiles(Tiles::Opts{ /* atlas */ atlas, /* body */ planet::Atlas::HOME, /* horizon */ h, /* palette */ b.palette, /* threads */ 2 });
 	// the far side of the planet built, so only the coarse planet's there for the eye's own side
 	settle(tiles, Eye{ { -sea, 0, 0 }, 2, CUT, 1500, SPLIT, true });
 	const Eye eye{ { sea, 0, 0 }, 2, CUT, 1500, SPLIT, true };

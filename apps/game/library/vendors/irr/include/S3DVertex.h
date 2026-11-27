@@ -25,7 +25,10 @@ enum E_VERTEX_TYPE
 	/** Usually used for tangent space normal mapping.
 		Usually tangent and binormal get send to shaders as texture coordinate sets 1 and 2.
 	*/
-	EVT_TANGENTS
+	EVT_TANGENTS,
+
+	//! Terraverse: a far tile's vertex, packed (video::S3DVertexPacked).
+	EVT_PACKED
 };
 
 //! Array holding the built in vertex type names
@@ -33,6 +36,7 @@ const char *const sBuiltInVertexTypeNames[] = {
 		"standard",
 		"2tcoords",
 		"tangents",
+		"packed",
 		0,
 	};
 
@@ -290,5 +294,21 @@ struct S3DVertexTangents : public S3DVertex
 				Binormal.getInterpolated(other.Binormal, d));
 	}
 };
+
+//! Terraverse: a far tile's vertex, 24 bytes where S3DVertex2TCoords is 44.
+/** No normal (the shader finds a flat face's own from its position's
+derivatives; drawn, the normal attribute reads zero). Its first texture
+coordinate is whole numbers (shorts: the height over the sea, in blocks), its
+second half floats (where it is in its tile's grid). far/land/resident.h. */
+struct S3DVertexPacked
+{
+	core::vector3df Pos;
+	SColor Color;
+	s16 TCoords[2];
+	u16 TCoords2[2]; // IEEE half floats
+
+	static E_VERTEX_TYPE getType() { return EVT_PACKED; }
+};
+static_assert(sizeof(S3DVertexPacked) == 24, "a packed vertex is 24 bytes");
 
 } // end namespace video

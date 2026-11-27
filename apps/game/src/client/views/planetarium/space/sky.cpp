@@ -71,7 +71,8 @@ bool Sky::drawBaked(video::IVideoDriver *driver, size_t index, const terragen::S
 		return false;
 	if (!b->tiles) {
 		TF_ZONE("Space: a body's land made");
-		b->tiles = std::make_unique<far::Tiles>(m_atlas, b->body, m_horizon, *m_palette, 1, driver, &m_budget);
+		b->tiles = std::make_unique<far::Tiles>(far::Tiles::Opts{ /* atlas */ m_atlas, /* body */ b->body, /* horizon */ m_horizon,
+			/* palette */ *m_palette, /* threads */ 1, /* driver */ driver, /* budget */ &m_budget, /* system */ "Sky", /* paint */ far::Tiles::Paint::Never });
 	}
 	const terragen::System &s = m_system.system();
 	const double time = m_eye->worldDays - std::floor(m_eye->worldDays);

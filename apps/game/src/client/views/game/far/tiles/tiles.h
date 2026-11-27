@@ -12,9 +12,12 @@
 #include "library/world/planet/atlas.h"
 #include <CMeshBuffer.h>
 #include <array>
+#include <chrono>
 #include <functional>
 #include <map>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <optional>
 #include <tuple>
 #include <vector>
@@ -80,17 +83,35 @@ struct Eye
 class Tiles
 {
 public:
-	// `palette` outlives the tiles: the workers read it. `threads`: how many
-	// build them (the far view shares the machine with the game; the
-	// Planetarium alone has most of it).
-	// One body of the atlas's.
-	// `driver` (none: a tile goes to the GPU when it's first drawn) takes each
-	// tile as it's installed, within install's budget: drawn first, a body
-	// coming into view sent all its tiles in one frame, 170 ms.
-	// `budget`: a frame's time shared with the other Tiles drawn in it, its
-	// owner starting each frame (none: one of its own, a frame an update).
-	Tiles(const planet::Atlas &atlas, int body, const Horizon &horizon, const Palette &palette, unsigned threads,
-			video::IVideoDriver *driver = nullptr, Budget *budget = nullptr);
+	// Whether its tiles may be repainted (tint()): a Planetarium overlay
+	// recolours them. Each tile's mesh is let go of once it's on the card
+	// (land/resident.h); Tinted keeps its coarse ones' (KEEP_COARSE), to
+	// repaint in place, and a tint drops the rest to be built again painted.
+	// Never: tint() throws.
+	enum class Paint : u8 { Never, Tinted };
+
+	struct Opts {
+		const planet::Atlas &atlas; // one body of the atlas's
+		int body;
+		const Horizon &horizon;
+		const Palette &palette; // outlives the tiles: the workers read it
+		// how many build them (the far view shares the machine with the game;
+		// the Planetarium alone has most of it)
+		unsigned threads;
+		// takes each tile as it's installed, within install's budget (drawn
+		// first, a body coming into view sent all its tiles in one frame,
+		// 170 ms); none: a tile goes to the card when it's first drawn, and
+		// its mesh is kept
+		video::IVideoDriver *driver = nullptr;
+		// a frame's time shared with the other Tiles drawn in it, its owner
+		// starting each frame (none: one of its own, a frame an update)
+		Budget *budget = nullptr;
+		// whose tiles they are, as the debugger's Memory tab charts them
+		// (the game's horizon, the Planetarium, the sky's bodies)
+		std::string system = "Far view";
+		Paint paint = Paint::Never;
+	};
+	explicit Tiles(const Opts &opts);
 
 	// Blocks: how far a tile's land can stand off the sea (its peaks, its
 	// trees): whether any of it is past the near world's range, and how far
@@ -139,6 +160,10 @@ public:
 	void tint(std::shared_ptr<const Tint> tint);
 	// How many held tiles aren't in the tint's colours yet: 0 once it's swept over them.
 	size_t unpainted() const;
+	// Every tile let go of but the coarse ones (the whole body, cheap) and
+	// those the last choosing wanted (what's on screen): a view put away keeps
+	// what it would open on. The rest is built again (the disk cache) when wanted.
+	void trim();
 
 private:
 	struct Key
@@ -174,6 +199,7 @@ private:
 		u32 used = 0; // the frame it was last wanted or drawn
 		u32 whole = 0; // the frame it was last drawn as itself, not split
 		size_t bytes = 0; // its mesh's (what evict() keeps the tiles under)
+		size_t ram = 0;   // of those, still in RAM (Paint::Never lets go of what's on the card: release())
 	};
 
 	// A tile's middle (Tiling::middle) and half its diagonal, worked out once:
@@ -202,6 +228,13 @@ private:
 	bool still(const Eye &eye) const;
 	void paint(const Key &key, Entry &e) const; // its colours, tinted or its own
 	void upload(TileBuffer &buffer) const;       // to the GPU, if there's a driver
+	// A tile's buffers the driver holds let go of in RAM (Paint::Never).
+	void release(Entry &e);
+	// Every held tile's buffers on the card used, so the driver never lets
+	// one go as unused (it would upload a released one again, from nothing):
+	// touched every few seconds of the clock. A tile the driver let go of anyway
+	// (its owner didn't update it for long) is dropped, to be built again: true then.
+	bool touch();
 	void repaint(); // tiles still in another tint's colours, within the budget
 	bool evict(); // whether it let any go
 	void choose(const Eye &eye); // the tiles to draw and to build, for the eye
@@ -217,7 +250,9 @@ private:
 	u32 m_frame = 0; // choosings so far (not frames: standing still, nothing's chosen, and nothing ages)
 	std::optional<Eye> m_chosen_for; // the eye the tiles were last chosen for
 	bool m_changed = true; // a tile taken or let go since: choose again
+	bool m_rechoose = false; // tiles dropped (tint()): what's drawn chosen again at the next update, before it's drawn
 	size_t m_bytes = 0; // every held tile's (Entry::bytes)
+	size_t m_ram = 0;   // of those, in RAM (Entry::ram)
 	size_t m_pending = 0;
 	size_t m_holes = 0; // tiles chosen that aren't there, with nothing allowed to stand in (Eye::stand_in)
 	std::vector<std::pair<float, Key>> m_ahead; // children of tiles near splitting, asked for after the rest (AHEAD)
@@ -231,6 +266,9 @@ private:
 	u32 m_tints = 0; // tints set so far: a tile painted by this one is up to date
 	u32 m_swept = 0; // the tint every held tile's been painted by, once repaint() finds none left
 	TileStats m_stats; // what's done with the tiles, told to the trace
+	const std::string m_owner; // its name in the Memory tab (library/trace/owned.h)
+	const Paint m_paint;
+	std::chrono::steady_clock::time_point m_touched{}; // when its buffers on the card were last touched (touch)
 };
 
 } // namespace far

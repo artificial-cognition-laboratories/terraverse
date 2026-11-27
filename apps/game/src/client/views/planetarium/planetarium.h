@@ -98,6 +98,9 @@ public:
 	float readiness() const { return m_tiles.basedShare(); }
 	// Whether all the camera's own tiles are built (the detail it wants, not just the coarse whole).
 	bool settled() const { return m_tiles.based() && m_tiles.pending() == 0; }
+	// Put away for long: its tiles chosen for the camera as it is now, then
+	// every other but the coarse let go of (far::Tiles::trim), the other bodies' too.
+	void trim(v2u32 screen);
 	// Its globe's made too (what's drawn from far out: planetarium/globe.h)
 	bool globed() const { return m_globe && m_globe->ready(); }
 	// What the tiled body's land costs to draw now: tiles, draw calls (their

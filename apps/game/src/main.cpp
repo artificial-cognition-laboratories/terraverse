@@ -75,6 +75,8 @@
 #endif
 
 #define CONFIGFILE "minetest.conf"
+#include "src/shared/platform/system/crash.h"
+
 #define DEBUGFILE "debug.txt"
 #define DEFAULT_SERVER_PORT 30000
 
@@ -1020,6 +1022,8 @@ static void init_log_streams(const Settings &cmd_args, const home::Home &home)
 	// Terraverse: logs are the home's cache's, every profile's together
 	if (!fs::CreateAllDirs(home.logs()))
 		throw BaseException("could not create " + home.logs());
+	// Terraverse: a crash says what it was, beside the log (crash.h)
+	crash::watch(home.logs());
 	std::string log_filename = home.logs() + DIR_DELIM + DEBUGFILE;
 
 	if (cmd_args.exists("logfile"))

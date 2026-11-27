@@ -10,6 +10,10 @@
 #include "src/client/app/shell/host/console.h"
 #include "src/client/app/shell/host/inspectors.h"
 #include "src/client/app/shell/host/process.h"
+#include "src/client/app/shell/host/memory.h"
+#include "src/client/app/shell/host/perf_report.h"
+#include "src/client/render/renderingengine.h"
+#include <IOSOperator.h>
 #include "library/trace/marks.h"
 #include "src/client/app/shell/host/input.h"
 #include "src/client/app/shell/host/canvas.h"
@@ -141,45 +145,6 @@ static Json::Value messagesOver(u64 from, u64 to)
 	return out;
 }
 
-// Everything kept, as Chrome's trace format: opens in Perfetto and chrome://tracing.
-static std::string exportTrace()
-{
-	const std::string dir = porting::path_user + DIR_DELIM "traces";
-	if (!fs::CreateAllDirs(dir))
-		throw BaseException("debugger: could not create " + dir);
-	const std::string path = dir + DIR_DELIM "trace-" + std::to_string(std::time(nullptr)) + ".json";
-
-	Json::Value events(Json::arrayValue);
-	int tid = 0;
-	for (const trace::Track &track : trace::between(0, trace::now())) {
-		tid++;
-		Json::Value meta;
-		meta["ph"] = "M";
-		meta["name"] = "thread_name";
-		meta["pid"] = 1;
-		meta["tid"] = tid;
-		meta["args"]["name"] = track.thread;
-		events.append(std::move(meta));
-		for (const trace::Span &span : track.spans) {
-			Json::Value e;
-			e["ph"] = "X";
-			e["name"] = trace::nameOf(span.name);
-			e["pid"] = 1;
-			e["tid"] = tid;
-			e["ts"] = span.start / 1e3; // µs
-			e["dur"] = (span.end - span.start) / 1e3;
-			events.append(std::move(e));
-		}
-	}
-	Json::Value root;
-	root["traceEvents"] = std::move(events);
-	std::ofstream file(path);
-	if (!file)
-		throw BaseException("debugger: could not write " + path);
-	file << Json::FastWriter().write(root);
-	return path;
-}
-
 // The game's page is index.html, or the dev server's root; the debugger's is beside it.
 static std::string besides(const std::string &url)
 {
@@ -201,8 +166,10 @@ struct Debugger::Impl
 	u64 frame = 0; // the last frame the page has
 	u64 netEvent = 0; // the last connection event the page has
 	u64 markSeq = 0; // the last startup mark the page has
+	u64 memorySeq = 0; // the last memory sample the page has
 	u64 server_at = 0; // when the server was last described
 	Process process;
+	Memory memory{ Memory::Opts{ porting::path_user + DIR_DELIM "traces" } };
 	std::function<Json::Value()> describeServer;
 	Inspectors inspectors;
 	u64 inspect_at = 0; // when the inspected were last described
@@ -264,6 +231,7 @@ struct Debugger::Impl
 			frame = 0;
 			netEvent = 0;
 			markSeq = 0;
+			memorySeq = 0;
 			server_at = 0;
 			sendDock();
 			Json::Value names;
@@ -292,8 +260,24 @@ struct Debugger::Impl
 		});
 		bridge.onAsync("perf.export", [](const Json::Value &) {
 			Json::Value out;
-			out["path"] = exportTrace();
+			out["path"] = perf_report::write(porting::path_user + DIR_DELIM "traces");
 			return out;
+		});
+		// written off the main thread: an hour of samples is a few megabytes of lines
+		bridge.onAsync("memory.report", [this](const Json::Value &) {
+			Json::Value out;
+			out["path"] = memory.report();
+			return out;
+		});
+		// the page's own clipboard is refused here (navigator.clipboard): the window's, through the engine
+		bridge.on("clipboard.copy", [](const Json::Value &intent) {
+			if (!intent["text"].isString())
+				throw Refused("clipboard.copy needs a string 'text'");
+			IrrlichtDevice *device = RenderingEngine::get_raw_device();
+			if (!device || !device->getOSOperator())
+				throw Refused("There's no window to copy from.");
+			device->getOSOperator()->copyToClipboard(intent["text"].asCString());
+			return Json::Value();
 		});
 		bridge.on("capture", [this](const Json::Value &intent) {
 			if (!intent["keyboard"].isBool())
@@ -454,6 +438,21 @@ struct Debugger::Impl
 		bridge.send(browser, message);
 	}
 
+	// The memory samples taken since the page last heard: ten a second, sent as they come.
+	void sendMemory()
+	{
+		if (!ready)
+			return;
+		Memory::Since memories = memory.since(memorySeq);
+		if (memories.samples.empty())
+			return;
+		memorySeq = memories.newest;
+		Json::Value sampled;
+		sampled["kind"] = "memory.samples";
+		sampled["samples"] = std::move(memories.samples);
+		bridge.send(browser, sampled);
+	}
+
 	// Once a second: the server (local, or what's known of a remote one), the
 	// process, and any startup marks the page hasn't had.
 	void sendServer()
@@ -593,6 +592,7 @@ void Debugger::draw(core::dimension2du window)
 	m->sendLog();
 	m->sendPerf();
 	m->sendServer();
+	m->sendMemory();
 	m->sendInspectors();
 	// what its page hasn't painted yet (opening, or growing) is its own ground
 	m->opts.driver->draw2DRectangle(video::SColor(255, 12, 14, 16), panel);

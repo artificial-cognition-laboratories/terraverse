@@ -57,6 +57,13 @@ public:
 	void destroy();
 
 private:
+	// Terraverse: a static buffer's storage made immutable (glBufferStorage, no
+	// flags): NVIDIA's driver then keeps it on the card alone, where with
+	// glBufferData it kept a copy in the process's memory too (1.5 GB of the
+	// game's, by heaptrack). Immutable, it can't be written again: a later
+	// upload makes it anew.
+	bool m_immutable = false;
+
 
 	GLuint m_name = 0;
 	size_t m_size = 0;

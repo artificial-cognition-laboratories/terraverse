@@ -650,6 +650,25 @@ export type ServerSummary =
     | { local: false; address: string }
 /** The game process: CPU as a share of one core (%), resident memory (bytes), and each thread where the OS says. */
 export type ProcessSample = { pid: number; cpu: number; rss: number; threads: { name: string; cpu: number }[] }
+/** A process of the game's tree (the engine, Chromium's, terra's sidecar): its memory, bytes. `private` is what it alone holds. */
+export type MemoryProcess = { pid: number; role: string; rss: number; pss: number; private: number; swap: number; gpu: number }
+/** Who holds what, as an owner says (library/trace/owned.h): bytes, and how many of whatever it holds. */
+export type MemoryOwner = { name: string; bytes: number; count: number; gpu: boolean }
+/**
+ * Where the memory was, sampled ten times a second (shell/host/memory.h); the processes,
+ * the machine and the card once a second, carried between. `t` ms since the engine started;
+ * bytes throughout. `heap` is malloc's in use. The card's figures are 0 where its driver
+ * isn't read (NVIDIA's only, for now); `gpuOthers` is what processes outside the game hold on it.
+ * Off Linux only the owners are read, the rest 0.
+ */
+export type MemorySample = {
+    seq: number; t: number
+    processes: MemoryProcess[]
+    available: number; total: number; swapUsed: number; swapTotal: number
+    heap: number
+    gpuTotal: number; gpuFree: number; gpuOthers: number
+    owners: MemoryOwner[]
+}
 /** A span kept for a waterfall: `lane` "startup" for the server's start (its init, each mod's load). ms since the engine started. */
 export type TraceMark = { lane: string; what: string; start: number; end: number }
 /** A moment on the connection; `command` set when it's the first arrival of that message type since connecting. */
@@ -678,6 +697,8 @@ export type EngineMessage =
     | { kind: "server.summary"; server: ServerSummary | null; process: ProcessSample }
     /** The debugger's page only, a few times a second: the game's systems, by name (empty outside a world). */
     | { kind: "inspect.state"; inspectors: Record<string, InspectorState> }
+    /** The debugger's page only, once a second: memory samples since the last (all kept, an hour, to a fresh page). */
+    | { kind: "memory.samples"; samples: MemorySample[] }
     /** The debugger's page only: marks made since the last (all kept, to a fresh page). */
     | { kind: "server.marks"; marks: TraceMark[] }
     /** How far the world being entered has got, by stage; null once it's there (or it never got there). */
@@ -709,8 +730,12 @@ export type Intents = {
     "debugger.close": { request: {}; response: null }
     /** Every thread's zones over [from, to] ms, whole: what the recorder still has of them. Answered off the game's thread. */
     "perf.capture": { request: { from: number; to: number }; response: PerfCapture }
-    /** Everything the recorder has, written as a Chrome trace (Perfetto, chrome://tracing). */
+    /** Everything the recorder has, as a report folder: summary.md, frames.jsonl, spans.jsonl, trace.json (Perfetto). */
     "perf.export": { request: {}; response: { path: string } }
+    /** Every memory sample kept, as a report folder: summary.md, samples.jsonl. */
+    "memory.report": { request: {}; response: { path: string } }
+    /** The debugger's page only: text onto the system clipboard (the page's own clipboard is refused there). */
+    "clipboard.copy": { request: { text: string }; response: null }
     /** The debugger's page only: a control of an inspected system used (a button's value is null). */
     "inspect.act": { request: { name: string; control: string; value: string | boolean | null }; response: null }
     /** The client's messages over [from, to] ms, whole. Answered off the game's thread. */

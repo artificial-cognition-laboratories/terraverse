@@ -15,6 +15,12 @@ void OGLBufferObject::upload(const void *data, size_t size, size_t offset,
 {
 	bool newBuffer = false;
 	assert(!(mustShrink && offset > 0)); // forbidden usage
+	// Terraverse: immutable storage for what's static (BufferObject.h); written again, made anew
+	const bool immutable = usage == GL_STATIC_DRAW && GL.BufferStorage && offset == 0;
+	if (m_name && m_immutable) {
+		assert(offset == 0); // (an immutable buffer can't be written in part)
+		destroy();
+	}
 	if (!m_name) {
 		GL.GenBuffers(1, &m_name);
 		if (!m_name)
@@ -26,10 +32,15 @@ void OGLBufferObject::upload(const void *data, size_t size, size_t offset,
 
 	GL.BindBuffer(m_target, m_name);
 
-	if (newBuffer) {
+	if (newBuffer && immutable) {
+		GL.BufferStorage(m_target, size, data, 0);
+		m_size = size;
+		m_immutable = true;
+	} else if (newBuffer) {
 		assert(offset == 0);
 		GL.BufferData(m_target, size, data, usage);
 		m_size = size;
+		m_immutable = false;
 	} else {
 		GL.BufferSubData(m_target, offset, size, data);
 	}
@@ -43,6 +54,7 @@ void OGLBufferObject::destroy()
 		GL.DeleteBuffers(1, &m_name);
 	m_name = 0;
 	m_size = 0;
+	m_immutable = false;
 }
 
 }

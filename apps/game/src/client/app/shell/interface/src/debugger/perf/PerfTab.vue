@@ -8,6 +8,7 @@
  * saying when: the last few seconds, or a moment clicked on a Live chart.
  */
 import { ref } from "vue"
+import ReportButton from "../kit/ReportButton.vue"
 import SubTabs from "../kit/SubTabs.vue"
 import FlamePane from "./FlamePane.vue"
 import LiveCharts from "./LiveCharts.vue"
@@ -36,16 +37,6 @@ async function captureAt(at: number | null) {
     await perf.capture(Math.max(0, to - CAPTURE_MS), to)
 }
 
-const exported = ref<string | null>(null)
-const exportProblem = ref<string | null>(null)
-async function saveTrace() {
-    exportProblem.value = null
-    try {
-        exported.value = await props.exportTrace()
-    } catch (error) {
-        exportProblem.value = error instanceof Error ? error.message : String(error)
-    }
-}
 </script>
 
 <template>
@@ -63,12 +54,8 @@ async function saveTrace() {
                 <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" /><circle cx="8" cy="8" r="2.2" class="dot" /></svg>
                 {{ perf.capturing.value ? "Capturing…" : "Capture" }}
             </button>
-            <button class="icon" title="Save everything recorded as a Chrome trace (Perfetto, chrome://tracing)" aria-label="Export trace" @click="saveTrace">
-                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8M4.5 6.5L8 10l3.5-3.5M2.5 11v2.5h11V11" /></svg>
-            </button>
+            <ReportButton :save="exportTrace" title="Save everything recorded as a report (summary.md, frames and spans as lines, a Perfetto trace)" />
         </div>
-        <p v-if="exported" class="note" @click="exported = null">Trace saved to <code>{{ exported }}</code></p>
-        <p v-if="exportProblem" class="note bad" @click="exportProblem = null">{{ exportProblem }}</p>
         <p v-if="perf.problem.value" class="note bad" @click="perf.problem.value = null">{{ perf.problem.value }}</p>
 
         <LiveCharts v-if="view === 'live'" class="view" :frames="perf.frames.value" :units="perf.units.value" :pinned="perf.pinned.value"

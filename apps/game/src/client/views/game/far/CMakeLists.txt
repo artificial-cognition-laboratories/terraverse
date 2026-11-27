@@ -16,6 +16,7 @@ set(far_client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/bake/landbake.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/tiles/mask.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/land/mesh.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/land/resident.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bake/palette_live.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/tiles/tilecache.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/tiles/tiles.cpp

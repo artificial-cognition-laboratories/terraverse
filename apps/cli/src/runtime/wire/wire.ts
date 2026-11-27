@@ -29,7 +29,7 @@ export function Wire(opts: { fd: number }): WireT {
         const buf = Buffer.allocUnsafe(n)
         let got = 0
         while (got < n) {
-            const r = readSync(opts.fd, buf, got, n - got, null)
+            const r = gone(() => readSync(opts.fd, buf, got, n - got, null))
             if (r === 0) throw err("ENGINE_GONE")
             got += r
         }
@@ -53,7 +53,7 @@ export function Wire(opts: { fd: number }): WireT {
         frame.writeUInt32LE(body.length, 0)
         body.copy(frame, 4)
         let sent = 0
-        while (sent < frame.length) sent += writeSync(opts.fd, frame, sent, frame.length - sent)
+        while (sent < frame.length) sent += gone(() => writeSync(opts.fd, frame, sent, frame.length - sent))
     }
 
     return { read: read, write: write }
@@ -61,3 +61,14 @@ export function Wire(opts: { fd: number }): WireT {
 
 const opCodes: ReadonlySet<number> = new Set(Object.values(Op))
 const isOp = (n: unknown): n is OpCode => typeof n === "number" && opCodes.has(n)
+
+/** The engine's end reset (it was killed mid-frame) is the engine gone, as an end of file is. */
+function gone(io: () => number): number {
+    try {
+        return io()
+    } catch (error) {
+        const code: unknown = error instanceof Error ? Reflect.get(error, "code") : undefined
+        if (code === "ECONNRESET" || code === "EPIPE") throw err("ENGINE_GONE", { detail: code })
+        throw error
+    }
+}

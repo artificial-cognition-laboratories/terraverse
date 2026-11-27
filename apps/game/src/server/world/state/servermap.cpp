@@ -3,6 +3,7 @@
 // Copyright (C) 2010-2024 celeron55, Perttu Ahola <celeron55@gmail.com>
 
 #include "src/server/world/state/servermap.h"
+#include "library/trace/owned.h"
 #include "src/server/game/interact.h"
 #include "src/shared/base/config.h" // USE_SHELL
 #include "src/server/world/load/database/database-planet.h"
@@ -523,6 +524,8 @@ void ServerMap::updateVManip(v3s16 pos)
 void ServerMap::reportMetrics(u64 save_time_us, u32 saved_blocks, u32 all_blocks)
 {
 	m_loaded_blocks_gauge->set(all_blocks);
+	// Terraverse: the debugger's Memory tab (an estimate: each block's nodes at full size)
+	trace::owned("Server map: blocks (estimated)", (u64)all_blocks * (sizeof(MapBlock) + MAP_BLOCKSIZE * MAP_BLOCKSIZE * MAP_BLOCKSIZE * sizeof(MapNode)), all_blocks);
 	m_save_time_counter->increment(save_time_us);
 	m_save_count_counter->increment(saved_blocks);
 }

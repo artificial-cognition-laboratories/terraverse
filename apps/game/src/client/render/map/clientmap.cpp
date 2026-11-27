@@ -26,6 +26,7 @@
 #include "src/client/render/renderingengine.h"
 
 #include <queue>
+#include "library/trace/owned.h"
 #include "library/trace/trace.h" // TEMP(2026-11-19): the draw list's phases, measured
 
 namespace {
@@ -634,6 +635,8 @@ void ClientMap::updateDrawList()
 
 		g_profiler->avg("MapBlocks in range [#]", blocks_in_range);
 		g_profiler->avg("MapBlocks loaded [#]", blocks_loaded);
+		// an estimate: each block's nodes at full size (a block of one node holds less; meshes aren't in it)
+		trace::owned("Map: client blocks (estimated)", (u64)blocks_loaded * (sizeof(MapBlock) + MAP_BLOCKSIZE * MAP_BLOCKSIZE * MAP_BLOCKSIZE * sizeof(MapNode)), blocks_loaded);
 		m_coverage.done();
 		// TEMP(2026-11-19): where the draw list's time goes
 		trace::count("Draw list: loop [us]", (trace::now() - t_loop) / 1000.0, trace::Fold::Max);

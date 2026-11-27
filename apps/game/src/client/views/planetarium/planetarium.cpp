@@ -75,7 +75,8 @@ Planetarium::Planetarium(Opts opts) :
 	m_palette(std::move(opts.palette)),
 	m_atlas(opts.atlas.body(opts.body)),
 	m_sea(seaOf(opts)),
-	m_tiles(opts.atlas, opts.body, opts.horizon, m_palette, buildThreads(), opts.driver, &m_budget),
+	m_tiles(far::Tiles::Opts{ /* atlas */ opts.atlas, /* body */ opts.body, /* horizon */ opts.horizon, /* palette */ m_palette,
+		/* threads */ buildThreads(), /* driver */ opts.driver, /* budget */ &m_budget, /* system */ "Planetarium", /* paint */ far::Tiles::Paint::Tinted }),
 	m_camera(m_sea, farthest(opts)),
 	m_seams(opts.atlas.body(opts.body).params(), m_sea),
 	m_markers(m_sea),
@@ -159,7 +160,8 @@ bool Planetarium::drawBaked(video::IVideoDriver *driver, const core::matrix4 &lo
 	if (b == m_baked.end() || pixels < BAKED_PIXELS)
 		return false;
 	if (!b->tiles) {
-		b->tiles = std::make_unique<far::Tiles>(m_world, b->body, m_horizon, m_palette, 1, driver, &m_budget);
+		b->tiles = std::make_unique<far::Tiles>(far::Tiles::Opts{ /* atlas */ m_world, /* body */ b->body, /* horizon */ m_horizon,
+			/* palette */ m_palette, /* threads */ 1, /* driver */ driver, /* budget */ &m_budget, /* system */ "Planetarium", /* paint */ far::Tiles::Paint::Tinted });
 		tint(b->body);
 	}
 	// the camera in the body's own frame: from its centre, turned back, at its scale
@@ -593,6 +595,15 @@ void Planetarium::drawPath(video::IVideoDriver *driver, const OrbitCamera::Vec &
 	Ribbons ribbons(2.5f, m_screen.Y / (2 * std::tan(m_fov / 2)));
 	ribbons.add(points, colours, false);
 	ribbons.draw(driver, true);
+}
+
+void Planetarium::trim(v2u32 screen)
+{
+	update(screen); // what the camera wants now is what's kept
+	m_tiles.trim();
+	for (Baked &b : m_baked)
+		if (b.tiles)
+			b.tiles->trim(); // (not shown till it's framed again: its coarse whole is enough)
 }
 
 void Planetarium::draw(video::IVideoDriver *driver, core::recti view)

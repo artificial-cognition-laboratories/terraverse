@@ -7,6 +7,7 @@
 
 #include "src/client/views/game/far/bake/palette.h"
 #include "src/client/views/game/far/land/terrain.h"
+#include "src/client/views/game/far/land/resident.h"
 #include "src/shared/base/irrlichttypes_bloated.h"
 #include <CMeshBuffer.h>
 #include <S3DVertex.h>
@@ -22,8 +23,7 @@ namespace far {
 // A far tile's vertex: its first texture coordinate is its height over the sea
 // (blocks), its second where it is in the tile's grid (finest cells from the
 // tile's corner, x and z), so the far view knows which map block column it's in.
-using Vertex = video::S3DVertex2TCoords;
-using TileBuffer = scene::SMeshBufferLightMap;
+// (Vertex and TileBuffer: land/resident.h)
 
 struct Mesh
 {

@@ -32,8 +32,15 @@ struct Packed
 	{
 		u32 v0 = 0, v1 = 0, i0 = 0, i1 = 0;
 	};
+	// a part as it's kept: its vertices packed (land/resident.h)
+	struct Part
+	{
+		std::vector<PackedVertex> vertices;
+		std::vector<u16> indices;
+		u8 quarter = 0;
+	};
 	bool merged = false;
-	std::vector<Mesh::Part> parts; // merged: one, its quarter unused
+	std::vector<Part> parts; // merged: one, its quarter unused
 	std::array<Range, 4> ranges;   // merged: each quarter's in it
 	std::vector<std::vector<video::SColor>> own; // each part's
 	std::vector<aabb3f> boxes; // each part's bounds

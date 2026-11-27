@@ -592,6 +592,7 @@ set(common_SRCS
 	shared/game/objects/player.cpp
 	shared/platform/system/porting.cpp
 	shared/platform/system/spawn.cpp
+	shared/platform/system/crash.cpp
 	shared/map/raycast.cpp
 	shared/map/voxel/reflowscan.cpp
 	shared/game/objects/remoteplayer.cpp
@@ -781,6 +782,13 @@ if(BUILD_CLIENT)
 			if(MSVC)
 				target_link_options(${PROJECT_NAME} PRIVATE /ENTRY:mainCRTStartup)
 			endif()
+		endif()
+		if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+			# our mallinfo() (shared/platform/system/mallinfo.cpp) is the one libcef binds to:
+			# glibc's wraps past 2 GB of heap, and Chromium crashes the game on it
+			# (in the executable itself: from a static library nothing here asks for it, so it was left out)
+			target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/shared/platform/system/mallinfo.cpp)
+			target_link_options(${PROJECT_NAME} PRIVATE "LINKER:--export-dynamic-symbol=mallinfo")
 		endif()
 	endif()
 

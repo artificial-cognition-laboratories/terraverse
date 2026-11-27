@@ -352,6 +352,19 @@ Here, specifically: expected refusals are `Refused` and `WorldCodeError`, shown 
 the seams are the bridge, file I/O, world settings, the wire and inventory slots; unwired things
 also say so in the UI (a Notice).
 
+**No silent failures (an invariant).** Every failure reaches a place a person sees: the UI (a
+refusal, a Notice), the log, or a crash report. A crash writes its signal, thread and backtrace to
+stderr and `crash-<time>.txt` beside `debug.txt` (`shared/platform/system/crash.h`); the launcher
+keeps the engine's stderr in the session's log. A process that dies says why, and what was waiting
+on it says it's gone rather than calling it a bug (terra's sidecar: `ENGINE_GONE`).
+
+**Debugging memory and time.** The debugger's Memory tab samples every process of the game's
+tree, the engine's heap and each owner's own figure once a second; a system that holds memory
+reports it with `trace::owned("System: what", bytes, count)` (`library/trace/owned.h`), and what
+no owner claims shows as unaccounted. Both Memory and Performance save a report folder (the
+download button, which copies its path): `summary.md` first, then one fact a line (`*.jsonl`),
+written for grep. Read those when asked about a snapshot.
+
 ### C++
 
 The file limit is **~400 lines** of `.cpp`. The engine builds as C++17 (the shell as C++20).

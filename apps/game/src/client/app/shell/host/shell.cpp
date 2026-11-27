@@ -5,6 +5,7 @@
 #include "src/client/app/shell/host/ui_scale.h"
 #include "src/client/app/shell/host/shell.h"
 #include "src/shared/platform/home/home.h"
+#include "src/shared/platform/system/crash.h"
 #include <IEventReceiver.h>
 #include "src/client/app/shell/bridge/account.h"
 #include "src/client/app/shell/bridge/profiles.h"
@@ -185,7 +186,10 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(opts))
 	// Chromium's browser takes SIGINT and SIGTERM for its own shutdown (its
 	// CrShutdownDetector thread), so the engine's kill flag never saw a quit.
 	// Set back once its UI thread is running: by then it's done installing.
-	onChromium([] { porting::signal_handler_init(); });
+	onChromium([] {
+		porting::signal_handler_init();
+		crash::again(); // its crash handlers too: ours report first
+	});
 
 	CefRegisterSchemeHandlerFactory(SCHEME, UI_HOST, new UiScheme(opts.ui_dir));
 	CefRegisterSchemeHandlerFactory(SCHEME, ITEM_HOST, new UiScheme(m->item_dir));

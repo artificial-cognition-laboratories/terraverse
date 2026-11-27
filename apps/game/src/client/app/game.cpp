@@ -62,6 +62,7 @@
 #include <ICameraSceneNode.h>
 #include "src/shared/util/timing/tracy_wrapper.h"
 #include "library/trace/report.h"
+#include "library/trace/marks.h"
 #include "src/client/render/items/item_visuals_manager.h"
 #include "src/shared/base/config.h"
 #if USE_SHELL
@@ -200,6 +201,7 @@ bool Game::startup(volatile std::sig_atomic_t *kill,
 		address = online::ref::print(online::ref::Address{ "localhost", m_online_listed->port() });
 	m_shell_session = std::make_unique<shell::Session>(shell::Session::Opts{
 		*g_shell, client, driver, guienv, m_hand, address });
+	{ const u64 at = trace::now(); trace::mark("world", "entered the world", at, at); } // the Memory tab's timeline
 	m_cutting = std::make_unique<cut::Cutting>(cut::Cutting::Opts{ client, m_shell_session->ui() });
 	m_digging = std::make_unique<dig::Digging>(dig::Digging::Opts{ client, m_shell_session->ui() });
 	// the Planetarium, while shown, takes the mouse where the page doesn't;
@@ -419,6 +421,7 @@ void Game::run()
 
 void Game::shutdown()
 {
+	{ const u64 at = trace::now(); trace::mark("world", "left the world", at, at); } // Terraverse: the Memory tab's timeline
 	trace::report::finish(porting::path_user + "/perf-reports"); // Terraverse: read after a run
 
 #if USE_SHELL

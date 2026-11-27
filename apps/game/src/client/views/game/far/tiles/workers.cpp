@@ -31,6 +31,9 @@ Packed pack(Mesh mesh);
 	workers finish what they're on, see the stop, and go, the last one
 	freeing this.
 */
+// Built tiles waiting to be taken, most: a few frames' worth of installs.
+constexpr size_t WAITING = 32;
+
 class Crew
 {
 public:
@@ -78,6 +81,7 @@ public:
 		Result r = std::move(m_results.front());
 		m_results.pop_front();
 		m_busy.erase(id(r.key));
+		m_wake.notify_one(); // room for one more
 		return r;
 	}
 
@@ -97,7 +101,9 @@ public:
 		}
 		std::unique_lock lock(m_mutex);
 		while (true) {
-			m_wake.wait(lock, [this] { return m_stop || !m_error.empty() || !m_queue.empty(); });
+			// built tiles wait for the main thread to take them, a few a frame: past
+			// WAITING the workers wait too, or they piled up in RAM (800 MB at a peak)
+			m_wake.wait(lock, [this] { return m_stop || !m_error.empty() || (!m_queue.empty() && m_results.size() < WAITING); });
 			if (!m_error.empty())
 				return; // take() reports it
 			if (m_stop)
@@ -283,20 +289,25 @@ Packed pack(Mesh mesh)
 			}
 		}
 		out.merged = true;
-		out.parts.push_back(std::move(one));
-	} else {
-		out.parts = std::move(mesh.parts);
+		mesh.parts.clear();
+		mesh.parts.push_back(std::move(one));
 	}
-	for (const Mesh::Part &part : out.parts) {
+	for (Mesh::Part &part : mesh.parts) {
 		std::vector<video::SColor> own;
 		own.reserve(part.vertices.size());
-		for (const Vertex &v : part.vertices)
-			own.push_back(v.Color);
-		out.own.push_back(std::move(own));
 		aabb3f box(part.vertices.empty() ? v3f() : part.vertices.front().Pos);
-		for (const Vertex &v : part.vertices)
+		Packed::Part kept;
+		kept.vertices.reserve(part.vertices.size());
+		for (const Vertex &v : part.vertices) {
+			own.push_back(v.Color);
 			box.addInternalPoint(v.Pos);
+			kept.vertices.push_back(packed(v));
+		}
+		kept.indices = std::move(part.indices);
+		kept.quarter = part.quarter;
+		out.own.push_back(std::move(own));
 		out.boxes.push_back(box);
+		out.parts.push_back(std::move(kept));
 	}
 	return out;
 }

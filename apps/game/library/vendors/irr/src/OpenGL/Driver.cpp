@@ -100,6 +100,17 @@ static const VertexType vtTangents = {
 
 #pragma GCC diagnostic pop
 
+// Terraverse: a far tile's (S3DVertexPacked); no normal, so beginDraw zeroes it
+static const VertexType vtPacked = {
+		sizeof(S3DVertexPacked),
+		{
+				{EVA_POSITION, 3, GL_FLOAT, VertexAttribute::Mode::Regular, offsetof(S3DVertexPacked, Pos)},
+				{EVA_COLOR, 4, GL_UNSIGNED_BYTE, VertexAttribute::Mode::Normalized, offsetof(S3DVertexPacked, Color)},
+				{EVA_TCOORD0, 2, GL_SHORT, VertexAttribute::Mode::Regular, offsetof(S3DVertexPacked, TCoords)},
+				{EVA_TCOORD1, 2, OpenGLProcedures::HALF_FLOAT, VertexAttribute::Mode::Regular, offsetof(S3DVertexPacked, TCoords2)},
+		},
+};
+
 static const VertexType &getVertexTypeDescription(E_VERTEX_TYPE type)
 {
 	switch (type) {
@@ -109,6 +120,8 @@ static const VertexType &getVertexTypeDescription(E_VERTEX_TYPE type)
 		return vt2TCoords;
 	case EVT_TANGENTS:
 		return vtTangents;
+	case EVT_PACKED:
+		return vtPacked;
 	default:
 		IRR_CODE_UNREACHABLE();
 	}
@@ -1047,6 +1060,13 @@ void COpenGL3DriverBase::drawGeneric(const void *vertices, const void *indexList
 
 void COpenGL3DriverBase::beginDraw(const VertexType &vertexType, uintptr_t verticesBase)
 {
+	// Terraverse: a type without a normal reads it as zero (not what was last set):
+	// a shader can tell, and find a flat face's own (S3DVertexPacked)
+	bool normal = false;
+	for (auto &attr : vertexType)
+		normal |= attr.Index == EVA_NORMAL;
+	if (!normal)
+		GL.VertexAttrib4f(EVA_NORMAL, 0.0f, 0.0f, 0.0f, 0.0f);
 	for (auto &attr : vertexType) {
 		if (attr.mode == VertexAttribute::Mode::Integer && Version.Major < 3) {
 			// assume we know what we're doing and just skip if not supported

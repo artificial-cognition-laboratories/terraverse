@@ -28,6 +28,7 @@ constexpr double LEAN_EASE = 1.2;          // seconds to most of the way: slow, 
 constexpr double TURN_SECONDS = 8 * 60;    // one of the planet's days, on the menu
 constexpr double WANDER = 0.35;            // of the lean, with the mouse still
 constexpr double WARM_MS = 3;              // a frame's share of uploading the next body's land
+constexpr std::chrono::seconds TRIM_AFTER{ 60 }; // closed this long, a parked body lets its finer land go
 
 using planetarium::MarkerLayer;
 using View = planetarium::Planetarium;
@@ -236,6 +237,7 @@ void Planetarium::show(View::Opts body)
 	if (m_parked && !shown() && m_parked->body() == body.body && m_parked->code() == body.horizon.code) {
 		// the one hidden last (or prepared): back as it was, its land already built
 		m_current = std::move(m_parked);
+		m_parkedAt.reset();
 		m_current->markers(m_markers);
 		m_current->layer(m_layer);
 		apply(*m_current);
@@ -513,6 +515,7 @@ void Planetarium::hide()
 	if (std::unique_ptr<View> &shown = m_current ? m_current : m_next) {
 		m_parked = std::move(shown);
 		m_looked = true;
+		m_parkedAt = std::chrono::steady_clock::now();
 	}
 	m_current.reset();
 	m_next.reset();
@@ -532,6 +535,17 @@ void Planetarium::idle(std::optional<std::pair<double, double>> player)
 {
 	if (!m_parked || shown())
 		return;
+	// closed a minute: back over the player, and only that ground and the
+	// coarse planet kept (half a gig held for a map nobody's opening, else)
+	if (m_parkedAt && std::chrono::steady_clock::now() - *m_parkedAt > TRIM_AFTER) {
+		m_parkedAt.reset();
+		m_looked = false;
+		if (player) {
+			m_parked->focus(player->first, player->second, std::nullopt);
+			m_over = player;
+		}
+		m_parked->trim(m_screen);
+	}
 	// moved far enough to see other tiles (a hundredth of a radian: tens of
 	// blocks): over them now, not on every step
 	// (once looked through, it stays where it was left)

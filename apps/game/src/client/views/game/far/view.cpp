@@ -4,6 +4,8 @@
 #include "src/client/render/gputime/gputime.h"
 #include "library/trace/trace.h"
 #include "src/client/views/game/far/view.h"
+#include "src/shared/platform/system/log.h"
+#include <atomic>
 #include "src/client/views/game/far/tiles/mask.h"
 #include "src/client/views/game/far/land/mesh.h"
 #include "src/client/views/game/far/tiles/tiles.h"
@@ -155,6 +157,9 @@ static float nearShare(const scene::ICameraSceneNode *camera)
 	return 0.9f * std::cos(corner);
 }
 
+// Far views alive: there should be one (far/view.cpp's constructor says when there's more).
+static std::atomic<int> s_alive{ 0 };
+
 View::View(scene::ISceneManager *smgr, IShaderSource *ssrc, ITextureSource *tsrc,
 		const NodeDefManager *ndef, const Horizon &horizon, const planet::Atlas &atlas, int body) :
 	scene::ISceneNode(smgr->getRootSceneNode(), smgr, -1),
@@ -162,10 +167,14 @@ View::View(scene::ISceneManager *smgr, IShaderSource *ssrc, ITextureSource *tsrc
 	m_radius(atlas.body(body).params().radius),
 	m_grids(atlas.body(body).grids()),
 	m_palette(std::make_unique<Palette>(Palette::live(ndef, tsrc, blocksIn(horizon.content)))),
-	m_tiles(std::make_unique<Tiles>(atlas, body, horizon, *m_palette, Tiles::threadsFor(0.5f), smgr->getVideoDriver())), // half the machine: the horizon is what a world is first seen by
+	m_tiles(std::make_unique<Tiles>(Tiles::Opts{ /* atlas */ atlas, /* body */ body, /* horizon */ horizon, /* palette */ *m_palette,
+		/* threads */ Tiles::threadsFor(0.5f), /* driver */ smgr->getVideoDriver(), /* budget */ nullptr, /* system */ "Far view", /* paint */ Tiles::Paint::Never })), // half the machine: the horizon is what a world is first seen by
 	m_state(std::make_shared<DrawState>()),
 	m_mask(std::make_unique<Mask>(smgr->getVideoDriver(), atlas, body))
 {
+	// one horizon a world: a second alive is a view kept past its WorldView (each holds a Tiles, up to a GB)
+	if (++s_alive > 1)
+		errorstream << "far: " << s_alive << " far views alive at once (body " << body << "): one wasn't let go" << std::endl;
 	m_uniforms = make_irr<Uniforms>(m_state);
 	u32 shader = ssrc->getShader("far_globe_shader", ShaderConstants{}, video::EMT_SOLID, m_uniforms.get());
 	m_material.MaterialType = ssrc->getShaderInfo(shader).material;
@@ -191,6 +200,7 @@ View::View(scene::ISceneManager *smgr, IShaderSource *ssrc, ITextureSource *tsrc
 
 View::~View()
 {
+	--s_alive;
 	g_settings->deregisterAllChangedCallbacks(this);
 	m_tiles.reset(); // before the palette its workers read
 }

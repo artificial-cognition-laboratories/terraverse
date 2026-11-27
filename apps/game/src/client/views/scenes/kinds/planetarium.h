@@ -3,7 +3,9 @@
 
 #pragma once
 
+#include <chrono>
 #include <future>
+#include <optional>
 
 #include "src/client/views/planetarium/planetarium.h"
 #include "src/client/views/planetarium/pixels.h"
@@ -133,6 +135,9 @@ private:
 	std::shared_ptr<const void> m_galaxy;
 	planetarium::Pixels m_pixels; // the home shot, drawn as pixel art
 	std::unique_ptr<planetarium::Planetarium> m_retiring; // replaced, kept till its successor's drawn once
+	// when it was parked, till it's trimmed (idle: closed a minute, it keeps
+	// only its coarse body and the player's own ground, what the minimap and opening want)
+	std::optional<std::chrono::steady_clock::time_point> m_parkedAt;
 	bool m_looked = false; // the parked one has been on screen: its camera's the player's now
 	std::optional<std::pair<double, double>> m_over; // where the parked camera's over (idle)
 	v2u32 m_screen{ 1280, 720 }; // the window, as last drawn (a parked body builds for it)

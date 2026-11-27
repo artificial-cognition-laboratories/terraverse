@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="F extends Timed = PerfFrame">
 /**
  * One chart of the Live tab: a few series over the shared window, as lines,
  * each pixel column drawing the most of its frames (a one-frame spike shows at
@@ -13,22 +13,25 @@
  */
 import { computed, onMounted, onUnmounted, ref, watch } from "vue"
 import type { PerfFrame } from "../../bridge/index.ts"
-import { formatValue } from "./counters.ts"
+import { formatValue, type Timed } from "./counters.ts"
 import { forget, markStale } from "./drawLoop.ts"
 import type { Window } from "./view.ts"
 
-/** `unit`: a counter's, as the engine names it ("#", "%"); none: a time in ms. */
-export type Series = { name: string; color: string; value: (frame: PerfFrame) => number; bold?: boolean; unit?: string }
+/** `unit`: a counter's, as the engine names it ("#", "%", "B"); none: a time in ms. */
+export type Series<T extends Timed = PerfFrame> = { name: string; color: string; value: (frame: T) => number; bold?: boolean; unit?: string }
 
 const props = defineProps<{
     title: string
-    frames: readonly PerfFrame[]
+    /** Frames, or anything else in time order with a start and end (ms): the Memory tab's samples. */
+    frames: readonly F[]
     window: Window
-    series: readonly Series[]
+    series: readonly Series<F>[]
     height: number
     /** ms lines to draw across: the frame budgets, on the frame chart. */
     budgets?: readonly { ms: number; label: string }[]
     cursor: number | null
+    /** Moments to draw down the chart, labelled: entering a world, leaving it. */
+    marks?: readonly { ms: number; label: string }[]
     /**
      * As the engine's graphs: one series on a scale from zero to its most in the
      * window, that most at the top right and its least (the work it does
@@ -63,7 +66,7 @@ function time(ms: number) {
     if (ms < 1) return `${Math.round(ms * 1000)} µs`
     return `${ms >= 10 ? ms.toFixed(1) : ms.toFixed(2)} ms`
 }
-const fmt = (s: Series, v: number) => (Number.isNaN(v) ? "–" : s.unit === undefined ? time(v) : formatValue(v, s.unit))
+const fmt = (s: { unit?: string }, v: number) => (Number.isNaN(v) ? "–" : s.unit === undefined ? time(v) : formatValue(v, s.unit))
 
 /** The first frame that could show in the window (frames are in order). */
 function firstFrom(ms: number) {
@@ -187,6 +190,21 @@ function draw() {
         g.fillText(say(least), width.value - 4, props.height - 2)
         g.textAlign = "left"
     }
+    for (const m of props.marks ?? []) {
+        if (m.ms < startMs || m.ms > endMs) continue
+        const mx = Math.round(xOf(m.ms)) + 0.5
+        g.strokeStyle = "rgb(255 210 120 / 0.45)"
+        g.setLineDash([2, 3])
+        g.beginPath()
+        g.moveTo(mx, 14)
+        g.lineTo(mx, props.height)
+        g.stroke()
+        g.setLineDash([])
+        g.fillStyle = "rgb(255 210 120 / 0.7)"
+        g.font = "9px system-ui, sans-serif"
+        g.textBaseline = "bottom"
+        g.fillText(m.label, mx + 3, props.height - 2)
+    }
     if (props.cursor !== null && props.cursor >= startMs && props.cursor <= endMs) {
         g.fillStyle = "rgb(255 255 255 / 0.35)"
         g.fillRect(Math.round(((props.cursor - startMs) / span) * width.value), 0, 1, props.height)
@@ -195,7 +213,7 @@ function draw() {
 
 // drawn with the rest of the panel's charts (drawLoop.ts)
 const redraw = () => markStale(draw)
-watch(() => [props.frames, props.series, props.window.startMs, props.window.endMs, props.cursor, props.height], redraw)
+watch(() => [props.frames, props.series, props.window.startMs, props.window.endMs, props.cursor, props.height, props.marks], redraw)
 
 let observer: ResizeObserver | null = null
 let seen: IntersectionObserver | null = null

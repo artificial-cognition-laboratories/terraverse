@@ -9,6 +9,8 @@
 #include "src/shared/base/exceptions.h"
 #include "src/shared/platform/system/log.h"
 #include "library/world/terragen/src/base/progress.h"
+#include "library/trace/owned.h"
+#include <atomic>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -46,26 +48,38 @@ static constexpr float STAY_WHOLE = 0.85f;
 // How many levels finer a tile not built yet looks for finer ones to stand in for it.
 static constexpr s32 FINER_DEPTH = 3;
 
+// Each Tiles its own figure: the game's far view and the planetarium's may show one body at once.
+static std::string ownerName(std::string_view system, int body)
+{
+	static std::atomic<u32> made{ 0 };
+	return std::string(system) + ": tiles #" + std::to_string(++made) + " (body " + std::to_string(body) + ")";
+}
+
 unsigned Tiles::threadsFor(float share)
 {
 	const unsigned cores = terragen::cores();
 	return std::max(1u, (unsigned)(cores * share));
 }
 
-Tiles::Tiles(const planet::Atlas &atlas, int body, const Horizon &horizon, const Palette &palette, unsigned threads,
-		video::IVideoDriver *driver, Budget *budget) :
-	m_atlas(atlas),
-	m_horizon(horizon),
-	m_tiling(atlas.body(body)),
-	m_workers(std::make_unique<Workers>(m_atlas, body, m_horizon, palette, m_tiling, threads)),
-	m_coarse(std::make_unique<terragen::Step>(horizon.code, "coarse planet", (int64_t)m_tiling.roots().size())),
-	m_driver(driver),
-	m_own(budget ? nullptr : std::make_unique<Budget>()),
-	m_budget(budget ? *budget : *m_own)
+Tiles::Tiles(const Opts &o) :
+	m_atlas(o.atlas),
+	m_horizon(o.horizon),
+	m_tiling(o.atlas.body(o.body)),
+	m_workers(std::make_unique<Workers>(m_atlas, o.body, m_horizon, o.palette, m_tiling, o.threads)),
+	m_coarse(std::make_unique<terragen::Step>(o.horizon.code, "coarse planet", (int64_t)m_tiling.roots().size())),
+	m_driver(o.driver),
+	m_own(o.budget ? nullptr : std::make_unique<Budget>()),
+	m_budget(o.budget ? *o.budget : *m_own),
+	m_owner(ownerName(o.system, o.body)),
+	m_paint(o.paint)
 {
 }
 
-Tiles::~Tiles() = default;
+Tiles::~Tiles()
+{
+	trace::disowned(m_owner);
+	trace::disowned(m_owner + " on the card");
+}
 
 void Tiles::update(const Eye &eye)
 {
@@ -79,8 +93,11 @@ void Tiles::update(const Eye &eye)
 	// put them in: each install changed it, and the tree was walked each frame.
 	// Moving, every frame (a turn waiting a frame left holes at the edge).
 	constexpr u32 SETTLING = 4;
+	// first: a tile the driver let go of is dropped, and what's drawn chosen again without it
+	const bool lost = touch();
 	const bool moved = !still(eye);
-	if (moved || (m_changed && ++m_settling >= SETTLING)) {
+	if (lost || m_rechoose || moved || (m_changed && ++m_settling >= SETTLING)) {
+		m_rechoose = false;
 		m_settling = 0;
 		choose(eye);
 	}
@@ -98,6 +115,8 @@ void Tiles::update(const Eye &eye)
 		repaint();
 	}
 	m_stats.now(m_tiles.size(), m_bytes, m_pending, m_draw.size(), m_holes, m_unready);
+	trace::owned(m_owner, m_ram, m_tiles.size());
+	trace::owned(m_owner + " on the card", m_bytes - m_ram, m_tiles.size(), trace::Where::Gpu);
 }
 
 void Tiles::choose(const Eye &eye)
@@ -209,8 +228,12 @@ std::vector<Tiles::Drawn> Tiles::behind() const
 {
 	std::vector<Drawn> out;
 	out.reserve(m_behind.size());
-	for (const auto &[key, child] : m_behind)
-		out.push_back({ key.tile(), place(key).middle, m_tiles.at(key).quarters[child], key.child(child).tile() });
+	for (const auto &[key, child] : m_behind) {
+		const auto it = m_tiles.find(key);
+		if (it == m_tiles.end())
+			continue; // dropped since it was chosen (tint()): the next update chooses again
+		out.push_back({ key.tile(), place(key).middle, it->second.quarters[child], key.child(child).tile() });
+	}
 	return out;
 }
 
@@ -218,8 +241,12 @@ std::vector<Tiles::Drawn> Tiles::drawn() const
 {
 	std::vector<Drawn> out;
 	out.reserve(m_draw.size());
-	for (const Key &key : m_draw)
-		out.push_back({ key.tile(), place(key).middle, m_tiles.at(key).parts });
+	for (const Key &key : m_draw) {
+		const auto it = m_tiles.find(key);
+		if (it == m_tiles.end())
+			continue; // dropped since it was chosen (tint()): the next update chooses again
+		out.push_back({ key.tile(), place(key).middle, it->second.parts });
+	}
 	return out;
 }
 
@@ -419,7 +446,9 @@ void Tiles::take(const TileKey &key, Packed &packed, bool sketch)
 {
 	Entry &e = m_tiles[Key(key)];
 	m_bytes -= e.bytes;
+	m_ram -= e.ram;
 	e.bytes = 0;
+	e.ram = 0;
 	e.parts.clear();
 	for (auto &q : e.quarters)
 		q.clear();
@@ -428,9 +457,9 @@ void Tiles::take(const TileKey &key, Packed &packed, bool sketch)
 	for (u8 q = 0; q < 4; q++)
 		e.ranges[q] = { packed.ranges[q].v0, packed.ranges[q].v1, packed.ranges[q].i0, packed.ranges[q].i1 };
 	for (size_t p = 0; p < packed.parts.size(); p++) {
-		Mesh::Part &part = packed.parts[p];
+		Packed::Part &part = packed.parts[p];
 		auto buffer = make_irr<TileBuffer>();
-		e.bytes += part.vertices.size() * sizeof(Vertex) + part.indices.size() * sizeof(u16);
+		e.bytes += part.vertices.size() * sizeof(PackedVertex) + part.indices.size() * sizeof(u16);
 		buffer->Vertices->Data = std::move(part.vertices);
 		buffer->Indices->Data = std::move(part.indices);
 		buffer->setBoundingBox(packed.boxes[p]); // (found by the worker)
@@ -442,6 +471,8 @@ void Tiles::take(const TileKey &key, Packed &packed, bool sketch)
 	if (e.merged)
 		quarter(e, packed.quarterBoxes);
 	m_bytes += e.bytes;
+	e.ram = e.bytes;
+	m_ram += e.ram;
 	m_stats.taken(key, sketch, e.bytes);
 	if (m_tint)
 		paint(Key(key), e);
@@ -453,6 +484,10 @@ void Tiles::take(const TileKey &key, Packed &packed, bool sketch)
 	for (const auto &q : e.quarters)
 		for (const auto &part : q)
 			upload(*part); // (their indices: the vertices went with the tile's)
+	// on the card alone, unless it may be repainted in place: a tinted Tiles' coarse ones
+	// (few, and what stands in while the rest are built again painted: tint())
+	if (m_paint == Paint::Never || m_tiling.top(key.face) - key.level >= KEEP_COARSE)
+		release(e);
 	if (m_coarse && !e.ready && key.level == m_tiling.top(key.face))
 		m_coarse->advance();
 	e.ready = true;
@@ -489,10 +524,44 @@ void Tiles::quarter(Entry &e, const std::array<aabb3f, 4> &boxes)
 
 void Tiles::tint(std::shared_ptr<const Tint> tint)
 {
+	if (m_paint == Paint::Never && tint)
+		throw BaseException("far: " + m_owner + " lets its meshes go once they're on the card, so it can't be tinted (Paint::Tinted)");
 	if (!tint && !m_tint)
 		return; // their own colours still: nothing to repaint (each screen the menu went to set none again, every tile repainted and sent to the GPU again)
 	m_tint = std::move(tint);
 	m_tints++; // every tile out of date: update() sweeps over them
+	// what's on the card alone can't be repainted: let go of, and built again (from the
+	// disk cache) painted as it's taken; the coarse ones, kept, are repainted and stand in
+	for (auto it = m_tiles.begin(); it != m_tiles.end();) {
+		Entry &e = it->second;
+		if (e.parts.empty() || !e.parts.front()->Vertices->released()) {
+			++it;
+			continue;
+		}
+		m_bytes -= e.bytes;
+		m_ram -= e.ram;
+		it = m_tiles.erase(it);
+		m_rechoose = true;
+	}
+}
+
+void Tiles::trim()
+{
+	size_t gone = 0;
+	for (auto it = m_tiles.begin(); it != m_tiles.end();) {
+		const Entry &e = it->second;
+		if (e.used == m_frame || m_tiling.top(it->first.face) - it->first.level < KEEP_COARSE) {
+			++it;
+			continue;
+		}
+		m_bytes -= e.bytes;
+		m_ram -= e.ram;
+		it = m_tiles.erase(it);
+		gone++;
+	}
+	m_stats.evicted(gone);
+	if (gone)
+		m_rechoose = true; // a stand-in drawn may be gone: chosen again before it's drawn
 }
 
 void Tiles::repaint()
@@ -537,7 +606,7 @@ void Tiles::paint(const Key &key, Entry &e) const
 		auto &vertices = e.parts[p]->Vertices->Data;
 		const std::vector<video::SColor> &own = e.own.at(p);
 		for (size_t i = 0; i < vertices.size(); i++) {
-			Vertex &v = vertices[i];
+			PackedVertex &v = vertices[i];
 			if (!m_tint) {
 				v.Color = own[i];
 				continue;
@@ -549,6 +618,87 @@ void Tiles::paint(const Key &key, Entry &e) const
 		}
 		e.parts[p]->setDirty(scene::EBT_VERTEX);
 	}
+}
+
+void Tiles::release(Entry &e)
+{
+	if (!m_driver)
+		return; // nothing's on the card till it's drawn: kept
+	// each buffer the driver holds (a small one it draws from RAM: kept)
+	const auto let = [](TileBuffer &b) {
+		if (b.Vertices->Link)
+			b.Vertices->release();
+		if (b.Indices->Link)
+			b.Indices->release();
+	};
+	for (const auto &part : e.parts)
+		let(*part);
+	for (const auto &q : e.quarters)
+		for (const auto &part : q)
+			let(*part);
+	std::vector<std::vector<video::SColor>>().swap(e.own); // (only a repaint reads them)
+	// what's left in RAM: the buffers the driver didn't take
+	size_t kept = 0;
+	for (const auto &part : e.parts)
+		kept += part->Vertices->Data.size() * sizeof(PackedVertex) + part->Indices->Data.size() * sizeof(u16);
+	for (const auto &q : e.quarters)
+		for (const auto &part : q)
+			kept += part->Indices->Data.size() * sizeof(u16);
+	m_ram -= e.ram;
+	e.ram = kept;
+	m_ram += e.ram;
+}
+
+bool Tiles::touch()
+{
+	if (!m_driver)
+		return false;
+	// the driver lets a buffer go after 25 s unused (CNullDriver::expireHardwareBuffers):
+	// touched every 5. By the clock, not by updates: the sky updates a body's tiles
+	// only while it's drawn, so one out of sight went untouched past the driver's limit
+	const auto now = std::chrono::steady_clock::now();
+	if (now - m_touched < std::chrono::seconds(5))
+		return false;
+	m_touched = now;
+	TF_ZONE("Far view: touch");
+	// a tile whose buffer the driver let go anyway is let go of too, and built again
+	// (from the disk cache): drawn, it would be uploaded from nothing
+	size_t lost = 0;
+	for (auto it = m_tiles.begin(); it != m_tiles.end();) {
+		Entry &e = it->second;
+		bool gone = false;
+		const auto use = [&](TileBuffer &b) {
+			if (b.Vertices->released()) {
+				if (b.Vertices->Link)
+					m_driver->updateHardwareBuffer(b.Vertices); // (unchanged: only marks it used)
+				else
+					gone = true;
+			}
+			if (b.Indices->released()) {
+				if (b.Indices->Link)
+					m_driver->updateHardwareBuffer(b.Indices);
+				else
+					gone = true;
+			}
+		};
+		for (const auto &part : e.parts)
+			use(*part);
+		for (const auto &q : e.quarters)
+			for (const auto &part : q)
+				use(*part);
+		if (!gone) {
+			++it;
+			continue;
+		}
+		m_bytes -= e.bytes;
+		m_ram -= e.ram;
+		it = m_tiles.erase(it);
+		lost++;
+	}
+	// (the sky's bodies: one out of sight for long is let go of so, and read from the disk cache when seen again)
+	if (lost)
+		infostream << "far: " << m_owner << ": " << lost << " tiles unseen long enough for the driver to let them go, built again when wanted" << std::endl;
+	return lost > 0;
 }
 
 void Tiles::upload(TileBuffer &buffer) const
@@ -580,6 +730,7 @@ bool Tiles::evict()
 			break;
 		auto it = m_tiles.find(key);
 		m_bytes -= it->second.bytes;
+		m_ram -= it->second.ram;
 		m_tiles.erase(it);
 		gone++;
 	}

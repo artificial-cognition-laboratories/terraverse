@@ -58,7 +58,16 @@ void main(void)
 		discard;
 	vec3 up = normalize(varWorld - litCentre);
 	// the land's slope, steeper as RELIEF says; walls (and spheres) keep their own
-	vec3 n = normalize(varNormal);
+	// a far tile's vertices carry no normal (far/land/resident.h: packed, it reads
+	// zero): its faces are flat, so a face's own is across the position's slopes,
+	// turned to face out (away from the planet's centre)
+	vec3 n;
+	if (dot(varNormal, varNormal) > 1e-8) {
+		n = normalize(varNormal);
+	} else {
+		n = normalize(cross(dFdx(varWorld), dFdy(varWorld)));
+		n = dot(n, up) < 0.0 ? -n : n;
+	}
 	float facing = dot(n, up);
 	vec3 ground = facing > 0.5 ? normalize(up + (n - up * facing) * RELIEF) : up;
 	// a map's light, from the north-west and 45° up, so relief reads from straight above;
