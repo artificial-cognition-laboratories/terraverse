@@ -209,24 +209,24 @@ namespace {
 */
 
 MeshUpdateQueue::MeshUpdateQueue(Client *client):
-	m_client(client)
+	m_client(client),
+	// (the window's and the view's till the camera says: Client::meshDetail)
+	m_rings(detail::Sight::of(g_settings->getU16("screen_h"), g_settings->getFloat("fov") * core::DEGTORAD,
+			g_settings->getFloat("voxel_pixels")))
 {
 	assert(m_client);
 	m_cache_smooth_lighting = g_settings->getBool("smooth_lighting");
 	m_cache_enable_water_reflections = g_settings->getBool("enable_water_reflections");
 	m_cache_enable_waving_water = g_settings->getBool("enable_waving_water");
-	m_detail_near = g_settings->getFloat("ground_detail_near");
-	m_detail_far = g_settings->getFloat("ground_detail_far");
 }
 
-u8 MeshUpdateQueue::detailAt(v3s16 p) const
+float MeshUpdateQueue::distanceTo(v3s16 p) const
 {
 	// from the camera to the middle of the mesh's area, nodes
 	const MeshGrid grid = m_client->getMeshGrid();
 	const float side = MAP_BLOCKSIZE * grid.cell_size;
 	const v3f mid = intToFloat(grid.getMeshPos(p) * MAP_BLOCKSIZE, 1) + v3f(side / 2 - 0.5f);
-	const float d = mid.getDistanceFrom(v3f(m_cam_x, m_cam_y, m_cam_z)) - side / 2;
-	return d < m_detail_near ? 1 : d < m_detail_far ? 4 : 16;
+	return mid.getDistanceFrom(v3f(m_cam_x, m_cam_y, m_cam_z)) - side / 2;
 }
 
 MeshUpdateQueue::~MeshUpdateQueue()
@@ -503,7 +503,7 @@ void MeshUpdateQueue::fillDataFromMapBlocks(QueuedMeshUpdate *q)
 
 	data->m_generate_minimap = !!m_client->getMinimap();
 	data->m_smooth_lighting = m_cache_smooth_lighting;
-	data->m_detail = detailAt(q->p);
+	data->m_detail = m_rings.make(q->p, distanceTo(q->p));
 	data->m_enable_water_reflections = m_cache_enable_water_reflections;
 	data->m_enable_waving_water = m_cache_enable_waving_water;
 }

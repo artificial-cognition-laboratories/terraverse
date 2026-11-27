@@ -28,7 +28,10 @@ enum E_VERTEX_TYPE
 	EVT_TANGENTS,
 
 	//! Terraverse: a far tile's vertex, packed (video::S3DVertexPacked).
-	EVT_PACKED
+	EVT_PACKED,
+
+	//! Terraverse: a block's vertex, packed (video::S3DVertexNear).
+	EVT_NEAR
 };
 
 //! Array holding the built in vertex type names
@@ -37,6 +40,7 @@ const char *const sBuiltInVertexTypeNames[] = {
 		"2tcoords",
 		"tangents",
 		"packed",
+		"near",
 		0,
 	};
 
@@ -310,5 +314,20 @@ struct S3DVertexPacked
 	static E_VERTEX_TYPE getType() { return EVT_PACKED; }
 };
 static_assert(sizeof(S3DVertexPacked) == 24, "a packed vertex is 24 bytes");
+
+//! Terraverse: a block's vertex as it's kept on the card, 28 bytes to S3DVertex's 40:
+//! the shader reads the same values (a unit or zero normal, texture coordinates a half float holds)
+struct S3DVertexNear
+{
+	core::vector3df Pos;
+	u32 Normal;        // signed normalized 10-10-10 (GL_INT_2_10_10_10_REV), w unused
+	SColor Color;
+	u16 TCoords[2];    // IEEE half floats
+	u16 Aux;           // as S3DVertex's (an array texture's layer)
+	u16 Pad;
+
+	static E_VERTEX_TYPE getType() { return EVT_NEAR; }
+};
+static_assert(sizeof(S3DVertexNear) == 28, "a near vertex is 28 bytes");
 
 } // end namespace video

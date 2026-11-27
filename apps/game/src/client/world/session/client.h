@@ -30,6 +30,7 @@
 #include <unordered_set>
 #include <vector>
 #include "src/client/world/sim/water/liquids.h" // Terraverse: liquids::Stream
+#include "src/client/render/map/detail/remaking.h" // Terraverse: detail::Remaking
 
 #if !IS_CLIENT_BUILD
 #error Do not include in server builds
@@ -537,12 +538,9 @@ private:
 	// it as it arrives
 	std::unique_ptr<pile::Piles> m_piles;
 	void pressGround(float dtime);
-	// Terraverse (sprint 85): each block's mesh detail as made, and where
-	// the camera was when they were last weighed (moved a node: again)
-	std::unordered_map<v3s16, u8> m_detail;
-	v3s16 m_detail_camera{ S16_MIN, S16_MIN, S16_MIN };
-	void meshDetail(v3s16 camera);
-	std::vector<v3s16> m_detail_pending; // made again a few a frame, not all at once
+	// Terraverse (sprint 85): meshes made again as the camera crosses their rings
+	detail::Remaking m_remaking;
+	float m_voxel_pixels; // the smallest a voxel's drawn, px (voxel_pixels)
 	// Terraverse (sprint 85): nodes whose ground changed this frame (piles,
 	// the server's shapes): each block they reach is made again once
 	std::unordered_set<v3s16> m_ground_nodes;

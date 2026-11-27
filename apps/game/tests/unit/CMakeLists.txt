@@ -94,6 +94,7 @@ set(unittest_client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/test_body_rig.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_solar.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_content_mapblock.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_detail_rings.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_eventmanager.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_gameui.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_keycode.cpp

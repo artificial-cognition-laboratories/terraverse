@@ -237,6 +237,7 @@ private:
 	bool touch();
 	void repaint(); // tiles still in another tint's colours, within the budget
 	bool evict(); // whether it let any go
+	void report() const; // what it holds, to the debugger (trace::owned)
 	void choose(const Eye &eye); // the tiles to draw and to build, for the eye
 	void quarter(Entry &e, const std::array<aabb3f, 4> &boxes); // a merged tile's quarters, over its own vertices
 

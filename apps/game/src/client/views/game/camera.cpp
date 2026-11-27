@@ -7,8 +7,10 @@
 #include "src/client/world/session/client.h"
 #include "src/client/render/map/clientmap.h"     // MapDrawControl
 #include "library/world/planet/atlas.h" // Terraverse
+#include "src/client/render/map/detail/sight.h" // Terraverse
 #include "src/client/world/objects/localplayer.h"
 #include "src/shared/game/objects/player.h"
+#include <algorithm>
 #include <cmath>
 #include "src/client/render/renderingengine.h"
 #include "src/client/world/objects/content_cao.h"
@@ -88,6 +90,7 @@ void Camera::readSettings()
 	// 45 degrees is the lowest FOV that doesn't cause the server to treat this
 	// as a zoom FOV and load world beyond the set server limits.
 	m_cache_fov                 = g_settings->getFloat("fov", 45.0f, 160.0f);
+	m_voxel_pixels = g_settings->getFloat("voxel_pixels"); // Terraverse
 	m_arm_inertia               = g_settings->getBool("arm_inertia");
 	m_show_nametag_backgrounds  = g_settings->getBool("show_nametag_backgrounds");
 }
@@ -657,7 +660,10 @@ void Camera::updateViewingRange()
 
 	m_cameranode->setNearValue(0.1f * BS);
 
-	m_draw_control.wanted_range = std::fmin(adjustDist(viewing_range, getFovMax()), 6000);
+	// Terraverse: no further than whole blocks are still voxel_pixels across: past
+	// that the far view's tiles draw the land, coarser by the same rule (detail/sight.h)
+	const detail::Sight sight = detail::Sight::of(RenderingEngine::getWindowSize().Y, m_fov_y, m_voxel_pixels);
+	m_draw_control.wanted_range = std::min<f32>({ adjustDist(viewing_range, getFovMax()), sight.reach(0), 6000.f });
 	m_draw_control.wanted_range = m_client->getBody().nearRange(m_draw_control.wanted_range); // Terraverse: by the flight
 	f32 far_blocks = m_draw_control.range_all ? 10000 : std::fmax(2000, m_draw_control.wanted_range);
 	if (const planet::Atlas *atlas = m_client->getAtlas()) {

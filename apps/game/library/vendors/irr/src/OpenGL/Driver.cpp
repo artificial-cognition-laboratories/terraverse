@@ -111,6 +111,18 @@ static const VertexType vtPacked = {
 		},
 };
 
+// Terraverse: a block's (S3DVertexNear): the same values to the shader as S3DVertex
+static const VertexType vtNear = {
+		sizeof(S3DVertexNear),
+		{
+				{EVA_POSITION, 3, GL_FLOAT, VertexAttribute::Mode::Regular, offsetof(S3DVertexNear, Pos)},
+				{EVA_NORMAL, 4, OpenGLProcedures::INT_2_10_10_10_REV, VertexAttribute::Mode::Normalized, offsetof(S3DVertexNear, Normal)},
+				{EVA_COLOR, 4, GL_UNSIGNED_BYTE, VertexAttribute::Mode::Normalized, offsetof(S3DVertexNear, Color)},
+				{EVA_TCOORD0, 2, OpenGLProcedures::HALF_FLOAT, VertexAttribute::Mode::Regular, offsetof(S3DVertexNear, TCoords)},
+				{EVA_AUX, 1, GL_UNSIGNED_SHORT, VertexAttribute::Mode::Integer, offsetof(S3DVertexNear, Aux)},
+		},
+};
+
 static const VertexType &getVertexTypeDescription(E_VERTEX_TYPE type)
 {
 	switch (type) {
@@ -122,6 +134,8 @@ static const VertexType &getVertexTypeDescription(E_VERTEX_TYPE type)
 		return vtTangents;
 	case EVT_PACKED:
 		return vtPacked;
+	case EVT_NEAR:
+		return vtNear;
 	default:
 		IRR_CODE_UNREACHABLE();
 	}

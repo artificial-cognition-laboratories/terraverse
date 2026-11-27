@@ -343,6 +343,10 @@ static LightPair getFaceLight(MapNode n, MapNode n2, const NodeDefManager *ndef)
 	sixteenths is far fewer quads than in sixteenths, and looks the same
 	from there.
 */
+// A fine riser this many sixteenths high, or lower, is a gentle slope's: drawn with
+// the top's texture (drawGround's risers)
+static constexpr int GENTLE_RISE = 2;
+
 // Each g³ of sixteenths filled where at least half of it is.
 static shape::Shape coarsen(const shape::Shape &s, int g)
 {
@@ -2207,15 +2211,27 @@ void MapblockMeshGenerator::drawGround(const ground::Top &top)
 	};
 	const auto top_uv = [](const v3f &q) { return v2f(q.X / BS + 0.5f, 0.5f - q.Z / BS); };
 	// a riser facing `face`, between heights low..high, from (x0, z0) to (x1, z1)
+	// A riser stands for `detail` fine ones, one a fine column. A gentle slope's fine
+	// risers are a sixteenth or two: the top of the side's texture, a grass side's
+	// green, the ground's own top. So a riser whose fine ones are that low is drawn
+	// with the top's texture (lit as a side). Drawn as a thin strip of the side's
+	// texture stretched over it, the far-off mipmaps averaged the side's whole
+	// texture into it, its dirt and all: near, green, further off, brown. And coarser
+	// (its own height, the side's texture from its top), a gentle slope's coarse
+	// risers were the side's dirt where its detail changed. Steeper, a fine riser
+	// shows the side's soil, and so does it: the far view's rule too (far/land/mesh.cpp: topsoil).
+	const int detail = std::max<int>(data->m_detail, 1);
 	auto riser = [&](int face, int x0, int z0, int x1, int z1, int low, int high) {
 		const bool along_x = z0 == z1;
 		const float sense = (face == 3 || face == 4) ? -1.f : 1.f; // the cube's u runs this way
 		const float edge = (high / float(STEPS) - 0.5f) * BS;
-		quad(face, { at(x0, high, z0), at(x1, high, z1), at(x1, low, z1), at(x0, low, z0) },
+		const bool gentle = high - low <= GENTLE_RISE * detail;
+		voxelQuad(gentle ? tiles[0] : tiles[face], face,
+				{ at(x0, high, z0), at(x1, high, z1), at(x1, low, z1), at(x0, low, z0) },
 				[&](const v3f &q) {
 			const float u = (along_x ? q.X : q.Z) / BS * sense + 0.5f;
 			return v2f(u, (edge - q.Y) / BS);
-		});
+		}, flat);
 	};
 
 	// the tops: rectangles of one height, grown along x then z (sprint 85: a
@@ -2314,7 +2330,7 @@ std::array<std::array<int, shape::STEPS>, 4> MapblockMeshGenerator::wallBottoms(
 		const ground::Top &top, const bool (&open)[4]) const
 {
 	using ground::STEPS;
-	static constexpr u8 DETAILS[] = { 1, 4, 16 }; // MeshUpdateQueue::detailAt's
+	static constexpr u8 DETAILS[] = { 1, 2, 4, 8, 16 }; // detail::Rings's
 	const v3s16 p = blockpos_nodes + cur_node.p;
 	std::array<std::array<int, STEPS>, 4> out;
 	for (int s = 0; s < 4; s++) {
@@ -2677,8 +2693,9 @@ const char *MapblockMeshGenerator::drawtypeName(NodeDrawType t)
 */
 void MapblockMeshGenerator::drawSprigs()
 {
-	// near, whole; further, in quarter blocks; far off, none (the ground's colour is enough)
-	const s32 grain = data->m_detail <= 1 ? 16 : data->m_detail <= 4 ? 4 : 0;
+	// as finely as the ground: a plant's voxels the ground's (sixteenths near, eighths, …),
+	// and none where the ground's whole nodes (the ground's colour is enough)
+	const s32 grain = data->m_detail < 16 ? 16 / data->m_detail : 0;
 	if (data->m_sprigs.empty() || !grain)
 		return;
 	content_t look;

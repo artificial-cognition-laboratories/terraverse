@@ -245,6 +245,8 @@ public:
 
 	// The node at p's cut shape, if it's cut (nothing if not, or unloaded).
 	const shape::Shape *getShape(v3s16 p);
+	// Whether the node n at p hides what's behind it (occlusion culling): whole and opaque.
+	bool occludes(v3s16 p, MapNode n);
 	// Cuts the node at p to `s`: a whole shape is none. Not empty: that's
 	// the node removed (removeNodeAndUpdate). False if its block isn't here.
 	bool setShape(v3s16 p, const shape::Shape &s);

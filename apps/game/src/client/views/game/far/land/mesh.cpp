@@ -140,10 +140,20 @@ static int subtract(Span s, Span cover, Span out[2])
 	return n;
 }
 
-// faces are at block edges: a block at y fills y − ½ .. y + ½
+// A block at y fills y − ½ .. y + ½: water's, a trunk's and a canopy's faces are at its top
 static float top(s32 y)
 {
 	return (float)y + 0.5f;
+}
+
+// The ground's faces are at its block's middle: where the near world's smoothed ground
+// stands on average (its field runs through the block's corners, a slope's surface
+// half a block under its top blocks'). At the block's top the far land stood up to a
+// block over the near ground where the two met, a ledge along every crest past the
+// near world's edge.
+static float ground(s32 y)
+{
+	return (float)y;
 }
 
 // Full sunlight on the engine's light curve. (The curve is the client's:
@@ -165,6 +175,26 @@ static float lightAt(float y, s32 water)
 }
 
 } // namespace
+
+/*
+	A step's topsoil, as the near ground draws it (content_mapblock: drawGround's
+	risers): a step `rise` blocks high per block across stands for a sixteenth's
+	steps, each showing the top of its side's texture, that share of a block high.
+	A gentle slope's are the top of a grass side, its green; a steep one's go down
+	into its dirt. Drawn in the side's colour, every step of the far land's gentle
+	slopes was a brown stripe, where the near ground's were green.
+*/
+video::SColorf topsoil(const Palette &palette, MapNode top, Face face, float rise)
+{
+	// a sixteenth's step is rise / 16 blocks. To two sixteenths it's drawn with the
+	// top's texture near (content_mapblock: GENTLE_RISE), so here the top's colour;
+	// steeper, the side's texture from its top, all of the side's colour by half a
+	// block (eight in one: a cliff)
+	const float shown = std::clamp((rise / 16.f - 2.f / 16.f) / (0.5f - 2.f / 16.f), 0.f, 1.f);
+	const video::SColorf up = palette.face(top, UP), side = palette.face(top, face);
+	return video::SColorf(up.r + (side.r - up.r) * shown, up.g + (side.g - up.g) * shown,
+			up.b + (side.b - up.b) * shown, 1);
+}
 
 video::SColorf surface(const Cell &cell, const Palette &palette)
 {
@@ -251,7 +281,7 @@ Mesh mesh(const Tile &tile, const Palette &palette)
 					return (float)(n.space ? c.ground : n.ground);
 				};
 				const float gx = (height(1, 0) - height(-1, 0)) / (2.0f * cell), gz = (height(0, 1) - height(0, -1)) / (2.0f * cell);
-				topFace(x0, x1, z0, z1, top(c.ground), surface(c, palette), v3f(-gx, 1, -gz).normalize());
+				topFace(x0, x1, z0, z1, ground(c.ground), surface(c, palette), v3f(-gx, 1, -gz).normalize());
 			} else {
 				topFace(x0, x1, z0, z1, top(c.water), surface(c, palette), v3f());
 			}
@@ -261,7 +291,7 @@ Mesh mesh(const Tile &tile, const Palette &palette)
 				Cell n = tile.at(ni, nj);
 				// below this the wall is skirt, not land: the neighbour's own ground
 				// (toward a seam, all of it)
-				const float real = n.space ? std::numeric_limits<float>::infinity() : top(n.ground);
+				const float real = n.space ? std::numeric_limits<float>::infinity() : ground(n.ground);
 				const bool within = !n.space && ni >= 0 && ni < TILE && nj >= 0 && nj < TILE;
 				// at the tile's edge, a skirt: the next tile may be coarser or finer,
 				// its edge not meeting ours vertex for vertex; a wall hung below the
@@ -280,8 +310,8 @@ Mesh mesh(const Tile &tile, const Palette &palette)
 				// view's and the Planetarium's), and a sea floor's every step
 				// went to the GPU unseen (sprint 114)
 				if (n.ground < c.ground && !(within && n.water > n.ground && n.water >= c.ground)) {
-					float low = top(n.ground), high = top(c.ground);
-					float bands[3] = { top(c.top_end), top(c.filler_end), low };
+					float low = ground(n.ground), high = ground(c.ground);
+					float bands[3] = { ground(c.top_end), ground(c.filler_end), low };
 					MapNode nodes[3] = { c.top, c.filler, c.rock };
 					float upper = high;
 					// a step under water is lit as deep as it is: the neighbour's
@@ -294,7 +324,9 @@ Mesh mesh(const Tile &tile, const Palette &palette)
 						for (int part = 0; part < 2; part++) {
 							const float y0 = part ? lower : cut, y1 = part ? cut : upper;
 							b.skirt = part == 1;
-							b.side(x0, x1, z0, z1, y0, y1, face, palette.face(nodes[band], face),
+							b.side(x0, x1, z0, z1, y0, y1, face,
+									band == 0 ? topsoil(palette, nodes[0], face, (float)(c.ground - n.ground) / cell)
+											: palette.face(nodes[band], face),
 									under ? lightAt(y0, n.water) : 1.0f, under ? lightAt(y1, n.water) : 1.0f);
 						}
 						b.skirt = false;
@@ -303,8 +335,9 @@ Mesh mesh(const Tile &tile, const Palette &palette)
 				}
 				// a liquid's edge, where the land beyond is lower than its surface
 				if (wet) {
-					float beyond = top(std::max(n.ground, n.water));
-					b.side(x0, x1, z0, z1, std::max(beyond, top(c.ground)), top(c.water), face,
+					// (a dry neighbour's water is its ground: its face is the ground's, half a block under)
+					float beyond = n.water > n.ground ? std::max(ground(n.ground), top(n.water)) : ground(n.ground);
+					b.side(x0, x1, z0, z1, std::max(beyond, ground(c.ground)), top(c.water), face,
 							palette.face(c.liquid, face));
 				}
 			}
@@ -313,7 +346,9 @@ Mesh mesh(const Tile &tile, const Palette &palette)
 			for (const Run *run : { &c.trunk, &c.canopy }) {
 				if (run->empty())
 					continue;
-				Span s{ (float)run->low - 0.5f, top(run->high) };
+				// a trunk standing on the ground goes down to its face (half a block under its block)
+				const float low = run->low == c.ground + 1 ? ground(c.ground) : (float)run->low - 0.5f;
+				Span s{ low, top(run->high) };
 				b.flat(x0, x1, z0, z1, s.high, UP, palette.face(run->node, UP));
 				if (run->low > c.ground + 1)
 					b.flat(x0, x1, z0, z1, s.low, DOWN, palette.face(run->node, DOWN));
@@ -321,7 +356,7 @@ Mesh mesh(const Tile &tile, const Palette &palette)
 					const Cell &n = tile.at(i + DI[k], j + DJ[k]);
 					Span pieces[4] = { s };
 					int count = 1;
-					Span covers[3] = { { -1e9f, top(n.ground) },
+					Span covers[3] = { { -1e9f, ground(n.ground) },
 						{ (float)n.trunk.low - 0.5f, n.trunk.empty() ? -1e9f : top(n.trunk.high) },
 						{ (float)n.canopy.low - 0.5f, n.canopy.empty() ? -1e9f : top(n.canopy.high) } };
 					for (const Span &cover : covers) {

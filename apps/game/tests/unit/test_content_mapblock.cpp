@@ -406,7 +406,7 @@ void TestMapblockMeshGenerator::testSmoothedGroundHasNoHoles()
 
 /*
 	Terraverse: two blocks side by side, one meshed fine and the next coarse
-	(MeshUpdateQueue::detailAt's ring between them). Looked at across the
+	(detail::Rings's ring between them). Looked at across the
 	seam from the coarse side, just over its ground, a ray meets the fine
 	side's wall there, never passes under it: its wall stopped at a sloped
 	line (Top::beside) above the coarse neighbour's flat top, an open
@@ -424,8 +424,10 @@ void TestMapblockMeshGenerator::testNoHolesWhereDetailChanges()
 		for (int z = -M; z < N + M; z++)
 			tops[{ x, z }] = 8 + int(std::floor(2 * noise2d_value(x / 3.f, z / 3.f, 7) + noise2d(x, z, 11)));
 
-	// fine against each coarser detail (MeshUpdateQueue::detailAt's: 1, 4, 16)
-	for (u8 coarse : { 4, 16 }) {
+	// each detail against the next coarser (detail::Rings's ladder: 1, 2, 4, 8, 16), and
+	// the finest against the coarsest two (a ring narrower than a mesh skips a rung)
+	const std::pair<u8, u8> pairs[] = { { 1, 2 }, { 2, 4 }, { 4, 8 }, { 8, 16 }, { 1, 4 }, { 1, 16 } };
+	for (auto [fine, coarse] : pairs) {
 		std::vector<std::array<v3f, 3>> triangles;
 		// the block at x = 16·bx, meshed at `detail`
 		const auto mesh = [&](s16 bx, u8 detail) {
@@ -475,7 +477,7 @@ void TestMapblockMeshGenerator::testNoHolesWhereDetailChanges()
 		};
 
 		triangles.clear();
-		mesh(0, 1);
+		mesh(0, fine);
 		mesh(1, coarse);
 		const float seam = N - 0.5f; // between node 15 (fine) and 16 (coarse)
 		int looked = 0;
@@ -488,8 +490,8 @@ void TestMapblockMeshGenerator::testNoHolesWhereDetailChanges()
 			// across the seam, over the coarse ground and under the fine
 			for (float y = low->Y + 0.01f; y < high->Y - 0.01f; y += 0.02f) {
 				const auto p = hit(v3f(seam + 0.4f, y, z), v3f(-1, 0, 0));
-				UTEST(p && p->X > seam - 1e-3f, "at z %.2f, %.2f up, a ray passes under the fine side's wall to x %.2f",
-						z, y, p ? p->X : -1.f);
+				UTEST(p && p->X > seam - 1e-3f, "%d against %d: at z %.2f, %.2f up, a ray passes under the fine side's wall to x %.2f",
+						fine, coarse, z, y, p ? p->X : -1.f);
 				looked++;
 			}
 		}

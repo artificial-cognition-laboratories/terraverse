@@ -45,6 +45,7 @@ set(client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/world/session/clientenvironment.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/app/shell/launch/clientlauncher.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/map/clientmap.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/map/near_meshes.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/app/mods/clientmedia.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/objects/clientobject.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/sky/clouds.cpp
@@ -92,8 +93,11 @@ set(client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/flat.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/world/sim/water/faces.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/map/mesh/mapblock_mesh.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/map/mesh/near_buffer.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/mesh/mesh.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/map/mesh_generator_thread.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/map/detail/rings.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/render/map/detail/remaking.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/minimap/minimap.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/render/map/mesh/node_visuals.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/views/game/sky/particles.cpp

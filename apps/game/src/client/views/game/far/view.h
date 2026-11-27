@@ -84,13 +84,12 @@ private:
 
 	// settings
 	bool m_enabled = true;
-	float m_split = 2; // a tile splits while nearer than this many of its spans past the cut
+	float m_pixels = 4; // voxel_pixels: a tile splits while its cells are narrower than this on screen (detail/sight.h)
 	bool m_debug_levels = false; // far_view_debug_levels: each tile tinted by its level
 	bool m_debug_mask = false;   // far_view_debug_mask: the mask's drops shown, not made
 	float m_max = 0; // past the eye's own horizon, it draws no farther than this
 
 	float m_cut = 0;      // blocks
-	float m_detail_cut = 0; // the cut tiles' detail goes by: the viewing range, steady
 	float m_open = 0;     // blocks: the nearest column the near world doesn't draw
 	float m_reach = 0;    // scene units
 	float m_range = 0;    // blocks from the eye: what's farther isn't drawn

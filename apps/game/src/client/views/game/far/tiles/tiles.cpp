@@ -115,6 +115,11 @@ void Tiles::update(const Eye &eye)
 		repaint();
 	}
 	m_stats.now(m_tiles.size(), m_bytes, m_pending, m_draw.size(), m_holes, m_unready);
+	report();
+}
+
+void Tiles::report() const
+{
 	trace::owned(m_owner, m_ram, m_tiles.size());
 	trace::owned(m_owner + " on the card", m_bytes - m_ram, m_tiles.size(), trace::Where::Gpu);
 }
@@ -562,6 +567,9 @@ void Tiles::trim()
 	m_stats.evicted(gone);
 	if (gone)
 		m_rechoose = true; // a stand-in drawn may be gone: chosen again before it's drawn
+	// (a view put away isn't updated again till it's wanted: what it holds now, said now)
+	report();
+	infostream << "far: " << m_owner << " trimmed: " << gone << " tiles let go of, " << m_tiles.size() << " kept" << std::endl;
 }
 
 void Tiles::repaint()

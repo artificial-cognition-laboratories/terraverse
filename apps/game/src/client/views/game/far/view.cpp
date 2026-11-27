@@ -11,6 +11,8 @@
 #include "src/client/views/game/far/tiles/tiles.h"
 #include "src/client/views/game/sky/atlas_view.h"
 #include "src/client/views/game/camera.h"
+#include "src/client/render/map/detail/sight.h"
+#include "src/client/render/renderingengine.h"
 #include "src/client/render/map/clientmap.h"
 #include "src/client/render/shaders/shader.h"
 #include "src/client/render/textures/texturesource.h"
@@ -31,9 +33,6 @@
 
 namespace far {
 
-// A tile splits while it's nearer than this many of its own spans past the
-// near world's edge, by the Horizon detail setting (1..4).
-static const float SPLIT[4] = { 1.0f, 1.5f, 2.0f, 3.0f };
 // The air's depth, in its scale heights: above it the haze has given way
 // to the planet seen from above.
 static constexpr double AIR_DEPTH = 8;
@@ -105,7 +104,7 @@ static void settingChanged(const std::string &, void *data)
 	static_cast<View *>(data)->readSettings();
 }
 
-static const char *const SETTINGS[] = { "far_view", "far_view_detail", "far_view_max", "far_view_debug_levels", "far_view_debug_mask" };
+static const char *const SETTINGS[] = { "far_view", "voxel_pixels", "far_view_max", "far_view_debug_levels", "far_view_debug_mask" };
 
 // How far from the eye (blocks) the nearest part of a map block column is
 // that the near world doesn't draw, up to `most`: none of the far land is
@@ -208,8 +207,7 @@ View::~View()
 void View::readSettings()
 {
 	m_enabled = g_settings->getBool("far_view");
-	int detail = std::clamp((int)std::lround(g_settings->getFloat("far_view_detail")), 1, 4);
-	m_split = SPLIT[detail - 1];
+	m_pixels = g_settings->getFloat("voxel_pixels");
 	m_max = g_settings->getFloat("far_view_max");
 	m_debug_levels = g_settings->getBool("far_view_debug_levels");
 	m_debug_mask = g_settings->getBool("far_view_debug_mask");
@@ -254,12 +252,18 @@ void View::update(const Camera &camera, ClientMap &map, float near_range, bool r
 	m_map = &map; // the mask's made from it as it's drawn (render)
 
 	// a block is a metre: the height counts toward a tile's distance as is
-	// The detail goes by the player's viewing range, never the near world's
-	// range this frame: that jumps as a flight changes tier (Body::nearRange),
-	// and tiles chosen by it flipped between whole and split, a coarse one
-	// standing over the land and gone again (held a few seconds, in bursts).
-	m_detail_cut = std::max(m_cut, (float)g_settings->getS16("viewing_range"));
-	const Eye at{ { o.x / centre * sea, o.y / centre * sea, o.z / centre * sea }, m_altitude, m_detail_cut, range, m_split, true };
+	// A tile splits while its cells are narrower than voxel_pixels would have them:
+	// the near meshes' rule (detail/sight.h), so its level 0 (cells of a block) goes
+	// on from where the near world's whole blocks end, and each level out doubles.
+	// By the distance alone, never past the near world's edge: that jumped as a
+	// flight changed tier (Body::nearRange), and tiles chosen by it flipped between
+	// whole and split, a coarse one standing over the land and gone again.
+	const detail::Sight sight = detail::Sight::of(RenderingEngine::getWindowSize().Y, camera.getFovY(), m_pixels);
+	// A tile of level k (cells 2^k blocks, TILE of them across) splits while nearer than
+	// sight.reach(k - 1): there the near rule has finer voxels than its cells. So it's
+	// drawn from reach(k - 1) to reach(k), as the near meshes draw 2^k there.
+	const float split = sight.reach(-1) / (float)TILE;
+	const Eye at{ { o.x / centre * sea, o.y / centre * sea, o.z / centre * sea }, m_altitude, 0, range, split, true };
 	Eye moving = at;
 	if (const float pace = velocity.getLength(); pace > 1)
 		for (int i = 0; i < 3; i++) {
@@ -330,7 +334,7 @@ void View::render()
 
 	// The near world's columns aren't drawn (far/mask.h): it draws them after,
 	// and the far land shows wherever it doesn't, a column at a time.
-	m_state->layer = m_water_level + 0.99f;
+	m_state->layer = m_water_level + 1.49f; // (+½: the land's faces are at its blocks' middles, land/mesh.cpp)
 	const video::ITexture *bound = nullptr;
 	bool set = false;
 	const auto masked = [&](const TileKey &key) {

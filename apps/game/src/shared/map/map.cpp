@@ -935,6 +935,32 @@ bool Map::determineAdditionalOcclusionCheck(const v3s16 pos_camera,
 	return false;
 }
 
+/*
+	Terraverse: whether the node n at p hides what's behind it: a whole node that
+	doesn't let light through. Not one only partly there: a cut node, or loose
+	ground at the surface (nothing light-blocking over it), which smoothing may
+	lower into its cell. Luanti's nodes were whole: counted as walls, they hid the
+	blocks seen through their open part, and the far view, leaving those blocks to
+	the near world, drew nothing there either. (Loose ground under the surface is
+	whole; a surface block the field leaves whole is counted open: a little more
+	drawn, never a hole.)
+*/
+bool Map::occludes(v3s16 p, MapNode n)
+{
+	if (m_nodedef->getLightingFlags(n).light_propagates)
+		return false;
+	const ContentFeatures &f = m_nodedef->get(n);
+	if (getShape(p))
+		return false;
+	if (f.loose) {
+		bool loaded;
+		const MapNode above = getNode(p + v3s16(0, 1, 0), &loaded);
+		if (!loaded || m_nodedef->getLightingFlags(above).light_propagates)
+			return false;
+	}
+	return true;
+}
+
 bool Map::isOccluded(const v3s16 pos_camera, const v3s16 pos_target,
 	float end_offset, u32 needed_count, bool dense)
 {
@@ -978,7 +1004,7 @@ bool Map::isOccluded(const v3s16 pos_camera, const v3s16 pos_target,
 
 		// treat unloaded blocks as transparent
 		// Cannot see through light-blocking nodes --> occluded
-		if (is_valid_position && !m_nodedef->getLightingFlags(node).light_propagates) {
+		if (is_valid_position && occludes(floatToInt(pos_node_f, BS), node)) {
 			if (++count >= needed_count)
 				return true;
 		}
@@ -997,7 +1023,7 @@ bool Map::isOccluded(const v3s16 pos_camera, const v3s16 pos_target,
 
 			// treat unloaded blocks as opaque
 			// Cannot see through non-existent blocks or light-blocking nodes --> occluded
-			if (!is_valid_position || !m_nodedef->getLightingFlags(node).light_propagates) {
+			if (!is_valid_position || occludes(floatToInt(pos_node_f, BS), node)) {
 				// Note: ignoring needed_count should be fine here since the preliminary search is already done
 				return true;
 			}

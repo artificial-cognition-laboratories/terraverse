@@ -162,6 +162,7 @@ Client::Client(
 
 	m_cache_save_interval = g_settings->getU16("server_map_save_interval");
 	m_mesh_grid = { g_settings->getU16("client_mesh_chunk") };
+	m_voxel_pixels = g_settings->getFloat("voxel_pixels");
 
 }
 
@@ -181,43 +182,6 @@ void Client::Stop()
 bool Client::isShutdown()
 {
 	return m_shutdown || !m_mesh_update_manager->isRunning();
-}
-
-void Client::meshDetail(v3s16 camera)
-{
-	ClientMap &map = m_env.getClientMap();
-	if (camera != m_detail_camera) {
-		m_detail_camera = camera;
-		m_mesh_update_manager->setCamera(camera);
-		// the meshes whose ring it crossed
-		m_detail_pending.clear();
-		for (auto it = m_detail.begin(); it != m_detail.end();) {
-			if (!map.getBlockNoCreateNoEx(it->first)) {
-				it = m_detail.erase(it);
-				continue;
-			}
-			if (m_mesh_update_manager->detailAt(it->first) != it->second)
-				m_detail_pending.push_back(it->first);
-			++it;
-		}
-		// nearest last: taken from the back first
-		const v3s16 at = getNodeBlockPos(camera);
-		std::sort(m_detail_pending.begin(), m_detail_pending.end(), [&](v3s16 a, v3s16 b) {
-			return (a - at).getLengthSQ() > (b - at).getLengthSQ();
-		});
-	}
-	// made again (not urgent, alone: their neighbours' detail is their own),
-	// a few a frame: a ring crossed all at once was a burst of meshes to swap in
-	constexpr int EACH_FRAME = 6;
-	for (int n = 0; n < EACH_FRAME && !m_detail_pending.empty(); n++) {
-		const v3s16 p = m_detail_pending.back();
-		m_detail_pending.pop_back();
-		auto it = m_detail.find(p);
-		if (it == m_detail.end() || !map.getBlockNoCreateNoEx(p))
-			continue;
-		it->second = m_mesh_update_manager->detailAt(p); // asked: not again till it changes again
-		m_mesh_update_manager->updateBlock(&map, p, false, false);
-	}
 }
 
 void Client::flushGround()
@@ -384,7 +348,9 @@ void Client::step(float dtime)
 	// Terraverse: ground drawn coarser further off (sprint 85)
 	if (m_camera) {
 		TF_ZONE("Client: mesh detail");
-		meshDetail(floatToInt(m_camera->getPosition(), BS));
+		m_remaking.follow(floatToInt(m_camera->getPosition(), BS),
+				detail::Sight::of(RenderingEngine::getWindowSize().Y, m_camera->getFovY(), m_voxel_pixels),
+				*m_mesh_update_manager, m_env.getClientMap());
 	}
 	{
 		TF_ZONE("Client: flush ground");
@@ -618,7 +584,7 @@ void Client::step(float dtime)
 				block->solid_sides = r.solid_sides;
 				map.meshesChanged(); // Terraverse: the draw list (and the far view's edge) follow
 
-				m_detail[r.p] = r.detail; // Terraverse: made again when the camera's moved across its ring
+				m_remaking.made(r.p, r.detail); // Terraverse: made again when the camera's moved across its ring
 				if (r.mesh) {
 					minimap_mapblocks = r.mesh->moveMinimapMapblocks();
 					if (minimap_mapblocks.empty())

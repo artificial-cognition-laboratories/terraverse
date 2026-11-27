@@ -45,13 +45,24 @@ int64_t floorDiv(int64_t a, int64_t b)
 	return a / b - (a % b != 0 && (a < 0) != (b < 0));
 }
 
-// A column's blocks as a texel's bits (far/mask.h).
+// A column's blocks as a texel's bits (far/mask.h), and all above its highest: the
+// air over the near world's ground is the near world's too. The server mostly sends
+// no block that's all air, so the air over a hill wasn't the near world's, and the
+// far land's cell there, at the column's whole height over the near world's smoothed
+// ground, stood up through it: a sheet along every crest against the sky. (A column
+// whose ground's block isn't drawn yet, under one that is, shows the sky there a
+// moment, not the far land.)
 video::SColor bitsOf(const std::vector<s16> &ys, s16 base)
 {
 	uint32_t bits = 0;
-	for (s16 y : ys)
+	s16 highest = std::numeric_limits<s16>::min();
+	for (s16 y : ys) {
 		if (y >= base && y < base + BITS)
 			bits |= 1u << (y - base);
+		highest = std::max(highest, y);
+	}
+	for (s32 y = std::max<s32>(highest + 1, base); y < base + BITS; y++)
+		bits |= 1u << (y - base);
 	return video::SColor(bits >> 24 & 0xff, bits & 0xff, bits >> 8 & 0xff, bits >> 16 & 0xff);
 }
 

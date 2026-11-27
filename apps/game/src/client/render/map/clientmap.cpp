@@ -194,6 +194,7 @@ ClientMap::ClientMap(
 	m_client(client),
 	m_rendering_engine(rendering_engine),
 	m_control(control),
+	m_near(NearMeshes::Opts{ /* client */ *client }),
 	m_drawlist(MapBlockComparer(v3s16(0,0,0)))
 {
 
@@ -1178,6 +1179,8 @@ void ClientMap::renderMap(video::IVideoDriver* driver, s32 pass)
 	*/
 	if (is_transparent_pass)
 		updateTransparentMeshBuffers();
+	else
+		m_near.keep(m_sectors, driver); // Terraverse
 
 	/*
 		Collect everything we need to draw

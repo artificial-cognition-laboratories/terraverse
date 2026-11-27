@@ -8,6 +8,7 @@
 #include "irr_ptr.h"
 #include "IMesh.h"
 #include "CMeshBuffer.h"
+#include "src/client/render/map/mesh/near_buffer.h"
 
 #include "src/shared/util/math/numeric.h"
 #include "src/client/render/textures/tile.h"
@@ -66,7 +67,7 @@ struct MeshMakeData
 	std::vector<std::pair<v3s16, sprig::Sprig>> m_sprigs;
 	float m_ao_gamma_inv = 0.0f;
 	// Terraverse (sprint 85): how coarsely cut and smoothed ground is drawn
-	// far off: sixteenths a drawn step (1 near, 4 quarters, 16 whole nodes)
+	// far off: sixteenths a drawn step (1 near, 2, 4, 8, 16 whole nodes: detail::Rings)
 	u8 m_detail = 1;
 	bool m_generate_minimap = false;
 	bool m_smooth_lighting = false;
@@ -255,7 +256,22 @@ public:
 	// Terraverse: to the GPU now, rather than when first drawn: a mesh taken
 	// out of sight went up later with everything else turned to (a forest
 	// behind you, all at once)
-	void upload(video::IVideoDriver *driver) const;
+	// Its opaque buffers' copies in RAM let go of then (NearBuffer), unless
+	// the map merges them each frame (off a planet, the small ones).
+	void upload(video::IVideoDriver *driver);
+
+	// What it holds (NearMeshes reports them).
+	struct Held
+	{
+		size_t ram = 0;         // opaque, in RAM still (small ones the map merges, or the driver draws from RAM)
+		size_t card = 0;        // opaque, on the card alone
+		size_t unpacked = 0;    // of those, kept as built (S3DVertex: NearBuffer)
+		size_t transparent = 0; // kept in RAM: re-sorted as the camera moves
+	};
+	Held held() const;
+	// Its buffers on the card alone marked used, so the driver never lets one
+	// go unused: false if it did anyway (drawn, it would upload nothing: made again).
+	bool touch(video::IVideoDriver *driver) const;
 
 	bool isEmpty() const
 	{
@@ -346,6 +362,10 @@ private:
 	// Animation info: texture animation
 	// Maps mesh and mesh buffer indices to TileSpecs
 	std::map<MeshIndex, AnimationInfo> m_animation_info;
+
+	// Terraverse: its opaque buffers (owned by m_mesh), and below how many vertices one's kept in RAM
+	std::vector<NearBuffer *> m_opaque;
+	u32 m_keep_below = 0;
 
 	// list of all semitransparent triangles in the mapblock
 	std::vector<MeshTriangle> m_transparent_triangles;

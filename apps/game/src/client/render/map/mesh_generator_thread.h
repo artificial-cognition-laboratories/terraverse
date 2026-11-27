@@ -18,6 +18,7 @@
 #include "src/shared/util/data/thread.h"
 #include <vector>
 #include <memory>
+#include "src/client/render/map/detail/rings.h"
 #include <condition_variable>
 #include <deque>
 #include <thread>
@@ -182,14 +183,19 @@ private:
 	bool m_cache_enable_water_reflections;
 	bool m_cache_enable_waving_water;
 	// Terraverse (sprint 85): where the camera is (nodes), for each mesh's
-	// detail, and the rings it changes at (ground_detail_near / _far)
+	// detail, and the rings it changes at (detail/sight.h's rule)
 	std::atomic<s16> m_cam_x{ 0 }, m_cam_y{ 0 }, m_cam_z{ 0 };
-	float m_detail_near, m_detail_far;
+	detail::Rings m_rings;
 public:
 	void setCamera(v3s16 node) { m_cam_x = node.X; m_cam_y = node.Y; m_cam_z = node.Z; }
-	// The detail a mesh at block p is made at now (MeshMakeData::m_detail)
-	u8 detailAt(v3s16 p) const;
+	void see(detail::Sight sight) { m_rings.see(sight); }
+	// The detail a mesh at block p would be made at now (MeshMakeData::m_detail)
+	u8 detailAt(v3s16 p) const { return m_rings.wanted(p, distanceTo(p)); }
+	// Mesh p is gone: the detail it was made at is let go of.
+	void forgetDetail(v3s16 p) { m_rings.forget(p); }
 private:
+	// From the camera to the nearest of mesh p's area, nodes.
+	float distanceTo(v3s16 p) const;
 
 	void fillDataFromMapBlocks(QueuedMeshUpdate *q);
 	void noteReads(const QueuedMeshUpdate &q);
@@ -268,7 +274,10 @@ public:
 	// Terraverse (sprint 85): where the camera is, and the detail a block's
 	// mesh is made at from there
 	void setCamera(v3s16 node) { m_queue_in.setCamera(node); }
+	// How fine things are drawn from it (detail/sight.h)
+	void see(detail::Sight sight) { m_queue_in.see(sight); }
 	u8 detailAt(v3s16 p) const { return m_queue_in.detailAt(p); }
+	void forgetDetail(v3s16 p) { m_queue_in.forgetDetail(p); }
 
 	void start();
 	void stop();

@@ -12,7 +12,6 @@ export type Category = { id: string; title: string; pages: Page[] }
 
 const pct = (v: number) => `${Math.round(v * 100)}%`
 const blocks = (v: number) => `${v.toLocaleString()} blocks`
-const detail = (v: number) => ["Low", "Medium", "High", "Ultra"][Math.round(v) - 1] ?? String(v)
 const corner = (v: number) => ["Top left", "Top right", "Bottom left", "Bottom right"][Math.round(v)] ?? String(v)
 const yes = (key: string, note?: string): Requirement => ({ key, value: true, note })
 const pick = (...items: [string, string][]) => items.map(([value, label]) => ({ value, label }))
@@ -52,13 +51,11 @@ export const CATEGORIES: Category[] = [
   { id: "distance", title: "View distance", group: "World", note: "How far the world is drawn, and the detail of the land beyond loaded blocks.", options: [
     { key: "viewing_range", label: "Render distance", note: "Blocks rendered at full detail around you.", kind: "slider", min: 20, max: 1000, step: 10, format: blocks },
     { key: "far_view", label: "Distant terrain", note: "Draw land beyond loaded blocks.", kind: "toggle", terms: "horizon far lod" },
-    { key: "far_view_detail", label: "Distant terrain detail", note: "How soon distant tiles split into finer ones.", kind: "slider", min: 1, max: 4, step: 1, format: detail, terms: "lod horizon", requires: yes("far_view") },
     { key: "far_view_max", label: "Furthest view", note: "How far peaks show past the horizon.", kind: "slider", min: 2000, max: 64000, step: 1000, format: blocks, requires: yes("far_view") },
     { key: "far_view_debug_levels", label: "Show distant tile levels", note: "Debug: tint each distant tile by its detail level; stand-ins darker.", kind: "toggle", terms: "lod debug", requires: yes("far_view") },
   ] },
-  { id: "terrain", title: "Terrain detail", group: "World", note: "How far cut and smoothed ground keeps its fine shape before it's drawn coarser.", options: [
-    { key: "ground_detail_near", label: "Sixteenth detail", note: "Ground is drawn in sixteenths of a block within this distance.", kind: "slider", min: 0, max: 64, step: 4, format: blocks, terms: "lod", applies: "rejoin" },
-    { key: "ground_detail_far", label: "Quarter detail", note: "Then in quarters out to this distance, and whole blocks past it.", kind: "slider", min: 0, max: 128, step: 4, format: blocks, terms: "lod", applies: "rejoin" },
+  { id: "terrain", title: "Terrain detail", group: "World", note: "How finely the world is drawn: finer near you, coarser further off, in steps that each double.", options: [
+    { key: "voxel_pixels", label: "Smallest voxel", note: "The fewest pixels a voxel is drawn across, near and far. Smaller is finer further out, and more work.", kind: "slider", min: 2, max: 16, step: 1, format: v => `${v} px`, terms: "lod ground detail", applies: "rejoin" },
   ] },
   { id: "water", title: "Water", group: "World", note: "Water near you is simulated in columns, so it sloshes and carries wakes. Further out it's drawn flat.", options: [
     { key: "water_fine", label: "Simulated water", note: "Off draws all water flat, which is cheapest.", kind: "toggle", terms: "fine waves lod", applies: "rejoin" },
@@ -168,8 +165,8 @@ export const CATEGORIES: Category[] = [
 ]
 
 export const GRAPHICS_PRESETS = [
-  { id: "performance", label: "Performance", note: "Short view, flat water, minimal effects.", values: { viewing_range: 100, far_view: false, far_view_detail: 1, far_view_max: 2000, water_fine: false, water_fine_reach: 4, ground_detail_near: 4, ground_detail_far: 12, enable_dynamic_shadows: false, enable_bloom: false, enable_fog: true, smooth_lighting: false, mip_map: false, anisotropic_filter: false, antialiasing: "none", fxaa: false, leaves_style: "opaque", enable_waving_leaves: false, enable_waving_plants: false } },
-  { id: "balanced", label: "Balanced", note: "Clear distance, modest detail.", values: { viewing_range: 200, far_view: true, far_view_detail: 2, far_view_max: 16000, water_fine: true, water_fine_reach: 10, ground_detail_near: 12, ground_detail_far: 32, enable_dynamic_shadows: false, enable_bloom: false, enable_fog: true, smooth_lighting: true, mip_map: true, anisotropic_filter: true, antialiasing: "none", fxaa: true, leaves_style: "simple", enable_waving_leaves: false, enable_waving_plants: false } },
-  { id: "high", label: "High", note: "Long views and full lighting.", values: { viewing_range: 350, far_view: true, far_view_detail: 3, far_view_max: 32000, water_fine: true, water_fine_reach: 16, ground_detail_near: 16, ground_detail_far: 48, enable_dynamic_shadows: true, enable_bloom: true, enable_fog: true, smooth_lighting: true, mip_map: true, anisotropic_filter: true, antialiasing: "fsaa", fsaa: "2", fxaa: true, leaves_style: "fancy", enable_waving_leaves: true, enable_waving_plants: true } },
-  { id: "ultra", label: "Ultra", note: "Maximum horizon and detail.", values: { viewing_range: 600, far_view: true, far_view_detail: 4, far_view_max: 64000, water_fine: true, water_fine_reach: 24, ground_detail_near: 24, ground_detail_far: 64, enable_dynamic_shadows: true, enable_bloom: true, enable_fog: true, smooth_lighting: true, mip_map: true, anisotropic_filter: true, antialiasing: "fsaa", fsaa: "4", fxaa: true, leaves_style: "fancy", enable_waving_leaves: true, enable_waving_plants: true } },
+  { id: "performance", label: "Performance", note: "Short view, flat water, minimal effects.", values: { viewing_range: 100, far_view: false, far_view_max: 2000, water_fine: false, water_fine_reach: 4, voxel_pixels: 8, enable_dynamic_shadows: false, enable_bloom: false, enable_fog: true, smooth_lighting: false, mip_map: false, anisotropic_filter: false, antialiasing: "none", fxaa: false, leaves_style: "opaque", enable_waving_leaves: false, enable_waving_plants: false } },
+  { id: "balanced", label: "Balanced", note: "Clear distance, modest detail.", values: { viewing_range: 200, far_view: true, far_view_max: 16000, water_fine: true, water_fine_reach: 10, voxel_pixels: 6, enable_dynamic_shadows: false, enable_bloom: false, enable_fog: true, smooth_lighting: true, mip_map: true, anisotropic_filter: true, antialiasing: "none", fxaa: true, leaves_style: "simple", enable_waving_leaves: false, enable_waving_plants: false } },
+  { id: "high", label: "High", note: "Long views and full lighting.", values: { viewing_range: 350, far_view: true, far_view_max: 32000, water_fine: true, water_fine_reach: 16, voxel_pixels: 4, enable_dynamic_shadows: true, enable_bloom: true, enable_fog: true, smooth_lighting: true, mip_map: true, anisotropic_filter: true, antialiasing: "fsaa", fsaa: "2", fxaa: true, leaves_style: "fancy", enable_waving_leaves: true, enable_waving_plants: true } },
+  { id: "ultra", label: "Ultra", note: "Maximum horizon and detail.", values: { viewing_range: 600, far_view: true, far_view_max: 64000, water_fine: true, water_fine_reach: 24, voxel_pixels: 3, enable_dynamic_shadows: true, enable_bloom: true, enable_fog: true, smooth_lighting: true, mip_map: true, anisotropic_filter: true, antialiasing: "fsaa", fsaa: "4", fxaa: true, leaves_style: "fancy", enable_waving_leaves: true, enable_waving_plants: true } },
 ] as const

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
+#include "src/shared/platform/settings/settings.h"
 #include "src/client/render/map/mesh/mapblock_mesh.h"
 #include "library/world/planet/atlas.h" // Terraverse
 #include "src/shared/base/exceptions.h"
@@ -496,6 +497,8 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 		// Generate everything
 		MapblockMeshGenerator(data, &collector).generate();
 	}
+	// Terraverse: off a planet the map merges small buffers each frame, from RAM (clientmap.cpp)
+	m_keep_below = data->m_atlas ? 0 : g_settings->getU32("mesh_buffer_min_vertices");
 	if (data->m_atlas) { // Terraverse: on the planet, round the block's middle
 		bendOntoAtlas(collector, *data->m_atlas, data->m_blockpos);
 		m_bounding_sphere_center = v3f(0);
@@ -548,9 +551,24 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 			}
 
 			// Add to buffer
+			if (!p.layer.isTransparent()) {
+				// Terraverse: our own, to let go of in RAM once it's on the card (upload)
+				// (a waving material reads its normal's length, and moves its vertices: kept as built)
+				const bool waves = p.layer.material_type == TILE_MATERIAL_WAVING_LEAVES ||
+						p.layer.material_type == TILE_MATERIAL_WAVING_PLANTS ||
+						p.layer.material_type == TILE_MATERIAL_WAVING_LIQUID_BASIC ||
+						p.layer.material_type == TILE_MATERIAL_WAVING_LIQUID_OPAQUE;
+				auto *buf = new NearBuffer(std::move(p.vertices), std::move(p.indices),
+						waves ? NearBuffer::Pack::Never : NearBuffer::Pack::IfExact);
+				buf->Material = material;
+				m_opaque.push_back(buf);
+				mesh->addMeshBuffer(buf);
+				buf->drop();
+				continue;
+			}
 			scene::SMeshBuffer *buf = new scene::SMeshBuffer();
 			buf->Material = material;
-			if (p.layer.isTransparent()) {
+			{
 				buf->append(&p.vertices[0], p.vertices.size(), nullptr, 0);
 
 				MeshTriangle t;
@@ -563,9 +581,6 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 					t.updateAttributes();
 					m_transparent_triangles.push_back(t);
 				}
-			} else {
-				buf->append(&p.vertices[0], p.vertices.size(),
-					&p.indices[0], p.indices.size());
 			}
 			mesh->addMeshBuffer(buf);
 			buf->drop();
@@ -918,14 +933,48 @@ void bendOntoAtlas(MeshCollector &collector, const planet::Atlas &atlas, v3s16 b
 }
 
 // Terraverse (mapblock_mesh.h)
-void MapBlockMesh::upload(video::IVideoDriver *driver) const
+void MapBlockMesh::upload(video::IVideoDriver *driver)
 {
 	for (const auto &mesh : m_mesh)
 		if (mesh)
 			for (u32 i = 0; i < mesh->getMeshBufferCount(); i++) {
-				// (one never mapped to the GPU has no link: the driver passes it by)
+				// (one too small for the GPU gets no link: the driver passes it by)
 				scene::IMeshBuffer *buf = mesh->getMeshBuffer(i);
 				driver->updateHardwareBuffer(buf->getVertexBuffer());
 				driver->updateHardwareBuffer(buf->getIndexBuffer());
 			}
+	for (NearBuffer *buf : m_opaque)
+		if (buf->getVertexCount() >= m_keep_below)
+			buf->release(); // (only if the driver holds it)
+}
+
+MapBlockMesh::Held MapBlockMesh::held() const
+{
+	Held h;
+	for (const NearBuffer *buf : m_opaque) {
+		h.ram += buf->ram();
+		h.card += buf->bytes() - buf->ram();
+		if (!buf->packed())
+			h.unpacked += buf->bytes() - buf->ram();
+	}
+	size_t all = 0;
+	for (const auto &mesh : m_mesh)
+		if (mesh)
+			for (u32 i = 0; i < mesh->getMeshBufferCount(); i++)
+				all += mesh->getMeshBuffer(i)->getSize();
+	h.transparent = all - h.ram - h.card; // (the rest are transparent)
+	return h;
+}
+
+bool MapBlockMesh::touch(video::IVideoDriver *driver) const
+{
+	for (const NearBuffer *buf : m_opaque) {
+		if (!buf->released())
+			continue;
+		if (!buf->held())
+			return false;
+		driver->updateHardwareBuffer(buf->getVertexBuffer()); // (unchanged: only marks it used)
+		driver->updateHardwareBuffer(buf->getIndexBuffer());
+	}
+	return true;
 }

@@ -23,7 +23,8 @@ namespace far {
 
 	A texel: which of the 32 blocks from `base` up (round the eye's) the near
 	world has, a bit each, block `base` red's lowest bit, then green, blue,
-	alpha. A block out of them is the far view's.
+	alpha; and every block above the highest, the air over its ground. A block
+	out of them is the far view's.
 */
 class Mask
 {

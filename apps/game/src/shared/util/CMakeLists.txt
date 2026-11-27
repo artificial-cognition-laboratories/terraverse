@@ -11,6 +11,7 @@ set(util_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/hash/hashing.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/math/ieee_float.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/timing/metricsbackend.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/math/half.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/math/numeric.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/../game/pointing/pointedthing.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/../game/pointing/pointabilities.cpp

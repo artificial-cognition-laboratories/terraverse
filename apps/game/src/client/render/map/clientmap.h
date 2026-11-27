@@ -9,6 +9,7 @@
 #include "src/shared/base/irrlichttypes_bloated.h"
 #include "src/shared/map/map.h"
 #include "src/client/views/game/far/tiles/coverage.h"
+#include "src/client/render/map/near_meshes.h"
 #include <ISceneNode.h>
 #include <map>
 #include <functional>
@@ -190,6 +191,7 @@ private:
 	// other world); atlasView() keeps it up to the camera
 	std::unique_ptr<AtlasView> m_atlas_view;
 	far::Coverage m_coverage;
+	NearMeshes m_near; // Terraverse: the blocks' meshes kept on the card, their RAM let go of
 	video::SColor m_camera_light_color = video::SColor(0xFFFFFFFF);
 	bool m_needs_update_transparent_meshes = true;
 

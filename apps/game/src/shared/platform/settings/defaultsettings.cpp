@@ -98,7 +98,6 @@ void set_default_settings()
 	settings->setDefault("arclabs_url", "https://axon-api-t53zrgvpga-ew.a.run.app");
 	// Terraverse: the far view (planning/sprint-20-horizon.md)
 	settings->setDefault("far_view", "true");
-	settings->setDefault("far_view_detail", "2");
 	settings->setDefault("far_view_max", "16000");
 	settings->setDefault("far_view_debug_levels", "false");
 	settings->setDefault("far_view_debug_mask", "false"); // Terraverse: each far tile tinted by its level
@@ -301,8 +300,7 @@ void set_default_settings()
 	settings->setDefault("smooth_lighting", "true");
 	// Terraverse (sprint 85): cut and smoothed ground drawn in sixteenths
 	// within the first, quarters to the second, whole nodes past it (nodes)
-	settings->setDefault("ground_detail_near", "12");
-	settings->setDefault("ground_detail_far", "32");
+	settings->setDefault("voxel_pixels", "4"); // the smallest a voxel's drawn, px: how fine the world is drawn (detail/sight.h)
 	// Terraverse: water run as columns: sixteenths and quarters, nodes round the camera
 	settings->setDefault("water_fine", "true");
 	settings->setDefault("water_fine_reach", "10");

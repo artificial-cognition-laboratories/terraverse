@@ -228,6 +228,9 @@ public:
 			case video::EVT_PACKED:
 				ret += sizeof(video::S3DVertexPacked) * getVertexCount();
 				break;
+			case video::EVT_NEAR:
+				ret += sizeof(video::S3DVertexNear) * getVertexCount();
+				break;
 		}
 		switch (getIndexType()) {
 			case video::EIT_16BIT:

@@ -204,6 +204,8 @@ private:
 
 	// Default Client FOV (as defined by the "fov" setting)
 	f32 m_cache_fov;
+	// Terraverse: the smallest a voxel is drawn, px (detail/sight.h): where the near world ends
+	f32 m_voxel_pixels;
 
 	// Absolute camera position
 	v3f m_camera_position;
