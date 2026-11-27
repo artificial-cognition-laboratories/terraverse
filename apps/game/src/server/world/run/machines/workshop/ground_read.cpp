@@ -67,6 +67,10 @@ std::optional<GroundSnapshot> GroundSnapshot::take(Map &map, v3s16 block)
 					if (const int i = s.index(base + rel); i >= 0)
 						s.m_shapes.emplace(i, shape);
 				});
+				b->m_rises.each([&](v3s16 rel, int rise) {
+					if (const int i = s.index(base + rel); i >= 0)
+						s.m_rises.emplace(i, s8(rise));
+				});
 			}
 	return s;
 }
@@ -96,6 +100,10 @@ std::vector<aabb3f> GroundSnapshot::boxes(const NodeDefManager *ndef, const plan
 		const int i = cell(q);
 		return i < 0 ? atlas && atlas->cut({ q.X, q.Y, q.Z }).has_value() : seen_known[i] == 1;
 	};
+	auto rise = [&](v3s16 q) {
+		const auto it = m_rises.find(index(q));
+		return it == m_rises.end() ? 0 : int(it->second);
+	};
 	const ground::Ground smoothing(*ndef);
 	std::unordered_map<v3s16, std::optional<ground::Top>> tops;
 	// as Map::groundTop, from what's held here
@@ -104,7 +112,7 @@ std::vector<aabb3f> GroundSnapshot::boxes(const NodeDefManager *ndef, const plan
 		if (it == tops.end()) {
 			std::optional<ground::Top> t;
 			if (!shape(p) && !shape(p + v3s16(0, 1, 0)))
-				t = smoothing.top(get, cube, p);
+				t = smoothing.top(get, cube, rise, p);
 			it = tops.emplace(p, t).first;
 		}
 		return it->second;

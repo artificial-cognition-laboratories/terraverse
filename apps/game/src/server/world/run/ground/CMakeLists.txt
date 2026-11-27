@@ -2,4 +2,5 @@
 # near world's mesh and collision, and the server, from block data alone.
 set(ground_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/ground.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/rises.cpp
 	PARENT_SCOPE)

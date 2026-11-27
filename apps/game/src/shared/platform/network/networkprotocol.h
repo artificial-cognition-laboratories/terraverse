@@ -10,10 +10,10 @@ extern const u16 LATEST_PROTOCOL_VERSION;
 
 // Server's supported network protocol range. Terraverse: only our own
 // protocol; stock Luanti peers are refused cleanly.
-constexpr u16 SERVER_PROTOCOL_VERSION_MIN = 106;
+constexpr u16 SERVER_PROTOCOL_VERSION_MIN = 107;
 
 // Client's supported network protocol range
-constexpr u16 CLIENT_PROTOCOL_VERSION_MIN = 106;
+constexpr u16 CLIENT_PROTOCOL_VERSION_MIN = 107;
 
 extern const u16 FORMSPEC_API_VERSION;
 

@@ -250,6 +250,7 @@ static void set_node_in_block(const NodeDefManager *nodedef, MapBlock *block,
 	if (block->getNodeNoCheck(relpos).getContent() != n.getContent()) {
 		block->m_shapes.erase(relpos);
 		block->m_sprigs.erase(relpos); // (and a plant its foot's)
+		block->m_rises.erase(relpos); // (and ground its rise)
 	}
 	block->setNodeNoCheck(relpos, n);
 }
@@ -741,6 +742,18 @@ bool Map::setFill(v3s16 p, const fill::Fill &f)
 	return true;
 }
 
+namespace {
+// Where a loose node's ground stands over its face (its block's rises).
+auto groundRise(Map &map)
+{
+	return [&map](v3s16 q) {
+		const v3s16 bp = getNodeBlockPos(q);
+		const MapBlock *block = map.getBlockNoCreateNoEx(bp);
+		return block ? block->m_rises.get(q - bp * MAP_BLOCKSIZE) : 0;
+	};
+}
+} // namespace
+
 std::optional<ground::Top> Map::groundTop(v3s16 p)
 {
 	// cut, or under a cut node (what rose from it, kept): as it's cut
@@ -748,7 +761,7 @@ std::optional<ground::Top> Map::groundTop(v3s16 p)
 		return std::nullopt;
 	const auto get = [&](v3s16 q) { return ground::seen(getNode(q), getShape(q)); };
 	const auto cube = [&](v3s16 q) { return m_atlas && m_atlas->cut({ q.X, q.Y, q.Z }).has_value(); };
-	return ground::Ground(*m_nodedef).top(get, cube, p);
+	return ground::Ground(*m_nodedef).top(get, cube, groundRise(*this), p);
 }
 
 std::optional<ground::Top> Map::groundTopAs(v3s16 p, v3s16 at, MapNode was)
@@ -757,7 +770,7 @@ std::optional<ground::Top> Map::groundTopAs(v3s16 p, v3s16 at, MapNode was)
 		return std::nullopt;
 	const auto get = [&](v3s16 q) { return q == at ? was : ground::seen(getNode(q), getShape(q)); };
 	const auto cube = [&](v3s16 q) { return m_atlas && m_atlas->cut({ q.X, q.Y, q.Z }).has_value(); };
-	return ground::Ground(*m_nodedef).top(get, cube, p);
+	return ground::Ground(*m_nodedef).top(get, cube, groundRise(*this), p);
 }
 
 std::optional<shape::Shape> Map::solidShape(v3s16 p)

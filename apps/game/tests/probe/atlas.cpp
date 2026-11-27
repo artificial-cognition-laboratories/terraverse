@@ -317,7 +317,7 @@ void atlasLand(Context &c)
 			return "planted";
 		return std::nullopt;
 	};
-	struct Totals { long nodes = 0, same = 0, planted = 0, flowed = 0, wrong = 0; int shown = 0; std::map<std::string, int> pairs; };
+	struct Totals { long nodes = 0, same = 0, planted = 0, flowed = 0, wrong = 0, rises = 0, misplaced = 0; int shown = 0; std::map<std::string, int> pairs; };
 	auto totals = std::make_shared<Totals>();
 	auto pending = std::make_shared<size_t>(boxes.size());
 	c.after(0, [&c, boxes, later, totals, pending, SEAM] {
@@ -349,11 +349,29 @@ void atlasLand(Context &c)
 										want.c_str(), world.c_str()));
 						}
 				totals->nodes += n;
+				// where the ground stands in its top blocks (sprint 128): every
+				// rise on a loose node with nothing walkable over it
+				Map &map = c.env().getMap();
+				for (s16 bz = getNodeBlockPos(b.min).Z; bz <= getNodeBlockPos(b.max).Z; bz++)
+					for (s16 by = getNodeBlockPos(b.min).Y; by <= getNodeBlockPos(b.max).Y; by++)
+						for (s16 bx = getNodeBlockPos(b.min).X; bx <= getNodeBlockPos(b.max).X; bx++) {
+							MapBlock *block = map.getBlockNoCreateNoEx(v3s16(bx, by, bz));
+							if (!block)
+								continue;
+							const v3s16 base = block->getPosRelative();
+							block->m_rises.each([&](v3s16 rel, int) {
+								const v3s16 p = base + rel;
+								totals->rises++;
+								if (!ndef->get(map.getNode(p)).loose || ndef->get(map.getNode(p + v3s16(0, 1, 0))).walkable)
+									totals->misplaced++;
+							});
+						}
 				c.say(format("LAND box %s: %ld nodes", b.name.c_str(), n));
 				if (--*pending > 0)
 					return;
 				for (const auto &[pair, count] : totals->pairs)
 					c.say(format("LAND pair %s: %d", pair.c_str(), count));
+				c.say(format("LAND rises %ld misplaced %ld", totals->rises, totals->misplaced));
 				c.say(format("LAND nodes %ld same %ld planted %ld flowed %ld wrong %ld", totals->nodes, totals->same,
 						totals->planted, totals->flowed, totals->wrong));
 				c.finish();

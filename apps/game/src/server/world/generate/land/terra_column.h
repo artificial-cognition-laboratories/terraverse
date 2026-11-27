@@ -48,6 +48,9 @@ struct Column
 	terragen::Biome biome;
 	terragen::Ground ground; // terragen's column (not space): for what grows here
 	s32 height;     // the top solid block, absolute y
+	// sixteenths its ground stands over that block's face (−8..7, sprint 128:
+	// terragen::Ground::rise), kept with the block as ground::Rises
+	s32 rise = 0;
 	s32 water;      // the water (or lava) surface; == height when dry
 	bool lava;      // the surface liquid is lava
 	bool water_above; // under a sea, lake or river (not lava)

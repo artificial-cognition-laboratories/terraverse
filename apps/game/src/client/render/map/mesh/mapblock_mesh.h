@@ -63,6 +63,8 @@ struct MeshMakeData
 	const planet::Atlas *m_atlas = nullptr;
 	// Terraverse: the cut nodes of the area and its margin, by node (absolute)
 	std::unordered_map<v3s16, shape::Shape> m_shapes;
+	// Terraverse: where its natural ground stands in its loose nodes (ground::Rises), by node (absolute)
+	std::unordered_map<v3s16, s8> m_rises;
 	// Terraverse: the small plants footed in the area, by their foot (absolute)
 	std::vector<std::pair<v3s16, sprig::Sprig>> m_sprigs;
 	float m_ao_gamma_inv = 0.0f;

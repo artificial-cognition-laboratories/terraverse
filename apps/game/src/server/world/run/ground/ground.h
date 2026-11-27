@@ -22,7 +22,8 @@
 
 	The field is at column corners, where four columns meet. A corner's
 	height, for one column, is the average of the surfaces of the columns
-	there that are within a block of each other (its cluster): a step of
+	there that are within a block of each other (its cluster), each to the
+	sixteenth the world model stood it at (Rises, sprint 128): a step of
 	one block is a ramp, a drop of two a cliff. Ground never climbs a solid
 	(a block built on it, a trunk, rock): only solids at or below its own
 	level join the average. It's never lowered under
@@ -44,12 +45,16 @@ enum class Kind : uint8_t {
 	Solid, // keeps its block's shape
 };
 
-// One column at a corner: what its surface is, and its level (the block
-// under it is at top - 1).
+// One column at a corner: what its surface is, its level (the block under
+// it is at top - 1), and for loose ground, the sixteenths it stands over
+// that level (−8..7: where the world model put it, ground::Rises; 0 once
+// it's been dug or built on)
 struct Column
 {
 	Kind kind;
 	int top;
+	int rise = 0;
+	int fine() const { return top * STEPS + rise; }
 };
 
 // A corner's height, in sixteenths of the world (a level × STEPS), for the
@@ -123,13 +128,16 @@ public:
 		walkable over it. `get(v3s16) → MapNode` reads the world (a voxel
 		manipulator, a map). `cube(v3s16) → bool`: a cell that keeps its
 		cube whatever it is (an atlas's cut cell): solid to the rule.
+		`rise(v3s16) → int`: the sixteenths a loose node's ground stands
+		over its face (its block's Rises).
 	*/
-	template <class Get, class Cube>
-	std::optional<Top> top(const Get &get, const Cube &cube, v3s16 p) const;
+	template <class Get, class Cube, class Rise>
+	std::optional<Top> top(const Get &get, const Cube &cube, const Rise &rise, v3s16 p) const;
+	// (ground with no cut cells and no rises: what a test lays out)
 	template <class Get>
 	std::optional<Top> top(const Get &get, v3s16 p) const
 	{
-		return top(get, [](v3s16) { return false; }, p);
+		return top(get, [](v3s16) { return false; }, [](v3s16) { return 0; }, p);
 	}
 
 private:
@@ -138,16 +146,16 @@ private:
 	// nothing. A column not all known (a block not here yet) is a wall: the
 	// ground beside it isn't lowered against what may be a full block (it's
 	// remeshed when that comes).
-	template <class Get, class Cube>
-	Column column(const Get &get, const Cube &cube, s16 x, s16 z, int near) const;
+	template <class Get, class Cube, class Rise>
+	Column column(const Get &get, const Cube &cube, const Rise &rise, s16 x, s16 z, int near) const;
 
 	bool walkable(const MapNode &n) const { return m_ndef.get(n).walkable; }
 
 	const NodeDefManager &m_ndef;
 };
 
-template <class Get, class Cube>
-Column Ground::column(const Get &get, const Cube &cube, s16 x, s16 z, int near) const
+template <class Get, class Cube, class Rise>
+Column Ground::column(const Get &get, const Cube &cube, const Rise &rise, s16 x, s16 z, int near) const
 {
 	const Column wall{ Kind::Solid, near + REACH + 1 };
 	for (int y = near - REACH - 1; y <= near + REACH; y++)
@@ -156,8 +164,10 @@ Column Ground::column(const Get &get, const Cube &cube, s16 x, s16 z, int near) 
 	for (int d = 0; d <= REACH; d++) {
 		for (int top : { near + d, near - d }) {
 			const v3s16 under(x, top - 1, z);
-			if (walkable(get(under)) && !walkable(get(v3s16(x, top, z))))
-				return { cube(under) ? Kind::Solid : kind(get(under)), top };
+			if (walkable(get(under)) && !walkable(get(v3s16(x, top, z)))) {
+				const Kind k = cube(under) ? Kind::Solid : kind(get(under));
+				return { k, top, k == Kind::Loose ? rise(under) : 0 };
+			}
 			if (d == 0)
 				break;
 		}
@@ -167,8 +177,8 @@ Column Ground::column(const Get &get, const Cube &cube, s16 x, s16 z, int near) 
 	return { Kind::None, near - REACH - 1 };
 }
 
-template <class Get, class Cube>
-std::optional<Top> Ground::top(const Get &get, const Cube &cube, v3s16 p) const
+template <class Get, class Cube, class Rise>
+std::optional<Top> Ground::top(const Get &get, const Cube &cube, const Rise &rise, v3s16 p) const
 {
 	if (kind(get(p)) != Kind::Loose || walkable(get(p + v3s16(0, 1, 0))) || cube(p))
 		return std::nullopt;
@@ -179,8 +189,8 @@ std::optional<Top> Ground::top(const Get &get, const Cube &cube, v3s16 p) const
 	std::array<std::array<Column, 4>, 4> cols;
 	for (int a = 0; a < 4; a++)
 		for (int b = 0; b < 4; b++)
-			cols[a][b] = (a == 1 && b == 1) ? Column{ Kind::Loose, own }
-					: column(get, cube, p.X - 1 + a, p.Z - 1 + b, own);
+			cols[a][b] = (a == 1 && b == 1) ? Column{ Kind::Loose, own, rise(p) }
+					: column(get, cube, rise, p.X - 1 + a, p.Z - 1 + b, own);
 
 	// the height, for column (a, b) of the grid, of its corner (cx, cz)
 	auto at = [&](int a, int b, int cx, int cz) {

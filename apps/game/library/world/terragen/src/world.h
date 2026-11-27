@@ -13,6 +13,7 @@
 #include "library/world/terragen/src/grid/geology.h"
 #include "library/world/terragen/src/grid/grid.h"
 #include "library/world/terragen/src/base/sphere.h"
+#include <algorithm>
 #include <array>
 #include <memory>
 #include <mutex>
@@ -158,6 +159,21 @@ struct Ground
 	// 16, and anything not a river: full), so a river slopes smoothly down its
 	// run (rivers/water_top.h, sprint 122)
 	int32_t water_part = 16;
+	// The land to a sixteenth (sprint 128): where in its top block the ground
+	// stands, 0..15 sixteenths up it. What's drawn is the block's face moved
+	// by rise(): 8 is the face itself, what water and a river's work leave
+	// where they set the ground to a level.
+	int32_t frac = 8;
+	// the top in sixteenths of a block (from the top block's foot)
+	int32_t fine() const { return terrain * 16 + frac; }
+	void setFine(int32_t sixteenths) { terrain = sixteenths >> 4; frac = sixteenths & 15; }
+	// sixteenths the drawn ground stands over its top block's face (−8..7)
+	int32_t rise() const { return frac - 8; }
+	// the ground at a level: its top block `top`, the face flat
+	void setLevel(int32_t top) { terrain = top; frac = 8; }
+	// no higher than a level, or no lower
+	void atMost(int32_t top) { setFine(std::min(fine(), top * 16 + 8)); }
+	void atLeast(int32_t top) { setFine(std::max(fine(), top * 16 + 8)); }
 };
 
 /*
@@ -281,8 +297,9 @@ public:
 	// over the model's radius (size / 2π) at a place. Where 3D noise is read.
 	std::array<int32_t, 3> solid(const Place &d, int32_t y) const;
 
-	// Surface height in blocks for an elevation, with fine detail at a place.
-	int32_t surface(fix elevation, const Place &d) const;
+	// Surface height in blocks (fixed: to a fraction of a block, sprint 128)
+	// for an elevation, with fine detail at a place.
+	fix surface(fix elevation, const Place &d) const;
 
 	// Geology (geology.cpp). A column's strata, then by block, at height `y`
 	// in the column (its noise read at solid(s.at, y)): the rock at a depth
@@ -419,8 +436,9 @@ private:
 	// the ground at a place before volcanoes and water (blocks): the land
 	// and its detail, the old craters, the maria's lava over them, the young
 	// craters on top
-	// the top solid block; `mare` gets how deep lava lies under it
-	int32_t terrain(const Place &at, fix elevation, int32_t &mare) const;
+	// its top (blocks, fixed: to a fraction of a block), and how deep lava lies under it (blocks)
+	struct Terrain { fix top; int32_t mare; };
+	Terrain terrain(const Place &at, fix elevation) const;
 	// What the lava did after it set (sprint 96): wrinkle ridges, rilles and
 	// domes on a mare, in blocks over its level
 	int32_t mareRelief(const Place &at) const;

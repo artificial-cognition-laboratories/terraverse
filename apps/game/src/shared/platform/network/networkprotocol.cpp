@@ -206,9 +206,12 @@
 		No Lua (sprint 119): a player who dies is sent TOCLIENT_DEATHSCREEN_LEGACY (the
 		client's own death screen) and respawns by TOSERVER_RESPAWN_LEGACY; blocks, items and
 		entities are the engine's own. Only 106 is accepted on either side.
+	PROTOCOL VERSION 107 (Terraverse)
+		Map blocks are serialization version 33: they carry their ground's rises (sprint 128).
+		Only 107 is accepted on either side.
 */
 
-const u16 LATEST_PROTOCOL_VERSION = 106;
+const u16 LATEST_PROTOCOL_VERSION = 107;
 
 // See also formspec [Version History] in doc/lua_api.md
 const u16 FORMSPEC_API_VERSION = 12;

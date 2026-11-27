@@ -189,6 +189,7 @@ void MapgenTerra::makeChunk(BlockMakeData *data)
 					((u64)(u32)at->y * 31337) ^ ((u64)(u32)at->z * 52591));
 
 	generateTerrain();
+	keepRises(data);
 	paintSurface();
 	updateHeightmap(node_min, node_max);
 
@@ -347,6 +348,29 @@ s16 MapgenTerra::generateTerrain()
 		}
 	}
 	return stone_max;
+}
+
+/*
+	Where each column's ground stands in its top block, to a sixteenth
+	(sprint 128): kept with the block (ground::Rises) where it's loose, so
+	ground::Ground draws the land as the world model has it, not a block at
+	a time. A column whose top isn't in this chunk, or whose storage node
+	there isn't its top layer, keeps none: it stands at its face.
+*/
+void MapgenTerra::keepRises(BlockMakeData *data)
+{
+	size_t index = 0;
+	for (s16 z = node_min.Z; z <= node_max.Z; z++)
+		for (s16 x = node_min.X; x <= node_max.X; x++, index++) {
+			const terra::Column &c = m_column[index];
+			if (m_atlasDebug || c.space || c.rise == 0 || c.height < node_min.Y || c.height > node_max.Y)
+				continue;
+			const v3s16 p(x, (s16)c.height, z);
+			const std::optional<planet::Atlas::Cell> cell = m_atlas.cell({ p.X, p.Y, p.Z });
+			if (!cell || cell->k != c.height || !ndef->get(vm->getNodeNoExNoEmerge(p)).loose)
+				continue;
+			data->rises.emplace_back(p, c.rise);
+		}
 }
 
 /*

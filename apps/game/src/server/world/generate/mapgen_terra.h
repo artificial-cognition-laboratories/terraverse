@@ -75,6 +75,7 @@ private:
 	// Fills stone, water and air from terragen; records each column. Returns
 	// the highest stone placed.
 	s16 generateTerrain();
+	void keepRises(BlockMakeData *data);
 	// Fills the biome map (the engine's passes read it). The soil is painted
 	// as the terrain is filled: terra::Columns::node.
 	void paintSurface();

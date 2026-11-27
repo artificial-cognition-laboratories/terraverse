@@ -15,6 +15,7 @@
 #include "library/geometry/shape/shape.h"
 #include "library/matter/fill/fill.h"
 #include "library/life/sprig/sprig.h"
+#include "src/server/world/run/ground/rises.h"
 #include "src/shared/map/block/modifiedstate.h"
 #include "src/shared/util/math/numeric.h" // getContainerPos
 
@@ -565,6 +566,7 @@ public:
 	shape::Shapes m_shapes;
 	fill::Fills m_fills; // Terraverse: liquid in its nodes' open space (sprint 81)
 	sprig::Sprigs m_sprigs; // Terraverse: its small plants, by their foot (sprint 113)
+	ground::Rises m_rises; // Terraverse: where its natural ground stands in its top blocks (sprint 128)
 	StaticObjectList m_static_objects;
 
 private:

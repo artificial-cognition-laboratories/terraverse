@@ -53,6 +53,7 @@ private:
 	v3s16 m_block;
 	std::vector<MapNode> m_nodes; // SIDE³, from the margin's least corner
 	std::unordered_map<int, shape::Shape> m_shapes; // by index: the cut nodes
+	std::unordered_map<int, s8> m_rises; // by index: where loose nodes' ground stands (ground::Rises)
 };
 
 } // namespace workshop

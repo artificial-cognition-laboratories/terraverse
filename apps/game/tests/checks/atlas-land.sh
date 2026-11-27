@@ -14,4 +14,9 @@ line="$(probe_line "atlas land" 'LAND nodes')"
 echo "$line"
 nodes="$(echo "$line" | awk '{print $3}')"
 wrong="$(echo "$line" | awk '{print $11}')"
-[ "$nodes" -gt 100000 ] && [ "$wrong" = 0 ] && echo "atlas land check: ok" || { echo "atlas land check: FAILED"; exit 1; }
+# and the ground stands to a sixteenth (sprint 128): rises kept, each on a loose top
+rises="$(probe_line "atlas land" 'LAND rises')"
+echo "$rises"
+kept="$(echo "$rises" | awk '{print $3}')"
+misplaced="$(echo "$rises" | awk '{print $5}')"
+[ "$nodes" -gt 100000 ] && [ "$wrong" = 0 ] && [ "$kept" -gt 500 ] && [ "$misplaced" = 0 ] && echo "atlas land check: ok" || { echo "atlas land check: FAILED"; exit 1; }

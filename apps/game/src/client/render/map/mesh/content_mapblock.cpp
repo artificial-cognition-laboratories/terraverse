@@ -2168,7 +2168,11 @@ std::optional<ground::Top> MapblockMeshGenerator::groundTop(v3s16 p) const
 		return std::nullopt;
 	const auto get = [&](v3s16 q) { return ground::seen(data->m_vmanip.getNodeNoExNoEmerge(q), cutShape(q)); };
 	const auto cut = [&](v3s16 q) { return data->m_atlas && data->m_cuts.count(q) > 0; };
-	return ground::Ground(*nodedef).top(get, cut, p);
+	const auto rise = [&](v3s16 q) {
+		const auto it = data->m_rises.find(q);
+		return it == data->m_rises.end() ? 0 : int(it->second);
+	};
+	return ground::Ground(*nodedef).top(get, cut, rise, p);
 }
 
 /*

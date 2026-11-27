@@ -59,6 +59,13 @@ void QueuedMeshUpdate::retrieveBlocks(Map *map, u16 cell_size)
 			block->m_shapes.each([&](v3s16 rel, const shape::Shape &s) {
 				shapes.emplace_back(block->getPosRelative() + rel, s);
 			});
+	// and where their ground stands (ground::Rises)
+	rises.clear();
+	for (MapBlock *block : map_blocks)
+		if (block)
+			block->m_rises.each([&](v3s16 rel, int rise) {
+				rises.emplace_back(block->getPosRelative() + rel, s8(rise));
+			});
 	// a plant's drawn by the mesh its foot's in (it reaches past it: MOST_GROUND_REACH)
 	sprigs.clear();
 	for (MapBlock *block : map_blocks)
@@ -148,6 +155,9 @@ void QueuedMeshUpdate::fill(MeshMakeData *data) const
 	for (const auto &[pos, s] : shapes)
 		data->m_shapes.emplace(pos, s);
 	data->m_sprigs = sprigs;
+	data->m_rises.clear();
+	for (const auto &[pos, r] : rises)
+		data->m_rises.emplace(pos, r);
 
 	// NOTE: the "data race" mentioned by MapBlock::tryShrinkNodes() is right here
 	for (auto *block : map_blocks) {

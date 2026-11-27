@@ -311,6 +311,11 @@ void ServerMap::finishBlockMake(BlockMakeData *data,
 		if (MapBlock *block = getBlockNoCreateNoEx(bp))
 			block->m_sprigs.set(p - bp * MAP_BLOCKSIZE, s);
 	}
+	for (const auto &[p, rise] : data->rises) {
+		const v3s16 bp = getNodeBlockPos(p);
+		if (MapBlock *block = getBlockNoCreateNoEx(bp))
+			block->m_rises.set(p - bp * MAP_BLOCKSIZE, rise);
+	}
 
 	EMERGE_DBG_OUT("finishBlockMake: changed_blocks.size()="
 		<< changed_blocks->size());

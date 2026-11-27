@@ -238,6 +238,11 @@ void MapBlock::copyFrom(const VoxelManipulator &src)
 	m_sprigs.each([&](v3s16 rel, const sprig::Sprig &) {
 		footed.emplace_back(rel, getNodeNoCheck(rel).getContent());
 	});
+	// and a rise its ground's
+	std::vector<std::pair<v3s16, content_t>> risen;
+	m_rises.each([&](v3s16 rel, int) {
+		risen.emplace_back(rel, getNodeNoCheck(rel).getContent());
+	});
 	// Copy from VoxelManipulator to data
 	src.copyTo(data, data_area, v3s16(0,0,0),
 			getPosRelative(), data_size);
@@ -247,6 +252,9 @@ void MapBlock::copyFrom(const VoxelManipulator &src)
 	for (const auto &[rel, was] : footed)
 		if (getNodeNoCheck(rel).getContent() != was)
 			m_sprigs.erase(rel);
+	for (const auto &[rel, was] : risen)
+		if (getNodeNoCheck(rel).getContent() != was)
+			m_rises.erase(rel);
 	tryShrinkNodes();
 }
 
@@ -484,6 +492,8 @@ void MapBlock::serialize(std::ostream &os_compressed, u8 version, bool disk, int
 		m_fills.serialize(os);
 	if (version >= 32)
 		m_sprigs.serialize(os);
+	if (version >= 33)
+		m_rises.serialize(os);
 
 	/*
 		Data that goes to disk, but not the network
@@ -596,6 +606,8 @@ void MapBlock::deSerializeUncompressed(std::istream &is, u8 version, bool disk)
 		m_fills.deSerialize(is);
 	if (version >= 32)
 		m_sprigs.deSerialize(is);
+	if (version >= 33)
+		m_rises.deSerialize(is);
 
 	/*
 		Data that is only on disk

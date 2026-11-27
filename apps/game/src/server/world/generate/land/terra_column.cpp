@@ -54,6 +54,7 @@ Column Columns::atPlace(const Place &at) const
 	c.biome = g.column.biome;
 	c.ground = g;
 	c.height = m_water_level + g.terrain;
+	c.rise = g.rise();
 	// dry ground has no water surface: put it at the ground
 	c.water = g.kind == Water::None ? c.height : m_water_level + g.water;
 	c.lava = g.kind == Water::Lava;

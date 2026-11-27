@@ -46,6 +46,8 @@ struct BlockMakeData {
 	std::map<v3s16, shape::Shape> shapes;
 	// Terraverse: the small plants it planted, by their foot (a core:growth it placed)
 	std::map<v3s16, sprig::Sprig> sprigs;
+	// Terraverse: where its natural ground stands in each column's top block (sprint 128: ground::Rises)
+	std::vector<std::pair<v3s16, int>> rises;
 
 	BlockMakeData() = default;
 

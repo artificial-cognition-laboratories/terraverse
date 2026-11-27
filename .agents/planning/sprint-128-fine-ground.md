@@ -44,6 +44,29 @@ storage. Measure with `bun perf:gen` before and after, and say the number.
 3. **Checks.** `bun check:land`, `check:far`, `check:moves` (walking, vehicles on slopes),
    `check:wiki` (worlds scenes), a headless boot, and the game: a slope, a river bank, a beach.
 
+## Progress
+
+- **Phase 1 built (2026-11-27), uncommitted.** `Ground::frac` (0..15) and `fine()`; `surface` and
+  `terrain` return fixed heights (`terrain` a `Terrain` struct, no out-parameter); additive edits keep
+  the fraction, level-setting ones go through `atMost`/`atLeast`/`setFine`; the cliff lift, the river
+  banks' slope and a pan's edge are in sixteenths. The crater terms are now summed before flooring,
+  so a whole-block height can differ by one from before. Test `FineGround` (tests/water.cpp).
+  Still TF24: the bump to TF25 (132 mentions) waits for the sprint's end, with the golden.
+
+- **Phase 2 built (2026-11-27), uncommitted.** Not stored shapes after all: a `shape::Shape` is
+  512 bytes, so a cut per surface node was ~128 KB a surface block. Instead `ground::Rises`
+  (`server/world/run/ground/rises.*`): per block, a sorted (node, rise) list, a few bytes a node.
+  `frac` is where in its top block the ground stands, 8 the face (what a level leaves);
+  `rise() = frac − 8`. The generator keeps each loose top's rise (`MapgenTerra::keepRises`);
+  `ground::Ground::top` takes a `rise(v3s16)` beside `get` and `cube`, and `corner` averages fine
+  heights within the same clusters (cliffs unchanged), clamped to the column's two cells. Map
+  format 33, protocol 107. Read by the map, the mesher (copied as shapes are) and the machines'
+  ground snapshot. `perf:gen` columns 4.3 µs before and after. Checks: TestGround's
+  `testRisesStandTheLandFine`, `atlas-land` counts rises (8191, none misplaced).
+- **Not yet:** the far view still draws whole-block heights (near and far can differ by half a
+  block at the seam); rises across an atlas seam (the mesher's halo) aren't read, so ground there
+  stands at its face; the version bump.
+
 ## Open
 
 - What it costs to store: every surface block becomes a cut node. If it's heavy, keep the fine

@@ -55,6 +55,7 @@ struct QueuedMeshUpdate
 	// Terraverse: the cut nodes of the blocks read (absolute), copied here
 	// on the main thread, which changes them
 	std::vector<std::pair<v3s16, shape::Shape>> shapes;
+	std::vector<std::pair<v3s16, s8>> rises; // (ground::Rises)
 	std::vector<std::pair<v3s16, sprig::Sprig>> sprigs; // Terraverse: of the cell's own blocks
 	u16 epoch = U16_MAX;
 	bool urgent = false;

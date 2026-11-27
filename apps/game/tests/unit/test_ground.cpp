@@ -12,6 +12,7 @@
 #include "src/shared/game/objects/object_properties.h"
 #include "src/shared/platform/network/networkprotocol.h"
 #include "src/shared/base/noise.h"
+#include <algorithm>
 #include <chrono>
 #include <sstream>
 #include <map>
@@ -36,6 +37,7 @@ public:
 	void testWalksUpASteppedHill();
 	void testFirstCutKeepsTheShape();
 	void testBlockBoxesAsTheMapSays();
+	void testRisesStandTheLandFine();
 };
 
 static TestGround g_test_instance;
@@ -52,6 +54,7 @@ void TestGround::runTests(IGameDef *gamedef)
 	TEST(testWalksUpASteppedHill);
 	TEST(testFirstCutKeepsTheShape);
 	TEST(testBlockBoxesAsTheMapSays);
+	TEST(testRisesStandTheLandFine);
 }
 
 namespace {
@@ -63,6 +66,7 @@ struct Land
 	content_t dirt, stone;
 	std::map<std::pair<int, int>, std::pair<int, bool>> columns; // (x, z) → (top, solid)
 	int rest = 0; // the surface beyond the columns set
+	std::map<std::pair<int, int>, int> rises; // (x, z) → its top block's rise (ground::Rises)
 
 	Land()
 	{
@@ -94,7 +98,13 @@ struct Land
 	{
 		auto it = columns.find({ x, z });
 		int t = it == columns.end() ? rest : it->second.first;
-		return Ground(*ndef).top(*this, v3s16(x, t - 1, z));
+		const auto rise = [&](v3s16 p) {
+			auto r = rises.find({ p.X, p.Z });
+			auto c = columns.find({ p.X, p.Z });
+			const int top = c == columns.end() ? rest : c->second.first;
+			return r != rises.end() && p.Y == top - 1 ? r->second : 0;
+		};
+		return Ground(*ndef).top(*this, [](v3s16) { return false; }, rise, v3s16(x, t - 1, z));
 	}
 };
 
@@ -347,12 +357,12 @@ void TestGround::testUnknownAndCubesAreWalls()
 
 	// the column at (1, 0) a cube (cut)
 	auto cube = [](v3s16 p) { return p.X == 1 && p.Z == 0; };
-	t = ground.top(land, cube, v3s16(0, -1, 0));
+	t = ground.top(land, cube, [](v3s16) { return 0; }, v3s16(0, -1, 0));
 	UASSERT(t);
 	UASSERTEQ(int, t->corners[1], STEPS);
 	UASSERTEQ(int, t->corners[3], STEPS);
 	// and a cube itself isn't smoothed
-	UASSERT(!ground.top(land, cube, v3s16(1, -1, 0)));
+	UASSERT(!ground.top(land, cube, [](v3s16) { return 0; }, v3s16(1, -1, 0)));
 }
 
 /*
@@ -519,5 +529,59 @@ void TestGround::testBlockBoxesAsTheMapSays()
 		UASSERT(want.size() > 0);
 		for (size_t i = 0; i < want.size(); i++)
 			UASSERT(got[i].MinEdge.equals(want[i].MinEdge) && got[i].MaxEdge.equals(want[i].MaxEdge));
+	}
+}
+
+// Sprint 128: the world model stands its land to a sixteenth (ground::Rises).
+// A field all risen stands that far over its faces; a slope of rises is a
+// slope, every corner agreed by the columns round it; and a rise never
+// carries ground over a cliff, nor moves a solid.
+void TestGround::testRisesStandTheLandFine()
+{
+	{
+		Land land;
+		for (int x = -4; x <= 4; x++)
+			for (int z = -4; z <= 4; z++)
+				land.rises[{ x, z }] = -5;
+		auto t = land.top(0, 0);
+		UASSERT(t);
+		for (int i = 0; i < 4; i++)
+			UASSERTEQ(int, t->corners[i], STEPS - 5);
+	}
+	{
+		// a gentle slope up x: a sixteenth more a column, all on one level
+		Land land;
+		for (int x = -6; x <= 6; x++)
+			for (int z = -4; z <= 4; z++)
+				land.rises[{ x, z }] = std::clamp(x, -8, 7);
+		for (int x = -3; x <= 3; x++) {
+			auto t = land.top(x, 0), next = land.top(x + 1, 0);
+			UASSERT(t && next);
+			// (the corner between columns x and x + 1: their rises' average, to the nearest)
+			UASSERTEQ(int, t->corners[1], next->corners[0]);
+			UASSERTEQ(int, t->corners[3], next->corners[2]);
+			UASSERT(t->corners[1] > t->corners[0]); // it rises
+			UASSERT(std::abs(t->corners[1] - (STEPS + x)) <= 1);
+		}
+	}
+	{
+		// two blocks up is still a cliff: the high side's rise stays its own
+		Land land;
+		for (int x = 1; x <= 8; x++)
+			for (int z = -8; z <= 8; z++) {
+				land.set(x, z, 2);
+				land.rises[{ x, z }] = 6;
+			}
+		auto low = land.top(0, 0);
+		UASSERT(low);
+		UASSERTEQ(int, low->corners[1], STEPS);
+		UASSERTEQ(int, low->corners[3], STEPS);
+	}
+	{
+		// a solid's rise is nothing: it keeps its block
+		Land land;
+		land.set(1, 0, 1, true);
+		land.rises[{ 1, 0 }] = 7;
+		UASSERT(!land.top(1, 0));
 	}
 }

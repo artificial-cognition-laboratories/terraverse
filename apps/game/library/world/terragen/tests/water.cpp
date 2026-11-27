@@ -329,3 +329,27 @@ TEST_CASE("RiversSlopeSmoothly")
 	REQUIRE(whole * 10 < differ);       // by sixteenths, not whole blocks
 }
 
+
+// Sprint 128: the land to a sixteenth. A column's top is its whole block and
+// where in it the ground stands (0..15); on dry land that's the land's own,
+// so a row of columns up a slope comes in sixteenths, not whole steps. Where
+// water set the ground to a level, it's the block's face (8).
+TEST_CASE("FineGround")
+{
+	const World w(WorldCode::decode("TF24.dGVycmE"));
+	int dry = 0, fractions = 0;
+	for (int32_t k = 0; k < 400; k++) {
+		const Place at = flat(w, (k * 2311) % w.code().size - w.code().size / 2, (k * 977) % (w.code().size / 2) - w.code().size / 4);
+		const Ground g = w.ground(at, w.sunlight(at, std::nullopt));
+		REQUIRE(g.frac >= 0);
+		REQUIRE(g.frac < 16);
+		REQUIRE_EQ(g.fine(), g.terrain * 16 + g.frac);
+		if (g.kind == Water::None) {
+			dry++;
+			fractions += g.frac != 8;
+		}
+	}
+	REQUIRE(dry > 40);
+	// (land is at the face one time in 16: most isn't)
+	REQUIRE(fractions * 4 > dry * 3);
+}

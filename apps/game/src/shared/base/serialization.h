@@ -51,14 +51,15 @@
 	30: Terraverse: cut nodes' shapes (shape::Shapes), after node metadata
 	31: Terraverse: liquid in nodes' open space (fill::Fills), after the shapes (sprint 81)
 	32: Terraverse: small plants (sprig::Sprigs), after the fills (sprint 113)
+	33: Terraverse: where natural ground stands in its top blocks (ground::Rises), after the plants (sprint 128)
 */
 
 // This represents an uninitialized or invalid format
 constexpr u8 SER_FMT_VER_INVALID = 255;
 // Highest supported serialization version
-constexpr u8 SER_FMT_VER_HIGHEST_READ = 32;
+constexpr u8 SER_FMT_VER_HIGHEST_READ = 33;
 // Saved on disk version
-constexpr u8 SER_FMT_VER_HIGHEST_WRITE = 32;
+constexpr u8 SER_FMT_VER_HIGHEST_WRITE = 33;
 // Lowest supported serialization version
 constexpr u8 SER_FMT_VER_LOWEST_READ = 0;
 // Lowest serialization version for writing

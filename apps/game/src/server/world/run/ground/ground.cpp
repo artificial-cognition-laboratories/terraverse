@@ -24,28 +24,35 @@ int corner(const std::array<Column, 4> &around, size_t own)
 	const int mine = around[own].top;
 
 	// the clusters: from the lowest up, a new one where a surface is more
-	// than a block above its cluster's lowest
-	std::array<int, 4> tops;
+	// than a block above its cluster's lowest (by their levels: a rise
+	// moves a surface within its block, never across a cliff)
+	std::array<int, 4> tops, fines;
 	size_t n = 0;
 	// loose ground never climbs what's solid (a block placed on it, a trunk, rock): only
 	// a solid at or below its level joins the average; one above just keeps its face hidden
 	for (const Column &c : around)
-		if (c.kind == Kind::Loose || (c.kind == Kind::Solid && c.top <= mine))
-			tops[n++] = c.top;
-	std::sort(tops.begin(), tops.begin() + n);
+		if (c.kind == Kind::Loose || (c.kind == Kind::Solid && c.top <= mine)) {
+			tops[n] = c.top;
+			fines[n++] = c.kind == Kind::Loose ? c.fine() : c.top * STEPS;
+		}
+	// (by level, each its fine height alongside)
+	std::array<size_t, 4> order{ 0, 1, 2, 3 };
+	std::sort(order.begin(), order.begin() + n, [&](size_t a, size_t b) { return tops[a] < tops[b]; });
 	int sum = 0, count = 0;
 	for (size_t i = 0, start = 0; i < n; i++) {
-		if (tops[i] - tops[start] > 1) {
-			if (mine >= tops[start] && mine < tops[i])
+		const int top = tops[order[i]], first = tops[order[start]];
+		if (top - first > 1) {
+			if (mine >= first && mine < top)
 				break;
 			start = i;
 			sum = count = 0;
 		}
-		sum += tops[i];
+		sum += fines[order[i]];
 		count++;
 	}
-	// the nearest sixteenth of the cluster's average
-	int height = int(std::lround(double(sum) * STEPS / count));
+	// the nearest sixteenth of the cluster's average, within the two cells
+	// the column's top may take (its own and the one above)
+	int height = std::clamp(int(std::lround(double(sum) / count)), (mine - 1) * STEPS, (mine + 1) * STEPS);
 
 	// a face hidden against a full block stays hidden
 	for (size_t i = 0; i < 4; i++) {

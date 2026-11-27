@@ -633,7 +633,7 @@ static const int32_t COAST_REACH = 40, COAST_RELIEF = 20;
 // how far a coast's height is read off, in cells, on the hardest rock
 static const fix COAST_WARP = ratio(70, 100);
 
-int32_t World::surface(fix e, const Place &d) const
+fix World::surface(fix e, const Place &d) const
 {
 	// The coast follows the land between cell centres, which alone would
 	// draw it in the cells' straight edges: it wanders by noise about a cell
@@ -698,7 +698,7 @@ int32_t World::surface(fix e, const Place &d) const
 		// and the landforms its setting, rock and climate make (the catalogue's), off the streams
 		const int64_t form = read.level < 0 ? m_landforms->height({ d, e, hardness(d.dir()), t_least > 0 ? blocksFine(t_least) : 0 }) : 0;
 		const int64_t land = read.land + std::clamp<int64_t>(fine, -base / 2, INT32_MAX / 2) + form;
-		return std::max(1, floorInt((fix)std::clamp<int64_t>(land, INT32_MIN / 2, INT32_MAX / 2)));
+		return std::max(toFix(1), (fix)std::clamp<int64_t>(land, INT32_MIN / 2, INT32_MAX / 2));
 	}
 	// The sea floor and a dry body's land: noise, fading to nothing at the
 	// waterline (never more than half the height over or under it), so it
@@ -731,7 +731,7 @@ int32_t World::surface(fix e, const Place &d) const
 	fix amplitude = mul(m_detail, rugged);
 	if (m_code.processes.water)
 		amplitude = std::min<fix>(amplitude, std::abs(base) / 2);
-	return floorInt(base + mul(detail, amplitude));
+	return base + mul(detail, amplitude);
 }
 
 
@@ -989,12 +989,11 @@ int32_t World::canyoned(const Place &at) const
 	return -floorInt(mul(deepest, m_height));
 }
 
-int32_t World::terrain(const Place &at, fix elevation, int32_t &mare) const
+World::Terrain World::terrain(const Place &at, fix elevation) const
 {
 	const Grid &g = *m_grid;
-	mare = 0;
 	if (g.crater_stamp.empty())
-		return surface(elevation, at);
+		return { surface(elevation, at), 0 };
 	// the pool's level, flat, from the flooded cells round the place (as a
 	// lake's): read between cells it would slope and its edge would be the
 	// cells' triangles
@@ -1008,21 +1007,23 @@ int32_t World::terrain(const Place &at, fix elevation, int32_t &mare) const
 	// exactly, less what its cells say of them
 	const fix lava = level == INT32_MIN ? 0 : between(g.mare, at);
 	const fix young = between(g.crater_young, at);
-	int32_t t = surface(elevation - lava - young, at) + floorInt(craters(at, Age::Old) - mul(between(g.crater_stamp, at), m_height));
+	fix t = surface(elevation - lava - young, at) + craters(at, Age::Old) - mul(between(g.crater_stamp, at), m_height);
+	int32_t mare = 0;
 	// the lava filled what was lower than its level, so its shore follows the land
 	if (level != INT32_MIN) {
 		const int32_t top = floorInt(mul(level, m_height));
-		if (top > t) {
-			mare = top - t;
-			t = top;
+		if (toFix(top) > t) {
+			mare = top - floorInt(t);
+			// (set level: a whole block, flat)
+			t = toFix(top);
 			// and its own relief, fading in from the shore (rilles don't cut
 			// through to the ground under it)
 			const int32_t relief = std::max(mareRelief(at) * std::min(mare, 8) / 8, 1 - mare);
 			mare += relief;
-			t += relief;
+			t += toFix(relief);
 		}
 	}
-	return t + floorInt(craters(at, Age::Young)) + flexed(at) + canyoned(at);
+	return { t + craters(at, Age::Young) + toFix(flexed(at) + canyoned(at)), mare };
 }
 
 // Deltas. A river carrying at least DELTA_FLOW times a river's least, over
@@ -1429,7 +1430,7 @@ void World::delta(const Place &at, Ground &out, bool arms) const
 		return; // (higher ground, as the land was)
 	if (!arms) {
 		if (top > out.terrain) {
-			out.terrain = top;
+			out.setLevel(top);
 			if (out.kind == Water::Sea && out.terrain >= out.water)
 				out.kind = Water::None;
 		}
@@ -1449,7 +1450,7 @@ void World::delta(const Place &at, Ground &out, bool arms) const
 		// (from the apex, round where they start)
 		const int64_t off = std::abs(across - line), behind = std::max<int64_t>(0, -along);
 		if ((behind >> 8) * (behind >> 8) + (off >> 8) * (off >> 8) < (half >> 8) * (half >> 8)) {
-			out.terrain = std::min(out.terrain, -1 - (out_by < HALF));
+			out.atMost(-1 - (out_by < HALF));
 			out.water = 0;
 			out.kind = Water::River;
 			out.column.biome = Biome::Marsh;
@@ -1461,7 +1462,7 @@ void World::delta(const Place &at, Ground &out, bool arms) const
 		out.column.biome = Biome::Marsh;
 		if (fbm(at, m_code.seed_hash + MARSH_POOLS, m_meander * 16, 3, HALF) > ratio(32, 100)) {
 			out.water = out.terrain;
-			out.terrain--;
+			out.setLevel(out.terrain - 1);
 			out.kind = Water::Lake;
 		}
 	}
@@ -1472,8 +1473,10 @@ Ground World::ground(const Place &at, fix sun) const
 	const Grid &g = *m_grid;
 	const Sphere &sphere = gridSphere();
 	Column c = column(at, sun);
-	int32_t mare;
-	Ground out{ terrain(at, c.elevation, mare), 0, Water::None, c, 0 };
+	const Terrain land = terrain(at, c.elevation);
+	const int32_t mare = land.mare;
+	Ground out{ floorInt(land.top), 0, Water::None, c, 0 };
+	out.frac = (land.top - toFix(out.terrain)) >> (FRAC - 4);
 	out.mare = mare;
 	// a lifeless body's dust is dark where lava lies (the column's own guess is the cells')
 	if (!m_code.processes.life)
@@ -1491,7 +1494,7 @@ Ground World::ground(const Place &at, fix sun) const
 			out.column.biome = Biome::Rock;
 	}
 	if (floor != INT32_MIN) {
-		out.terrain = std::max(out.terrain, floor);
+		out.atLeast(floor);
 		if (vol.lava != INT32_MIN && vol.lava > out.terrain && vol.lava > 1) {
 			out.water = vol.lava; // an active crater: a lava lake
 			out.kind = Water::Lava;
@@ -1513,7 +1516,7 @@ Ground World::ground(const Place &at, fix sun) const
 	if (out.terrain >= 1) {
 		const int32_t cliff = std::max(CLIFF_MIN, floorInt(mul(toFix(CLIFF_M), m_metre)));
 		const fix hard = clamp(div(hardness(at.dir()) - ratio(40, 100), ratio(40, 100)), 0, ONE);
-		out.terrain += floorInt(hard * std::min(out.terrain * 3, cliff));
+		out.setFine(out.fine() + (hard * std::min(out.terrain * 3, cliff) >> (FRAC - 4)));
 	}
 	// the beach is the strand: a coastal plain past a few blocks over the
 	// sea is the land's biome (rivers' and lakes' strands come below)
@@ -1575,7 +1578,7 @@ Ground World::ground(const Place &at, fix sun) const
 		const bool core = mask >= ratio(3, 4), below = out.terrain < level && out.kind != Water::Sea;
 		if (core || below) {
 			const int32_t depth = 1 + roundInt(mul(clamp(mask - HALF, 0, HALF), toFix(12)));
-			out.terrain = std::min(out.terrain, level - depth);
+			out.atMost(level - depth);
 			out.water = level;
 			out.kind = Water::Lake;
 		} else {
@@ -1756,20 +1759,20 @@ Ground World::ground(const Place &at, fix sun) const
 	if (best_bend > 0 && best_barred && best_dist >= best_half && best_dist < best_half + best_bar && out.kind == Water::None &&
 			out.terrain > best_level) {
 		out.river_bar = true;
-		out.terrain = best_level;
+		out.setLevel(best_level);
 		if (m_code.processes.life)
 			out.column.biome = Biome::Beach;
 	} else if (best_gap < toFix(BANK)) {
 		if (braid_bar) {
 			out.river_bar = true;
-			out.terrain = best_level;
+			out.setLevel(best_level);
 			out.kind = Water::None;
 		} else if (best_dist < best_half) {
 			// the channel: a bed under the water, deepest mid-stream
 			int32_t depth = 1 + (int32_t)std::min<int64_t>(3, (((best_half - best_dist) >> 1) + HALF) >> FRAC);
 			// (counted down from its surface, not its top node: under a node only part
 			// full, a block lower, so the water's never thinner than its depth)
-			out.terrain = std::min(out.terrain, best_level - depth - best_pool - (best_part < 16));
+			out.atMost(best_level - depth - best_pool - (best_part < 16));
 			if (out.kind == Water::None || best_level > out.water) {
 				out.water = best_level;
 				out.water_part = best_part;
@@ -1777,7 +1780,7 @@ Ground World::ground(const Place &at, fix sun) const
 			}
 		} else if (out.terrain < best_level + river::look(best_kind).lip) {
 			// the bank holds the river in, its lip over the water its kind's
-			out.terrain = best_level + river::look(best_kind).lip;
+			out.setLevel(best_level + river::look(best_kind).lip);
 		}
 	}
 	// The ground beside a run slopes down to it: where the land stands over
@@ -1788,9 +1791,9 @@ Ground World::ground(const Place &at, fix sun) const
 		const int64_t out_from = std::min<int64_t>(best_dist - best_half, toFix(1 << 14));
 		const fix bank = river::look(best_kind).bank * (best_bend < 0 ? 2 : 1);
 		// (in 64 bits: a far column times a steep bank passes a fix)
-		const int64_t rise = std::min<int64_t>(mulShift(out_from, bank, FRAC) >> FRAC, 1 << 20);
-		const int32_t wall = best_level + river::look(best_kind).lip + (int32_t)rise;
-		out.terrain = std::min(out.terrain, wall);
+		// (in sixteenths: the bank's a slope, not steps)
+		const int64_t rise = std::min<int64_t>(mulShift(out_from, bank, FRAC) >> (FRAC - 4), 1 << 24);
+		out.setFine(std::min<int64_t>(out.fine(), (int64_t)(best_level + river::look(best_kind).lip) * 16 + 8 + rise));
 	}
 	// Streams: the wet channels below the grid's rivers, on their own beds
 	// (none through a cone: it stands on what they drained; on a far tile,
@@ -1804,13 +1807,13 @@ Ground World::ground(const Place &at, fix sun) const
 			if (shown && !sinks && level > 1) {
 				out.water = level;
 				out.water_part = top.part;
-				out.terrain = std::min(out.terrain, level - 1 - (top.part < 16)); // (a block deep at least)
+				out.atMost(level - 1 - (top.part < 16)); // (a block deep at least)
 				out.kind = Water::River;
 			}
 		}
 	// sinkholes in a limestone platform's dry ground
 	if (out.kind == Water::None && out.terrain > 1)
-		out.terrain = std::max(1, out.terrain - dolines(at, karst(at, out.column.wet)));
+		out.setFine(std::max(16 + 8, out.fine() - 16 * dolines(at, karst(at, out.column.wet))));
 	// Landforms: where water has left the ground. Marsh and floodplain only
 	// over what grows (the biome's climate kept beneath: a cold marsh is
 	// still not a jungle's); a pan whatever (it's low, often by the sea's level).
@@ -1836,7 +1839,7 @@ Ground World::ground(const Place &at, fix sun) const
 			if (stood != INT32_MIN) {
 				// its floor's flat: what stood over the water's level is worn
 				// down to it, less toward the pan's edge, where the land rises
-				out.terrain = std::min(out.terrain, stood + roundInt(mul(ONE - smooth(mask), toFix(PAN_EDGE))));
+				out.setFine(std::min(out.fine(), stood * 16 + 8 + (mul(ONE - smooth(mask), toFix(PAN_EDGE)) >> (FRAC - 4))));
 				pan = out.terrain <= stood + roundInt(fbm(at, m_code.seed_hash + MARSH_POOLS + 2, m_meander * 8, 3, HALF) * 2);
 			}
 		}
@@ -1854,7 +1857,7 @@ Ground World::ground(const Place &at, fix sun) const
 			out.column.biome = Biome::Marsh;
 			if (fbm(at, m_code.seed_hash + MARSH_POOLS, m_meander * 16, 3, HALF) > ratio(8, 100)) {
 				out.water = out.terrain;
-				out.terrain--;
+				out.setLevel(out.terrain - 1);
 				out.kind = Water::Lake;
 			}
 		} else if (grown && by_river && over_water <= FLOODPLAIN_RISE) {
