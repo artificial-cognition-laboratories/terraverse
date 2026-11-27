@@ -91,6 +91,8 @@ ClientLauncher::~ClientLauncher()
 
 #if USE_SHELL
 	// the figure and the wiki unregister from the shell, so they go first
+	m_joins.reset();
+	m_session_intents.reset();
 	m_library.reset();
 	m_local_servers.reset();
 	m_figures.reset();
@@ -392,7 +394,7 @@ bool ClientLauncher::online(GameStartData &start_data, shell::Choice &choice, st
 		secret += "0123456789abcdef"[random() & 15];
 	start_data.password = secret;
 	start_data.socket_port = 0; // any free port: STUN tells friends which
-	start_data.online = { online::Launch::Kind::Host, *api, nullptr, "" };
+	start_data.online = { online::Launch::Kind::Host, *api, nullptr, "", m_home.root() + DIR_DELIM "running" };
 	return true;
 }
 #endif

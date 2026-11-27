@@ -24,6 +24,11 @@ const MAP = {
         description: "terra doesn't have that command. `terra help` lists every command.",
         source: "cli", severity: "fatal", expected: true,
     },
+    NOTHING_RUNNING_THERE: {
+        title: "Nothing is running there",
+        description: "No world on this machine takes players at that address: open one in the game while signed in, or start one with `terra serve`.",
+        source: "cli", severity: "fatal", expected: true,
+    },
     NOT_WIRED: {
         title: "Not built yet",
         description: "This is designed but not implemented yet.",

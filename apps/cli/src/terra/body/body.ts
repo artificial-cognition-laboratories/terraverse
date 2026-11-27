@@ -101,6 +101,8 @@ export function Body(opts: BodyOpts) {
     const joining = setTimeout(() => { if (!hello) { end(`it wasn't in the world within ${JOINING_MS / 1000}s`); proc.kill() } }, JOINING_MS)
     void ready.finally(() => clearTimeout(joining)).catch(() => {})
 
+    let leaving: Promise<void> | null = null
+
     function tell(message: Parameters<typeof wire.write>[0]): void {
         if (ended) return
         proc.stdin.write(wire.write(message))
@@ -139,13 +141,16 @@ export function Body(opts: BodyOpts) {
             tell(read.body)
         },
 
-        /** Out of the world: it leaves, and its process ends. */
-        async leave(): Promise<void> {
-            tell({ t: "leave" })
-            proc.stdin.end()
-            const gone = await Promise.race([proc.exited.then(() => true), Bun.sleep(5_000).then(() => false)])
-            if (!gone) proc.kill("SIGKILL")
-            end("it left")
+        /** Out of the world: it leaves, and its process ends. Asked again, the same leaving. */
+        leave(): Promise<void> {
+            leaving ??= (async () => {
+                tell({ t: "leave" })
+                if (!ended) proc.stdin.end()
+                const gone = await Promise.race([proc.exited.then(() => true), Bun.sleep(5_000).then(() => false)])
+                if (!gone) proc.kill("SIGKILL")
+                end("it left")
+            })()
+            return leaving
         },
     }
 }

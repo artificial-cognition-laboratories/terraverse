@@ -69,6 +69,7 @@
 #include "src/client/app/shell/bridge/entering.h"
 #include "src/client/app/shell/bridge/social.h"
 #include "src/shared/platform/online/gate.h"
+#include "src/shared/platform/online/ref.h"
 #include "src/shared/platform/online/players.h"
 #endif
 
@@ -193,8 +194,12 @@ bool Game::startup(volatile std::sig_atomic_t *kill,
 
 #if USE_SHELL
 	sanity_check(g_shell);
+	// listed for this machine (signed in): agents come in by its address
+	std::optional<std::string> address;
+	if (m_online_listed)
+		address = online::ref::print(online::ref::Address{ "localhost", m_online_listed->port() });
 	m_shell_session = std::make_unique<shell::Session>(shell::Session::Opts{
-		*g_shell, client, driver, guienv, m_hand });
+		*g_shell, client, driver, guienv, m_hand, address });
 	m_cutting = std::make_unique<cut::Cutting>(cut::Cutting::Opts{ client, m_shell_session->ui() });
 	m_digging = std::make_unique<dig::Digging>(dig::Digging::Opts{ client, m_shell_session->ui() });
 	// the Planetarium, while shown, takes the mouse where the page doesn't;
@@ -430,6 +435,7 @@ void Game::shutdown()
 			server->setStrayHandler(nullptr); // its receive thread calls into the host
 		m_online_host.reset(); // before the server closes its socket
 	}
+	m_online_listed.reset(); // nothing here may join it now
 #endif
 	// Delete text and menus first
 	m_game_ui->clearText();
@@ -608,8 +614,12 @@ bool Game::createServer(GameStartData &start_data)
 	server->setServerFolder(start_data.server_folder);
 #if USE_SHELL
 	if (m_online_host) {
+		// listed for this machine too: its run secret lets in what's here (axond's agents, sprint 127)
+		m_online_listed = online::Listed::open({ start_data.online.running, start_data.socket_port,
+				start_data.world_spec.name, start_data.world_spec.path, start_data.name });
 		server->setGate(std::make_unique<online::Gate>(online::Gate::Opts{
-			start_data.online.api, start_data.name, start_data.password, g_version_hash }));
+			start_data.online.api, start_data.name, start_data.password, g_version_hash,
+			m_online_listed->secret() }));
 		online::Host *host = m_online_host.get();
 		server->setStrayHandler([host](const Address &sender, const u8 *data, size_t size) {
 			host->stray(sender, data, size);

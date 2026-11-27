@@ -18,6 +18,7 @@ export function HelpCommand(opts: { presentation: PresentationT; version: string
             `  terra serve [folder] [--port n]  ${r.c.dim("prepare the nearest server, then run it")}`,
             `      --world <name>               ${r.c.dim("one of your worlds instead (terra worlds lists them)")}`,
             `  terra worlds                     ${r.c.dim("your worlds: the game's Play list")}`,
+            `  terra attach <ref> --world-contract  ${r.c.dim("speak for a world running here, for axond: its agents join it")}`,
             `  terra check [folder]             ${r.c.dim("typecheck the nearest project, then load its mods dry: what's wrong and where")}`,
             `  terra art render [folder]        ${r.c.dim("draw every block and item its mods declare: a sheet, and each alone")}`,
             `      --out <dir> --match <text>   ${r.c.dim("where (default .terra/art), and only what matches")}`,

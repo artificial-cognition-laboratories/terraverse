@@ -66,6 +66,22 @@ export type LocalServer = {
     /** Unix seconds. */
     started: number
 }
+/**
+ * One of the player's agents, as this world sees it (client/app/shell/bridge/agents.h): `agent` is
+ * what bringing it takes (its folder, or a ref). `session` is set while it's here; `reason` when it
+ * failed to come.
+ */
+export type AgentRow = {
+    agent: string
+    name: string
+    state: "idle" | "starting" | "here" | "elsewhere" | "failed"
+    session: string | null
+    reason: string | null
+}
+/** The palette's agents: Axon's daemon's answer, or that it isn't running. `world`: this world is open to agents (signed in). */
+export type AgentsView =
+    | { daemon: "up"; world: boolean; agents: AgentRow[] }
+    | { daemon: "down"; world: boolean; reason: string; agents: [] }
 /** An account this machine remembers: its profile (`@handle`) has a saved key for this backend. */
 export type RememberedProfile = { name: string; handle: string; current: boolean }
 /** `status` is the public directory's; `local` is always read. */
@@ -843,6 +859,12 @@ export type Intents = {
     "screen.open": { request: { name: ScreenName; with?: { prefix: string } }; response: null }
     /** A line said, or a command (`/…`): the server answers either in chat (client/app/shell/bridge/chat.h). */
     "chat.send": { request: { text: string }; response: null }
+    /** The player's agents, from Axon's daemon (sprint 127): the palette's *. */
+    "agents.list": { request: {}; response: AgentsView }
+    /** An agent brought into this world: answered at once, it's `starting` in the list until it's here. `agent` is a folder or a ref. */
+    "agents.embark": { request: { agent: string }; response: Record<string, never> }
+    /** One sent away. */
+    "agents.stop": { request: { session: string }; response: Record<string, never> }
     /** Who's in this world now, by name: the palette's @. */
     "chat.players": { request: {}; response: string[] }
     /** Terraverse: a tool picked on the rail (src/client/hand.h). */

@@ -24,6 +24,8 @@ struct Launch
 	std::shared_ptr<UDPSocket> socket;
 	// Join: whose world, for the messages a failed connection gives.
 	std::string host_name;
+	// Host: the home's running/, where the world is listed for this machine (listed.h).
+	std::string running;
 };
 
 } // namespace online

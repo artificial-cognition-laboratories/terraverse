@@ -3,13 +3,14 @@ import { computed, ref } from "vue"
 import { useBridge } from "../../bridge/use.ts"
 import { Palette, type PaletteItem } from "../../kit/index.ts"
 import { useStore } from "../store.ts"
+import { AgentsFeed } from "./agents.ts"
 import { commandLine } from "./commands.ts"
 import { viewOf, type Context, type Entry, type View } from "./lists.ts"
 
 /**
  * Chat and commands, in one line over the game (key T, / for commands, F10 for actions: the
  * engine opens it on that list, store.palette). Plain text is said; `:` runs a command, `@`
- * finds someone, `#` somewhere, `>` an action (lists.ts). What the server answers is chat's,
+ * finds someone, `#` somewhere, `>` an action, `*` an agent to bring here (lists.ts, agents.ts). What the server answers is chat's,
  * in the feed beside it (game/chat/ChatFeed.vue).
  */
 const bridge = useBridge()
@@ -17,6 +18,7 @@ const store = useStore()
 const query = ref(store.palette)
 const players = ref<string[]>([])
 void bridge.send("chat.players", {}).then((names) => { players.value = names })
+const agents = AgentsFeed({ bridge: bridge })
 
 // command lines run lately, the latest first, kept between games
 const RECENT_KEY = "palette.recent"
@@ -29,6 +31,7 @@ const ctx: Context = {
     store: store,
     bridge: bridge,
     players: players,
+    agents: agents,
     recent: recent,
     go: (next) => { query.value = next },
     run: (text) => {

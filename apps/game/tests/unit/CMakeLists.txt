@@ -80,7 +80,9 @@ set(unittest_client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/test_shape.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_sculpt.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_piece.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_axond.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_library.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/test_listed.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_machine.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_scale.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/test_planet_window.cpp

@@ -2,7 +2,7 @@
 export { Terra, type TerraT } from "./terra"
 export { DEFAULT_PORT, refs, SCHEME, type Ref } from "./ref"
 export { Running, type RunningRecord, type RunningT } from "./running"
-export { WorldContract, type WorldContractT } from "./world"
+export { WorldContract, sources, type WorldContractT, type WorldSource } from "./world"
 export type { ArtEntry, Catalogue } from "./art"
 export type { DevEvent, DevOptions } from "./dev"
 export type { Identity, ModPage, PublishStep } from "./registry"

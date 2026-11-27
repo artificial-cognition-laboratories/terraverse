@@ -4,6 +4,7 @@
 #pragma once
 
 #include "src/client/app/shell/bridge/actions.h"
+#include "src/client/app/shell/bridge/agents.h"
 #include "src/client/app/shell/bridge/chat.h"
 #include "src/client/app/shell/bridge/items.h"
 #include "src/client/app/shell/bridge/screens.h"
@@ -38,6 +39,7 @@ public:
 		video::IVideoDriver *driver;
 		gui::IGUIEnvironment *guienv;
 		Hand &hand; // Terraverse: the tools in hand (the page picks one)
+		std::optional<std::string> address; // this world's for this machine, when it's listed (agents come in by it)
 	};
 
 	explicit Session(const Opts &opts);
@@ -78,6 +80,7 @@ private:
 	Screens m_screens;
 	Chat m_chat;
 	Actions m_actions;
+	Agents m_agents;
 	Client *m_client;
 	Planetarium &m_planetarium; // the window's (Shell::planetarium), showing this world
 	mutable int32_t m_year = 0;

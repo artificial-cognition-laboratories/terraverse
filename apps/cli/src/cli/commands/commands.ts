@@ -5,6 +5,7 @@ import type { PresentationT } from "../presentation"
 import { HelpCommand } from "./help"
 import { DevCommand } from "./dev"
 import { ServeCommand } from "./serve"
+import { AttachCommand } from "./attach"
 import { InitCommand } from "./init"
 import { PlayCommand } from "./play"
 import { PrepareCommand } from "./prepare"
@@ -25,6 +26,7 @@ export function Commands(opts: { terra: TerraT; presentation: PresentationT; ver
     const help = HelpCommand({ presentation: opts.presentation, version: opts.version })
     const prepare = PrepareCommand({ terra: opts.terra, presentation: opts.presentation })
     const serve = ServeCommand({ terra: opts.terra, presentation: opts.presentation, prepare: prepare, version: opts.version })
+    const attach = AttachCommand({ terra: opts.terra, presentation: opts.presentation, version: opts.version })
     const runtime = RuntimeCommand({ terra: opts.terra })
     const init = InitCommand({ terra: opts.terra, presentation: opts.presentation, as: opts.as })
     const dev = DevCommand({ terra: opts.terra, presentation: opts.presentation })
@@ -44,6 +46,7 @@ export function Commands(opts: { terra: TerraT; presentation: PresentationT; ver
         prepare: prepare.run,
         dev: dev.run,
         serve: serve.run,
+        attach: attach.run,
         worlds: worlds.run,
         runtime: runtime.run,
         login: account.login,

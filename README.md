@@ -2,6 +2,8 @@
 
 <img src="./apps/game/assets/readme/planet-detail-create-world.png" />
 
+Voxel based game and agent labratory. With [axon](https://axon.arclabs.it) hooked up natively. 
+
 ## Engine Mechanics
 
 ### Solar System

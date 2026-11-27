@@ -34,6 +34,7 @@ class WorldView;
 #if USE_SHELL
 #include "src/client/app/shell/host/session.h"
 #include "src/shared/platform/online/host.h"
+#include "src/shared/platform/online/listed.h"
 #endif
 
 /* DO NOT INCLUDE THIS FROM OUTSIDE GAME.CPP */
@@ -338,6 +339,7 @@ private:
 	// Terraverse: this world hosted for friends (src/online/host.h); null otherwise.
 	// Holds the server's socket handle, so it goes before the server does.
 	std::unique_ptr<online::Host> m_online_host;
+	std::unique_ptr<online::Listed> m_online_listed; // the hosted world, for this machine
 	// Terraverse: joining a friend's world: how to say a failed connection
 	online::Launch::Kind m_online_kind = online::Launch::Kind::Offline;
 	std::string m_online_host_name;

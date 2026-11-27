@@ -2,6 +2,7 @@ import type { Ref } from "vue"
 import type { BridgeHandle, CommandInfo } from "../../bridge/index.ts"
 import { fuzzy, type PaletteItem } from "../../kit/index.ts"
 import type { GameStoreHandle } from "../store.ts"
+import { agentsView, type AgentsFeedT } from "./agents.ts"
 import { commandLine } from "./commands.ts"
 
 /**
@@ -13,6 +14,8 @@ export type Context = {
     bridge: BridgeHandle
     /** Who's here, asked as the palette opened. */
     players: Ref<string[]>
+    /** The player's agents, read as the palette opened (agents.ts). */
+    agents: AgentsFeedT
     /** Command lines run lately, the latest first. */
     recent: Ref<string[]>
     /** The line becomes this (a list chosen, a word completed). */
@@ -33,6 +36,7 @@ export const LISTS: readonly List[] = [
     { prefix: "@", name: "People", about: "Someone here", view: people },
     { prefix: "#", name: "Places", about: "Another body, another world", view: places },
     { prefix: ">", name: "Actions", about: "Open a screen, leave, the log", view: actions },
+    { prefix: "*", name: "Agents", about: "Bring an agent here, or send one away", view: (ctx, text) => agentsView(ctx.agents, text) },
 ]
 
 /** The view for the whole line: a list's, by its prefix (`/` is `:`, as chat has always had it), else chat. */
@@ -50,7 +54,7 @@ function ranked<T>(things: readonly T[], label: (t: T) => string, text: string) 
 }
 
 function chat(ctx: Context, text: string): View {
-    const view = { placeholder: "Say something, or : commands, @ people, # places, > actions" }
+    const view = { placeholder: "Say something, or : commands, @ people, # places, > actions, * agents" }
     if (text.trim() === "")
         return { ...view, entries: LISTS.map((l) => ({
             item: { id: `list:${l.prefix}`, label: `${l.prefix}  ${l.name}`, detail: l.about, group: "lists" },

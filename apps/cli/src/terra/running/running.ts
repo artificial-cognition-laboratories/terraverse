@@ -22,10 +22,12 @@ export type RunningRecord = {
     server: string
     /** Unix seconds. */
     started: number
+    /** Who runs it: terra (serve, dev), or the game, a world opened from its menu (sprint 127). */
+    by: "terra" | "game"
 }
 
 /** What a server is, before it's running: the engine supplies its pid. */
-export type RunningServer = Omit<RunningRecord, "ref" | "pid" | "secret" | "owner" | "started">
+export type RunningServer = Omit<RunningRecord, "ref" | "pid" | "secret" | "owner" | "started" | "by">
 
 /**
  * Running — the servers terra runs on this machine: one record each in the home's running/,
@@ -53,6 +55,7 @@ export function Running(opts: {
             secret: run.secret,
             owner: run.owner,
             started: Math.floor(Date.now() / 1000),
+            by: "terra",
         }
         const file = fileOf(server.port)
         writeFileSync(file, JSON.stringify(record, null, 2) + "\n", { mode: 0o600 })
@@ -80,7 +83,12 @@ export function Running(opts: {
         return join(opts.dir, `${port}.json`)
     }
 
-    return { prepare: prepare, started: started, list: list, dir: opts.dir }
+    /** What runs at `port` on this machine, or null. */
+    function at(port: number): RunningRecord | null {
+        return list().find(record => record.port === port) ?? null
+    }
+
+    return { prepare: prepare, started: started, list: list, at: at, dir: opts.dir }
 }
 
 export type RunningT = ReturnType<typeof Running>
@@ -107,7 +115,10 @@ function read(file: string): RunningRecord | null {
     if (ref === null || title === null || secret === null || server === null || port === null || pid === null || started === null) return null
     if (owner !== null && typeof owner !== "string") return null
     if (!Array.isArray(mods) || !mods.every(m => typeof m === "string")) return null
-    return { ref: ref, title: title, mods: mods, port: port, pid: pid, secret: secret, owner: owner, server: server, started: started }
+    // older records say nothing: terra wrote them
+    const by = field("by") ?? "terra"
+    if (by !== "terra" && by !== "game") return null
+    return { ref: ref, title: title, mods: mods, port: port, pid: pid, secret: secret, owner: owner, server: server, started: started, by: by }
 }
 
 function alive(pid: number): boolean {

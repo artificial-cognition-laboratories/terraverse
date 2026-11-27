@@ -12,6 +12,7 @@ set(online_SRCS
 set(online_client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/host.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/join.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/listed.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/players.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/upnp.cpp
 	PARENT_SCOPE)

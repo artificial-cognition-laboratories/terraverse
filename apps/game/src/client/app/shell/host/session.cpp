@@ -49,6 +49,7 @@ Session::Session(const Opts &opts) :
 	m_screens({ opts.shell, opts.guienv, m_ui }),
 	m_chat({ .shell = opts.shell, .client = opts.client }),
 	m_actions(opts.client),
+	m_agents({ .shell = opts.shell, .world = opts.address }),
 	m_client(opts.client),
 	m_planetarium(opts.shell.planetarium())
 {
@@ -190,13 +191,13 @@ bool Session::typed(const SEvent &event)
 {
 	// by the character typed, not the key: : @ # > are shifted, and differ by keyboard
 	static const struct { wchar_t typed; const char *prefix; } LISTS[] = {
-		{ L':', ":" }, { L'@', "@" }, { L'#', "#" }, { L'>', ">" },
+		{ L':', ":" }, { L'@', "@" }, { L'#', "#" }, { L'>', ">" }, { L'*', "*" },
 	};
 	// The engine's SDL2 gives a key's plain character, Shift or not (SDL2 can't say what Shift
 	// makes of a key on the player's layout without its text input, which takes the game's
 	// keys): Shift's characters for the palette's lists, on the common layouts (US, UK)
 	static const struct { wchar_t plain, shifted; } SHIFTED[] = {
-		{ L';', L':' }, { L'\'', L'@' }, { L'2', L'@' }, { L'3', L'#' }, { L'.', L'>' },
+		{ L';', L':' }, { L'\'', L'@' }, { L'2', L'@' }, { L'3', L'#' }, { L'.', L'>' }, { L'8', L'*' },
 	};
 	wchar_t typed = 0;
 	if (event.EventType == EET_KEY_INPUT_EVENT && event.KeyInput.PressedDown) {
