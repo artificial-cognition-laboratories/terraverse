@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # macOS: Chromium's framework and helper apps are laid out where the shell looks
 # (client/app/shell/host/framework.h), and the client runs with Chromium: its loop, pumped
-# from the engine's frames on macOS (host/pump.h), takes the UI check to its verdict.
-# The page doesn't paint on macOS yet, so the verdict is fail; this demands it be reached
-# (no refusal, crash or hang) and says which. Next: require "UICHECK pass".
-# A screenshot of the screen lands in <out dir> if given.
+# from the engine's frames on macOS (host/pump.h), loads the page and paints it, and the UI
+# check reaches its verdict. The verdict itself isn't held: the runner has no GPU, so the
+# planetarium behind the menu draws in software at about a frame a second and no frame budget
+# can be met. A screenshot, a few seconds after the page's first frame, lands in <out dir>.
 #   apps/game/scripts/release/check-macos-shell.sh <bin dir> [out dir]
 # CI runs it on the macOS runner; bash 3.2.
 set -euo pipefail
@@ -32,9 +32,11 @@ export TERRAVERSE_HOME="$work/home"
 lldb --batch -o run -k "thread backtrace all" -k "kill" -- "$bin/terraverse" --ui-check >"$work/client.log" 2>&1 &
 pid=$!
 shot=0
+painted=0
 for i in $(seq 1 120); do
 	kill -0 "$pid" 2>/dev/null || break
-	if [[ $i == 20 && -n "${2:-}" ]]; then
+	if [[ $painted == 0 ]] && grep -q "the page's first frame" "$work/client.log"; then painted=$i; fi
+	if [[ $painted != 0 && $i == $((painted + 6)) && -n "${2:-}" ]]; then
 		mkdir -p "$2"
 		screencapture -x "$2/macos-shell.png" && shot=1 || true
 	fi
@@ -45,7 +47,10 @@ wait "$pid" 2>/dev/null || true
 cat "$work/client.log"
 
 [[ $shot == 1 ]] && echo "check-macos-shell: screenshot in $2/macos-shell.png"
-# A verdict means the page loaded and answered: Chromium's loop runs.
+grep -q "shell: loaded shell://ui/index.html (200)" "$work/client.log" || fail "the page never loaded (log above)"
+grep -q "the page's first frame" "$work/client.log" || fail "the page loaded but never painted (log above)"
+echo "check-macos-shell: the page loaded and painted"
+# A verdict means the client kept running with Chromium to the end of the check.
 verdict="$(grep -oE "UICHECK (pass|fail)" "$work/client.log" | tail -1 || true)"
 [[ -n "$verdict" ]] || fail "the UI check reached no verdict: the client and Chromium didn't run together (log above)"
 echo "check-macos-shell: the client runs with Chromium; the UI check's verdict: ${verdict#UICHECK }"
