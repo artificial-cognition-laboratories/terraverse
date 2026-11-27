@@ -82,7 +82,7 @@ struct Shell::Impl
 	std::unique_ptr<Social> social;
 	std::unique_ptr<Account> account;
 	std::unique_ptr<Profiles> profiles; // the accounts remembered here: switching, signing out
-	std::unique_ptr<Identity> identity; // the account's own profile: editing it, renaming
+	std::unique_ptr<Identity> identity; // the account's own profile, edited
 	CefRefPtr<CefMessageRouterBrowserSide> router;
 	CefRefPtr<Client> client;
 	CefRefPtr<CefBrowser> browser;
@@ -286,7 +286,7 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(opts))
 		m->profiles->forget(intent["name"].isString() ? intent["name"].asString() : "");
 		return Json::Value();
 	});
-	m->identity = std::make_unique<Identity>(Identity::Opts{ .bridge = m->bridge, .account = *m->account, .social = *m->social });
+	m->identity = std::make_unique<Identity>(Identity::Opts{ .bridge = m->bridge, .social = *m->social });
 	m->bridge.on("account.retry", [this](const Json::Value &) {
 		m->account->retry();
 		return Json::Value();
@@ -431,7 +431,6 @@ void Shell::frameUi()
 	}
 	m->account->step();
 	m->social->step();
-	m->identity->step(m->mode == Mode::Menu);
 
 	// The device tells the driver when the window changes; any other size it
 	// holds is the screen set here, the game's part of the window.

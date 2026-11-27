@@ -6,7 +6,8 @@ useHead({ title: "Create an account", meta: [{ name: "robots", content: "noindex
 
 /**
  * Two steps: an account, then the name you publish under. Signing in with an
- * account that has no name yet lands here at the second step.
+ * account whose name hasn't been chosen lands here at the second step, the
+ * name made up for it at sign-up offered to keep.
  */
 const route = useRoute()
 const account = useAccount()
@@ -20,7 +21,8 @@ const problem = computed(() => (name.value ? username.problem(name.value) : null
 watch(
     account.user,
     user => {
-        if (user?.username) void navigateTo(next.value, { replace: true })
+        if (user?.chosen) void navigateTo(next.value, { replace: true })
+        else if (user && !name.value) name.value = user.username ?? ""
     },
     { immediate: true },
 )

@@ -49,7 +49,7 @@ export function Account() {
         if (!s || !profile.value) return null
         const meta = s.user.user_metadata as Record<string, unknown>
         const named = typeof meta.full_name === "string" ? meta.full_name : null
-        return { id: s.user.id, email: s.user.email ?? "", name: profile.value.name ?? named, username: profile.value.username }
+        return { id: s.user.id, email: s.user.email ?? "", name: profile.value.name ?? named, username: profile.value.username, chosen: profile.value.chosen }
     })
 
     /** Who to draw as signed in: the session's user once it's read, who was here last until then */
@@ -89,7 +89,7 @@ export function Account() {
         const problem = username.problem(name)
         if (problem) throw new Refused(problem)
         const claimed = await clients().arclabs.claim(name)
-        profile.value = { ...profile.value!, username: claimed.username }
+        profile.value = { ...profile.value!, username: claimed.username, chosen: true }
     }
 
     async function signOut(): Promise<void> {
@@ -100,7 +100,7 @@ export function Account() {
     async function approve(code: string, client: DeviceClient): Promise<void> {
         if (!user.value) throw new Refused("Sign in first.")
         if (!DEVICE_CODE.test(code)) throw new Refused(`${code} isn't a device code: it looks like ABC-234.`)
-        if (client === "terra-cli" && !user.value.username) throw new Refused("Choose a username first: terra publishes under it.")
+        if (!user.value.chosen) throw new Refused("Choose your name first: it's who you are in the game and on the registry.")
         await clients().arclabs.approve(code)
     }
 

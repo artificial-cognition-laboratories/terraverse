@@ -69,7 +69,7 @@ const hotbar = computed(() => {
     <div v-if="hud?.visible && (!covered || store.screen === 'inventory' || store.screen === 'palette' || store.screen === 'online')" class="corner-icons under-full-screen">
         <WikiButton />
         <!-- its popover is the online screen: the icon stays over it, and closes it again -->
-        <Corner @open="store.screen === 'online' ? bridge.send('screen.close', {}) : bridge.send('screen.open', { name: 'online' })" />
+        <Corner :account="store.account" :social="store.social" @open="store.screen === 'online' ? bridge.send('screen.close', {}) : bridge.send('screen.open', { name: 'online' })" />
     </div>
     <ChatFeed v-if="hud?.visible" class="under-full-screen" />
     <MapWidget />

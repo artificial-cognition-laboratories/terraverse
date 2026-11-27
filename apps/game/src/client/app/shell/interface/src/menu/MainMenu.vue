@@ -117,8 +117,8 @@ const CREDITS_ICON = {
 
         <!-- the home screen's corners -->
         <div v-if="screen === 'home'" class="corners">
-            <Corner @open="friends = !friends" />
-            <Friends v-if="friends" @close="friends = false" @library="openLibrary" />
+            <Corner :account="store.account" :social="store.social" @open="friends = !friends" />
+            <Friends v-if="friends" :account="store.account" :social="store.social" @close="friends = false" @library="openLibrary" />
             <!-- the workshop: places to see the engine's building blocks and mechanics -->
             <nav class="tools" aria-label="Workshop">
                 <IconTile label="Wiki — what everything is made of, and how it behaves" side="left" @click="screen = 'wiki'">

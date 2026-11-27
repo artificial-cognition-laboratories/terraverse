@@ -6,8 +6,10 @@ export interface User {
     id: string
     email: string
     name: string | null
-    /** The scope they publish under, without "@": null until they choose one */
+    /** The scope they publish under, without "@": made up for them at sign-up until they choose it */
     username: string | null
+    /** Whether they've chosen it: once, here, before any device signs in (pages/register.vue); never changed after */
+    chosen: boolean
 }
 
 /** What a person types to sign in or make an account. */

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from "vue"
 import type { AccountProfile, ProfileEdit, ProfileLink } from "../../../bridge/index.ts"
-import { Button, Field, Notice, Section, TextArea } from "../../../kit/index.ts"
+import { Button, Field, FormRow, Notice, TextArea } from "../../../kit/index.ts"
 import type { EditsHandle } from "./edits.ts"
 
 /**
@@ -42,22 +42,28 @@ async function save() {
 
 <template>
     <div class="form">
-        <Section title="About" hint="On your page, under your handle">
-            <TextArea v-model="draft.bio" label="Bio" placeholder="What you build, what you play" :maxlength="280" />
-            <div class="pair">
-                <Field v-model="draft.location" label="Location" placeholder="Optional" :maxlength="64" />
-                <Field v-model="draft.website" label="Website" placeholder="https://" :maxlength="200" mono />
-            </div>
-        </Section>
-
-        <Section title="Links" hint="Where else people find you">
-            <div v-for="(link, i) in draft.links" :key="i" class="link">
-                <input v-model="link.label" class="label" placeholder="Label" maxlength="32" spellcheck="false">
-                <input v-model="link.url" class="url" placeholder="https://" maxlength="200" spellcheck="false">
-                <button type="button" class="drop" title="Remove this link" @click="draft.links.splice(i, 1)">✕</button>
-            </div>
-            <button v-if="draft.links.length < LINKS_MAX" type="button" class="add" @click="draft.links.push({ label: '', url: '' })">+ Add a link</button>
-        </Section>
+        <div class="rows">
+            <FormRow title="Handle" description="Your name everywhere: friends, worlds and the registry. Chosen once, when you first signed in; it can't change.">
+                <output class="handle">@{{ profile.username }}</output>
+            </FormRow>
+            <FormRow title="Bio" description="A line or two under your handle: what you build, what you play.">
+                <TextArea v-model="draft.bio" placeholder="What you build, what you play" :maxlength="280" :rows="4" />
+            </FormRow>
+            <FormRow title="Location" description="Optional. Where you play from.">
+                <Field v-model="draft.location" placeholder="Optional" :maxlength="64" />
+            </FormRow>
+            <FormRow title="Website" description="Optional. An https:// link, shown on your page.">
+                <Field v-model="draft.website" placeholder="https://" :maxlength="200" mono />
+            </FormRow>
+            <FormRow title="Links" :description="`Where else people find you: GitHub, Discord, a channel. Up to ${LINKS_MAX}.`">
+                <div v-for="(link, i) in draft.links" :key="i" class="link">
+                    <input v-model="link.label" class="label" placeholder="Label" maxlength="32" spellcheck="false">
+                    <input v-model="link.url" class="url" placeholder="https://" maxlength="200" spellcheck="false">
+                    <button type="button" class="drop" title="Remove this link" @click="draft.links.splice(i, 1)">✕</button>
+                </div>
+                <button v-if="draft.links.length < LINKS_MAX" type="button" class="add" @click="draft.links.push({ label: '', url: '' })">+ Add a link</button>
+            </FormRow>
+        </div>
 
         <Notice v-if="edits.problem.value" tone="danger">{{ edits.problem.value }}</Notice>
         <footer>
@@ -68,9 +74,9 @@ async function save() {
 </template>
 
 <style scoped>
-.form { display: grid; gap: 1.75rem; }
-.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
-.link { display: grid; grid-template-columns: 9rem minmax(0, 1fr) 2.4rem; gap: 0.5rem; margin-bottom: 0.5rem; }
+.form { display: grid; gap: 1.25rem; }
+.handle { display: flex; align-items: center; height: 2.4rem; padding: 0 0.75rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); color: var(--ink-dim); font: 0.78rem var(--font); }
+.link { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr) 2.4rem; gap: 0.5rem; }
 .link input { min-width: 0; height: 2.4rem; padding: 0 0.75rem; border: 1px solid var(--glass-edge); border-radius: var(--radius); background: rgb(4 7 11 / 0.6); outline: none; }
 .link input:focus { border-color: var(--edge-lit-hi); }
 .link input::placeholder { color: var(--ink-faint); }

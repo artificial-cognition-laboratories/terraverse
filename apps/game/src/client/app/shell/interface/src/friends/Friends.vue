@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue"
 import { useBridge } from "../bridge/use.ts"
-import { useStore } from "../game/store.ts"
+import type { Account, Social } from "../bridge/index.ts"
 import { Copier, Cover, Monogram, Notice, onEscape } from "../kit/index.ts"
 import { Actions } from "../online/actions.ts"
 import AccountsView from "./AccountsView.vue"
@@ -16,9 +16,18 @@ import type { LibraryOpen } from "../menu/library/icons.ts"
  * who's away, each row with its one action. Always the same height. Signed out, it's the way in:
  * the accounts this machine remembers, and signing in another, in place.
  */
-/** `player`: a friend's page asked for, which the place showing the popover opens in the library. */
-const emit = defineEmits<{ close: []; library: [to: LibraryOpen] }>()
-const store = useStore()
+/**
+ * Its place gives it the account and friends (the game's store, the launcher's) and answers its
+ * intents (useBridge: the engine, or the launcher's backend). `library`: there's a library to open
+ * a friend's page or your account in (the game); without one, Manage is the site. `playAs`: a
+ * remembered account can be launched beside this one (the launcher).
+ */
+/** `at`: the account icon it hangs from, its top right corner a little under the icon's bottom right. */
+const props = withDefaults(defineProps<{ account: Account | null; social: Social | null; library?: boolean; playAs?: boolean; at?: DOMRect | null }>(),
+    { library: true, playAs: false, at: null })
+const GAP = 8
+const hang = computed(() => props.at ? { top: `${props.at.bottom + GAP}px`, right: `${window.innerWidth - props.at.right}px` } : undefined)
+const emit = defineEmits<{ close: []; library: [to: LibraryOpen]; playAs: [name: string] }>()
 const actions = Actions({ bridge: useBridge() })
 const copier = Copier()
 const mode = ref<"list" | "accounts">("list")
@@ -29,11 +38,11 @@ const adding = ref(false)
 let cancelled = false
 const last = ref<{ username: string; name: string | null } | null>(null)
 const me = computed(() => {
-    const account = store.account
+    const account = props.account
     if (account?.status === "signedIn") return account
     return switching.value || adding.value ? last.value : null
 })
-watch(() => store.account, (account) => {
+watch(() => props.account, (account) => {
     if (account?.status !== "signedIn") return
     last.value = { username: account.username, name: account.name }
     switching.value = null
@@ -56,7 +65,7 @@ async function addAccount() {
 }
 // a sign-in under way: closing the popover, Esc or your row in its head each cancel it, one way out
 const signingIn = computed(() => {
-    const status = store.account?.status
+    const status = props.account?.status
     return status === "starting" || status === "pending" || status === "checking" || status === "unreachable"
 })
 function headClicked() {
@@ -65,21 +74,21 @@ function headClicked() {
 }
 onBeforeUnmount(() => { if (signingIn.value) void cancelAdd() })
 async function cancelAdd() {
-    if (store.account?.status !== "signedOut") await actions.send("account.cancel", {})
+    if (props.account?.status !== "signedOut") await actions.send("account.cancel", {})
     if (adding.value && last.value) {
         cancelled = true
         await switchTo(`@${last.value.username}`)
     }
     adding.value = false
 }
-const view = computed(() => store.social?.view ?? null)
+const view = computed(() => props.social?.view ?? null)
 const query = ref("")
 const name = computed(() => query.value.trim().replace(/^@/, ""))
 const list = computed(() => view.value ? groups(view.value, name.value) : [])
 // a name that's none of your friends' (nor already asked) can be sent a request from the search
 const known = computed(() => !!view.value && [...view.value.friends, ...view.value.incoming, ...view.value.outgoing]
     .some((p) => p.username.toLowerCase() === name.value.toLowerCase()))
-const canInvite = computed(() => !!store.social?.joinable)
+const canInvite = computed(() => !!props.social?.joinable)
 const offlineOpen = ref(true)
 const sent = ref<string | null>(null)
 
@@ -91,17 +100,22 @@ async function add() {
         query.value = ""
     }
 }
+// your account: the library's page where there is one, else the site's
+function manage() {
+    if (props.library) emit("library", { page: "account" })
+    else void actions.send("open", { url: "https://terraverse.arclabs.it" })
+}
 onEscape(() => {
     if (signingIn.value) void cancelAdd()
     else if (mode.value !== "list") mode.value = "list"
     else if (query.value) query.value = ""
     else emit("close")
-})
+}, { over: true })
 </script>
 
 <template>
     <div class="scrim" @mousedown.self="emit('close')">
-        <section class="pop" role="dialog" aria-label="Friends">
+        <section class="pop" :style="hang" role="dialog" aria-label="Friends">
             <template v-if="me">
                 <header class="head">
                     <Cover class="banner" :seed="me.username" :width="48" />
@@ -116,7 +130,7 @@ onEscape(() => {
                     <input v-model="query" placeholder="Search friends, or add by username" spellcheck="false" autocomplete="off" @input="sent = null">
                 </form>
                 <Notice v-if="actions.problem.value" tone="danger" class="problem">{{ actions.problem.value }}</Notice>
-                <AccountsView v-if="mode === 'accounts'" :actions="actions" :me="me" :switching="switching" @switch="switchTo" @add="addAccount" @cancel="cancelAdd" @manage="emit('library', { page: 'account' })" />
+                <AccountsView v-if="mode === 'accounts'" :actions="actions" :me="me" :switching="switching" :account="account" :play-as="playAs" @switch="switchTo" @add="addAccount" @cancel="cancelAdd" @manage="manage" @play-as="(n) => emit('playAs', n)" />
                 <div v-else class="body">
                     <p v-if="sent" class="sent">Request sent to @{{ sent }}.</p>
                     <button v-if="name && !known" class="invite-new" :disabled="actions.busy.value" @click="add">
@@ -143,7 +157,7 @@ onEscape(() => {
                             <FriendRow v-for="f in g.friends" :key="f.id" :friend="f" :can-invite="canInvite"
                                 :busy="actions.busy.value" :joining="actions.joining.value === f.id"
                                 @join="actions.joinFriend(f)" @invite="actions.invite(f.id)" @remove="actions.remove(f.id)"
-                                @copy="copier.copy(`@${f.username}`)" @page="emit('library', { player: f.username })" />
+                                :can-page="library" @copy="copier.copy(`@${f.username}`)" @page="emit('library', { player: f.username })" />
                         </ul>
                     </section>
                 </div>
@@ -156,7 +170,7 @@ onEscape(() => {
                     </button>
                 </header>
                 <Notice v-if="actions.problem.value" tone="danger" class="problem">{{ actions.problem.value }}</Notice>
-                <AccountsView :actions="actions" :me="null" :switching="switching" @switch="switchTo" @add="addAccount" @cancel="cancelAdd" @manage="emit('library', { page: 'account' })" />
+                <AccountsView :actions="actions" :me="null" :switching="switching" :account="account" :play-as="playAs" @switch="switchTo" @add="addAccount" @cancel="cancelAdd" @manage="manage" @play-as="(n) => emit('playAs', n)" />
             </template>
         </section>
     </div>

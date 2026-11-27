@@ -1,12 +1,12 @@
 <script setup lang="ts">
-/** A labelled text input, sunk into the surface. */
-defineProps<{ label: string; placeholder?: string; maxlength?: number; mono?: boolean }>()
+/** A text input, sunk into the surface; labelled, unless a FormRow says what it is. */
+defineProps<{ label?: string; placeholder?: string; maxlength?: number; mono?: boolean }>()
 const model = defineModel<string>({ required: true })
 </script>
 
 <template>
     <label class="field">
-        <span class="label">{{ label }}<slot name="hint" /></span>
+        <span v-if="label || $slots.hint" class="label">{{ label }}<slot name="hint" /></span>
         <span class="box">
             <input v-model="model" :placeholder="placeholder" :maxlength="maxlength" :class="{ mono: mono }" spellcheck="false">
             <slot name="action" />

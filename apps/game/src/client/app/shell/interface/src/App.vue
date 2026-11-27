@@ -49,7 +49,7 @@ function openLibrary(to: LibraryOpen) {
         <!-- over the world, frosted as the menu's scene is; the search waits to be clicked, so L closes it again -->
         <div v-else-if="store.screen === 'library'" class="whole"><Library :autofocus="false" :open="libraryOpen" @close="bridge.send('screen.close', {})" /></div>
         <!-- the account corner's popover, over the world as in the menu; the full Online screen waits to be re-homed -->
-        <Friends v-else-if="store.screen === 'online'" @close="bridge.send('screen.close', {})" @library="openLibrary" />
+        <Friends v-else-if="store.screen === 'online'" :account="store.account" :social="store.social" @close="bridge.send('screen.close', {})" @library="openLibrary" />
     </template>
     <!-- over the world's last frame, held frosted by the shell while it's saved (host/frame_blur.h: hold) -->
     <div v-else-if="store.mode === 'leaving'" class="leaving"><p><Spinner label="Saving the world" /> Saving the world</p></div>

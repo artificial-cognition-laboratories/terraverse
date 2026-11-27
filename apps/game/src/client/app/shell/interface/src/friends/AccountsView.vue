@@ -2,7 +2,7 @@
 import { computed, ref, watch } from "vue"
 import type { RememberedProfile } from "../bridge/index.ts"
 import { useBridge } from "../bridge/use.ts"
-import { useStore } from "../game/store.ts"
+import type { Account } from "../bridge/index.ts"
 import { Monogram, Spinner } from "../kit/index.ts"
 import type { ActionsHandle } from "../online/actions.ts"
 
@@ -13,19 +13,19 @@ import type { ActionsHandle } from "../online/actions.ts"
  * pane is that instead: the code to check on the page, and at the foot opening it again or cancelling.
  * `switching`: the profile being switched to, its tile spinning while the popover holds still.
  */
-const props = defineProps<{ actions: ActionsHandle; me: { username: string } | null; switching: string | null }>()
-const emit = defineEmits<{ switch: [name: string]; add: []; cancel: []; manage: [] }>()
+/** `playAs`: each other account also offers launching a game as it, beside this one (the launcher). */
+const props = defineProps<{ account: Account | null; actions: ActionsHandle; me: { username: string } | null; switching: string | null; playAs: boolean }>()
+const emit = defineEmits<{ switch: [name: string]; add: []; cancel: []; manage: []; playAs: [name: string] }>()
 const bridge = useBridge()
-const store = useStore()
 const remembered = ref<RememberedProfile[]>([])
 const flow = computed(() => {
-    const a = store.account
+    const a = props.account
     return a && a.status !== "signedIn" && a.status !== "signedOut" ? a : null
 })
 const shown = computed(() => remembered.value.filter((p) => p.handle !== props.me?.username))
 async function read() { remembered.value = await bridge.send("profiles.list", {}) }
 // on arriving signed in or out, not mid-switch: the list would empty and refill under the pointer
-watch(() => store.account?.status, (status) => { if (status === "signedIn" || status === "signedOut") void read() }, { immediate: true })
+watch(() => props.account?.status, (status) => { if (status === "signedIn" || status === "signedOut") void read() }, { immediate: true })
 async function forget(name: string) {
     if (await props.actions.send("profiles.forget", { name: name })) await read()
 }
@@ -59,6 +59,7 @@ async function forget(name: string) {
                         <Spinner v-if="switching === p.name" label="Signing in" />
                         <span v-else class="go">{{ me ? "Switch »" : "Sign in »" }}</span>
                     </button>
+                    <button v-if="me && playAs && !switching" class="forget play" :disabled="actions.busy.value" :title="`Another game, as @${p.handle}`" @click="emit('playAs', p.name)">Play as</button>
                     <button v-if="!me && !switching" class="forget" :disabled="actions.busy.value" :title="`Forget @${p.handle} on this machine`" @click="forget(p.name)">✕</button>
                 </div>
             </template>
@@ -101,6 +102,8 @@ async function forget(name: string) {
 .forget { flex: none; width: 24px; height: 24px; margin-right: 0.5rem; border: 0; border-radius: var(--radius); background: none; color: var(--ink-faint); font: 0.7rem var(--font); opacity: 0; }
 .tile:hover .forget { opacity: 1; }
 .forget:hover { color: #e8b04a; }
+.forget.play { width: auto; padding: 0 0.5rem; color: var(--accent-hi); font: 0.55rem var(--font-display); text-transform: uppercase; }
+.forget.play:hover { color: var(--ink); }
 .tile.add { gap: 0.75rem; padding: 0.55rem 0.65rem; border-style: dashed; border-color: rgb(99 163 233 / 0.22); text-align: left; }
 .tile.add:disabled { cursor: default; }
 .plus { display: grid; place-items: center; flex: none; width: 30px; height: 30px; color: var(--accent-hi); font: 0.9rem var(--font-display); }

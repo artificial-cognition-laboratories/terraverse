@@ -9,6 +9,8 @@ import { Actions } from "../../online/actions.ts"
 import Browse from "../../online/Browse.vue"
 import PlayerPage from "../../online/PlayerPage.vue"
 import Account from "./account/Account.vue"
+import Corner from "../../account/Corner.vue"
+import Friends from "../../friends/Friends.vue"
 import ServerPage from "../../online/ServerPage.vue"
 import Discover from "./Discover.vue"
 import { RAIL, SEARCHES, type LibraryOpen, type Page } from "./icons.ts"
@@ -79,6 +81,13 @@ function openPlayer(handle: string) {
     clear()
     player.value = handle
 }
+// the friends popover, from the account icon beside the search: its links open here
+const friends = ref<DOMRect | null>(null)
+function openHere(to: LibraryOpen) {
+    friends.value = null
+    if ("player" in to) openPlayer(to.player)
+    else go(to.page)
+}
 watch(() => props.open, (to) => {
     if (!to) return
     if ("player" in to) openPlayer(to.player)
@@ -96,8 +105,11 @@ function typed(q: string) {
 <template>
     <Screen :page="page" :pages="RAIL" label="Library" :section="section" @update:page="go" @back="emit('close')">
         <template #search>
-            <SearchBox :model-value="query" :autofocus="autofocus" :label="`Search ${pageLabel}`"
-                :placeholder="SEARCHES[page]" @update:model-value="typed" />
+            <div class="tools">
+                <SearchBox :model-value="query" :autofocus="autofocus" :label="`Search ${pageLabel}`"
+                    :placeholder="SEARCHES[page]" @update:model-value="typed" />
+                <Corner inline :account="store.account" :social="store.social" @open="(at) => (friends = friends ? null : at)" />
+            </div>
         </template>
         <ModPage v-if="local" :name="local.name" :local="local" :back="pageLabel" @back="local = null" />
         <!-- a mod opened from a server or a player keeps them to come back to -->
@@ -123,5 +135,11 @@ function typed(q: string) {
             <Account v-else-if="me" key="account" :handle="me" :actions="actions" @mod="(name) => (mod = name)" @page="openPlayer" />
             <ListEmpty v-else key="signed-out" title="Not signed in"><p>Sign in from the account corner to keep your account here.</p></ListEmpty>
         </KeepAlive>
+        <Friends v-if="friends" :account="store.account" :social="store.social" :at="friends" @close="friends = null" @library="openHere" />
     </Screen>
 </template>
+
+<style scoped>
+.tools { display: flex; flex: 0 1 30rem; gap: 0.75rem; align-items: center; justify-content: flex-end; min-width: 0; }
+.tools.tools :deep(.search-box) { flex: 1; width: auto; }
+</style>

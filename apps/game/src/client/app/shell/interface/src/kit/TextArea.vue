@@ -1,12 +1,12 @@
 <script setup lang="ts">
 /** A labelled box for a few lines of text, sunk into the surface as Field is; counts down to `maxlength`. */
-defineProps<{ label: string; placeholder?: string; maxlength: number; rows?: number }>()
+defineProps<{ label?: string; placeholder?: string; maxlength: number; rows?: number }>()
 const model = defineModel<string>({ required: true })
 </script>
 
 <template>
     <label class="area">
-        <span class="label">{{ label }}<span class="left">{{ maxlength - model.length }}</span></span>
+        <span class="label">{{ label ?? "" }}<span class="left">{{ maxlength - model.length }}</span></span>
         <textarea v-model="model" :placeholder="placeholder" :maxlength="maxlength" :rows="rows ?? 3" spellcheck="false" />
     </label>
 </template>

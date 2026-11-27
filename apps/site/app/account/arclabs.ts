@@ -8,6 +8,8 @@ import { Refused } from "./refused"
 export interface Profile {
     username: string | null
     name: string | null
+    /** The username was chosen by its person, not made up at sign-up: then it never changes */
+    chosen: boolean
 }
 
 export function ArcLabs(opts: { api: string; token: () => string | null }) {
@@ -28,11 +30,12 @@ export function ArcLabs(opts: { api: string; token: () => string | null }) {
         async profile(): Promise<Profile> {
             return profile(await call("GET", "/api/user/profile"))
         },
-        async claim(name: string): Promise<Profile> {
-            const answer = await call("PATCH", "/api/user/profile", { username: name })
+        /** Chooses the name, once: refused if it's taken, the wrong shape, or already chosen. */
+        async claim(name: string): Promise<{ username: string }> {
+            const answer = await call("POST", "/api/user/profile/handle", { username: name })
             const username = Reflect.get(answer as object, "username")
             if (typeof username !== "string") throw new Error("ArcLabs claimed a name and didn't say which")
-            return { username: username, name: null }
+            return { username: username }
         },
         async approve(code: string): Promise<void> {
             await call("POST", "/api/user/device/approve", { user_code: code })
@@ -57,7 +60,9 @@ function profile(value: unknown): Profile {
     if (typeof value !== "object" || value === null) throw new Error("ArcLabs' profile isn't an object")
     const username = Reflect.get(value, "username")
     const name = Reflect.get(value, "name")
+    const chosen = Reflect.get(value, "usernameChosen")
+    if (typeof chosen !== "boolean") throw new Error("ArcLabs' profile doesn't say whether its name was chosen")
     const nullable = (v: unknown): v is string | null => v === null || v === undefined || typeof v === "string"
     if (!nullable(username) || !nullable(name)) throw new Error("ArcLabs' profile has the wrong shape")
-    return { username: username ?? null, name: name ?? null }
+    return { username: username ?? null, name: name ?? null, chosen: chosen }
 }

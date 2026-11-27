@@ -32,7 +32,7 @@ const state = computed((): State => {
     if (!DEVICE_CODE.test(code.value)) return "enter"
     const user = account.user.value
     if (!user) return "signin"
-    if (client.value === "terra-cli" && !user.username) return "name"
+    if (!user.chosen) return "name"
     return "confirm"
 })
 
@@ -87,7 +87,7 @@ async function approve() {
     </auth-card>
 
     <auth-card v-else-if="state === 'name'" title="Choose your name first">
-        <template #lede>terra publishes under your name, and you haven't chosen one yet. Choose it, then come back to this code.</template>
+        <template #lede>It's who you are in the game, to your friends and on the registry, and it can't change later. Choose it, then come back to this code.</template>
         <home-button variant="primary" size="lg" class="go" :to="`/register?next=${encodeURIComponent(route.fullPath)}`">Choose a name</home-button>
     </auth-card>
 

@@ -505,8 +505,6 @@ export type AccountProfile = {
 }
 /** What the profile page sends: only the fields changed; an empty text clears its field. */
 export type ProfileEdit = Partial<{ bio: string; location: string; website: string; links: ProfileLink[] }>
-/** Whether a handle can be taken, and if not, why (arclabs: users.available). */
-export type HandleAvailability = { available: true } | { available: false; reason: string }
 
 /** An ArcLabs player, as Terraverse's friends list shows them. */
 export type Player = { id: string; username: string; name: string | null }
@@ -815,13 +813,6 @@ export type Intents = {
     "account.profile": { request: {}; response: AccountProfile }
     /** Changes it; answered with the profile as saved. Refused with the backend's reason. */
     "account.edit": { request: ProfileEdit; response: AccountProfile }
-    /** Whether a handle is free, as it's typed: advice only, the rename checks again. */
-    "account.available": { request: { username: string }; response: HandleAvailability }
-    /**
-     * Takes a new handle, and with it the scope of all they've published. In the menu only: the
-     * account's profile folder moves with it, and the `account` message brings the new name.
-     */
-    "account.rename": { request: { username: string }; response: AccountProfile }
     /** Friends, presence and invites (src/shell/social.cpp); changes arrive as `social` messages. */
     "social.get": { request: {}; response: Social | null }
     /** Friends can join the world you're in (your own). */

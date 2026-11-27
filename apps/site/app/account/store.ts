@@ -50,6 +50,6 @@ function user(value: unknown): User | null {
     const field = (key: string) => Reflect.get(value, key)
     const text = (v: unknown) => typeof v === "string"
     const orNull = (v: unknown) => v === null || typeof v === "string"
-    if (!text(field("id")) || !text(field("email")) || !orNull(field("name")) || !orNull(field("username"))) return null
-    return { id: field("id") as string, email: field("email") as string, name: field("name") as string | null, username: field("username") as string | null }
+    if (!text(field("id")) || !text(field("email")) || !orNull(field("name")) || !orNull(field("username")) || typeof field("chosen") !== "boolean") return null
+    return { id: field("id") as string, email: field("email") as string, name: field("name") as string | null, username: field("username") as string | null, chosen: field("chosen") as boolean }
 }

@@ -50,8 +50,6 @@ public:
 	void resume();
 	// Checks the saved key again after the backend couldn't be reached.
 	void retry();
-	// Asks the backend who this is again, while signed in: the handle changed (a rename).
-	void reread();
 	// The key's file moved (the player's profile changed): where it's kept from now on.
 	void keyAt(std::string path) { m_key_path = std::move(path); }
 	// Neither signed in nor on the way: a profile can be switched to.
