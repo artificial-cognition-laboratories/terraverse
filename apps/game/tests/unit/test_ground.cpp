@@ -38,6 +38,7 @@ public:
 	void testFirstCutKeepsTheShape();
 	void testBlockBoxesAsTheMapSays();
 	void testRisesStandTheLandFine();
+	void testNaturalGroundIsOneField();
 };
 
 static TestGround g_test_instance;
@@ -55,6 +56,7 @@ void TestGround::runTests(IGameDef *gamedef)
 	TEST(testFirstCutKeepsTheShape);
 	TEST(testBlockBoxesAsTheMapSays);
 	TEST(testRisesStandTheLandFine);
+	TEST(testNaturalGroundIsOneField);
 }
 
 namespace {
@@ -102,9 +104,21 @@ struct Land
 			auto r = rises.find({ p.X, p.Z });
 			auto c = columns.find({ p.X, p.Z });
 			const int top = c == columns.end() ? rest : c->second.first;
-			return r != rises.end() && p.Y == top - 1 ? r->second : 0;
+			return r != rises.end() && p.Y == top - 1 ? std::optional<int>(r->second) : std::nullopt;
 		};
 		return Ground(*ndef).top(*this, [](v3s16) { return false; }, rise, v3s16(x, t - 1, z));
+	}
+
+	// any loose block's shape (a slice of natural ground under its top too)
+	std::optional<Top> at(int x, int y, int z) const
+	{
+		const auto rise = [&](v3s16 p) {
+			auto r = rises.find({ p.X, p.Z });
+			auto c = columns.find({ p.X, p.Z });
+			const int top = c == columns.end() ? rest : c->second.first;
+			return r != rises.end() && p.Y == top - 1 ? std::optional<int>(r->second) : std::nullopt;
+		};
+		return Ground(*ndef).top(*this, [](v3s16) { return false; }, rise, v3s16(x, y, z));
 	}
 };
 
@@ -357,12 +371,12 @@ void TestGround::testUnknownAndCubesAreWalls()
 
 	// the column at (1, 0) a cube (cut)
 	auto cube = [](v3s16 p) { return p.X == 1 && p.Z == 0; };
-	t = ground.top(land, cube, [](v3s16) { return 0; }, v3s16(0, -1, 0));
+	t = ground.top(land, cube, [](v3s16) { return std::optional<int>(); }, v3s16(0, -1, 0));
 	UASSERT(t);
 	UASSERTEQ(int, t->corners[1], STEPS);
 	UASSERTEQ(int, t->corners[3], STEPS);
 	// and a cube itself isn't smoothed
-	UASSERT(!ground.top(land, cube, [](v3s16) { return 0; }, v3s16(1, -1, 0)));
+	UASSERT(!ground.top(land, cube, [](v3s16) { return std::optional<int>(); }, v3s16(1, -1, 0)));
 }
 
 /*
@@ -584,4 +598,48 @@ void TestGround::testRisesStandTheLandFine()
 		land.rises[{ 1, 0 }] = 7;
 		UASSERT(!land.top(1, 0));
 	}
+}
+
+// Sprint 129: natural ground is one field. A lone column a block and a half
+// over its neighbours (a crest the old clusters left a box) comes down: its
+// corners are the four columns' average, under its own top block, so that
+// block is empty and the one under it a slice, the surface in it; every
+// corner agrees with its neighbours'.
+void TestGround::testNaturalGroundIsOneField()
+{
+	Land land;
+	for (int x = -4; x <= 4; x++)
+		for (int z = -4; z <= 4; z++)
+			land.rises[{ x, z }] = 0;
+	land.set(0, 0, 2);
+	land.rises[{ 0, 0 }] = 0;
+	// (the spike's top block, y 1: its corners the average of 32 and three 0s)
+	auto top = land.top(0, 0);
+	UASSERT(top);
+	for (int i = 0; i < 4; i++)
+		UASSERTEQ(int, top->corners[i], 8 - STEPS);
+	for (int x = 0; x < STEPS; x++)
+		for (int z = 0; z < STEPS; z++) {
+			UASSERTEQ(int, top->cells[x][z], 0);
+			UASSERT(!top->surface[x][z]);
+		}
+	// the block under it: a slice, its surface half way up
+	auto slice = land.at(0, 0, 0);
+	UASSERT(slice);
+	UASSERTEQ(int, slice->below, 1);
+	for (int x = 0; x < STEPS; x++)
+		for (int z = 0; z < STEPS; z++) {
+			UASSERTEQ(int, slice->cells[x][z], 8);
+			UASSERT(slice->surface[x][z]);
+		}
+	// its neighbour's corner there is the same place (its top block is y −1)
+	auto beside = land.top(1, 0);
+	UASSERT(beside);
+	UASSERTEQ(int, beside->corners[0], 8 + STEPS);
+	// a block the field stands over is whole: no slice
+	UASSERT(!land.at(1, -2, 0));
+	// and under ground that isn't natural, no slice either
+	Land dug;
+	dug.set(0, 0, 2);
+	UASSERT(!dug.at(0, 0, 0));
 }

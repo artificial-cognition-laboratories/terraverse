@@ -382,9 +382,16 @@ static ground::Top coarsen(const ground::Top &t, int g)
 				for (int b = 0; b < g; b++)
 					sum += t.cells[x + a][z + b];
 			const int h = std::clamp((sum + g * g * g / 2) / (g * g * g) * g, 0, 2 * STEPS);
+			// (its surface here if any of the fine one's is)
+			bool surface = false;
 			for (int a = 0; a < g; a++)
 				for (int b = 0; b < g; b++)
+					surface |= t.surface[x + a][z + b];
+			for (int a = 0; a < g; a++)
+				for (int b = 0; b < g; b++) {
 					out.cells[x + a][z + b] = u8(h);
+					out.surface[x + a][z + b] = surface;
+				}
 		}
 	return out;
 }
@@ -529,12 +536,12 @@ static LightPair getSmoothLightCorner(const v3s16 &p,
 }
 
 // Gets the base lighting values for a node
-void MapblockMeshGenerator::getSmoothLightFrame()
+void MapblockMeshGenerator::getSmoothLightFrame(s16 lift)
 {
 	for (int k = 0; k < 8; ++k)
 		cur_node.lframe.sunlight[k] = false;
 	for (int k = 0; k < 8; ++k) {
-		LightPair light = getSmoothLightCorner(blockpos_nodes + cur_node.p, light_dirs[k], data);
+		LightPair light = getSmoothLightCorner(blockpos_nodes + cur_node.p + v3s16(0, lift, 0), light_dirs[k], data);
 		cur_node.lframe.lightsDay[k] = light.lightDay;
 		cur_node.lframe.lightsNight[k] = light.lightNight;
 		// If there is direct sunlight and no ambient occlusion at some corner,
@@ -2170,7 +2177,7 @@ std::optional<ground::Top> MapblockMeshGenerator::groundTop(v3s16 p) const
 	const auto cut = [&](v3s16 q) { return data->m_atlas && data->m_cuts.count(q) > 0; };
 	const auto rise = [&](v3s16 q) {
 		const auto it = data->m_rises.find(q);
-		return it == data->m_rises.end() ? 0 : int(it->second);
+		return it == data->m_rises.end() ? std::optional<int>() : std::optional<int>(it->second);
 	};
 	return ground::Ground(*nodedef).top(get, cut, rise, p);
 }
@@ -2189,10 +2196,11 @@ void MapblockMeshGenerator::drawGround(const ground::Top &top)
 {
 	using ground::STEPS;
 	if (data->m_smooth_lighting)
-		getSmoothLightFrame();
+		getSmoothLightFrame(s16(top.below));
 	const v3s16 p = blockpos_nodes + cur_node.p;
-	// the air over it, past any cut node there (a ridge pushed up onto it)
-	v3s16 over = p + v3s16(0, 1, 0);
+	// the air over it, past any cut node there (a ridge pushed up onto it),
+	// and over its column's top, a slice's (natural ground under its top)
+	v3s16 over = p + v3s16(0, 1 + top.below, 0);
 	while (cutShape(over))
 		over += v3s16(0, 1, 0);
 	const video::SColor flat = encode_light(getFaceLight(cur_node.n,
@@ -2241,19 +2249,21 @@ void MapblockMeshGenerator::drawGround(const ground::Top &top)
 	// the tops: rectangles of one height, grown along x then z (sprint 85: a
 	// run along x a row, a flat node was 16 quads and most of a block's
 	// vertices were its ground)
+	// (only where its surface lies in this block: not under the field, a
+	// slice's, nor where the block below takes it)
 	bool done[STEPS][STEPS] = {};
 	for (int z = 0; z < STEPS; z++)
 		for (int x = 0; x < STEPS; x++) {
-			if (done[x][z])
+			if (done[x][z] || !top.surface[x][z])
 				continue;
 			const int h = top.cells[x][z];
 			int x1 = x + 1;
-			while (x1 < STEPS && !done[x1][z] && top.cells[x1][z] == h)
+			while (x1 < STEPS && !done[x1][z] && top.surface[x1][z] && top.cells[x1][z] == h)
 				x1++;
 			int z1 = z + 1;
 			for (bool grows = true; z1 < STEPS && grows; z1 += grows) {
 				for (int i = x; i < x1 && grows; i++)
-					grows = !done[i][z1] && top.cells[i][z1] == h;
+					grows = !done[i][z1] && top.surface[i][z1] && top.cells[i][z1] == h;
 			}
 			for (int i = x; i < x1; i++)
 				for (int j = z; j < z1; j++)

@@ -34,6 +34,14 @@
 
 	A column's top block is only lowered within its own cell; where the
 	ground rises it fills into the air cell above it (up to a block).
+
+	Natural ground is one field (sprint 129): where all four columns at a
+	corner are natural (their rises kept), the corner is their fine heights'
+	plain average, no clusters, and the field runs down through the loose
+	blocks under a column's top (up to REACH of them): each a slice of it
+	(Ground::top answers for them too), empty above the field, whole under
+	it. It never cuts into what isn't loose: over rock, it stands no lower
+	than the loose blocks go.
 */
 namespace ground {
 
@@ -53,13 +61,19 @@ struct Column
 {
 	Kind kind;
 	int top;
-	int rise = 0;
-	int fine() const { return top * STEPS + rise; }
+	std::optional<int> rise; // natural ground's (Rises): none, dug or built
+	int fine() const { return top * STEPS + rise.value_or(0); }
+	bool natural() const { return kind == Kind::Loose && rise.has_value(); }
 };
 
 // A corner's height, in sixteenths of the world (a level × STEPS), for the
 // column `own` of the four there.
 int corner(const std::array<Column, 4> &around, size_t own);
+
+// How far a column's surface is looked for, up and down: a cluster of four
+// columns spans at most 3, so anything further can't change a corner; and
+// how many blocks under its top natural ground's field may run down through.
+constexpr int REACH = 3;
 
 /*
 	A smoothed block's top, in voxels: STEPS × STEPS columns of a sixteenth,
@@ -81,6 +95,21 @@ struct Top
 	std::array<int, 4> corners;
 	std::array<std::array<int, 2>, 4> sides;
 	std::array<std::array<u8, STEPS>, STEPS> cells; // [x][z]
+	// where the ground's surface lies in this block: a top is drawn there
+	// (not where the field's over it, a slice's; nor under it, where the
+	// block below takes it)
+	std::array<std::array<bool, STEPS>, STEPS> surface;
+	// blocks under its column's top (0: the top; more, a slice of natural
+	// ground under it), and how many loose blocks under it the field may
+	// run down into
+	int below = 0, open = 0;
+
+	// The cells and surface from the corners: up to `ceiling` sixteenths
+	// (2·STEPS a top, STEPS a slice). Whether any of the field crosses it.
+	bool build(int ceiling);
+	// The slice of this top `k` blocks down its column (1..open): none
+	// where the field stands over all of it (a whole block).
+	std::optional<Top> slice(int k) const;
 
 	// The voxel column's height under (x, z) within the block (0..1 each),
 	// in blocks: what's drawn and stood on.
@@ -112,10 +141,6 @@ inline MapNode seen(const MapNode &n, const shape::Shape *cut)
 constexpr int SIDE_CORNERS[4][2] = { { 0, 2 }, { 1, 3 }, { 0, 1 }, { 2, 3 } };
 constexpr int SIDE_DIR[4][2] = { { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } };
 
-// How far a column's surface is looked for, up and down: a cluster of four
-// columns spans at most 3, so anything further can't change a corner.
-constexpr int REACH = 3;
-
 class Ground
 {
 public:
@@ -133,14 +158,18 @@ public:
 	*/
 	template <class Get, class Cube, class Rise>
 	std::optional<Top> top(const Get &get, const Cube &cube, const Rise &rise, v3s16 p) const;
-	// (ground with no cut cells and no rises: what a test lays out)
+	// (ground with no cut cells and none natural: what a test lays out)
 	template <class Get>
 	std::optional<Top> top(const Get &get, v3s16 p) const
 	{
-		return top(get, [](v3s16) { return false; }, [](v3s16) { return 0; }, p);
+		return top(get, [](v3s16) { return false; }, [](v3s16) { return std::optional<int>(); }, p);
 	}
 
 private:
+	// The top of a column's top block p (nothing walkable over it)
+	template <class Get, class Cube, class Rise>
+	std::optional<Top> surface(const Get &get, const Cube &cube, const Rise &rise, v3s16 p) const;
+
 	// The column at (x, z)'s surface nearest to level `near` (ties: the
 	// higher), within REACH; past it, a wall (ground all the way up) or
 	// nothing. A column not all known (a block not here yet) is a wall: the
@@ -166,7 +195,7 @@ Column Ground::column(const Get &get, const Cube &cube, const Rise &rise, s16 x,
 			const v3s16 under(x, top - 1, z);
 			if (walkable(get(under)) && !walkable(get(v3s16(x, top, z)))) {
 				const Kind k = cube(under) ? Kind::Solid : kind(get(under));
-				return { k, top, k == Kind::Loose ? rise(under) : 0 };
+				return { k, top, k == Kind::Loose ? rise(under) : std::nullopt };
 			}
 			if (d == 0)
 				break;
@@ -180,8 +209,28 @@ Column Ground::column(const Get &get, const Cube &cube, const Rise &rise, s16 x,
 template <class Get, class Cube, class Rise>
 std::optional<Top> Ground::top(const Get &get, const Cube &cube, const Rise &rise, v3s16 p) const
 {
-	if (kind(get(p)) != Kind::Loose || walkable(get(p + v3s16(0, 1, 0))) || cube(p))
+	if (kind(get(p)) != Kind::Loose || cube(p))
 		return std::nullopt;
+	if (!walkable(get(p + v3s16(0, 1, 0))))
+		return surface(get, cube, rise, p);
+	// under natural ground: its slice of the field, if the field reaches it
+	for (int k = 1; k <= REACH; k++) {
+		const v3s16 q = p + v3s16(0, k, 0);
+		if (kind(get(q)) != Kind::Loose || cube(q))
+			return std::nullopt;
+		if (!walkable(get(q + v3s16(0, 1, 0)))) {
+			if (!rise(q))
+				return std::nullopt;
+			const std::optional<Top> t = surface(get, cube, rise, q);
+			return t && k <= t->open ? t->slice(k) : std::nullopt;
+		}
+	}
+	return std::nullopt;
+}
+
+template <class Get, class Cube, class Rise>
+std::optional<Top> Ground::surface(const Get &get, const Cube &cube, const Rise &rise, v3s16 p) const
+{
 	const int own = p.Y + 1;
 	const int base = p.Y * STEPS;
 
@@ -189,7 +238,7 @@ std::optional<Top> Ground::top(const Get &get, const Cube &cube, const Rise &ris
 	std::array<std::array<Column, 4>, 4> cols;
 	for (int a = 0; a < 4; a++)
 		for (int b = 0; b < 4; b++)
-			cols[a][b] = (a == 1 && b == 1) ? Column{ Kind::Loose, own, rise(p) }
+			cols[a][b] = (a == 1 && b == 1) ? Column{ Kind::Loose, own, std::optional<int>(rise(p)) }
 					: column(get, cube, rise, p.X - 1 + a, p.Z - 1 + b, own);
 
 	// the height, for column (a, b) of the grid, of its corner (cx, cz)
@@ -204,11 +253,12 @@ std::optional<Top> Ground::top(const Get &get, const Cube &cube, const Rise &ris
 	};
 
 	Top t;
+	// natural ground's field may run down through the loose blocks under it
+	if (cols[1][1].natural())
+		while (t.open < REACH && kind(get(p - v3s16(0, t.open + 1, 0))) == Kind::Loose && !cube(p - v3s16(0, t.open + 1, 0)))
+			t.open++;
 	for (int i = 0; i < 4; i++)
-		t.corners[i] = at(1, 1, i & 1, i >> 1) - base;
-	for (int x = 0; x < STEPS; x++)
-		for (int z = 0; z < STEPS; z++)
-			t.cells[x][z] = u8(std::lround(t.field((x + 0.5f) / STEPS, (z + 0.5f) / STEPS)));
+		t.corners[i] = std::max(at(1, 1, i & 1, i >> 1) - base, -t.open * STEPS);
 	for (int s = 0; s < 4; s++) {
 		int a = 1 + SIDE_DIR[s][0], b = 1 + SIDE_DIR[s][1];
 		for (int k = 0; k < 2; k++) {
@@ -224,6 +274,7 @@ std::optional<Top> Ground::top(const Get &get, const Cube &cube, const Rise &ris
 					: at(a, b, cx - SIDE_DIR[s][0], cz - SIDE_DIR[s][1]) - base;
 		}
 	}
+	t.build(2 * STEPS);
 	return t;
 }
 

@@ -363,7 +363,7 @@ void MapgenTerra::keepRises(BlockMakeData *data)
 	for (s16 z = node_min.Z; z <= node_max.Z; z++)
 		for (s16 x = node_min.X; x <= node_max.X; x++, index++) {
 			const terra::Column &c = m_column[index];
-			if (m_atlasDebug || c.space || c.rise == 0 || c.height < node_min.Y || c.height > node_max.Y)
+			if (m_atlasDebug || c.space || c.height < node_min.Y || c.height > node_max.Y)
 				continue;
 			const v3s16 p(x, (s16)c.height, z);
 			const std::optional<planet::Atlas::Cell> cell = m_atlas.cell({ p.X, p.Y, p.Z });

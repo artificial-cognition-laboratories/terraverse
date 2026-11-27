@@ -19,10 +19,19 @@ auto find(V &v, u16 k)
 }
 } // namespace
 
-int Rises::get(v3s16 rel) const
+std::optional<int> Rises::get(v3s16 rel) const
 {
 	const auto it = find(m_rises, key(rel));
-	return it != m_rises.end() && it->first == key(rel) ? it->second : 0;
+	if (it != m_rises.end() && it->first == key(rel))
+		return it->second;
+	return std::nullopt;
+}
+
+void Rises::erase(v3s16 rel)
+{
+	const auto it = find(m_rises, key(rel));
+	if (it != m_rises.end() && it->first == key(rel))
+		m_rises.erase(it);
 }
 
 void Rises::set(v3s16 rel, int rise)
@@ -32,10 +41,7 @@ void Rises::set(v3s16 rel, int rise)
 	const u16 k = key(rel);
 	const auto it = find(m_rises, k);
 	const bool here = it != m_rises.end() && it->first == k;
-	if (rise == 0) {
-		if (here)
-			m_rises.erase(it);
-	} else if (here) {
+	if (here) {
 		it->second = s8(rise);
 	} else {
 		m_rises.insert(it, { k, s8(rise) });
@@ -61,7 +67,7 @@ void Rises::deSerialize(std::istream &is)
 		const s8 r = readS8(is);
 		if (k >= MAP_BLOCKSIZE * MAP_BLOCKSIZE * MAP_BLOCKSIZE)
 			throw SerializationError("Rises::deSerialize: node out of the block");
-		if (r < -8 || r > 7 || r == 0)
+		if (r < -8 || r > 7)
 			throw SerializationError("Rises::deSerialize: a rise out of −8..7");
 		if (!m_rises.empty() && m_rises.back().first >= k)
 			throw SerializationError("Rises::deSerialize: nodes out of order");

@@ -102,7 +102,7 @@ std::vector<aabb3f> GroundSnapshot::boxes(const NodeDefManager *ndef, const plan
 	};
 	auto rise = [&](v3s16 q) {
 		const auto it = m_rises.find(index(q));
-		return it == m_rises.end() ? 0 : int(it->second);
+		return it == m_rises.end() ? std::optional<int>() : std::optional<int>(it->second);
 	};
 	const ground::Ground smoothing(*ndef);
 	std::unordered_map<v3s16, std::optional<ground::Top>> tops;

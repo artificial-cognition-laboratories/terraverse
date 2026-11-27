@@ -34,6 +34,18 @@ field.
    is cut, an uncrossed one whole), `atlas-land`, `check:land`, `check:moves`, `check:far`, the
    game: the sand ridges and the cliff from the sprint's screenshots.
 
+## Progress
+
+- **Phase 1 built (2026-11-27), uncommitted.** `Rises` keeps every natural top (a rise of 0 too;
+  `get` → optional: none is dug or built). `corner()`: all four natural → the fine heights' plain
+  average, clamped to [mine − REACH, mine + 1] blocks. `Top` gains `surface` (where a top's drawn),
+  `below` (a slice's depth) and `open` (loose blocks under the top the field may run into, never
+  rock), with `build` and `slice(k)`; `Ground::top` answers for a loose block under natural ground
+  with its slice. Mesher: tops only where `surface`, a slice lit from its column's top
+  (`getSmoothLightFrame(lift)`). Test `testNaturalGroundIsOneField`.
+- Known: the low side of a corner rises at most a block over its top, so drops over two blocks
+  still meet in walls; phase 2 (loose ground no steeper than it holds) is what removes them.
+
 ## Costs to measure
 
 - Meshing and collision on steep ground: several cut nodes a column instead of one. The debugger's

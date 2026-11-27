@@ -76,7 +76,8 @@ private:
 	} cur_node;
 
 // lighting
-	void getSmoothLightFrame();
+	// (lift: from that many nodes up, a slice of natural ground: lit as its column's top)
+	void getSmoothLightFrame(s16 lift = 0);
 	LightInfo blendLight(const v3f &vertex_pos);
 	video::SColor blendLightColor(const v3f &vertex_pos);
 	video::SColor blendLightColor(const v3f &vertex_pos, const v3f &vertex_normal);

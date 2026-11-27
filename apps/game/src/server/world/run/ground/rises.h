@@ -5,6 +5,7 @@
 
 #include "src/shared/base/irr_v3d.h"
 #include <iosfwd>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -12,7 +13,9 @@
 	Rises: where in its top block a block's natural ground stands (sprint
 	128). The world model decides the land to a sixteenth; a loose top block
 	keeps how far its ground stands over (or under) its face, −8..7 sixteenths,
-	and ground::Ground averages those at its corners. A block with none
+	and ground::Ground averages those at its corners. A node with a rise is
+	natural ground: the world model's field runs through it and the ground
+	round it (sprint 129). One with none (dug, built, or never generated so)
 	stands at its face. Kept by map blocks beside their shapes, saved and sent
 	with them; a node that becomes something else loses its rise.
 */
@@ -21,11 +24,11 @@ namespace ground {
 class Rises
 {
 public:
-	// sixteenths over the face of the node at rel (0: none kept)
-	int get(v3s16 rel) const;
-	// keeps `rise` (−8..7) for the node at rel; 0 drops it
+	// sixteenths over the face of the node at rel; none: not natural ground
+	std::optional<int> get(v3s16 rel) const;
+	// keeps `rise` (−8..7) for the node at rel
 	void set(v3s16 rel, int rise);
-	void erase(v3s16 rel) { set(rel, 0); }
+	void erase(v3s16 rel);
 	bool empty() const { return m_rises.empty(); }
 
 	template <class F>

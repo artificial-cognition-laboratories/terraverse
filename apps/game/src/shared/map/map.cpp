@@ -749,7 +749,7 @@ auto groundRise(Map &map)
 	return [&map](v3s16 q) {
 		const v3s16 bp = getNodeBlockPos(q);
 		const MapBlock *block = map.getBlockNoCreateNoEx(bp);
-		return block ? block->m_rises.get(q - bp * MAP_BLOCKSIZE) : 0;
+		return block ? block->m_rises.get(q - bp * MAP_BLOCKSIZE) : std::nullopt;
 	};
 }
 } // namespace

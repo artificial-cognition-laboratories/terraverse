@@ -23,6 +23,16 @@ int corner(const std::array<Column, 4> &around, size_t own)
 {
 	const int mine = around[own].top;
 
+	// natural ground all round: one field, the fine heights' plain average
+	// (no higher than the cell over the column's top: where it would be, the
+	// walls meet it; no lower than its loose blocks reach, which the top clamps)
+	if (std::all_of(around.begin(), around.end(), [](const Column &c) { return c.natural(); })) {
+		int sum = 0;
+		for (const Column &c : around)
+			sum += c.fine();
+		return std::clamp(int(std::lround(sum / 4.0)), (mine - REACH) * STEPS, (mine + 1) * STEPS);
+	}
+
 	// the clusters: from the lowest up, a new one where a surface is more
 	// than a block above its cluster's lowest (by their levels: a rise
 	// moves a surface within its block, never across a cliff)
@@ -61,6 +71,35 @@ int corner(const std::array<Column, 4> &around, size_t own)
 			height = std::max(height, mine * STEPS);
 	}
 	return height;
+}
+
+bool Top::build(int ceiling)
+{
+	bool crossed = false;
+	for (int x = 0; x < STEPS; x++)
+		for (int z = 0; z < STEPS; z++) {
+			const int raw = int(std::lround(field((x + 0.5f) / STEPS, (z + 0.5f) / STEPS)));
+			cells[x][z] = u8(std::clamp(raw, 0, ceiling));
+			// (at its base, the block under takes it, if the field may run there)
+			surface[x][z] = raw <= ceiling && (open > 0 ? raw > 0 : raw >= 0);
+			crossed |= raw <= ceiling;
+		}
+	return crossed;
+}
+
+std::optional<Top> Top::slice(int k) const
+{
+	Top s = *this;
+	for (int &c : s.corners)
+		c += k * STEPS;
+	for (auto &side : s.sides)
+		for (int &c : side)
+			c += k * STEPS;
+	s.below = below + k;
+	s.open = open - k;
+	if (!s.build(STEPS))
+		return std::nullopt;
+	return s;
 }
 
 float Top::field(float x, float z) const
