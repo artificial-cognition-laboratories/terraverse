@@ -352,7 +352,7 @@ s16 MapgenTerra::generateTerrain()
 
 /*
 	Where each column's ground stands in its top block, to a sixteenth
-	(sprint 128): kept with the block (ground::Rises) where it's loose, so
+	(sprint 128): kept with the block (ground::Rises), loose or rock (sprint 129), so
 	ground::Ground draws the land as the world model has it, not a block at
 	a time. A column whose top isn't in this chunk, or whose storage node
 	there isn't its top layer, keeps none: it stands at its face.
@@ -367,7 +367,7 @@ void MapgenTerra::keepRises(BlockMakeData *data)
 				continue;
 			const v3s16 p(x, (s16)c.height, z);
 			const std::optional<planet::Atlas::Cell> cell = m_atlas.cell({ p.X, p.Y, p.Z });
-			if (!cell || cell->k != c.height || !ndef->get(vm->getNodeNoExNoEmerge(p)).loose)
+			if (!cell || cell->k != c.height || !ndef->get(vm->getNodeNoExNoEmerge(p)).walkable)
 				continue;
 			data->rises.emplace_back(p, c.rise);
 		}

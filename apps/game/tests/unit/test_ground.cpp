@@ -39,6 +39,7 @@ public:
 	void testBlockBoxesAsTheMapSays();
 	void testRisesStandTheLandFine();
 	void testNaturalGroundIsOneField();
+	void testNaturalRockFollowsTheField();
 };
 
 static TestGround g_test_instance;
@@ -57,6 +58,7 @@ void TestGround::runTests(IGameDef *gamedef)
 	TEST(testBlockBoxesAsTheMapSays);
 	TEST(testRisesStandTheLandFine);
 	TEST(testNaturalGroundIsOneField);
+	TEST(testNaturalRockFollowsTheField);
 }
 
 namespace {
@@ -592,11 +594,12 @@ void TestGround::testRisesStandTheLandFine()
 		UASSERTEQ(int, low->corners[3], STEPS);
 	}
 	{
-		// a solid's rise is nothing: it keeps its block
+		// a solid with a rise is natural rock: shaped (sprint 129); without, it keeps its block
 		Land land;
 		land.set(1, 0, 1, true);
-		land.rises[{ 1, 0 }] = 7;
 		UASSERT(!land.top(1, 0));
+		land.rises[{ 1, 0 }] = 7;
+		UASSERT(land.top(1, 0));
 	}
 }
 
@@ -642,4 +645,27 @@ void TestGround::testNaturalGroundIsOneField()
 	Land dug;
 	dug.set(0, 0, 2);
 	UASSERT(!dug.at(0, 0, 0));
+}
+
+// Natural rock is the field's too: a spike of rock among natural ground comes
+// down as loose ground does, cut through its own top and the rock under it.
+// The same rock built (no rise) keeps its block.
+void TestGround::testNaturalRockFollowsTheField()
+{
+	Land land;
+	for (int x = -4; x <= 4; x++)
+		for (int z = -4; z <= 4; z++)
+			land.rises[{ x, z }] = 0;
+	land.set(0, 0, 2, true);
+	auto top = land.top(0, 0);
+	UASSERT(top);
+	for (int i = 0; i < 4; i++)
+		UASSERTEQ(int, top->corners[i], 8 - STEPS);
+	auto slice = land.at(0, 0, 0);
+	UASSERT(slice);
+	UASSERTEQ(int, slice->cells[8][8], 8);
+
+	land.rises.erase({ 0, 0 });
+	UASSERT(!land.top(0, 0));
+	UASSERT(!land.at(0, 0, 0));
 }

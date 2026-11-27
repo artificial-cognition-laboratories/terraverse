@@ -41,7 +41,10 @@
 	blocks under a column's top (up to REACH of them): each a slice of it
 	(Ground::top answers for them too), empty above the field, whole under
 	it. It never cuts into what isn't loose: over rock, it stands no lower
-	than the loose blocks go.
+	than the loose blocks go. Natural rock is the field's too: its top and
+	the rock under it are cut as loose ground is, so a cliff's face is a
+	steep slope at sixteenths, not stairs. Rock that isn't natural (built,
+	or under what was built) keeps its block.
 */
 namespace ground {
 
@@ -63,7 +66,8 @@ struct Column
 	int top;
 	std::optional<int> rise; // natural ground's (Rises): none, dug or built
 	int fine() const { return top * STEPS + rise.value_or(0); }
-	bool natural() const { return kind == Kind::Loose && rise.has_value(); }
+	// natural ground, loose or rock (sprint 129: the world model's, its rise kept)
+	bool natural() const { return kind != Kind::None && rise.has_value(); }
 };
 
 // A corner's height, in sixteenths of the world (a level × STEPS), for the
@@ -195,7 +199,7 @@ Column Ground::column(const Get &get, const Cube &cube, const Rise &rise, s16 x,
 			const v3s16 under(x, top - 1, z);
 			if (walkable(get(under)) && !walkable(get(v3s16(x, top, z)))) {
 				const Kind k = cube(under) ? Kind::Solid : kind(get(under));
-				return { k, top, k == Kind::Loose ? rise(under) : std::nullopt };
+				return { k, top, k != Kind::None ? rise(under) : std::nullopt };
 			}
 			if (d == 0)
 				break;
@@ -209,14 +213,19 @@ Column Ground::column(const Get &get, const Cube &cube, const Rise &rise, s16 x,
 template <class Get, class Cube, class Rise>
 std::optional<Top> Ground::top(const Get &get, const Cube &cube, const Rise &rise, v3s16 p) const
 {
-	if (kind(get(p)) != Kind::Loose || cube(p))
+	const Kind own = kind(get(p));
+	if (own == Kind::None || cube(p))
 		return std::nullopt;
-	if (!walkable(get(p + v3s16(0, 1, 0))))
+	if (!walkable(get(p + v3s16(0, 1, 0)))) {
+		// (a solid's top only where it's natural: rock, not what's built)
+		if (own == Kind::Solid && !rise(p))
+			return std::nullopt;
 		return surface(get, cube, rise, p);
+	}
 	// under natural ground: its slice of the field, if the field reaches it
 	for (int k = 1; k <= REACH; k++) {
 		const v3s16 q = p + v3s16(0, k, 0);
-		if (kind(get(q)) != Kind::Loose || cube(q))
+		if (kind(get(q)) == Kind::None || cube(q))
 			return std::nullopt;
 		if (!walkable(get(q + v3s16(0, 1, 0)))) {
 			if (!rise(q))
@@ -238,14 +247,14 @@ std::optional<Top> Ground::surface(const Get &get, const Cube &cube, const Rise 
 	std::array<std::array<Column, 4>, 4> cols;
 	for (int a = 0; a < 4; a++)
 		for (int b = 0; b < 4; b++)
-			cols[a][b] = (a == 1 && b == 1) ? Column{ Kind::Loose, own, std::optional<int>(rise(p)) }
+			cols[a][b] = (a == 1 && b == 1) ? Column{ kind(get(p)), own, std::optional<int>(rise(p)) }
 					: column(get, cube, rise, p.X - 1 + a, p.Z - 1 + b, own);
 
 	// the height, for column (a, b) of the grid, of its corner (cx, cz)
 	auto at = [&](int a, int b, int cx, int cz) {
 		const Column &c = cols[a][b];
-		if (c.kind != Kind::Loose)
-			return c.top * STEPS;
+		if (c.kind != Kind::Loose && !c.natural())
+			return c.top * STEPS; // (what's built keeps its block)
 		int x0 = a + cx - 1, z0 = b + cz - 1; // the corner's columns
 		std::array<Column, 4> around = {
 			cols[x0][z0], cols[x0 + 1][z0], cols[x0][z0 + 1], cols[x0 + 1][z0 + 1] };
@@ -253,9 +262,9 @@ std::optional<Top> Ground::surface(const Get &get, const Cube &cube, const Rise 
 	};
 
 	Top t;
-	// natural ground's field may run down through the loose blocks under it
+	// natural ground's field may run down through the blocks under it (loose or rock)
 	if (cols[1][1].natural())
-		while (t.open < REACH && kind(get(p - v3s16(0, t.open + 1, 0))) == Kind::Loose && !cube(p - v3s16(0, t.open + 1, 0)))
+		while (t.open < REACH && kind(get(p - v3s16(0, t.open + 1, 0))) != Kind::None && !cube(p - v3s16(0, t.open + 1, 0)))
 			t.open++;
 	for (int i = 0; i < 4; i++)
 		t.corners[i] = std::max(at(1, 1, i & 1, i >> 1) - base, -t.open * STEPS);
@@ -269,7 +278,7 @@ std::optional<Top> Ground::surface(const Get &get, const Cube &cube, const Rise 
 			// here (its cluster reaches beyond REACH): its lowest, so the
 			// wall reaches into its ground rather than short of it
 			const Column &n = cols[a][b];
-			t.sides[s][k] = (n.kind == Kind::Loose && own - n.top >= 2)
+			t.sides[s][k] = ((n.kind == Kind::Loose || n.natural()) && own - n.top >= 2)
 					? (n.top - 1) * STEPS - base
 					: at(a, b, cx - SIDE_DIR[s][0], cz - SIDE_DIR[s][1]) - base;
 		}

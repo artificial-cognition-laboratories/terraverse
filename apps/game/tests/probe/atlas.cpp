@@ -350,7 +350,7 @@ void atlasLand(Context &c)
 						}
 				totals->nodes += n;
 				// where the ground stands in its top blocks (sprint 128): every
-				// rise on a loose node with nothing walkable over it
+				// rise on a walkable node (loose or rock, sprint 129) with nothing walkable over it
 				Map &map = c.env().getMap();
 				for (s16 bz = getNodeBlockPos(b.min).Z; bz <= getNodeBlockPos(b.max).Z; bz++)
 					for (s16 by = getNodeBlockPos(b.min).Y; by <= getNodeBlockPos(b.max).Y; by++)
@@ -362,7 +362,7 @@ void atlasLand(Context &c)
 							block->m_rises.each([&](v3s16 rel, int) {
 								const v3s16 p = base + rel;
 								totals->rises++;
-								if (!ndef->get(map.getNode(p)).loose || ndef->get(map.getNode(p + v3s16(0, 1, 0))).walkable)
+								if (!ndef->get(map.getNode(p)).walkable || ndef->get(map.getNode(p + v3s16(0, 1, 0))).walkable)
 									totals->misplaced++;
 							});
 						}

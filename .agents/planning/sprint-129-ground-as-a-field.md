@@ -43,6 +43,10 @@ field.
   rock), with `build` and `slice(k)`; `Ground::top` answers for a loose block under natural ground
   with its slice. Mesher: tops only where `surface`, a slice lit from its column's top
   (`getSmoothLightFrame(lift)`). Test `testNaturalGroundIsOneField`.
+- **Phase 3 built (2026-11-27), uncommitted, before phase 2.** Natural rock follows the field:
+  the generator keeps every walkable top's rise; a natural solid (`Column::natural`, its rise
+  kept) joins the average and is cut, and slices run through rock as through loose blocks. Built
+  rock (no rise) keeps its block. Test `testNaturalRockFollowsTheField`; atlas-dig passes.
 - Known: the low side of a corner rises at most a block over its top, so drops over two blocks
   still meet in walls; phase 2 (loose ground no steeper than it holds) is what removes them.
 
