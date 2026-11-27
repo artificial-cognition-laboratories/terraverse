@@ -10,7 +10,6 @@ import CutScreen from "./game/cut/CutScreen.vue"
 import DigScreen from "./game/dig/DigScreen.vue"
 import { useStore } from "./game/store.ts"
 import MainMenu from "./menu/MainMenu.vue"
-import InviteToast from "./social/InviteToast.vue"
 import Friends from "./friends/Friends.vue"
 import { Spinner } from "./kit/index.ts"
 import type { LibraryOpen } from "./menu/library/icons.ts"
@@ -53,7 +52,6 @@ function openLibrary(to: LibraryOpen) {
     </template>
     <!-- over the world's last frame, held frosted by the shell while it's saved (host/frame_blur.h: hold) -->
     <div v-else-if="store.mode === 'leaving'" class="leaving"><p><Spinner label="Saving the world" /> Saving the world</p></div>
-    <InviteToast v-if="bridge.connected" />
 </template>
 
 <style scoped>

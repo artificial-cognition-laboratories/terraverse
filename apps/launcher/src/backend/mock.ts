@@ -65,7 +65,7 @@ export function MockBackend(): Backend {
         ["0.3.0-beta.1", { id: "0.3.0-beta.1", size: 2.0 * GB }],
     ])
     const downloads = new Map<string, ReturnType<typeof setInterval>>()
-    let game: Game = scenario === "running" ? { state: "running", version: "0.2.0", since: Date.now() - 23 * 60_000 } : { state: "idle" }
+    let game: Game = scenario === "running" ? { state: "running", version: "0.2.0", since: Date.now() - 23 * 60_000, profiles: ["@cody"] } : { state: "idle" }
     const handlers = new Set<(message: Message) => void>()
     const send = (message: Message) => handlers.forEach(handler => handler(message))
     const setGame = (next: Game) => { game = next; send({ kind: "game", game: next }) }
@@ -196,10 +196,15 @@ export function MockBackend(): Backend {
         async launch(id) {
             if (!installed.has(id)) throw new Refused(`${id} isn't installed.`)
             if (game.state === "running") throw new Refused("The game is already running.")
-            setGame({ state: "running", version: id, since: Date.now() })
+            setGame({ state: "running", version: id, since: Date.now(), profiles: [account.status === "signedIn" ? `@${account.username}` : "local"] })
             setTimeout(() => setGame(scenario === "crash"
                 ? { state: "crashed", version: id, session: "2026-11-10T10-41-07", code: 139 }
                 : { state: "idle" }), scenario === "crash" ? 3000 : 10_000)
+        },
+
+        async launchJoin(id, friend, handle) {
+            if (!installed.has(id)) throw new Refused(`${id} isn't installed.`)
+            console.info(`[mock] ${id}, joining @${handle} (${friend})`)
         },
 
         async launchAs(id, profile) {

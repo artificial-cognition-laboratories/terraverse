@@ -591,6 +591,7 @@ set(common_SRCS
 	shared/game/objects/pathfinder.cpp
 	shared/game/objects/player.cpp
 	shared/platform/system/porting.cpp
+	shared/platform/system/spawn.cpp
 	shared/map/raycast.cpp
 	shared/map/voxel/reflowscan.cpp
 	shared/game/objects/remoteplayer.cpp

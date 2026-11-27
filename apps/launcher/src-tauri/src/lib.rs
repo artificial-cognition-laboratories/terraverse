@@ -3,6 +3,7 @@
 // Each concern is its own module; this file only holds them and answers.
 
 mod account;
+mod dev;
 mod events;
 mod failure;
 mod game;
@@ -220,7 +221,15 @@ fn game(l: L) -> events::Game {
 // command runs on the GTK main thread, outside it, and panics there.
 #[tauri::command]
 async fn launch(l: L<'_>, version: String) -> Result<()> {
-    start(&l, &version, None)
+    start(&l, &version, None, None)
+}
+/// The game, straight into a friend's world: it joins them once it's signed in.
+#[tauri::command]
+async fn launch_join(l: L<'_>, version: String, friend: String, handle: String) -> Result<()> {
+    if friend.is_empty() || handle.is_empty() || friend.contains(':') {
+        return refused("Not a friend to join.");
+    }
+    start(&l, &version, None, Some(&format!("{friend}:{handle}")))
 }
 /// Another game beside any running, as a remembered account (Play as).
 #[tauri::command]
@@ -228,14 +237,15 @@ async fn launch_as(l: L<'_>, version: String, profile: String) -> Result<()> {
     if !profiles::list(&l.home, l.account.api())?.iter().any(|p| p.name() == profile) {
         return refused(format!("This machine doesn't remember {profile}: sign in to add it."));
     }
-    start(&l, &version, Some(&profile))
+    start(&l, &version, Some(&profile), None)
 }
 
-fn start(l: &Arc<Launcher>, version: &str, profile: Option<&str>) -> Result<()> {
+fn start(l: &Arc<Launcher>, version: &str, profile: Option<&str>, join: Option<&str>) -> Result<()> {
     let version = version.to_owned();
     let settings = l.settings.lock().unwrap().clone();
     let launcher = Arc::clone(l);
-    l.runner.launch(&l.app, &l.home, &version, l.account.api(), profile, move |app| {
+    let run = game::Launch { home: &l.home, id: &version, api: l.account.api(), profile, join };
+    l.runner.launch(&l.app, run, move |app| {
         // the game may have signed in or out while it ran
         launcher.account.reload();
         if let Some(window) = app.get_webview_window("main") {
@@ -243,8 +253,9 @@ fn start(l: &Arc<Launcher>, version: &str, profile: Option<&str>) -> Result<()> 
             let _ = window.set_focus();
         }
     })?;
-    if !settings.keep_old {
-        prune(&l, &version, settings.pinned.as_deref());
+    // the local build isn't a release: playing it never removes one
+    if !settings.keep_old && version != dev::VERSION {
+        prune(l, &version, settings.pinned.as_deref());
     }
     let window = l.app.get_webview_window("main");
     match (settings.on_launch, window) {
@@ -258,7 +269,7 @@ fn start(l: &Arc<Launcher>, version: &str, profile: Option<&str>) -> Result<()> 
 /// Keep old versions off: those older than the one just played go, except a pinned one.
 fn prune(l: &Launcher, played: &str, pinned: Option<&str>) {
     let Ok(installed) = install::installed(&l.home) else { return };
-    for old in installed.iter().map(|i| i.id()) {
+    for old in installed.iter().map(|i| i.id()).filter(|id| *id != dev::VERSION) {
         if version::compare(old, played).is_lt() && Some(old) != pinned {
             if let Err(e) = install::remove(&l.home, old) {
                 eprintln!("launcher: couldn't remove {old}: {e}");
@@ -326,7 +337,7 @@ pub fn run() {
             social, request_friend, accept_friend, remove_friend,
             settings, set_settings, refresh_manifest, cached_manifest,
             installed, install, cancel, remove,
-            game, launch, launch_as, collect_report, submit_report, dismiss_crash,
+            game, launch, launch_as, launch_join, collect_report, submit_report, dismiss_crash,
             launcher_update, update_launcher, open_data_folder, open_url,
         ])
         .build(tauri::generate_context!())

@@ -202,7 +202,7 @@ fn unpack(archive: &Path, scratch: &Path, target: &Path) -> Result<()> {
 pub fn installed(home: &Home) -> Result<Vec<Installed>> {
     let dir = home.versions();
     if !dir.exists() {
-        return Ok(Vec::new());
+        return Ok(crate::dev::build().map(|_| Installed { id: crate::dev::VERSION.to_owned(), size: 0 }).into_iter().collect());
     }
     let mut out = Vec::new();
     for entry in std::fs::read_dir(&dir).context(|| format!("reading {}", dir.display()))? {
@@ -214,6 +214,10 @@ pub fn installed(home: &Home) -> Result<Vec<Installed>> {
         out.push(Installed { size: size(&entry.path()), id: name });
     }
     out.sort_by(|a, b| crate::version::compare(&b.id, &a.id));
+    // a debug launcher has the local build too, first (dev.rs)
+    if crate::dev::build().is_some() {
+        out.insert(0, Installed { id: crate::dev::VERSION.to_owned(), size: 0 });
+    }
     Ok(out)
 }
 

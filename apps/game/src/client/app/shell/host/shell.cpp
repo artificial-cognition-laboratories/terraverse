@@ -266,7 +266,7 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(opts))
 		m->account->cancel();
 		return Json::Value();
 	});
-	m->profiles = std::make_unique<Profiles>(Profiles::Opts{ .home = opts.home, .account = *m->account, .api = opts.arclabs });
+	m->profiles = std::make_unique<Profiles>(Profiles::Opts{ .home = opts.home, .account = *m->account, .api = opts.arclabs, .page = opts.url });
 	m->bridge.on("account.signOut", [this](const Json::Value &) {
 		m->profiles->signOut();
 		return Json::Value();
@@ -280,6 +280,10 @@ Shell::Shell(const Opts &opts) : m(std::make_unique<Impl>(opts))
 	});
 	m->bridge.on("profiles.use", [this](const Json::Value &intent) {
 		m->profiles->use(intent["name"].isString() ? intent["name"].asString() : "");
+		return Json::Value();
+	});
+	m->bridge.on("profiles.playAs", [this](const Json::Value &intent) {
+		m->profiles->playAs(intent["name"].isString() ? intent["name"].asString() : "");
 		return Json::Value();
 	});
 	m->bridge.on("profiles.forget", [this](const Json::Value &intent) {

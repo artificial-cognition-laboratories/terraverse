@@ -49,6 +49,18 @@ pub fn log_path(home: &Home, session: &str) -> PathBuf {
 
 pub const LOG_HEADER: &str = "launcher: Terraverse ";
 
+/// What's launched: a version, for a profile, maybe straight into a friend's world.
+pub struct Launch<'a> {
+    pub home: &'a Home,
+    pub id: &'a str,
+    /// the ArcLabs API the launcher's signed in to: the game signs in there too
+    pub api: &'a str,
+    /// None: the active profile
+    pub profile: Option<&'a str>,
+    /// "<account id>:<handle>": joined once the game's signed in
+    pub join: Option<&'a str>,
+}
+
 impl Runner {
     pub fn new() -> Runner {
         Runner { game: Arc::new(Mutex::new(Game::Idle)), profiles: Arc::new(Mutex::new(Vec::new())) }
@@ -67,34 +79,32 @@ impl Runner {
 
 
     /// Starts the game, as `profile` (None: the active one); `exited` runs on the game's exit, once
-    /// it's been told to the page. With a game running, only another profile's may start beside it.
-    pub fn launch(
-        &self,
-        app: &tauri::AppHandle,
-        home: &Home,
-        id: &str,
-        api: &str,
-        profile: Option<&str>,
-        exited: impl FnOnce(&tauri::AppHandle) + Send + 'static,
-    ) -> Result<()> {
+    /// it's been told to the page. With a game running, another profile's starts beside it: one
+    /// game per profile, never two.
+    pub fn launch(&self, app: &tauri::AppHandle, run: Launch<'_>, exited: impl FnOnce(&tauri::AppHandle) + Send + 'static) -> Result<()> {
+        let Launch { home, id, api, profile, join } = run;
         let running = self.running();
-        if let (Some(version), None) = (&running, profile) {
-            return refused(format!("{version} is already running."));
-        }
         let profile = profile.map_or_else(|| home.active(), str::to_owned);
         if self.profiles.lock().unwrap().contains(&profile) {
             return refused(format!("A game is already running as {profile}."));
         }
         // beside the shown game, an extra: its exit isn't the page's to show, unless it crashed
         let extra = running.is_some();
-        let dir = home.version(id)?;
-        let entry = dir.join(ENTRY);
-        if !entry.is_file() {
-            return refused(format!("{id} isn't installed properly (it has no {ENTRY}). Remove it and install it again."));
-        }
-
-        // `terra <command>` is the CLI of the version being played
-        point_cli(home, &dir)?;
+        let local = id == crate::dev::VERSION;
+        let (dir, entry) = match local.then(crate::dev::build).flatten() {
+            // the local build: run in place, and terra on PATH left as the last release's
+            Some(local) => local,
+            None => {
+                let dir = home.version(id)?;
+                let entry = dir.join(ENTRY);
+                if !entry.is_file() {
+                    return refused(format!("{id} isn't installed properly (it has no {ENTRY}). Remove it and install it again."));
+                }
+                // `terra <command>` is the CLI of the version being played
+                point_cli(home, &dir)?;
+                (dir, entry)
+            }
+        };
 
         let since = now_ms();
         let session = session_name(since);
@@ -113,10 +123,21 @@ impl Runner {
                 };
             }
         }
+        // a friend's world, joined once the game's signed in (shell/bridge/joins.h: --join id:handle)
+        if let Some(join) = join {
+            command.arg("--join").arg(join);
+        }
+        if let Some(page) = local.then(crate::dev::page).flatten() {
+            command.arg("--shell-url").arg(page);
+        }
         // the game signs in where the launcher does, so the key it finds is for that backend
         if api != crate::account::PRODUCTION_API {
             command.arg("--arclabs-url").arg(api);
         }
+        // its own process group: the launcher closing, or a dev launcher restarting on a change,
+        // doesn't take the game down with it (on Windows a child outlives its parent already)
+        #[cfg(unix)]
+        command.process_group(0);
         let mut child = command
             .current_dir(&dir)
             .env("TERRAVERSE_HOME", home.root())
@@ -129,8 +150,11 @@ impl Runner {
             .spawn()
             .map_err(|e| crate::failure::Failure::Refused(format!("{id} couldn't start: {e}")))?;
         self.profiles.lock().unwrap().push(profile.clone());
-        if !extra {
-            set(&self.game, app, Game::Running { version: id.to_owned(), since });
+        if extra {
+            playing(&self.game, &self.profiles, app);
+        } else {
+            let profiles = self.profiles.lock().unwrap().clone();
+            set(&self.game, app, Game::Running { version: id.to_owned(), since, profiles });
         }
 
         let app = app.clone();
@@ -152,8 +176,11 @@ impl Runner {
             let shown_free = !matches!(*game.lock().unwrap(), Game::Running { .. });
             if !extra || (crashed && shown_free) {
                 set(&game, &app, if crashed { Game::Crashed { version, session, code } } else { Game::Idle });
-            } else if crashed {
-                eprintln!("launcher: the game as {profile} crashed ({code}); its log is session {session}");
+            } else {
+                if crashed {
+                    eprintln!("launcher: the game as {profile} crashed ({code}); its log is session {session}");
+                }
+                playing(&game, &profiles, &app);
             }
             exited(&app);
         });
@@ -166,6 +193,16 @@ impl Runner {
             set(&self.game, app, Game::Idle);
         }
     }
+}
+
+/// The shown game, told again with who's playing now: an extra started or stopped beside it.
+fn playing(game: &Mutex<Game>, profiles: &Mutex<Vec<String>>, app: &tauri::AppHandle) {
+    let now = profiles.lock().unwrap().clone();
+    let next = match &*game.lock().unwrap() {
+        Game::Running { version, since, .. } => Game::Running { version: version.clone(), since: *since, profiles: now },
+        _ => return,
+    };
+    set(game, app, next);
 }
 
 fn set(game: &Mutex<Game>, app: &tauri::AppHandle, next: Game) {

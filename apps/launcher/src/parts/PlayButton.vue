@@ -11,7 +11,9 @@ const { state } = store
 
 const standing = computed(() => store.standing(props.version.id))
 const updating = computed(() => !!state.installed?.length)
-const running = computed(() => state.game?.state === "running" ? state.game : null)
+// playing as the account shown here; a game as another (Play as, or before switching) leaves Play free for this one
+const me = computed(() => store.account.value?.status === "signedIn" ? `@${store.account.value.username}` : "local")
+const running = computed(() => state.game?.state === "running" && state.game.profiles.includes(me.value) ? state.game : null)
 
 // the time played, ticking by the minute: no faster repaint than that
 const now = ref(Date.now())

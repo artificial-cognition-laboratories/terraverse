@@ -201,6 +201,9 @@ bool ClientLauncher::run(const GameParams &game_params, const Settings &cmd_args
 	m_library = std::make_unique<shell::Library>(shell::Library::Opts{ .shell = *m_shell, .contents_dir = m_shell->contentsDir(),
 		.api = g_settings->get("arclabs_url"), .session = std::to_string(porting::getTimeMs()),
 		.local_servers = *m_local_servers });
+	m_session_intents = std::make_unique<shell::Intents>(*m_shell);
+	m_joins = std::make_unique<shell::Joins>(shell::Joins::Opts{ .intents = *m_session_intents,
+		.first = cmd_args.exists("join") ? std::optional(shell::Joins::parse(cmd_args.get("join"))) : std::nullopt });
 #endif
 
 	g_menuclouds->setHeight(100.0f);

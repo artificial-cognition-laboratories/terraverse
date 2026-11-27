@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue"
 import { useBridge } from "../bridge/use.ts"
-import type { Account, Social } from "../bridge/index.ts"
+import type { Account, Player, Social } from "../bridge/index.ts"
 import { Copier, Cover, Monogram, Notice, onEscape } from "../kit/index.ts"
 import { Actions } from "../online/actions.ts"
 import AccountsView from "./AccountsView.vue"
 import FriendRow from "./FriendRow.vue"
-import { groups } from "./groups.ts"
+import { groups, size } from "./groups.ts"
 import type { LibraryOpen } from "../menu/library/icons.ts"
 
 /**
@@ -19,15 +19,15 @@ import type { LibraryOpen } from "../menu/library/icons.ts"
 /**
  * Its place gives it the account and friends (the game's store, the launcher's) and answers its
  * intents (useBridge: the engine, or the launcher's backend). `library`: there's a library to open
- * a friend's page or your account in (the game); without one, Manage is the site. `playAs`: a
- * remembered account can be launched beside this one (the launcher).
+ * a friend's page or your account in (the game); without one, Manage is the site. A remembered
+ * account can be played beside this one wherever it's shown (Play as: profiles.playAs).
  */
 /** `at`: the account icon it hangs from, its top right corner a little under the icon's bottom right. */
-const props = withDefaults(defineProps<{ account: Account | null; social: Social | null; library?: boolean; playAs?: boolean; at?: DOMRect | null }>(),
-    { library: true, playAs: false, at: null })
+const props = withDefaults(defineProps<{ account: Account | null; social: Social | null; library?: boolean; at?: DOMRect | null }>(),
+    { library: true, at: null })
 const GAP = 8
 const hang = computed(() => props.at ? { top: `${props.at.bottom + GAP}px`, right: `${window.innerWidth - props.at.right}px` } : undefined)
-const emit = defineEmits<{ close: []; library: [to: LibraryOpen]; playAs: [name: string] }>()
+const emit = defineEmits<{ close: []; library: [to: LibraryOpen] }>()
 const actions = Actions({ bridge: useBridge() })
 const copier = Copier()
 const mode = ref<"list" | "accounts">("list")
@@ -89,6 +89,13 @@ const list = computed(() => view.value ? groups(view.value, name.value) : [])
 const known = computed(() => !!view.value && [...view.value.friends, ...view.value.incoming, ...view.value.outgoing]
     .some((p) => p.username.toLowerCase() === name.value.toLowerCase()))
 const canInvite = computed(() => !!props.social?.joinable)
+// from the menu, straight there; from inside a world, it's saved and left first, then joined
+const inMenu = computed(() => props.social?.me.state === "menu")
+const join = (player: Player) => inMenu.value ? actions.joinFriend(player) : actions.joinFromWorld(player)
+// whose invites are waiting: their world can be joined from their row too, open to friends or not
+const invitedBy = computed(() => new Set(view.value?.invites.map((i) => i.from.id) ?? []))
+// each pane searches its own: what was typed for one isn't carried to the other
+watch(mode, () => { query.value = "" })
 const offlineOpen = ref(true)
 const sent = ref<string | null>(null)
 
@@ -125,12 +132,14 @@ onEscape(() => {
                         <span class="chev">{{ mode === "accounts" ? "▴" : "▾" }}</span>
                     </button>
                 </header>
-                <form v-if="mode === 'list'" class="search" @submit.prevent="add">
+                <!-- in both panes, so nothing under it moves as they swap: friends, or the accounts here -->
+                <form class="search" @submit.prevent="mode === 'list' && add()">
                     <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" d="M7 2.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9zM10.3 10.3 14 14" /></svg>
-                    <input v-model="query" placeholder="Search friends, or add by username" spellcheck="false" autocomplete="off" @input="sent = null">
+                    <input v-model="query" :placeholder="mode === 'list' ? 'Search friends, or add by username' : 'Search accounts on this machine'"
+                        spellcheck="false" autocomplete="off" @input="sent = null">
                 </form>
                 <Notice v-if="actions.problem.value" tone="danger" class="problem">{{ actions.problem.value }}</Notice>
-                <AccountsView v-if="mode === 'accounts'" :actions="actions" :me="me" :switching="switching" :account="account" :play-as="playAs" @switch="switchTo" @add="addAccount" @cancel="cancelAdd" @manage="manage" @play-as="(n) => emit('playAs', n)" />
+                <AccountsView v-if="mode === 'accounts'" :query="name" :actions="actions" :me="me" :switching="switching" :account="account"  @switch="switchTo" @add="addAccount" @cancel="cancelAdd" @manage="manage" @play-as="(n) => actions.send('profiles.playAs', { name: n })" />
                 <div v-else class="body">
                     <p v-if="sent" class="sent">Request sent to @{{ sent }}.</p>
                     <button v-if="name && !known" class="invite-new" :disabled="actions.busy.value" @click="add">
@@ -144,8 +153,16 @@ onEscape(() => {
                         <button v-if="g.id === 'offline'" class="label toggle" @click="offlineOpen = !offlineOpen">
                             {{ g.label }} · {{ g.friends.length }} <span>{{ offlineOpen ? "▾" : "▸" }}</span>
                         </button>
-                        <p v-else class="label">{{ g.label }} · {{ "players" in g ? g.players.length : g.friends.length }}</p>
-                        <ul v-if="'players' in g" class="rows">
+                        <p v-else class="label">{{ g.label }} · {{ size(g) }}</p>
+                        <ul v-if="'invites' in g" class="rows">
+                            <li v-for="i in g.invites" :key="i.id" class="request tile">
+                                <Monogram :name="i.from.username" :size="30" />
+                                <span class="who"><span class="name">{{ i.from.name ?? i.from.username }}</span><span class="sub">Invites you to {{ i.world }}</span></span>
+                                <button class="icon ok" :disabled="actions.busy.value" aria-label="Join" :title="`Join ${i.world}`" @click="join(i.from)">»</button>
+                                <button class="icon" :disabled="actions.busy.value" aria-label="Dismiss" title="Dismiss" @click="actions.dismiss(i.id)">✕</button>
+                            </li>
+                        </ul>
+                        <ul v-else-if="'players' in g" class="rows">
                             <li v-for="p in g.players" :key="p.id" class="request tile">
                                 <Monogram :name="p.username" :size="30" />
                                 <span class="who"><span class="name">{{ p.name ?? p.username }}</span><span class="sub">Wants to be friends</span></span>
@@ -154,9 +171,9 @@ onEscape(() => {
                             </li>
                         </ul>
                         <ul v-else-if="g.id !== 'offline' || offlineOpen || name" class="rows">
-                            <FriendRow v-for="f in g.friends" :key="f.id" :friend="f" :can-invite="canInvite"
+                            <FriendRow v-for="f in g.friends" :key="f.id" :friend="f" :can-invite="canInvite" :invited="invitedBy.has(f.id)"
                                 :busy="actions.busy.value" :joining="actions.joining.value === f.id"
-                                @join="actions.joinFriend(f)" @invite="actions.invite(f.id)" @remove="actions.remove(f.id)"
+                                @join="join(f)" @invite="actions.invite(f.id)" @remove="actions.remove(f.id)"
                                 :can-page="library" @copy="copier.copy(`@${f.username}`)" @page="emit('library', { player: f.username })" />
                         </ul>
                     </section>
@@ -169,8 +186,12 @@ onEscape(() => {
                         <span class="who"><span class="name">Not signed in</span><span class="sub">Friends need an ArcLabs account</span></span>
                     </button>
                 </header>
+                <form class="search" @submit.prevent>
+                    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" d="M7 2.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9zM10.3 10.3 14 14" /></svg>
+                    <input v-model="query" placeholder="Search accounts on this machine" spellcheck="false" autocomplete="off">
+                </form>
                 <Notice v-if="actions.problem.value" tone="danger" class="problem">{{ actions.problem.value }}</Notice>
-                <AccountsView :actions="actions" :me="null" :switching="switching" :account="account" :play-as="playAs" @switch="switchTo" @add="addAccount" @cancel="cancelAdd" @manage="manage" @play-as="(n) => emit('playAs', n)" />
+                <AccountsView :query="name" :actions="actions" :me="null" :switching="switching" :account="account"  @switch="switchTo" @add="addAccount" @cancel="cancelAdd" @manage="manage" @play-as="(n) => actions.send('profiles.playAs', { name: n })" />
             </template>
         </section>
     </div>

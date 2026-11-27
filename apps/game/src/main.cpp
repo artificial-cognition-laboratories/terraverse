@@ -605,6 +605,8 @@ static void set_allowed_options(OptionList *allowed_options)
 			_("Sign in to this ArcLabs API instead of arclabs_url (e.g. the local stack)"))));
 	allowed_options->insert(std::make_pair("profile", ValueSpec(VALUETYPE_STRING,
 			_("Run as another player: its own sign-in and browser cache, so two games can run side by side"))));
+	allowed_options->insert(std::make_pair("join", ValueSpec(VALUETYPE_STRING,
+			_("Join a friend's world once signed in: <account id>:<handle> (the launcher's Join)"))));
 #endif
 	allowed_options->insert(std::make_pair("console", ValueSpec(VALUETYPE_FLAG,
 			_("Start with the console open (Windows only)"))));

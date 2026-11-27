@@ -10,7 +10,8 @@ type Answers = { [K in IntentKind]?: Answer<K> }
  * one popover serves both. Anything else, and what only a running game can do (inviting, joining),
  * is refused with the reason, as the engine refuses what it can't do.
  */
-export function LauncherBridge(opts: { backend: Backend }) {
+/** `version`: what Play would launch now, which Play as launches too (store.target) */
+export function LauncherBridge(opts: { backend: Backend; version: () => string | null }) {
     const b = opts.backend
     const none = async () => null
     const answers: Answers = {
@@ -22,6 +23,19 @@ export function LauncherBridge(opts: { backend: Backend }) {
         "profiles.list": () => b.profiles(),
         "profiles.use": (r) => b.useProfile(r.name).then(none),
         "profiles.forget": (r) => b.forgetProfile(r.name).then(none),
+        // the game opens and joins them once it's signed in (its menu takes --join)
+        "social.join": async (r) => {
+            const version = opts.version()
+            if (!version) throw new Refused("Choose a version to play first.")
+            await b.launchJoin(version, r.id, r.name)
+            return null
+        },
+        "profiles.playAs": async (r) => {
+            const version = opts.version()
+            if (!version) throw new Refused("Choose a version to play first.")
+            await b.launchAs(version, r.name)
+            return null
+        },
         "social.request": (r) => b.requestFriend(r.username).then(none),
         "social.accept": (r) => b.acceptFriend(r.id).then(none),
         "social.remove": (r) => b.removeFriend(r.id).then(none),
@@ -30,7 +44,6 @@ export function LauncherBridge(opts: { backend: Backend }) {
     const inGame: Partial<Record<IntentKind, string>> = {
         "social.invite": "Inviting a friend",
         "social.dismiss": "Dismissing an invite",
-        "social.join": "Joining a friend",
     }
 
     async function send<K extends IntentKind>(kind: K, request: Intents[K]["request"]): Promise<Intents[K]["response"]> {

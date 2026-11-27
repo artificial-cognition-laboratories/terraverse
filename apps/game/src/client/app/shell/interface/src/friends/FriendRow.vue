@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue"
+import { computed, ref } from "vue"
 import type { CSSProperties } from "vue"
 import type { Friend } from "../bridge/index.ts"
 import { Monogram } from "../kit/index.ts"
@@ -9,7 +9,10 @@ import { joinable, whereabouts } from "./groups.ts"
  * One friend in the popover: who and where. What you can do with them (join their world, invite
  * them to yours, copy their name, remove them) is on right-click, so the row stays quiet.
  */
-const props = withDefaults(defineProps<{ friend: Friend; canInvite: boolean; busy: boolean; joining: boolean; canPage?: boolean }>(), { canPage: true })
+/** `invited`: they've invited you, so their world can be joined whether it's open to friends or not. */
+const props = withDefaults(defineProps<{ friend: Friend; canInvite: boolean; busy: boolean; joining: boolean; invited?: boolean; canPage?: boolean }>(),
+    { invited: false, canPage: true })
+const canJoin = computed(() => props.invited || joinable(props.friend))
 const emit = defineEmits<{ join: []; invite: []; remove: []; copy: []; page: [] }>()
 const menu = ref(false)
 const at = ref<CSSProperties>({})
@@ -50,9 +53,9 @@ function pick(action: "copy" | "remove") {
         </span>
         <span v-if="joining" class="busy">Joining…</span>
         <Teleport to="body"><div v-if="menu" class="catch" @mousedown="close" @contextmenu.prevent="close" /><ul v-if="menu" class="menu" role="menu" :style="at">
-            <li v-if="joinable(friend)"><button role="menuitem" class="lead" :disabled="busy" @click="act('join')">Join {{ friend.presence?.world ?? "their world" }} »</button></li>
+            <li v-if="canJoin"><button role="menuitem" class="lead" :disabled="busy" @click="act('join')">Join {{ friend.presence?.world ?? "their world" }} »</button></li>
             <li v-if="canInvite && friend.presence"><button role="menuitem" :disabled="busy" @click="act('invite')">Invite to your world</button></li>
-            <li v-if="joinable(friend) || (canInvite && friend.presence)" class="rule" />
+            <li v-if="canJoin || (canInvite && friend.presence)" class="rule" />
             <li v-if="canPage"><button role="menuitem" @click="close(); emit('page')">View page »</button></li>
             <li><button role="menuitem" @click="pick('copy')">Copy @{{ friend.username }}</button></li>
             <li><button role="menuitem" class="danger" @click="pick('remove')">{{ confirming ? "Click again to remove" : "Remove friend" }}</button></li>

@@ -18,6 +18,7 @@ namespace home { class Home; }
 #include "src/client/app/shell/host/shell.h"
 #include "src/client/app/shell/bridge/menu.h"
 #include "src/client/app/shell/bridge/library.h"
+#include "src/client/app/shell/bridge/joins.h"
 #include "src/client/app/shell/bridge/wiki.h"
 #include "src/client/app/shell/bridge/figure.h"
 #include <memory>
@@ -60,5 +61,7 @@ private:
 	std::unique_ptr<shell::Figures> m_figures; // the same
 	std::unique_ptr<shell::LocalServers> m_local_servers; // what terra runs here: the Library lists them, the menu joins them
 	std::unique_ptr<shell::Library> m_library; // the same
+	std::unique_ptr<shell::Intents> m_session_intents; // verbs of the whole session, beside the Library's
+	std::unique_ptr<shell::Joins> m_joins; // a friend's world to go to once the menu is up
 #endif
 };

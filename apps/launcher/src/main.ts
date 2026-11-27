@@ -29,7 +29,7 @@ try {
     const backend = connect()
     const store = LauncherStore({ backend: backend })
     // the game's account corner and popover, answered here (bridge.ts)
-    app.provide(BRIDGE, LauncherBridge({ backend: backend }))
+    app.provide(BRIDGE, LauncherBridge({ backend: backend, version: () => store.target.value?.id ?? null }))
     app.provide(STORE, store).mount("#app")
     store.load().catch(fail)
 } catch (error) {

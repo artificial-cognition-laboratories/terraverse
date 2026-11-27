@@ -9,7 +9,8 @@ use tauri::Emitter;
 #[serde(tag = "state", rename_all = "camelCase")]
 pub enum Game {
     Idle,
-    Running { version: String, since: u64 },
+    /// `profiles`: every profile a game is running as, this one and any beside it (Play as)
+    Running { version: String, since: u64, profiles: Vec<String> },
     Crashed { version: String, session: String, code: i32 },
 }
 

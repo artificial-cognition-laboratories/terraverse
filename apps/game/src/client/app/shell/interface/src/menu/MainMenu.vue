@@ -4,7 +4,7 @@ import Corner from "../account/Corner.vue"
 import Friends from "../friends/Friends.vue"
 import { useBridge } from "../bridge/use.ts"
 import PixelIcon from "../game/PixelIcon.vue"
-import { IconTile, Progress } from "../kit/index.ts"
+import { IconTile, Progress, Spinner } from "../kit/index.ts"
 import Attributions from "./Attributions.vue"
 import CreateWorld from "./create/CreateWorld.vue"
 import Home from "./Home.vue"
@@ -17,6 +17,7 @@ import type { Loading, PlanetariumShot, SystemWire, UpdateCheck } from "../bridg
 import WorldSelect from "./WorldSelect.vue"
 import { useStore } from "../game/store.ts"
 import { useMenuMusic } from "./music.ts"
+import { PendingJoin } from "./pendingJoin.ts"
 
 // the wiki brings three.js: loaded when first opened
 const WikiScreen = defineAsyncComponent(() => import("../wiki/WikiScreen.vue"))
@@ -31,6 +32,7 @@ const friends = ref(false)
 const screen = ref<Screen>(store.hop ? "worlds" : "home")
 const seedCode = ref<string | null>(null)
 const bridge = useBridge()
+const pendingJoin = PendingJoin({ bridge: bridge, store: store })
 // the picture behind the menu (src/planetarium/shot.h), the screen's own (SHOT)
 const scene = (shot: PlanetariumShot | null) => bridge.send("planetarium.scene", { shot, seconds: 2.5 })
     .catch((error) => console.error("planetarium.scene", error))
@@ -142,10 +144,15 @@ const CREDITS_ICON = {
                 </p>
             </footer>
         </div>
+        <!-- a friend's world asked for before the menu was up: the leaving screen's glass, carried on -->
+        <div v-if="pendingJoin.who.value && entering === null" class="joining"><p><Spinner :label="`Joining @${pendingJoin.who.value}`" /> Joining @{{ pendingJoin.who.value }}'s world</p></div>
     </main>
 </template>
 
 <style scoped>
+/* as App.vue's leaving screen, so leaving a world for a friend's reads as one wait */
+.joining { position: fixed; inset: 0; z-index: 4; display: grid; place-items: center; background: rgb(4 7 11 / 0.55); }
+.joining p { display: flex; gap: 0.75rem; align-items: center; margin: 0; color: var(--ink); font: 0.95rem var(--font-sans); text-shadow: 0 1px 2px rgb(0 0 0 / 0.6); }
 .entering { position: absolute; right: 16px; bottom: 16px; z-index: 1; width: 320px; }
 .menu {
     position: relative;

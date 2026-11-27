@@ -54,6 +54,7 @@ export function TauriBackend(): Backend {
         game: () => call("game"),
         launch: (version) => call("launch", { version }),
         launchAs: (version, profile) => call("launch_as", { version, profile }),
+        launchJoin: (version, friend, handle) => call("launch_join", { version, friend, handle }),
 
         collectReport: (session) => call("collect_report", { session }),
         submitReport: (session, note) => call("submit_report", { session, note }),

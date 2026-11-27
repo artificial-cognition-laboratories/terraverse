@@ -8,6 +8,8 @@
 #include "src/shared/platform/home/home.h"
 #include "src/shared/platform/settings/settings.h"
 #include "src/shared/platform/system/filesys.h"
+#include "src/shared/platform/system/porting.h"
+#include "src/shared/platform/system/spawn.h"
 
 #include <cctype>
 
@@ -77,6 +79,20 @@ void Profiles::forget(const std::string &name)
 	const std::string key = keyPath(dirOf(name), m_opts.api);
 	if (fs::PathExists(key) && !fs::DeleteSingleFileOrEmptyDirectory(key, true))
 		throw BaseException("shell: could not delete " + key);
+}
+
+void Profiles::playAs(const std::string &name) const
+{
+	if (!home::Home::validName(name) || name[0] != '@' || !fs::PathExists(keyPath(dirOf(name), m_opts.api)))
+		throw Refused("This machine doesn't remember " + name + ": sign in to add it.");
+	if (name == m_opts.home.profile())
+		throw Refused("This game is " + name + " already.");
+	char exe[4096];
+	if (!porting::getCurrentExecPath(exe, sizeof(exe)))
+		throw BaseException("shell: can't find this game's own executable to start another");
+	// TERRAVERSE_HOME and the rest come with the environment; --profile outranks TERRAVERSE_PROFILE
+	if (!spawn::detached({ exe, "--profile", name, "--shell-url", m_opts.page, "--arclabs-url", m_opts.api }))
+		throw Refused("Another game couldn't be started.");
 }
 
 std::string Profiles::dirOf(const std::string &name) const

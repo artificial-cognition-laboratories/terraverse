@@ -17,7 +17,7 @@ const standing = computed(() => version.value ? store.standing(version.value.id)
 const pinned = computed(() => state.settings?.pinned ?? null)
 const running = computed(() => state.game?.state === "running" ? state.game.version : null)
 
-const CHANNELS: { id: Channel; title: string }[] = [{ id: "stable", title: "Stable" }, { id: "beta", title: "Beta" }]
+const CHANNELS: { id: Channel; title: string }[] = [{ id: "dev", title: "Local build" }, { id: "stable", title: "Stable" }, { id: "beta", title: "Beta" }]
 
 function trail(id: string): string {
     const s = store.standing(id)
@@ -36,7 +36,7 @@ function trail(id: string): string {
                     <ListItem v-for="v in store.visible.value.filter(v => v.channel === channel.id)" :key="v.id"
                         :on="v.id === version?.id" @click="picked = v.id">
                         {{ v.id }}
-                        <template #sub>{{ date(v.released) }}{{ v.id === store.target.value?.id ? " · plays" : "" }}</template>
+                        <template #sub>{{ v.channel === "dev" ? "Built here" : date(v.released) }}{{ v.id === store.target.value?.id ? " · plays" : "" }}</template>
                         <template #trail>{{ trail(v.id) }}</template>
                     </ListItem>
                 </ListGroup>
@@ -55,15 +55,16 @@ function trail(id: string): string {
                             <span v-if="pinned === version.id" class="tag pinned">pinned</span>
                         </div>
                         <p class="meta">
-                            Released {{ date(version.released) }}
-                            · {{ standing.state === "installed" ? `${bytes(standing.size)} on disk` : `${bytes(version.size)} download` }}
+                            <template v-if="version.channel === 'dev'">The repo's own build, run in place</template>
+                            <template v-else>Released {{ date(version.released) }}
+                            · {{ standing.state === "installed" ? `${bytes(standing.size)} on disk` : `${bytes(version.size)} download` }}</template>
                             <template v-if="version.protocol !== null">· protocol {{ version.protocol }}</template>
                         </p>
                         <div class="actions">
                             <div class="play"><PlayButton :version="version" /></div>
                             <Button v-if="pinned === version.id" size="sm" @click="store.pin(null)">Unpin</Button>
                             <Button v-else size="sm" @click="store.pin(version.id)">Pin</Button>
-                            <Button v-if="standing.state === 'installed'" size="sm" variant="danger"
+                            <Button v-if="standing.state === 'installed' && version.channel !== 'dev'" size="sm" variant="danger"
                                 :disabled="running === version.id" @click="store.remove(version.id)">Remove</Button>
                         </div>
                     </div>

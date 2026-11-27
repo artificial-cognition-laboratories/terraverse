@@ -37,6 +37,10 @@ export function Actions(opts: { bridge: BridgeHandle }) {
         joining: joining,
         send: send,
         joinFriend: (player: Player) => joiningAs(player.id, () => send("social.join", { id: player.id, name: player.username })),
+        /** From inside a world: set the join aside, then leave (saved as ever); the menu joins once it's up. */
+        joinFromWorld: async (player: Player) => {
+            if (await send("join.later", { id: player.id, name: player.username })) await send("game.leave", {})
+        },
         joinServer: (server: { id: string; ref: string }) => joiningAs(server.id, () => send("servers.join", { ref: server.ref })),
         request: (username: string) => send("social.request", { username: username }),
         accept: (id: string) => send("social.accept", { id: id }),

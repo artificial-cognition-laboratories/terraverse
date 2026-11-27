@@ -19,8 +19,15 @@ const open = ref<DOMRect | null>(null)
         <Corner :account="store.account.value" :social="store.social.value" @open="(at) => (open = open ? null : at)" />
         <!-- on the body: inside the stage its glass had nothing behind it to blur -->
         <Teleport to="body">
-            <Friends v-if="open" :account="store.account.value" :social="store.social.value" :library="false" play-as :at="open"
-                @close="open = null" @play-as="(name) => store.playAs(name)" />
+            <Friends v-if="open" class="solid-glass" :account="store.account.value" :social="store.social.value" :library="false" :at="open"
+                @close="open = null" />
         </Teleport>
     </div>
 </template>
+
+<style>
+/* WebKitGTK blurs what's behind at a fraction of its resolution and scales it back up, so the
+   popover's frost came out as blocks over the launcher's sky: here its glass is all but solid,
+   and nothing is blurred. (The game's Chromium blurs properly; its popover keeps the frost.) */
+.solid-glass.scrim .pop { background: rgb(5 8 12 / 0.97); backdrop-filter: none; }
+</style>

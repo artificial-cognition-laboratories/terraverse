@@ -7,7 +7,8 @@ import type { Account, RememberedProfile, Social } from "@game/bridge/types.ts"
 
 export type { Account, RememberedProfile, Social }
 
-export type Channel = "stable" | "beta"
+/** "dev": the local build, offered by a debug launcher only (src-tauri/src/dev.rs) */
+export type Channel = "stable" | "beta" | "dev"
 
 /** One release, as the manifest describes it for this platform. */
 export type Version = {
@@ -35,7 +36,8 @@ export type Settings = {
 /** The game, as the launcher sees it. */
 export type Game =
     | { state: "idle" }
-    | { state: "running"; version: string; since: number }
+    /** `profiles`: every profile a game is running as (one each), this one and any beside it */
+    | { state: "running"; version: string; since: number; profiles: string[] }
     | { state: "crashed"; version: string; session: string; code: number }
 
 export type Report = { session: string; version: string; system: string; log: string; dump: boolean }
@@ -96,6 +98,8 @@ export interface Backend {
     launch(version: string): Promise<void>
     /** Another game beside any running, signed in as that remembered account. */
     launchAs(version: string, profile: string): Promise<void>
+    /** The game, joining a friend's world once it's signed in (the popover's Join). */
+    launchJoin(version: string, friend: string, handle: string): Promise<void>
 
     collectReport(session: string | null): Promise<Report> // null: the last session, sent by hand
     submitReport(session: string, note: string): Promise<void>

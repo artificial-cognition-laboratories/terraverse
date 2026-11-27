@@ -13,8 +13,8 @@ import type { ActionsHandle } from "../online/actions.ts"
  * pane is that instead: the code to check on the page, and at the foot opening it again or cancelling.
  * `switching`: the profile being switched to, its tile spinning while the popover holds still.
  */
-/** `playAs`: each other account also offers launching a game as it, beside this one (the launcher). */
-const props = defineProps<{ account: Account | null; actions: ActionsHandle; me: { username: string } | null; switching: string | null; playAs: boolean }>()
+/** `query`: the popover's search, narrowing the accounts by handle. */
+const props = defineProps<{ account: Account | null; query: string; actions: ActionsHandle; me: { username: string } | null; switching: string | null }>()
 const emit = defineEmits<{ switch: [name: string]; add: []; cancel: []; manage: []; playAs: [name: string] }>()
 const bridge = useBridge()
 const remembered = ref<RememberedProfile[]>([])
@@ -22,7 +22,8 @@ const flow = computed(() => {
     const a = props.account
     return a && a.status !== "signedIn" && a.status !== "signedOut" ? a : null
 })
-const shown = computed(() => remembered.value.filter((p) => p.handle !== props.me?.username))
+const shown = computed(() => remembered.value.filter((p) => p.handle !== props.me?.username
+    && p.handle.toLowerCase().includes(props.query.toLowerCase())))
 async function read() { remembered.value = await bridge.send("profiles.list", {}) }
 // on arriving signed in or out, not mid-switch: the list would empty and refill under the pointer
 watch(() => props.account?.status, (status) => { if (status === "signedIn" || status === "signedOut") void read() }, { immediate: true })
@@ -59,7 +60,7 @@ async function forget(name: string) {
                         <Spinner v-if="switching === p.name" label="Signing in" />
                         <span v-else class="go">{{ me ? "Switch »" : "Sign in »" }}</span>
                     </button>
-                    <button v-if="me && playAs && !switching" class="forget play" :disabled="actions.busy.value" :title="`Another game, as @${p.handle}`" @click="emit('playAs', p.name)">Play as</button>
+                    <button v-if="me && !switching" class="forget play" :disabled="actions.busy.value" :title="`Another game, as @${p.handle}`" @click="emit('playAs', p.name)">Play as</button>
                     <button v-if="!me && !switching" class="forget" :disabled="actions.busy.value" :title="`Forget @${p.handle} on this machine`" @click="forget(p.name)">✕</button>
                 </div>
             </template>
@@ -84,9 +85,10 @@ async function forget(name: string) {
 
 <style scoped>
 .accounts { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
+/* the friends list's padding, so the first label sits where its does */
 .body { display: flex; flex-direction: column; gap: 0.35rem; overflow-y: auto; padding: 0.85rem 0.6rem; }
 .lead { margin: 0 0.1rem 0.6rem; color: var(--ink-dim); font: 0.75rem/1.5 var(--font); }
-.label { margin: 0 0 0.2rem; padding: 0 0.1rem 0.4rem; border-bottom: 1px solid var(--glass-edge); color: var(--ink-faint); font: 0.55rem var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; }
+.label { display: flex; gap: 0.35rem; align-items: center; margin: 0 0 0.2rem; padding: 0 0.1rem 0.4rem; border-bottom: 1px solid var(--glass-edge); color: var(--ink-faint); font: 0.55rem var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; }
 .tile { position: relative; display: flex; align-items: center; min-width: 0; border: 1px solid rgb(231 237 244 / 0.05); border-radius: var(--radius); background: rgb(231 237 244 / 0.045); }
 .tile:hover { border-color: var(--glass-edge-hi); background: rgb(231 237 244 / 0.07); }
 .tile.on { border-color: var(--edge-lit); background: rgb(99 163 233 / 0.07); }

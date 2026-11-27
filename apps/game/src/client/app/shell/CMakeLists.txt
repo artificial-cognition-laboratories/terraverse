@@ -9,6 +9,7 @@ set(shell_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/local_servers.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/profiles.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/identity.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/bridge/joins.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/registry.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/library.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/bridge/world_server.cpp

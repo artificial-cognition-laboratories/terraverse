@@ -807,6 +807,15 @@ export type Intents = {
     "profiles.use": { request: { name: string }; response: null }
     /** Forgets that profile's key; its worlds stay. */
     "profiles.forget": { request: { name: string }; response: null }
+    /**
+     * A friend's world to go to once the menu is up (shell/bridge/joins.cpp): set aside from inside
+     * a world before leaving it, so it's saved first; or given by the launcher (--join).
+     */
+    "join.later": { request: { id: string; name: string }; response: null }
+    /** Taken once by the menu: the friend to join now, or null. */
+    "join.pending": { request: {}; response: { id: string; name: string } | null }
+    /** Another game beside this one, as that remembered profile (Play as): a window of its own. */
+    "profiles.playAs": { request: { name: string }; response: null }
     /** Checks the saved key again after ArcLabs couldn't be reached. */
     "account.retry": { request: {}; response: null }
     /** The signed-in player's own profile (shell/bridge/identity.cpp). */

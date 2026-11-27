@@ -30,6 +30,9 @@ type State = {
     launcherUpdate: LauncherUpdate | null
 }
 
+const DEV = "dev"
+const DEV_VERSION: Version = { id: DEV, channel: "dev", released: "", notes: "The game as built here: `.output/bin/terraverse`.", size: 0, protocol: null }
+
 export function LauncherStore({ backend }: { backend: Backend }) {
     const state = reactive<State>({
         about: null, settings: null, manifest: null, offline: null, installed: null,
@@ -108,10 +111,12 @@ export function LauncherStore({ backend }: { backend: Backend }) {
 
     /** Every version is offered; betas count as the newest only when asked for. */
     const betaLatest = computed(() => !!state.settings?.beta)
-    const visible = computed<Version[]>(() => state.manifest?.versions ?? [])
+    // a debug launcher reports the local build as installed (src-tauri/src/dev.rs): offered first, never the newest
+    const local = computed<Version[]>(() => state.installed?.some(i => i.id === DEV) ? [DEV_VERSION] : [])
+    const visible = computed<Version[]>(() => [...local.value, ...(state.manifest?.versions ?? [])])
 
     /** The newest version (stable, unless betas are asked for). */
-    const newest = computed<Version | null>(() => visible.value.find(v => v.channel === "stable" || betaLatest.value) ?? null)
+    const newest = computed<Version | null>(() => visible.value.find(v => v.channel === "stable" || (v.channel === "beta" && betaLatest.value)) ?? null)
 
     /** What Play launches: the pinned version, else the newest. */
     const target = computed<Version | null>(() => {
@@ -186,12 +191,6 @@ export function LauncherStore({ backend }: { backend: Backend }) {
         },
         /** Launch an installed version. Installing never launches: the player presses Play. */
         play: (id: string) => attempt(() => backend.launch(id)),
-        /** Another game as a remembered account, of the version Play would launch. */
-        playAs: async (profile: string) => {
-            const id = target.value?.id
-            if (!id || standing(id).state !== "installed") { state.refusal = "Install the version Play runs first: Play as runs that one too."; return }
-            return attempt(() => backend.launchAs(id, profile))
-        },
 
         collectReport: (session: string | null) => backend.collectReport(session),
         submitReport: (session: string, note: string) => attempt(() => backend.submitReport(session, note)),
