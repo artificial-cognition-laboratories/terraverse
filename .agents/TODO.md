@@ -1,12 +1,10 @@
 # TODO
 
-## 001 - Debugger : build out split panel debugger view
+> agents do not add to this file. only remove items once completed.
 
-move debugging experience to a split panel beside the game window, toggled on function button. build out tabs for the debugger panel showing flame graph, timing and so on. rest of content to be figured out and designed.
 
-this would serve to replace the ingame f3 and f6 panels.
+# Movement
+- bug: player is able to accelerate toward cursor while in the air if holding shift. after the player has left the floor they should carry on their path unless otherwise acted on.
 
-## 003 - General : questoin CEF and think about alternatives
-
-generally looking for better perf, mem usage and bundle size.
-
+![alt text](image.png)
+![alt text](image1.png)
