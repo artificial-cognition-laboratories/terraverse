@@ -112,7 +112,9 @@ void interactProbe(Context &c)
 				for (int i = 0; i < 3; i++)
 					spawnItem(c.env(), intToFloat(heap, 1), ItemStack("core:dirt", 2, 0, c.server()->idef()));
 				c.after(3, [&c, check, t, heap] {
-					const auto merged = itemsNear(c, heap, 2);
+					// (within a node, as far as a merge reaches: the dirt dug under the poppy above can
+					// come to rest under 2 nodes off, and was counted)
+					const auto merged = itemsNear(c, heap, 1);
 					check(merged.size() == 1 && merged[0] == "core:dirt 6",
 							"three drops of dirt lying together become one of 6 (found " + std::to_string(merged.size()) + ")");
 					c.say(format("INTERACT pass %d fail %d", t->pass, t->fail));
