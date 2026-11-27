@@ -468,6 +468,7 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 
 	auto mesh_grid = data->m_mesh_grid;
 	v3s16 bp = data->m_blockpos;
+	const bool near_vertices = client->getSceneManager()->getVideoDriver()->queryFeature(video::EVDF_NEAR_VERTICES);
 	// Only generate minimap mapblocks at grid aligned coordinates.
 	// FIXME: ^ doesn't really make sense. and in practice, bp is always aligned
 	if (mesh_grid.isMeshPos(bp) && data->m_generate_minimap) {
@@ -558,8 +559,10 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 						p.layer.material_type == TILE_MATERIAL_WAVING_PLANTS ||
 						p.layer.material_type == TILE_MATERIAL_WAVING_LIQUID_BASIC ||
 						p.layer.material_type == TILE_MATERIAL_WAVING_LIQUID_OPAQUE;
+				// (and only a driver that reads a packed normal gets one: not the legacy GL 2.1 one, as on macOS)
+				const bool packs = !waves && near_vertices;
 				auto *buf = new NearBuffer(std::move(p.vertices), std::move(p.indices),
-						waves ? NearBuffer::Pack::Never : NearBuffer::Pack::IfExact);
+						packs ? NearBuffer::Pack::IfExact : NearBuffer::Pack::Never);
 				buf->Material = material;
 				m_opaque.push_back(buf);
 				mesh->addMeshBuffer(buf);

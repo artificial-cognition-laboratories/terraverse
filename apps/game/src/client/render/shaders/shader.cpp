@@ -775,6 +775,7 @@ void ShaderSource::generateShader(ShaderInfo &shaderinfo)
 			#define inVertexPosition gl_Vertex
 			#define inVertexColor gl_Color
 			#define inTexCoord0 gl_MultiTexCoord0
+			#define inTexCoord1 gl_MultiTexCoord1
 			#define inVertexNormal gl_Normal
 			#define inVertexTangent gl_MultiTexCoord1
 			#define inVertexBinormal gl_MultiTexCoord2

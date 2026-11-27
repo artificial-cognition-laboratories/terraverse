@@ -289,6 +289,13 @@ bool COpenGLDriver::updateVertexHardwareBuffer(SHWBufferLink_opengl *HWBuffer)
 				po[i].Color.toOpenGLColor((u8 *)&(pb[i].Color));
 			}
 		} break;
+		case EVT_PACKED: {
+			S3DVertexPacked *pb = reinterpret_cast<S3DVertexPacked *>(buffer.pointer());
+			const S3DVertexPacked *po = static_cast<const S3DVertexPacked *>(vertices);
+			for (u32 i = 0; i < vertexCount; i++) {
+				po[i].Color.toOpenGLColor((u8 *)&(pb[i].Color));
+			}
+		} break;
 		default: {
 			return false;
 		}
@@ -626,6 +633,11 @@ void COpenGLDriver::drawVertexPrimitiveList(const void *vertices, u32 vertexCoun
 			case EVT_TANGENTS:
 				glColorPointer(colorSize, GL_UNSIGNED_BYTE, sizeof(S3DVertexTangents), &(static_cast<const S3DVertexTangents *>(vertices))[0].Color);
 				break;
+			case EVT_PACKED:
+				glColorPointer(colorSize, GL_UNSIGNED_BYTE, sizeof(S3DVertexPacked), &(static_cast<const S3DVertexPacked *>(vertices))[0].Color);
+				break;
+			default:
+				break;
 			}
 		} else {
 			// avoid passing broken pointer to OpenGL
@@ -705,6 +717,33 @@ void COpenGLDriver::drawVertexPrimitiveList(const void *vertices, u32 vertexCoun
 				glTexCoordPointer(3, GL_FLOAT, sizeof(S3DVertexTangents), buffer_offset(48));
 		}
 		break;
+	case EVT_PACKED: {
+		// Terraverse: a far tile's (S3DVertexPacked), as the GL3 driver's vtPacked: no normal (the
+		// shader reads zero), the first coordinates whole shorts, the second half floats
+		if (!FeatureAvailable[IRR_ARB_half_float_vertex]) {
+			os::Printer::log("OpenGL: packed vertices need ARB_half_float_vertex, which this driver lacks: not drawn", ELL_ERROR);
+			return;
+		}
+		glDisableClientState(GL_NORMAL_ARRAY);
+		glNormal3f(0.f, 0.f, 0.f);
+		// (no vertices: offsets into the bound buffer)
+		const auto at = [vertices](size_t offset) -> const GLvoid * {
+			return vertices ? static_cast<const c8 *>(vertices) + offset : buffer_offset(offset);
+		};
+		if (!vertices)
+			glColorPointer(colorSize, GL_UNSIGNED_BYTE, sizeof(S3DVertexPacked), at(offsetof(S3DVertexPacked, Color)));
+		glTexCoordPointer(2, GL_SHORT, sizeof(S3DVertexPacked), at(offsetof(S3DVertexPacked, TCoords)));
+		glVertexPointer(3, GL_FLOAT, sizeof(S3DVertexPacked), at(offsetof(S3DVertexPacked, Pos)));
+		if (Feature.MaxTextureUnits > 0) {
+			CacheHandler->setClientActiveTexture(GL_TEXTURE0 + 1);
+			glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+			glTexCoordPointer(2, GL_HALF_FLOAT_ARB, sizeof(S3DVertexPacked), at(offsetof(S3DVertexPacked, TCoords2)));
+		}
+		break;
+	}
+	default:
+		os::Printer::log("OpenGL: the legacy driver can't read this vertex type: not drawn", ELL_ERROR);
+		return;
 	}
 
 	renderArray(indexList, primitiveCount, pType, iType);
@@ -751,6 +790,15 @@ void COpenGLDriver::getColorBuffer(const void *vertices, u32 vertexCount, E_VERT
 			++p;
 		}
 	} break;
+	case EVT_PACKED: {
+		const S3DVertexPacked *p = static_cast<const S3DVertexPacked *>(vertices);
+		for (i = 0; i < vertexCount; i += 4) {
+			p->Color.toOpenGLColor(&ColorBuffer[i]);
+			++p;
+		}
+	} break;
+	default:
+		break;
 	}
 }
 

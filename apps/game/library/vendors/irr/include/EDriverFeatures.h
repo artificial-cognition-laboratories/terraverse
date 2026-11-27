@@ -138,6 +138,9 @@ enum E_VIDEO_DRIVER_FEATURE
 	// (This refers to at least ECF_R16F, ECF_R32F, ECF_A16B16G16R16F and ECF_A32B32G32R32F)
 	EVDF_RENDER_TO_FLOAT_TEXTURE,
 
+	//! Terraverse: reads EVT_NEAR vertices (signed 10-10-10 normals: the OpenGL 3 driver only)
+	EVDF_NEAR_VERTICES,
+
 	//! Only used for counting the elements of this enum
 	EVDF_COUNT
 };

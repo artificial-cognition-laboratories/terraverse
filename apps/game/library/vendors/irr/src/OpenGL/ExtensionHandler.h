@@ -60,6 +60,7 @@ public:
 		case EVDF_BLEND_SEPARATE:
 		case EVDF_TEXTURE_MATRIX:
 		case EVDF_TEXTURE_CUBEMAP:
+		case EVDF_NEAR_VERTICES: // Driver.cpp's vtNear
 			return true;
 		case EVDF_ARB_VERTEX_PROGRAM_1:
 		case EVDF_ARB_FRAGMENT_PROGRAM_1:
