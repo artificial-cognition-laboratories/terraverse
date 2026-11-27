@@ -26,8 +26,10 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 export TERRAVERSE_HOME="$work/home"
 
-# The client, until it stops or 60 s pass (no `timeout` on macOS).
-"$bin/terraverse" --ui-check >"$work/client.log" 2>&1 &
+# The client, until it stops or 60 s pass (no `timeout` on macOS). Under lldb, so a crash
+# leaves its threads' backtraces in the log: the engine's own crash report said nothing on
+# macOS (2026-11-27; perhaps Chromium's handlers replace ours, not yet known).
+lldb --batch -o run -k "thread backtrace all" -k "kill" -- "$bin/terraverse" --ui-check >"$work/client.log" 2>&1 &
 pid=$!
 shot=0
 for i in $(seq 1 120); do
