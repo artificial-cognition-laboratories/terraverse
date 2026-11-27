@@ -17,8 +17,12 @@ const ENTRY: &str = "terraverse";
 #[cfg(windows)]
 const ENTRY: &str = "bin\\terraverse.exe";
 
+/// The game the page shows (`game`), and every profile a game is running as: one game per profile
+/// (each holds its profile's worlds and sign-in), and any more beside the shown one are extras,
+/// started by Play as.
 pub struct Runner {
     game: Arc<Mutex<Game>>,
+    profiles: Arc<Mutex<Vec<String>>>,
 }
 
 /// What a session is called: when it started, to the second, in UTC.
@@ -47,7 +51,7 @@ pub const LOG_HEADER: &str = "launcher: Terraverse ";
 
 impl Runner {
     pub fn new() -> Runner {
-        Runner { game: Arc::new(Mutex::new(Game::Idle)) }
+        Runner { game: Arc::new(Mutex::new(Game::Idle)), profiles: Arc::new(Mutex::new(Vec::new())) }
     }
 
     pub fn get(&self) -> Game {
@@ -62,18 +66,27 @@ impl Runner {
     }
 
 
-    /// Starts the game; `exited` runs on the game's exit, once it's been told to the page.
+    /// Starts the game, as `profile` (None: the active one); `exited` runs on the game's exit, once
+    /// it's been told to the page. With a game running, only another profile's may start beside it.
     pub fn launch(
         &self,
         app: &tauri::AppHandle,
         home: &Home,
         id: &str,
         api: &str,
+        profile: Option<&str>,
         exited: impl FnOnce(&tauri::AppHandle) + Send + 'static,
     ) -> Result<()> {
-        if let Some(version) = self.running() {
+        let running = self.running();
+        if let (Some(version), None) = (&running, profile) {
             return refused(format!("{version} is already running."));
         }
+        let profile = profile.map_or_else(|| home.active(), str::to_owned);
+        if self.profiles.lock().unwrap().contains(&profile) {
+            return refused(format!("A game is already running as {profile}."));
+        }
+        // beside the shown game, an extra: its exit isn't the page's to show, unless it crashed
+        let extra = running.is_some();
         let dir = home.version(id)?;
         let entry = dir.join(ENTRY);
         if !entry.is_file() {
@@ -109,16 +122,21 @@ impl Runner {
             .env("TERRAVERSE_HOME", home.root())
             // the game points at the launcher for versions (release/release.h: launched)
             .env("TERRAVERSE_LAUNCHER", "1")
+            .env("TERRAVERSE_PROFILE", &profile)
             .stdin(Stdio::null())
             .stdout(Stdio::from(out))
             .stderr(Stdio::from(err))
             .spawn()
             .map_err(|e| crate::failure::Failure::Refused(format!("{id} couldn't start: {e}")))?;
-        set(&self.game, app, Game::Running { version: id.to_owned(), since });
+        self.profiles.lock().unwrap().push(profile.clone());
+        if !extra {
+            set(&self.game, app, Game::Running { version: id.to_owned(), since });
+        }
 
         let app = app.clone();
         let version = id.to_owned();
         let game = self.game.clone();
+        let profiles = self.profiles.clone();
         tauri::async_runtime::spawn(async move {
             let status = child.wait().await;
             let code = match &status {
@@ -128,7 +146,15 @@ impl Runner {
                     -1
                 }
             };
-            set(&game, &app, if code == 0 { Game::Idle } else { Game::Crashed { version, session, code } });
+            profiles.lock().unwrap().retain(|p| *p != profile);
+            let crashed = code != 0;
+            // an extra's crash is offered once nothing else is shown: it's never dropped
+            let shown_free = !matches!(*game.lock().unwrap(), Game::Running { .. });
+            if !extra || (crashed && shown_free) {
+                set(&game, &app, if crashed { Game::Crashed { version, session, code } } else { Game::Idle });
+            } else if crashed {
+                eprintln!("launcher: the game as {profile} crashed ({code}); its log is session {session}");
+            }
             exited(&app);
         });
         Ok(())

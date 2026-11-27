@@ -116,6 +116,11 @@ impl Home {
         Ok(self.profile(&self.active())?.join(account_file(api, default_api)))
     }
 
+    /// Where a profile keeps its saved sign-in for a backend, whether or not it's there.
+    pub fn key_in(&self, name: &str, api: &str, default_api: &str) -> PathBuf {
+        self.root.join("profiles").join(name).join(account_file(api, default_api))
+    }
+
     /// An account signed in: its profile becomes the active one, adopting `local` when it has
     /// none yet, and the key file moves into it. Its new path.
     pub fn signed_in(&self, handle: &str, key_file: &Path) -> Result<PathBuf> {

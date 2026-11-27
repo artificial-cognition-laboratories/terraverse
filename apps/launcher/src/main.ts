@@ -3,7 +3,9 @@ import { isTauri } from "@tauri-apps/api/core"
 import { getCurrentWebview } from "@tauri-apps/api/webview"
 import App from "./App.vue"
 import Fault from "./Fault.vue"
+import { BRIDGE } from "@game/bridge/use.ts"
 import { connect } from "./backend/index.ts"
+import { LauncherBridge } from "./bridge.ts"
 import { LauncherStore, STORE } from "./store.ts"
 import { Zoom } from "./zoom.ts"
 import "@game/theme.css"
@@ -24,7 +26,10 @@ Zoom({ apply: apply, storage: window.localStorage }).start()
 
 const app = createApp(App)
 try {
-    const store = LauncherStore({ backend: connect() })
+    const backend = connect()
+    const store = LauncherStore({ backend: backend })
+    // the game's account corner and popover, answered here (bridge.ts)
+    app.provide(BRIDGE, LauncherBridge({ backend: backend }))
     app.provide(STORE, store).mount("#app")
     store.load().catch(fail)
 } catch (error) {

@@ -161,6 +161,10 @@ export function LauncherStore({ backend }: { backend: Backend }) {
         cancelSignIn: () => attempt(() => backend.cancelSignIn()),
         retrySignIn: () => attempt(() => backend.retrySignIn()),
         signOut: () => attempt(() => backend.signOut()),
+        profiles: () => backend.profiles(),
+        useProfile: (name: string) => attempt(() => backend.useProfile(name)),
+        leave: () => attempt(() => backend.leave()),
+        forgetProfile: (name: string) => attempt(() => backend.forgetProfile(name)),
         requestFriend: (username: string) => attempt(() => backend.requestFriend(username)),
         acceptFriend: (id: string) => attempt(() => backend.acceptFriend(id)),
         removeFriend: (id: string) => attempt(() => backend.removeFriend(id)),
@@ -182,6 +186,12 @@ export function LauncherStore({ backend }: { backend: Backend }) {
         },
         /** Launch an installed version. Installing never launches: the player presses Play. */
         play: (id: string) => attempt(() => backend.launch(id)),
+        /** Another game as a remembered account, of the version Play would launch. */
+        playAs: async (profile: string) => {
+            const id = target.value?.id
+            if (!id || standing(id).state !== "installed") { state.refusal = "Install the version Play runs first: Play as runs that one too."; return }
+            return attempt(() => backend.launchAs(id, profile))
+        },
 
         collectReport: (session: string | null) => backend.collectReport(session),
         submitReport: (session: string, note: string) => attempt(() => backend.submitReport(session, note)),

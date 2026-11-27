@@ -79,6 +79,8 @@ export function MockBackend(): Backend {
         setSocial({ ...social, view: change(social.view) })
     }
     let signing: ReturnType<typeof setTimeout> | undefined
+    // the accounts remembered on this machine, by handle
+    let remembered = scenario === "fresh" ? [] : ["cody", "niknal"]
 
     return {
         async about() {
@@ -106,6 +108,22 @@ export function MockBackend(): Backend {
             setAccount({ status: "signedOut" })
             setSocial(null)
         },
+
+        async profiles() {
+            const current = account.status === "signedIn" ? account.username : null
+            return remembered.map(handle => ({ name: `@${handle}`, handle, current: handle === current }))
+        },
+        async useProfile(name) {
+            const handle = name.replace(/^@/, "")
+            if (!remembered.includes(handle)) throw new Refused(`${name} isn't remembered here.`)
+            setAccount({ status: "signedIn", id: `id-${handle}`, username: handle, name: null })
+            setSocial(structuredClone(FRIENDS))
+        },
+        async leave() {
+            setAccount({ status: "signedOut" })
+            setSocial(null)
+        },
+        async forgetProfile(name) { remembered = remembered.filter(h => `@${h}` !== name) },
 
         async social() { return social },
         async requestFriend(username) {
@@ -182,6 +200,11 @@ export function MockBackend(): Backend {
             setTimeout(() => setGame(scenario === "crash"
                 ? { state: "crashed", version: id, session: "2026-11-10T10-41-07", code: 139 }
                 : { state: "idle" }), scenario === "crash" ? 3000 : 10_000)
+        },
+
+        async launchAs(id, profile) {
+            if (!installed.has(id)) throw new Refused(`${id} isn't installed.`)
+            console.info(`[mock] a second game, ${id} as ${profile}`)
         },
 
         async collectReport(session) {

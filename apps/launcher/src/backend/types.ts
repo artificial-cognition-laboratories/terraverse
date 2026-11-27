@@ -1,11 +1,11 @@
-import type { Account, Social } from "@game/bridge/types.ts"
+import type { Account, RememberedProfile, Social } from "@game/bridge/types.ts"
 
 // The contract between the launcher's page and its backend (src-tauri/src/).
 // Change both sides together. `mock.ts` fakes it for building the page in a
 // browser; `tauri.ts` calls the real commands. The account and friends are the
 // game's own types, so the game's account dropdown serves both.
 
-export type { Account, Social }
+export type { Account, RememberedProfile, Social }
 
 export type Channel = "stable" | "beta"
 
@@ -65,6 +65,14 @@ export interface Backend {
     cancelSignIn(): Promise<void>
     retrySignIn(): Promise<void>
     signOut(): Promise<void>
+    /** The accounts this machine remembers (a profile each), as the game lists them. */
+    profiles(): Promise<RememberedProfile[]>
+    /** Be that account from now on, here and in the game: its saved key, no browser. */
+    useProfile(name: string): Promise<void>
+    /** Signed out, this account still remembered: the way to add another. */
+    leave(): Promise<void>
+    /** Forget that account's key on this machine; its worlds stay. */
+    forgetProfile(name: string): Promise<void>
 
     /** Friends, as in the game; null until connected or when signed out. */
     social(): Promise<Social | null>
@@ -86,6 +94,8 @@ export interface Backend {
 
     game(): Promise<Game>
     launch(version: string): Promise<void>
+    /** Another game beside any running, signed in as that remembered account. */
+    launchAs(version: string, profile: string): Promise<void>
 
     collectReport(session: string | null): Promise<Report> // null: the last session, sent by hand
     submitReport(session: string, note: string): Promise<void>

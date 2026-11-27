@@ -30,6 +30,10 @@ export function TauriBackend(): Backend {
         cancelSignIn: () => call("cancel_sign_in"),
         retrySignIn: () => call("retry_sign_in"),
         signOut: () => call("sign_out"),
+        profiles: () => call("profiles"),
+        useProfile: (name) => call("use_profile", { name }),
+        leave: () => call("leave"),
+        forgetProfile: (name) => call("forget_profile", { name }),
 
         social: () => call("social"),
         requestFriend: (username) => call("request_friend", { username }),
@@ -49,6 +53,7 @@ export function TauriBackend(): Backend {
 
         game: () => call("game"),
         launch: (version) => call("launch", { version }),
+        launchAs: (version, profile) => call("launch_as", { version, profile }),
 
         collectReport: (session) => call("collect_report", { session }),
         submitReport: (session, note) => call("submit_report", { session, note }),

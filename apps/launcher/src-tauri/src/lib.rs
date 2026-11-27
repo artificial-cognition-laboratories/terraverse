@@ -9,6 +9,7 @@ mod game;
 mod home;
 mod install;
 mod manifest;
+mod profiles;
 mod report;
 mod settings;
 mod shims;
@@ -123,6 +124,23 @@ fn sign_out(l: L) -> Result<()> {
 }
 
 #[tauri::command]
+fn profiles(l: L) -> Result<Vec<profiles::Remembered>> {
+    profiles::list(&l.home, l.account.api())
+}
+#[tauri::command]
+fn use_profile(l: L, name: String) -> Result<()> {
+    profiles::use_(&l.home, &l.account, &name)
+}
+#[tauri::command]
+fn leave(l: L) -> Result<()> {
+    profiles::leave(&l.home, &l.account)
+}
+#[tauri::command]
+fn forget_profile(l: L, name: String) -> Result<()> {
+    profiles::forget(&l.home, &l.account, &name)
+}
+
+#[tauri::command]
 fn social(l: L) -> serde_json::Value {
     l.social.get()
 }
@@ -202,9 +220,22 @@ fn game(l: L) -> events::Game {
 // command runs on the GTK main thread, outside it, and panics there.
 #[tauri::command]
 async fn launch(l: L<'_>, version: String) -> Result<()> {
+    start(&l, &version, None)
+}
+/// Another game beside any running, as a remembered account (Play as).
+#[tauri::command]
+async fn launch_as(l: L<'_>, version: String, profile: String) -> Result<()> {
+    if !profiles::list(&l.home, l.account.api())?.iter().any(|p| p.name() == profile) {
+        return refused(format!("This machine doesn't remember {profile}: sign in to add it."));
+    }
+    start(&l, &version, Some(&profile))
+}
+
+fn start(l: &Arc<Launcher>, version: &str, profile: Option<&str>) -> Result<()> {
+    let version = version.to_owned();
     let settings = l.settings.lock().unwrap().clone();
-    let launcher = Arc::clone(&l);
-    l.runner.launch(&l.app, &l.home, &version, l.account.api(), move |app| {
+    let launcher = Arc::clone(l);
+    l.runner.launch(&l.app, &l.home, &version, l.account.api(), profile, move |app| {
         // the game may have signed in or out while it ran
         launcher.account.reload();
         if let Some(window) = app.get_webview_window("main") {
@@ -291,10 +322,11 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             about, account, sign_in, cancel_sign_in, retry_sign_in, sign_out,
+            profiles, use_profile, leave, forget_profile,
             social, request_friend, accept_friend, remove_friend,
             settings, set_settings, refresh_manifest, cached_manifest,
             installed, install, cancel, remove,
-            game, launch, collect_report, submit_report, dismiss_crash,
+            game, launch, launch_as, collect_report, submit_report, dismiss_crash,
             launcher_update, update_launcher, open_data_folder, open_url,
         ])
         .build(tauri::generate_context!())
