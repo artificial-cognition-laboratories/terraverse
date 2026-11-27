@@ -1,0 +1,12 @@
+# The headless probe checks `bun run test:checks` runs side by side (apps/game/tests/checks/<name>.sh).
+# One per line: name, then for a check red because the code is wrong: skip  <job>  (what fails).
+# Remove the skip when the job is fixed.
+matter
+interact
+atlas-world
+atlas-land
+atlas-seam   skip  .agents/jobs/atlas-seam-water.md  (water reads as air past 3 seams)
+atlas-debug
+atlas-dig
+window
+bodies

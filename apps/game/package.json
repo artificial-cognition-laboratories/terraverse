@@ -10,6 +10,7 @@
     "test:hot": "bash tests/run/library.sh hot",
     "test:slow": "bash tests/run/library.sh slow",
     "test:engine": "bash tests/run/engine.sh",
+    "test:checks": "bash tests/run/checks.sh",
     "check": "bash tests/run/check.sh",
 
     "check:terragen": "bash tests/checks/terragen.sh",

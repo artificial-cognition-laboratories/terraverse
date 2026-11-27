@@ -1,6 +1,6 @@
 # Testing: state
 
-## Map (2026-11-26)
+## Map (2026-11-27)
 
 Entry points (`apps/game/package.json`; root `bun check`, `bun test:hot`, `bun test:game` forward):
 
@@ -31,7 +31,12 @@ Entry points (`apps/game/package.json`; root `bun check`, `bun test:hot`, `bun t
   binary per library, objects in `.output/build/src/<lib>/CMakeFiles/<lib>_tests.dir`.
   Heaviest slow: terragen.soil.slow 87 s, ranges.slow 19 s.
 - Engine unit modules: `apps/game/tests/unit/` + Catch in `tests/engine/`. 3 tests skipped by name.
-- check:* harnesses: `apps/game/tests/checks/*.sh` (~25). **None runs in the gate or CI.** The
+- `bun run test:checks [name…]` (`tests/run/checks.sh`, list + named skips in `run/checks.txt`): the 9
+  probe checks side by side, build once (`BUILT=1` makes `probe_build` a no-op), each on its own
+  port (`PROBE_PORT`, 31300+i). **66 s wall** vs ≈ 140 s sequential (2026-11-27); critical path
+  window and bodies (both ≈ 65 s; bodies was 5 s, now 8% CPU idle-waiting: job
+  `testing-bodies-check-slow`). atlas-seam skipped citing `atlas-seam-water`.
+- check:* harnesses: `apps/game/tests/checks/*.sh` (~25). **None runs in the gate or CI yet.** The
   probe checks share `checks/lib/probe.sh` (build, throwaway world, server, verdict) since
   2026-11-26: matter, interact, atlas-world/land/seam/debug/dig, window, bodies (9).
   `select` names the checks a change reaches (`run/select/checks.ts`, path prefixes), stderr only.
@@ -73,6 +78,7 @@ Scoreboard (charter definitions). "Suites" = unit suites: 81 engine + 13 library
 | 2026-11-24 | not re-timed (game running) | not re-timed | **median 0 of 99** over last 100; **86 of 99** over the 34 touching code or data (`--measure` prints both now) | not audited | 0 |
 | 2026-11-25 | `bun check` **69 s** | `bun run test` **133 s** idle | median 0 of 102 over last 20; 12.5 of 102 over the 6 touching code or data | **2 → 0** (milkyway, views/figure: now TestMilkyway, TestFigure) | 0 |
 | 2026-11-26 | not re-timed (developer's game running) | not re-timed | not re-measured | 0 | 0 (3 probe checks red on master, not yet tied to a release) |
+| 2026-11-27 | not re-timed | not re-timed (+ test:checks 66 s, not yet in the gate) | not re-measured | 0 | 0 (atlas-world, bodies green again; atlas-seam still red, skipped) |
 
 Own numbers:
 
@@ -99,11 +105,11 @@ data (palette.json in most visual commits), `src/shared` and the runners run eve
    (133 s 2026-11-25). The work left is cold Streams reads (job `terragen-streams-cold-read-earth`),
    terragen's code. Not retrying here; re-time when that job lands. Our own lever if it stalls: none
    that doesn't check less (the machine is CPU-bound).
-4. **(current) Time and fold the check:* harnesses.** Done when every check:* has a timing in Map,
+4. **(paused for 6) Time and fold the check:* harnesses.** Done when every check:* has a timing in Map,
    shared server-boot/world-staging lives in one helper used by ≥ 4 harnesses, and select maps paths
    to checks. (b) and (c) done 2026-11-26 (9 harnesses on lib/probe.sh; checks.ts). Left: (a) time
    terragen, land, far, wiki, moves, mods; fold far.sh/terragen.sh onto the helper.
-6. **Probe checks in the gate.** Done when the gate runs every headless probe check that's green
+6. **(current) Probe checks in the gate.** Done when the gate runs every headless probe check that's green
    (≈ 2.5 min sequential; parallel by port, less). Steps: a `bun run test:checks` running them in
    parallel with a summary; a red one skipped by name citing its job, as skip.txt does; then the
    proposal to the gate (CI's boundary for the workflow). Motive: atlas-world/seam/bodies broke
@@ -131,10 +137,18 @@ data (palette.json in most visual commits), `src/shared` and the runners run eve
 
 ## Proposals
 
-- (none open; milestone 6 will need one: the gate runs the probe checks)
+- (2026-11-27) **The gate runs `bun run test:checks` after `bun run test`.** Adds ≈ 70 s wall
+  (red checks skipped by name, as unit tests are). Why: atlas-world/seam/bodies broke unseen for
+  days because nothing runs the probe checks. Cost to the developer: a slower gate by ~1 min; CI
+  owner wires the workflow. Lands 2026-11-29 on silence.
 
 ## Log
 
+- 2026-11-27: `bun run test:checks`: the 9 probe checks in parallel, build once, own ports,
+  named skips (`run/checks.txt`): 66 s wall vs ≈ 140 s sequential, 8 green, atlas-seam skipped
+  (job atlas-seam-water). Job `testing-bodies-check-slow` (5 → 65 s). Proposal: gate runs it.
+  Scoreboard: no number moved (third session running on unit-tier numbers; next session re-times
+  fast/full and lands the gate change).
 - 2026-11-26: every probe check timed on a clean master build (worktree; the shared tree's WIP
   broke the sidecar). 3 red on master, unseen because nothing runs them: job
   `testing-atlas-sea-missing` (not the `perf` commit: reverted, still red). 9 harnesses onto

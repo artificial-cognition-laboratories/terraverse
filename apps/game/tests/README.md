@@ -32,6 +32,6 @@ run them, since some need a display, the network or minutes.
   `unit/test_far.cpp`), listed in `unit/CMakeLists.txt`. Selection finds it from what it includes.
 - A probe check: a probe in `probe/` (registered in `probe.cpp`) and a script in `checks/` that
   sources `checks/lib/probe.sh` (build, a throwaway world, the server, the verdict line); copy
-  `checks/atlas-dig.sh`. Add it to `run/select/checks.ts` with the paths it exercises.
+  `checks/atlas-dig.sh`. Add it to `run/select/checks.ts` with the paths it exercises. and to `run/checks.txt` so `bun run test:checks` runs it (a red one gets `skip <job>` there).
 - A test that fails because the code is wrong is skipped by name in `run/skip.txt`, citing a job
   in `.agents/jobs/`, never left red or deleted.

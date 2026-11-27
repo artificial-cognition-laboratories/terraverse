@@ -18,6 +18,7 @@ probe_atlas_default="atlas-v2 radius=2607.5945876176133 segments=24 capLatitude=
 probe_atlas_250k="atlas-v2 radius=250000 segments=24 capLatitude=85 core=62500 rounding=0.95 height=256"
 
 probe_build() {
+	[ -z "${BUILT:-}" ] || return 0 # the caller built it (tests/run/checks.sh)
 	if [ "${1:-}" = background ]; then
 		nice -n 19 ionice -c 3 bash "$root/apps/game/scripts/build.sh" -j 3 > /dev/null
 	else
@@ -48,7 +49,7 @@ probe_world() {
 # probe_run <probe> <timeout s> <grep -E pattern of its lines>. The server's exit is not the
 # verdict (a probe stops it); the lines are.
 probe_run() {
-	local port=$((30700 + RANDOM % 500))
+	local port="${PROBE_PORT:-$((30700 + RANDOM % 500))}" # checks.sh gives each its own
 	# no settings but the world's: a check can't depend on the minetest.conf of whoever runs it
 	timeout "$2" "$root/.output/bin/terraverse" --server --config /dev/null --world "$world" --probe "$1" --port "$port" 2>&1 \
 		| tee "$work/server.txt" | grep -oE "$3" | tee "$work/log.txt" || true

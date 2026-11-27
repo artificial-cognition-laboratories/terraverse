@@ -305,6 +305,7 @@ bun run test <system|path|Module>...  # what covers far, physics, library/world/
 bun apps/game/tests/run/select/main.ts --changed   # just say what would run and why, which changed files no suite is built against, and which check:* the change reaches
 ./.output/bin/terraverse --test-module TestFar                                       # one engine test module; --run-unittests for all
 bash apps/game/tests/run/engine.sh [Module...]  # every engine unit test module in parallel, slowest listed first; skips (apps/game/tests/run/skip.txt) cite their job
+bun run test:checks      # (apps/game) the headless probe checks (tests/run/checks.txt) side by side, ~70 s; a red one skipped by name citing its job
 
 bun check:land          # after a generation change: check:terragen, its unit tests and check:far side by side (~1 min); --quick: probe and default world only (~25 s)
 bun check:terragen      # probed world == standalone terragen, plus unit tests
