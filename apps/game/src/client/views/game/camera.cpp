@@ -663,7 +663,7 @@ void Camera::updateViewingRange()
 	// Terraverse: no further than whole blocks are still voxel_pixels across: past
 	// that the far view's tiles draw the land, coarser by the same rule (detail/sight.h)
 	const detail::Sight sight = detail::Sight::of(RenderingEngine::getWindowSize().Y, m_fov_y, m_voxel_pixels);
-	m_draw_control.wanted_range = std::min<f32>({ adjustDist(viewing_range, getFovMax()), sight.reach(0), 6000.f });
+	m_draw_control.wanted_range = std::min<f32>({ f32(adjustDist(viewing_range, getFovMax())), sight.reach(0), 6000.f });
 	m_draw_control.wanted_range = m_client->getBody().nearRange(m_draw_control.wanted_range); // Terraverse: by the flight
 	f32 far_blocks = m_draw_control.range_all ? 10000 : std::fmax(2000, m_draw_control.wanted_range);
 	if (const planet::Atlas *atlas = m_client->getAtlas()) {
