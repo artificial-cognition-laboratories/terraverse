@@ -665,7 +665,7 @@ void TestGround::testNaturalRockFollowsTheField()
 	UASSERT(slice);
 	UASSERTEQ(int, slice->cells[8][8], 8);
 
-	land.rises.erase({ 0, 0 });
+	land.rises.erase(std::make_pair(0, 0));
 	UASSERT(!land.top(0, 0));
 	UASSERT(!land.at(0, 0, 0));
 }
